@@ -12,7 +12,8 @@ local M = {}
 
 -- What a beat needs, in the General MIDI drum map. The built-in `drums`
 -- device plays every one of these, and so does any kit that follows the
--- General MIDI map (MT-PowerDrumKit among them).
+-- General MIDI map. MT-PowerDrumKit 2 has a map of its own below: its 44 is a
+-- half-open hat, not the pedal.
 M.gm = {
   label = "General MIDI: the pieces a beat needs",
   rows = {
@@ -54,8 +55,8 @@ local full = {}
 for note = 35, 81 do full[#full + 1] = { note = note, name = gm_names[note] } end
 M["gm-full"] = { label = "General MIDI: all 47 percussion notes", rows = full }
 
--- A kit of toms and cymbals as a drummer sets one up, for kits such as
--- MT-PowerDrumKit that have floor toms and two crashes.
+-- A kit of toms and cymbals as a drummer sets one up, for General MIDI kits
+-- that have floor toms and two crashes.
 M["gm-kit"] = {
   label = "General MIDI: a full drum kit, floor toms and two crashes",
   rows = {

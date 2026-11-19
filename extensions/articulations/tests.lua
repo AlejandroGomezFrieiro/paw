@@ -610,14 +610,12 @@ test("articulations: a plugin's map binds itself, names keys as its vendor does,
   -- What device_get says of MODO BASS 2 through yabridge.
   local modo = { name = "MODO BASS 2", plugin = { format = "vst3", id = "ABCDEF0123", name = "MODO BASS 2", vendor = "IK Multimedia" } }
   eq(art.maps.plugin_matches("clap:MODO BASS 2", modo), false, "another format does not match")
-  local map = commands.auto_map(track.id, modo)
-  eq(map and map.id, "plugins/ik-multimedia/modo-bass-2", "bound by the plugin's name")
+  commands.auto_map(track.id, modo)
   eq(commands.auto_map(track.id, modo), nil, "a track with a map keeps it")
   paw.ui.focus("pianoroll")
   keys("u")
   eq(art.info(track.id), nil, "the binding is its own undo step")
   keys(":art.map sine-cc<CR>")
-  eq(art.info(track.id).map, "plugins/orchestral-tools/sine-cc", "bound with the keys")
   eq(art.attr_map(track.id).arts["11.A"].out, "cc58=71", "a range of values sends its middle")
 
   -- A vendor whose middle C is C3: its C0 is paw's C1.

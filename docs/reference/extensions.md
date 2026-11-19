@@ -13,7 +13,7 @@ made by the scenes in its `images/make` (`docs/images/make/make.sh <name>`).
 
 | Extension | What it adds |
 | --- | --- |
-| [`articulations`](../../extensions/articulations/README.md) | the articulation of each note as its MIDI 2.0 attribute, with names for each instrument from `.art.toml` maps, and keyswitches for MIDI 1.0 instruments. Maps from SFZ, Decent Sampler, folders and Reaticulate banks |
+| [`articulations`](../../extensions/articulations/README.md) | the articulation of each note as its MIDI 2.0 attribute, with names for each instrument from `.art.toml` maps, and keyswitches for MIDI 1.0 instruments. Maps from SFZ, Decent Sampler, folders and Reaticulate banks, and maps of plugins (MODO BASS 2, SINE Player) that bind themselves |
 | [`continue`](../../extensions/continue/README.md) | a small completion source: how the phrase before the cursor in the piano roll can continue |
 | [`dawproject`](../../extensions/dawproject/README.md) | opens and writes DAWproject files, the format of Bitwig Studio, Studio One and Cubase for a song |
 | [`doctor`](../../extensions/doctor/README.md) | a guided check of the hardware (audio, MIDI, recording, plugins), with a written report, also from the shell |

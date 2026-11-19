@@ -46,6 +46,7 @@ writers of extensions come after them.
 - [How to sign in to TONE3000 from paw](how-to/sign-in-to-tone3000.md): the `client_id`, the code, where the tokens go, the live tests
 - [How to play a hardware synth from a track](how-to/play-a-hardware-synth.md)
 - [How to route the outputs of a drum plugin](how-to/route-the-outputs-of-a-drum-plugin.md)
+- [How to use articulations with a plugin instrument](how-to/use-articulations-with-a-plugin-instrument.md): MODO BASS 2, SINE Player, maps of your own, keyswitches that moved
 
 ### Edit and arrange
 
