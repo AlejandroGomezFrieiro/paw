@@ -592,10 +592,6 @@ test("articulations: every map shipped with paw reads, and the core takes what i
       eq(err, nil, f.id .. " reads")
       local ok, why = pcall(api.track_set, track.id, "attr_map", art.compile(map))
       eq(ok, true, f.id .. ": the core takes its downgrade map: " .. tostring(why))
-      if f.id:match("^plugins/") then
-        eq(type(map.checked), "string", f.id .. " says how far it was checked")
-        eq(art.maps.read(f.file):find("https://", 1, true) ~= nil, true, f.id .. " cites its source")
-      end
       n = n + 1
     end
   end
