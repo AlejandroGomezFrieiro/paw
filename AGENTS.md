@@ -82,8 +82,14 @@ nix develop -c tools/vale.sh                   # the docs
 nix flake check                                # all of the checks
 ```
 
-- Each change has a test. A fix of the user experience has a test that
-  uses the real keys.
+- Each change of behavior has a test. A fix of the user experience has a
+  test that uses the real keys.
+- Keep the tests to a minimum. A test guards one behavior that the user or
+  a caller relies on, and fails only when that behavior breaks. Before you
+  commit, apply the skill in
+  [.claude/skills/prune-tests](.claude/skills/prune-tests/SKILL.md) to the
+  tests that you added or changed. Delete each test that guards no
+  behavior, and each test that another test already covers.
 - When you touch the window (`crates/paw-gui`), run its tests too:
   `cargo test --release -p paw-gui`.
 - Do not run `tests/tools/loaded.sh` unless the owner asks for it. It
