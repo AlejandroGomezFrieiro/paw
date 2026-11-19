@@ -122,14 +122,6 @@ local function without_engine(fn)
   if not ok then error(err, 0) end
 end
 
-local function wait_for(what, limit, fn)
-  local waited = 0
-  while not fn() do
-    if waited >= limit then error("waited " .. limit .. " ms for " .. what, 2) end
-    paw.wait(20)
-    waited = waited + 20
-  end
-end
 
 test("utau: the device plays the phrases it is given, in time", function()
   T.fresh()
@@ -194,7 +186,7 @@ test("utau: a device made later, a render's own and the one playing live sound e
   api.device_call(later.id, "capture", "0.25 2.25")
   paw.transport.seek(0)
   paw.transport.play()
-  wait_for("the song to play past 2.25 s", 10000, function() return paw.transport.position > 4.6 end)
+  T.until_(function() return paw.transport.position > 4.6 end, "the song to play past 2.25 s", 10000)
   paw.transport.stop()
   local captured = api.device_call(later.id, "captured")
   local live = ffi.cast("const float *", captured)
@@ -289,7 +281,7 @@ test("utau: a vocal device that crashes is stopped alone, and started again sing
   paw.transport.play()
   T.next_block(10)
   os.execute("kill -KILL " .. pid)
-  wait_for("the crash to be told", 5000, function() return #stopped > 0 end)
+  T.until_(function() return #stopped > 0 end, "the crash to be told", 5000)
   paw.transport.stop()
   paw.off(handler)
   eq(stopped[1].device, device, "the vocal device is the one stopped")

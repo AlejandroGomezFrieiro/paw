@@ -14,10 +14,7 @@ local function load()
   return art
 end
 
-local function keys(text)
-  paw.keymap.feed(text)
-  api.undo_checkpoint()
-end
+local keys = T.keys
 
 local function ex(line)
   paw.commands.exec(line)

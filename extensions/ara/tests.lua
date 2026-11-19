@@ -102,10 +102,7 @@ test("ara: the plugin's archive is saved beside its state and given back when th
   local track = vocal_track()
   local device = assert(a.add(track.id, KIND))
   -- The plugin analyzes the clip; its archive then holds the notes.
-  for _ = 1, 200 do
-    if a.notes(device) then break end
-    paw.wait(50)
-  end
+  T.until_(function() return a.notes(device) end, "the plugin's archive to hold the notes")
   local dir = T.scratch .. "/ara-song"
   paw.project.save(dir)
   local files = api.read_dir(dir .. "/tracks/Vox")
@@ -134,10 +131,7 @@ test("ara: \\an makes a MIDI clip of the notes the plugin heard, as one undo ste
   paw.cursor.set_track(track.id)
   local tracks = #api.track_list()
   T.keys(paw.opt.localleader .. "an")
-  for _ = 1, 200 do
-    if #api.track_list() > tracks then break end
-    paw.wait(50)
-  end
+  T.until_(function() return #api.track_list() > tracks end, "a track for the notes")
   local notes = paw.track("Vox notes")
   eq(notes ~= nil, true, "a track for the notes")
   local clip = notes:clips()[1]

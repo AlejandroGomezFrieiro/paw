@@ -32,13 +32,7 @@ local function load()
   return midilsp
 end
 
-local function until_(fn, what, ms)
-  local deadline = api.now() + (ms or 30000)
-  while not fn() do
-    if api.now() > deadline then error("waited in vain for " .. what, 2) end
-    paw.wait(10)
-  end
-end
+local until_ = T.until_
 
 local function start()
   fresh()

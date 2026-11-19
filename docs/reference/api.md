@@ -44,7 +44,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.off(id)`: Stop a listener: `id` is the value that `paw.on` or `paw.once` returned.
 - `paw.on(pattern, fn, opts)`: Listen for an event. Returns a handle for `paw.off`.
 - `paw.once(pattern, fn)`: Listen for an event once: the handler is removed after its first call.
-- `paw.open(path, opts)`: Open what a path names: a sound file as a new track, anything else as a project, with plugins offline as `opts` says (see `paw.loading.open`).
+- `paw.open(path, opts)`: Open what a path names: a folder that is no project as a list of its files, a sound file as a new track, anything else as a project, with plugins offline as `opts` says (see `paw.loading.open`).
 - `paw.open_chain(path)`: Open a chain file (a `devices.json`) alone, as a new project with no file: one track with its devices, and the device panel on it. `:w` writes the chain back to its file. Returns the track.
 - `paw.redo`: the same as `paw.api.redo`.
 - `paw.render(path, opts)`: Render the project to a file, and render stems. See `paw/render.lua` for the options. `paw.render_status()` and `paw.render_cancel()` control a render that runs in the background. `paw.render_ranges` contains the named ranges that a render can use.
@@ -300,6 +300,15 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.autosave.offer(path, err)`: Offer the alternatives to a project that would not open, if there are any: `:recover` lists them first. Returns how many there are.
 - `paw.autosave.orphan_takes()`: Recorded takes in the `media` directory of the project that no clip uses, written after the last save of the project. A session that stopped during or after a take, without a save, leaves them. A take that you undid before a save is not one of them. { file, name }.
 - `paw.autosave.recover(file, opts)`: Open a copy that a session left, as the project that it is a copy of. `opts.as_path` opens it under that file name (a `.bak`, which paw keeps). `opts.plugins_offline` opens it with all plugins offline, if a plugin possibly stopped the session.
+
+## Module paw.bytes
+
+- `paw.bytes.base64`: the same as `paw.api.base64_encode`.
+- `paw.bytes.le16(n)`: Two bytes of an unsigned 16-bit number, little-endian.
+- `paw.bytes.le32(n)`: Four bytes of an unsigned 32-bit number, little-endian.
+- `paw.bytes.u16(data, at)`: The unsigned 16-bit little-endian number at `at` (from 1), or nil past the end.
+- `paw.bytes.u32(data, at)`: The unsigned 32-bit little-endian number at `at` (from 1), or nil past the end.
+- `paw.bytes.unbase64(text)`: The bytes of base64 text (either alphabet, padded or not, spaces and line ends passed over). Raises when the text is not base64.
 
 ## Module paw.canvas
 
@@ -1964,6 +1973,11 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.vca.of(track)`: The VCAs of a track (their ids), in the order in which paw put the track in them.
 - `paw.vca.unassign(track, vca)`: Take a track out of a VCA, or out of all of them without `vca`.
 
+## Module paw.zip
+
+- `paw.zip.read(data)`: The entries of an archive: a table of name to contents, and the list of names in the order of the archive (folders left out). Nil and why when it is not a ZIP archive or an entry cannot be read.
+- `paw.zip.write(entries)`: An archive of `entries` (`{ name = , data = }` each, in order), stored without compression.
+
 ## Module paw.api
 
 - `paw.api.audio_devices()`: The audio devices the system offers, and which are open.
@@ -1972,6 +1986,9 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.audio_use(opts)`: Open other devices, and remember them for the next run.
 - `paw.api.audio_watch(opts)`: With `{ auto = false }`, paw does not open again a device that returns by itself. `period` is the interval between checks, in milliseconds.
 - `paw.api.automation_hold(track, target, device, param, on)`: A control is held (a fader under the pointer) or let go: in touch mode it writes automation for as long as it is held. The control is named as a lane's target is.
+- `paw.api.base64_decode(text)`: The bytes of base64 text, either alphabet, with or without its padding; spaces and line ends are left out. Nil and the reason when it is not base64.
+- `paw.api.base64_encode(data, opts)`: Base64 of bytes. `opts.url` uses the URL alphabet (`-_`), and `opts.pad = false` leaves out the `=` at the end.
+- `paw.api.blocks(device)`: The number of audio blocks that the engine finished since it started. With a device id, the number of blocks that this device ran: the blocks that it slept through do not count. A change sent to the engine is in effect in the block after the next one that finishes, so wait until the count is two more (the test helper `T.next_block` does this). Nil for a device that the engine does not have.
 - `paw.api.canvas_export(path, format, pages, scale)`: Write drawings (the operations of `paw.canvas.paint`) to a file: `format` "pdf" (one page for each drawing), "svg" or "png" (the first). Each page is `{ ops, width, height }` in pixels. `scale` is the points for one pixel in a PDF (0.75: 96 pixels to the inch).
 - `paw.api.chain_write(track, file)`: Write a track's devices as a chain file: `file` (a `devices.json`) and the `.state` files of the plugins beside it. Returns the files.
 - `paw.api.checkpoint_delete(file)`
@@ -2007,9 +2024,11 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.clip_warp_add(id, beat)`: Warp markers of an audio clip (`session/stretching.rs`), counted from 1.
 - `paw.api.clip_warp_move(id, index, beat)`
 - `paw.api.clip_warp_remove(id, index)`
+- `paw.api.crc32(data)`: The CRC-32 of bytes, as zip and gzip use it.
 - `paw.api.cue(list)`: `{ { track =, clip = id }, { track =, stop = true }, { track =, timeline = true }, ... }`, each with `quantize` (`bar` when not given: off 1/16 1/8 1/4 beat bar 2bars 4bars), `legato` and `from`: all on their boundary, timed together by the engine.
 - `paw.api.cue_list(track)`: --- cues (session/cues.rs) --- A clip goes off the timeline with `clip_add(track, { cue = true, ... })`: it starts at 0, loops over its length, and plays only when cued. You edit it as a usual clip; `clip_set(id, "track", other)` moves it.
 - `paw.api.cue_state()`: What each track plays and has in its queue, in the last report of the engine.
+- `paw.api.deflate(data, format)`: Compress `data` with deflate, as `format` says: "raw", "zlib" or "gzip".
 - `paw.api.device_add(track, kind, opts)`
 - `paw.api.device_alias(old, new)`: Devices of `old`, a kind that was renamed, are made as `new`.
 - `paw.api.device_call(id, method, data)`: A request to a device that accepts data from scripts. Bytes in, bytes out.
@@ -2056,9 +2075,10 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.grid_surfaces_seal()`: The view being drawn is done with the surfaces it kept: what is drawn over them from now on covers them.
 - `paw.api.grid_text(x, y, text, style, cx, cy, cw, ch)`: Draw text at `(x, y)`, clipped to the rectangle `(cx, cy, cw, ch)`. Returns the number of columns the text takes.
 - `paw.api.hl_set(name, def, full)`
+- `paw.api.inflate(data, format)`: The bytes `data` holds compressed as `format` says ("raw", "zlib" or "gzip"), and the number of bytes of `data` the compressed stream took (what follows is not part of it). Nil and the reason when they are not compressed so.
 - `paw.api.input_levels()`: The level of each input channel of the device, as linear gain, whatever takes it.
 - `paw.api.json_decode(text)`: Nil and the reason, when the text is not JSON.
-- `paw.api.json_encode(value, pretty)`: --- JSON, for what extensions keep in files ---
+- `paw.api.json_encode(value, pretty)`: JSON text of a value; `pretty` lays it out on lines, indented.
 - `paw.api.lane_add(track, opts)`
 - `paw.api.lane_add_point(id, beat, value)`
 - `paw.api.lane_add_state(id, state)`: Add a state to a state lane, or replace the one of its name, as one undo step. Returns its index, from 0.

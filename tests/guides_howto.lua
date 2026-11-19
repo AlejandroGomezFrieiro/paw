@@ -19,11 +19,7 @@ local function start()
 end
 
 --- Type keys as one undo step, and let what they started finish.
-local function keys(text)
-  paw.keymap.feed(text)
-  paw.flush()
-  api.undo_checkpoint()
-end
+local keys = T.keys
 
 --- A key that also starts longer mappings (`]` and `]]`) runs when the wait
 --- for the rest is over, as it does at the keyboard.

@@ -1982,6 +1982,8 @@ pub fn install(lua: &Lua, shared: &Rc<Shared>) -> mlua::Result<()> {
             Ok(list)
         }
         // --- JSON, for what extensions keep in files ---
+
+        // JSON text of a value; `pretty` lays it out on lines, indented.
         fn json_encode(lua, _sh, (value, pretty) => (LuaValue, Option<bool>)) {
             let value: Value = from_lua(lua, value)?;
             let text = if pretty.unwrap_or(false) {
@@ -1999,6 +2001,7 @@ pub fn install(lua: &Lua, shared: &Rc<Shared>) -> mlua::Result<()> {
             }
         }
         // --- bytes, for the file formats extensions read and write ---
+
         // Base64 of bytes. `opts.url` uses the URL alphabet (`-_`), and
         // `opts.pad = false` leaves out the `=` at the end.
         fn base64_encode(_, _sh, (data, opts) => (LuaString, Option<Table>)) {

@@ -7,8 +7,11 @@ local mo, scale
 local function load()
   if not mo then
     -- As config/init.lua does: utau first, so that musicops' phrase keys
-    -- (`(` `)`) win over the vocal editor's phoneme keys there.
+    -- (`(` `)`) win over the vocal editor's phoneme keys there (two
+    -- extensions on one key: the last loaded wins). Another test may have
+    -- loaded musicops before utau: load it again after.
     if not package.loaded["utau"] then paw.ext.load("extensions/utau") end
+    if paw.ext.loaded.musicops then paw.ext.unload("musicops") end
     paw.ext.load("extensions/musicops")
     assert(paw.ext.loaded.musicops.ok, paw.ext.loaded.musicops.error)
     mo = require("musicops")

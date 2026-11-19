@@ -30,14 +30,7 @@ local function python()
   return found and found ~= "" and found or nil
 end
 
---- Wait until `fn()` is true, with events delivered meanwhile.
-local function until_(fn, what, ms)
-  local deadline = api.now() + (ms or 20000)
-  while not fn() do
-    if api.now() > deadline then error("waited in vain for " .. what, 2) end
-    paw.wait(10)
-  end
-end
+local until_ = T.until_
 
 local function start()
   fresh()

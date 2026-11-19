@@ -35,6 +35,9 @@ paw.audition = {}
 ---@class paw.autosave
 paw.autosave = {}
 
+---@class paw.bytes
+paw.bytes = {}
+
 ---@class paw.canvas
 paw.canvas = {}
 
@@ -269,6 +272,9 @@ paw.util = {}
 ---@class paw.vca
 paw.vca = {}
 
+---@class paw.zip
+paw.zip = {}
+
 ---@class paw.api
 paw.api = {}
 ---@type string
@@ -413,8 +419,9 @@ function paw.on(pattern, fn, opts) end
 ---@param fn any
 function paw.once(pattern, fn) end
 
---- Open what a path names: a sound file as a new track, anything else as a
---- project, with plugins offline as `opts` says (see `paw.loading.open`).
+--- Open what a path names: a folder that is no project as a list of its
+--- files, a sound file as a new track, anything else as a project, with
+--- plugins offline as `opts` says (see `paw.loading.open`).
 ---@param path any
 ---@param opts any
 function paw.open(path, opts) end
@@ -1214,6 +1221,31 @@ function paw.autosave.orphan_takes() end
 ---@param file any
 ---@param opts any
 function paw.autosave.recover(file, opts) end
+
+paw.bytes.base64 = paw.api.base64_encode
+
+--- Two bytes of an unsigned 16-bit number, little-endian.
+---@param n any
+function paw.bytes.le16(n) end
+
+--- Four bytes of an unsigned 32-bit number, little-endian.
+---@param n any
+function paw.bytes.le32(n) end
+
+--- The unsigned 16-bit little-endian number at `at` (from 1), or nil past the end.
+---@param data any
+---@param at any
+function paw.bytes.u16(data, at) end
+
+--- The unsigned 32-bit little-endian number at `at` (from 1), or nil past the end.
+---@param data any
+---@param at any
+function paw.bytes.u32(data, at) end
+
+--- The bytes of base64 text (either alphabet, padded or not, spaces and
+--- line ends passed over). Raises when the text is not base64.
+---@param text any
+function paw.bytes.unbase64(text) end
 
 --- Give the keyboard back to the main window from a view in a separate
 --- window. It goes to the window that had it before the view went there,
@@ -7592,6 +7624,17 @@ function paw.vca.of(track) end
 ---@param vca any
 function paw.vca.unassign(track, vca) end
 
+--- The entries of an archive: a table of name to contents, and the list of
+--- names in the order of the archive (folders left out). Nil and why when
+--- it is not a ZIP archive or an entry cannot be read.
+---@param data any
+function paw.zip.read(data) end
+
+--- An archive of `entries` (`{ name = , data = }` each, in order), stored
+--- without compression.
+---@param entries any
+function paw.zip.write(entries) end
+
 --- The audio devices the system offers, and which are open.
 function paw.api.audio_devices() end
 
@@ -7622,6 +7665,28 @@ function paw.api.audio_watch(opts) end
 ---@param param string?
 ---@param on boolean
 function paw.api.automation_hold(track, target, device, param, on) end
+
+--- The bytes of base64 text, either alphabet, with or without its
+--- padding; spaces and line ends are left out. Nil and the reason
+--- when it is not base64.
+---@param text any
+function paw.api.base64_decode(text) end
+
+--- Base64 of bytes. `opts.url` uses the URL alphabet (`-_`), and
+--- `opts.pad = false` leaves out the `=` at the end.
+---@param data any
+---@param opts table?
+function paw.api.base64_encode(data, opts) end
+
+--- The number of audio blocks that the engine finished since it
+--- started. With a device id, the number of blocks that this device
+--- ran: the blocks that it slept through do not count. A change sent
+--- to the engine is in effect in the block after the next one that
+--- finishes, so wait until the count is two more (the test helper
+--- `T.next_block` does this). Nil for a device that the engine does
+--- not have.
+---@param device integer?
+function paw.api.blocks(device) end
 
 --- Write drawings (the operations of `paw.canvas.paint`) to a file:
 --- `format` "pdf" (one page for each drawing), "svg" or "png" (the first).
@@ -7787,6 +7852,10 @@ function paw.api.clip_warp_move(id, index, beat) end
 ---@param index integer
 function paw.api.clip_warp_remove(id, index) end
 
+--- The CRC-32 of bytes, as zip and gzip use it.
+---@param data any
+function paw.api.crc32(data) end
+
 --- `{ { track =, clip = id }, { track =, stop = true },
 --- { track =, timeline = true }, ... }`, each with `quantize` (`bar`
 --- when not given: off 1/16 1/8 1/4 beat bar 2bars 4bars), `legato`
@@ -7803,6 +7872,11 @@ function paw.api.cue_list(track) end
 
 --- What each track plays and has in its queue, in the last report of the engine.
 function paw.api.cue_state() end
+
+--- Compress `data` with deflate, as `format` says: "raw", "zlib" or "gzip".
+---@param data any
+---@param format string
+function paw.api.deflate(data, format) end
 
 ---@param track integer
 ---@param kind string
@@ -8044,6 +8118,14 @@ function paw.api.grid_text(x, y, text, style, cx, cy, cw, ch) end
 ---@param full any
 function paw.api.hl_set(name, def, full) end
 
+--- The bytes `data` holds compressed as `format` says ("raw", "zlib"
+--- or "gzip"), and the number of bytes of `data` the compressed
+--- stream took (what follows is not part of it). Nil and the reason
+--- when they are not compressed so.
+---@param data any
+---@param format string
+function paw.api.inflate(data, format) end
+
 --- The level of each input channel of the device, as linear gain,
 --- whatever takes it.
 function paw.api.input_levels() end
@@ -8052,7 +8134,7 @@ function paw.api.input_levels() end
 ---@param text any
 function paw.api.json_decode(text) end
 
---- --- JSON, for what extensions keep in files ---
+--- JSON text of a value; `pretty` lays it out on lines, indented.
 ---@param value any
 ---@param pretty boolean?
 function paw.api.json_encode(value, pretty) end

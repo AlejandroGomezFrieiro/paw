@@ -55,11 +55,11 @@ end
 
 --- Wait until `cond()` gives a value that is not false or nil, and give
 --- that value. Timers fire and events come meanwhile, as between key
---- presses (`paw.wait`). Fails with `what` after `ms` milliseconds (10
+--- presses (`paw.wait`). Fails with `what` after `ms` milliseconds (30
 --- seconds if not given): a loaded machine is slow, not wrong, so give the
 --- time that the slowest machine needs, not the time that it usually takes.
 local function until_(cond, what, ms)
-  ms = ms or 10000
+  ms = ms or 30000
   local deadline = api.now() + ms
   while true do
     local value = cond()
@@ -249,9 +249,10 @@ local function roll_notes()
   return out
 end
 
---- Type keys as one undo step.
+--- Type keys as one undo step, sent on to the engine.
 local function keys(text)
   paw.keymap.feed(text)
+  paw.flush()
   api.undo_checkpoint()
 end
 

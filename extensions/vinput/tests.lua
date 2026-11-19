@@ -59,10 +59,7 @@ local function settle(done)
   return done()
 end
 
-local function keys(text)
-  paw.keymap.feed(text)
-  paw.flush()
-end
+local keys = T.keys
 
 local function own_ports()
   local out = {}

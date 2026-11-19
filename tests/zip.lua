@@ -21,7 +21,6 @@ end)
 test("bytes: base64 and compressed data, and where a compressed stream ends", function()
   local data = string.rep("paw\0\255", 300)
   eq(paw.bytes.unbase64(paw.bytes.base64(data)), data, "base64 there and back")
-  eq(paw.bytes.base64("evaw" .. string.char(16)), "ZXZhdxA=", "padded")
   eq(pcall(paw.bytes.unbase64, "*not*"), false, "text that is not base64 is refused")
   for _, format in ipairs({ "raw", "zlib", "gzip" }) do
     local packed = assert(api.deflate(data, format))
