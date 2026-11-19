@@ -47,9 +47,9 @@ local stats = { ops = 0, rejected = 0, checks = { undo = 0, save = 0, render = 0
 
 local function fail(step, what, detail)
   -- Keep the project that broke, to look at.
-  local kept = pcall(api.project_save, B.tmp .. "/fuzz-failed-" .. seed .. ".json")
+  local kept = pcall(api.project_save, B.tmp .. "/fuzz-failed-" .. seed)
   B.emit({ workload = "fuzz", seed = seed, step = step, failed = what, detail = detail,
-    project = kept and (B.tmp .. "/fuzz-failed-" .. seed .. ".json") or nil })
+    project = kept and (B.tmp .. "/fuzz-failed-" .. seed) or nil })
   io.stdout:flush()
   api.quit(1)
   error("stop", 0)
@@ -335,8 +335,17 @@ local function check_undo(step)
   end
 end
 
+--- Every file of a project folder, by its path in the folder, as one text.
+local function folder(path)
+  local out, pipe = {}, io.popen("cd '" .. path .. "' && find . -type f | LC_ALL=C sort")
+  for name in pipe:lines() do out[#out + 1] = name .. "\n" .. (read(path .. "/" .. name) or "") end
+  pipe:close()
+  return table.concat(out, "\n")
+end
+
 local function check_save(step)
-  local a, b = dir .. "/a.json", dir .. "/b.json"
+  local a, b = dir .. "/a", dir .. "/b"
+  os.execute("rm -rf '" .. a .. "' '" .. b .. "'")
   local before = dump()
   api.project_save(a)
   local saved = dump()
@@ -345,7 +354,7 @@ local function check_save(step)
   local loaded = dump()
   if loaded ~= saved then fail(step, "save", "load changed the project: " .. first_difference(saved, loaded)) end
   api.project_save(b)
-  if read(a) ~= read(b) then fail(step, "save", "saving the loaded project gave a different file") end
+  if folder(a) ~= folder(b) then fail(step, "save", "saving the loaded project gave different files") end
   if before ~= saved then
     -- Saving may only move recordings beside the file.
     if not before:find("recordings") then fail(step, "save", "saving changed the project: " .. first_difference(before, saved)) end

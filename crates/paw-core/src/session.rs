@@ -1007,7 +1007,7 @@ impl Session {
         json!({
             "name": p.name, "tempo": p.tempo, "sig_num": p.sig_num, "sig_den": p.sig_den,
             "tempo_ramp": p.tempo_ramp, "tempo_changes": p.tempo_changes, "sig_changes": p.sig_changes,
-            "path": self.path, "length": p.end(), "meta": p.meta,
+            "key": p.key, "path": self.path, "length": p.end(), "meta": p.meta,
             "modified": self.touched || !self.history.at_saved(),
             // Goes up with every change: compare two readings to see whether
             // something in between edited the project.
@@ -1025,6 +1025,7 @@ impl Session {
             "tempo" => json!(p.tempo),
             "sig_num" => json!(p.sig_num),
             "sig_den" => json!(p.sig_den),
+            "key" => json!(p.key),
             "path" => json!(self.path),
             "modified" => json!(self.touched || !self.history.at_saved()),
             _ => self.project_view().get(key).cloned().unwrap_or(Value::Null),
@@ -1062,6 +1063,7 @@ impl Session {
                     map.set_first_signature(num, den);
                     p.set_tempo_map(map);
                 }
+                "key" => p.key = de(key, value)?,
                 "meta" => p.meta = de_meta(key, value)?,
                 _ => bail!("project has no settable field `{key}`"),
             }
@@ -4640,6 +4642,17 @@ impl Session {
         (0..self.stream.info.input_channels as usize)
             .map(|ch| self.handle.shared.input_meter(ch))
             .collect()
+    }
+
+    /// Audio blocks the engine has finished since it started, or, with a
+    /// device, the blocks that device has run (not slept through). `None`
+    /// for a device the engine does not have.
+    pub fn blocks(&self, device: Option<Id>) -> Option<u64> {
+        let shared = &self.handle.shared;
+        match device {
+            None => Some(shared.processed()),
+            Some(id) => self.map.devices.get(&id).map(|&slot| shared.device_processed(slot)),
+        }
     }
 
     /// Forget the processing times recorded so far.

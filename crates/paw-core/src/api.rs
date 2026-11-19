@@ -153,6 +153,14 @@ pub fn to_lua<T: serde::Serialize>(lua: &Lua, value: &T) -> mlua::Result<LuaValu
     lua.to_value_with(value, options)
 }
 
+/// Bytes as a Lua string, or nil and the reason they could not be made.
+fn bytes_or_why(lua: &Lua, bytes: anyhow::Result<Vec<u8>>) -> mlua::Result<(LuaValue, LuaValue)> {
+    Ok(match bytes {
+        Ok(bytes) => (LuaValue::String(lua.create_string(&bytes)?), LuaValue::Nil),
+        Err(err) => (LuaValue::Nil, LuaValue::String(lua.create_string(format!("{err:#}"))?)),
+    })
+}
+
 pub fn from_lua<T: DeserializeOwned>(lua: &Lua, value: LuaValue) -> mlua::Result<T> {
     lua.from_value(value)
 }
@@ -1318,6 +1326,16 @@ pub fn install(lua: &Lua, shared: &Rc<Shared>) -> mlua::Result<()> {
 
         // --- engine ---
         fn engine_get(lua, sh, () => ()) { to_lua(lua, &sh.session.borrow().engine_info()) }
+        // The number of audio blocks that the engine finished since it
+        // started. With a device id, the number of blocks that this device
+        // ran: the blocks that it slept through do not count. A change sent
+        // to the engine is in effect in the block after the next one that
+        // finishes, so wait until the count is two more (the test helper
+        // `T.next_block` does this). Nil for a device that the engine does
+        // not have.
+        fn blocks(_, sh, device => Option<Id>) {
+            Ok(sh.session.borrow().blocks(device))
+        }
         // Forget the process times that `engine_get().blocks` recorded until now.
         fn engine_reset_stats(_, sh, () => ()) {
             sh.session.borrow().engine_reset_stats();
@@ -1972,6 +1990,38 @@ pub fn install(lua: &Lua, shared: &Rc<Shared>) -> mlua::Result<()> {
                 Ok(value) => Ok((to_lua(lua, &value)?, LuaValue::Nil)),
                 Err(err) => Ok((LuaValue::Nil, LuaValue::String(lua.create_string(format!("{err}"))?))),
             }
+        }
+        // --- bytes, for the file formats extensions read and write ---
+        // Base64 of bytes. `opts.url` uses the URL alphabet (`-_`), and
+        // `opts.pad = false` leaves out the `=` at the end.
+        fn base64_encode(_, _sh, (data, opts) => (LuaString, Option<Table>)) {
+            let url = opts.as_ref().and_then(|o| o.get::<Option<bool>>("url").ok().flatten()).unwrap_or(false);
+            let pad = opts.as_ref().and_then(|o| o.get::<Option<bool>>("pad").ok().flatten()).unwrap_or(true);
+            Ok(crate::codec::base64_encode(&data.as_bytes(), url, pad))
+        }
+        // The bytes of base64 text, either alphabet, with or without its
+        // padding; spaces and line ends are left out. Nil and the reason
+        // when it is not base64.
+        fn base64_decode(lua, _sh, text => LuaString) {
+            bytes_or_why(lua, crate::codec::base64_decode(&text.as_bytes()))
+        }
+        // Compress `data` with deflate, as `format` says: "raw", "zlib" or "gzip".
+        fn deflate(lua, _sh, (data, format) => (LuaString, String)) {
+            bytes_or_why(lua, crate::codec::deflate(&data.as_bytes(), &format))
+        }
+        // The bytes `data` holds compressed as `format` says ("raw", "zlib"
+        // or "gzip"), and the number of bytes of `data` the compressed
+        // stream took (what follows is not part of it). Nil and the reason
+        // when they are not compressed so.
+        fn inflate(lua, _sh, (data, format) => (LuaString, String)) {
+            Ok(match crate::codec::inflate(&data.as_bytes(), &format) {
+                Ok((bytes, used)) => (LuaValue::String(lua.create_string(&bytes)?), LuaValue::Integer(used as i64)),
+                Err(err) => (LuaValue::Nil, LuaValue::String(lua.create_string(format!("{err:#}"))?)),
+            })
+        }
+        // The CRC-32 of bytes, as zip and gzip use it.
+        fn crc32(_, _sh, data => LuaString) {
+            Ok(crate::codec::crc32(&data.as_bytes()))
         }
         fn warnings(_, sh, () => ()) { Ok(std::mem::take(&mut sh.session.borrow_mut().warnings)) }
         fn env(lua, sh, () => ()) {

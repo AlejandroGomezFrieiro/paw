@@ -124,6 +124,14 @@ T.test("euclid fills 3 in 8", function()
 end)
 ```
 
+Never wait a fixed time for a state: the machine may be loaded. Wait for it:
+`T.until_(cond, what, ms)` polls `cond` (timers and events run meanwhile)
+and fails with `what`; `T.next_block(n, device)` waits until the engine (or
+one device) has run `n` whole blocks, so a parameter, note or change sent
+before is in effect. Keep `paw.api.sleep` only where real time is the
+point (a take of one second), with a comment that says so. The runner
+loads every `extensions/*/tests*.lua` itself.
+
 ```sh
 nix develop -c cargo build --release -j 8      # the runtime Lua is embedded: rebuild first
 nix develop -c tests/tools/suite.sh            # all tests (output in target/test-scratch/suite.out)

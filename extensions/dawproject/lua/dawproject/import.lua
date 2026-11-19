@@ -8,8 +8,7 @@
 -- automation. Audio in the archive is copied into a folder beside it.
 local api = paw.api
 local xml = require("dawproject.xml")
-local zip = require("dawproject.zip")
-local b64 = require("dawproject.base64")
+local b64 = paw.bytes
 local vst3 = require("dawproject.vst3")
 local reports = require("dawproject.report")
 
@@ -111,7 +110,7 @@ local function import_device(e, track, ctx, label, position)
   if tag == "ClapPlugin" then
     local kind = "clap:" .. device_id
     if installed(kind) then
-      id, why = add(kind, { state = state and b64.encode(state) or nil })
+      id, why = add(kind, { state = state and b64.base64(state) or nil })
     else
       why = "not installed here"
     end
@@ -120,7 +119,7 @@ local function import_device(e, track, ctx, label, position)
     if t then
       local s, class = nil, nil
       if state then s, class = vst3.state(state) end
-      id, why = add(t.kind, { state = s and b64.encode(s) or nil })
+      id, why = add(t.kind, { state = s and b64.base64(s) or nil })
       if not id and s then
         id, why = add(t.kind)
         ctx.report:add("Plugin settings", where .. ": the plugin did not take its state; defaults used")
@@ -147,7 +146,7 @@ local function import_device(e, track, ctx, label, position)
     ctx.placeholders[track] = ctx.placeholders[track] or {}
     table.insert(ctx.placeholders[track], {
       name = name, format = tag, position = position, reason = why,
-      xml = xml.write(e):gsub("^<%?xml[^\n]*\n", ""), state = state and b64.encode(state) or nil,
+      xml = xml.write(e):gsub("^<%?xml[^\n]*\n", ""), state = state and b64.base64(state) or nil,
     })
     return nil
   end
@@ -731,7 +730,8 @@ function M.file(path, opts)
   if not f then error("cannot open " .. path, 0) end
   local data = f:read("*a")
   f:close()
-  local files = zip.read(data)
+  local files, why = paw.zip.read(data)
+  if not files then error(path .. ": " .. why, 0) end
   return M.files(files, opts)
 end
 

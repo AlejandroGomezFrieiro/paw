@@ -963,7 +963,7 @@ function M.read_text(path)
   local data = f:read("*a")
   f:close()
   if data:sub(1, 4) ~= "PK\3\4" then return data end
-  local files, why = require("notation.zip").read(data)
+  local files, why = paw.zip.read(data)
   if not files then return nil, why end
   -- The score the container names, else the first that is not the container.
   local container = files["META-INF/container.xml"]
@@ -1544,7 +1544,7 @@ function M.mxl(text, name)
   name = (name or "score") .. ".musicxml"
   local container = '<?xml version="1.0" encoding="UTF-8"?>\n<container><rootfiles><rootfile full-path="' .. esc(name)
     .. '" media-type="application/vnd.recordare.musicxml+xml"/></rootfiles></container>\n'
-  return require("notation.zip").write({ { "mimetype", "application/vnd.recordare.musicxml" }, { "META-INF/container.xml", container }, { name, text } })
+  return paw.zip.write({ { name = "mimetype", data = "application/vnd.recordare.musicxml" }, { name = "META-INF/container.xml", data = container }, { name = name, data = text } })
 end
 
 return M

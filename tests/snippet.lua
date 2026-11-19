@@ -19,10 +19,7 @@ local function test(name, fn)
 end
 local music = paw.music
 
-local function keys(text)
-  paw.keymap.feed(text)
-  api.undo_checkpoint()
-end
+local keys = T.keys
 
 --- A clip's notes: "60@0+1 61@1+1".
 local function melody(clip)

@@ -20,19 +20,25 @@
 --   paw.api.device_load(id, { state = doc:write() })
 local juce = require("plugstate.juce")
 local xml = require("plugstate.jucexml")
-local zlib = require("plugstate.zlib")
 local bytes = require("plugstate.bytes")
 
 local M = { plugins = {} }
 
+--- True when bytes start as zlib data does (a header whose check holds).
+local function is_zlib(data)
+  local a, b = data:byte(1, 2)
+  return a ~= nil and b ~= nil and a % 16 == 8 and math.floor(a / 16) <= 7 and (a * 256 + b) % 31 == 0
+    and math.floor(b / 32) % 2 == 0
+end
+
 local PRIVATE = "JUCEPrivateData"
 
 local function le64(n)
-  return bytes.le32(n % 4294967296) .. bytes.le32(math.floor(n / 4294967296))
+  return paw.bytes.le32(n % 4294967296) .. paw.bytes.le32(math.floor(n / 4294967296))
 end
 
 local function u64(data, at)
-  local lo, hi = bytes.u32(data, at), bytes.u32(data, at + 4)
+  local lo, hi = paw.bytes.u32(data, at), paw.bytes.u32(data, at + 4)
   if not lo or not hi then return nil end
   return lo + hi * 4294967296
 end
@@ -53,9 +59,9 @@ end
 --- text), "vst3" (two parts after their lengths) or "clap".
 function M.guess_format(raw)
   if raw:find("StateString>", 1, true) and raw:match("^%s*[@<]") then return "lv2" end
-  local size = bytes.u32(raw, 1)
+  local size = paw.bytes.u32(raw, 1)
   if size and 4 + size + 4 <= #raw then
-    local rest = bytes.u32(raw, 5 + size)
+    local rest = paw.bytes.u32(raw, 5 + size)
     if rest and 8 + size + rest == #raw then return "vst3" end
   end
   return "clap"
@@ -88,20 +94,20 @@ end
 function M.unwrap(raw, format)
   format = format or M.guess_format(raw)
   if format == "vst3" then
-    local size = bytes.u32(raw, 1)
+    local size = paw.bytes.u32(raw, 1)
     if not size or 4 + size > #raw then error("not a VST3 state", 0) end
     local component, rest = raw:sub(5, 4 + size), raw:sub(5 + size)
     -- In a VstW chunk, the private data is inside the chunk: it stays there.
     local data, trailer, private = component, nil, nil
     if component:sub(1, 4) ~= "VstW" then data, trailer, private = M.split_private(component) end
-    local csize = bytes.u32(rest, 1)
+    local csize = paw.bytes.u32(rest, 1)
     local controller = csize and rest:sub(5, 4 + csize) or ""
     return {
       format = format, data = data, trailer = trailer, private = private, controller = controller,
       wrap = function(new)
         if new == data then return raw end
         local c = new .. (trailer or "")
-        return bytes.le32(#c) .. c .. rest
+        return paw.bytes.le32(#c) .. c .. rest
       end,
     }
   elseif format == "lv2" then
@@ -127,7 +133,7 @@ function M.wrap(data, format, template, opts)
   if template and template.format == format then return template.wrap(data) end
   if format == "vst3" then
     local c = data .. M.private_trailer(nil)
-    return bytes.le32(#c) .. c .. bytes.le32(0)
+    return paw.bytes.le32(#c) .. c .. paw.bytes.le32(0)
   elseif format == "lv2" then
     local uri = opts and opts.uri
     if not uri then error("an LV2 state needs the plugin's URI", 0) end
@@ -162,7 +168,7 @@ local decode
 local function header_layer(data, header, layers)
   if header.magic and data:sub(1, #header.magic) ~= header.magic then return nil end
   local skip = header.skip or #(header.magic or "")
-  local size = header.size and bytes.u32(data, header.size) or (#data - skip)
+  local size = header.size and paw.bytes.u32(data, header.size) or (#data - skip)
   if not size or skip + size > #data then return nil end
   layers[#layers + 1] = { name = "header", head = data:sub(1, skip), tail = data:sub(skip + size + 1), header = header,
     inner = data:sub(skip + 1, skip + size) }
@@ -191,21 +197,21 @@ function decode(data, layers, desc, depth)
     end
   end
   if data:sub(1, 4) == "VC2!" then
-    local size = bytes.u32(data, 5)
+    local size = paw.bytes.u32(data, 5)
     if size and 8 + size <= #data then
       layers[#layers + 1] = { name = "vc2", tail = data:sub(9 + size + 1), nul = data:sub(9 + size, 9 + size) }
       return xml_layer(data:sub(9, 8 + size), layers)
     end
   end
-  if zlib.is_gzip(data) then
-    local inner, stop = zlib.ungzip(data)
-    layers[#layers + 1] = { name = "gzip", inner = inner, original = data:sub(1, stop - 1), tail = data:sub(stop) }
+  if data:sub(1, 3) == "\31\139\8" then
+    local inner, used = assert(paw.api.inflate(data, "gzip"))
+    layers[#layers + 1] = { name = "gzip", inner = inner, original = data:sub(1, used), tail = data:sub(used + 1) }
     return decode(inner, layers, nil, depth + 1)
   end
-  if zlib.is_zlib(data) then
-    local ok, inner, stop = pcall(zlib.unzlib, data)
-    if ok then
-      layers[#layers + 1] = { name = "zlib", inner = inner, original = data:sub(1, stop - 1), tail = data:sub(stop) }
+  if is_zlib(data) then
+    local inner, used = paw.api.inflate(data, "zlib")
+    if inner then
+      layers[#layers + 1] = { name = "zlib", inner = inner, original = data:sub(1, used), tail = data:sub(used + 1) }
       return decode(inner, layers, nil, depth + 1)
     end
   end
@@ -247,14 +253,14 @@ local function encode(layers, i, root)
   if layer.name == "prefix" then return layer.prefix .. encode(layers, i + 1, root) end
   if layer.name == "vc2" then
     local text = encode(layers, i + 1, root)
-    return "VC2!" .. bytes.le32(#text) .. text .. layer.nul .. layer.tail
+    return "VC2!" .. paw.bytes.le32(#text) .. text .. layer.nul .. layer.tail
   end
   local inner = encode(layers, i + 1, root)
   if layer.name == "header" then
     local head = layer.head
     if layer.header.size then
       local at = layer.header.size
-      head = head:sub(1, at - 1) .. bytes.le32(#inner) .. head:sub(at + 4)
+      head = head:sub(1, at - 1) .. paw.bytes.le32(#inner) .. head:sub(at + 4)
     end
     return head .. inner .. layer.tail
   end
@@ -265,8 +271,8 @@ local function encode(layers, i, root)
     head = head:sub(1, 20) .. be32_bytes(#head - 24 + 4 + #inner) .. head:sub(25)
     return head .. be32_bytes(#inner) .. inner .. layer.tail
   end
-  if layer.name == "gzip" then return zlib.gzip(inner) .. layer.tail end
-  if layer.name == "zlib" then return zlib.zlib(inner) .. layer.tail end
+  if layer.name == "gzip" then return assert(paw.api.deflate(inner, "gzip")) .. layer.tail end
+  if layer.name == "zlib" then return assert(paw.api.deflate(inner, "zlib")) .. layer.tail end
   if layer.name == "base64" then return juce.encode64(inner) end
   error("unknown layer " .. layer.name, 0)
 end
@@ -290,7 +296,7 @@ Doc.__index = Doc
 --- `opts.plugin` names a description; `opts.desc` gives one.
 function M.open(state64, format, opts)
   opts = opts or {}
-  local raw = bytes.decode64(state64)
+  local raw = paw.bytes.unbase64(state64)
   local outer = M.unwrap(raw, format)
   local desc = opts.desc or (opts.plugin and M.plugins[opts.plugin])
   local root, layers, close = M.decode(outer.data, desc)
@@ -313,7 +319,7 @@ end
 --- The state (paw's base64) now: byte for byte the one opened when
 --- nothing changed.
 function Doc:write()
-  return bytes.encode64(self.outer.wrap(self:data()))
+  return paw.bytes.base64(self.outer.wrap(self:data()))
 end
 
 --- The state for another format of the same plugin: `template` is a state
@@ -321,9 +327,9 @@ end
 --- `M.wrap`.
 function Doc:write_as(format, template64, opts)
   local data = self:data()
-  if format == self.format then return bytes.encode64(self.outer.wrap(data)) end
-  local template = template64 and M.unwrap(bytes.decode64(template64), format) or nil
-  return bytes.encode64(M.wrap(data, format, template, opts))
+  if format == self.format then return paw.bytes.base64(self.outer.wrap(data)) end
+  local template = template64 and M.unwrap(paw.bytes.unbase64(template64), format) or nil
+  return paw.bytes.base64(M.wrap(data, format, template, opts))
 end
 
 function Doc:layer_names()
@@ -517,10 +523,10 @@ end
 -- tables, the base as paw's base64.
 
 local function to_json(v)
-  if type(v) == "table" and v.binary then return { binary64 = bytes.encode64(v.binary) } end
+  if type(v) == "table" and v.binary then return { binary64 = paw.bytes.base64(v.binary) } end
   if type(v) == "table" and v.type and v.props then
     local t = { type = v.type, props = {}, children = {}, xml = v.xml or nil }
-    for _, p in ipairs(v.props) do t.props[#t.props + 1] = { p[1], bytes.encode64(p[2]) } end
+    for _, p in ipairs(v.props) do t.props[#t.props + 1] = { p[1], paw.bytes.base64(p[2]) } end
     for _, c in ipairs(v.children) do t.children[#t.children + 1] = to_json(c) end
     return { tree = t }
   end
@@ -528,11 +534,11 @@ local function to_json(v)
 end
 
 local function from_json(v)
-  if type(v) == "table" and v.binary64 then return { binary = bytes.decode64(v.binary64) } end
+  if type(v) == "table" and v.binary64 then return { binary = paw.bytes.unbase64(v.binary64) } end
   if type(v) == "table" and v.tree then
     local function build(t)
       local node = { type = t.type, props = {}, children = {}, xml = t.xml or nil }
-      for _, p in ipairs(t.props or {}) do node.props[#node.props + 1] = { p[1], bytes.decode64(p[2]) } end
+      for _, p in ipairs(t.props or {}) do node.props[#node.props + 1] = { p[1], paw.bytes.unbase64(p[2]) } end
       for _, c in ipairs(t.children or {}) do node.children[#node.children + 1] = build(c) end
       return node
     end

@@ -61,36 +61,19 @@ function M.delivery_diagnostic(f, doc)
   return { location = located(doc, f), fixes = { fix } }
 end
 
--- Base64, for the render format as REAPER writes it.
-local B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-local function base64(s)
-  local out = {}
-  for i = 1, #s, 3 do
-    local a, b, c = s:byte(i, i + 2)
-    local n = a * 65536 + (b or 0) * 256 + (c or 0)
-    for k = 3, 0, -1 do
-      local index = math.floor(n / 64 ^ k) % 64
-      out[#out + 1] = B64:sub(index + 1, index + 1)
-    end
-    if not c then out[#out] = "=" end
-    if not b then out[#out - 1] = "=" end
-  end
-  return table.concat(out)
-end
-M.base64 = base64
 
 -- The render's file format as REAPER's RENDER_FORMAT has it (formats.py there).
 local function format_of(r)
   local kind = tostring(r.format or (r.path or ""):match("%.(%w+)$") or "wav"):lower()
   if kind == "flac" then
     local bits = r.bits or 24
-    return base64("calf" .. string.char(bits % 256, math.floor(bits / 256) % 256, 0, 0))
+    return paw.bytes.base64("calf" .. string.char(bits % 256, math.floor(bits / 256) % 256, 0, 0))
   elseif kind == "mp3" then return "l3pm"
   elseif kind == "ogg" then return "vggo"
   elseif kind == "opus" then return "SggO"
   end
   local bits = r.bits or 24
-  return base64("evaw" .. string.char(bits == 32 and 32 or bits))
+  return paw.bytes.base64("evaw" .. string.char(bits == 32 and 32 or bits))
 end
 
 --- The plain settings `reaper-midi-lsp-settings --settings-json` reads, from

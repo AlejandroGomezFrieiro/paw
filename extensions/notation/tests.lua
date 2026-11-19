@@ -390,10 +390,7 @@ local function song(notes, length)
   return view, clip, track
 end
 
-local function keys(text)
-  paw.keymap.feed(text)
-  api.undo_checkpoint()
-end
+local keys = T.keys
 
 --- The clip's notes as "C4@0+1 D4@1+0.5".
 local function notes_of(clip)
@@ -658,7 +655,7 @@ test("notation: :notation.key and :notation.clef keep the key with the project a
   local view, clip, track = song({ N(72, 0, 1) })
   paw.cmd("notation.key", { "Eb", "major" })
   api.undo_checkpoint()
-  eq(api.project_get().meta.musicops.root, "Eb", "the key is the project's, where musicops keeps it")
+  eq(api.project_get().key, "Eb major", "the key is the project's")
   eq(view:layout().fifths, -3, "three flats")
   paw.cmd("notation.clef", { "bass" })
   api.undo_checkpoint()
@@ -1872,14 +1869,3 @@ test("notation: : from a selection runs a command over it, and commands take bar
   eq(notes_of(clip), "B4@0+1 C5@1+1 D4@2+1 E4@3+1 A4@4+4 B4@8+4", "'<,'> typed later names the last selection again")
 end)
 
-assert(loadfile("extensions/notation/tests_midi.lua"))(T)
-assert(loadfile("extensions/notation/tests_layout.lua"))(T)
-assert(loadfile("extensions/notation/tests_grammar.lua"))(T)
-assert(loadfile("extensions/notation/tests_popover.lua"))(T)
-assert(loadfile("extensions/notation/tests_marks.lua"))(T)
-assert(loadfile("extensions/notation/tests_musicxml.lua"))(T)
-assert(loadfile("extensions/notation/tests_polish.lua"))(T)
-assert(loadfile("extensions/notation/tests_parts.lua"))(T)
-assert(loadfile("extensions/notation/tests_staves.lua"))(T)
-assert(loadfile("extensions/notation/tests_fixes.lua"))(T)
-assert(loadfile("extensions/notation/tests_speed.lua"))(T)

@@ -33,7 +33,7 @@ gives it, and finds these layers by themselves, from the outside in.
   that was opened. Each layer keeps the bytes of the parts that do not
   change, also the text between the elements of XML.
 - A changed XML element is written as JUCE writes it on one line. Changed
-  gzip and zlib data is written in stored blocks, without compression.
+  gzip and zlib data is compressed again (deflate, `paw.api.deflate`).
 - A CLAP state is the data of the plugin as it is. A JUCE plugin gives
   the same data in each format.
 

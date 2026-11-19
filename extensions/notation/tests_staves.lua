@@ -27,10 +27,7 @@ local function line(pitch, bars)
   return out
 end
 
-local function keys(text)
-  keymap.feed(text)
-  api.undo_checkpoint()
-end
+local keys = T.keys
 
 --- A score of four instruments in three groups: flutes and a clarinet
 --- (Woodwinds), a piano on a grand staff, a cello (Strings). Opened on the

@@ -65,8 +65,10 @@ Also install **voicebanks** for OpenUtau, in
 3. To try a change of the engine, point `utau_engine` at
    `result/bin/paw-utau-engine`.
 4. Run the tests with `tests/tools/suite.sh only utau`. The tests that sing
-   need the engine and a voicebank. Without them, they say that they were
-   skipped.
+   need the engine, and `PAW_UTAU_OPENUTAU_DIR` set to the OpenUtau folder
+   that has the test voicebank (`PAW_UTAU_TEST_SINGER` names another
+   voicebank). Without them, they say that they were skipped. The tests
+   are in `tests.lua` and `tests_singing.lua`.
 
 When the file of the device changes, paw loads it again
 (`:device.reload`).

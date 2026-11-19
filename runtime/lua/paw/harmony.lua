@@ -178,31 +178,19 @@ end
 
 -- The project's key ----------------------------------------------------------------
 --
--- Kept in `project.meta.musicops` (`{ root = "D", scale = "minor" }`), where
--- the musicops extension kept it before the core did: projects saved then,
--- and extensions that read it there (notation), go on working.
+-- Kept in the project as `project.key`, its name as `M.key_name` gives it
+-- (`"D minor"`), and read back with `M.parse_key`.
 
 --- The key set for the project, or nil when none is.
 function M.project_key()
-  local stored = (api.project_get().meta or {}).musicops
-  if type(stored) == "table" and stored.root and stored.scale then
-    local ok, key = pcall(M.parse_key, { root = stored.root, scale = stored.scale })
-    if ok then return key end
-  end
+  local name = api.project_get().key
+  if name then return M.parse_key(name) end
 end
 
 --- Set the project's key (one edit), or clear it with nil. Returns the key.
 function M.set_key(spec)
   local key = spec ~= nil and M.parse_key(spec) or nil
-  local meta = api.project_get().meta or {}
-  local stored = type(meta.musicops) == "table" and meta.musicops or {}
-  if key then
-    stored.root, stored.scale = M.key_name(key):match("^(%S+)"), key.scale
-  else
-    stored.root, stored.scale = nil, nil
-  end
-  meta.musicops = next(stored) and stored or nil
-  api.project_set("meta", meta)
+  api.project_set("key", key and M.key_name(key) or nil)
   return key
 end
 

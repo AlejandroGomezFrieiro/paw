@@ -10,10 +10,7 @@ local function load()
   return require("notation"), require("notation.model")
 end
 
-local function keys(text)
-  paw.keymap.feed(text)
-  api.undo_checkpoint()
-end
+local keys = T.keys
 
 --- A track with a clip open as notation.
 local function song(notes, length)

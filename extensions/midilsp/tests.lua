@@ -283,7 +283,6 @@ test("midilsp: the engine's delivery and settings checks look at every render of
   if skip then return skip end
   start()
   local checks = require("midilsp.checks")
-  eq(checks.base64("evaw" .. string.char(16)), "ZXZhdxA=", "a 16-bit WAV, as REAPER's render format says it")
   dofile("examples/demo-song.lua")
   paw.flush()
   checks.start()

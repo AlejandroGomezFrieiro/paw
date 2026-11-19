@@ -56,10 +56,10 @@ local function write_wav(path, seconds, freq)
     samples[#samples + 1] = string.char(v % 256, math.floor(v / 256))
   end
   local data = table.concat(samples)
-  local b64 = require("dawproject.base64")
+  local b64 = paw.bytes
   local function u16(x) return string.char(x % 256, math.floor(x / 256) % 256) end
-  T.write_file(path, "RIFF" .. b64.pack_u32(36 + #data) .. "WAVEfmt " .. b64.pack_u32(16) .. u16(1) .. u16(1)
-    .. b64.pack_u32(rate) .. b64.pack_u32(rate * 2) .. u16(2) .. u16(16) .. "data" .. b64.pack_u32(#data) .. data)
+  T.write_file(path, "RIFF" .. b64.le32(36 + #data) .. "WAVEfmt " .. b64.le32(16) .. u16(1) .. u16(1)
+    .. b64.le32(rate) .. b64.le32(rate * 2) .. u16(2) .. u16(16) .. "data" .. b64.le32(#data) .. data)
 end
 
 --- xmllint's verdict on a file against a schema of the format, or nil when
@@ -90,21 +90,6 @@ test("dawproject: XML reads and writes back", function()
   eq(again:child("Track").attr.name, "Bass & Drums", "written and read again")
   eq(again:child("Title").text, "A <b> été & raw ", "text written and read again")
   eq(pcall(d.xml.parse, "<a><b></a>"), false, "a bad document is refused")
-end)
-
-test("dawproject: ZIP archives, stored and deflated", function()
-  local d = load()
-  eq(string.format("%08x", d.zip.crc32("123456789")), "cbf43926", "CRC-32")
-  local bytes = d.zip.write({ { name = "a.txt", data = "hello" }, { name = "dir/b.bin", data = string.rep("\0\255", 1000) } })
-  local files, names = d.zip.read(bytes)
-  eq(table.concat(names, ","), "a.txt,dir/b.bin", "names in order")
-  eq(files["a.txt"], "hello", "a file back")
-  eq(files["dir/b.bin"], string.rep("\0\255", 1000), "binary back")
-  -- An archive made by the zip program, compressed with deflate.
-  local made = d.zip.read(T.read_file(FIXTURES .. "studio.dawproject"))
-  eq(made["project.xml"], T.read_file(FIXTURES .. "studio/project.xml"), "deflated XML")
-  eq(made["audio/loop.wav"], T.read_file(FIXTURES .. "studio/audio/loop.wav"), "deflated audio")
-  eq(pcall(d.zip.read, "not a zip"), false, "not an archive")
 end)
 
 -- Import -------------------------------------------------------------------------------
@@ -208,7 +193,7 @@ test("dawproject: import, track by track and clip by clip", function()
   eq(has_item(report, "Note-off velocities", "Bass"), true, "a release velocity")
   local holders = bass.meta.dawproject_placeholders
   eq(holders[1].name, "Nowhere Synth", "the placeholder keeps the plugin")
-  eq(require("dawproject.base64").decode(holders[1].state), "nowhere-state-bytes", "and its state")
+  eq(paw.bytes.decode(holders[1].state), "nowhere-state-bytes", "and its state")
 end)
 
 -- Export -------------------------------------------------------------------------------
@@ -363,7 +348,7 @@ test("dawproject: export, then import, gives the same project", function()
   eq(has_item(report, "Regions written as markers at their start (paw reads them back as regions)", "regions"), true,
     "regions are listed")
   -- The archive holds the project, the metadata and the audio, once.
-  local files, names = d.zip.read(T.read_file(path))
+  local files, names = paw.zip.read(T.read_file(path))
   eq(table.concat(names, ","), "project.xml,metadata.xml,audio/tone.wav", "the files of the archive")
   eq(files["audio/tone.wav"], T.read_file(dir .. "/media/tone.wav"), "the audio file in it")
   -- Both XML files are valid by the official schemas.
@@ -387,7 +372,7 @@ test("dawproject: the official schema accepts what paw writes of an imported pro
   T.write_file(dir .. "/studio.dawproject", T.read_file(FIXTURES .. "studio.dawproject"))
   d.import(dir .. "/studio.dawproject")
   d.export(dir .. "/again.dawproject")
-  local files = d.zip.read(T.read_file(dir .. "/again.dawproject"))
+  local files = paw.zip.read(T.read_file(dir .. "/again.dawproject"))
   T.write_file(dir .. "/project.xml", files["project.xml"])
   local ok, why = validate(dir .. "/project.xml", "Project.xsd")
   if ok == nil then return "skipped: no xmllint (it is in the dev shell)" end
@@ -413,14 +398,13 @@ test("dawproject: plugins go out and come back with their settings", function()
   local v = t:add_device(vst3)
   v:set("sidechain_reactivity", 0.2)
   a:automate("output_gain"):set_points({ { 0, -12 }, { 4, 0 } })
-  paw.flush()
-  api.sleep(300) -- plugins take new values with their next audio block
+  T.next_block(3) -- plugins take new values with their next audio block
   local want = api.device_get(v.id).params.sidechain_reactivity
   local path = T.scratch .. "/fx.dawproject"
   local result = d.export(path)
   eq(has_item(result.report, "VST3 plugins written without their class id (not installed here; a DAW finds them by name)",
     "FX: Gate Mono"), false, "the VST3 class id is known")
-  local files = d.zip.read(T.read_file(path))
+  local files = paw.zip.read(T.read_file(path))
   local cid = api.device_get(v.id).plugin.id
   eq(files["project.xml"]:find('<Vst3Plugin id="[^"]*" name="Gate Mono" deviceID="' .. cid .. '"') ~= nil, true,
     "written as deviceID")
@@ -460,7 +444,7 @@ test("dawproject: commands, and edit and write on .dawproject files", function()
   paw.commands.exec("w " .. dir .. "/out2.dawproject")
   eq(T.read_file(dir .. "/out2.dawproject"):sub(1, 2), "PK", "w song.dawproject")
   paw.commands.exec("dawproject.export " .. dir .. "/ref.dawproject embed=false")
-  local files = require("dawproject").zip.read(T.read_file(dir .. "/ref.dawproject"))
+  local files = paw.zip.read(T.read_file(dir .. "/ref.dawproject"))
   eq(files["audio/loop.wav"], nil, "embed=false leaves the audio out")
   eq(files["project.xml"]:find('external="true"', 1, true) ~= nil, true, "and refers to it")
   paw.commands.exec("w " .. dir .. "/song")
@@ -510,7 +494,7 @@ for _, format in ipairs({ "clap", "vst3" }) do
     api.lane_add(track.id, { target = "param", device = fx.id, param = "input_gain", points = { { 0, gain.min }, { 4, gain.max } } })
     local dir = scratch_dir()
     d.export(dir .. "/ids.dawproject")
-    local xml = d.zip.read(T.read_file(dir .. "/ids.dawproject"))["project.xml"]
+    local xml = paw.zip.read(T.read_file(dir .. "/ids.dawproject"))["project.xml"]
     local n = tonumber(gain.id)
     local signed = string.format("%d", n >= 2 ^ 31 and n - 2 ^ 32 or n)
     eq(xml:find('name="Input gain" parameterID="' .. signed .. '"', 1, true) ~= nil, true, "the plugin's own id of the parameter")

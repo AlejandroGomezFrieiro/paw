@@ -16,44 +16,6 @@ local drums = require("drums")
 
 local M = {}
 
--- Base64, which is how a device's state crosses `paw.api`.
-local alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-local decode_map = {}
-for i = 1, #alphabet do decode_map[alphabet:byte(i)] = i - 1 end
-
-function M.base64(text)
-  local out = {}
-  for i = 1, #text, 3 do
-    local a, b, c = text:byte(i, i + 2)
-    local n = a * 65536 + (b or 0) * 256 + (c or 0)
-    local s = {}
-    for k = 3, 0, -1 do
-      local v = math.floor(n / 64 ^ k) % 64
-      s[#s + 1] = alphabet:sub(v + 1, v + 1)
-    end
-    if not b then s[3], s[4] = "=", "=" elseif not c then s[4] = "=" end
-    out[#out + 1] = table.concat(s)
-  end
-  return table.concat(out)
-end
-
-function M.unbase64(text)
-  local out, bits, value = {}, 0, 0
-  for i = 1, #text do
-    local v = decode_map[text:byte(i)]
-    if v then
-      value, bits = value * 64 + v, bits + 6
-      if bits >= 8 then
-        bits = bits - 8
-        local byte = math.floor(value / 2 ^ bits) % 256
-        out[#out + 1] = string.char(byte)
-        value = value % 2 ^ bits
-      end
-    end
-  end
-  return table.concat(out)
-end
-
 --- A kit's pads as the device's state, and back.
 function M.encode(pads)
   local lines = { "sampler 1" }
@@ -91,7 +53,7 @@ end
 function M.pads(device)
   device = device_of(device)
   local state = api.device_state(device.id)
-  local pads = M.decode(state and M.unbase64(state) or "")
+  local pads = M.decode(state and paw.bytes.unbase64(state) or "")
   table.sort(pads, function(a, b) return a.note < b.note end)
   return pads
 end
@@ -100,7 +62,7 @@ end
 function M.set_pads(device, pads)
   device = device_of(device)
   table.sort(pads, function(a, b) return a.note < b.note end)
-  api.device_set(device.id, "state", M.base64(M.encode(pads)))
+  api.device_set(device.id, "state", paw.bytes.base64(M.encode(pads)))
 end
 
 --- Change one pad: `fields` of `level`, `pan`, `tune`, `group`, `file`.

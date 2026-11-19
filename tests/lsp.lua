@@ -94,7 +94,7 @@ test("lsp: a clip becomes MIDI LSP's document, with what sounds with it", functi
   local bass = paw.add_track({ name = "Bass" })
   bass:add_clip({ start = 2, length = 8, notes = { { pitch = 36, start = 3, length = 2 }, { pitch = 40, start = 7, length = 1 } } })
   paw.add_track({ name = "Drums" }):add_clip({ start = 4, length = 4, notes = { { pitch = 36, start = 0, length = 0.25 } } })
-  api.project_set("meta", { musicops = { root = "D", scale = "harmonic_minor" } })
+  paw.harmony.set_key("D harmonic minor")
   paw.flush()
   local doc = document.build(clip.id)
   eq(doc.uri, "paw://clip/" .. clip.id, "named by the clip")

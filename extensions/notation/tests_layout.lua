@@ -13,10 +13,7 @@ end
 
 local function N(pitch, start, length) return { pitch = pitch, start = start, length = length, velocity = 80 } end
 
-local function keys(text)
-  paw.keymap.feed(text)
-  api.undo_checkpoint()
-end
+local keys = T.keys
 
 local W, H = 1053, 900
 local function paint(view)

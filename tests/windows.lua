@@ -43,10 +43,7 @@ local function windows()
   return table.concat(out, " ")
 end
 
-local function keys(text)
-  paw.keymap.feed(text)
-  api.undo_checkpoint()
-end
+local keys = T.keys
 
 local function riff(start_beat)
   local t = paw.add_track({ name = "Keys" })

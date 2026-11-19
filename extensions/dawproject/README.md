@@ -69,11 +69,12 @@ A DAWproject file is a ZIP archive. It holds `project.xml` (the song),
 the audio files. The official XML schemas are in `schema/`, with their
 license (MIT, Bitwig).
 
-The extension reads and writes the archive and the XML itself, in Lua:
+The archive is read and written with the core's `paw.zip`, and the XML
+with the extension's own module:
 
-- `dp.zip.read(bytes)` gives the files of an archive. It reads files that
+- `paw.zip.read(bytes)` gives the files of an archive. It reads files that
   are stored and files that are compressed (deflate).
-- `dp.zip.write(entries)` makes an archive of stored files.
+- `paw.zip.write(entries)` makes an archive of stored files.
 - `dp.xml.parse(text)` gives a tree of elements, `dp.xml.write(root)` the
   text.
 

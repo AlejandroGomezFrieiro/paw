@@ -18,6 +18,8 @@ mlua = { version = "0.12", features = ["luajit", "vendored", "serde"] }
 include_dir = "0.7"
 unicode-width = "0.2"
 base64 = "0.22"
+# deflate, zlib and gzip for paw.api.inflate/deflate (zip, gzip and zlib in extensions).
+flate2 = "1"
 # project.toml, the settings of a project folder.
 toml = "1.1"
 rtrb = "0.4"

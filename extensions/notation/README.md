@@ -313,8 +313,7 @@ Other parts of the page:
   notes would now choose others. For example, a melody taken a little under
   the treble staff stays on it. A clip also keeps a clef change at a bar
   (`\C`, see [Popovers](#popovers)).
-- **Key**: the key of the project, as the `musicops` extension keeps it in
-  `project.meta.musicops`. Modes and minor keys take the signature of their
+- **Key**: the key of the project (`paw.harmony.project_key`). Modes and minor keys take the signature of their
   relative major. `:notation.key Eb major` sets the key, and
   `:notation.key off` clears it. With a clip open in the view, the command
   writes a key signature from the bar of the cursor (`\k`, see

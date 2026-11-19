@@ -2,3 +2,5 @@ target
 result
 /*.wav
 third_party/
+# The worktrees of agents (Claude Code).
+.claude/worktrees/

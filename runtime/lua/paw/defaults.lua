@@ -992,9 +992,17 @@ paw.on("project.loaded", function()
   end
 end)
 
---- Open what a path names: a sound file as a new track, anything else as a
---- project, with plugins offline as `opts` says (see `paw.loading.open`).
+--- Whether a path is a folder that is not a project: it opens as a list
+--- of its files to edit (`paw.files`), not as a project.
+local function plain_folder(path)
+  return path ~= nil and path ~= "" and paw.files.is_dir(path) and not paw.project.is_folder(path)
+end
+
+--- Open what a path names: a folder that is no project as a list of its
+--- files, a sound file as a new track, anything else as a project, with
+--- plugins offline as `opts` says (see `paw.loading.open`).
 function paw.open(path, opts)
+  if plain_folder(path) then return paw.files.open(path, { here = true }) end
   if paw.is_audio_file(path) then return paw.import_audio(path, { start = 0 }) end
   if paw.is_chain_file(path) then return paw.open_chain(path) end
   if paw.midifile.is_clip_file(path) then return paw.midifile.open_clip(path) end
@@ -1073,7 +1081,7 @@ command("open", function(ctx)
     paw.notify("opened " .. path)
   end
   local path = ctx.args[1]
-  if path and path ~= "" and paw.files.is_dir(path) and not paw.project.is_folder(path) then return paw.files.open(path, { here = true }) end
+  if plain_folder(path) then return paw.files.open(path, { here = true }) end
   if path and path ~= "" then return go(paw.files.path(path)) end
   paw.pick.file({ title = "Open", on_choose = go })
 end, { desc = "Open a project, a MIDI file as a new project, or a sound file on a new track: `open song`, `open song.mid`, `open take.wav`; alone, choose it from a list", raw = true, complete = "files" })
@@ -1873,7 +1881,7 @@ command("edit", function(ctx)
   if how and how ~= "offline" and how ~= "online" then return paw.notify("usage: edit <project> [offline|online]", "warn") end
   local path = tostring(ctx.args[1])
   -- A folder is listed as a buffer to edit (`paw.files`), unless it is a project.
-  if paw.files.is_dir(path) and not paw.project.is_folder(path) then return paw.files.open(path, { here = true }) end
+  if plain_folder(path) then return paw.files.open(path, { here = true }) end
   -- A buffer's name, a view's or an address (`paw://tracks`) shows it here;
   -- only a file's path asks about the project.
   local view, buf, target = paw.layout.resolve(path)

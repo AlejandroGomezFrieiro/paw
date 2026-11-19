@@ -391,15 +391,6 @@ impl<T: Clone> History<T> {
         }
     }
 
-    /// The named state with this name, the newest if several share it.
-    pub fn find_name(&self, name: &str) -> Option<StateId> {
-        self.states
-            .values()
-            .rev()
-            .find(|s| s.name.as_deref() == Some(name))
-            .map(|s| s.id)
-    }
-
     // --- moving ------------------------------------------------------------
     //
     // Each of these moves `current` and returns where it went, or None when

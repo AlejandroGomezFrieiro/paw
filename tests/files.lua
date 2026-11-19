@@ -48,10 +48,7 @@ local function start()
   sh("printf 'x' > '" .. root .. "/.hidden'")
 end
 
-local function keys(text)
-  paw.keymap.feed(text)
-  api.undo_checkpoint()
-end
+local keys = T.keys
 
 local function screen() return table.concat(api.ui_snapshot(W, H), "\n") end
 
@@ -125,6 +122,12 @@ test("files: a folder is a buffer: folders first, then files, with what a sound 
   eq(table.concat(lines(), "\n"):find(".hidden", 1, true) ~= nil, true, "`g.` shows them")
   keys("g.")
   eq(table.concat(lines(), "\n"):find(".hidden", 1, true), nil, "and hides them again")
+end)
+
+test("files: paw started with a folder that is no project lists it, as `:e` does", function()
+  start()
+  paw.open(root .. "/samples")  -- what `paw <path>` runs
+  eq(tb.buf().name, "paw://files" .. root .. "/samples", "the folder is the buffer")
 end)
 
 test("files: a line left alone is no change, and `-` goes up and Enter goes in", function()

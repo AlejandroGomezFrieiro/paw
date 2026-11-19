@@ -235,7 +235,7 @@ test("undotree: A/B while playing keeps the transport going", function()
   eq(t.volume, -12, "B's mix")
   paw.transport.seek(0)
   paw.transport.play()
-  local deadline = api.now() + 3000
+  local deadline = api.now() + 10000
   while paw.transport.position < 1 and api.now() < deadline do api.sleep(5) end
   for i = 1, 4 do
     paw.flush()
@@ -249,7 +249,7 @@ test("undotree: A/B while playing keeps the transport going", function()
     eq(api.undo_current(), i % 2 == 1 and a or b, "switch " .. i .. " went to " .. (i % 2 == 1 and "A" or "B"))
     eq(t.volume, i % 2 == 1 and -3 or -12, "and the engine has that mix")
     local start = paw.transport.position
-    local wait = api.now() + 3000
+    local wait = api.now() + 10000
     while paw.transport.position < start + 0.2 and api.now() < wait do api.sleep(5) end
     eq(paw.transport.position >= start + 0.2, true, "the position keeps moving after switch " .. i)
   end

@@ -203,7 +203,7 @@ test("a script that fails is shown as stopped with its error, and starts again",
   stopped = {}
   handler = paw.on("device.stopped", function(e) stopped[#stopped + 1] = e end)
   paw.transport.play()
-  api.sleep(100)
+  T.next_block(10)
   os.execute("kill -KILL " .. pid)
   wait_for("the crash to be told", 5000, function() return #stopped > 0 end)
   paw.transport.stop()

@@ -1,5 +1,5 @@
 -- Commands and keys of the UTAU extension. Everything here uses the public
--- `paw` module, like runtime/lua/paw/defaults.lua does.
+-- `paw` module, like runtime/lua/paw/defaults/ does.
 local api = paw.api
 local utau = require("utau")
 local notes = require("utau.notes")

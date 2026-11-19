@@ -507,6 +507,9 @@ pub fn diff(a: &Project, b: &Project) -> Value {
     if (a.sig_num, a.sig_den) != (b.sig_num, b.sig_den) || a.sig_changes != b.sig_changes {
         d.project.push("time signature");
     }
+    if a.key != b.key {
+        d.project.push("key");
+    }
     if a.meta != b.meta {
         d.project.push("meta");
     }

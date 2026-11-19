@@ -214,6 +214,11 @@ require("paw.window_menus")
 -- JSON, for what extensions keep in files: `paw.json.encode(value, pretty)`
 -- gives text, `paw.json.decode(text)` the value, or nil and the reason.
 paw.json = { encode = api.json_encode, decode = api.json_decode }
+-- Binary formats: base64 and little-endian numbers (paw/bytes.lua), ZIP
+-- archives (paw/zip.lua); under them, paw.api's base64_encode/decode,
+-- deflate/inflate (raw, zlib, gzip) and crc32.
+paw.bytes = require("paw.bytes")
+paw.zip = require("paw.zip")
 
 -- Values kept by the kernel, so they survive `:reload`.
 paw.state = setmetatable({}, {

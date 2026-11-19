@@ -415,12 +415,10 @@ test("guide: find and change a setting inside a plugin", function()
   -- Find where it keeps a setting: a change as from its window.
   keys(":plugstate.mark<CR>")
   api.device_set_param(comp.id, "output_gain", -6)
-  -- The plugin takes the value in its next block (two seconds at most).
-  for _ = 1, 100 do
-    paw.flush()
-    if require("plugstate.juceplugins").open(comp.id):get("/LSP/Parameters@g_out") ~= 1 then break end
-    api.sleep(20)
-  end
+  -- The plugin takes the value in its next block.
+  T.until_(function()
+    return require("plugstate.juceplugins").open(comp.id):get("/LSP/Parameters@g_out") ~= 1
+  end, "the plugin to take the value")
   keys(":plugstate.changes<CR>")
   eq(said():find("set    /LSP/Parameters@g_out: 1 → ", 1, true) ~= nil, true, "the path that changed: " .. said())
   --- The value at a path of the plugin's state once it is `want` (two

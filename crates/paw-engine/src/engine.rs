@@ -796,6 +796,13 @@ pub struct Shared {
     device_sleeps: AtomicU64,
     /// Groups of tracks shared out between threads, since the engine was made.
     shared_groups: AtomicU64,
+    /// Callbacks the engine has finished since it was made. Unlike
+    /// [`BlockStats`], never reset: tests and tools wait on it for a state
+    /// to reach the audio thread.
+    processed: AtomicU64,
+    /// Blocks each device slot has run (not slept through) since the engine
+    /// was made. Only the thread that runs the slot's track writes it.
+    device_ran: Vec<AtomicU64>,
 }
 
 impl Shared {
@@ -809,6 +816,18 @@ impl Shared {
     /// made: a group with little work is done on the audio thread alone.
     pub fn shared_groups(&self) -> u64 {
         self.shared_groups.load(Relaxed)
+    }
+
+    /// Callbacks the engine has finished since it was made. A message sent
+    /// before one callback starts has taken effect when it is counted.
+    pub fn processed(&self) -> u64 {
+        self.processed.load(Relaxed)
+    }
+
+    /// Blocks the device in `slot` has run since the engine was made, the
+    /// blocks it slept through not counted.
+    pub fn device_processed(&self, slot: Slot) -> u64 {
+        self.device_ran.get(slot as usize).map_or(0, |c| c.load(Relaxed))
     }
 
     /// Things the audio thread could not hand back to be freed and leaked
@@ -1246,6 +1265,8 @@ impl Engine {
             device_runs: AtomicU64::new(0),
             device_sleeps: AtomicU64::new(0),
             shared_groups: AtomicU64::new(0),
+            processed: AtomicU64::new(0),
+            device_ran: (0..MAX_DEVICES).map(|_| AtomicU64::new(0)).collect(),
         });
         let mut tracks: Vec<Guarded<Option<Box<TrackRt>>>> =
             (0..MAX_TRACKS).map(|_| Guarded::new(None)).collect();
@@ -2126,6 +2147,7 @@ impl Engine {
         }
         let ns = u64::try_from(began.elapsed().as_nanos()).unwrap_or(u64::MAX);
         self.shared.blocks.record(ns, total);
+        self.shared.processed.fetch_add(1, Relaxed);
     }
 
     /// Add the sound file being heard on its own, and the one fading out
@@ -2832,6 +2854,10 @@ impl Work<'_> {
                 }
                 quiet = None;
                 runs += 1;
+                if let Some(ran) = self.shared.device_ran.get(slot as usize) {
+                    // One writer per slot: a load and a store, no locked add.
+                    ran.store(ran.load(Relaxed) + 1, Relaxed);
+                }
                 // Taken out of the slot while the device runs on it.
                 let key = dev.key.take();
                 let mut outs = dev.outs.take();

@@ -1589,10 +1589,12 @@ function M.capture()
   local u = ui()
   local tabs = {}
   for i, t in ipairs(u.tabs) do
-    -- Which window has the keyboard, counted in the tree's order.
+    -- Which window has the keyboard, counted in the tree's order: in a
+    -- tab where none was entered yet, the one that would have it.
+    local has = i == u.tab and M.current() or (t.win and M.find_id(t.layout, t.win)) or first_window(t.layout)
     local current
     for k, win in ipairs(M.windows(t.layout, true)) do
-      if win.id == t.win then current = k end
+      if win == has then current = k end
     end
     tabs[i] = { name = t.name, layout = export(t.layout), current = current }
   end
@@ -1915,7 +1917,8 @@ function M.setup()
     if not close_window() then paw.notify("the last window does not close: `:q` quits", "warn") end
   end, { desc = "Close the window; a panel's comes back where it was" })
   -- A view's own name goes to it: `:arrange`, `:mixer`, `:roll`.
-  for view, word in pairs({ arrange = "arrange", mixer = "mixer", pianoroll = "roll" }) do
+  for _, view in ipairs({ "arrange", "mixer", "pianoroll" }) do
+    local word = M.names[view] or view
     if ui().views[view] and not paw.commands.get(word) then
       command(word, function() paw.ui.focus(view) end, { desc = "Show " .. M.titles[view] .. " and go to it" })
     end

@@ -49,13 +49,13 @@ end
 
 -- What the layout is made from ---------------------------------------------------------
 
---- The project's key as sharps or flats, from `project.meta.musicops`, where
---- the musicops extension keeps it (`{ root = "D", scale = "minor" }`).
+--- The project's key (`paw.harmony.project_key`) as sharps or flats, and as
+--- `{ root = "D", scale = "minor" }`; 0 and nil when none is set.
 function view.key()
-  local meta = api.project_get().meta or {}
-  local stored = type(meta.musicops) == "table" and meta.musicops or nil
-  if stored and stored.root then return model.fifths_of(stored.root, stored.scale or "major"), stored end
-  return 0, nil
+  local key = paw.harmony.project_key()
+  if not key then return 0, nil end
+  local stored = { root = paw.harmony.key_name(key):match("^%S+"), scale = key.scale }
+  return model.fifths_of(stored.root, stored.scale), stored
 end
 
 --- The key's name, for the title: the project's when one is set; else the

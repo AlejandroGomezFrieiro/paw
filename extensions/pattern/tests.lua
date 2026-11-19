@@ -442,7 +442,7 @@ test("pattern: a changed pattern is heard on the next pass of the loop, without 
   paw.transport.play()
   -- The loudest the track gets in two windows of each pass: around beat 0 and beat 4.
   local passes, pass, last, changed, stopped = { { 0, 0 } }, 1, 0, false, false
-  local deadline = api.now() + 8000
+  local deadline = api.now() + 30000 -- a loaded machine is slow, not wrong
   while pass <= 3 and api.now() < deadline do
     local pos = paw.transport.position
     if pos < last - 1 then

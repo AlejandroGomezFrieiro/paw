@@ -152,7 +152,7 @@ test("make music 2: a lead played on a MIDI keyboard is recorded over the loop a
     local deadline = api.now() + 10000
     while paw.transport.position < i - 1 + 0.08 and api.now() < deadline do api.sleep(2) end
     key(pitch, true)
-    api.sleep(300)
+    T.until_beat(i - 1 + 0.5)
     key(pitch, false)
   end
   step("R", "<Space>")

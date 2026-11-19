@@ -12,10 +12,7 @@ end
 
 local function N(pitch, start, length, velocity) return { pitch = pitch, start = start, length = length, velocity = velocity or 80 } end
 
-local function keys(text)
-  paw.keymap.feed(text)
-  api.undo_checkpoint()
-end
+local keys = T.keys
 
 --- A track with a clip open as notation, written as a score.
 local function song(notes, length)

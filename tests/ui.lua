@@ -110,8 +110,7 @@ test("a track's header shows its input, the level arriving there, and a monitor 
     paw.ui.focus("arrange")
     local t = paw.add_track({ name = "Gtr" })
     t.input = "1/2"
-    paw.flush()
-    api.sleep(150)
+    T.next_block(10)
     local text = screen(150, 36)
     eq(text:find("test signal · 1/2", 1, true) ~= nil, true, "the input by device and channels:\n" .. text)
     eq(text:find("M S R I", 1, true) ~= nil, true, "I for monitoring after mute, solo and arm")

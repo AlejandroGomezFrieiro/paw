@@ -1,7 +1,7 @@
 -- An example configuration. Copy it to ~/.config/paw/init.lua, or try it with
 --   paw --config examples/config
 -- Everything here goes through the same `paw` module the built-in commands,
--- keys and views are written with (see runtime/lua/paw/defaults.lua).
+-- keys and views are written with (see runtime/lua/paw/defaults/).
 
 -- Options.
 paw.opt.zoom = 4            -- columns per beat in the arrange view

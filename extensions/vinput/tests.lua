@@ -110,8 +110,7 @@ test("vinput: a track takes the input by name, and follows when it is renamed", 
   other.armed = true
   paw.flush()
   paw.midi.inject({ type = "note_on", pitch = 52, velocity = 100, port = "Guitar" })
-  api.sleep(150)
-  eq(select(1, track:meter()) > 0.01, true, "what arrives at the input's port is heard on its track")
+  T.until_(function() return select(1, track:meter()) > 0.01 end, "what arrives at the input's port to be heard on its track")
   eq(select(1, other:meter()), 0, "and not on a track that takes another port")
   paw.midi.inject({ type = "note_off", pitch = 52, port = "Guitar" })
   vinput.set("Guitar", "name", "Strat")

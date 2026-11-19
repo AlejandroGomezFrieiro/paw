@@ -129,7 +129,7 @@ function M.pack_list(path)
   f:close()
   local known = packs[path]
   if known and known.size == size then return known.list end
-  local ok, entries = pcall(function() return bytes.unzip(assert(bytes.read_file(path))) end)
+  local ok, entries = pcall(function() return assert(paw.zip.read(assert(bytes.read_file(path)))) end)
   local list = ok and entries["presets.json"] and paw.json.decode(entries["presets.json"]) or nil
   packs[path] = { size = size, list = list }
   return list
@@ -186,7 +186,7 @@ function M.preset_text(ref)
     if root.kind ~= "object" or not root.fields.scenes then error(file .. " is not a Soundshed preset", 0) end
     return data:sub(root.s, root.e), root
   end
-  local entries = bytes.unzip(data)
+  local entries = assert(paw.zip.read(data))
   local list = entries["presets.json"] or error(file .. " has no presets.json", 0)
   local root = J.parse(list)
   local text

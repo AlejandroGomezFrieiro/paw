@@ -6,7 +6,6 @@
 --   dp.export("out.dawproject")                   -- the project, its plugins' states and its audio
 local M = {
   xml = require("dawproject.xml"),
-  zip = require("dawproject.zip"),
 }
 
 --- Import a .dawproject file. Options: `merge` (add to the current

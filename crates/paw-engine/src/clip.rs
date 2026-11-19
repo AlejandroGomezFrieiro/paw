@@ -86,11 +86,6 @@ impl AudioData {
             channel.advise(from, to);
         }
     }
-
-    /// Kept for callers from when only WAV could be read; the same as [`load`](Self::load).
-    pub fn load_wav(path: &Path) -> Result<Arc<Self>> {
-        Self::load(path)
-    }
 }
 
 const READABLE: &str = "WAV, AIFF, FLAC, MP3 or Ogg Vorbis";

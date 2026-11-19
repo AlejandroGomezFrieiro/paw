@@ -77,15 +77,15 @@ end
 --- the component's part (the controller's stays), else the bytes as they are.
 function M.outer(raw, format)
   if format == "vst3" then
-    local size = bytes.u32(raw, 1)
+    local size = paw.bytes.u32(raw, 1)
     if size and 4 + size <= #raw then
       local data, rest = raw:sub(5, 4 + size), raw:sub(5 + size)
-      local csize = bytes.u32(rest, 1)
+      local csize = paw.bytes.u32(rest, 1)
       return {
         format = format, data = data, controller = csize and rest:sub(5, 4 + csize) or "",
         wrap = function(new)
           if new == data then return raw end
-          return bytes.le32(#new) .. new .. rest
+          return paw.bytes.le32(#new) .. new .. rest
         end,
       }
     end
@@ -97,12 +97,12 @@ end
 --- `template` state of that format (raw bytes, optional) has around it.
 function M.wrap(data, format, template)
   if format == "vst3" then
-    local rest = bytes.le32(0)
+    local rest = paw.bytes.le32(0)
     if template then
-      local size = bytes.u32(template, 1)
+      local size = paw.bytes.u32(template, 1)
       if size and 4 + size <= #template then rest = template:sub(5 + size) end
     end
-    return bytes.le32(#data) .. data .. rest
+    return paw.bytes.le32(#data) .. data .. rest
   end
   if format == "lv2" then error("an LV2 state is Turtle text: a state of another format does not go into it", 0) end
   return data
@@ -200,16 +200,16 @@ function Doc:data()
   return self.close(self.root)
 end
 
-function Doc:write() return bytes.encode64(self.outer.wrap(self:data())) end
+function Doc:write() return paw.bytes.base64(self.outer.wrap(self:data())) end
 
 --- The state for another format of the same plugin. Only the formats
 --- whose data is the same (CLAP and VST3) take it; `template64` is a state
 --- of that format, for what is around the data.
 function Doc:write_as(format, template64)
   if format == self.format then return self:write() end
-  local template = template64 and bytes.decode64(template64) or nil
+  local template = template64 and paw.bytes.unbase64(template64) or nil
   if self.format == "lv2" then error("an LV2 state is Turtle text: it does not go into a state of " .. format, 0) end
-  return bytes.encode64(M.wrap(self:data(), format, template))
+  return paw.bytes.base64(M.wrap(self:data(), format, template))
 end
 
 function Doc:layer_names()
@@ -366,14 +366,14 @@ local function lsp_value(data, t, at)
   if t == "f" then return f32(data, at), nil, at + 4 end
   if t == "F" then return f64(data, at), nil, at + 8 end
   if t == "i" then return i32(data, at), "int", at + 4 end
-  if t == "u" then return bytes.u32(data, at), "int64", at + 4 end
+  if t == "u" then return paw.bytes.u32(data, at), "int64", at + 4 end
   if t == "I" or t == "U" then return { binary = data:sub(at, at + 7) }, nil, at + 8 end
   if t == "s" then
     local s, stop = lsp_string(data, at)
     return s, "string", stop
   end
   if t == "B" then
-    local size = bytes.u32(data, at)
+    local size = paw.bytes.u32(data, at)
     local ctype, from = lsp_string(data, at + 4)
     if not size or not from then return nil end
     return { binary = data:sub(from, from + size - 1) }, nil, from + size, ctype
@@ -385,11 +385,11 @@ local function pack_lsp_value(t, v, o)
   if t == "f" then return pack_f32(n) end
   if t == "F" then return pack_f64(n) end
   if t == "i" then return pack_i32(n) end
-  if t == "u" then return bytes.le32(n) end
+  if t == "u" then return paw.bytes.le32(n) end
   if t == "s" then return pack_lsp_string(tostring(v)) end
   if t == "B" then
     local data = type(v) == "table" and v.binary or tostring(v)
-    return bytes.le32(#data) .. pack_lsp_string(o and o.extra and o.extra.ctype or "") .. data
+    return paw.bytes.le32(#data) .. pack_lsp_string(o and o.extra and o.extra.ctype or "") .. data
   end
   if type(v) == "table" and v.binary then return v.binary end
   error("LSP: cannot write a value of type " .. t, 0)
@@ -403,7 +403,7 @@ M.reader({
     local root = juce.tree("LSP")
     local params, state = juce.tree("Parameters"), juce.tree("State")
     root.children = { params, state }
-    remember(root, "version", data:sub(1, 4) == "LSPS" and (data:byte(5) + data:byte(6) * 256) or bytes.u32(data, 5), "int", data:sub(5, head))
+    remember(root, "version", data:sub(1, 4) == "LSPS" and (data:byte(5) + data:byte(6) * 256) or paw.bytes.u32(data, 5), "int", data:sub(5, head))
     local records, at = {}, head + 1
     while at <= #data do
       local name, from = lsp_string(data, at)
@@ -1106,7 +1106,7 @@ end
 --- Gives the document; it says its framework in `doc.framework`.
 function M.open(state64, format, opts)
   opts = opts or {}
-  local raw = bytes.decode64(state64)
+  local raw = paw.bytes.unbase64(state64)
   local ctx = { hint = opts.hint, param_info = opts.param_info, desc = opts.desc, version = opts.version }
   local jucestate = require("plugstate.jucestate")
   local outer = M.outer(raw, format)

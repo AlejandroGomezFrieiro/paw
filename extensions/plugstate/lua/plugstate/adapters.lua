@@ -11,7 +11,6 @@
 --            is written into its saved state (a state codec)
 local api = paw.api
 local plugstate = require("plugstate")
-local bytes = require("plugstate.bytes")
 
 local M = {}
 
@@ -164,21 +163,21 @@ M.sfizz_codec = codec
 
 --- The parts of a VST3 state: component, controller.
 function codec.split(state)
-  local size = bytes.u32(state, 1)
+  local size = paw.bytes.u32(state, 1)
   if not size or 4 + size > #state then error("not a VST3 state", 0) end
   local component = state:sub(5, 4 + size)
   local rest = state:sub(5 + size)
-  local csize = bytes.u32(rest, 1) or 0
+  local csize = paw.bytes.u32(rest, 1) or 0
   return component, rest:sub(5, 4 + csize)
 end
 
 function codec.join(component, controller)
-  return bytes.le32(#component) .. component .. bytes.le32(#controller) .. controller
+  return paw.bytes.le32(#component) .. component .. paw.bytes.le32(#controller) .. controller
 end
 
 --- The SFZ file in sfizz's component state, and where the rest begins.
 function codec.read_path(component)
-  local len = bytes.u32(component, 9)
+  local len = paw.bytes.u32(component, 9)
   if not len or 12 + len > #component then error("not a state of sfizz", 0) end
   local path = component:sub(13, 12 + len):gsub("%z.*$", "")
   return path, 13 + len
@@ -186,19 +185,19 @@ end
 
 function codec.write_path(component, path)
   local _, rest = codec.read_path(component)
-  return component:sub(1, 8) .. bytes.le32(#path + 1) .. path .. "\0" .. component:sub(rest)
+  return component:sub(1, 8) .. paw.bytes.le32(#path + 1) .. path .. "\0" .. component:sub(rest)
 end
 
 --- The SFZ file a saved state (base64) names.
 function codec.path(state64)
-  local component = codec.split(bytes.decode64(state64))
+  local component = codec.split(paw.bytes.unbase64(state64))
   return (codec.read_path(component))
 end
 
 --- The state (base64) with another SFZ file.
 function codec.with_path(state64, path)
-  local component, controller = codec.split(bytes.decode64(state64))
-  return bytes.encode64(codec.join(codec.write_path(component, path), controller))
+  local component, controller = codec.split(paw.bytes.unbase64(state64))
+  return paw.bytes.base64(codec.join(codec.write_path(component, path), controller))
 end
 
 plugstate.adapter({

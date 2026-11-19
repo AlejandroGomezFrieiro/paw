@@ -79,7 +79,7 @@ test("plugstate: DPF and LSP states have the same paths in CLAP, VST3 and LV2, a
   -- A DPF parameter that was a whole number is written as one.
   local d2 = fw.open(clap, "clap")
   d2:set_param("size", 30)
-  eq(require("plugstate.bytes").decode64(d2:write()):find("size\0" .. "30\0", 1, true) ~= nil, true, "size 30, as DPF writes it")
+  eq(paw.bytes.unbase64(d2:write()):find("size\0" .. "30\0", 1, true) ~= nil, true, "size 30, as DPF writes it")
   T.fails(function() d2:set_param("none", 1) end, "no parameter", "a parameter that is not there")
 
   local lsp = fw.open(fixture("lsp-compressor-mono.clap"), "clap")
@@ -89,7 +89,7 @@ test("plugstate: DPF and LSP states have the same paths in CLAP, VST3 and LV2, a
   eq(type(lsp:get("/LSP/State@!preset_settings")), "table", "the preset settings stay a binary value")
 end)
 
-local bytes_of = function() return require("plugstate.bytes") end
+local bytes_of = function() return paw.bytes end
 
 --- An iPlug2 chunk: strings (PutStr), the parameters as doubles, more data.
 local function iplug_chunk(strings, values, extra)
@@ -116,7 +116,7 @@ test("plugstate: an iPlug2 state gives its parameters by name, with the host's l
     { id = "65536", key = "cc0" }, { id = "fx_gain", key = "fx_gain" } }
   -- NAM's form: a header, a version, two paths (one empty), the parameters.
   local chunk = iplug_chunk({ "###Amp###", "1.2.3", "/models/a.nam", "" }, { 0, -80, 2 }, "\1\2\3")
-  local vst3 = b.encode64(b.le32(#chunk + 4) .. chunk .. "\0\0\0\0" .. b.le32(0))
+  local vst3 = b.base64(b.le32(#chunk + 4) .. chunk .. "\0\0\0\0" .. b.le32(0))
   local doc = fw.open(vst3, "vst3", { param_info = info })
   eq(doc.framework, "iplug2", "the header names iPlug2")
   eq(doc:get("/IPlug/Chunk@string3"), "/models/a.nam", "its strings")
@@ -132,7 +132,7 @@ test("plugstate: an iPlug2 state gives its parameters by name, with the host's l
   eq(again:get("/IPlug/Chunk@data").binary, "\1\2\3", "the plugin's own data after them stays")
   -- CLAP: the chunk alone, and the default `SerializeState` (the
   -- parameters only), found with the hint of the binary.
-  local plain = b.encode64(iplug_chunk({}, { 0.5, 1, 0 }))
+  local plain = b.base64(iplug_chunk({}, { 0.5, 1, 0 }))
   local c = fw.open(plain, "clap", { param_info = info, hint = "iplug2" })
   eq(c.framework, "iplug2", "the hint of the binary")
   eq(c:param("gain"), 0.5, "the first double is the first parameter")
@@ -149,7 +149,7 @@ test("plugstate: JUCE's VST3 wrapper that replaces a VST2 plugin (VstW and an FX
   local program = "FPCh" .. be(1) .. "Bass" .. be(66050) .. be(1) .. ("Init"):rep(7) .. be(#tree) .. tree
   for _, chunk in ipairs({ bank, program }) do
     local data = "VstW" .. be(8) .. be(1) .. be(0) .. "CcnK" .. be(#chunk) .. chunk
-    local state = b.encode64(b.le32(#data) .. data .. b.le32(0))
+    local state = b.base64(b.le32(#data) .. data .. b.le32(0))
     local doc = fw.open(state, "vst3")
     eq(doc.framework, "juce", "a JUCE state")
     eq(table.concat(doc:layer_names(), " "), "vst3 vstw valuetree", "the layers: " .. table.concat(doc:layer_names(), " "))
@@ -171,7 +171,7 @@ test("plugstate: a Dplug state gives its normalized parameters by name, and its 
   -- preset.d `writeStateChunk`: magic, versions 1.0, plugin version, preset 2, 2 floats, its data.
   local chunk = "\11\32\186\146" .. b.le32(1) .. b.le32(0) .. b.le32(65536) .. b.le32(2) .. b.le32(2)
     .. float(0.25) .. float(1) .. b.le32(3) .. "abc"
-  local state = b.encode64(chunk)
+  local state = b.base64(chunk)
   local info = { { id = "0", key = "drive" }, { id = "1", key = "mix" } }
   local doc = fw.open(state, "clap", { param_info = info })
   eq(doc.framework, "dplug", "the magic of Dplug")
@@ -191,25 +191,25 @@ test("plugstate: JSON states (nih-plug, Vital) change in place", function()
   local b = bytes_of()
   local text = '{"version":"0.1.0","params":{"gain":{"f32":-6.0},"mode":{"string":"fast"},"on":{"bool":true}},'
     .. '"fields":{"editor-state":"{\\"open\\":false}"}}'
-  local state = b.encode64(text)
+  local state = b.base64(text)
   local doc = fw.open(state, "clap")
   eq(doc.framework, "nih-plug", "params and fields: nih-plug's PluginState")
   eq(doc:param("gain"), -6, "a parameter's value")
   eq(doc:param("mode"), "fast", "an enum by its id")
   eq(doc:write(), state, "written back the same")
   doc:set_param("gain", -3.5)
-  eq(b.decode64(doc:write()), text:gsub("%-6%.0", "-3.5"), "only that value changes in the text")
+  eq(b.unbase64(doc:write()), text:gsub("%-6%.0", "-3.5"), "only that value changes in the text")
   T.fails(function()
     local d = fw.open(state, "clap")
     d:set("/state@new", 1)
     d:write()
   end, "only values", "a new key has no place")
-  local vital = b.encode64('{"author":"me","settings":{"osc_1_level":0.7,"osc_1_on":1.0},"synth_version":"1.5.5"}')
+  local vital = b.base64('{"author":"me","settings":{"osc_1_level":0.7,"osc_1_on":1.0},"synth_version":"1.5.5"}')
   local v = fw.open(vital, "clap")
   eq(v.framework, "vital", "Vital's preset JSON")
   eq(v:param("osc_1_level"), 0.7, "its settings are the parameters")
   -- In a VST3 state, with a zero byte at its end, as a JUCE plugin keeps text.
-  local vst3 = b.encode64(b.le32(#text + 1) .. text .. "\0" .. b.le32(0))
+  local vst3 = b.base64(b.le32(#text + 1) .. text .. "\0" .. b.le32(0))
   eq(fw.open(vst3, "vst3"):write(), vst3, "JSON in VST3, back the same")
 end)
 
@@ -221,7 +221,7 @@ test("plugstate: the bytes of an unknown state, and the floats in them", functio
   eq(#doc:params() > 100, true, "its words read as floats")
   local before = doc:get("/State/Floats@at8")
   doc:set("/State/Floats@at8", 0.25)
-  local raw, raw2 = bytes_of().decode64(state), bytes_of().decode64(doc:write())
+  local raw, raw2 = bytes_of().unbase64(state), bytes_of().unbase64(doc:write())
   eq(#raw2, #raw, "the same length")
   local differ = 0
   for i = 1, #raw do if raw:byte(i) ~= raw2:byte(i) then differ = differ + 1 end end
@@ -271,10 +271,7 @@ local function level(from)
   return math.sqrt(sum / math.max(n, 1)) / 32768
 end
 
-local function keys(text)
-  paw.keymap.feed(text)
-  api.undo_checkpoint()
-end
+local keys = T.keys
 
 --- Wait until the plugin's state holds `value` at `path` (two seconds at
 --- most): a state that paw loads reaches the plugin a moment later.

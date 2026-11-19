@@ -4,6 +4,7 @@
 local T = ...
 local test, eq, near, fails, fresh, render = T.test, T.eq, T.near, T.fails, T.fresh, T.render
 local api = paw.api
+local until_, until_beat, next_block = T.until_, T.until_beat, T.next_block
 
 local function start()
   fresh()
@@ -236,7 +237,7 @@ test("recording with the loop on goes round it and keeps every time round as a t
     paw.transport.seek(4)
     api.undo_checkpoint()
     paw.transport.record()
-    api.sleep(2750) -- twice round the second-long loop, and three quarters of a third time
+    until_beat(5.5, 2) -- twice round the second-long loop, and three quarters of a third time
     paw.transport.stop()
     paw.flush()
     eq(paw.transport.position >= 4 and paw.transport.position < 6, true, "the song went round the loop")
@@ -308,7 +309,7 @@ test("a take that never went round the loop is one clip, and a lead-in is a clip
     paw.transport.loop_start, paw.transport.loop_end, paw.transport.loop_enabled = 4, 8, true
     paw.transport.seek(4)
     paw.transport.record()
-    api.sleep(700)
+    until_beat(5.4)
     paw.transport.stop()
     paw.flush()
     local clips = mic:clips()
@@ -319,7 +320,7 @@ test("a take that never went round the loop is one clip, and a lead-in is a clip
     paw.transport.loop_start, paw.transport.loop_end = 4, 6
     paw.transport.seek(3)
     paw.transport.record()
-    api.sleep(2250) -- the lead-in, once round, and three quarters of a second time
+    until_beat(5.5, 1) -- the lead-in, once round, and three quarters of a second time
     paw.transport.stop()
     paw.flush()
     clips = mic:clips()
@@ -342,15 +343,15 @@ test("notes recorded round the loop are takes too", function()
     paw.transport.loop_start, paw.transport.loop_end, paw.transport.loop_enabled = 4, 6, true
     paw.transport.seek(4)
     paw.transport.record()
-    api.sleep(200)
+    until_beat(4.4)
     paw.midi.inject({ type = "note_on", pitch = 60, velocity = 100 })
-    api.sleep(200)
+    until_beat(4.8)
     paw.midi.inject({ type = "note_off", pitch = 60 })
-    api.sleep(900) -- into the second time round
+    until_beat(4.6, 1) -- into the second time round
     paw.midi.inject({ type = "note_on", pitch = 64, velocity = 90 })
-    api.sleep(200)
+    until_beat(5)
     paw.midi.inject({ type = "note_off", pitch = 64 })
-    api.sleep(150)
+    until_beat(5.3)
     paw.transport.stop()
     paw.flush()
     local clips = keys:clips()
@@ -401,18 +402,20 @@ test("a count-in counts a bar before the take, which starts on the beat where th
     paw.transport.record()
     eq(api.transport_get().counting, 4, "a bar of four beats to count")
     eq(paw.frontend.state(paw.frontend.revision).counting, 4, "the window is told")
-    api.sleep(1000) -- half the bar
-    local t = api.transport_get()
-    eq(t.counting >= 1 and t.counting <= 3, true, "counting down: " .. t.counting)
+    local t = until_(function()
+      local now = api.transport_get()
+      return now.counting <= 3 and now
+    end, "the count to go down")
+    eq(t.counting >= 1, true, "counting down: " .. t.counting)
     eq(t.position, 4, "the playhead waits where it was")
     eq(t.playing, true, "the transport is busy")
     paw.ui.focus("arrange")
     local text = table.concat(api.ui_snapshot(160, 20), "\n")
     eq(text:find("count %d") ~= nil, true, "the status line counts")
-    api.sleep(1700) -- past the end of the bar
-    t = api.transport_get()
-    eq(t.counting, 0, "counted")
-    eq(t.position > 4, true, "and then the song plays")
+    t = until_(function()
+      local now = api.transport_get()
+      return now.counting == 0 and now.position > 4 and now
+    end, "the count to end and the song to play")
     paw.transport.stop()
     paw.flush()
     local played = paw.transport.position - 4
@@ -427,14 +430,14 @@ test("a count-in counts a bar before the take, which starts on the beat where th
     api.undo_checkpoint()
     local edits = paw.project.get().edits
     paw.transport.record()
-    api.sleep(300)
+    next_block(5)
     paw.transport.stop()
     paw.flush()
     eq(#mic:clips(), 1, "stopped during the count: no take")
     eq(paw.transport.recording, false, "and record mode is off")
     eq(paw.transport.position, 12, "the playhead stays")
     paw.transport.record()
-    api.sleep(300)
+    next_block(5)
     paw.keymap.feed("<Esc>")
     paw.flush()
     eq(paw.transport.playing, false, "Esc calls the count off")
@@ -467,7 +470,7 @@ test("a punched take records from the punch in to the punch out while the song p
     eq(t.punch_start .. " " .. t.punch_end .. " " .. tostring(t.punch_enabled), "4 8 true", "bar 2, as the loop counts bars")
     paw.transport.seek(2)
     paw.transport.record()
-    api.sleep(3600) -- from beat 2 to past beat 9
+    until_beat(9.2) -- from beat 2 to past beat 9
     eq(paw.transport.playing and paw.transport.position > 8, true, "the song plays on past the punch out")
     paw.transport.stop()
     paw.flush()
@@ -483,7 +486,7 @@ test("a punched take records from the punch in to the punch out while the song p
     clips[1]:remove()
     paw.transport.seek(6)
     paw.transport.record()
-    api.sleep(1400)
+    until_beat(8.8)
     paw.transport.stop()
     paw.flush()
     c = mic:clips()[1]:get()
@@ -494,7 +497,7 @@ test("a punched take records from the punch in to the punch out while the song p
     paw.transport.record()
     paw.flush()
     eq(tostring(paw.ui.message and paw.ui.message.text):find("past the punch out") ~= nil, true, "it says so")
-    api.sleep(200)
+    next_block(10)
     paw.transport.stop()
     paw.flush()
     eq(#mic:clips(), 0, "and records nothing")
@@ -532,15 +535,15 @@ test("notes punched in are kept inside the range and cut at the punch out", func
   paw.transport.punch_start, paw.transport.punch_end, paw.transport.punch_enabled = 4, 6, true
   paw.transport.seek(3)
   paw.transport.record()
-  api.sleep(200)  -- beat 3.4, before the punch in
+  until_beat(3.4) -- before the punch in
   paw.midi.inject({ type = "note_on", pitch = 60, velocity = 100 })
-  api.sleep(200)
+  until_beat(3.8)
   paw.midi.inject({ type = "note_off", pitch = 60 })
-  api.sleep(400)  -- beat 4.6, inside
+  until_beat(4.6) -- inside
   paw.midi.inject({ type = "note_on", pitch = 64, velocity = 90 })
-  api.sleep(1100) -- beat 6.8, past the punch out, still held
+  until_beat(6.8) -- past the punch out, still held
   paw.midi.inject({ type = "note_off", pitch = 64 })
-  api.sleep(200)
+  until_beat(7.2)
   paw.transport.stop()
   paw.flush()
   local clips = keys:clips()
@@ -566,7 +569,7 @@ test("punching with the loop on keeps every time through the punch range as a ta
     paw.transport.punch_start, paw.transport.punch_end, paw.transport.punch_enabled = 1, 3, true
     paw.transport.seek(0)
     paw.transport.record()
-    api.sleep(5750) -- twice round the two-second loop, and through the range a third time
+    until_beat(3.5, 2) -- twice round the two-second loop, and through the range a third time
     paw.transport.stop()
     paw.flush()
     local clips = mic:clips()
@@ -731,20 +734,20 @@ test("a track's automation mode says what moving a control writes", function()
   -- Read: a move writes nothing.
   paw.transport.seek(0)
   paw.transport.play()
-  paw.wait(60)
+  until_beat(0.1)
   t.volume = -6
-  paw.wait(120)
+  until_beat(0.3)
   paw.transport.stop()
   eq(t:lane("volume"), nil, "in read mode a move writes nothing")
   -- Latch: from the first move until the song stops.
   t.automation = "latch"
   paw.transport.seek(0)
   paw.transport.play()
-  paw.wait(100)
+  until_beat(0.2)
   t.volume = -12
-  paw.wait(900)
+  until_beat(2)
   local late = paw.transport.position
-  paw.wait(60)
+  until_beat(late + 0.1)
   paw.transport.stop()
   paw.flush()
   local lane = t:lane("volume")
@@ -755,9 +758,11 @@ test("a track's automation mode says what moving a control writes", function()
   t.automation = "touch"
   paw.transport.seek(0)
   paw.transport.play()
-  paw.wait(100)
+  until_beat(0.2)
   local touched = paw.transport.position
   t.volume = -3
+  -- Real time is the point: a control in touch mode is let go 600 ms
+  -- after its last move.
   paw.wait(250)
   local during = paw.transport.position
   paw.wait(1100) -- let go: no move for longer than the release time
@@ -772,14 +777,14 @@ test("a track's automation mode says what moving a control writes", function()
   lane:set_points({ { 0, -20 }, { 64, -20 } })
   paw.transport.seek(0)
   paw.transport.play()
-  paw.wait(60)
+  until_beat(0.1)
   api.automation_hold(t.id, "volume", nil, nil, true)
   t.volume = -9
-  paw.wait(1100)
+  paw.wait(1100) -- real time: held for longer than the release time
   local held = paw.transport.position
-  paw.wait(60)
+  until_beat(held + 0.1)
   api.automation_hold(t.id, "volume", nil, nil, false)
-  paw.wait(300)
+  until_beat(held + 0.7)
   local released = paw.transport.position
   paw.transport.stop()
   paw.flush()
@@ -791,7 +796,7 @@ test("a track's automation mode says what moving a control writes", function()
   t.automation = "write"
   paw.transport.seek(0)
   paw.transport.play()
-  paw.wait(1300)
+  until_beat(2.6)
   local written = paw.transport.position
   paw.transport.stop()
   paw.flush()
@@ -852,10 +857,8 @@ test("a long file is played from the disk, sample for sample as from memory", fu
   -- It plays in real time, from the middle too.
   paw.transport.seek(12)
   paw.transport.play()
-  paw.wait(250)
-  local level = t:meter()
+  until_(function() return t:meter() > 0.05 end, "the long file to be heard while playing")
   paw.transport.stop()
-  eq(level > 0.05, true, "heard while playing")
   -- Kept between runs: the next time it is not decoded again.
   local _, dir = api.media_store()
   local kept = 0
@@ -905,12 +908,12 @@ test("the window is told of markers, takes, automation modes and lanes shown as 
   -- A control held under the pointer, as the window says it.
   t.automation = "touch"
   paw.transport.play()
-  paw.wait(60)
+  until_beat(0.1)
   paw.frontend.act.hold(t.id, "volume", 0, "", true)
-  paw.wait(900)
+  paw.wait(900) -- real time: held for longer than the release time
   local held = paw.transport.position
   paw.frontend.act.hold(t.id, "volume", 0, "", false)
-  paw.wait(200)
+  until_beat(held + 0.4)
   paw.transport.stop()
   paw.flush()
   near(t:lane("volume"):value_at(held - 0.2), t.volume, 0.001, "held, the fader is written without a move")
@@ -933,8 +936,7 @@ test("the window's render dialog renders a region, and leaving saves first when 
   eq(d.path:match("[^/]+$"), "untitled.wav", "to a file named after the project")
   local out = T.scratch .. "/dialog"
   paw.frontend.act.render({ path = out .. ".wav", range = "region:" .. region.id, format = "flac", bits = 32, tail = 0 })
-  local deadline = api.now() + 10000
-  while paw.render_status() and api.now() < deadline do paw.wait(20) end
+  until_(function() return not paw.render_status() end, "the render to finish", 60000)
   eq(#T.read_file(out .. ".flac") > 1000, true, "the region was rendered, as the format chosen and not as the path was typed")
   fails(function() paw.frontend.act.render({ path = "", range = "song" }) end, "name a file", "no file named")
   -- Leaving: a project with a file is saved, and then left.

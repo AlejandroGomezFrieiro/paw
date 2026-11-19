@@ -433,12 +433,11 @@ documented pruning rule; it is a large silent jump for a user.
 
 ## What remains slower or weaker
 
-- **Editing notes.** There is no call for one note: the piano roll reads all
-  of a clip's notes into Lua, changes one, and writes them all back, and each
-  edit copies the clip for undo and recompiles it for the engine. A note move
-  in a 1000-note clip costs about 0.6 ms against Tracktion's 2 µs per note
-  object; at 5000 notes, 3 ms. A per-note call (`clip_note_set` and so on)
-  would remove the Lua round trip, but the views would have to use it.
+- **Editing notes.** (Since this run, paw.api has calls for one note,
+  `clip_note_set` and its kin, and the views use them.) At the time of the
+  run, the piano roll read all of a clip's notes into Lua, changed one, and
+  wrote them all back: a note move in a 1000-note clip cost about 0.6 ms
+  against Tracktion's 2 µs per note object; at 5000 notes, 3 ms.
 - **Editing clips on a long track.** Copy-on-write copies the track's list of
   clips on every edit and the sync recompiles the track's event list, so a
   clip edit costs O(clips on the track): 0.05 ms at 1000 clips, 0.25–0.75 ms at
@@ -449,16 +448,11 @@ documented pruning rule; it is a large silent jump for a user.
 - **Edits in very large projects.** Each sync builds hash maps over every
   track and device: 0.55 ms per edit at 1000 tracks, and building a 1000-track
   project one call at a time takes over a second.
-- **One thread.** Renders and playback use one core. Up to 100 audio tracks the
-  DAW still beats Tracktion on 24 threads; at 500 tracks with effects they tie
-  (9.8 s against 9.6 s), and for 500 synth tracks the DAW is close to its
-  real-time limit at 512 frames (block max 17–22 ms against a 10.7 ms budget,
-  i.e. it could not play that project live) while Tracktion on 24 threads has
-  the same problem with a much heavier synth. Rendering independent tracks on
-  several threads, with summing kept in a fixed order so that renders stay
-  bit-identical, would fix both; it was not done, because the numbers did not
-  require it for the comparison and `Engine::segment` was being changed in
-  parallel (delay compensation, pre-fader sends).
+- **One thread.** (Since this run, playback and renders use a thread for
+  each core, and stay bit-identical: see docs/reference/engine.md.) At the
+  time of the run, renders and playback used one core: at 500 tracks with
+  effects paw and Tracktion on 24 threads tied (9.8 s against 9.6 s), and
+  500 synth tracks were close to paw's real-time limit at 512 frames.
 - **The delay device** allocates 2 s of both channels per instance (768 kB at
   48 kHz), which is most of the resident memory of large projects.
 - **MIDI comparison.** The synths differ too much for the MIDI rows to say

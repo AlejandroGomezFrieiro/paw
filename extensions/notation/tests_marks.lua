@@ -12,10 +12,7 @@ local function load()
   return require("notation")
 end
 
-local function keys(text)
-  paw.keymap.feed(text)
-  api.undo_checkpoint()
-end
+local keys = T.keys
 
 --- A track with an empty clip open as notation, `bars` bars long.
 local function song(bars)

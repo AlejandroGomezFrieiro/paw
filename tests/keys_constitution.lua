@@ -19,10 +19,7 @@ local function start()
   paw.ui.focus("arrange")
 end
 
-local function keys(text)
-  keymap.feed(text)
-  api.undo_checkpoint()
-end
+local keys = T.keys
 
 --- A key that also starts longer mappings (`]` and `]d`): it runs when the
 --- wait for the rest is over, as it does at the keyboard.

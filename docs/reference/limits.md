@@ -68,8 +68,8 @@ gets the function.
   - The project keeps a layout for each kind of seat (the graphical window, the terminal), not for each seat. Two terminals attached at the same time share one layout in the project: that of the terminal that saved it last.
   - `:new` starts a new project. `:vnew` and `Ctrl-w n` open an empty window.
 - The quickfix list:
-  - `:g/pattern/` and `:vimgrep` fill it. paw has no `:grep`, because it has no files to run a program on. `/` does not fill it.
-  - `:cfdo` runs one time for each track, as there are no files.
+  - `:g/pattern/` and `:vimgrep` fill it. paw has no `:grep` that runs a program on the files of the project folder. `/` does not fill it.
+  - `:cfdo` runs one time for each track, not for each file of the project folder.
   - The project does not keep the lists, and they do not stay between runs.
   - A location list stays with the number of its window after the window closes.
   - The status bar of the graphical window does not count the entries.
@@ -569,7 +569,6 @@ gets the function.
   - The file manager has no undo of a file operation other than the trash.
   - The file manager cannot drag a line into `paw://tracks`. To bring a
     file in, use `Enter` or `go`.
-  - `paw` started with a folder does not open it.
   - The graphical window shows a files buffer as any text buffer.
 - Project diff and merge (extensions/projdiff):
   - The diff and conflict views are drawn in cells, as the graphical window

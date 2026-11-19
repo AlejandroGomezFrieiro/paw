@@ -52,19 +52,15 @@ command("notation.key", function(ctx)
     local fifths, stored = view.key()
     return paw.notify("key: " .. (stored and (stored.root .. " " .. (stored.scale or "major")) or "none (C major)") .. ", " .. math.abs(fifths) .. (fifths >= 0 and " sharps" or " flats"))
   end
-  local meta = api.project_get().meta or {}
-  local stored = type(meta.musicops) == "table" and meta.musicops or {}
   if words[1] == "off" then
-    stored.root, stored.scale = nil, nil
-  else
-    local root = words[1]:sub(1, 1):upper() .. words[1]:sub(2)
-    if not root:match("^[A-G][#b]?$") then return paw.notify("a key is a root and a scale: `notation.key Bb major`", "warn") end
-    stored.root, stored.scale = root, words[2] or "major"
+    paw.harmony.set_key(nil)
+    return
   end
-  meta.musicops = next(stored) and stored or nil
-  api.project_set("meta", meta)
-  paw.emit("musicops.key", { key = stored.root and (stored.root .. " " .. stored.scale) or nil })
-end, { range = true, desc = "Set the key: in a score open in the view, from the cursor's bar (`notation.key Eb`, `f#m`, `D dorian`, `off`); else the project's, as musicops keeps it" })
+  local root = words[1]:sub(1, 1):upper() .. words[1]:sub(2)
+  if not root:match("^[A-G][#b]?$") then return paw.notify("a key is a root and a scale: `notation.key Bb major`", "warn") end
+  local ok, err = pcall(paw.harmony.set_key, root .. " " .. (words[2] or "major"))
+  if not ok then return paw.notify(tostring(err):gsub("^[^:]*:%d+: ", ""), "warn") end
+end, { range = true, desc = "Set the key: in a score open in the view, from the cursor's bar (`notation.key Eb`, `f#m`, `D dorian`, `off`); else the project's (`paw.harmony.set_key`)" })
 
 --- The clip the settings commands work on.
 local function settings_clip()

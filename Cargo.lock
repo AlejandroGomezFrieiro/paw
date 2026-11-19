@@ -2734,6 +2734,7 @@ dependencies = [
  "anyhow",
  "base64",
  "flacenc",
+ "flate2",
  "include_dir",
  "libc",
  "mlua",

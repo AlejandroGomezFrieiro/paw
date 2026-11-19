@@ -18,7 +18,6 @@
 -- whose property has the value. `@name` at the end names a property.
 local ffi = require("ffi")
 local bit = require("bit")
-local bytes = require("plugstate.bytes")
 
 local M = {}
 
@@ -639,22 +638,22 @@ end
 --- The plugin's data in a state (paw's base64), and a function that gives
 --- the state with other data in its place.
 function M.open(state64, format)
-  local raw = bytes.decode64(state64)
+  local raw = paw.bytes.unbase64(state64)
   if format == "lv2" then
     local before, text, after = raw:match('^(.-StateString>%s*")(%d+%.[^"]*)(".*)$')
     if not text then error("the state has no JUCE data", 0) end
     return M.decode64(text), function(data)
-      return bytes.encode64(before .. M.encode64(data) .. after)
+      return paw.bytes.base64(before .. M.encode64(data) .. after)
     end
   elseif format == "vst3" then
-    local size = bytes.u32(raw, 1)
+    local size = paw.bytes.u32(raw, 1)
     if not size or 4 + size > #raw then error("not a VST3 state", 0) end
     local component, rest = raw:sub(5, 4 + size), raw:sub(5 + size)
     return component, function(data)
-      return bytes.encode64(bytes.le32(#data) .. data .. rest)
+      return paw.bytes.base64(paw.bytes.le32(#data) .. data .. rest)
     end
   end
-  return raw, function(data) return bytes.encode64(data) end
+  return raw, function(data) return paw.bytes.base64(data) end
 end
 
 return M

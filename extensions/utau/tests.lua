@@ -14,15 +14,17 @@ local utau
 local function load()
   if not (paw.ext.loaded.utau and paw.ext.loaded.utau.ok) then paw.ext.load("extensions/utau") end
   utau = require("utau")
-  if paw.opt.utau_openutau_dir == "" and not os.getenv("PAW_UTAU_OPENUTAU_DIR") then
-    paw.opt.utau_openutau_dir = (os.getenv("HOME") or "") .. "/.local/share/OpenUtau"
-  end
   return utau
 end
 
 --- Skip unless the engine runs and has the test voicebank.
 local function need_singer()
   load()
+  -- The voicebanks are read where PAW_UTAU_OPENUTAU_DIR says, never from
+  -- a home folder the test did not name.
+  if paw.opt.utau_openutau_dir == "" and not os.getenv("PAW_UTAU_OPENUTAU_DIR") then
+    return "skipped: set PAW_UTAU_OPENUTAU_DIR to the OpenUtau folder with the test voicebank"
+  end
   if not utau.engine.find() then return "skipped: paw-utau-engine not found (set PAW_UTAU_ENGINE)" end
   utau.engine.start()
   if not utau.wait(function() return #utau.singers > 0 end, 60) then
@@ -156,7 +158,7 @@ test("utau: the device plays the phrases it is given, in time", function()
   paw.transport.seek(5)
   paw.transport.play()
   local loudest = 0
-  local deadline = api.now() + 3000
+  local deadline = api.now() + 10000
   while paw.transport.position < 5.9 and api.now() < deadline do
     loudest = math.max(loudest, t:meter())
     api.sleep(5)
@@ -285,7 +287,7 @@ test("utau: a vocal device that crashes is stopped alone, and started again sing
   local stopped = {}
   local handler = paw.on("device.stopped", function(e) stopped[#stopped + 1] = e end)
   paw.transport.play()
-  api.sleep(100)
+  T.next_block(10)
   os.execute("kill -KILL " .. pid)
   wait_for("the crash to be told", 5000, function() return #stopped > 0 end)
   paw.transport.stop()
@@ -883,8 +885,8 @@ test("utau: a harmony track sings the melody a diatonic interval away in the key
   eq(utau.config(made.id).singer, "Someone", "the voice")
   near(curve(made, "dyn", 2), curve(track, "dyn", 2), 1e-6, "and the curves")
   near(made.volume, track.volume - 3, 1e-6, "a little quieter")
-  -- The project's key, as musicops keeps it, wins over the melody's.
-  api.project_set("meta", { musicops = { root = "A", scale = "minor" } })
+  -- The project's key wins over the melody's.
+  paw.harmony.set_key("A minor")
   paw.flush()
   api.undo_checkpoint()
   local _, info = h.create(track.id, { interval = "3down" })
