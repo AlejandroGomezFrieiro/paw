@@ -13,10 +13,7 @@ local function kind_of(format, pattern)
   end
 end
 
-local function keys(text)
-  paw.keymap.feed(text)
-  api.undo_checkpoint()
-end
+local keys = T.keys
 
 --- Surge XT in each format that the test plugins have.
 local function surges()
@@ -80,10 +77,7 @@ end
 --- that a state reaches a plugin at rest. Three seconds at most.
 local function rested()
   local before = api.engine_get().device_sleeps
-  for _ = 1, 150 do
-    api.sleep(20)
-    if api.engine_get().device_sleeps > before + 10 then return end
-  end
+  T.until_(function() return api.engine_get().device_sleeps > before + 10 end, "the plugin to sleep")
 end
 
 --- The parameters that the project itself sets for a device (not the
@@ -179,4 +173,63 @@ test("a state lane gives each format of a plugin its saved state at the point, i
     T.near(T.frequency(info, 0.25, 1.6), 220, 6, kind .. ": A before the point")
     T.near(T.frequency(info, 2.2, 3.8), 440, 10, kind .. ": B after it")
   end
+end)
+
+--- Wait until no device runs a block for 300 ms: all of them sleep. False
+--- after `seconds`.
+local function all_asleep(seconds)
+  local runs, still = api.engine_get().device_runs, 0
+  for _ = 1, seconds * 50 do
+    api.sleep(20)
+    local now = api.engine_get().device_runs
+    still = now == runs and still + 1 or 0
+    runs = now
+    if still >= 15 then return true end
+  end
+  return false
+end
+
+test("an LV2 plugin sleeps once its tail went by in silence, and a note or a parameter wakes it", function()
+  local surge = kind_of("lv2", "^Surge XT$")
+  local limiter = kind_of("lv2", "Limiter Stereo$")
+  if not surge or not limiter then return "skipped: test plugins not found" end
+  fresh()
+  -- A note, sixteen beats of silence (eight seconds: longer than the five
+  -- seconds an LV2 plugin is given to ring), and a note again.
+  local track = paw.add_track({ name = "lv2" })
+  track:add_clip({ start = 0, length = 24, notes = {
+    { pitch = "A3", start = 0, length = 1 },
+    { pitch = "A3", start = 20, length = 1 },
+  } })
+  track:add_device(surge)
+  paw.flush()
+  local awake = T.render({ tail = 0, sleep = false, bits = 16 })
+  eq(awake.device_sleeps, 0, "with sleep off, the plugin runs each block")
+  local asleep = T.render({ tail = 0, sleep = true, bits = 16 })
+  eq(asleep.device_sleeps > 0, true, "it sleeps through the silence: " .. asleep.device_sleeps .. " blocks")
+  eq(asleep.device_runs < awake.device_runs, true, "and runs fewer blocks")
+  T.near(T.frequency(asleep, 10.1, 10.4), T.frequency(awake, 10.1, 10.4), 10, "the note after the silence wakes it")
+  T.near(T.channel_peaks(asleep, 10, 10.5), T.channel_peaks(awake, 10, 10.5), 0.05, "and sounds as loud")
+  eq(T.channel_peaks(asleep, 10, 10.5) > 0.05, true, "which is heard")
+
+  -- Live and stopped: an effect with a latency sleeps too, and a
+  -- parameter wakes it.
+  fresh()
+  local fx = paw.add_track({ name = "fx" })
+  fx:add_device("synth")
+  local d = fx:add_device(limiter)
+  paw.flush()
+  eq(all_asleep(8), true, "stopped and silent, the LV2 effect sleeps after its tail")
+  local runs = api.engine_get().device_runs
+  local gain
+  for _, p in ipairs(api.device_get(d.id).param_info) do
+    if p.key == "output_gain" or p.key == "g_out" then gain = p end
+  end
+  api.device_set_param(d.id, gain.key, gain.min)
+  paw.flush()
+  for _ = 1, 50 do
+    if api.engine_get().device_runs > runs then break end
+    api.sleep(20)
+  end
+  eq(api.engine_get().device_runs > runs, true, "a parameter wakes it")
 end)

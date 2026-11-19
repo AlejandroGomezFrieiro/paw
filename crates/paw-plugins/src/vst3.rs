@@ -15,7 +15,7 @@ use std::time::{Duration, Instant};
 use std::sync::{Arc, Mutex};
 
 use anyhow::{Context, Result, bail};
-use paw_engine::device::assign_keys;
+use paw_engine::device::{Rest, assign_keys};
 use paw_engine::{
     Controller, Ctl, Device, DeviceFactory, DeviceInfo, EventKind, Instance, Io, NOTE_BEND_RANGE,
     NoteCtl, ParamInfo, Ports, ProcessCtx, Registry,
@@ -1037,8 +1037,7 @@ impl DeviceFactory for Vst3Factory {
                 sample_rate: sample_rate as f64,
                 samples: 0,
                 tail,
-                quiet: 0,
-                resting: false,
+                rest: Rest::default(),
             };
             Ok(Instance {
                 device: Box::new(device),
@@ -1095,11 +1094,9 @@ struct Vst3Device {
     /// How long the plugin rings after its input stops, in frames, as it
     /// said when it was made; `u32::MAX` for for ever.
     tail: u32,
-    /// Frames the input has ended with silent and without events.
-    quiet: u64,
     /// Its tail has gone by and its output was silent (see
     /// [`Device::resting`]).
-    resting: bool,
+    rest: Rest,
 }
 
 // The buffers hold raw pointers into vectors the device owns.
@@ -1109,7 +1106,7 @@ impl Device for Vst3Device {
     /// Once its tail has gone by in silence and its output was silent,
     /// unless a parameter has moved since.
     fn resting(&self) -> bool {
-        self.resting
+        self.rest.resting()
             && self.pending.is_empty()
             && self.edited.is_empty()
             && !self.shared.host.wake.load(Ordering::Relaxed)
@@ -1117,17 +1114,10 @@ impl Device for Vst3Device {
 
     fn process(&mut self, ctx: &ProcessCtx, io: &mut Io) {
         let n = io.left.len();
-        self.resting = false;
         // Woken: its tail starts again from here.
-        if self.shared.host.wake.swap(false, Ordering::Relaxed) {
-            self.quiet = 0;
-        }
+        self.rest
+            .begin(io, self.shared.host.wake.swap(false, Ordering::Relaxed));
         self.shared.host.blocks.fetch_add(1, Ordering::Relaxed);
-        if paw_engine::device::quiet(io) {
-            self.quiet = self.quiet.saturating_add(n as u64);
-        } else {
-            self.quiet = 0;
-        }
         if let Some(bus) = self.inputs.channels.first_mut() {
             match bus.as_mut_slice() {
                 [] => {}
@@ -1314,9 +1304,10 @@ impl Device for Vst3Device {
                 return;
             }
         }
-        self.resting = self.tail != u32::MAX
-            && self.quiet >= self.tail as u64
-            && self.outputs.channels.iter().flatten().all(|c| paw_engine::device::silent(&c[..n]));
+        self.rest.end_after_tail(
+            (self.tail != u32::MAX).then_some(self.tail as u64),
+            self.outputs.channels.iter().flatten().all(|c| paw_engine::device::silent(&c[..n])),
+        );
 
         let add = self.inputs.buses.is_empty();
         if let Some(bus) = self.outputs.channels.first() {
