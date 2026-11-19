@@ -347,14 +347,12 @@ function M.ds_text(text, name)
 end
 
 --- A map spec from a `.dspreset` file, or from the first preset in a
---- `.dslibrary` (a zip, read with the notation extension's reader).
+--- `.dslibrary` (a zip, `paw.zip`).
 function M.ds(path)
   local name = path:match("([^/]+)%.[^.]*$") or path
   local text = read(path)
   if path:lower():match("%.dslibrary$") then
-    local ok, zip = pcall(require, "notation.zip")
-    if not ok then return nil, "reading a .dslibrary needs the notation extension's zip reader: :ext.load notation" end
-    local files, err = zip.read(text)
+    local files, err = paw.zip.read(text)
     if not files then return nil, path .. ": " .. err end
     local names = {}
     for file in pairs(files) do
