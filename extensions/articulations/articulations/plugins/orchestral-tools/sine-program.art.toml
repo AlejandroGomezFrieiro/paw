@@ -1,0 +1,24 @@
+# SINE Player (Orchestral Tools), an instrument in program change mode: a
+# template. Source: https://orchestraltools.helpscoutdocs.com/article/301-articulation-list
+# (see sine-keyswitch.art.toml beside this file).
+#
+# Each articulation of the list has a program number, the first 0. The
+# documentation says that the VST3 version of SINE does not take program
+# changes: use the CLAP or VST version, or another mode.
+format = 1
+name = "SINE Player, program changes (template)"
+family = "strings"
+checked = "from the SINE Player documentation, not checked with the plugin"
+default = "sustain"
+send = "change"
+chase = [1, 11]
+
+[art]
+sustain    = { m2 = "10.0", out = "pc=0", tag = "sus", name = "Sustain",    class = "long" }
+legato     = { m2 = "10.2", out = "pc=1", tag = "leg", name = "Legato",     class = "legato" }
+staccato   = { m2 = "11.0", out = "pc=2", tag = "stc", name = "Staccato",   class = "short", mark = "staccato" }
+spiccato   = { m2 = "11.5", out = "pc=3", tag = "spc", name = "Spiccato",   class = "short" }
+pizzicato  = { m2 = "11.A", out = "pc=4", tag = "pz",  name = "Pizzicato",  class = "short-light", text = "pizz." }
+tremolo    = { m2 = "12.0", out = "pc=5", tag = "trm", name = "Tremolo",    class = "long-dark", mark = "tremolo3" }
+trill-min  = { m2 = "13.0", out = "pc=6", tag = "tr♭", name = "Trill, minor second", class = "long" }
+trill-maj  = { m2 = "13.2", out = "pc=7", tag = "tr",  name = "Trill, major second", class = "long" }
