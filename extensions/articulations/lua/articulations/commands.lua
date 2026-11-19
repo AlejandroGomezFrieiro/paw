@@ -144,6 +144,79 @@ command("art.maps", function()
   paw.ui.page("Articulation maps", lines)
 end, { desc = "List the articulation maps there are, where they are from, and any that does not read" })
 
+command("art.shift", function(ctx)
+  local track = need_track()
+  local text = words(ctx)
+  local map = art.map_of(track)
+  if not map then fail("the track has no articulation map: :art.map") end
+  local now = (art.info(track) or {}).shift or 0
+  if text == "" then
+    paw.notify(string.format("%s: keyswitches %s, shifted %+d keys", map.name,
+      map.keyswitches and (paw.music.name(map.keyswitches[1]) .. "-" .. paw.music.name(map.keyswitches[2])) or "none", now))
+    return
+  end
+  -- `+12`, `-1`, `0`; `+1oct`, `-2oct` in octaves; with `+`/`-` from where it is now only with `rel`.
+  local sign, n, unit = text:match("^([%+%-]?)(%d+)%s*(o?c?t?)$")
+  if not n then fail("`" .. text .. "`: a number of keys (`-12`, `+1`, `0`) or of octaves (`-1oct`)") end
+  local shift = tonumber(n) * (unit == "oct" and 12 or 1) * (sign == "-" and -1 or 1)
+  if unit ~= "" and unit ~= "oct" then fail("`" .. text .. "`: a number of keys (`-12`) or of octaves (`-1oct`)") end
+  local moved = art.set_shift(track, shift)
+  local ks = moved.keyswitches
+  paw.notify(string.format("%s: keyswitches shifted %+d keys%s", moved.name, shift,
+    ks and (", now " .. paw.music.name(ks[1]) .. "-" .. paw.music.name(ks[2])) or ""))
+end, { raw = true, label = "Shift keyswitches", desc = "Move the keyswitches of the track's map by keys (`art.shift -12`) or octaves (`art.shift +1oct`), for an instrument whose keyswitch area you moved; `art.shift 0` puts them back; alone, says where they are" })
+
+-- A plugin put on a track with no map binds the map whose `match` names it.
+paw.option.define("art_auto_map", true)
+local known_devices = {}
+local function know_all()
+  for _, t in ipairs(api.track_list()) do
+    local ok, devices = pcall(api.track_get, t, "devices")
+    for _, d in ipairs(ok and devices or {}) do known_devices[type(d) == "table" and d.id or d] = true end
+  end
+end
+M.know_all = know_all
+know_all()
+paw.on("project.loaded", function() known_devices = {} know_all() end)
+--- The map whose `match` names a plugin device (`device_get`'s table), or nil.
+function M.plugin_map(device)
+  if type(device) ~= "table" or type(device.plugin) ~= "table" then return nil end
+  for _, f in ipairs(maps.list()) do
+    local map = maps.load(f.file, f.id)
+    for _, entry in ipairs(map and map.match or {}) do
+      if maps.plugin_matches(entry, device) then return map end
+    end
+  end
+end
+
+--- Bind the map of a plugin to its track, when the track has none, as its
+--- own undo step. Returns the map bound, or nil.
+function M.auto_map(track, device)
+  if not paw.opt.art_auto_map then return nil end
+  local info = art.info(track)
+  if info and info.map then return nil end
+  local map = M.plugin_map(device)
+  if not map then return nil end
+  api.undo_checkpoint()
+  if not pcall(art.bind, track, map.id) then return nil end
+  api.undo_checkpoint()
+  paw.notify(string.format("%s: articulation map %s bound (:art.unmap takes it away)", device.name or map.name, map.id))
+  return map
+end
+
+-- Only a device added after the project opened: a project that opens keeps
+-- the maps that it has.
+paw.on("device.added", function(e)
+  if not e or not e.id or known_devices[e.id] then return end
+  known_devices[e.id] = true
+  if not paw.opt.art_auto_map or not e.track then return end
+  paw.defer(function()
+    local ok, d = pcall(api.device_get, e.id)
+    if ok then M.auto_map(e.track, d) end
+  end, 0)
+end)
+
+
 --- A picker of every map, to bind one to a track.
 function M.pick_map(track)
   local items = {}
@@ -433,28 +506,57 @@ end, { raw = true, desc = "Write a map to fill in: `art.new Cellos`, in <config>
 
 -- Keyswitches in clips into attributes -------------------------------------------------
 
---- The articulation each keyswitch note and each CC32 value stands for in a map.
+--- The articulation each keyswitch note and each switching controller
+--- value stands for in a map. A controller switches when two articulations
+--- set it to different values and it is not drawn (`chase`, `[linked]`),
+--- or when it is CC32 (UACC). A value of a range (`cc58=0-15`) stands for
+--- the articulation of that range. Returns `by_key`, and a function of a
+--- controller and a value (0 to 127) that gives the articulation, or nil.
 local function switches(map)
-  local by_key, by_cc32 = {}, {}
+  local by_key, values = {}, {}
+  local drawn = {}
+  for _, n in ipairs(map.chase or {}) do drawn[n] = true end
+  for _, l in ipairs(map.linked or {}) do
+    for _, n in ipairs(l.cc) do drawn[n] = true end
+  end
+  local function add(number, lo, hi, a)
+    values[number] = values[number] or {}
+    table.insert(values[number], { lo = lo, hi = hi, art = a })
+  end
   for _, a in ipairs(map.arts) do
     for _, e in ipairs(a.events) do
       if (e.type == "note" or e.type == "hold") and not by_key[e.key] then by_key[e.key] = a end
-      if e.type == "cc" and e.number == 32 and not by_cc32[e.value] then by_cc32[e.value] = a end
+      if e.type == "cc" then add(e.number, e.lo or e.value, e.hi or e.value, a) end
     end
     -- UACC: a bank's program number is the CC32 value that selects it.
-    if a.program and not by_cc32[a.program] then by_cc32[a.program] = a end
+    if a.program then add(32, a.program, a.program, a) end
   end
-  return by_key, by_cc32
+  local by_cc = {}
+  for number, list in pairs(values) do
+    local seen, distinct = {}, 0
+    for _, v in ipairs(list) do
+      if not seen[v.lo] then seen[v.lo], distinct = true, distinct + 1 end
+    end
+    if number == 32 or (not drawn[number] and distinct >= 2) then by_cc[number] = list end
+  end
+  local function find(number, v)
+    for _, r in ipairs(by_cc[number] or {}) do
+      if v >= r.lo and v <= r.hi then return r.art end
+    end
+  end
+  return by_key, find
 end
+M.switches = switches
 
---- Turn the keyswitch notes and CC32 (UACC) moves of a clip into
---- attributes on the notes that follow them: the keyswitch notes go, the
---- notes get the articulation. Returns how many notes got one.
+--- Turn the keyswitch notes and switching controller moves (CC32, a
+--- controller whose values choose articulations) of a clip into attributes
+--- on the notes that follow them: the keyswitch notes and those moves go,
+--- the notes get the articulation. Returns how many notes got one.
 function M.from_keyswitches(clip_id)
   local c = api.clip_get(clip_id)
   local map = art.map_of(c.track)
   if not map then fail("the track has no articulation map: :art.map") end
-  local by_key, by_cc32 = switches(map)
+  local by_key, by_cc = switches(map)
   local changes = {}
   for _, n in ipairs(api.clip_notes(clip_id)) do
     if by_key[n.pitch] then changes[#changes + 1] = { at = n.start, art = by_key[n.pitch] } end
@@ -462,9 +564,9 @@ function M.from_keyswitches(clip_id)
   local controls, kept = paw.clip(clip_id):controls(), {}
   local dropped = false
   for _, ctl in ipairs(controls) do
-    local v = ctl.type == "cc" and ctl.number == 32 and math.floor(ctl.value * 127 + 0.5)
-    if v and by_cc32[v] then
-      changes[#changes + 1] = { at = ctl.start, art = by_cc32[v] }
+    local found = ctl.type == "cc" and by_cc(ctl.number, math.floor(ctl.value * 127 + 0.5))
+    if found then
+      changes[#changes + 1] = { at = ctl.start, art = found }
       dropped = true
     else
       kept[#kept + 1] = ctl
@@ -503,7 +605,7 @@ command("art.from-keyswitches", function()
     total, gone = total + n, gone + (r or 0)
   end
   paw.notify(string.format("%d notes given the articulation of the keyswitch before them; %d keyswitch notes taken out", total, gone))
-end, { label = "Keyswitches into articulations", desc = "Turn the keyswitch notes and CC32 (UACC) moves of the clip into the articulations of the notes after them" })
+end, { label = "Keyswitches into articulations", desc = "Turn the keyswitch notes and switching controller moves (CC32, a controller whose values choose articulations) of the clip into the articulations of the notes after them" })
 
 -- Keys ---------------------------------------------------------------------------------
 

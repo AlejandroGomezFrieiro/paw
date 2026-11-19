@@ -909,6 +909,13 @@ pub fn install(lua: &Lua, shared: &Rc<Shared>) -> mlua::Result<()> {
                 None => Ok(LuaValue::Nil),
             }
         }
+        // Load an attachment: a native library that an extension ships, which
+        // paw offers each CLAP plugin that it makes from now on (see
+        // `crates/paw-plugins/include/paw_attach.h`). Returns the name of the
+        // attachment.
+        fn plugins_attach(_, sh, path => String) {
+            sh.session.borrow_mut().registry.attach(std::path::Path::new(&path)).lua()
+        }
         // Stop to find plugins in a directory added with `plugins_add_dir`, and
         // make no more devices of `kinds`, the kinds found there. Devices that
         // exist continue to work.

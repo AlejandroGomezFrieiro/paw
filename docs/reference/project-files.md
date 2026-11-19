@@ -21,6 +21,7 @@ song/
 │       ├── track.json      the track and its clips, without the notes
 │       ├── devices.json    the chain and its parameters
 │       ├── 1-synth.state   the state of a plugin, as the plugin gives it
+│       ├── 2-clap-….ara    a file of an attachment, beside the state (the ARA archive)
 │       ├── automation/volume.json
 │       ├── clips/riff.midi2
 │       └── clips/take.edits.json  the edit list of an audio clip, if it has one

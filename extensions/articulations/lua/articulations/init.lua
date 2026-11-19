@@ -83,12 +83,17 @@ end
 M.keep = keep
 
 --- The map a track is bound to, or nil (and why, when its file is gone).
+--- With the track's keyswitch shift (`:art.shift`) applied.
 function M.map_of(track)
   local info = M.info(track)
   if not info or not info.map then return nil end
   local map, err
   if info.file then map, err = maps.load(info.file, info.map) end
   if not map then map, err = maps.find(info.map) end
+  if map and info.shift and info.shift ~= 0 then
+    local moved = maps.shift(map, info.shift)
+    if moved then return moved end
+  end
   return map, err
 end
 
@@ -99,7 +104,7 @@ function M.compile(map, default)
   for _, art in ipairs(map.arts) do
     -- `delay`: how far the kernel moves the articulation's notes, in ms
     -- (-80: 80 ms early, for a sound that starts 80 ms late).
-    if not arts[art.code] then arts[art.code] = { out = art.out, delay = art.delay or map.delay } end
+    if not arts[art.code] then arts[art.code] = { out = art.send or art.out, delay = art.delay or map.delay } end
   end
   local d = map.by_id[default or map.default] or map.by_id[map.default]
   return { send = map.send, chase = map.chase, default = d and d.code or nil, arts = arts, delay = map.delay }
@@ -143,16 +148,39 @@ function M.bind(track, which)
     if not names[art.code] then names[art.code] = art.tag end
   end
   local default = old.map == map.id and map.by_id[old.default or ""] and old.default or map.default
+  -- A shift of the keyswitches stays while the map is the same.
+  local shift = old.map == map.id and old.shift or nil
+  local played = shift and maps.shift(map, shift) or map
   api.undo_label("Bind articulations " .. map.name)
   keep(id, function(info)
     info.map, info.file, info.hash, info.name = map.id, map.file, map.hash, map.name
     info.default = default
     info.pen = map.by_id[info.pen or ""] and info.pen or nil
     info.names = names
+    info.shift = shift
   end)
-  M.set_attr_map(id, M.compile(map, default))
+  M.set_attr_map(id, M.compile(played, default))
   paw.emit("articulations.bound", { track = id, map = map.id })
   return map
+end
+
+--- Move the keyswitches of a track's map by `shift` keys (0: as the map
+--- says), for an instrument whose keyswitch area was moved. Returns the
+--- moved map, or fails with why.
+function M.set_shift(track, shift)
+  local id = track_of(track)
+  local info = M.info(id)
+  if not info or not info.map then error("the track has no articulation map: :art.map", 0) end
+  local map, err = maps.load(info.file or "", info.map)
+  if not map then map, err = maps.find(info.map) end
+  if not map then error(err, 0) end
+  shift = math.floor(tonumber(shift) or 0)
+  local moved, why = maps.shift(map, shift)
+  if not moved then error(why, 0) end
+  api.undo_label("Shift keyswitches")
+  keep(id, function(i) i.shift = shift ~= 0 and shift or nil end)
+  M.set_attr_map(id, M.compile(moved, info.default))
+  return moved
 end
 
 --- Take the binding away: the notes keep their attributes.
@@ -301,7 +329,7 @@ end
 function M.set_track(track, which, art_id)
   keep(track, function(info) info[which] = art_id end)
   if which == "default" then
-    local map = M.map_of(track)
+    local map = M.map_of(track)  -- with its shift
     if map then M.set_attr_map(track, M.compile(map, art_id)) end
   end
 end

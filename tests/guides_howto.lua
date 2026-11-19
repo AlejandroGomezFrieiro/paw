@@ -934,3 +934,51 @@ test("guide: change a sound at a point in the song", function()
   local loud = T.channel_peaks(info, seconds + 0.05, seconds + 0.5)
   eq(loud > quiet * 10, true, string.format("the rendered file changes at the point (%.4f, %.4f)", quiet, loud))
 end)
+
+test("guide: use articulations with a plugin instrument", function()
+  start()
+  load_bundled("articulations")
+  local art = require("articulations")
+  local bass = paw.add_track({ name = "Bass" })
+  bass:add_device("synth")
+  local clip = bass:add_clip({ start = 0, length = 4, notes = { { pitch = 40, start = 0, length = 1 }, { pitch = 43, start = 1, length = 1 } } })
+  paw.flush()
+  api.undo_checkpoint()
+  -- The plugin as device_get tells it: the suite has no MODO BASS 2.
+  local map = require("articulations.commands").auto_map(bass.id,
+    { name = "MODO BASS 2", plugin = { format = "vst3", id = "0", name = "MODO BASS 2" } })
+  eq(map and art.info(bass.id).map, "plugins/ik-multimedia/modo-bass-2", "the map of the plugin binds itself")
+  eq(paw.ui.messages[#paw.ui.messages].text:find("bound", 1, true) ~= nil, true, "a message tells so")
+
+  -- Give notes an articulation.
+  local roll = paw.ui.views.pianoroll
+  roll:edit(clip)
+  roll:set(40, 0)
+  paw.ui.focus("pianoroll")
+  keys("\\a")
+  keys("slap<CR>")
+  eq(art.m2.code(art.attr_of(clip:notes()[1])), "17.C", "the note is slapped")
+
+  -- Move the keyswitches.
+  paw.cursor.set_track(bass)
+  keys(":art.shift -1oct<CR>")
+  eq(art.attr_map(bass.id).arts["17.C"].out, "ks=D-1", "the keyswitch an octave down")
+  keys(":art.shift 0<CR>")
+  eq(art.attr_map(bass.id).arts["17.C"].out, "ks=D0", "and back")
+
+  -- Bind a map by name.
+  keys(":art.map sine-cc<CR>")
+  eq(art.info(bass.id).map, "plugins/orchestral-tools/sine-cc", ":art.map binds a map by its name")
+
+  -- A map of your own.
+  keys(":art.new My bass<CR>")
+  local file = api.env().config_dir .. "/articulations/my-bass.art.toml"
+  eq(T.read_file(file) ~= nil, true, "an empty map to write in")
+
+  -- The drums of a drum plugin.
+  load_bundled("drums")
+  local kit = paw.add_track({ name = "Kit" })
+  paw.cursor.set_track(kit)
+  keys(":drums.map mt-powerdrumkit<CR>")
+  eq(require("drums").info(kit).map, "mt-powerdrumkit", "the notes of the kit have names")
+end)

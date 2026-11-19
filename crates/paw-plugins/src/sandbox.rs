@@ -1114,6 +1114,9 @@ impl RemoteFactory {
         if let Some(dirs) = crate::added_dirs_env() {
             command.env(crate::ADDED_DIRS_ENV, dirs);
         }
+        if let Some(libs) = crate::attach::env() {
+            command.env(crate::attach::ATTACH_ENV, libs);
+        }
         if TEST_HANG.load(Ordering::Relaxed) {
             command.env("PAW_PLUGIN_TEST_HANG", "1");
         }

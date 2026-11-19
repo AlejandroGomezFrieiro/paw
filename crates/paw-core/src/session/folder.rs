@@ -325,6 +325,21 @@ fn chain_files(track: &Track) -> Result<(Vec<Value>, Vec<(String, Vec<u8>)>)> {
             d["state_file"] = json!(name);
             files.push((name, bytes));
         }
+        // The files the device keeps beside its state, each named after it.
+        let mut names = serde_json::Map::new();
+        for (key, text) in &device.files {
+            let bytes = BASE64
+                .decode(text)
+                .with_context(|| format!("the {key} file of device {}", device.id))?;
+            let stem = file_name(&format!("{}-{}", i + 1, device.kind));
+            let name = unique(&mut states, &stem, &format!(".{}", file_name(key)));
+            names.insert(key.clone(), json!(name));
+            files.push((name, bytes));
+        }
+        if !names.is_empty() {
+            d.as_object_mut().map(|o| o.remove("files"));
+            d["file_names"] = Value::Object(names);
+        }
         devices.push(d);
     }
     Ok((devices, files))
@@ -751,6 +766,21 @@ pub fn read_chain(file: &Path, problems: &mut Vec<String>) -> Result<Vec<Value>>
                 Err(e) => problems.push(format!("{}: {e}", path.display())),
             }
             d.as_object_mut().map(|o| o.remove("state_file"));
+        }
+        if let Some(names) = d.get("file_names").and_then(Value::as_object).cloned() {
+            let mut files = serde_json::Map::new();
+            for (key, name) in names {
+                let Some(name) = name.as_str() else { continue };
+                let path = resolve(Path::new(name), &base);
+                match std::fs::read(&path) {
+                    Ok(bytes) => {
+                        files.insert(key, json!(BASE64.encode(bytes)));
+                    }
+                    Err(e) => problems.push(format!("{}: {e}", path.display())),
+                }
+            }
+            d["files"] = Value::Object(files);
+            d.as_object_mut().map(|o| o.remove("file_names"));
         }
         chain.push(d);
     }

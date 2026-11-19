@@ -1,0 +1,39 @@
+# SINE Player (Orchestral Tools), an instrument in key switch mode: a
+# template. Each instrument of SINE has its own list of articulations, so
+# copy this file to ~/.config/paw/articulations/, name it after the
+# instrument, and write its articulations in the order of its list.
+#
+# From the SINE Player documentation, not checked with the plugin:
+#   https://orchestraltools.helpscoutdocs.com/article/301-articulation-list
+#   - in key switch mode, each articulation of the list gets the next key,
+#     from the start of the key switch area of the instrument (below or
+#     above its range, set in the Options View);
+#   - the other modes are a CC whose values are divided evenly between the
+#     articulations (sine-cc), program changes (sine-program, not in the
+#     VST3 version) and a MIDI channel for each articulation (sine-channel).
+#
+# This template puts the key switch area at C0. If SINE shows another start
+# for the instrument, `:art.shift` moves all the keys (`:art.shift +12`).
+format = 1
+name = "SINE Player, key switches (template)"
+family = "strings"
+checked = "from the SINE Player documentation, not checked with the plugin"
+match = ["plugin:SINE Player"]
+keyswitches = "C0-G0"
+default = "sustain"
+send = "change"
+chase = [1, 11]
+labels = { 1 = "Dynamics", 11 = "Expression" }
+
+[art]
+sustain    = { m2 = "10.0", out = "ks=C0",  tag = "sus", name = "Sustain",    class = "long" }
+legato     = { m2 = "10.2", out = "ks=C#0", tag = "leg", name = "Legato",     class = "legato" }
+staccato   = { m2 = "11.0", out = "ks=D0",  tag = "stc", name = "Staccato",   class = "short", mark = "staccato" }
+spiccato   = { m2 = "11.5", out = "ks=D#0", tag = "spc", name = "Spiccato",   class = "short" }
+pizzicato  = { m2 = "11.A", out = "ks=E0",  tag = "pz",  name = "Pizzicato",  class = "short-light", text = "pizz." }
+tremolo    = { m2 = "12.0", out = "ks=F0",  tag = "trm", name = "Tremolo",    class = "long-dark", mark = "tremolo3" }
+trill-min  = { m2 = "13.0", out = "ks=F#0", tag = "tr♭", name = "Trill, minor second", class = "long" }
+trill-maj  = { m2 = "13.2", out = "ks=G0",  tag = "tr",  name = "Trill, major second", class = "long" }
+
+[linked]
+dynamics   = { cc = [1, 11], curve = ["linear", "0:0.4 1:1"], default = 0.7, name = "Dynamics" }

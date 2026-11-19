@@ -202,12 +202,15 @@ fn list(bundle: &Path) -> Result<Vec<Found>> {
                 continue;
             }
             let (mut vendor, mut instrument, mut version) = (String::new(), false, String::new());
+            let mut features = Vec::new();
             if let Some(factory2) = &factory2 {
                 let mut info2: PClassInfo2 = std::mem::zeroed();
                 if factory2.getClassInfo2(index, &mut info2) == OK {
                     vendor = chars(&info2.vendor);
                     version = chars(&info2.version);
-                    instrument = chars(&info2.subCategories).contains("Instrument");
+                    let categories = chars(&info2.subCategories);
+                    instrument = categories.contains("Instrument");
+                    features = categories.split('|').map(str::to_string).collect();
                 }
             }
             found.push(Found {
@@ -216,6 +219,7 @@ fn list(bundle: &Path) -> Result<Vec<Found>> {
                 vendor,
                 instrument,
                 version,
+                features,
             });
         }
     }
@@ -272,6 +276,7 @@ pub(crate) fn scan_in(
                         id: plugin.id.clone(),
                         version: plugin.version,
                         params: Vec::new(),
+                        features: plugin.features,
                     };
                     registry.register(std::rc::Rc::new(Vst3Factory {
                         info,

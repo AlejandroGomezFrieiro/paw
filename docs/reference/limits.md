@@ -208,6 +208,10 @@ gets the function.
     of the map first.
   - A modifier writes MIDI 1.0 controllers, not the registered controllers
     of the profile (mute type, playing position).
+  - A map switches with keys, controllers, programs and channels, not with
+    a parameter of a plugin.
+  - The maps of plugins (MODO BASS 2, SINE Player) come from the
+    documentation of the vendors. They are not checked with the plugins.
   - `:art.edit` (a map edited in a text buffer) is not available.
   - paw does not make a generated map again when its library changes.
   - paw does not read Kontakt and SF2 libraries.
@@ -369,6 +373,16 @@ gets the function.
     The other takes of a clip share its markers.
 - Plugins with main buses wider than stereo (surround), and inputs other
   than the main pair and one side-chain.
+- ARA plugins ([ara](../../extensions/ara/README.md)):
+  - Only CLAP plugins with ARA 2. Not ARA as VST3, and not ARA 1.
+  - Windows plugins through yabridge give no ARA. See
+    [About ARA plugins](../explanation/about-ara.md).
+  - The plugin plays the files of the clips without their gain, fades and
+    edit list.
+  - paw reads only the notes that a plugin found, not its tempo, key or
+    chords.
+  - An edit in the window of the plugin is not an undo step of paw.
+  - Attachments take CLAP plugins only.
 - Pre-roll without a punch: a take from the playhead does not play in from
   before it. Pre-roll in parts of a bar.
 - MIDI-CI: no discovery, profiles or property exchange. MIDI-CI uses

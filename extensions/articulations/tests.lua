@@ -577,3 +577,74 @@ test("articulations: K on a note with an articulation says it once, in the map's
   lines = said()
   eq(#lines, 1, "and one without: " .. table.concat(lines, " | "))
 end)
+
+-- Plugin instruments ------------------------------------------------------------------------
+
+test("articulations: every map shipped with paw reads, and the core takes what it sends", function()
+  load()
+  fresh()
+  local track = paw.add_track({ name = "Any" })
+  paw.flush()
+  local n = 0
+  for _, f in ipairs(art.maps.list()) do
+    if f.file:find("extensions/articulations/articulations/", 1, true) then
+      local map, err = art.maps.load(f.file, f.id)
+      eq(err, nil, f.id .. " reads")
+      local ok, why = pcall(api.track_set, track.id, "attr_map", art.compile(map))
+      eq(ok, true, f.id .. ": the core takes its downgrade map: " .. tostring(why))
+      n = n + 1
+    end
+  end
+  eq(n >= 6, true, "the maps found: " .. n)
+end)
+
+test("articulations: a plugin's map binds itself, names keys as its vendor does, and :art.shift moves its keyswitches", function()
+  local track, clip, roll = strings()
+  art.unbind(track.id)
+  api.undo_checkpoint()
+  local commands = require("articulations.commands")
+  -- What device_get says of MODO BASS 2 through yabridge.
+  local modo = { name = "MODO BASS 2", plugin = { format = "vst3", id = "ABCDEF0123", name = "MODO BASS 2", vendor = "IK Multimedia" } }
+  eq(art.maps.plugin_matches("clap:MODO BASS 2", modo), false, "another format does not match")
+  commands.auto_map(track.id, modo)
+  eq(commands.auto_map(track.id, modo), nil, "a track with a map keeps it")
+  paw.ui.focus("pianoroll")
+  keys("u")
+  eq(art.info(track.id), nil, "the binding is its own undo step")
+  keys(":art.map sine-cc<CR>")
+  eq(art.attr_map(track.id).arts["11.A"].out, "cc58=71", "a range of values sends its middle")
+
+  -- A vendor whose middle C is C3: its C0 is paw's C1.
+  local file = T.scratch .. "/c3.art.toml"
+  T.write_file(file, 'format = 1\nmiddle_c = "C3"\nrange = "C3-C6"\n[art]\nsustain = { m2 = "10.0", out = "ks=C0" }\npizzicato = { m2 = "11.A", out = "ks=D0:127" }\n')
+  art.maps.forget()
+  keys(":art.map " .. file .. "<CR>")
+  eq(art.attr_map(track.id).arts["11.A"].out, "ks=D1:127", "sent in paw's names")
+  eq(table.concat(art.map_of(track.id).range, "-"), "60-96", "its range read the same way")
+  roll:set(67, 0)
+  keys(":art pizzicato<CR>")
+  keys(":art.shift -2<CR>")
+  eq(art.attr_map(track.id).arts["11.A"].out, "ks=C1:127", "shifted two keys down")
+  local text = {}
+  for i, l in ipairs(roll:describe()) do text[i] = type(l) == "table" and l.text or l end
+  eq(table.concat(text, "\n"):find("sent as ks=C1:127 (ks=D0:127 in the map)", 1, true) ~= nil, true, table.concat(text, "\n"))
+  keys("u")
+  eq(art.attr_map(track.id).arts["11.A"].out, "ks=D1:127", "u takes the shift back")
+  eq(codes(clip):sub(1, 7), "67:11.A", "and leaves the note")
+end)
+
+test("articulations: :art.from-keyswitches reads a controller whose values choose articulations, by ranges", function()
+  local track, clip = strings()
+  art.bind(track.id, "sine-cc")
+  api.undo_checkpoint()
+  clip:set_controls({
+    { start = 0, type = "cc", number = 58, value = 70 / 127 },   -- pizzicato, 64-79
+    { start = 2, type = "cc", number = 58, value = 33 / 127 },   -- staccato, 32-47
+    { start = 0, type = "cc", number = 1, value = 0.5 },         -- dynamics stay
+  })
+  api.undo_checkpoint()
+  paw.ui.focus("pianoroll")
+  keys(":art.from-keyswitches<CR>")
+  eq(codes(clip), "67:11.A 69:11.A 71:11.0 72:11.0", "the notes after each move")
+  eq(#clip:controls(), 1, "the switches go, the dynamics stay")
+end)

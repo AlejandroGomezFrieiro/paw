@@ -535,6 +535,7 @@ pub(crate) fn scan(registry: &mut Registry, cache: &mut crate::Cache, notes: &mu
             id: plugin.id.clone(),
             version: plugin.version,
             params: Vec::new(),
+            features: plugin.features,
         };
         registry.register(std::rc::Rc::new(Lv2Factory {
             info,
@@ -594,6 +595,7 @@ fn scan_world(bundles: Vec<(PathBuf, u64)>) -> crate::Lv2Cache {
                 vendor: take_text(lilv_plugin_get_author_name(plugin)),
                 instrument,
                 version: if minor.is_empty() { String::new() } else { format!("{minor}.{}", if micro.is_empty() { "0" } else { &micro }) },
+                features: Vec::new(),
             });
         }
     }

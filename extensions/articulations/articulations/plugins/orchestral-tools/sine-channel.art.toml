@@ -1,0 +1,25 @@
+# SINE Player (Orchestral Tools), an instrument in MIDI channel mode: a
+# template. Source: https://orchestraltools.helpscoutdocs.com/article/301-articulation-list
+# (see sine-keyswitch.art.toml beside this file).
+#
+# In this mode each articulation of the list listens on its own MIDI
+# channel, the first on channel 1. paw sends each note, and the controllers
+# of its articulation, on that channel. Controllers that you draw in the
+# clip (dynamics) go on channel 1 only: give the other channels the same
+# controllers in SINE, or draw them on each articulation.
+format = 1
+name = "SINE Player, a channel for each articulation (template)"
+family = "strings"
+checked = "from the SINE Player documentation, not checked with the plugin"
+default = "sustain"
+send = "every"
+
+[art]
+sustain    = { m2 = "10.0", out = "ch=1", tag = "sus", name = "Sustain",    class = "long" }
+legato     = { m2 = "10.2", out = "ch=2", tag = "leg", name = "Legato",     class = "legato" }
+staccato   = { m2 = "11.0", out = "ch=3", tag = "stc", name = "Staccato",   class = "short", mark = "staccato" }
+spiccato   = { m2 = "11.5", out = "ch=4", tag = "spc", name = "Spiccato",   class = "short" }
+pizzicato  = { m2 = "11.A", out = "ch=5", tag = "pz",  name = "Pizzicato",  class = "short-light", text = "pizz." }
+tremolo    = { m2 = "12.0", out = "ch=6", tag = "trm", name = "Tremolo",    class = "long-dark", mark = "tremolo3" }
+trill-min  = { m2 = "13.0", out = "ch=7", tag = "tr♭", name = "Trill, minor second", class = "long" }
+trill-maj  = { m2 = "13.2", out = "ch=8", tag = "tr",  name = "Trill, major second", class = "long" }
