@@ -1,0 +1,32 @@
+# SINE Player (Orchestral Tools), an instrument in CC switch mode: a
+# template. Source: https://orchestraltools.helpscoutdocs.com/article/301-articulation-list
+# (see sine-keyswitch.art.toml beside this file).
+#
+# In CC mode the values of one controller are divided evenly between the
+# articulations of the list. With eight articulations each one has a
+# sixteenth of the values: 0-15, 16-31 and so on. paw sends the middle of
+# the range, and `:art.from-keyswitches` reads any value of it back.
+#
+# Set the Articulation Switch CC of the Controller Map (Options View) to
+# CC 58, or change `cc58` below to the controller that SINE uses. With
+# another number of articulations, divide 128 by it again.
+format = 1
+name = "SINE Player, CC switches (template)"
+family = "strings"
+checked = "from the SINE Player documentation, not checked with the plugin"
+default = "sustain"
+send = "change"
+chase = [1, 11]
+
+[art]
+sustain    = { m2 = "10.0", out = "cc58=0-15",    tag = "sus", name = "Sustain",    class = "long" }
+legato     = { m2 = "10.2", out = "cc58=16-31",   tag = "leg", name = "Legato",     class = "legato" }
+staccato   = { m2 = "11.0", out = "cc58=32-47",   tag = "stc", name = "Staccato",   class = "short", mark = "staccato" }
+spiccato   = { m2 = "11.5", out = "cc58=48-63",   tag = "spc", name = "Spiccato",   class = "short" }
+pizzicato  = { m2 = "11.A", out = "cc58=64-79",   tag = "pz",  name = "Pizzicato",  class = "short-light", text = "pizz." }
+tremolo    = { m2 = "12.0", out = "cc58=80-95",   tag = "trm", name = "Tremolo",    class = "long-dark", mark = "tremolo3" }
+trill-min  = { m2 = "13.0", out = "cc58=96-111",  tag = "tr♭", name = "Trill, minor second", class = "long" }
+trill-maj  = { m2 = "13.2", out = "cc58=112-127", tag = "tr",  name = "Trill, major second", class = "long" }
+
+[linked]
+dynamics   = { cc = [1, 11], curve = ["linear", "0:0.4 1:1"], default = 0.7, name = "Dynamics" }

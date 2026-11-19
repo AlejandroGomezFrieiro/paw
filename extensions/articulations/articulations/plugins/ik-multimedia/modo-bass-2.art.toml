@@ -1,0 +1,67 @@
+# MODO BASS 2 (IK Multimedia): play styles, techniques, muting and
+# plucking position, as one user-defined layout of the Control tab.
+#
+# From public descriptions of the Control tab, not checked with the plugin:
+#   - every function of the Control tab takes a keyswitch (KS) or a
+#     controller (CC), and LATCH makes a keyswitch stay on until the next
+#     one; the play styles toggle and stay until another style is chosen;
+#     HAMMER ON / PULL OFF acts while its key is held; SLIDE is on the pitch
+#     wheel, VIBRATO on CC1, BEND on CC5 and LET RING on CC64 by default:
+#     https://sleepfreaks-dtm.com/en/softsynth/modo-bass-1/ ("Control" tab)
+#   - IK changed some factory keyswitches in MODO BASS 2; the string
+#     keyswitches are low (FORCE A STRING is A-1, FORCE E STRING E-1):
+#     https://www.kvraudio.com/forum/viewtopic.php?t=582338&start=45
+#   - IK's manual (MODO_BASS_User_Manual.pdf, chapter "Control") is in the
+#     user area of ikmultimedia.com, not public.
+#
+# The factory keys are not public and differ between versions. So this map
+# uses keys of its own, in C0 to G#0: below the lowest note of a 5-string
+# bass (B0) and above the FORCE STRING keys. Set them once in the Control
+# tab, then save that as the default of MODO BASS 2:
+#
+#   FINGER      KS C0, latch on        INDEX/DOWN STROKE   KS G0, latch off
+#   PICK        KS C#0, latch on       MIDDLE/UP STROKE    KS G#0, latch off
+#   SLAP        KS D0, latch on        MUTING              CC 20
+#   HARMONICS   KS D#0, latch off      PLUCK POS.          CC 21
+#   GHOST MODE  KS E0, latch off       (SLIDE, VIBRATO, BEND, LET RING:
+#   HAMMER ON / PULL OFF  KS F0, latch off      as they are)
+#   LEGATO SLIDE          KS F#0, latch off
+#
+# If your keys are other ones, change the lines below, or move all the
+# keyswitches with `:art.shift` (`:art.shift -1oct`).
+format = 1
+name = "MODO BASS 2"
+family = "bass"
+checked = "from public descriptions of the Control tab, not checked with the plugin"
+match = ["plugin:MODO BASS 2"]
+middle_c = "C4"                       # the Control tab names key 9 A-1, as paw does
+range = "B0-C5"                       # 5-string low B to the 24th fret of a 6-string's high C
+comfortable = "E1-G3"
+keyswitches = "C0-G#0"
+default = "finger"
+send = "change"
+chase = [1, 5, 20, 21, 64]
+labels = { 1 = "Vibrato", 5 = "Bend", 20 = "Muting", 21 = "Plucking position", 64 = "Let ring" }
+
+[art]
+# Play styles: latched, so only a change of style sends its key.
+finger     = { m2 = "10.0",  out = "ks=C0",          tag = "fng", name = "Finger",            class = "long" }
+pick       = { m2 = "10.01", out = "ks=C#0",         tag = "pck", name = "Pick",              class = "long-light" }
+pick-down  = { m2 = "10.02", out = "ks=C#0 hold=G0", tag = "pk↓", name = "Pick, down strokes", class = "long-light" }
+pick-up    = { m2 = "10.03", out = "ks=C#0 hold=G#0", tag = "pk↑", name = "Pick, up strokes",  class = "long-light" }
+slap       = { m2 = "17.C",  out = "ks=D0",          tag = "slp", name = "Slap",              class = "short" }
+# Techniques: held while their notes play, over the style that is on.
+harmonics  = { m2 = "14.0",  out = "hold=D#0",       tag = "hrm", name = "Harmonics",         class = "long-light", text = "harm." }
+ghost      = { m2 = "17.7",  out = "hold=E0",        tag = "gho", name = "Ghost notes",       class = "short-dark", mark = "staccato" }
+hammer     = { m2 = "10.2",  out = "hold=F0",        tag = "h/p", name = "Hammer-on, pull-off", class = "legato" }
+slide      = { m2 = "10.4",  out = "hold=F#0",       tag = "sld", name = "Legato slide",      class = "legato-dark", text = "gliss." }
+
+[linked]
+vibrato    = { cc = [1], curve = ["linear"], default = 0, name = "Vibrato" }
+
+[mod]
+# Muting and plucking position combine with any style.
+muted      = { m2 = "mute=palm", out = "cc20=110", off = "cc20=0", text = "palm mute", group = 1 }
+half-muted = { m2 = "mute=half", out = "cc20=64",  off = "cc20=0", text = "half mute", group = 1 }
+bridge     = { m2 = "position=0.1", out = "cc21=10",  off = "cc21=64", text = "near the bridge", group = 2 }
+neck       = { m2 = "position=0.9", out = "cc21=118", off = "cc21=64", text = "near the neck", group = 2 }

@@ -208,6 +208,10 @@ gets the function.
     of the map first.
   - A modifier writes MIDI 1.0 controllers, not the registered controllers
     of the profile (mute type, playing position).
+  - A map switches with keys, controllers, programs and channels, not with
+    a parameter of a plugin.
+  - The maps of plugins (MODO BASS 2, SINE Player) come from the
+    documentation of the vendors. They are not checked with the plugins.
   - `:art.edit` (a map edited in a text buffer) is not available.
   - paw does not make a generated map again when its library changes.
   - paw does not read Kontakt and SF2 libraries.

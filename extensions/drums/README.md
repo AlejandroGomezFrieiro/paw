@@ -33,9 +33,11 @@ paw.ext.load("/path/to/paw/extensions/drums")
 
 ### How to use a drum plugin
 
-1. Put the plugin (MT-PowerDrumKit, or any kit with the General MIDI map) on
-   a track.
-2. Type `:drums.map gm-kit` (with toms and two crashes), or `:drums.map gm`.
+1. Put the plugin on a track.
+2. Type the map of the plugin:
+   - For MT-PowerDrumKit 2, type `:drums.map mt-powerdrumkit`.
+   - For a kit with the General MIDI map, type `:drums.map gm-kit` (with
+     toms and two crashes), or `:drums.map gm`.
 
 The clips of the track now open in the grid.
 
@@ -94,6 +96,7 @@ cursor on its row and type `:drums.pad level=-3 pan=0.2`.
 | `gm` | the pieces for a beat: kick, snare, rim, clap, closed, pedal and open hat, high, mid and low tom, crash, ride, ride bell, cowbell, tambourine |
 | `gm-kit` | a drum kit as a drummer puts it together: two snares, five toms, two crashes, splash, china, ride and bell |
 | `gm-full` | every General MIDI percussion note, 35 to 81 |
+| `mt-powerdrumkit` | the notes of MT-PowerDrumKit 2, from the note names of its vendor: closed, half-open, open and pedal hat (42, 44, 46, 65), three toms, two crashes and a choked crash, splash, china, ride, bell, and a key that stops all cymbals (83) |
 
 - Maps are plain tables in `require("drums").maps`.
 - A track keeps a copy of its rows. So a project opens the same on each

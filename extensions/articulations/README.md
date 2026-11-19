@@ -51,6 +51,18 @@ paw.ext.load("/path/to/paw/extensions/articulations")
   `~/.config/paw/articulations/reaticulate`.
 - To export the map of the track, type `:art.export reabank [file]`.
 
+### How to use a plugin instrument
+
+1. Add the plugin to a track. When a map names the plugin in its `match`,
+   paw binds the map to the track, as one undo step. A message tells you
+   so. `paw.opt.art_auto_map = false` stops this.
+2. If the keyswitches of the plugin are on other keys than those of the
+   map, type `:art.shift -1oct` (or `-12`, `+2`). `:art.shift 0` puts them
+   back.
+
+See [How to use articulations with a plugin
+instrument](../../docs/how-to/use-articulations-with-a-plugin-instrument.md).
+
 ### How to make notes sound on the beat
 
 1. Bind the map of the instrument to the track.
@@ -125,7 +137,7 @@ popover numbers them.
 | Field | Value |
 | --- | --- |
 | `m2` | the code of M2-123 |
-| `out` | a line of events: `ks=D1` a keyswitch note (`ks=D1:127` with a velocity), `hold=D1` held while the articulation continues, `cc32=40`, `pc=12` (`pc=12/258` with a bank), `ch=2` the note on another channel, `bend=0.5`, `attr` the attribute alone |
+| `out` | a line of events: `ks=D1` a keyswitch note that the instrument latches (`ks=D1:127` with a velocity), `hold=D1` held while the articulation continues, `cc32=40`, `cc58=0-15` a value from a range (paw sends the middle), `pc=12` (`pc=12/258` with a bank), `ch=2` the note on another channel, `bend=0.5`, `attr` the attribute alone. Two keyswitches go in one line: `ks=C#0 hold=G0` |
 | `tag` | the short name on the notes |
 | `name` | the name in lists |
 | `class` | a color: the classes of Reaticulate (`long`, `short`, `legato`, `fx`, `textured`, each `-light` or `-dark`) or `#rrggbb` |
@@ -134,7 +146,34 @@ popover numbers them.
 | `range` | the range of this articulation |
 | `delay` | how much earlier its notes play: `"-80ms"` |
 
-Key names are as paw names them: middle C is C4, 60.
+Key names are as paw names them: middle C is C4, 60. For a vendor whose
+chart calls key 60 `C3`, put `middle_c = "C3"` at the top of the map. Then
+the keys of the map are as the chart writes them, and paw sends them as
+paw names them.
+
+Other fields at the top of a map:
+
+| Field | Value |
+| --- | --- |
+| `match` | the instruments that the map is for. `sfz:File.sfz`, `dspreset:`, `describe:` name a library. `vst3:MODO BASS 2`, `clap:<id>`, `lv2:`, `vst:` name a plugin in that format, by its id, its name or a part of its name. `plugin:Name` names it in any format |
+| `middle_c` | the name of key 60 in the map: `"C4"` (the default) or `"C3"` |
+| `checked` | how far the map was checked: `"from the manual, not checked with the plugin"` |
+
+### Maps of plugins
+
+The extension has these maps, in
+`articulations/plugins/<vendor>/`. Each one comes from the documentation of
+its vendor, which the top of the file names. paw did not check them with
+the plugins.
+
+| Map | Instrument |
+| --- | --- |
+| `modo-bass-2` | MODO BASS 2: finger, pick (down, up), slap, harmonics, ghost notes, hammer-on, legato slide; mute and plucking position as modifiers. Set its keys in the Control tab first: the top of the file tells how |
+| `sine-keyswitch` | SINE Player in key switch mode, a template. It binds itself to SINE Player |
+| `sine-cc`, `sine-channel`, `sine-program` | SINE Player in its other modes: a controller divided in ranges, a channel for each articulation, program changes |
+
+Drum plugins have no articulations: the `drums` extension names their
+notes (`:drums.map mt-powerdrumkit`).
 
 paw looks for maps in these places. The first map with an id wins.
 
@@ -225,7 +264,8 @@ Notes entered with the keys, in insert mode or by a click take the pen.
 | `:art.import file.reabank` | makes a map of each bank of a Reaticulate file, in `~/.config/paw/articulations/reaticulate` |
 | `:art.export reabank [file]` | writes the map of the track as a Reaticulate bank |
 | `:art.new name` | a map to fill |
-| `:art.from-keyswitches` | changes keyswitch notes and CC32 (UACC) moves of the clip into the articulations of the notes after them |
+| `:art.from-keyswitches` | changes keyswitch notes and the controller moves that switch articulations into the articulations of the notes after them: CC32 (UACC), and a controller that two articulations set to other values (not one that the map chases or links) |
+| `:art.shift [keys]` | moves the keyswitches of the map of the track: `-12`, `+2`, `-1oct`. `0` puts them back. Alone, tells where they are |
 | `:art.check` | the problems of the notes of bound tracks, in the quickfix list |
 | `:art.measure`, `:art.measure!` | measures how late each articulation sounds. With `!`, writes it into the map |
 | `:art.lane [name]` | a linked lane of controllers as one curve |
@@ -282,6 +322,13 @@ When the notation extension is loaded too:
   has an articulation with that mark or text. `paw.opt.art_from_notation = false`
   stops this.
 
+### Options
+
+| Option | Default | Effect |
+| --- | --- | --- |
+| `art_auto_map` | `true` | a plugin added to a track with no map binds the map whose `match` names it |
+| `art_from_notation` | `true` | a mark or technique written in the score sets the articulation of the notes |
+
 ### Limits
 
 - The articulations have no menu of their own in the graphical window.
@@ -289,7 +336,11 @@ When the notation extension is loaded too:
 - The score draws the mark of an articulation in the same ink as a written
   mark.
 - A modifier writes its MIDI 1.0 controllers, not the registered
-  controllers of the profile.
+  controllers of the profile. A modifier does not send keyswitches.
+- A map cannot switch an articulation with a parameter of the plugin. Use
+  a keyswitch or a controller that the plugin learns.
+- A project that opens does not bind maps to its plugins. Only a plugin
+  that you add does.
 
 ## About
 

@@ -163,7 +163,13 @@ roll.describer("articulations", function(note, part)
   end
   local a, exact = art.resolve(map, attr)
   if not a then return { "  articulation  " .. m2.describe(attr) .. ", which " .. map.name .. " cannot play", articulation = true } end
+  -- As the map writes it; in paw's key names too when they differ (a map
+  -- whose `middle_c` is C3, a track whose keyswitches are shifted).
+  local send = a.send or a.out
   local sent = a.out ~= "" and ", sent as " .. a.out or ""
+  if send ~= "" and send ~= a.out then
+    sent = a.out ~= "" and (", sent as " .. send .. " (" .. a.out .. " in the map)") or (", sent as " .. send)
+  end
   local how = exact and "" or ", played as " .. a.name .. " (" .. a.code .. ") by M2-123's fallback"
   local lines = { "  articulation  " .. (exact and a.name .. " (" .. a.code .. ")" or m2.describe(attr)) .. how .. sent, articulation = true }
   local delay = a.delay or map.delay

@@ -37,34 +37,52 @@ function M.colour(class)
   return M.colours[class or "default"] or M.colours.default
 end
 
---- A key as a map writes it (`D1`, `C#1`, `24`), or nil.
-function M.key(text)
+--- How many keys a map's names are off paw's, from its `middle_c`: a
+--- vendor whose chart calls middle C (60) `C3` names every key an octave
+--- lower than paw does, so its names are read 12 keys higher. Nil and why
+--- for a `middle_c` that is not C-1 to C6.
+function M.offset(middle_c)
+  if middle_c == nil then return 0 end
+  local octave = tonumber(tostring(middle_c):match("^[Cc](%-?%d)$"))
+  if not octave or octave < -1 or octave > 6 then return nil end
+  return (4 - octave) * 12
+end
+
+--- A key as a map writes it (`D1`, `C#1`, `24`), or nil. `offset` (from
+--- `M.offset`) moves a name, not a number: a number is a MIDI key.
+function M.key(text, offset)
   text = tostring(text or "")
   local n = tonumber(text)
   if n then return (n >= 0 and n <= 127 and n == math.floor(n)) and n or nil end
   local ok, pitch = pcall(music.pitch, text)
-  if ok and pitch >= 0 and pitch <= 127 then return pitch end
+  if ok then
+    pitch = pitch + (offset or 0)
+    if pitch >= 0 and pitch <= 127 then return pitch end
+  end
 end
 
 --- A range of keys (`G3-A7`, `55-100`, `C-1-G9`), as `{ lo, hi }`, or nil.
-function M.range(text)
+function M.range(text, offset)
   if type(text) == "table" then
-    local lo, hi = M.key(text[1]), M.key(text[2])
+    local lo, hi = M.key(text[1], offset), M.key(text[2], offset)
     return lo and hi and { math.min(lo, hi), math.max(lo, hi) } or nil
   end
   text = tostring(text or ""):gsub("%s", "")
   -- The dash between two keys is the one followed by a letter or digit, not a minus of an octave.
   for at in text:gmatch("()%-") do
-    local lo, hi = M.key(text:sub(1, at - 1)), M.key(text:sub(at + 1))
+    local lo, hi = M.key(text:sub(1, at - 1), offset), M.key(text:sub(at + 1), offset)
     if lo and hi then return { math.min(lo, hi), math.max(lo, hi) } end
   end
-  local one = M.key(text)
+  local one = M.key(text, offset)
   if one then return { one, one } end
 end
 
 --- The events an `out` line stands for, or nil and why:
----   ks=D1 ks=D1:127 hold=D1 cc32=40 pc=12 pc=12/258 ch=2 bend=0.5 attr
-function M.events(text)
+---   ks=D1 ks=D1:127 hold=D1 cc32=40 cc58=0-15 pc=12 pc=12/258 ch=2 bend=0.5 attr
+--- `offset` (from `M.offset`) is how the map names keys. A controller
+--- written as a range of values (`cc58=0-15`, an instrument that takes any
+--- value of the range) sends the middle of it, and reads back any of it.
+function M.events(text, offset)
   local out = {}
   for word in tostring(text or ""):gmatch("%S+") do
     local name, value = word:match("^([%w]+)=(.+)$")
@@ -73,15 +91,20 @@ function M.events(text)
       out[#out + 1] = { type = "attr" }
     elseif name == "ks" or name == "hold" then
       local key, vel = value:match("^([^:]+):?(%d*)$")
-      local pitch = M.key(key)
+      local pitch = M.key(key, offset)
       if not pitch then return nil, "`" .. word .. "`: `" .. tostring(key) .. "` is not a key (D1, C#1, 26)" end
       vel = tonumber(vel)
       if vel and (vel < 1 or vel > 127) then return nil, "`" .. word .. "`: a velocity runs from 1 to 127" end
-      out[#out + 1] = { type = name == "ks" and "note" or "hold", key = pitch, velocity = vel or 100 }
+      out[#out + 1] = { type = name == "ks" and "note" or "hold", key = pitch, velocity = vel or 100, given = vel ~= nil }
     elseif name and name:match("^cc%d+$") then
-      local number, v = tonumber(name:sub(3)), tonumber(value)
-      if number > 127 or not v or v < 0 or v > 127 then return nil, "`" .. word .. "`: a controller and its value run from 0 to 127" end
-      out[#out + 1] = { type = "cc", number = number, value = v }
+      local number = tonumber(name:sub(3))
+      local lo, hi = value:match("^(%d+)%-(%d+)$")
+      lo, hi = tonumber(lo), tonumber(hi)
+      local v = lo and math.floor((lo + hi) / 2) or tonumber(value)
+      if number > 127 or not v or v < 0 or v > 127 or (lo and (lo > hi or hi > 127)) then
+        return nil, "`" .. word .. "`: a controller and its value run from 0 to 127 (`cc58=0-15` for a range of values)"
+      end
+      out[#out + 1] = { type = "cc", number = number, value = v, lo = lo, hi = hi }
     elseif name == "pc" then
       local program, bank = value:match("^(%d+)/?(%d*)$")
       program = tonumber(program)
@@ -107,7 +130,7 @@ function M.out_text(events)
   local words = {}
   for _, e in ipairs(events) do
     if e.type == "note" or e.type == "hold" then
-      words[#words + 1] = (e.type == "note" and "ks=" or "hold=") .. music.name(e.key) .. ((e.velocity and e.velocity ~= 100) and ":" .. e.velocity or "")
+      words[#words + 1] = (e.type == "note" and "ks=" or "hold=") .. music.name(e.key) .. ((e.velocity and (e.given or e.velocity ~= 100)) and ":" .. e.velocity or "")
     elseif e.type == "cc" then
       words[#words + 1] = "cc" .. e.number .. "=" .. e.value
     elseif e.type == "program" then
@@ -175,7 +198,7 @@ local ART_FIELDS = { m2 = true, out = true, tag = true, name = true, class = tru
   text = true, range = true, mono = true, group = true, program = true, icon = true, delay = true }
 local TOP_FIELDS = { format = true, name = true, family = true, match = true, range = true, comfortable = true,
   keyswitches = true, default = true, send = true, chase = true, labels = true, art = true, mod = true, generated = true,
-  source = true, delay = true, linked = true }
+  source = true, delay = true, linked = true, middle_c = true, checked = true }
 
 --- Read a map from its text. Returns the map, or nil and what is wrong.
 function M.parse(text, file)
@@ -195,9 +218,12 @@ function M.parse(text, file)
     arts = {}, by_id = {}, by_code = {}, mods = {}, hash = M.hash(text),
   }
   if map.send ~= "change" and map.send ~= "every" then return bad("`send` is \"change\" or \"every\"") end
+  local offset = M.offset(t.middle_c)
+  if not offset then return bad("`middle_c = \"" .. tostring(t.middle_c) .. "\"`: the name the instrument gives key 60, C-1 to C6 (\"C3\", \"C4\")") end
+  map.offset, map.middle_c, map.checked = offset, t.middle_c, t.checked
   for _, name in ipairs({ "range", "comfortable", "keyswitches" }) do
     if t[name] ~= nil then
-      map[name] = M.range(t[name])
+      map[name] = M.range(t[name], offset)
       if not map[name] then return bad("`" .. name .. " = " .. tostring(t[name]) .. "`: a range of keys is written `G3-A7` or `55-100`") end
     end
   end
@@ -209,10 +235,11 @@ function M.parse(text, file)
     end
     local attr, why = m2.parse(a.m2)
     if not attr then return bad("articulation `" .. id .. "`: " .. why) end
-    local events, why2 = M.events(a.out or "")
+    local events, why2 = M.events(a.out or "", offset)
     if not events then return bad("articulation `" .. id .. "`: " .. why2) end
     local art = {
-      id = id, code = m2.code(attr), attr = attr, out = a.out or "", events = events,
+      -- `out` as the map writes it; `send` in paw's key names, as the core takes it.
+      id = id, code = m2.code(attr), attr = attr, out = a.out or "", send = M.out_text(events), events = events,
       name = a.name or id:gsub("-", " "):gsub("^%l", string.upper), tag = a.tag or id:sub(1, 3),
       class = a.class or a.colour or a.color, mark = a.mark, text = a.text, mono = a.mono, group = a.group,
       program = tonumber(a.program), icon = a.icon,
@@ -223,7 +250,7 @@ function M.parse(text, file)
       if not art.delay then return bad("articulation `" .. id .. "`: `delay` is written \"-80ms\"") end
     end
     if a.range then
-      art.range = M.range(a.range)
+      art.range = M.range(a.range, offset)
       if not art.range then return bad("articulation `" .. id .. "`: `range` is written `G3-E7`") end
     end
     map.arts[#map.arts + 1] = art
@@ -235,8 +262,8 @@ function M.parse(text, file)
     for _, id in ipairs(toml.keys(t.mod)) do
       local m = t.mod[id]
       if type(m) ~= "table" then return bad("modifier `" .. id .. "` is a table") end
-      local on, why = M.events(m.out or "")
-      local off, why2 = M.events(m.off or "")
+      local on, why = M.events(m.out or "", offset)
+      local off, why2 = M.events(m.off or "", offset)
       if not on or not off then return bad("modifier `" .. id .. "`: " .. (why or why2)) end
       map.mods[#map.mods + 1] = { id = id, m2 = m.m2, out = m.out or "", off = m.off or "", on_events = on, off_events = off,
         text = m.text, name = m.name or m.text or id, group = m.group, tag = m.tag or id:sub(1, 3) }
@@ -402,22 +429,102 @@ function M.find(which)
   return nil, "no articulation map `" .. which .. "`: :art.maps lists them"
 end
 
---- Whether one of a map's `match` entries names a device: its kind, its
---- name or what it has loaded hold the entry's text (without the scheme).
-local function matches(map, devices)
-  for _, entry in ipairs(map.match) do
-    local text = tostring(entry):gsub("^%w+:", ""):lower()
-    local base = text:match("([^/]+)$") or text
-    for _, d in ipairs(devices) do
-      for _, field in ipairs({ d.kind, d.name, d.preset, d.library }) do
-        if type(field) == "string" and field ~= "" then
-          local f = field:lower()
-          if f == text or f:find(text, 1, true) or f:find(base, 1, true) or text:find(f, 1, true) then return true end
-        end
+-- The schemes of `match` that name a plugin: by its format, or any format.
+M.PLUGIN_SCHEMES = { clap = "clap", vst3 = "vst3", vst = "vst", vst2 = "vst", lv2 = "lv2", ladspa = "ladspa", plugin = true }
+
+--- Whether a `match` entry that names a plugin (`vst3:MODO BASS 2`,
+--- `clap:org.surge-synth-team.surge-xt`, `plugin:Circvit Bass`) names a
+--- device: the device is that plugin, in that format (any format for
+--- `plugin:`), and the text is its id or its name, or a part of its name.
+--- Case does not matter.
+function M.plugin_matches(entry, device)
+  local scheme, text = tostring(entry):match("^(%w+):(.+)$")
+  local format = scheme and M.PLUGIN_SCHEMES[scheme:lower()]
+  local p = type(device) == "table" and device.plugin
+  if not format or type(p) ~= "table" then return false end
+  local fmt = tostring(p.format or device.format or ""):lower()
+  if fmt == "vst2" then fmt = "vst" end
+  if format ~= true and fmt ~= format then return false end
+  text = text:lower()
+  local id, name = tostring(p.id or ""):lower(), tostring(p.name or device.name or ""):lower()
+  return id == text or name == text or (name ~= "" and name:find(text, 1, true) ~= nil)
+end
+
+--- Whether a `match` entry names a library or device kind (`sfz:`,
+--- `dspreset:`, `describe:`): the device's kind, its name or what it has
+--- loaded hold the entry's text (without the scheme).
+local function names_device(entry, devices)
+  local text = tostring(entry):gsub("^%w+:", ""):lower()
+  local base = text:match("([^/]+)$") or text
+  for _, d in ipairs(devices) do
+    for _, field in ipairs({ d.kind, d.name, d.preset, d.library }) do
+      if type(field) == "string" and field ~= "" then
+        local f = field:lower()
+        if f == text or f:find(text, 1, true) or f:find(base, 1, true) or text:find(f, 1, true) then return true end
       end
     end
   end
   return false
+end
+
+--- Whether one of a map's `match` entries names a device of a list.
+local function matches(map, devices)
+  for _, entry in ipairs(map.match) do
+    local scheme = tostring(entry):match("^(%w+):")
+    if scheme and M.PLUGIN_SCHEMES[scheme:lower()] then
+      for _, d in ipairs(devices) do
+        if M.plugin_matches(entry, d) then return true end
+      end
+    elseif names_device(entry, devices) then
+      return true
+    end
+  end
+  return false
+end
+M.matches = matches
+
+--- A map with its keyswitches moved by `shift` keys (an instrument whose
+--- keyswitch area the person moved): the keys of `ks` and `hold`, of its
+--- modifiers, and its keyswitch rows. The keys that it plays stay. Nil and
+--- why when a keyswitch would leave 0 to 127. The same map for 0.
+local shifted = setmetatable({}, { __mode = "k" })
+function M.shift(map, shift)
+  shift = math.floor(tonumber(shift) or 0)
+  if shift == 0 then return map end
+  shifted[map] = shifted[map] or {}
+  if shifted[map][shift] then return shifted[map][shift] end
+  local function move(events)
+    local out = {}
+    for i, e in ipairs(events) do
+      out[i] = e
+      if e.type == "note" or e.type == "hold" then
+        local key = e.key + shift
+        if key < 0 or key > 127 then return nil end
+        out[i] = { type = e.type, key = key, velocity = e.velocity, given = e.given }
+      end
+    end
+    return out
+  end
+  local copy = setmetatable({ shift = shift, arts = {}, by_id = {}, by_code = {}, mods = {} }, { __index = map })
+  for i, a in ipairs(map.arts) do
+    local events = move(a.events)
+    if not events then return nil, a.name .. ": a keyswitch moved " .. shift .. " keys leaves the keys 0 to 127" end
+    local b = setmetatable({ events = events, send = M.out_text(events) }, { __index = a })
+    copy.arts[i], copy.by_id[a.id] = b, b
+  end
+  for code, a in pairs(map.by_code) do
+    copy.by_code[code] = copy.by_id[a.id]
+  end
+  for i, m in ipairs(map.mods) do
+    local on, off = move(m.on_events), move(m.off_events)
+    if not on or not off then return nil, (m.text or m.id) .. ": a keyswitch moved " .. shift .. " keys leaves the keys 0 to 127" end
+    copy.mods[i] = setmetatable({ on_events = on, off_events = off }, { __index = m })
+  end
+  if map.keyswitches then
+    copy.keyswitches = { math.max(0, map.keyswitches[1] + shift), math.min(127, map.keyswitches[2] + shift) }
+  end
+  shifted[map][shift] = copy
+  return copy
 end
 
 --- The maps whose `match` names a device of a track.

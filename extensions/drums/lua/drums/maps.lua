@@ -12,7 +12,8 @@ local M = {}
 
 -- What a beat needs, in the General MIDI drum map. The built-in `drums`
 -- device plays every one of these, and so does any kit that follows the
--- General MIDI map (MT-PowerDrumKit among them).
+-- General MIDI map. MT-PowerDrumKit 2 has a map of its own below: its 44 is a
+-- half-open hat, not the pedal.
 M.gm = {
   label = "General MIDI: the pieces a beat needs",
   rows = {
@@ -54,8 +55,8 @@ local full = {}
 for note = 35, 81 do full[#full + 1] = { note = note, name = gm_names[note] } end
 M["gm-full"] = { label = "General MIDI: all 47 percussion notes", rows = full }
 
--- A kit of toms and cymbals as a drummer sets one up, for kits such as
--- MT-PowerDrumKit that have floor toms and two crashes.
+-- A kit of toms and cymbals as a drummer sets one up, for General MIDI kits
+-- that have floor toms and two crashes.
 M["gm-kit"] = {
   label = "General MIDI: a full drum kit, floor toms and two crashes",
   rows = {
@@ -77,6 +78,37 @@ M["gm-kit"] = {
     { note = 52, name = "China" },
     { note = 51, name = "Ride" },
     { note = 53, name = "Ride bell" },
+  },
+}
+
+-- MT-PowerDrumKit 2 (Manda Audio), from the vendor's note names for REAPER:
+-- https://www.powerdrumkit.com/help-drum-map-Reaper.php
+-- (MT-PowerDrumKit_2_Drum_Map_for_Reaper.zip). Not General MIDI for the
+-- hats: 44 is the half-open hat and the pedal is 65. The kit also plays
+-- the same pieces on other notes (35 kick, 39 and 40 snare, 43 47 50 the
+-- toms, 60 to 63 the hats); a clip with those shows them on rows of their
+-- own, named after General MIDI.
+M["mt-powerdrumkit"] = {
+  label = "MT-PowerDrumKit 2: its own note map",
+  rows = {
+    { note = 36, name = "Kick" },
+    { note = 38, name = "Snare" },
+    { note = 37, name = "Side stick" },
+    { note = 42, name = "Hat closed" },
+    { note = 44, name = "Hat half open" },
+    { note = 46, name = "Hat open" },
+    { note = 65, name = "Hat pedal" },
+    { note = 48, name = "Tom high" },
+    { note = 45, name = "Tom mid" },
+    { note = 41, name = "Tom low" },
+    { note = 49, name = "Crash left" },
+    { note = 57, name = "Crash right" },
+    { note = 58, name = "Crash right choked" },
+    { note = 55, name = "Splash" },
+    { note = 52, name = "China" },
+    { note = 51, name = "Ride" },
+    { note = 53, name = "Ride bell" },
+    { note = 83, name = "Choke all cymbals" },
   },
 }
 
