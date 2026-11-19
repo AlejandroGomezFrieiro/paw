@@ -6,6 +6,9 @@ local eq, test = T.eq, T.test
 local mo, scale
 local function load()
   if not mo then
+    -- As config/init.lua does: utau first, so that musicops' phrase keys
+    -- (`(` `)`) win over the vocal editor's phoneme keys there.
+    if not package.loaded["utau"] then paw.ext.load("extensions/utau") end
     paw.ext.load("extensions/musicops")
     assert(paw.ext.loaded.musicops.ok, paw.ext.loaded.musicops.error)
     mo = require("musicops")

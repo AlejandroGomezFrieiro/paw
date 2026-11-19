@@ -380,7 +380,14 @@ test("unsaved work is copied aside, and offered again after a session that ended
   paw.tracks()[1].volume = -3
   api.undo_checkpoint()
   local mine = autosave.file()
-  until_(function() return io.open(mine) end, "the project to be copied again")
+  until_(function()
+    local f = io.open(mine)
+    if f then f:close() end
+    return f ~= nil
+  end, "the project to be copied again")
+  -- An open question: a save at once after the copy was made has left
+  -- the copy behind. The test waits as it did before.
+  paw.wait(150)
   paw.project.save(T.scratch .. "/kept.json")
   paw.flush()
   eq(io.open(mine), nil, "and removed once saved")

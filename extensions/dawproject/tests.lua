@@ -193,7 +193,7 @@ test("dawproject: import, track by track and clip by clip", function()
   eq(has_item(report, "Note-off velocities", "Bass"), true, "a release velocity")
   local holders = bass.meta.dawproject_placeholders
   eq(holders[1].name, "Nowhere Synth", "the placeholder keeps the plugin")
-  eq(paw.bytes.decode(holders[1].state), "nowhere-state-bytes", "and its state")
+  eq(paw.bytes.unbase64(holders[1].state), "nowhere-state-bytes", "and its state")
 end)
 
 -- Export -------------------------------------------------------------------------------

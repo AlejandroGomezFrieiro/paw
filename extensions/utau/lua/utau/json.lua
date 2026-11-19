@@ -170,21 +170,4 @@ function M.decode(s)
   return v
 end
 
-local B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
-
---- Unpadded base64url, as the engine's `--export` reads note payloads.
-function M.base64url(data)
-  local out = {}
-  for i = 1, #data, 3 do
-    local a, b, c = data:byte(i, i + 2)
-    local n = a * 65536 + (b or 0) * 256 + (c or 0)
-    local chars = 2 + (b and 1 or 0) + (c and 1 or 0)
-    for k = 1, chars do
-      local idx = math.floor(n / 2 ^ (18 - 6 * (k - 1))) % 64
-      out[#out + 1] = B64:sub(idx + 1, idx + 1)
-    end
-  end
-  return table.concat(out)
-end
-
 return M

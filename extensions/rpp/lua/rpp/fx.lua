@@ -68,7 +68,7 @@ end
 function M.vst_parts(block)
   local groups = block:data_groups()
   if #groups < 2 then return nil, "the chunk does not have REAPER's three parts" end
-  local ok, header = pcall(b64.decode, groups[1])
+  local ok, header = pcall(b64.unbase64, groups[1])
   if not ok then return nil, "the chunk is not base64" end
   local magic = b64.u32(header, 5)
   if magic ~= 0xfeed5eee and magic ~= 0xfeed5eef then return nil, "the chunk header is not REAPER's" end

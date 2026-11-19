@@ -74,10 +74,12 @@ local function holds(d, want)
 end
 
 --- Wait until the plugin sleeps (its note ended and its tail went by), so
---- that a state reaches a plugin at rest. Three seconds at most.
+--- that a state reaches a plugin at rest. Surge XT as a CLAP plugin never
+--- says it may sleep: then, after three seconds, the state reaches it
+--- awake, which it must take as well.
 local function rested()
-  local before = api.engine_get().device_sleeps
-  T.until_(function() return api.engine_get().device_sleeps > before + 10 end, "the plugin to sleep")
+  local before, deadline = api.engine_get().device_sleeps, api.now() + 3000
+  while api.engine_get().device_sleeps <= before + 10 and api.now() < deadline do paw.wait(20) end
 end
 
 --- The parameters that the project itself sets for a device (not the
