@@ -32,6 +32,7 @@ writers of extensions come after them.
 - [How to lower the latency](how-to/lower-the-latency.md): the block size, and what to change when the sound crackles
 - [How to connect a MIDI keyboard](how-to/connect-a-midi-keyboard.md): check that paw sees it, and play an instrument
 - [How to use your own plugins](how-to/use-your-own-plugins.md): CLAP, VST3, LV2, where paw looks, Windows plugins through yabridge
+- [How to use an ARA plugin on a vocal or a take](how-to/use-an-ara-plugin.md): play the clips through it, edit them, MIDI from the notes it heard
 - [How to map a MIDI controller](how-to/map-a-midi-controller.md)
 
 ### Tracks and instruments
@@ -174,6 +175,7 @@ writers of extensions come after them.
 - [Project files](reference/project-files.md): the project folder, `:w` and `:wa`, MIDI clip files, files from outside, changes from outside, safety copies, `:recover`
 - [Devices](reference/devices.md): the built-in devices, wet/dry and output gain, presets
 - [Plugins](reference/plugins.md): formats, scan, editors, processes, status, offline devices
+- [Attachments](reference/attachments.md): native libraries that take a plugin, the clips and files they get (`paw_attach.h`)
 - [Lua devices](reference/lua-devices.md): the fields of a device in Lua, the block, MIDI, helpers, reload
 - [Device parameters](reference/device-parameters.md): the fields of each parameter, the ids of plugins, values as text, the plugin itself
 - [The saved state of plugins](reference/plugin-state.md): the readers of each framework (JUCE, DPF, LSP, iPlug2, Dplug, nih-plug, Vital, LV2), their forms and trees, hints from the binary
@@ -216,6 +218,7 @@ writers of extensions come after them.
 - [About the harmony reading](explanation/about-the-harmony-reading.md): how paw finds chords and keys, and why providers can replace it
 - [About MIDI 2.0 in paw](explanation/about-midi-2.md): fractions, controllers for each note, ports, MPE
 - [About the plugin sandbox](explanation/about-the-plugin-sandbox.md): one process for each plugin, and what it costs
+- [About ARA plugins](explanation/about-ara.md): plugins that read whole clips, how paw hosts them, and what Windows plugins need
 - [About state lanes](explanation/about-state-lanes.md): a lane of presets, models and states, and where each kind of change lands
 - [About the core and extensions](explanation/about-core-and-extensions.md): where the line is, why, and how far an extension goes
 - [About MIDI as the truth](explanation/about-midi-as-the-truth.md): why the notes are the truth, and where extensions keep their data

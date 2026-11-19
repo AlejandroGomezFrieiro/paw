@@ -1409,6 +1409,11 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   ```lua
   paw.plugins.add_dir(here .. "/result/lib/clap")   -- `here`: the extension's directory
   ```
+- `paw.plugins.attach(path)`: Load an attachment: a native library that an extension ships, which can take each CLAP plugin that paw makes from now on, and reach the extensions of the plugin (ARA). The library implements `crates/paw-plugins/include/paw_attach.h`. Returns the name of the attachment, or nil and the reason when paw cannot load it.
+
+  ```lua
+  paw.plugins.attach(here .. "/lib/paw-ara.so")   -- "ara"
+  ```
 - `paw.plugins.key_names(track)`: The key names of all the devices of a track. When two devices name a key, the first in the chain wins.
 - `paw.plugins.note_names(device)`: What a device calls its keys, by pitch: a plugin that implements CLAP's `note-name` (a drum kit's drums, a sampler's keyswitches), or a built-in device of `M.builtin_names` (the `drums` kit). Empty for the rest. Asked again after `M.names_ttl`.
 - `paw.plugins.remove_dir(dir)`: Stop to find plugins in `dir`, and stop to offer the devices found there. The devices that exist continue to work.
@@ -2109,6 +2114,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.note_on(track, pitch, velocity, attr)`: Play a note on a track, with a MIDI 2.0 attribute if one is given.
 - `paw.api.now()`
 - `paw.api.plugins_add_dir(dir)`: Find CLAP and VST3 plugins in one more directory from now on (the directory of an extension), and register the plugins in it. Returns `{ kinds, notes }`: the device kinds found there and the files that paw cannot use. Returns nil where paw cannot find plugins.
+- `paw.api.plugins_attach(path)`: Load an attachment: a native library that an extension ships, which paw offers each CLAP plugin that it makes from now on (see `crates/paw-plugins/include/paw_attach.h`). Returns the name of the attachment.
 - `paw.api.plugins_remove_dir(dir, kinds)`: Stop to find plugins in a directory added with `plugins_add_dir`, and make no more devices of `kinds`, the kinds found there. Devices that exist continue to work.
 - `paw.api.plugins_rescan(name)`: Examine the plugin files again (all, or those that `name` matches). This includes the files that failed before. Returns notes on the files that paw cannot use, or nil without plugins.
 - `paw.api.preview_get()`

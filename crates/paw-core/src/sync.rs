@@ -457,6 +457,11 @@ pub struct LiveDevice {
     /// parameters for a moment after is the echo of that state, not an edit
     /// (see [`LiveDevice::echoes`]).
     pub loaded: Option<std::time::Instant>,
+    /// It keeps files beside its state (an attachment took the plugin): it
+    /// answered [`paw_engine::device::FILE_LOAD`] when it was made.
+    pub attached: bool,
+    /// Whether it takes its track's clips, and what it was given.
+    pub clips: TakesClips,
 }
 
 /// How long after a state is given what the plugin reports of its
@@ -1005,9 +1010,125 @@ pub fn sync(
     // Removals go last, once nothing in the schedule or a chain refers to them.
     removals.into_iter().for_each(&mut *send);
 
+    deliver_clips(new, ctx);
+
     if events.len() > before {
         events.push(("changed".to_string(), json!({})));
     }
+}
+
+/// Whether a device takes its track's clips ([`paw_engine::device::CLIPS`]).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub enum TakesClips {
+    /// Not asked yet.
+    #[default]
+    Unasked,
+    /// It does not know the call: not asked again.
+    No,
+    /// It took them; this is what it was given last.
+    Given(String),
+}
+
+/// Give each device that keeps files (a plugin an attachment took) the
+/// audio clips of its track and the tempo, when they changed since it was
+/// given them last; the first time, to find out whether it takes them.
+pub fn deliver_clips(project: &Project, ctx: &mut SyncCtx) {
+    for (id, live) in ctx.live.iter_mut() {
+        if !live.attached || live.clips == TakesClips::No || live.stopped.is_some() {
+            continue;
+        }
+        let Some(controller) = live.controller.as_mut() else {
+            continue;
+        };
+        let Some(track) = project
+            .find_device(*id)
+            .and_then(|(track, _)| project.all_tracks().find(|t| t.id == track))
+        else {
+            continue;
+        };
+        let text = clips_json(project, track).to_string();
+        if live.clips == TakesClips::Given(text.clone()) {
+            continue;
+        }
+        match controller.call(paw_engine::device::CLIPS, text.as_bytes()) {
+            Ok(_) => live.clips = TakesClips::Given(text),
+            Err(err) => {
+                if matches!(live.clips, TakesClips::Given(_)) {
+                    ctx.warnings.push(format!("a device did not take the clips: {err:#}"));
+                }
+                live.clips = TakesClips::No;
+            }
+        }
+    }
+}
+
+/// A track's audio clips and the song's tempo, as a device that reads
+/// whole clips (an ARA plugin) is given them: times in seconds from the
+/// start of the song, and the tempo as points of seconds and beats.
+pub fn clips_json(project: &Project, track: &Track) -> Value {
+    let map = project.tempo_map();
+    let clips: Vec<Value> = track
+        .clips
+        .iter()
+        .filter_map(|clip| {
+            let ClipContent::Audio { file, offset, gain, .. } = &clip.content else {
+                return None;
+            };
+            let start = map.seconds(clip.start);
+            let end = map.seconds(clip.start + clip.length);
+            Some(json!({
+                "id": clip.id,
+                "name": clip.name,
+                "file": file,
+                "offset": offset,
+                "start": start,
+                "length": end - start,
+                "stretch": clip.stretch,
+                "gain": gain,
+                "muted": clip.muted,
+            }))
+        })
+        .collect();
+    // A point at each tempo change and at its end, enough for a plugin to
+    // place every beat: the tempo between two points is constant, or a ramp
+    // given by more points.
+    let mut tempo = Vec::new();
+    let end = track
+        .clips
+        .iter()
+        .map(|c| c.start + c.length)
+        .fold(0.0f64, f64::max);
+    let points = project.tempo_points();
+    let mut beats = Vec::new();
+    for (i, p) in points.iter().enumerate() {
+        beats.push(p.beat);
+        // A ramp is given as a point on each beat up to the next change.
+        if p.ramp {
+            let next = points.get(i + 1).map_or(end, |n| n.beat);
+            let mut beat = p.beat + 1.0;
+            while beat < next && beats.len() < 4096 {
+                beats.push(beat);
+                beat += 1.0;
+            }
+        }
+    }
+    beats.push(end.max(beats.last().copied().unwrap_or(0.0)) + 1.0);
+    beats.sort_by(f64::total_cmp);
+    beats.dedup();
+    for beat in beats {
+        tempo.push(json!({ "seconds": map.seconds(beat), "beat": beat }));
+    }
+    let signatures: Vec<Value> = project
+        .sig_points()
+        .iter()
+        .map(|s| json!({ "beat": s.beat, "num": s.num, "den": s.den }))
+        .collect();
+    json!({
+        "track": { "id": track.id, "name": track.name },
+        "clips": clips,
+        "tempo": tempo,
+        "signatures": signatures,
+    })
 }
 
 fn add_device(device: &DeviceInst, map: &mut Mapper, ctx: &mut SyncCtx, send: &mut dyn FnMut(Msg)) {
@@ -1075,6 +1196,9 @@ fn add_device(device: &DeviceInst, map: &mut Mapper, ctx: &mut SyncCtx, send: &m
     if let Some(controller) = controller.as_mut() {
         deliver_posts(&device.kind, controller.as_mut(), ctx);
     }
+    let attached = controller
+        .as_mut()
+        .is_some_and(|c| give_files(device, c.as_mut(), ctx));
     let mut params = match &controller {
         Some(controller) => controller.params(),
         None => factory.info().params.clone(),
@@ -1136,8 +1260,33 @@ fn add_device(device: &DeviceInst, map: &mut Mapper, ctx: &mut SyncCtx, send: &m
             latency,
             stopped: None,
             loaded: Some(std::time::Instant::now()),
+            attached,
+            clips: TakesClips::Unasked,
         },
     );
+}
+
+/// Give a device that was just made the files it keeps beside its state
+/// ([`paw_engine::device::FILE_LOAD`]), none the first time. Whether it
+/// keeps such files: a device that does not know the call keeps none.
+fn give_files(device: &DeviceInst, controller: &mut dyn paw_engine::Controller, ctx: &mut SyncCtx) -> bool {
+    let mut files = Vec::new();
+    for (name, text) in &device.files {
+        match BASE64.decode(text) {
+            Ok(bytes) => files.push((name.clone(), bytes)),
+            Err(err) => ctx.warnings.push(format!("the {name} file of `{}`: {err}", device.kind)),
+        }
+    }
+    match controller.call(paw_engine::device::FILE_LOAD, &paw_engine::device::pack_files(&files)) {
+        Ok(_) => true,
+        Err(err) => {
+            if !files.is_empty() {
+                ctx.warnings
+                    .push(format!("`{}` did not take its files: {err:#}", device.kind));
+            }
+            false
+        }
+    }
 }
 
 /// Give a device that was just made what scripts posted to its kind
@@ -1216,6 +1365,9 @@ pub fn install(
     if let Some(controller) = controller.as_mut() {
         deliver_posts(&device.kind, controller.as_mut(), ctx);
     }
+    let attached = controller
+        .as_mut()
+        .is_some_and(|c| give_files(device, c.as_mut(), ctx));
     let mut params = match &controller {
         Some(controller) => controller.params(),
         None => ctx
@@ -1277,6 +1429,8 @@ pub fn install(
             latency,
             stopped: None,
             loaded: Some(std::time::Instant::now()),
+            attached,
+            clips: TakesClips::Unasked,
         },
     );
 }

@@ -309,6 +309,11 @@ The sampler extension is an example: a CLAP plugin written in Rust in
 `native/`, a Cargo workspace of its own. A build of paw does not compile
 it. Its package puts `paw-sampler.clap` in `clap/` beside the extension.
 
+An extension can also ship an attachment: a native library that paw
+offers each CLAP plugin, loaded with `paw.plugins.attach(path)`. See
+[Attachments](attachments.md). The ara extension is an example: its
+package puts `paw-ara.so` in `lib/` beside the extension.
+
 Scripts call such a plugin by name, as they call a device in Lua:
 
 - `paw.api.device_call(device, method, data)` reaches a method that paw

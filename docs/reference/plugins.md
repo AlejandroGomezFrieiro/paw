@@ -260,6 +260,17 @@ offline, and a message says so. `:edit song online` opens the
 project with all its plugins. When the plugin loads, paw forgets the
 failure.
 
+## Attachments and ARA
+
+An extension can load a native library that takes each CLAP plugin that
+paw makes: `paw.plugins.attach(path)`. See [Attachments](attachments.md).
+The [ara](../../extensions/ara/README.md) extension hosts ARA plugins in
+this way.
+
+`paw.api.device_types()` gives the `features` of each plugin: the CLAP
+features, or the VST3 subcategories. An ARA plugin has the CLAP feature
+`ara:supported`. paw reads the features when it reads a plugin file.
+
 ## Lua devices
 
 Devices written in Lua also run in a helper process. See

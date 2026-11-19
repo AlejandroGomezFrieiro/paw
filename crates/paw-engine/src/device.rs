@@ -509,6 +509,9 @@ pub struct DeviceInfo {
     pub version: String,
     /// Empty for devices whose parameters are only known per instance.
     pub params: Vec<ParamInfo>,
+    /// What the plugin says it is, in its format's words: a CLAP plugin's
+    /// features (`audio-effect`, `ara:supported`). Empty for others.
+    pub features: Vec<String>,
 }
 
 /// Creates device instances. Lives on the main thread.
@@ -601,12 +604,16 @@ pub type AddDir = Rc<dyn Fn(&mut Registry, &std::path::Path) -> (Vec<String>, Ve
 /// [`Registry::remove_dir`].
 pub type RemoveDir = Rc<dyn Fn(&std::path::Path)>;
 
+/// Loads an attachment for plugins: see [`Registry::attach`].
+pub type Attach = Rc<dyn Fn(&std::path::Path) -> Result<String>>;
+
 #[derive(Default, Clone)]
 pub struct Registry {
     factories: BTreeMap<String, Rc<dyn DeviceFactory>>,
     rescan: Option<Rescan>,
     add_dir: Option<AddDir>,
     remove_dir: Option<RemoveDir>,
+    attach: Option<Attach>,
     /// What scripts posted to every device of a kind: by kind, each topic
     /// with its latest data, in the order the topics were first posted.
     posts: BTreeMap<String, Vec<(String, Arc<[u8]>)>>,
@@ -663,6 +670,22 @@ impl Registry {
     pub fn add_dir(&mut self, dir: &std::path::Path) -> Option<(Vec<String>, Vec<String>)> {
         let add_dir = self.add_dir.clone()?;
         Some(add_dir(self, dir))
+    }
+
+    /// Say how to load an attachment for plugins.
+    pub fn set_attach(&mut self, attach: Attach) {
+        self.attach = Some(attach);
+    }
+
+    /// Load the attachment in `path` (a native library an extension ships,
+    /// offered every plugin made from now on). Its name; an error when
+    /// there is nothing to load it with or it cannot be loaded.
+    pub fn attach(&mut self, path: &std::path::Path) -> Result<String> {
+        let attach = self
+            .attach
+            .clone()
+            .ok_or_else(|| anyhow::anyhow!("this program hosts no plugins"))?;
+        attach(path)
     }
 
     /// Look into plugin files again: all of them, or those `name` matches.
@@ -722,9 +745,53 @@ impl Registry {
     }
 }
 
+/// The files a device keeps beside its state ([`FILE_SAVE`]), packed into
+/// one answer: for each, its name's length (4 bytes, little-endian), the
+/// name, its length (8 bytes) and its bytes.
+pub fn pack_files(files: &[(String, Vec<u8>)]) -> Vec<u8> {
+    let mut out = Vec::new();
+    for (name, bytes) in files {
+        out.extend_from_slice(&(name.len() as u32).to_le_bytes());
+        out.extend_from_slice(name.as_bytes());
+        out.extend_from_slice(&(bytes.len() as u64).to_le_bytes());
+        out.extend_from_slice(bytes);
+    }
+    out
+}
+
+/// The files that [`pack_files`] packed.
+pub fn unpack_files(mut data: &[u8]) -> Result<Vec<(String, Vec<u8>)>> {
+    fn take<'a>(data: &mut &'a [u8], n: usize) -> Result<&'a [u8]> {
+        anyhow::ensure!(data.len() >= n, "the files end too early");
+        let (head, rest) = data.split_at(n);
+        *data = rest;
+        Ok(head)
+    }
+    let mut files = Vec::new();
+    while !data.is_empty() {
+        let n = u32::from_le_bytes(take(&mut data, 4)?.try_into()?) as usize;
+        let name = String::from_utf8(take(&mut data, n)?.to_vec())?;
+        let n = u64::from_le_bytes(take(&mut data, 8)?.try_into()?) as usize;
+        files.push((name, take(&mut data, n)?.to_vec()));
+    }
+    Ok(files)
+}
+
+/// The call that asks a device for the files it keeps beside its state in
+/// the project, packed ([`pack_files`]); a device without such files does
+/// not know the method.
+pub const FILE_SAVE: &str = "paw.file.save";
+/// The call that gives a device made again the files it kept, packed.
+pub const FILE_LOAD: &str = "paw.file.load";
+/// The call that gives a device the audio clips of its track, as JSON, each
+/// time they or the tempo change; a device that does not take clips does
+/// not know the method, and is not asked again.
+pub const CLIPS: &str = "paw.clips";
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
 
     #[test]
     fn a_parameter_says_what_kind_of_value_it_takes() {

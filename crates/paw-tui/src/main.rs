@@ -607,6 +607,7 @@ fn run() -> Result<i32> {
         move |registry, dir| paw_plugins::add_dir(registry, Some(&cache), dir)
     }));
     registry.set_remove_dir(std::rc::Rc::new(paw_plugins::remove_dir));
+    registry.set_attach(std::rc::Rc::new(paw_plugins::attach::add));
     let mut plugin_notes = if args.no_plugins {
         Vec::new()
     } else {

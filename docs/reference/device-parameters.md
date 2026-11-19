@@ -63,7 +63,9 @@ format names it. It is `nil` for a built-in or Lua device.
 | `version` | As the plugin gives it. Empty for an LV2 plugin without `lv2:minorVersion`. For a plugin that paw found before it kept versions, empty until `:plugins.rescan`. |
 
 `paw.api.device_types()` gives `id` and `version` for each kind of
-device too.
+device too, and `features`: the CLAP features of a plugin (`ara:supported`)
+or the subcategories of a VST3 plugin. For a plugin that paw found before
+it kept features, the list is empty until `:plugins.rescan`.
 
 ## Values as text
 

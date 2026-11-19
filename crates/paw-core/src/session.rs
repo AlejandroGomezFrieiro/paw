@@ -1665,7 +1665,7 @@ impl Session {
                 json!({
                     "kind": info.kind, "name": info.name, "category": info.category,
                     "format": info.format, "vendor": info.vendor, "params": params,
-                    "id": info.id, "version": info.version,
+                    "id": info.id, "version": info.version, "features": info.features,
                 })
             })
             .collect();
@@ -1810,6 +1810,7 @@ impl Session {
                 sidechain_pre: false,
                 outputs: BTreeMap::new(),
                 param_ids: BTreeMap::new(),
+                files: BTreeMap::new(),
             };
             let index = opts
                 .index
@@ -1992,6 +1993,7 @@ impl Session {
     pub fn capture_states(&mut self) {
         self.flush();
         let mut captured = Vec::new();
+        let mut kept = Vec::new();
         let driven = statelanes::driven(&self.project);
         for (id, live) in &mut self.live {
             // A device that stopped working has no state to give: the
@@ -2010,10 +2012,33 @@ impl Session {
                     .warnings
                     .push(format!("could not save plugin state: {err:#}")),
             }
+            // The files it keeps beside its state (an ARA archive).
+            if live.attached {
+                match controller
+                    .call(paw_engine::device::FILE_SAVE, &[])
+                    .and_then(|packed| paw_engine::device::unpack_files(&packed))
+                {
+                    Ok(files) => kept.push((
+                        *id,
+                        files
+                            .into_iter()
+                            .map(|(name, bytes)| (name, BASE64.encode(bytes)))
+                            .collect::<BTreeMap<_, _>>(),
+                    )),
+                    Err(err) => self
+                        .warnings
+                        .push(format!("could not save the files of a plugin: {err:#}")),
+                }
+            }
         }
         for (id, state) in captured {
             if let Some(device) = self.project.device_mut(id) {
                 device.state = Some(state);
+            }
+        }
+        for (id, files) in kept {
+            if let Some(device) = self.project.device_mut(id) {
+                device.files = files;
             }
         }
         // This is bookkeeping, not an edit: nothing for the engine to do.

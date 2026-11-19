@@ -5482,6 +5482,15 @@ function paw.plot.wave_cells(buf, opts) end
 ---@param name any
 function paw.plugins.add_dir(dir, name) end
 
+--- Load an attachment: a native library that an extension ships, which
+--- can take each CLAP plugin that paw makes from now on, and reach the
+--- extensions of the plugin (ARA). The library implements
+--- `crates/paw-plugins/include/paw_attach.h`. Returns the name of the
+--- attachment, or nil and the reason when paw cannot load it.
+---   paw.plugins.attach(here .. "/lib/paw-ara.so")   -- "ara"
+---@param path any
+function paw.plugins.attach(path) end
+
 --- The key names of all the devices of a track. When two devices name a
 --- key, the first in the chain wins.
 ---@param track any
@@ -8275,6 +8284,13 @@ function paw.api.now() end
 --- cannot use. Returns nil where paw cannot find plugins.
 ---@param dir string
 function paw.api.plugins_add_dir(dir) end
+
+--- Load an attachment: a native library that an extension ships, which
+--- paw offers each CLAP plugin that it makes from now on (see
+--- `crates/paw-plugins/include/paw_attach.h`). Returns the name of the
+--- attachment.
+---@param path string
+function paw.api.plugins_attach(path) end
 
 --- Stop to find plugins in a directory added with `plugins_add_dir`, and
 --- make no more devices of `kinds`, the kinds found there. Devices that
