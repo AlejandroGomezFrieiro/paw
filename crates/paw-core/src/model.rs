@@ -438,6 +438,11 @@ pub struct DeviceInst {
     /// gets its values and lanes. Written when the project is saved.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub param_ids: BTreeMap<String, String>,
+    /// Files the device keeps beside its state, by name, base64 encoded:
+    /// what an attachment of a plugin keeps (an ARA archive). A project
+    /// folder holds each as `<n>-<kind>.<name>` next to the `.state`.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub files: BTreeMap<String, String>,
 }
 
 fn is_zero_u32(value: &u32) -> bool {

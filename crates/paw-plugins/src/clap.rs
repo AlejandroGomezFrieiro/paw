@@ -57,7 +57,7 @@ use clap_sys::factory::preset_discovery::{
     CLAP_PRESET_DISCOVERY_FACTORY_ID, CLAP_PRESET_DISCOVERY_FACTORY_ID_COMPAT,
     clap_preset_discovery_factory,
 };
-use clap_sys::fixedpoint::CLAP_BEATTIME_FACTOR;
+use clap_sys::fixedpoint::{CLAP_BEATTIME_FACTOR, CLAP_SECTIME_FACTOR};
 use clap_sys::host::clap_host;
 use clap_sys::id::clap_id;
 use clap_sys::plugin::clap_plugin;
@@ -153,9 +153,11 @@ fn list(path: &Path) -> Result<Vec<Found>> {
                 continue;
             };
             let mut instrument = false;
+            let mut features = Vec::new();
             let mut feature = desc.features;
             while !feature.is_null() && !(*feature).is_null() {
                 instrument |= CStr::from_ptr(*feature).to_bytes() == b"instrument";
+                features.push(text(*feature));
                 feature = feature.add(1);
             }
             found.push(Found {
@@ -164,6 +166,7 @@ fn list(path: &Path) -> Result<Vec<Found>> {
                 vendor: text(desc.vendor),
                 instrument,
                 version: text(desc.version),
+                features,
             });
         }
     }
@@ -206,6 +209,7 @@ pub(crate) fn scan_in(
                         id: plugin.id.clone(),
                         version: plugin.version,
                         params: Vec::new(),
+                        features: plugin.features,
                     };
                     registry.register(std::rc::Rc::new(ClapFactory {
                         info,
@@ -273,6 +277,20 @@ struct Shared {
     param_ids: Vec<(clap_id, *mut c_void)>,
     param_infos: Vec<ParamInfo>,
     flags: Arc<HostFlags>,
+    /// Held by the audio thread while the plugin processes a block, and by
+    /// the main thread while it is deactivated for an attachment
+    /// ([`ClapController::stopped`]): the audio thread only tries it, and
+    /// leaves the block to the plugin's stand-in when it cannot have it.
+    run: Mutex<()>,
+    /// The audio thread has started the plugin processing.
+    processing: AtomicBool,
+    /// The plugin was deactivated and activated again: the audio thread
+    /// starts it processing anew.
+    restarted: AtomicBool,
+    /// The plugin is active: between its `activate` and its `deactivate`.
+    active: AtomicBool,
+    sample_rate: f64,
+    max_block: u32,
     // Kept alive for the plugin, which holds pointers into both.
     _host: Box<clap_host>,
     _library: Arc<Library>,
@@ -344,6 +362,12 @@ impl DeviceFactory for ClapFactory {
                 param_ids: Vec::new(),
                 param_infos: Vec::new(),
                 flags,
+                run: Mutex::new(()),
+                processing: AtomicBool::new(false),
+                restarted: AtomicBool::new(false),
+                active: AtomicBool::new(false),
+                sample_rate: sample_rate as f64,
+                max_block: max_block as u32,
                 _host: host,
                 _library: library,
             };
@@ -384,10 +408,14 @@ impl DeviceFactory for ClapFactory {
             let midi2 = dialects & CLAP_NOTE_DIALECT_MIDI2 != 0;
             let midi = !clap_notes || dialects & CLAP_NOTE_DIALECT_MIDI != 0;
 
+            // Attachments take the plugin before it is active: ARA binds
+            // a plugin to its document then.
+            let attached = crate::attach::offer(c"clap", plugin.cast());
             let activate = (*plugin).activate.context("no activate")?;
             if !activate(plugin, sample_rate as f64, 1, max_block as u32) {
                 bail!("the plugin failed to activate");
             }
+            shared.active.store(true, Relaxed);
             let shared = Arc::new(shared);
             let (changed, changes) = rtrb::RingBuffer::new(1024);
             let device = ClapDevice {
@@ -420,6 +448,7 @@ impl DeviceFactory for ClapFactory {
                     changes,
                     editor: None,
                     ports,
+                    attached,
                 })),
             })
         }
@@ -703,10 +732,27 @@ impl Device for ClapDevice {
         } else {
             self.quiet = 0;
         }
+        // The main thread has the plugin deactivated for an attachment:
+        // this block is the stand-in's, silence for an instrument and the
+        // input passed through for an effect.
+        // SAFETY: `shared` lives as long as `self`, which holds it.
+        let shared: &Shared = unsafe { &*Arc::as_ptr(&self.shared) };
+        let running = shared.run.try_lock();
+        if running.is_err() || !shared.active.load(Relaxed) {
+            if self.inputs.ports.is_empty() {
+                io.left.fill(0.0);
+                io.right.fill(0.0);
+            }
+            return;
+        }
+        if shared.restarted.swap(false, Relaxed) {
+            self.started = false;
+        }
         unsafe {
             if !self.started && !self.failed {
                 self.started = (*plugin).start_processing.is_none_or(|start| start(plugin));
                 self.failed = !self.started;
+                shared.processing.store(self.started, Relaxed);
             }
             if !self.started {
                 return;
@@ -830,6 +876,7 @@ impl Device for ClapDevice {
             transport.header = header::<clap_event_transport>(0, CLAP_EVENT_TRANSPORT);
             transport.flags = CLAP_TRANSPORT_HAS_TEMPO
                 | CLAP_TRANSPORT_HAS_BEATS_TIMELINE
+                | CLAP_TRANSPORT_HAS_SECONDS_TIMELINE
                 | CLAP_TRANSPORT_HAS_TIME_SIGNATURE
                 | if ctx.playing {
                     CLAP_TRANSPORT_IS_PLAYING
@@ -837,6 +884,7 @@ impl Device for ClapDevice {
                     0
                 };
             transport.song_pos_beats = beats(ctx.position);
+            transport.song_pos_seconds = (ctx.seconds * CLAP_SECTIME_FACTOR as f64) as i64;
             transport.tempo = ctx.tempo;
             transport.bar_start = beats(ctx.bar_start);
             transport.bar_number = ctx.bar as i32;
@@ -916,11 +964,14 @@ impl Drop for ClapDevice {
         let plugin = self.shared.plugin;
         unsafe {
             if self.started
+                && self.shared.processing.load(Relaxed)
                 && let Some(stop) = (*plugin).stop_processing
             {
                 stop(plugin);
             }
-            if let Some(deactivate) = (*plugin).deactivate {
+            if self.shared.active.swap(false, Relaxed)
+                && let Some(deactivate) = (*plugin).deactivate
+            {
                 deactivate(plugin);
             }
         }
@@ -972,6 +1023,8 @@ struct ClapController {
     /// a window the plugin made itself.
     editor: Option<Option<HostWindow>>,
     ports: Ports,
+    /// The attachments that took the plugin (`attach.rs`).
+    attached: Vec<crate::attach::Attached>,
 }
 
 impl ClapController {
@@ -1310,6 +1363,9 @@ impl Controller for ClapController {
     }
 
     fn call(&mut self, method: &str, data: &[u8]) -> Result<Vec<u8>> {
+        if let Some(answer) = self.call_attached(method, data) {
+            return answer;
+        }
         match method {
             "presets" => {
                 let presets = self.presets.get_or_insert_with(|| unsafe {
@@ -1393,9 +1449,146 @@ unsafe extern "C" fn call_write(out: *mut c_void, data: *const u8, size: usize) 
     unsafe { (*(out as *mut Vec<u8>)).extend_from_slice(std::slice::from_raw_parts(data, size)) };
 }
 
+impl ClapController {
+    /// Offer a call to the attachments that took the plugin: `None` when
+    /// none of them knows the method. The methods paw itself sends
+    /// (`paw.clips`, `paw.file.save`, `paw.file.load`) go only to them.
+    fn call_attached(&mut self, method: &str, data: &[u8]) -> Option<Result<Vec<u8>>> {
+        use crate::attach::{CALL_DONE, CALL_FAILED, CALL_STOPPED};
+        let ours = method.starts_with("paw.");
+        let unknown = || Err(anyhow::anyhow!("this device has no method `{method}`"));
+        if self.attached.is_empty() {
+            return ours.then(unknown);
+        }
+        match method {
+            // Each attachment's file, by its name.
+            "paw.file.save" => {
+                let mut files = Vec::new();
+                for attached in &self.attached {
+                    let (code, bytes) = attached.call(method, data);
+                    if code == CALL_DONE && !bytes.is_empty() {
+                        files.push((attached.name().to_string(), bytes));
+                    }
+                }
+                return Some(Ok(paw_engine::device::pack_files(&files)));
+            }
+            "paw.file.load" => {
+                let files = match paw_engine::device::unpack_files(data) {
+                    Ok(files) => files,
+                    Err(err) => return Some(Err(err)),
+                };
+                for (name, bytes) in files {
+                    let Some(index) = self.attached.iter().position(|a| a.name() == name) else {
+                        continue;
+                    };
+                    if let Err(err) = self.ask(index, method, &bytes) {
+                        return Some(Err(err));
+                    }
+                }
+                return Some(Ok(Vec::new()));
+            }
+            _ => {}
+        }
+        for index in 0..self.attached.len() {
+            let (code, answer) = self.attached[index].call(method, data);
+            match code {
+                CALL_DONE => return Some(Ok(answer)),
+                CALL_FAILED => return Some(Err(failure(answer))),
+                CALL_STOPPED => return Some(self.ask_stopped(index, method, data)),
+                _ => {}
+            }
+        }
+        ours.then(unknown)
+    }
+
+    /// One attachment's answer to a call, stopping the plugin if it asks.
+    fn ask(&mut self, index: usize, method: &str, data: &[u8]) -> Result<Vec<u8>> {
+        use crate::attach::{CALL_DONE, CALL_FAILED, CALL_STOPPED};
+        let (code, answer) = self.attached[index].call(method, data);
+        match code {
+            CALL_DONE => Ok(answer),
+            CALL_FAILED => Err(failure(answer)),
+            CALL_STOPPED => self.ask_stopped(index, method, data),
+            _ => bail!("this device has no method `{method}`"),
+        }
+    }
+
+    fn ask_stopped(&mut self, index: usize, method: &str, data: &[u8]) -> Result<Vec<u8>> {
+        use crate::attach::{CALL_DONE, CALL_FAILED};
+        let attached = &self.attached[index];
+        let (code, answer) = self.stopped(|| attached.call(method, data))?;
+        match code {
+            CALL_DONE => Ok(answer),
+            CALL_FAILED => Err(failure(answer)),
+            _ => bail!("`{method}` was not done with the plugin stopped"),
+        }
+    }
+
+    /// Run `f` with the plugin deactivated, the audio thread held off it,
+    /// then activate it again. The audio thread starts it processing anew;
+    /// its `stop_processing` is called from here, while the audio thread
+    /// waits, since the plugin may not be deactivated while it processes.
+    fn stopped<R>(&self, f: impl FnOnce() -> R) -> Result<R> {
+        let shared = &self.shared;
+        let plugin = shared.plugin;
+        let _held = shared.run.lock().unwrap_or_else(|e| e.into_inner());
+        unsafe {
+            if shared.processing.swap(false, Relaxed)
+                && let Some(stop) = (*plugin).stop_processing
+            {
+                stop(plugin);
+            }
+            if shared.active.swap(false, Relaxed)
+                && let Some(deactivate) = (*plugin).deactivate
+            {
+                deactivate(plugin);
+            }
+            let result = f();
+            let activate = (*plugin).activate.context("no activate")?;
+            if !activate(plugin, shared.sample_rate, 1, shared.max_block) {
+                bail!("the plugin failed to activate again");
+            }
+            shared.active.store(true, Relaxed);
+            shared.restarted.store(true, Relaxed);
+            shared.flags.wake.store(true, Relaxed);
+            Ok(result)
+        }
+    }
+}
+
+/// An attachment's reason for a failure.
+fn failure(answer: Vec<u8>) -> anyhow::Error {
+    let text = String::from_utf8_lossy(&answer).into_owned();
+    if text.is_empty() {
+        anyhow::anyhow!("the attachment failed")
+    } else {
+        anyhow::anyhow!(text)
+    }
+}
+
 impl Drop for ClapController {
     fn drop(&mut self) {
         self.close_editor();
+        // Attachments let go of the plugin while it is still there, and not
+        // active: it is not processed again.
+        if !self.attached.is_empty() {
+            let shared = &self.shared;
+            let plugin = shared.plugin;
+            let _held = shared.run.lock().unwrap_or_else(|e| e.into_inner());
+            unsafe {
+                if shared.processing.swap(false, Relaxed)
+                    && let Some(stop) = (*plugin).stop_processing
+                {
+                    stop(plugin);
+                }
+                if shared.active.swap(false, Relaxed)
+                    && let Some(deactivate) = (*plugin).deactivate
+                {
+                    deactivate(plugin);
+                }
+            }
+            self.attached.clear();
+        }
     }
 }
 

@@ -2829,6 +2829,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap-sys",
+ "hound",
  "libc",
  "libloading",
  "lilv-sys",

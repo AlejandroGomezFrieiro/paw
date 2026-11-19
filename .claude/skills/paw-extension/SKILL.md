@@ -96,7 +96,9 @@ lines above are a map, not the contract. For devices see
 docs/reference/lua-devices.md (`dsp.device{…}`; `dev.call` receives
 `paw.api.device_call`; large data via `dsp.map`). For an extension that ships
 an engine or a plugin, follow `extensions/utau` and `extensions/sampler`
-(`nix/default.nix`, `paw.plugins.add_dir`, `paw.withExtensions`).
+(`nix/default.nix`, `paw.plugins.add_dir`, `paw.withExtensions`). For a
+native library that takes plugins and reaches their own extensions (ARA),
+follow `extensions/ara` (`paw.plugins.attach`, docs/reference/attachments.md).
 
 ## Models to copy
 

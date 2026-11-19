@@ -288,6 +288,9 @@
         utau-engine = (extensionsFor pkgs).utau.engine;
         # extensions/sampler's plugin and command, on their own.
         paw-sampler = (extensionsFor pkgs).sampler.engine;
+        # extensions/ara's attachment, and the ARA SDK's test plug-in.
+        paw-ara = (extensionsFor pkgs).ara.bridge;
+        ara-test-plugin = (extensionsFor pkgs).ara.testPlugin;
       });
 
       # `nix flake check`: clippy, rustfmt, the Rust tests a sandbox can run,
@@ -364,6 +367,10 @@
           # Sample amp models for Neural Amp Modeler, from its sources
           # (extensions/plugstate's tests load them).
           PAW_TEST_NAM_MODELS = "${pkgs.neural-amp-modeler-lv2.src}/models";
+          # The ARA SDK's test plug-in and extensions/ara's attachment, which
+          # extensions/ara/tests.lua host.
+          PAW_TEST_ARA = "${(extensionsFor pkgs).ara.testPlugin}";
+          PAW_ARA_BRIDGE = "${(extensionsFor pkgs).ara.bridge}/lib/paw-ara.so";
         };
       });
     };

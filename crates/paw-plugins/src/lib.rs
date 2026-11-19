@@ -12,6 +12,7 @@
 //! are looked into in a process of their own too. Without that, plugins are
 //! loaded into this process, and one that crashes takes the program with it.
 
+pub mod attach;
 pub mod clap;
 pub mod libs;
 pub mod lv2;
@@ -179,6 +180,9 @@ pub(crate) struct Found {
     /// The version the plugin gives; empty in a cache from before it was kept.
     #[serde(default)]
     pub version: String,
+    /// Its features (CLAP); empty in a cache from before they were kept.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub features: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize)]

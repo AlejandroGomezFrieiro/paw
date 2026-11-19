@@ -1,0 +1,359 @@
+//! Attachments: native libraries an extension ships, offered every CLAP
+//! plugin paw makes, which can take it and reach the plugin's own
+//! extensions (ARA is the one this was made for).
+//!
+//! The interface is C, in `include/paw_attach.h`. An attachment is loaded
+//! into every process that hosts plugins: here, and in each helper, which is
+//! handed the list in [`ATTACH_ENV`]. A plugin is offered to each one after
+//! its `init` and before its `activate`; one that takes it gets the device's
+//! calls first, and may ask for the plugin to be stopped while it answers
+//! one (ARA only lets a host change what a plugin plays while it is not
+//! active).
+
+use std::ffi::{CStr, CString, c_char, c_void};
+use std::mem::ManuallyDrop;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, OnceLock};
+
+use anyhow::{Context, Result, bail};
+use paw_engine::clip::AudioData;
+
+/// How the attachments loaded here are handed to a plugin's helper.
+pub(crate) const ATTACH_ENV: &str = "PAW_PLUGIN_ATTACH";
+
+pub const ABI: u32 = 1;
+
+pub const CALL_UNKNOWN: i32 = 0;
+pub const CALL_DONE: i32 = 1;
+pub const CALL_FAILED: i32 = 2;
+pub const CALL_STOPPED: i32 = 3;
+
+pub type WriteFn = unsafe extern "C" fn(out: *mut c_void, data: *const u8, size: usize);
+
+#[repr(C)]
+pub struct AudioInfo {
+    pub frames: i64,
+    pub sample_rate: f64,
+    pub channels: u32,
+}
+
+#[repr(C)]
+pub struct Host {
+    pub abi: u32,
+    pub audio_open: unsafe extern "C" fn(path: *const c_char, info: *mut AudioInfo) -> *mut c_void,
+    pub audio_read: unsafe extern "C" fn(
+        audio: *mut c_void,
+        start: i64,
+        frames: i64,
+        channels: *const *mut f32,
+        channel_count: u32,
+    ) -> bool,
+    pub audio_close: unsafe extern "C" fn(audio: *mut c_void),
+}
+
+#[repr(C)]
+pub struct Attachment {
+    pub abi: u32,
+    pub name: *const c_char,
+    pub attach: Option<
+        unsafe extern "C" fn(
+            host: *const Host,
+            format: *const c_char,
+            plugin: *const c_void,
+        ) -> *mut c_void,
+    >,
+    pub call: Option<
+        unsafe extern "C" fn(
+            handle: *mut c_void,
+            method: *const c_char,
+            data: *const u8,
+            size: usize,
+            out: *mut c_void,
+            write: WriteFn,
+        ) -> i32,
+    >,
+    pub detach: Option<unsafe extern "C" fn(handle: *mut c_void)>,
+}
+
+/// A loaded attachment. Never unloaded: a plugin it took may outlive the
+/// extension that loaded it.
+struct Lib {
+    path: PathBuf,
+    name: String,
+    entry: &'static Attachment,
+    _lib: ManuallyDrop<libloading::Library>,
+}
+
+// The entry is static data in a library that stays loaded.
+unsafe impl Send for Lib {}
+unsafe impl Sync for Lib {}
+
+static LIBS: Mutex<Vec<Arc<Lib>>> = Mutex::new(Vec::new());
+static ADOPTED: OnceLock<()> = OnceLock::new();
+
+pub(crate) static HOST: Host = Host {
+    abi: ABI,
+    audio_open,
+    audio_read,
+    audio_close,
+};
+
+/// Load the attachment in `path` (a shared library that exports
+/// `paw_attachment_entry`), for every plugin made from now on, here and in
+/// helpers started from now on. Returns its name. Loading one that is
+/// loaded already returns its name again.
+pub fn add(path: &Path) -> Result<String> {
+    adopt();
+    let mut libs = LIBS.lock().unwrap();
+    if let Some(lib) = libs.iter().find(|l| l.path == path) {
+        return Ok(lib.name.clone());
+    }
+    let lib = open(path)?;
+    let name = lib.name.clone();
+    libs.push(Arc::new(lib));
+    Ok(name)
+}
+
+fn open(path: &Path) -> Result<Lib> {
+    unsafe {
+        let lib = libloading::Library::new(path)
+            .with_context(|| format!("could not load the attachment {}", path.display()))?;
+        let entry: libloading::Symbol<unsafe extern "C" fn() -> *const Attachment> = lib
+            .get(b"paw_attachment_entry\0")
+            .with_context(|| format!("{} has no paw_attachment_entry", path.display()))?;
+        let entry = entry()
+            .as_ref()
+            .with_context(|| format!("{} gave no attachment", path.display()))?;
+        if entry.abi != ABI {
+            bail!(
+                "{} is made for version {} of paw's attachments, not {ABI}",
+                path.display(),
+                entry.abi
+            );
+        }
+        let name = if entry.name.is_null() {
+            String::new()
+        } else {
+            CStr::from_ptr(entry.name).to_string_lossy().into_owned()
+        };
+        Ok(Lib {
+            path: path.to_path_buf(),
+            name,
+            entry: &*(entry as *const Attachment),
+            _lib: ManuallyDrop::new(lib),
+        })
+    }
+}
+
+/// Take the attachments a helper was handed, once.
+fn adopt() {
+    ADOPTED.get_or_init(|| {
+        let Some(paths) = std::env::var_os(ATTACH_ENV) else {
+            return;
+        };
+        let mut libs = LIBS.lock().unwrap();
+        for path in std::env::split_paths(&paths) {
+            match open(&path) {
+                Ok(lib) => libs.push(Arc::new(lib)),
+                Err(err) => eprintln!("paw: {err:#}"),
+            }
+        }
+    });
+}
+
+/// The attachments loaded, as [`ATTACH_ENV`] holds them for a helper.
+pub(crate) fn env() -> Option<std::ffi::OsString> {
+    adopt();
+    let libs = LIBS.lock().unwrap();
+    if libs.is_empty() {
+        return None;
+    }
+    std::env::join_paths(libs.iter().map(|l| &l.path)).ok()
+}
+
+/// An attachment that took a plugin.
+pub(crate) struct Attached {
+    lib: Arc<Lib>,
+    handle: *mut c_void,
+}
+
+// Only used from the main thread, as the interface says.
+unsafe impl Send for Attached {}
+
+impl Attached {
+    pub fn name(&self) -> &str {
+        &self.lib.name
+    }
+
+    /// Ask the attachment: its answer code and what it wrote.
+    pub fn call(&self, method: &str, data: &[u8]) -> (i32, Vec<u8>) {
+        let Some(call) = self.lib.entry.call else {
+            return (CALL_UNKNOWN, Vec::new());
+        };
+        let Ok(method) = CString::new(method) else {
+            return (CALL_UNKNOWN, Vec::new());
+        };
+        let mut answer: Vec<u8> = Vec::new();
+        let code = unsafe {
+            call(
+                self.handle,
+                method.as_ptr(),
+                data.as_ptr(),
+                data.len(),
+                &mut answer as *mut Vec<u8> as *mut c_void,
+                write_answer,
+            )
+        };
+        (code, answer)
+    }
+}
+
+impl Drop for Attached {
+    fn drop(&mut self) {
+        if let Some(detach) = self.lib.entry.detach {
+            unsafe { detach(self.handle) };
+        }
+    }
+}
+
+/// Offer a plugin that was just initialized to every attachment loaded.
+///
+/// # Safety
+/// `plugin` is a live plugin of `format`, not yet activated.
+pub(crate) unsafe fn offer(format: &CStr, plugin: *const c_void) -> Vec<Attached> {
+    adopt();
+    let libs: Vec<Arc<Lib>> = LIBS.lock().unwrap().clone();
+    let mut taken = Vec::new();
+    for lib in libs {
+        let Some(attach) = lib.entry.attach else {
+            continue;
+        };
+        let handle = unsafe { attach(&HOST, format.as_ptr(), plugin) };
+        if !handle.is_null() {
+            taken.push(Attached { lib, handle });
+        }
+    }
+    taken
+}
+
+unsafe extern "C" fn write_answer(out: *mut c_void, data: *const u8, size: usize) {
+    if out.is_null() || (data.is_null() && size > 0) {
+        return;
+    }
+    if size > 0 {
+        unsafe {
+            (*(out as *mut Vec<u8>)).extend_from_slice(std::slice::from_raw_parts(data, size))
+        };
+    }
+}
+
+// --- sound files, for attachments ----------------------------------------------
+
+unsafe extern "C" fn audio_open(path: *const c_char, info: *mut AudioInfo) -> *mut c_void {
+    if path.is_null() {
+        return std::ptr::null_mut();
+    }
+    let path = unsafe { CStr::from_ptr(path) }
+        .to_string_lossy()
+        .into_owned();
+    let Ok(data) = AudioData::load(Path::new(&path)) else {
+        return std::ptr::null_mut();
+    };
+    if let Some(info) = unsafe { info.as_mut() } {
+        info.frames = data.frames() as i64;
+        info.sample_rate = data.sample_rate as f64;
+        info.channels = 2;
+    }
+    Box::into_raw(Box::new(data)) as *mut c_void
+}
+
+unsafe extern "C" fn audio_read(
+    audio: *mut c_void,
+    start: i64,
+    frames: i64,
+    channels: *const *mut f32,
+    channel_count: u32,
+) -> bool {
+    if audio.is_null() || channels.is_null() || frames < 0 {
+        return false;
+    }
+    let data = unsafe { &*(audio as *const Arc<AudioData>) };
+    let outs = unsafe { std::slice::from_raw_parts(channels, channel_count as usize) };
+    read_into(data, start, frames as usize, outs);
+    true
+}
+
+/// Copy `frames` frames from `start` into each buffer: channel 0 the left,
+/// every other the right. Silence outside the sound.
+fn read_into(data: &AudioData, start: i64, frames: usize, outs: &[*mut f32]) {
+    for (c, &out) in outs.iter().enumerate() {
+        if out.is_null() {
+            continue;
+        }
+        let out = unsafe { std::slice::from_raw_parts_mut(out, frames) };
+        let samples = &data.channels[c.min(1)];
+        for (i, slot) in out.iter_mut().enumerate() {
+            let at = start + i as i64;
+            *slot = if at < 0 {
+                0.0
+            } else {
+                samples.get(at as usize).copied().unwrap_or(0.0)
+            };
+        }
+    }
+}
+
+unsafe extern "C" fn audio_close(audio: *mut c_void) {
+    if !audio.is_null() {
+        drop(unsafe { Box::from_raw(audio as *mut Arc<AudioData>) });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reads_a_sound_file_with_silence_around_it() {
+        let dir = std::env::temp_dir().join(format!("paw-attach-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("ramp.wav");
+        let spec = hound::WavSpec {
+            channels: 1,
+            sample_rate: 44100,
+            bits_per_sample: 32,
+            sample_format: hound::SampleFormat::Float,
+        };
+        let mut w = hound::WavWriter::create(&path, spec).unwrap();
+        for i in 0..100 {
+            w.write_sample(i as f32 / 100.0).unwrap();
+        }
+        w.finalize().unwrap();
+
+        let c_path = CString::new(path.to_string_lossy().as_bytes()).unwrap();
+        let mut info = AudioInfo {
+            frames: 0,
+            sample_rate: 0.0,
+            channels: 0,
+        };
+        let audio = unsafe { (HOST.audio_open)(c_path.as_ptr(), &mut info) };
+        assert!(!audio.is_null());
+        assert_eq!(
+            (info.frames, info.sample_rate, info.channels),
+            (100, 44100.0, 2)
+        );
+        let mut left = [9.0f32; 4];
+        let mut right = [9.0f32; 4];
+        let outs = [left.as_mut_ptr(), right.as_mut_ptr()];
+        assert!(unsafe { (HOST.audio_read)(audio, 98, 4, outs.as_ptr(), 2) });
+        assert_eq!(left, [0.98, 0.99, 0.0, 0.0]);
+        assert_eq!(right, left, "a mono file reads the same on both channels");
+        assert!(unsafe { (HOST.audio_read)(audio, -2, 4, outs.as_ptr(), 2) });
+        assert_eq!(left, [0.0, 0.0, 0.0, 0.01]);
+        unsafe { (HOST.audio_close)(audio) };
+
+        let missing = CString::new("/nonexistent/paw.wav").unwrap();
+        assert!(unsafe { (HOST.audio_open)(missing.as_ptr(), &mut info) }.is_null());
+        std::fs::remove_dir_all(&dir).ok();
+    }
+}

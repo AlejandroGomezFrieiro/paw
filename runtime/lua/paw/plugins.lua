@@ -2,6 +2,7 @@
 --
 --   paw.plugins.add_dir(dir)        -- look for CLAP and VST3 plugins in `dir` too
 --   paw.plugins.remove_dir(dir)     -- and no more
+--   paw.plugins.attach(path)        -- a native library that can take each plugin (ARA)
 --   paw.plugins.from["clap:dev.paw.sampler"]   -- "sampler": who added it
 --   paw.plugins.note_names(device)  -- { [36] = "Kick", ... } (CLAP note-name)
 --   paw.plugins.key_names(track)    -- the same for a track's devices together
@@ -51,6 +52,22 @@ function M.add_dir(dir, name)
   paw.emit("plugins.scanned", { notes = found.notes, dir = dir, kinds = found.kinds })
   return found
 end
+
+--- Load an attachment: a native library that an extension ships, which
+--- can take each CLAP plugin that paw makes from now on, and reach the
+--- extensions of the plugin (ARA). The library implements
+--- `crates/paw-plugins/include/paw_attach.h`. Returns the name of the
+--- attachment, or nil and the reason when paw cannot load it.
+---   paw.plugins.attach(here .. "/lib/paw-ara.so")   -- "ara"
+function M.attach(path)
+  local ok, name = pcall(api.plugins_attach, tostring(path))
+  if not ok then return nil, tostring(name):gsub("^.-: ", "", 1) end
+  M.attached[name] = tostring(path)
+  return name
+end
+
+--- The attachments loaded, by name: the path of each.
+M.attached = {}
 
 --- Stop to find plugins in `dir`, and stop to offer the devices found
 --- there. The devices that exist continue to work.
