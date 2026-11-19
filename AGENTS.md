@@ -64,6 +64,14 @@ Other rules for documentation:
 - Each fact is true. Examine the code, or run paw to see the result. The
   steps of a guide have a test: tutorials in `tests/guides.lua`, how-to
   guides in `tests/guides_howto.lua` and the other `tests/guides_*.lua`.
+- A change that alters a behavior, a format, a file, a command, a key or
+  an option also changes each page that tells about it, in the same
+  commit. Before you commit, search `README.md`, `AGENTS.md`, `docs/`,
+  `bench/`, the READMEs of the crates and extensions, and
+  `.claude/skills` for the old words and names. Fix each sentence that is
+  no longer true. For example, when projects became folders, the README
+  still said "A project is a JSON file". In your report, give the search
+  that you did and the pages that you changed.
 - Never edit generated files. `docs/reference/api.md` comes from the doc
   comments through `tools/apidoc.lua`. The course in
   `docs/tutorials/course` comes from the tutor's lessons.
