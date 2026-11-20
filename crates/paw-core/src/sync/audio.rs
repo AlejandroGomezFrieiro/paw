@@ -1,0 +1,246 @@
+//! Decoded audio files, their overviews and converted copies, kept between
+//! syncs.
+
+use std::collections::{HashMap, HashSet};
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+
+use paw_engine::{AudioData, DiskStore};
+
+use crate::peaks::{self, Summary};
+
+/// Decoded audio files, loaded once and shared between clips.
+#[derive(Default)]
+pub struct AudioCache {
+    files: HashMap<PathBuf, Option<Arc<AudioData>>>,
+    summaries: HashMap<PathBuf, Arc<Summary>>,
+    /// Recent answers to [`peaks`](Self::peaks), since views ask every frame.
+    peaks: HashMap<PeaksKey, Arc<Vec<[f32; 3]>>>,
+    /// Files at another rate than the engine's, converted, by file and rate.
+    converted: HashMap<(PathBuf, u32), Arc<AudioData>>,
+    /// Where waveform overviews are kept between runs (`peaks::Summary`),
+    /// so that drawing a file need not decode it; nowhere when `None`.
+    pub peak_dir: Option<PathBuf>,
+    /// Where the decoded sound of long files is kept and played from,
+    /// instead of memory; nowhere when `None`.
+    pub store: Option<DiskStore>,
+    /// Stretched and shifted versions of files, made apart: `stretched.rs`.
+    pub renders: crate::stretched::Renders,
+}
+
+/// File, offset and length in seconds (as bits, to hash them), and points.
+type PeaksKey = (PathBuf, u64, u64, usize);
+
+impl AudioCache {
+    /// A cache that keeps waveform overviews in `dir` between runs.
+    pub fn with_peak_dir(dir: PathBuf) -> Self {
+        Self {
+            peak_dir: Some(dir),
+            ..Self::default()
+        }
+    }
+
+    /// Load a file, reporting why it could not be read.
+    pub fn load(&mut self, path: &Path) -> anyhow::Result<Arc<AudioData>> {
+        if let Some(Some(data)) = self.files.get(path) {
+            return Ok(data.clone());
+        }
+        let loaded = AudioData::load_with(path, self.store.as_ref());
+        self.files
+            .insert(path.to_path_buf(), loaded.as_ref().ok().cloned());
+        loaded
+    }
+
+    /// `n` (min, max) pairs covering `seconds` of a file from `offset`.
+    pub fn peaks(
+        &mut self,
+        path: &Path,
+        offset: f64,
+        seconds: f64,
+        n: usize,
+    ) -> anyhow::Result<Arc<Vec<[f32; 3]>>> {
+        let key = (path.to_path_buf(), offset.to_bits(), seconds.to_bits(), n);
+        if let Some(peaks) = self.peaks.get(&key) {
+            return Ok(peaks.clone());
+        }
+        let summary = self.summary(path)?;
+        let rate = summary.sample_rate as f64;
+        let from = offset * rate;
+        let to = from + seconds * rate;
+        let decoded = self.files.get(path).cloned().flatten();
+        let peaks = match decoded {
+            // Decoded already: exact to the sample.
+            Some(data) => peaks::peaks(&data, &summary, from, to, n),
+            None => match peaks::coarse(&summary, from, to, n) {
+                // Zoomed out: the overview alone, without decoding the file.
+                Some(peaks) => peaks,
+                None => {
+                    let data = self.load(path)?;
+                    peaks::peaks(&data, &summary, from, to, n)
+                }
+            },
+        };
+        let peaks = Arc::new(peaks);
+        // Zooming and editing leave old answers behind; a bound keeps them
+        // from piling up without tracking which are still wanted.
+        if self.peaks.len() >= 256 {
+            self.peaks.clear();
+        }
+        self.peaks.insert(key, peaks.clone());
+        Ok(peaks)
+    }
+
+    /// True when no file, nor anything worked out from one, is kept.
+    pub fn holds_nothing(&self) -> bool {
+        self.files.is_empty()
+            && self.summaries.is_empty()
+            && self.peaks.is_empty()
+            && self.converted.is_empty()
+            && self.renders.is_empty()
+    }
+
+    /// Forget every file but those in `keep`, and what was worked out from
+    /// them (converted copies, overviews, peaks). Files a clip in the engine
+    /// or a running render still plays stay in memory until they let go.
+    pub fn retain(&mut self, keep: &HashSet<PathBuf>) {
+        self.files.retain(|path, _| keep.contains(path));
+        self.summaries.retain(|path, _| keep.contains(path));
+        self.peaks.retain(|key, _| keep.contains(&key.0));
+        self.converted.retain(|key, _| keep.contains(&key.0));
+        self.renders.retain(Some(keep));
+    }
+
+    /// What a stretched or shifted clip plays, if it has been made; if not,
+    /// it is queued to be made (see `stretched.rs`).
+    pub fn stretched(
+        &mut self,
+        key: &crate::stretched::Key,
+        warnings: &mut Vec<String>,
+    ) -> Option<Arc<AudioData>> {
+        let store = self.store.clone();
+        if self.renders.known(key) {
+            return self.renders.get(key, store.as_ref(), || None);
+        }
+        let source = self.get(&key.file, key.rate, warnings);
+        self.renders.get(key, store.as_ref(), || source)
+    }
+
+    /// What the engine plays of a file at `rate`, if it has been loaded:
+    /// the file's own samples or their conversion.
+    pub fn playing(&self, path: &Path, rate: u32) -> Option<&Arc<AudioData>> {
+        let data = self.files.get(path)?.as_ref()?;
+        if data.sample_rate == rate {
+            return Some(data);
+        }
+        self.converted
+            .get(&(path.to_path_buf(), rate))
+            .or(Some(data))
+    }
+
+    /// Whether a file that has been loaded is played from the disk.
+    pub fn on_disk(&self, path: &Path) -> Option<bool> {
+        Some(self.files.get(path)?.as_ref()?.on_disk())
+    }
+
+    /// Forget the decoded files, so that each is loaded again when it is
+    /// next asked for. Whatever plays one keeps what it has.
+    pub fn forget_loaded(&mut self) {
+        self.files.clear();
+        self.converted.clear();
+        self.renders.retain(None);
+    }
+
+    /// How many files are held, decoded or known to be unreadable.
+    pub fn len(&self) -> usize {
+        self.files.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.files.is_empty()
+    }
+
+    /// A file's waveform overview: kept in memory, read from the peak
+    /// directory when it was made before for the file as it is now, or made
+    /// from the samples and kept there.
+    fn summary(&mut self, path: &Path) -> anyhow::Result<Arc<Summary>> {
+        if let Some(summary) = self.summaries.get(path) {
+            return Ok(summary.clone());
+        }
+        let stored = self
+            .peak_dir
+            .as_deref()
+            .and_then(|dir| peaks::stored(dir, path));
+        let summary = match stored
+            .as_ref()
+            .and_then(|(cached, _)| Summary::read(cached))
+        {
+            Some(summary) => summary,
+            None => {
+                let summary = Summary::new(&*self.load(path)?);
+                if let Some((cached, _)) = &stored {
+                    // A cache that cannot be written only costs time.
+                    let _ = summary.write(cached);
+                }
+                summary
+            }
+        };
+        let summary = Arc::new(summary);
+        self.summaries.insert(path.to_path_buf(), summary.clone());
+        Ok(summary)
+    }
+
+    /// A file for playing at `rate`: converted when it is at another.
+    pub(super) fn get(
+        &mut self,
+        path: &Path,
+        rate: u32,
+        warnings: &mut Vec<String>,
+    ) -> Option<Arc<AudioData>> {
+        let data = self.get_native(path, warnings)?;
+        if data.sample_rate == rate {
+            return Some(data);
+        }
+        let key = (path.to_path_buf(), rate);
+        if let Some(converted) = self.converted.get(&key) {
+            return Some(converted.clone());
+        }
+        // A long file converted is as long: it goes where the file went.
+        let kept = self.store.as_ref().and_then(|store| {
+            Some((store, paw_engine::store_name(path, &rate.to_string())?))
+        });
+        if let Some((store, name)) = &kept
+            && let Some(converted) = store.open(name)
+        {
+            let converted = Arc::new(converted);
+            self.converted.insert(key, converted.clone());
+            return Some(converted);
+        }
+        match crate::resample::convert_into(&data, rate, paw_engine::Sink::new(kept)) {
+            Ok(converted) => {
+                let converted = Arc::new(converted);
+                self.converted.insert(key, converted.clone());
+                Some(converted)
+            }
+            Err(err) => {
+                warnings.push(format!("{}: {err:#}", path.display()));
+                Some(data)
+            }
+        }
+    }
+
+    fn get_native(&mut self, path: &Path, warnings: &mut Vec<String>) -> Option<Arc<AudioData>> {
+        if let Some(known) = self.files.get(path) {
+            return known.clone();
+        }
+        // A file that is not there is reported once, with the others
+        // missing, when the project is opened (session/media.rs).
+        let missing = !path.exists();
+        self.load(path)
+            .map_err(|err| {
+                if !missing {
+                    warnings.push(format!("{err:#}"))
+                }
+            })
+            .ok()
+    }
+}
