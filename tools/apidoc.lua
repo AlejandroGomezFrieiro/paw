@@ -723,7 +723,16 @@ function M.teal()
   pout[#pout + 1] = ""
   pout[#pout + 1] = "return partial"
   pout[#pout + 1] = ""
+  local in_teal = {}
+  for _, mod in ipairs(mods) do in_teal[mod.name] = true end
   for _, mod in ipairs(mods) do
+    -- A module in Teal that holds others (`paw.harmony` holds
+    -- `paw.harmony.read`) declares them in its own record.
+    local nested = false
+    for prefix in mod.name:gmatch("()%.") do
+      if prefix > 4 and in_teal[mod.name:sub(1, prefix - 1)] then nested = true end
+    end
+    if nested then goto next_module end
     local alias = alias_of(mod)
     out[#out + 1] = "local type " .. alias .. " = require(\"" .. mod.module .. "\")"
     local node = tree
@@ -738,6 +747,7 @@ function M.teal()
       node = node.children[key]
     end
     node.lines[#node.lines + 1] = parts[#parts] .. ": " .. alias
+    ::next_module::
   end
   out[#out + 1] = ""
   out[#out + 1] = "global record paw"

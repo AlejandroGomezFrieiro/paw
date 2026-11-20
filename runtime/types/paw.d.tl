@@ -9,14 +9,15 @@ local type Partial = require("paw.partial")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type AttrModule = require("paw.attr")
+local type AuditionModule = require("paw.audition")
 local type BytesModule = require("paw.bytes")
 local type CommandsModule = require("paw.commands")
 local type ContractsModule = require("paw.contracts")
+local type CurvesModule = require("paw.curves")
 local type EventsModule = require("paw.events")
 local type FormatsModule = require("paw.formats")
 local type GroupsModule = require("paw.groups")
-local type HarmonyReadModule = require("paw.harmony.read")
-local type HarmonyVoiceModule = require("paw.harmony.voice")
+local type HarmonyModule = require("paw.harmony")
 local type HooksModule = require("paw.hooks")
 local type LanesModule = require("paw.lanes")
 local type LangModule = require("paw.lang")
@@ -27,6 +28,7 @@ local type MusicModule = require("paw.music")
 local type OptionModule = require("paw.options")
 local type RegexModule = require("paw.regex")
 local type SeatsModule = require("paw.seats")
+local type TakesModule = require("paw.takes")
 local type UtilModule = require("paw.util")
 local type VcaModule = require("paw.vca")
 local type XmlModule = require("paw.xml")
@@ -35,46 +37,6 @@ local type ZipModule = require("paw.zip")
 global record paw
    api: Api
    type Untyped = UntypedLua
-   record harmony
-      at: Untyped
-      builtin: Untyped
-      chord_name: Untyped
-      chord_roman: Untyped
-      chords: Untyped
-      default_range: Untyped
-      degree: Untyped
-      degree_pitch: Untyped
-      draw: Untyped
-      fresh: Untyped
-      in_key: Untyped
-      invalidate: Untyped
-      is_drums: Untyped
-      key: Untyped
-      key_name: Untyped
-      keys: Untyped
-      label: Untyped
-      next: Untyped
-      notes: Untyped
-      parse_chord: Untyped
-      parse_key: Untyped
-      pc_name: Untyped
-      pitch_class: Untyped
-      prev: Untyped
-      project_key: Untyped
-      provide: Untyped
-      provider: Untyped
-      range: Untyped
-      ranges: Untyped
-      read: HarmonyReadModule
-      scale_names: Untyped
-      scales: Untyped
-      schedule: Untyped
-      set_key: Untyped
-      snap: Untyped
-      step: Untyped
-      tones: Untyped
-      voice: HarmonyVoiceModule
-   end
    Clip: Untyped
    Device: Untyped
    Lane: Untyped
@@ -84,7 +46,7 @@ global record paw
    annotation: Untyped
    attr: AttrModule
    audio: Untyped
-   audition: Untyped
+   audition: AuditionModule
    autosave: Untyped
    bounce: Untyped
    buf: Untyped
@@ -100,7 +62,7 @@ global record paw
    contracts: ContractsModule
    controls: Untyped
    cursor: Partial.Cursor
-   curves: Untyped
+   curves: CurvesModule
    defer: function(fn: function(), ms?: number): integer
    device: Untyped
    device_rows: Untyped
@@ -123,6 +85,7 @@ global record paw
    fx: Untyped
    grep: Partial.Grep
    groups: GroupsModule
+   harmony: HarmonyModule
    health: Partial.Health
    help: Untyped
    hooks: HooksModule
@@ -195,7 +158,7 @@ global record paw
    stems: Untyped
    stretch: Untyped
    tab: Untyped
-   takes: Untyped
+   takes: TakesModule
    tempo: Untyped
    tempolane: Untyped
    textbuf: Partial.Textbuf
