@@ -6,7 +6,7 @@ local test, eq = T.test, T.eq
 local api = paw.api
 
 -- Functions in files another piece of work owns tonight (the scene: ui.lua,
--- buf.lua, canvas.lua, frontend.lua), to be given comments there.
+-- buf.lua, canvas.lua, frontend.tl), to be given comments there.
 local KNOWN_GAPS = {}
 
 -- What `paw -l tools/apidoc.lua check` says, run in a program of its own:
