@@ -5,14 +5,14 @@ use std::sync::Arc;
 
 use paw_engine::launch::{Launch, Quantize, SlotClip, Slots, Target};
 use paw_engine::{
-    AudioData, AudioRegion, ClipSet, Engine, EngineHandle, MASTER, Msg, NO_SLOT, SchedEntry,
-    Schedule, Slot, TempoMap, TempoPoint,
+    AudioData, AudioRegion, ClipSet, Engine, EngineHandle, Msg, SchedEntry, Schedule, TempoMap,
+    TempoPoint, TrackSlot,
 };
 
 const SR: f64 = 48000.0;
 /// Frames in a beat at 120 BPM.
 const BEAT: usize = 24000;
-const TRACK: Slot = 1;
+const TRACK: TrackSlot = TrackSlot(1);
 
 fn send(handle: &mut EngineHandle, msg: Msg) {
     assert!(handle.try_send(msg).is_ok(), "message queue full");
@@ -77,8 +77,8 @@ fn engine(length: f64, sounding: f64) -> (Engine, EngineHandle) {
         },
     );
     let entries = vec![
-        SchedEntry::new(TRACK, MASTER),
-        SchedEntry::new(MASTER, NO_SLOT),
+        SchedEntry::new(TRACK, TrackSlot::MASTER),
+        SchedEntry::new(TrackSlot::MASTER, TrackSlot::NONE),
     ];
     send(
         &mut handle,

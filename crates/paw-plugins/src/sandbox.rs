@@ -39,8 +39,8 @@ use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, anyhow, bail};
 use paw_engine::device::{
-    Change, Controller, Device, DeviceFactory, DeviceInfo, Instance, Io, ParamInfo, Ports, Rest,
-    Starting,
+    Category, Change, Controller, Device, DeviceFactory, DeviceInfo, Instance, Io, ParamInfo, Ports,
+    Rest, Starting,
 };
 use paw_engine::{Event, MAX_PAIRS, ProcessCtx, Registry};
 use serde_json::{Value, json};
@@ -109,7 +109,7 @@ pub fn wrap(registry: &mut Registry) {
     let plugins: Vec<DeviceInfo> = registry
         .iter()
         .map(|factory| factory.info().clone())
-        .filter(|info| matches!(info.format.as_str(), "clap" | "lv2" | "vst3"))
+        .filter(|info| info.format.is_plugin())
         .collect();
     for info in plugins {
         registry.register(Rc::new(RemoteFactory {
@@ -1206,7 +1206,7 @@ impl RemoteFactory {
         Instance {
             device: Box::new(RemoteDevice {
                 link: controller.link.clone(),
-                instrument: self.info.category == "instrument",
+                instrument: self.info.category == Category::Instrument,
                 seq: 0,
                 outstanding: false,
                 moves: Vec::with_capacity(PARAMS),

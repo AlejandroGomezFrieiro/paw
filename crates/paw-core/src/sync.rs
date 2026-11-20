@@ -15,9 +15,9 @@ use base64::engine::general_purpose::STANDARD as BASE64;
 use paw_engine::launch::{SlotClip, Slots};
 use paw_engine::{
     AudioData, AudioRegion, AutoLane, AutoTarget, Automation, ClipSet, Controller, Delay, Part, PartEdit,
-    DiskStore, MASTER,
-    KeyRt, MAX_BLOCK, MAX_DELAY, MAX_DEVICES, MAX_TRACKS, MidiEv, Msg, NO_SLOT, OutRt, ParamInfo,
-    Registry, SchedEntry, Schedule, SendRt, Slot, StateChange, StateLane, TrackRt, db_to_gain,
+    Category, DiskStore, DeviceSlot,
+    KeyRt, MAX_BLOCK, MAX_DELAY, MAX_DEVICES, MAX_TRACKS, MidiEv, Msg, OutRt, ParamInfo,
+    Registry, SchedEntry, Schedule, SendRt, StateChange, StateLane, TrackRt, TrackSlot, db_to_gain,
 };
 use serde_json::{Value, json};
 
@@ -75,12 +75,12 @@ type Routing = Vec<Route>;
 
 /// Which engine slot each track and device lives in.
 pub struct Mapper {
-    pub tracks: HashMap<Id, Slot>,
-    pub devices: HashMap<Id, Slot>,
-    free_tracks: Vec<Slot>,
-    free_devices: Vec<Slot>,
-    next_track: Slot,
-    next_device: Slot,
+    pub tracks: HashMap<Id, TrackSlot>,
+    pub devices: HashMap<Id, DeviceSlot>,
+    free_tracks: Vec<TrackSlot>,
+    free_devices: Vec<DeviceSlot>,
+    next_track: u32,
+    next_device: u32,
     mix: HashMap<Id, (f32, f32, bool, bool)>,
     /// The fader lane each track has because of the VCAs it is in, as last
     /// sent: see [`vca_volume_lane`].
@@ -146,11 +146,11 @@ impl Default for Mapper {
 impl Mapper {
     pub fn new() -> Self {
         Self {
-            tracks: HashMap::from([(MASTER_ID, MASTER)]),
+            tracks: HashMap::from([(MASTER_ID, TrackSlot::MASTER)]),
             devices: HashMap::new(),
             free_tracks: Vec::new(),
             free_devices: Vec::new(),
-            next_track: MASTER + 1,
+            next_track: TrackSlot::MASTER.0 + 1,
             next_device: 0,
             mix: HashMap::new(),
             vca_lanes: HashMap::new(),
@@ -186,20 +186,20 @@ impl Mapper {
         *self.cue_rows.get(&track)?.get(row as usize)?
     }
 
-    fn alloc_track(&mut self) -> Option<Slot> {
+    fn alloc_track(&mut self) -> Option<TrackSlot> {
         self.free_tracks.pop().or_else(|| {
-            let slot = self.next_track;
-            ((slot as usize) < MAX_TRACKS).then(|| {
+            let slot = TrackSlot(self.next_track);
+            (slot.index() < MAX_TRACKS).then(|| {
                 self.next_track += 1;
                 slot
             })
         })
     }
 
-    fn alloc_device(&mut self) -> Option<Slot> {
+    fn alloc_device(&mut self) -> Option<DeviceSlot> {
         self.free_devices.pop().or_else(|| {
-            let slot = self.next_device;
-            ((slot as usize) < MAX_DEVICES).then(|| {
+            let slot = DeviceSlot(self.next_device);
+            (slot.index() < MAX_DEVICES).then(|| {
                 self.next_device += 1;
                 slot
             })
@@ -610,7 +610,7 @@ pub fn sync(
                     .eq(track.devices.iter().map(|d| d.id))
             });
         if !same_chain {
-            let chain: Box<[Slot]> = track
+            let chain: Box<[DeviceSlot]> = track
                 .devices
                 .iter()
                 .filter_map(|d| map.devices.get(&d.id).copied())
@@ -1121,7 +1121,7 @@ fn add_device(device: &DeviceInst, map: &mut Mapper, ctx: &mut SyncCtx, send: &m
         };
         // Until it is made: an instrument is silent, an effect passes
         // the sound through.
-        let instrument = factory.info().category == "instrument";
+        let instrument = factory.info().category == Category::Instrument;
         map.devices.insert(device.id, slot);
         map.deferred.push(device.id);
         send(Msg::InsertDevice {
@@ -2666,7 +2666,7 @@ fn build_schedule(routing: &Routing, map: &Mapper) -> Schedule {
             };
             Some(SchedEntry {
                 slot: slot(&route.track)?,
-                output: slot(&output).unwrap_or(MASTER),
+                output: slot(&output).unwrap_or(TrackSlot::MASTER),
                 delay: wait(route.track, output),
                 sends: route
                     .sends
@@ -2711,7 +2711,7 @@ fn build_schedule(routing: &Routing, map: &Mapper) -> Schedule {
             })
         })
         .collect();
-    entries.push(SchedEntry::new(MASTER, NO_SLOT));
+    entries.push(SchedEntry::new(TrackSlot::MASTER, TrackSlot::NONE));
     Schedule::new(entries, master_arrive + master_latency)
 }
 

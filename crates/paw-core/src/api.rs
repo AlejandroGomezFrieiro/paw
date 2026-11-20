@@ -11,7 +11,7 @@ use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use paw_engine::backend::{BackendOptions, TestInput};
+use paw_engine::backend::{BackendChoice, BackendOptions, TestInput};
 use paw_engine::{EventKind, ump};
 use mlua::serde::SerializeOptions;
 use mlua::{Function, Lua, LuaSerdeExt, LuaString, Table, Value as LuaValue};
@@ -1648,7 +1648,7 @@ pub fn install(lua: &Lua, shared: &Rc<Shared>) -> mlua::Result<()> {
         fn engine_restart(lua, sh, opts => LuaValue) {
             let opts: EngineOpts = options(lua, opts)?;
             let backend = BackendOptions {
-                backend: opts.backend.unwrap_or_else(|| "auto".into()),
+                backend: opts.backend.as_deref().map_or(BackendChoice::Auto, BackendChoice::from),
                 sample_rate: opts.sample_rate,
                 buffer_size: opts.buffer_size,
                 input: opts.input.unwrap_or(true),

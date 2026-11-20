@@ -17,6 +17,12 @@ paw-listen = { path = "crates/paw-listen" }
 paw-raster = { path = "crates/paw-raster" }
 paw-scene = { path = "crates/paw-scene" }
 anyhow = "1"
+# Typed errors where a caller tells one failure from another. Already in
+# Cargo.lock through other crates.
+thiserror = "2"
+# Sets of flags as types (faults, sandbox states). Already in Cargo.lock
+# through other crates.
+bitflags = "2"
 serde = { version = "1", features = ["derive", "rc"] }
 # Exact round trips of every f64 through a saved project.
 serde_json = { version = "1", features = ["float_roundtrip"] }

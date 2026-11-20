@@ -1,19 +1,81 @@
 //! Things that drive [`Engine::process`]: a real audio device through cpal, or
 //! a clock thread that renders into nowhere when there is no device.
 
+use std::fmt;
+use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, Ordering::Relaxed};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
 use anyhow::Result;
+use serde::Serialize;
 
 use crate::engine::{Engine, MAX_INPUTS};
 
+/// A sound system to play through, by the word scripts and the command
+/// line use for it: `auto`, `null`, `test`, or a host such as `pipewire`.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub enum BackendChoice {
+    /// The first host that works, else the null backend.
+    #[default]
+    Auto,
+    /// No device: a clock thread that renders into nowhere.
+    Null,
+    /// The null backend with the [`test_device`] to play to.
+    Test,
+    /// A cpal host by its name, such as `pipewire`, `alsa` or `jack`.
+    Host(String),
+}
+
+impl BackendChoice {
+    /// The word for it.
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Auto => "auto",
+            Self::Null => "null",
+            Self::Test => "test",
+            Self::Host(name) => name,
+        }
+    }
+}
+
+impl From<&str> for BackendChoice {
+    /// Any word other than `auto`, `null` and `test` names a host, as it is
+    /// written: whether there is such a host is known only when it opens.
+    fn from(word: &str) -> Self {
+        match word {
+            "auto" => Self::Auto,
+            "null" => Self::Null,
+            "test" => Self::Test,
+            host => Self::Host(host.to_string()),
+        }
+    }
+}
+
+impl FromStr for BackendChoice {
+    type Err = std::convert::Infallible;
+
+    fn from_str(word: &str) -> std::result::Result<Self, Self::Err> {
+        Ok(Self::from(word))
+    }
+}
+
+impl fmt::Display for BackendChoice {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl Serialize for BackendChoice {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> std::result::Result<S::Ok, S::Error> {
+        s.serialize_str(self.as_str())
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct BackendOptions {
-    /// `auto`, `null`, or a cpal host name such as `pipewire`, `alsa` or `jack`.
-    pub backend: String,
+    pub backend: BackendChoice,
     pub sample_rate: Option<u32>,
     pub buffer_size: Option<u32>,
     /// Open a capture device alongside the output. Real devices only.
@@ -31,7 +93,7 @@ pub struct BackendOptions {
 impl Default for BackendOptions {
     fn default() -> Self {
         Self {
-            backend: "auto".into(),
+            backend: BackendChoice::Auto,
             sample_rate: None,
             buffer_size: None,
             input: true,
@@ -60,7 +122,7 @@ pub struct AudioDevice {
 
 #[derive(Clone, Debug, Default)]
 pub struct DeviceList {
-    pub backend: String,
+    pub backend: BackendChoice,
     pub outputs: Vec<AudioDevice>,
     pub inputs: Vec<AudioDevice>,
 }
@@ -203,7 +265,8 @@ pub struct TestInput {
 
 #[derive(Clone, Debug)]
 pub struct StreamInfo {
-    pub backend: String,
+    /// The backend that opened: never `Auto`.
+    pub backend: BackendChoice,
     /// The output device's name, and the backend's id for it.
     pub device: String,
     pub device_id: String,
@@ -270,7 +333,7 @@ impl Drop for Stream {
 pub fn open(opts: &BackendOptions) -> Result<Opened> {
     let null = |warning: Option<String>| Opened {
         info: StreamInfo {
-            backend: "null".into(),
+            backend: BackendChoice::Null,
             device: "none".into(),
             device_id: String::new(),
             sample_rate: opts.sample_rate.unwrap_or(48000),
@@ -292,15 +355,15 @@ pub fn open(opts: &BackendOptions) -> Result<Opened> {
         #[cfg(feature = "cpal")]
         cpal: None,
     };
-    if opts.backend == "null" {
+    if opts.backend == BackendChoice::Null {
         return Ok(null(None));
     }
-    if opts.backend == "test" {
+    if opts.backend == BackendChoice::Test {
         if !test_device::present() {
             anyhow::bail!("the {TEST_DEVICE_NAME} is not connected");
         }
         let mut opened = null(None);
-        opened.info.backend = "test".into();
+        opened.info.backend = BackendChoice::Test;
         opened.info.device = TEST_DEVICE_NAME.into();
         opened.info.device_id = "test".into();
         return Ok(opened);
@@ -309,7 +372,7 @@ pub fn open(opts: &BackendOptions) -> Result<Opened> {
     {
         match open_cpal(opts) {
             Ok(opened) => Ok(opened),
-            Err(err) if opts.backend == "auto" => Ok(null(Some(format!(
+            Err(err) if opts.backend == BackendChoice::Auto => Ok(null(Some(format!(
                 "no audio device ({err:#}); running without sound"
             )))),
             Err(err) => Err(err),
@@ -317,7 +380,7 @@ pub fn open(opts: &BackendOptions) -> Result<Opened> {
     }
     #[cfg(not(feature = "cpal"))]
     {
-        if opts.backend == "auto" {
+        if opts.backend == BackendChoice::Auto {
             Ok(null(Some("built without audio device support".into())))
         } else {
             anyhow::bail!("unknown audio backend `{}`", opts.backend)
@@ -345,12 +408,12 @@ pub fn backends() -> Vec<String> {
 /// `opts.backend` would open (`auto`: the first that works). The null
 /// backend offers its test input, when it has one.
 pub fn list_devices(opts: &BackendOptions) -> Result<DeviceList> {
-    if opts.backend == "null" {
+    if opts.backend == BackendChoice::Null {
         return Ok(null_devices(opts));
     }
-    if opts.backend == "test" {
+    if opts.backend == BackendChoice::Test {
         let mut list = null_devices(opts);
-        list.backend = "test".into();
+        list.backend = BackendChoice::Test;
         if test_device::present() {
             list.outputs.push(AudioDevice {
                 name: TEST_DEVICE_NAME.into(),
@@ -371,7 +434,7 @@ pub fn list_devices(opts: &BackendOptions) -> Result<DeviceList> {
                 Ok(host) => match cpal_devices(&host) {
                     Ok(found) => {
                         return Ok(DeviceList {
-                            backend: id.name().to_lowercase(),
+                            backend: BackendChoice::Host(id.name().to_lowercase()),
                             outputs: found.outputs.into_iter().map(|(_, d)| d).collect(),
                             inputs: found.inputs.into_iter().map(|(_, d)| d).collect(),
                         });
@@ -381,7 +444,7 @@ pub fn list_devices(opts: &BackendOptions) -> Result<DeviceList> {
                 Err(err) => last = err.into(),
             }
         }
-        if opts.backend == "auto" {
+        if opts.backend == BackendChoice::Auto {
             return Ok(null_devices(opts));
         }
         Err(last)
@@ -392,7 +455,7 @@ pub fn list_devices(opts: &BackendOptions) -> Result<DeviceList> {
 
 fn null_devices(opts: &BackendOptions) -> DeviceList {
     DeviceList {
-        backend: "null".into(),
+        backend: BackendChoice::Null,
         outputs: Vec::new(),
         inputs: opts
             .test_input
@@ -411,9 +474,9 @@ fn null_devices(opts: &BackendOptions) -> DeviceList {
 
 /// The hosts to try for a backend name, best first.
 #[cfg(feature = "cpal")]
-fn cpal_hosts(backend: &str) -> Result<Vec<cpal::HostId>> {
+fn cpal_hosts(backend: &BackendChoice) -> Result<Vec<cpal::HostId>> {
     let hosts = cpal::available_hosts();
-    if backend == "auto" {
+    if *backend == BackendChoice::Auto {
         // Prefer the low-latency servers over plain ALSA when they are there.
         let rank = |id: &cpal::HostId| match id.name().to_lowercase().as_str() {
             "pipewire" => 0,
@@ -426,7 +489,7 @@ fn cpal_hosts(backend: &str) -> Result<Vec<cpal::HostId>> {
     }
     match hosts
         .iter()
-        .find(|id| id.name().eq_ignore_ascii_case(backend))
+        .find(|id| id.name().eq_ignore_ascii_case(backend.as_str()))
     {
         Some(id) => Ok(vec![*id]),
         None => {
@@ -621,7 +684,7 @@ fn open_cpal(opts: &BackendOptions) -> Result<Opened> {
                 chosen.as_ref().map_or_else(String::new, |d| d.id.clone())
             };
             let info = StreamInfo {
-                backend: id.name().to_lowercase(),
+                backend: BackendChoice::Host(id.name().to_lowercase()),
                 device: name_of(&device, &chosen),
                 device_id: id_of(&chosen),
                 sample_rate: config.sample_rate,
@@ -680,7 +743,7 @@ impl Opened {
                 cpal_input: input,
             });
         }
-        let device = (self.info.backend == "test").then(|| lost.clone());
+        let device = (self.info.backend == BackendChoice::Test).then(|| lost.clone());
         let thread = spawn_null(
             engine,
             self.info.buffer_size.max(64) as usize,
@@ -1069,6 +1132,14 @@ mod tests {
     fn nothing_is_found_for_a_name_that_is_not_there() {
         assert!(find_device(&inputs(), "Scarlett").is_none());
         assert!(find_device(&inputs(), "  ").is_none());
+    }
+
+    #[test]
+    fn a_backend_is_written_as_the_word_it_was_read_from() {
+        for word in ["auto", "null", "test", "pipewire", "Null"] {
+            assert_eq!(BackendChoice::from(word).to_string(), word);
+        }
+        assert_eq!(BackendChoice::from("jack"), BackendChoice::Host("jack".into()));
     }
 
     #[test]

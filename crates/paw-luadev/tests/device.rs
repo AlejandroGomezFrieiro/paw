@@ -64,7 +64,7 @@ return dev
 fn a_script_says_what_it_is() {
     let desc = paw_luadev::describe(&script("describe.lua", GAIN)).unwrap();
     assert_eq!(desc.name.as_deref(), Some("Gain"));
-    assert_eq!(desc.category, "effect");
+    assert_eq!(desc.category, paw_engine::Category::Effect);
     assert_eq!(desc.params.len(), 2);
     assert_eq!(desc.params[0].unit, "dB");
     assert_eq!(desc.params[1].choices, ["Both", "Left"]);

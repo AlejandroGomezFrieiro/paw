@@ -70,8 +70,8 @@ use clap_sys::stream::{clap_istream, clap_ostream};
 use clap_sys::version::CLAP_VERSION;
 use paw_engine::device::{Change, Rest, assign_keys, silent};
 use paw_engine::{
-    Controller, Device, DeviceFactory, DeviceInfo, EventKind, Instance, Io, NOTE_BEND_RANGE,
-    NoteCtl, ParamInfo, Ports, ProcessCtx, Registry, ump,
+    Category, Controller, Device, DeviceFactory, DeviceFormat, DeviceInfo, EventKind, Instance, Io,
+    NOTE_BEND_RANGE, NoteCtl, ParamInfo, Ports, ProcessCtx, Registry, ump,
 };
 
 use crate::echo::Echo;
@@ -200,12 +200,11 @@ pub(crate) fn scan_in(
                         kind: format!("clap:{}", plugin.id),
                         name: plugin.name,
                         category: if plugin.instrument {
-                            "instrument"
+                            Category::Instrument
                         } else {
-                            "effect"
-                        }
-                        .into(),
-                        format: "clap".into(),
+                            Category::Effect
+                        },
+                        format: DeviceFormat::Clap,
                         vendor: plugin.vendor,
                         id: plugin.id.clone(),
                         version: plugin.version,

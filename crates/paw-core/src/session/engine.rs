@@ -132,17 +132,18 @@ impl Session {
         choice: AudioChoice,
     ) -> Result<()> {
         let mut opts = self.backend.clone();
-        if opts.backend == "auto" && self.stream.info.backend != "null" {
+        if opts.backend == BackendChoice::Auto && self.stream.info.backend != BackendChoice::Null {
             // Keep to the backend that opened, rather than trying them all again.
             opts.backend = self.stream.info.backend.clone();
         }
-        if let Some(backend) = choice.backend.filter(|b| !b.is_empty()) {
-            if !backend::backends().contains(&backend) {
+        if let Some(word) = choice.backend.filter(|b| !b.is_empty()) {
+            if !backend::backends().contains(&word) {
                 bail!(
-                    "no sound system `{backend}`; there are: {}",
+                    "no sound system `{word}`; there are: {}",
                     backend::backends().join(", ")
                 );
             }
+            let backend = BackendChoice::from(word.as_str());
             // Another system names its devices otherwise: start from its defaults.
             if backend != opts.backend {
                 opts.output_device = None;
@@ -188,13 +189,13 @@ impl Session {
         }
         self.engine_restart(&opts)?;
         if let Some(path) = &self.device_file
-            && self.stream.info.backend != "null"
+            && self.stream.info.backend != BackendChoice::Null
         {
             let remembered = crate::audio::Remembered {
                 output: opts.output_device.clone(),
                 input: opts.input_device.clone(),
                 buffer: opts.buffer_size,
-                backend: (opts.backend != "auto").then(|| opts.backend.clone()),
+                backend: (opts.backend != BackendChoice::Auto).then(|| opts.backend.to_string()),
                 rate: opts.sample_rate,
             };
             if let Err(err) = crate::audio::save(path, &remembered) {

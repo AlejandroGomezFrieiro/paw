@@ -28,7 +28,7 @@ use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
-use paw_engine::device::{DeviceFactory, DeviceInfo, Instance};
+use paw_engine::device::{DeviceFactory, DeviceFormat, DeviceInfo, Instance};
 use paw_engine::Registry;
 
 pub use device::{Descriptor, describe, make};
@@ -384,8 +384,8 @@ fn info(path: &Path, script: &Script, desc: &Descriptor) -> DeviceInfo {
                 .to_string_lossy()
                 .into_owned()
         }),
-        category: desc.category.clone(),
-        format: "lua".into(),
+        category: desc.category,
+        format: DeviceFormat::Lua,
         vendor: desc.vendor.clone().unwrap_or_default(),
         params: desc.params.iter().map(device::Param::info).collect(),
         ..Default::default()
@@ -412,7 +412,7 @@ pub fn scripts() -> Vec<Listed> {
                     .as_ref()
                     .and_then(|d| d.name.clone())
                     .unwrap_or_else(|| s.kind[4..].to_string()),
-                category: s.desc.as_ref().map(|d| d.category.clone()).unwrap_or_default(),
+                category: s.desc.as_ref().map(|d| d.category.to_string()).unwrap_or_default(),
                 error: s.error.as_ref().map(ToString::to_string),
                 active: winner(&s.kind).as_ref() == Some(path),
             })

@@ -5,7 +5,7 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
-use paw_engine::backend::BackendOptions;
+use paw_engine::backend::{BackendChoice, BackendOptions};
 use serde::{Deserialize, Serialize};
 
 /// What was last chosen with `paw.audio.use`. `None` leaves it to the
@@ -56,13 +56,13 @@ pub fn save(path: &Path, remembered: &Remembered) -> Result<()> {
 /// Fill in what the command line left open from what was remembered. The
 /// null backend opens no devices, so it is left alone.
 pub fn apply(opts: &mut BackendOptions, remembered: &Remembered) {
-    if opts.backend == "null" {
+    if opts.backend == BackendChoice::Null {
         return;
     }
-    if opts.backend == "auto"
+    if opts.backend == BackendChoice::Auto
         && let Some(backend) = &remembered.backend
     {
-        opts.backend = backend.clone();
+        opts.backend = backend.as_str().into();
     }
     if opts.sample_rate.is_none() {
         opts.sample_rate = remembered.rate;
@@ -137,7 +137,7 @@ mod tests {
         };
         let mut opts = BackendOptions::default();
         apply(&mut opts, &remembered);
-        assert_eq!(opts.backend, "alsa");
+        assert_eq!(opts.backend, BackendChoice::Host("alsa".into()));
         assert_eq!(opts.sample_rate, Some(44100));
         let mut given = BackendOptions {
             backend: "jack".into(),
@@ -145,7 +145,7 @@ mod tests {
             ..Default::default()
         };
         apply(&mut given, &remembered);
-        assert_eq!(given.backend, "jack");
+        assert_eq!(given.backend, BackendChoice::Host("jack".into()));
         assert_eq!(given.sample_rate, Some(96000));
     }
 }

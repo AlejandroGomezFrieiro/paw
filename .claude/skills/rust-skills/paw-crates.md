@@ -55,6 +55,7 @@ comment next to the code:
 | Job | Use | Not |
 |---|---|---|
 | Lua, LuaJIT | `mlua` | raw `lua_*` FFI |
+| MCP servers | `rmcp`, the official SDK (<https://github.com/modelcontextprotocol/rust-sdk>) | own JSON-RPC and tool tables |
 | Command line of a binary | `clap` (derive) | a loop over `std::env::args` |
 | Errors of a library crate | `thiserror` | `Result<_, String>` |
 | Errors of a binary | `anyhow` | `Box<dyn Error>` |
@@ -70,6 +71,7 @@ comment next to the code:
 | Lazy statics | `std::sync::LazyLock`, `OnceLock` | `lazy_static` |
 | Ring buffers between threads | `rtrb` | own atomics |
 | Channels | `std::sync::mpsc` or `crossbeam-channel` | own queues |
+| Network, sockets, child processes, timers that wait on I/O | `tokio` (with `tokio-rustls` for TLS) | a thread for each connection, sockets polled from a timer, read timeouts as a loop |
 | Dates and times | `jiff` | `libc::localtime_r` |
 | User folders (XDG) | `dirs` or `etcetera` | reading `XDG_*` by hand (keep the XDG order paw documents) |
 | Percent-encoding | `percent-encoding` | a loop over bytes |
@@ -83,6 +85,29 @@ The table is a guide, not a list of required crates. A row with no use in
 paw adds nothing. A change from paw's code to a crate keeps the behavior.
 It keeps the same output bytes and command-line flags, and the same error
 texts that Lua or a user sees.
+
+## I/O that waits: `tokio`
+
+The owner chose `tokio` for each job in paw that waits on I/O, now and in
+the future. The rules:
+
+- **One runtime for each process**, on threads of its own, made where the
+  process starts. A library crate takes a handle or gives `async fn`s.
+  It makes no runtime of its own.
+- **I/O only.** Sockets, TLS, child processes and their pipes, waits with a
+  time limit. Work for the processor (render, stretch, analysis) stays on
+  threads or the worker pool. The audio thread never sees `tokio`.
+- **The kernel stays as it is.** The Lua state is on one thread and is not
+  `Send`. Tasks send their results to the kernel's channel and wake it, as
+  the reader threads do now. The kernel never blocks on a future.
+- **Quiet when idle.** An idle runtime must not wake the processor. Measure
+  how often the idle program wakes, before and after (paw's goal: redraw on change, devices
+  sleep).
+- **Features.** Enable only what the crate uses (`rt-multi-thread` or
+  `rt`, `net`, `io-util`, `process`, `time`, `sync`, `macros`), as one
+  workspace dependency.
+- **Behavior stays.** Same messages on the wire, same time limits (for
+  example the hello time of a network connection), same error texts.
 
 ## Audio
 
@@ -133,6 +158,19 @@ Found with grep at a72467cf. Each refactor part that owns the file fixes it.
   `extensions/sampler/native/src/bin/paw-sampler.rs`. Use clap with derive
   and subcommands. Keep every flag, its short form and its meaning, and keep
   `docs/reference` in step.
+- **I/O that waits, on threads:** `paw-core/src/rpc.rs` (a thread for each
+  control socket and network connection, TLS by hand over `rustls`),
+  `paw-core/src/io.rs` (helper processes read on threads, sockets polled
+  from a timer), `paw-core/src/session/encode.rs` (ffmpeg jobs),
+  `paw-proto` (the client: connect, TLS, a reader thread),
+  `paw-mcp/src/kernel.rs`, `paw-luadev` (its helper process),
+  `paw-gui/src/client.rs` and the attach path of `paw-tui`. Use `tokio`.
+  Not these: the audio thread, the worker pool, the plugin sandbox's
+  shared memory and its process wire on the audio path, the ALSA MIDI
+  thread, the terminal's input thread, the watchdog, and the render and
+  stretch threads.
+- **MCP:** `paw-mcp` writes its own protocol, tool list and dispatch. Use
+  `rmcp`.
 - **SHA-256:** `paw-proto/src/lib.rs:261`. Use `ring::digest`.
 - **Hex:** five `fn hex` (paw-plugins vst3.rs, paw-proto, paw-gui theme.rs,
   paw-raster vector.rs, paw-scene cells.rs). One color type with

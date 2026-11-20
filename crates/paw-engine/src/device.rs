@@ -2,10 +2,13 @@
 //! changes sound. Built-in devices and hosted plugins both implement [`Device`].
 
 use std::collections::BTreeMap;
+use std::fmt;
 use std::rc::Rc;
+use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::Result;
+use serde::{Deserialize, Serialize};
 
 use crate::event::EventBuf;
 
@@ -321,7 +324,12 @@ impl Instance {
 
 /// One parameter of a device, described the same way for every kind of
 /// device: built-in, CLAP, VST3, LV2 or a Lua device.
-#[derive(Clone, Debug, Default, PartialEq)]
+///
+/// It goes between processes as JSON, by the names of its fields (see the
+/// plugin sandbox); a field left out takes its default, and `automatable`
+/// is then true.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct ParamInfo {
     /// The identifier used in projects and scripts. Unique within a device.
     pub key: String,
@@ -352,12 +360,17 @@ pub struct ParamInfo {
     /// the device writes them (see [`Controller::value_text`]).
     pub enumeration: bool,
     /// The host may automate it (most parameters).
+    #[serde(default = "yes")]
     pub automatable: bool,
     /// The device shows it, but does not take values for it.
     pub read_only: bool,
     /// The format lets it take a different value for each note (CLAP's
     /// per-note automation or modulation).
     pub per_note: bool,
+}
+
+fn yes() -> bool {
+    true
 }
 
 impl ParamInfo {
@@ -555,16 +568,105 @@ pub fn assign_keys(params: &mut [ParamInfo]) {
     }
 }
 
+/// What a device does: makes sound from notes, or changes the sound that
+/// comes in. Scripts see it as `instrument` or `effect`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Category {
+    Instrument,
+    #[default]
+    Effect,
+}
+
+impl Category {
+    /// The word scripts and projects use.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Instrument => "instrument",
+            Self::Effect => "effect",
+        }
+    }
+}
+
+impl fmt::Display for Category {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl FromStr for Category {
+    type Err = anyhow::Error;
+
+    fn from_str(word: &str) -> Result<Self> {
+        match word {
+            "instrument" => Ok(Self::Instrument),
+            "effect" => Ok(Self::Effect),
+            _ => anyhow::bail!("a category is \"instrument\" or \"effect\", not `{word}`"),
+        }
+    }
+}
+
+/// Where a device comes from: paw's own code, a plugin of one of the
+/// formats, or a Lua script. Scripts see it as `builtin`, `clap`, `lv2`,
+/// `vst3` or `lua`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum DeviceFormat {
+    #[default]
+    Builtin,
+    Clap,
+    Lv2,
+    Vst3,
+    Lua,
+}
+
+impl DeviceFormat {
+    /// The word scripts and projects use.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Builtin => "builtin",
+            Self::Clap => "clap",
+            Self::Lv2 => "lv2",
+            Self::Vst3 => "vst3",
+            Self::Lua => "lua",
+        }
+    }
+
+    /// A plugin of one of the formats that paw hosts (CLAP, LV2, VST3).
+    pub const fn is_plugin(self) -> bool {
+        matches!(self, Self::Clap | Self::Lv2 | Self::Vst3)
+    }
+}
+
+impl fmt::Display for DeviceFormat {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl FromStr for DeviceFormat {
+    type Err = anyhow::Error;
+
+    fn from_str(word: &str) -> Result<Self> {
+        match word {
+            "builtin" => Ok(Self::Builtin),
+            "clap" => Ok(Self::Clap),
+            "lv2" => Ok(Self::Lv2),
+            "vst3" => Ok(Self::Vst3),
+            "lua" => Ok(Self::Lua),
+            _ => anyhow::bail!("no device format `{word}`"),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct DeviceInfo {
     /// The identifier used in projects and scripts, such as `synth` or
     /// `clap:org.surge-synth-team.surge-xt`.
     pub kind: String,
     pub name: String,
-    /// `instrument` or `effect`.
-    pub category: String,
-    /// `builtin`, `clap`, `lv2` or `vst3`.
-    pub format: String,
+    pub category: Category,
+    pub format: DeviceFormat,
     pub vendor: String,
     /// The plugin's own id, as its format names it: a CLAP plugin id, a
     /// VST3 class id (the 16 bytes as 32 hex digits), an LV2 URI. Empty for
@@ -577,6 +679,20 @@ pub struct DeviceInfo {
     /// What the plugin says it is, in its format's words: a CLAP plugin's
     /// features (`audio-effect`, `ara:supported`). Empty for others.
     pub features: Vec<String>,
+}
+
+impl DeviceInfo {
+    /// A device of paw's own: no vendor, no plugin id, no version.
+    pub fn builtin(kind: &str, name: &str, category: Category, params: Vec<ParamInfo>) -> Self {
+        Self {
+            kind: kind.into(),
+            name: name.into(),
+            category,
+            format: DeviceFormat::Builtin,
+            params,
+            ..Self::default()
+        }
+    }
 }
 
 /// Creates device instances. Lives on the main thread.
@@ -875,6 +991,23 @@ pub const CLIPS: &str = "paw.clips";
 mod tests {
     use super::*;
 
+
+    #[test]
+    fn a_parameter_goes_through_json_as_it_is() {
+        let param = ParamInfo {
+            id: "7".into(),
+            group: "Osc 1".into(),
+            steps: 3,
+            read_only: true,
+            per_note: true,
+            ..ParamInfo::choice("Wave", &["Sine", "Saw", "Square", "Noise"], 1)
+        };
+        let json = serde_json::to_value(&param).unwrap();
+        assert_eq!(json["read_only"], true, "the fields keep their names");
+        assert_eq!(serde_json::from_value::<ParamInfo>(json).unwrap(), param);
+        let bare: ParamInfo = serde_json::from_str("{}").unwrap();
+        assert!(bare.automatable, "a parameter that does not say is automatable");
+    }
 
     #[test]
     fn a_parameter_says_what_kind_of_value_it_takes() {

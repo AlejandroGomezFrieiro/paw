@@ -7,7 +7,7 @@
 use std::sync::Arc;
 
 use anyhow::{Result, bail};
-use paw_engine::{Engine, EngineHandle, Msg, Slot};
+use paw_engine::{Engine, EngineHandle, Msg, TrackSlot};
 
 use super::{RenderOpts, Session};
 use crate::model::{Id, MASTER_ID, Project};
@@ -22,7 +22,7 @@ pub struct Offline {
     pub sample_rate: u32,
     pub frames: usize,
     /// Every track's slot in the engine, the master included.
-    pub slots: Vec<(Id, Slot)>,
+    pub slots: Vec<(Id, TrackSlot)>,
     /// Beat the render starts at, and the tempo.
     pub start: f64,
     pub tempo: f64,
