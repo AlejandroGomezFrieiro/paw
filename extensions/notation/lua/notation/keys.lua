@@ -414,9 +414,9 @@ local function guarded(rhs)
     return rhs(...)
   end)
 end
-local READ = { gh = true, gp = true, zi = true, zo = true, zg = true, zp = true, ["]d"] = true, ["[d"] = true, gK = true, ["<Esc>"] = true, ["<leader>n"] = true, ZZ = true, gd = true, gR = true, gT = true, ["<Tab>"] = true }
+local READ = { gh = true, gp = true, zi = true, zo = true, zg = true, zp = true, ["]d"] = true, ["[d"] = true, gK = true, ["<Esc>"] = true, ["<leader>n"] = true, ZZ = true, gd = true, gR = true, zS = true, ["<Tab>"] = true }
 -- Keys that leave the view, or open another clip, work with no clip shown.
-local ANYWAY = { ["<Esc>"] = true, ["<leader>n"] = true, gT = true }
+local ANYWAY = { ["<Esc>"] = true, ["<leader>n"] = true, zS = true }
 local function nmap(lhs, rhs, desc, opts)
   if not (opts and opts.motion) and not READ[lhs] and not lhs:match("^g%d$") then rhs = guarded(rhs)
   elseif not ANYWAY[lhs] then rhs = present(rhs) end
@@ -531,7 +531,7 @@ nmap("L", move_chord(1), "Move the chord later by the chosen value, as played")
 nmap("H", move_chord(-1), "Move the chord earlier by the chosen value, as played")
 keymap.classic("<A-l>", guarded(move_chord(1)), { view = "notation", desc = "Move the chord later by the chosen value, as played" })
 keymap.classic("<A-h>", guarded(move_chord(-1)), { view = "notation", desc = "Move the chord earlier by the chosen value, as played" })
-nmap("gv", function()
+nmap("gV", function()
   local v = view:toggle_voice()
   if v then paw.notify("voice " .. v .. "; entering in voice " .. v) end
 end, "The note (or chord) into the other voice, and enter in it")
@@ -545,10 +545,6 @@ nmap("gs", function()
 end, "Arpeggio sign: up, down, none, as played")
 nmap("gG", function() paw.notify(view:toggle_grace() and "grace note" or "not a grace note") end, "The note a grace note, or the chord's grace note not one")
 nmap("gb", function() paw.notify(view:toggle_beam() and "beam broken here" or "beam joined") end, "Break the beam before the chord, or join it")
-nmap("gt", function()
-  local on = view:toggle_tuplet()
-  if on ~= nil then paw.notify(on and "this beat in triplets" or "triplets as played") end
-end, "This beat in triplets (a duplet in 6/8), or as played")
 -- `ge` is the plugin window in every view; `g~` (an operator, with the
 -- grammar below) changes how notes are written, as Vim's changes the case
 -- of letters.
@@ -588,7 +584,7 @@ nmap("gd", function()
 end, "Dotted values on or off, for entering")
 nmap("gh", function() view:audition() end, "Hear the pitch under the cursor")
 nmap("gR", function() paw.cmd("notation.raw") end, "Raw view: every note as played, or interpreted again")
-nmap("gT", function() paw.cmd("notation.tracks") end, "Every track over this stretch as a score, or this clip alone")
+nmap("zS", function() paw.cmd("notation.tracks") end, "Every track over this stretch as a score, or this clip alone")
 nmap("zi", function()
   view.zoom = math.min(4, view.zoom + 0.5)
   view.gui.zoom(1)

@@ -154,8 +154,8 @@ from its written place, its real length and its velocity.
   quarter-note triplets over two beats are one bracket. `6` is for a beat
   of sixteenths in sixes. `5` and `7` are for quintuplets and septuplets of
   sixteenths (in the time of four). In 6/8, `2` is a duplet and `4` is four
-  eighths in the time of three. A tuplet that you set in notation (`,3`,
-  `gt`) has priority over what the notes suggest. A beat that you set as
+  eighths in the time of three. A tuplet that you set in notation (`\3`)
+  has priority over what the notes suggest. A beat that you set as
   plain has priority too.
 - **Rests** merge as the meter divides the bar.
 - **Notes drawn exactly on the grid** (in the piano roll) are written as
@@ -245,7 +245,7 @@ Other parts of the page:
   its string.
 - **Lyrics**: the page writes the `meta.lyric` of a note under it. The vocal
   clips of the `utau` extension keep their lyrics there.
-- **Several tracks**: `:notation.tracks` (`gT`) shows a score of every track
+- **Several tracks**: `:notation.tracks` (`zS`) shows a score of every track
   with MIDI over the stretch of the open clip, a staff for each. You edit
   the staff of the open clip. The same command again returns to the clip
   alone. [The score](#scores) shows every track, the tracks of a group or
@@ -419,16 +419,15 @@ played lengths:
 | `X` | delete the chord: a rest (`x` deletes the one note) |
 | `=` | an operator: the notes quantized to the notation, start where they are written and as long, for example `=in`, `=ib`, or on a selection |
 | `g=` | an operator: what notation decided about the notes forgotten, the bars written again from how they play |
-| `gv` | the note (or the chord) into the other voice, and enter in that voice |
+| `gV` | the note (or the chord) into the other voice, and enter in that voice |
 | `gH` | the chord onto the other staff of a grand staff, in a voice free there |
 | `gs` | arpeggio sign up, down, none; on a selection, the chords one chord (a strum) |
 | `gG` | the chord a grace note of the next (its time goes to the chord before), or the chord's grace notes become notes again |
 | `gb` | break the beam before the chord, or join it |
-| `gt` | the beat in triplets (a duplet in 6/8), or not: the bar written again so |
 | `g'` `g>` `g_` `g^` | staccato, accent, tenuto, marcato on the chord (or a selection), and played so |
 | `g(` | on a selection: a slur, the notes played legato (it is the slur operator: `g(ip`) |
 | `Alt-l` `Alt-h` | on a selection: each chord longer, shorter by the chosen value |
-| `gR` `gT` | the raw view; several tracks |
+| `gR` `zS` | the raw view; several tracks |
 
 `:notation.quantize` quantizes the whole clip to the notation.
 `:notation.retranscribe` writes it again from how it plays.
@@ -459,7 +458,7 @@ one too: `tempo`, `meter`, `key`, `clef`, `bar`, `rehearsal`, `chord`,
 | `:notation.chord Cmaj7` | a chord symbol at the cursor (`G/B`, `N.C.`, `off`) |
 | `:notation.lyric la-` | a syllable under the note at the cursor; `verse=2` for the second verse |
 | `:notation.interval 3` | a note an interval above (`-6` below, `m3`) each chord of the range |
-| `:notation.tuplet 3` | the beat or the range as a tuplet (`5:4`); in insert mode, enter in it (`off` plain) |
+| `:notation.tuplet 3` | the beat or the range as a tuplet (`5:4`); on a tuplet, `off` gives plain values; in insert mode, enter in it (`off` plain) |
 | `:part.bars-per-system 4` | in the part shown, that many bars to every system; without a number, as they fit |
 
 **Marks that play.** `:notation.dyn mf` puts a dynamic at the cursor
@@ -533,7 +532,7 @@ last popover again, with what you typed in it.
 | `\q` | chord symbols | `Cmaj7`, `G/B`, `F#m7b5`, `N.C.` | over the staff; `Space` writes it and goes to the next beat, the prompt still open; `Tab` offers first what the notes there sound (`paw.harmony`) |
 | `\l` | lyrics | a syllable; `Space` the next note, `-` a hyphen, `_` an extender; `verse=2 ` first for verse 2 | under the note at the caret, and on to the next of its voice |
 | `\i` | intervals | `3`, `-6`, `8`, `m3`, `M6`, `P5` | a note that far above the top (below the lowest) note of each chord of the selection, in the key |
-| `\3` | tuplets | `3`, `5`, `5:4`, `7:8`, `off` | the beat at the cursor (or the selection) as that tuplet; in insert mode, the notes entered next |
+| `\3` | tuplets | `3`, `5`, `5:4`, `7:8`, `off` | the beat at the cursor (or the selection) as that tuplet; on a tuplet, `off` gives plain values again; in insert mode, the notes entered next |
 | `\v` | voice | `1` to `4` | the voice of the notes that you enter; with a selection, its chords moved into it |
 | `\o` | ornaments | `tr`, `mordent`, `prall`, `turn`, `fermata`, `trem`, `off` | on the chord, or each chord of the selection; a fermata holds its note's whole value |
 | `\p` | playing techniques | `pizz.`, `arco`, `con sord.`, `sul pont.` | text at the cursor (written only) |
@@ -785,12 +784,12 @@ clip of that track (see [MIDI is the truth](#midi-is-the-truth)).
 | `:score all`, `:part.score`, `\Ps` | every track with MIDI |
 | `:score Strings` | a group's tracks (by its name, or part of it) |
 | `:score selection`, `:'<,'>score` | the tracks of the arrange view's selection |
-| `:notation.tracks`, `gT` | the tracks with MIDI over the open clip's stretch |
+| `:notation.tracks`, `zS` | the tracks with MIDI over the open clip's stretch |
 | `:score off`, `:part off`, `\Po` | the clip alone |
 | `:score.check`, `zp` | the score's pages as they will be exported, to read: the one view where nothing is edited, and it says so; again to edit |
 
 The instruments are in score order (see [Parts](#parts)). A staff is every
-MIDI clip of its track on the timeline of the song (with `gT`, the clips
+MIDI clip of its track on the timeline of the song (with `zS`, the clips
 over the stretch of the clip). Clips pasted one after another read as one
 line. A bar that no clip plays is a bar of rest. Where clips overlap, the
 staff shows the clip that starts later.
