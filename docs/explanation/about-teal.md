@@ -424,4 +424,5 @@ entries.
   module in Teal have their type in `partial.d.tl` now (`paw.ui.roles`).
 - The checker found no error that changed what the code does: the tests
   pass with no change. A frame on the screen takes the same time as
-  before.
+  before: `bench/redraw.lua` with 16 tracks gives the same median, in the
+  spread of six runs of each.
