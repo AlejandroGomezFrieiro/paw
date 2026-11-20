@@ -1,22 +1,25 @@
 -- The checks that come with the doctor, in the order they are listed.
 local api = paw.api
-local wav = require("doctor.wav")
+local ffi = require("ffi")
+local dsp = require("paw.dsp")
 
 local SILENT = 1e-3 -- about -60 dBFS: below that nothing was played
 
-local function db(level) return string.format("%.1f dBFS", wav.db(level)) end
+local function db(level) return string.format("%.1f dBFS", math.max(-120, dsp.db(level))) end
 
-local function exists(path) local f = io.open(path, "r") if f then f:close() return true end end
-
-local function on_path(program)
-  for dir in (os.getenv("PATH") or ""):gmatch("[^:]+") do
-    if exists(dir .. "/" .. program) then return dir .. "/" .. program end
-  end
+--- Write a 16-bit WAV of `frames` frames. `sample(frame, channel)` gives each
+--- sample from -1 to 1, with `frame` counting from 0 and `channel` from 1.
+local function write_sound(path, rate, channels, frames, sample)
+  local buf = ffi.new("float[?]", rate * channels)
+  api.sound_write(path, { rate = rate, channels = channels, bits = 16 }, function(at, n)
+    n = math.min(n, frames - at)
+    if n <= 0 then return nil end
+    for i = 0, n - 1 do
+      for ch = 1, channels do buf[i * channels + ch - 1] = sample(at + i, ch) end
+    end
+    return ffi.string(buf, n * channels * 4)
+  end)
 end
-
-local function shell_ok(command) return os.execute(command) == 0 end
-
-local function quote(text) return "'" .. tostring(text):gsub("'", "'\\''") .. "'" end
 
 --- The device in a list that has this name.
 local function entry(list, name)
@@ -73,6 +76,7 @@ local function first_input()
 end
 
 return function(M)
+  M.write_sound = write_sound
   local checks = M.checks
 
   -- 1. The sound system ------------------------------------------------------------
@@ -148,9 +152,9 @@ return function(M)
   --- right and both, a third of a second apart.
   function M.tone_file(path, rate, tone)
     local seg, gap = math.floor(tone * rate), math.floor(0.3 * rate)
-    local amp, fade = wav.gain(-18), math.floor(0.02 * rate)
+    local amp, fade = dsp.gain(-18), math.floor(0.02 * rate)
     local frames = 3 * seg + 2 * gap
-    wav.write(path, rate, 2, frames, function(f, ch)
+    write_sound(path, rate, 2, frames, function(f, ch)
       local at = f
       for _, side in ipairs({ { true, false }, { false, true }, { true, true } }) do
         if at >= 0 and at < seg then
@@ -266,14 +270,15 @@ return function(M)
   --- A click: a few milliseconds of a 2 kHz tone that dies away, in both channels.
   local function click_file(path, rate)
     local frames = math.floor(0.2 * rate)
-    wav.write(path, rate, 2, frames, function(f)
+    write_sound(path, rate, 2, frames, function(f)
       local t = f / rate
       return t < 0.005 and 0.5 * math.sin(2 * math.pi * 2000 * t) * (1 - t / 0.005) or 0
     end)
   end
 
   --- What a recording says of the round trip. `info` is the recorded file read
-  --- by `wav.read`, `click_at` the second of the take the click was played at,
+  --- by `paw.api.sound_envelope`, `click_at` the second of the take the
+  --- click was played at,
   --- `applied` the seconds the program already takes off the start of a take.
   --- Gives `{ round_trip, residual }` in milliseconds, or nil and why.
   function M.round_trip(info, click_at, applied)
@@ -317,8 +322,8 @@ return function(M)
         local clip, file = record(ctx, capture, rec_from, click_at + 1.2)
         if not clip then return "fail", "nothing was recorded" end
         ctx:file(file)
-        local info, why = wav.read(file)
-        if not info then return "fail", "the take cannot be read: " .. tostring(why) end
+        local ok, info = pcall(api.sound_envelope, file)
+        if not ok then return "fail", "the take cannot be read: " .. tostring(info) end
         local applied = clip:get().offset or 0
         local found, problem = M.round_trip(info, click_at, applied)
         clip:remove()
@@ -424,7 +429,7 @@ return function(M)
       local length = streamed > 0 and math.ceil(streamed * 1e6 / (8 * e.sample_rate) * 1.15) + 5 or 30
       local path = ctx:file(ctx:dir() .. "/long.wav")
       ctx:say(string.format("writing a sound file of %d s", length))
-      paw.limit.unhurried(wav.write, path, e.sample_rate, 2, length * e.sample_rate, function(f)
+      paw.limit.unhurried(write_sound, path, e.sample_rate, 2, length * e.sample_rate, function(f)
         return 0.1 * math.sin(2 * math.pi * 220 * f / e.sample_rate)
       end)
       local disk = ctx:track({ name = "doctor disk" })
@@ -532,8 +537,8 @@ return function(M)
       local clip, file, dropped = record(ctx, track, 0, seconds)
       if not clip then return "fail", "no take came of the recording" end
       ctx:file(file)
-      local info, why = wav.read(file)
-      if not info then return "fail", "the take cannot be read: " .. tostring(why) end
+      local ok, info = pcall(api.sound_envelope, file)
+      if not ok then return "fail", "the take cannot be read: " .. tostring(info) end
       track.armed = false
       local peaks = {}
       for ch, p in ipairs(info.peaks) do
@@ -706,28 +711,26 @@ return function(M)
       ctx:log(string.format("DISPLAY=%s WAYLAND_DISPLAY=%s XAUTHORITY=%s", display or "unset", wayland or "unset", auth or "unset"))
       if display then
         local n = display:match("^:(%d+)")
-        if n and not shell_ok("test -S /tmp/.X11-unix/X" .. n) then
+        if n and not api.fs_exists("/tmp/.X11-unix/X" .. n) then
           ctx:warn("DISPLAY is " .. display .. " but there is no X socket for it: plugin editors cannot open")
         end
-        if auth and not exists(auth) then ctx:warn("XAUTHORITY names a file that is not there (" .. auth .. "): the display will refuse the program") end
+        if auth and not api.fs_exists(auth) then ctx:warn("XAUTHORITY names a file that is not there (" .. auth .. "): the display will refuse the program") end
       elseif not wayland then
         ctx:warn("neither DISPLAY nor WAYLAND_DISPLAY is set: plugin windows cannot open")
       end
       if wayland then
         local runtime = os.getenv("XDG_RUNTIME_DIR")
-        if runtime and not shell_ok("test -S " .. quote(runtime .. "/" .. wayland)) then
+        if runtime and not api.fs_exists(runtime .. "/" .. wayland) then
           ctx:warn("WAYLAND_DISPLAY is " .. wayland .. " but its socket is not in XDG_RUNTIME_DIR")
         end
       end
 
       local where = env.data_dir .. "/recordings"
       local probe = where
-      while probe ~= "/" and not exists(probe) do probe = probe:match("^(.*)/[^/]*$") or "/" end
+      while probe ~= "/" and not api.fs_exists(probe) do probe = probe:match("^(.*)/[^/]*$") or "/" end
       if probe == "" then probe = "/" end
-      local pipe = io.popen("df -Pk " .. quote(probe) .. " 2>/dev/null")
-      local df = pipe and pipe:read("*a") or ""
-      if pipe then pipe:close() end
-      local free = tonumber(df:match("\n%S+%s+%d+%s+%d+%s+(%d+)"))
+      local space = select(2, pcall(api.fs_space, probe))
+      local free = type(space) == "table" and space.free / 1024 or nil
       local status = "ok"
       if free then
         local gb = free / 1048576
@@ -742,8 +745,8 @@ return function(M)
 
       local gdi2m = paw.opt.vinput_gdi2m
       for _, program in ipairs({ "ffmpeg", "gdi2m" }) do
-        local path = on_path(program)
-        if not path and program == "gdi2m" and type(gdi2m) == "string" and gdi2m ~= "" and exists(gdi2m) then path = gdi2m end
+        local path = api.which(program)
+        if not path and program == "gdi2m" and type(gdi2m) == "string" and gdi2m ~= "" and api.fs_exists(gdi2m) then path = gdi2m end
         ctx:fact("program_" .. program, path or "missing")
         ctx:log(program .. ": " .. (path or "not found in PATH"))
         if not path then

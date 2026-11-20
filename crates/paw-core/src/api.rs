@@ -2033,6 +2033,53 @@ pub fn install(lua: &Lua, shared: &Rc<Shared>) -> mlua::Result<()> {
         fn crc32(_, _sh, data => LuaString) {
             Ok(crate::codec::crc32(&data.as_bytes()))
         }
+        // --- sound files, programs ---
+
+        // The levels of a sound file, any format the engine plays: `{ rate,
+        // channels, frames, seconds, peaks, peak, onset, blocks }`, levels
+        // as linear gain. `peaks` holds the loudest sample of each channel,
+        // `peak` the loudest of all. `onset(level, from)` gives the time in
+        // seconds of the first frame, at `from` seconds or later, where a
+        // channel is louder than `level` (nil when none is). `blocks(from,
+        // to, ms)` gives the loudest sample of each block of `ms`
+        // milliseconds (default 1) between two times in seconds.
+        fn sound_envelope(lua, _sh, path => String) { crate::ext_api::sound_envelope(lua, &path) }
+        // Write a WAV file: `opts` is `{ rate, channels (2), bits (16, 24,
+        // or 32 for float) }`. `samples` is the interleaved samples as bytes
+        // of 32-bit floats in the order of the machine (`ffi.string` of a
+        // `float[?]`), or a function `(frame, count)` that gives them one
+        // piece at a time and nil at the end. Returns the number of frames.
+        fn sound_write(_, _sh, (path, opts, samples) => (String, Table, LuaValue)) {
+            crate::ext_api::sound_write(&path, &opts, samples)
+        }
+        // Where a program is on `PATH`, as `command -v` says; nil when it
+        // is not there. A name with a `/` is checked as it is.
+        fn which(_, _sh, program => String) { Ok(crate::ext_api::which(&program)) }
+        // Remove a file, or a directory with all it holds: only for what paw
+        // or an extension made for itself, a cache or a temporary folder.
+        // The files of the user go to the trash (`fs_trash`) instead.
+        // Nothing there is no error.
+        fn fs_remove(_, _sh, path => String) {
+            let p = Path::new(&path);
+            let Ok(meta) = p.symlink_metadata() else { return Ok(()) };
+            let done = if meta.is_dir() { std::fs::remove_dir_all(p) } else { std::fs::remove_file(p) };
+            done.map_err(|e| mlua::Error::runtime(format!("{path}: {e}")))
+        }
+        // The space of the disk that holds a path: `{ free, total }` in
+        // bytes (free: what a program that is not root can use).
+        fn fs_space(lua, _sh, path => String) {
+            let c = std::ffi::CString::new(path.clone()).map_err(|e| mlua::Error::runtime(format!("{e}")))?;
+            let mut st: libc::statvfs = unsafe { std::mem::zeroed() };
+            if unsafe { libc::statvfs(c.as_ptr(), &mut st) } != 0 {
+                return Err(mlua::Error::runtime(format!("{path}: {}", std::io::Error::last_os_error())));
+            }
+            let t = lua.create_table()?;
+            t.set("free", st.f_bavail as f64 * st.f_frsize as f64)?;
+            t.set("total", st.f_blocks as f64 * st.f_frsize as f64)?;
+            Ok(t)
+        }
+        // Whether a file or directory is there (a link that leads nowhere is not).
+        fn fs_exists(_, _sh, path => String) { Ok(Path::new(&path).exists()) }
         fn warnings(_, sh, () => ()) { Ok(std::mem::take(&mut sh.session.borrow_mut().warnings)) }
         fn env(lua, sh, () => ()) {
             let env = lua.create_table()?;

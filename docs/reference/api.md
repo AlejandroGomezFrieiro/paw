@@ -2060,9 +2060,12 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.events_take()`
 - `paw.api.fs_copy(...)`
 - `paw.api.fs_create(...)`
+- `paw.api.fs_exists(path)`: Whether a file or directory is there (a link that leads nowhere is not).
 - `paw.api.fs_mkdir(...)`
 - `paw.api.fs_move(...)`
+- `paw.api.fs_remove(path)`: Remove a file, or a directory with all it holds: only for what paw or an extension made for itself, a cache or a temporary folder. The files of the user go to the trash (`fs_trash`) instead. Nothing there is no error.
 - `paw.api.fs_sound(...)`
+- `paw.api.fs_space(path)`: The space of the disk that holds a path: `{ free, total }` in bytes (free: what a program that is not root can use).
 - `paw.api.fs_stat(...)`
 - `paw.api.fs_trash(...)`
 - `paw.api.grid_fill(x, y, w, h, fill, style, cx, cy, cw, ch)`: Restyle the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, and overwrite its characters when `fill` is given.
@@ -2202,6 +2205,8 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.sock_listen(path)`
 - `paw.api.sock_read(id, max)`: The bytes that came, "" when none came, nil after the peer closed.
 - `paw.api.sock_write(id, data)`
+- `paw.api.sound_envelope(path)`: The levels of a sound file, any format the engine plays: `{ rate, channels, frames, seconds, peaks, peak, onset, blocks }`, levels as linear gain. `peaks` holds the loudest sample of each channel, `peak` the loudest of all. `onset(level, from)` gives the time in seconds of the first frame, at `from` seconds or later, where a channel is louder than `level` (nil when none is). `blocks(from, to, ms)` gives the loudest sample of each block of `ms` milliseconds (default 1) between two times in seconds.
+- `paw.api.sound_write(path, opts, samples)`: Write a WAV file: `opts` is `{ rate, channels (2), bits (16, 24, or 32 for float) }`. `samples` is the interleaved samples as bytes of 32-bit floats in the order of the machine (`ffi.string` of a `float[?]`), or a function `(frame, count)` that gives them one piece at a time and nil at the end. Returns the number of frames.
 - `paw.api.state_get(key)`
 - `paw.api.state_set(key, value)`
 - `paw.api.str_width(text)`
@@ -2281,3 +2286,4 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.undo_tree()`: The undo tree and checkpoints: crate::history, session/undo.rs.
 - `paw.api.wait(ms)`: Let `ms` milliseconds pass. Timers fire and events come, as between the key presses of a person. `sleep` stops all of that. A script that waits for the result of a timer uses `wait`.
 - `paw.api.warnings()`
+- `paw.api.which(program)`: Where a program is on `PATH`, as `command -v` says; nil when it is not there. A name with a `/` is checked as it is.

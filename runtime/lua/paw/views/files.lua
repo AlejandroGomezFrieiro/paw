@@ -389,6 +389,8 @@ local function plan(ch, ctx)
   end
   for _, c in ipairs(copies) do
     steps[#steps + 1] = { text = "copy " .. shown(c.from, root) .. " → " .. shown(c.to, root), run = function(state)
+      local from = api.fs_stat(c.from)
+      if from and from.dir then error(c.from .. " is a directory: only files are copied", 0) end
       make_dirs(dirname(c.to), state)
       api.fs_copy(c.from, c.to)
       table.insert(state.undo, function() os.remove(c.to) end)

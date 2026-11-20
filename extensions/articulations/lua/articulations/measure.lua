@@ -69,41 +69,6 @@ function M.score(map)
   return notes, controls, at
 end
 
---- Peaks of 1 ms blocks of a 16-bit stereo WAV between two times in seconds.
-local function blocks(path, from, to)
-  local f = assert(io.open(path, "rb"))
-  local data = f:read("*a")
-  f:close()
-  local rate = 48000
-  local fmt = data:find("fmt ", 1, true)
-  if fmt then
-    local b = { data:byte(fmt + 12, fmt + 15) }
-    rate = b[1] + b[2] * 256 + b[3] * 65536 + b[4] * 16777216
-  end
-  local at = data:find("data", 1, true) + 8
-  local per = math.max(1, math.floor(rate / 1000))
-  local out = {}
-  local first = math.floor(from * rate)
-  local last = math.floor(to * rate)
-  local byte = string.byte
-  for frame0 = first, last - 1, per do
-    local peak = 0
-    for frame = frame0, math.min(last, frame0 + per) - 1 do
-      local p = at + frame * 4
-      if p + 3 > #data then break end
-      for c = 0, 2, 2 do
-        local lo, hi = byte(data, p + c, p + c + 1)
-        local v = lo + hi * 256
-        if v >= 32768 then v = v - 65536 end
-        if v < 0 then v = -v end
-        if v > peak then peak = v end
-      end
-    end
-    out[#out + 1] = peak / 32768
-  end
-  return out
-end
-
 --- Render one note of each articulation through a track and find where each
 --- one's sound starts. Returns `{ { art, onset (ms, nil when silent), delay
 --- (the map's value: minus the onset), now (the map's delay) } }`.
@@ -114,7 +79,7 @@ function M.measure(track)
   local start = paw.time.bar_ceil(song_end() + 1e-9) + 4
   local length = at[#at] + SPACING
   local path = api.env().data_dir .. "/articulations/measure.wav"
-  os.execute("mkdir -p '" .. (path:match("^(.*)/")):gsub("'", "'\\''") .. "'")
+  api.fs_mkdir(path:match("^(.*)/"))
   local info
   paw.audition.try(function()
     -- The sound as the instrument makes it: the core plays notes early by
@@ -136,9 +101,10 @@ function M.measure(track)
   paw.audition.revert()
   local origin = paw.time.to_seconds(start)
   local out = {}
+  local sound = api.sound_envelope(info.path or path)
   for i, a in ipairs(map.arts) do
     local from = paw.time.to_seconds(start + at[i]) - origin
-    local b = blocks(info.path or path, from, from + WINDOW)
+    local b = sound.blocks(from, from + WINDOW, 1)
     local loudest = 0
     for _, v in ipairs(b) do loudest = math.max(loudest, v) end
     local onset

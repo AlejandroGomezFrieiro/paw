@@ -8022,14 +8022,30 @@ paw.api.fs_copy = nil
 ---@type fun(...): any
 paw.api.fs_create = nil
 
+--- Whether a file or directory is there (a link that leads nowhere is not).
+---@param path string
+function paw.api.fs_exists(path) end
+
 ---@type fun(...): any
 paw.api.fs_mkdir = nil
 
 ---@type fun(...): any
 paw.api.fs_move = nil
 
+--- Remove a file, or a directory with all it holds: only for what paw
+--- or an extension made for itself, a cache or a temporary folder.
+--- The files of the user go to the trash (`fs_trash`) instead.
+--- Nothing there is no error.
+---@param path string
+function paw.api.fs_remove(path) end
+
 ---@type fun(...): any
 paw.api.fs_sound = nil
+
+--- The space of the disk that holds a path: `{ free, total }` in
+--- bytes (free: what a program that is not root can use).
+---@param path string
+function paw.api.fs_space(path) end
 
 ---@type fun(...): any
 paw.api.fs_stat = nil
@@ -8632,6 +8648,27 @@ function paw.api.sock_read(id, max) end
 ---@param data any
 function paw.api.sock_write(id, data) end
 
+--- The levels of a sound file, any format the engine plays: `{ rate,
+--- channels, frames, seconds, peaks, peak, onset, blocks }`, levels
+--- as linear gain. `peaks` holds the loudest sample of each channel,
+--- `peak` the loudest of all. `onset(level, from)` gives the time in
+--- seconds of the first frame, at `from` seconds or later, where a
+--- channel is louder than `level` (nil when none is). `blocks(from,
+--- to, ms)` gives the loudest sample of each block of `ms`
+--- milliseconds (default 1) between two times in seconds.
+---@param path string
+function paw.api.sound_envelope(path) end
+
+--- Write a WAV file: `opts` is `{ rate, channels (2), bits (16, 24,
+--- or 32 for float) }`. `samples` is the interleaved samples as bytes
+--- of 32-bit floats in the order of the machine (`ffi.string` of a
+--- `float[?]`), or a function `(frame, count)` that gives them one
+--- piece at a time and nil at the end. Returns the number of frames.
+---@param path string
+---@param opts table
+---@param samples any
+function paw.api.sound_write(path, opts, samples) end
+
 ---@param key string
 function paw.api.state_get(key) end
 
@@ -8925,3 +8962,8 @@ function paw.api.undo_tree() end
 function paw.api.wait(ms) end
 
 function paw.api.warnings() end
+
+--- Where a program is on `PATH`, as `command -v` says; nil when it
+--- is not there. A name with a `/` is checked as it is.
+---@param program string
+function paw.api.which(program) end

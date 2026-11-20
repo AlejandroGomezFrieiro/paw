@@ -6,6 +6,7 @@ pub mod attr_map;
 pub mod clipfile;
 pub mod codec;
 pub mod edits;
+pub mod ext_api;
 pub mod audio;
 pub mod freeze;
 pub mod fs_api;
