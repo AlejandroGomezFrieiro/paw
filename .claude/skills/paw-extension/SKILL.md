@@ -55,13 +55,35 @@ take out what your extension adds. An extension's README follows
 5. **Fast keys.** A key handler stays well under 100 ms on large projects;
    Lua that runs away is stopped after 2 s (`paw.opt.lua_limit`).
 
+## Write it in Teal
+
+New extensions are written in Teal (AGENTS.md, rule 8): Lua with types,
+which paw compiles as it loads `init.tl`, `name.tl` or `lua/<name>/*.tl`,
+with the Lua cached in `~/.cache/paw/lang`. No build step. Read
+`docs/how-to/write-an-extension-in-teal.md` and
+`docs/explanation/about-teal.md` first.
+
+- The `paw` global for Teal is `runtime/types/paw.d.tl` (`tlconfig.lua`
+  names it): `paw.api` (from api.rs), and the runtime's modules already in
+  Teal (`paw.music`, `paw.attr`, `paw.regex`, `paw.harmony.read`, ...) with
+  their real types. The rest of paw is still Lua and is `paw.Untyped`:
+  callable and indexable, and you cast what you keep (`x as integer`).
+- No `any` where a value has a shape: a record for each options table, each
+  event payload (`paw.on("project.saved", function(p: Saved) ... end)`) and
+  each `meta` entry of yours (`note.meta.lyric as Lyric`).
+- Check: `nix develop -c tools/tlcheck.sh`, or `paw.lang.check(files)` in
+  paw; the suite runs the check over every `.tl` file (tests/teal.lua).
+- `manifest.lua` stays Lua. Devices in `devices/*.lua` stay Lua (FFI, the
+  audio thread).
+- Another language: `paw.lang.add("fnl", { command = "fennel --compile %s" })`.
+
 ## Layout
 
 ```
 extensions/<name>/
   manifest.lua      return { name, version, description, requires = { paw = "^1.0" } }
-  init.lua          runs at load: require your modules, register things
-  lua/<name>/…      your modules (on the require path)
+  init.tl           runs at load (or init.lua): require your modules, register things
+  lua/<name>/…      your modules (on the require path), .tl or .lua
   devices/*.lua     Lua devices (JSFX-style DSP), optional
   README.md         the user's page: keys, commands, options — `:help` reads it
   tests.lua         tests, run by tests/tools/suite.sh

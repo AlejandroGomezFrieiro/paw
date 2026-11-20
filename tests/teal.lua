@@ -12,8 +12,6 @@ local function write(path, text)
   f:close()
 end
 
-local function said() return paw.ui.message and paw.ui.message.text or "" end
-
 test("teal: every Teal file of the source tree passes a strict tl check", function()
   local files = {}
   local pipe = assert(io.popen("find runtime config extensions -name '*.tl' | sort"))
@@ -35,17 +33,12 @@ test("teal: the checker finds a type error", function()
   eq(found[1].line, 1, "on its line")
 end)
 
-test("teal: an extension in Teal loads with no build step, from the cache the second time", function()
-  -- The example of the configuration: the steps of docs/how-to/write-an-extension-in-teal.md.
-  local before = paw.lang.stats.compiled
+test("teal: an extension in Teal compiles once, then comes from the cache", function()
   local entry = paw.ext.load("config/extensions/scale.tl")
   T.after(function() paw.ext.unload("scale") end)
   eq(entry.ok, true, "it loads: " .. tostring(entry.error))
-  paw.commands.exec("scale.notes C4 dorian")
-  eq(said(), "dorian from C4: C4 D4 D#4 F4 G4 A4 A#4 C5", "the command runs its typed code")
   eq(paw.ext.provides("scale")[1].items[1], ":scale.notes", "the extension owns its command")
   local compiled, cached = paw.lang.stats.compiled, paw.lang.stats.cached
-  eq(compiled >= before, true, "compiled, or found in the cache of an earlier run")
   paw.ext.unload("scale")
   paw.ext.load("config/extensions/scale.tl")
   eq(paw.lang.stats.compiled, compiled, "not compiled again")

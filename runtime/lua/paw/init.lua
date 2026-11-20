@@ -95,7 +95,7 @@ paw.command = setmetatable({ alias = paw.commands.alias }, {
 paw.cmd = paw.commands.run
 
 paw.music = require("paw.music")
--- A note's MIDI 2.0 attribute and the articulations in it (paw/attr.lua).
+-- A note's MIDI 2.0 attribute and the articulations in it (paw/attr.tl).
 paw.attr = require("paw.attr")
 paw.params = require("paw.params")
 paw.ui = require("paw.ui")
@@ -216,7 +216,7 @@ require("paw.window_menus")
 -- JSON, for what extensions keep in files: `paw.json.encode(value, pretty)`
 -- gives text, `paw.json.decode(text)` the value, or nil and the reason.
 paw.json = { encode = api.json_encode, decode = api.json_decode }
--- Binary formats: base64 and little-endian numbers (paw/bytes.lua), ZIP
+-- Binary formats: base64 and little-endian numbers (paw/bytes.tl), ZIP
 -- archives (paw/zip.lua); under them, paw.api's base64_encode/decode,
 -- deflate/inflate (raw, zlib, gzip) and crc32.
 paw.bytes = require("paw.bytes")

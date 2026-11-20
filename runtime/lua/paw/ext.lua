@@ -1,4 +1,4 @@
--- Extensions: directories (or single Lua files) in `<config>/extensions`.
+-- Extensions: directories (or single files of Lua or Teal) in `<config>/extensions`.
 --
 --   extensions/euclid/init.lua      run at startup
 --   extensions/euclid/manifest.lua  what it is and what it needs (optional)

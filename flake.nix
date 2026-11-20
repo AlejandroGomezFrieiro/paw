@@ -366,7 +366,9 @@
           # What the window tests (`crates/paw-gui/tests/window.rs`) drive: a
           # private X server, a window manager, a pointer and key sender, and
           # tesseract to find words on a screenshot.
-          packages = with pkgs; [ xvfb openbox xdotool imagemagick tesseract vale curl ];
+          # `tl` checks the Teal files (tools/tlcheck.sh): the version of
+          # runtime/lua/tl.lua.
+          packages = with pkgs; [ xvfb openbox xdotool imagemagick tesseract vale curl luajitPackages.tl ];
           # The style packages Vale checks the docs with (tools/vale.sh joins
           # them with the project's own in .vale/styles; see .vale.ini).
           PAW_VALE_STYLES = "${valeStyles pkgs}";
