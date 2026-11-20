@@ -180,10 +180,8 @@ local kernel = api as {string:Fn}
 for _, name in ipairs({ "wait", "render", "project_load", "project_save", "device_add", "device_restart",
   "device_editor", "engine_restart", "import_audio", "clip_import" }) do
   local inner = kernel[name]
-  -- `is function`, not `is Fn`: the build compiles without the checker,
-  -- and without it a name of a function type reads as a table.
-  if inner is function then
-    kernel[name] = function(...: Value): Value... return M.unhurried(inner as Fn, ...) end
+  if inner is Fn then
+    kernel[name] = function(...: Value): Value... return M.unhurried(inner, ...) end
   end
 end
 

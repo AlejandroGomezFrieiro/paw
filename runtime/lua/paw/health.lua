@@ -238,6 +238,17 @@ M.register("extensions", function(h)
   end
 end, { desc = "extensions, their versions and what they require" })
 
+M.register("teal", function(h)
+  local files = {}
+  for file in pairs(paw.lang.problems) do files[#files + 1] = file end
+  table.sort(files)
+  if #files == 0 then h.ok("no type errors in the files in Teal loaded") end
+  for _, file in ipairs(files) do
+    local list = paw.lang.problems[file]
+    h.warn(string.format("%s: %d type error%s; it loads as it is", file, #list, #list == 1 and "" or "s"), list)
+  end
+end, { desc = "the types of the configuration and extensions written in Teal" })
+
 paw.command("checkhealth", function(ctx)
   local names = {}
   for _, name in ipairs(ctx.args) do names[#names + 1] = tostring(name) end

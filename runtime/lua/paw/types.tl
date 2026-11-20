@@ -1354,6 +1354,7 @@ local record types
     state_dir: string
     pid: integer
     argv: {string}
+    teal_types: string
   end
 
   --- A change event of `events_take`: what its payload holds depends on

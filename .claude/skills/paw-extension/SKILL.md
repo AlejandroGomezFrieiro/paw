@@ -73,6 +73,9 @@ with the Lua cached in `~/.cache/paw/lang`. No build step. Read
   each `meta` entry of yours (`note.meta.lyric as Lyric`).
 - Check: `nix develop -c tools/tlcheck.sh`, or `paw.lang.check(files)` in
   paw; the suite runs the check over every `.tl` file (tests/teal.lua).
+  The loader checks too, as it compiles (the Lua of `x is F` depends on the
+  types): a file with type errors still loads, with a warning, and
+  `:checkhealth teal` lists the errors.
 - `manifest.lua` stays Lua. Devices in `devices/*.lua` stay Lua (FFI, the
   audio thread).
 - Another language: `paw.lang.add("fnl", { command = "fennel --compile %s" })`.

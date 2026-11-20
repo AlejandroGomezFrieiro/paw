@@ -2233,6 +2233,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.rpc_clients()`
 - `paw.api.rpc_push(client, event, payload)`: Connections on the control socket (crates/paw-core/src/rpc.rs). Push an event to one (false when it closed), list them, and tell the terminal of the input that paw handles now (0 for the terminal of paw). Also release the terminal of a connection.
 - `paw.api.rpc_version()`
+- `paw.api.runtime_file(path)`: The text of a file of the runtime that is built into the program, by its path under `runtime`: a module (`lua/paw/util.tl`) or a declaration of Teal (`types/paw.d.tl`). Nil when the program has no such file. The loader checks the types of a file in Teal with these.
 - `paw.api.scene_begin(w, h)`: Start a scene `w` by `h` units big, for `scene_draw` and `scene_picture` to put nodes in.
 - `paw.api.scene_blob(client, key)`: A drawing that `client` got from paw, by its content key.
 - `paw.api.scene_cells(client, id)`: What `client` has of the window `id`, lowered to cells: as `ui_view_snapshot` gives a view, rows of runs of one style.

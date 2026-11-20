@@ -38,6 +38,22 @@ mod bytecode {
     include!(concat!(env!("OUT_DIR"), "/bytecode.rs"));
 }
 
+/// The text of a file of the runtime built into the program, by its path
+/// under `runtime`: `lua/paw/util.tl`, or a declaration of Teal,
+/// `types/paw.d.tl`.
+pub(crate) fn runtime_file(path: &str) -> Option<&'static str> {
+    if let Some(rel) = path.strip_prefix("types/") {
+        let i = bytecode::DECLARATIONS.binary_search_by_key(&rel, |(p, _)| p).ok()?;
+        return Some(bytecode::DECLARATIONS[i].1);
+    }
+    RUNTIME.get_file(path.strip_prefix("lua/")?)?.contents_utf8()
+}
+
+/// A hash of the Teal declarations and modules built into the program.
+pub(crate) fn teal_types() -> &'static str {
+    bytecode::TEAL_TYPES
+}
+
 #[derive(Clone, Debug)]
 pub enum InputEvent {
     /// A key in Neovim notation: `a`, `<C-s>`, `<Space>`, `<S-Tab>`.

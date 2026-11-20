@@ -2533,8 +2533,18 @@ pub fn install(lua: &Lua, shared: &Rc<Shared>) -> mlua::Result<()> {
             env.set("state_dir", xdg_dir("XDG_STATE_HOME", ".local/state"))?;
             env.set("pid", std::process::id())?;
             env.set("argv", sh.env.argv.clone())?;
+            // A hash of the Teal declarations and modules of the runtime: it
+            // changes when the types that an extension in Teal sees change.
+            env.set("teal_types", crate::kernel::teal_types())?;
             Ok(env)
         }
+        // The text of a file of the runtime that is built into the program,
+        // by its path under `runtime`: a module (`lua/paw/util.tl`) or a
+        // declaration of Teal (`types/paw.d.tl`). Nil when the program has
+        // no such file. The loader checks the types of a file in Teal with
+        // these.
+        // @return string
+        fn runtime_file(_, _sh, path => String) { Ok(crate::kernel::runtime_file(&path)) }
         // @return any
         fn state_get(lua, sh, key => String) {
             match sh.state.borrow().get(&key) {
