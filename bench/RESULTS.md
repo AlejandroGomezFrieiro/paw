@@ -371,7 +371,7 @@ above.
 
 ## Defects found and fixed
 
-Each has a test in `tests/suite.lua` or a Rust test that fails on the code before the fix (checked by building the original commit in a scratch copy), unless marked as a performance change, which has before/after numbers instead.
+Each has a test in the Lua suite (then `tests/suite.lua`) or a Rust test that fails on the code before the fix (checked by building the original commit in a scratch copy), unless marked as a performance change, which has before/after numbers instead.
 
 | # | Defect | Found by | Fix |
 |---|---|---|---|
