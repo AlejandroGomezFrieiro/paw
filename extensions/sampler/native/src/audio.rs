@@ -219,7 +219,7 @@ pub fn read_file(path: &Path) -> Result<Sample, SampleError> {
     let bytes = std::fs::read(path).map_err(|e| SampleError::io(path, e))?;
     let decode_error = |reason| SampleError::Decode { path: path.to_path_buf(), reason };
     if bytes.starts_with(b"RIFF") && bytes.get(8..12) == Some(b"WAVE") {
-        read_wav(&bytes)
+        read_wav(path, &bytes)
     } else if bytes.starts_with(b"FORM") && matches!(bytes.get(8..12), Some(b"AIFF") | Some(b"AIFC")) {
         read_aiff(&bytes)
     } else if bytes.starts_with(b"fLaC") || bytes.starts_with(b"OggS") {
@@ -323,33 +323,8 @@ fn wav_values<T: hound::Sample>(reader: &mut hound::WavReader<std::io::Cursor<&[
     out
 }
 
-fn read_wav(bytes: &[u8]) -> Result<Sample, DecodeError> {
-    use hound::SampleFormat::{Float, Int};
-    let wav = |e| DecodeError::Wav(Arc::new(e));
-    let mut reader = hound::WavReader::new(std::io::Cursor::new(bytes)).map_err(wav)?;
-    let spec = reader.spec();
-    let (channels, rate) = (spec.channels as usize, spec.sample_rate as f64);
-    if channels == 0 {
-        return Err(DecodeError::NoChannels);
-    }
-    let keep = channels.min(2);
-    let mut sample = match (spec.sample_format, spec.bits_per_sample) {
-        (Int, 16) => Sample::from_i16(rate, keep, wav_values::<i16>(&mut reader, channels, keep)),
-        (Int, 8) => {
-            let data = wav_values::<i8>(&mut reader, channels, keep);
-            Sample::from_i16(rate, keep, data.into_iter().map(|v| (v as i16) << 8).collect())
-        }
-        (Int, 24) => {
-            let data = wav_values::<i32>(&mut reader, channels, keep);
-            Sample::from_f32(rate, keep, data.into_iter().map(|v| v as f32 / 8388608.0).collect())
-        }
-        (Int, 32) => {
-            let data = wav_values::<i32>(&mut reader, channels, keep);
-            Sample::from_f32(rate, keep, data.into_iter().map(|v| v as f32 / 2147483648.0).collect())
-        }
-        (Float, 32) => Sample::from_f32(rate, keep, wav_values::<f32>(&mut reader, channels, keep)),
-        _ => return Err(wav(hound::Error::Unsupported)),
-    };
+/// The key, the fine tune and the loop of the file's `smpl` chunk.
+fn apply_smpl(sample: &mut Sample, bytes: &[u8]) {
     if let Some(smpl) = riff_chunk(bytes, b"smpl")
         && smpl.len() >= 36
     {
@@ -366,6 +341,71 @@ fn read_wav(bytes: &[u8]) -> Result<Sample, DecodeError> {
             }
         }
     }
+}
+
+/// The WAV with its `fmt ` chunk moved before the others, for the files
+/// that write `data` first; none when `fmt ` is already first or missing.
+fn fmt_first(bytes: &[u8]) -> Option<Vec<u8>> {
+    let mut at = 12;
+    let (mut fmt, mut rest) = (None, Vec::new());
+    while at + 8 <= bytes.len() {
+        let size = u32le(bytes, at + 4) as usize;
+        let end = (at + 8 + size + (size & 1)).min(bytes.len());
+        if &bytes[at..at + 4] == b"fmt " {
+            fmt = Some(&bytes[at..end]);
+        } else {
+            rest.extend_from_slice(&bytes[at..end]);
+        }
+        at = end;
+    }
+    let mut out = bytes.get(..12)?.to_vec();
+    out.extend_from_slice(fmt?);
+    out.extend_from_slice(&rest);
+    Some(out)
+}
+
+/// A WAV through `hound`; what it refuses goes to symphonia (64-bit
+/// float), after `fmt ` is moved before `data` for files that write it last. The key and the loop come from the
+/// `smpl` chunk either way.
+fn read_wav(path: &Path, bytes: &[u8]) -> Result<Sample, DecodeError> {
+    let mut sample = match wav_pcm(bytes) {
+        Ok(sample) => sample,
+        Err(_) => match fmt_first(bytes).map(|b| wav_pcm(&b)) {
+            Some(Ok(sample)) => sample,
+            _ => decode(path, bytes.to_vec())?,
+        },
+    };
+    apply_smpl(&mut sample, bytes);
+    Ok(sample)
+}
+
+fn wav_pcm(bytes: &[u8]) -> Result<Sample, DecodeError> {
+    use hound::SampleFormat::{Float, Int};
+    let wav = |e| DecodeError::Wav(Arc::new(e));
+    let mut reader = hound::WavReader::new(std::io::Cursor::new(bytes)).map_err(wav)?;
+    let spec = reader.spec();
+    let (channels, rate) = (spec.channels as usize, spec.sample_rate as f64);
+    if channels == 0 {
+        return Err(DecodeError::NoChannels);
+    }
+    let keep = channels.min(2);
+    let sample = match (spec.sample_format, spec.bits_per_sample) {
+        (Int, 16) => Sample::from_i16(rate, keep, wav_values::<i16>(&mut reader, channels, keep)),
+        (Int, 8) => {
+            let data = wav_values::<i8>(&mut reader, channels, keep);
+            Sample::from_i16(rate, keep, data.into_iter().map(|v| (v as i16) << 8).collect())
+        }
+        (Int, 24) => {
+            let data = wav_values::<i32>(&mut reader, channels, keep);
+            Sample::from_f32(rate, keep, data.into_iter().map(|v| v as f32 / 8388608.0).collect())
+        }
+        (Int, 32) => {
+            let data = wav_values::<i32>(&mut reader, channels, keep);
+            Sample::from_f32(rate, keep, data.into_iter().map(|v| v as f32 / 2147483648.0).collect())
+        }
+        (Float, 32) => Sample::from_f32(rate, keep, wav_values::<f32>(&mut reader, channels, keep)),
+        _ => return Err(wav(hound::Error::Unsupported)),
+    };
     Ok(sample)
 }
 
@@ -476,6 +516,52 @@ mod tests {
         assert_eq!((s.frames, s.channels, s.rate), (10, 2, 22050.0));
         let Pcm::F32(d) = &s.pcm else { panic!("24-bit reads as float") };
         assert_eq!((d[PAD * 2], d[PAD * 2 + 1]), (0.5, -0.5));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_64_bit_float_wav_reads_through_symphonia() {
+        let dir = std::env::temp_dir().join(format!("paw-sampler-wav-f64-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("c.wav");
+        let mut b = Vec::new();
+        b.extend_from_slice(b"RIFF");
+        b.extend_from_slice(&(36 + 32u32).to_le_bytes());
+        b.extend_from_slice(b"WAVEfmt ");
+        b.extend_from_slice(&16u32.to_le_bytes());
+        for v in [3u16, 1] {
+            b.extend_from_slice(&v.to_le_bytes());
+        }
+        b.extend_from_slice(&8000u32.to_le_bytes());
+        b.extend_from_slice(&(8000u32 * 8).to_le_bytes());
+        b.extend_from_slice(&8u16.to_le_bytes());
+        b.extend_from_slice(&64u16.to_le_bytes());
+        b.extend_from_slice(b"data");
+        b.extend_from_slice(&32u32.to_le_bytes());
+        for v in [0.25f64, -0.5, 0.75, 0.0] {
+            b.extend_from_slice(&v.to_le_bytes());
+        }
+        std::fs::write(&path, b).unwrap();
+        let s = read_file(&path).unwrap();
+        assert_eq!((s.frames, s.channels, s.rate), (4, 1, 8000.0));
+        let Pcm::F32(d) = &s.pcm else { panic!("float") };
+        assert_eq!(d[PAD + 1], -0.5);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_wav_with_data_before_fmt_reads() {
+        let dir = std::env::temp_dir().join(format!("paw-sampler-wav-order-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("d.wav");
+        let mut b = b"RIFF\x34\0\0\0WAVEdata\x08\0\0\0".to_vec();
+        for v in [1000i16, -1000, 2000, 0] {
+            b.extend_from_slice(&v.to_le_bytes());
+        }
+        b.extend_from_slice(b"fmt \x10\0\0\0\x01\0\x01\0\x40\x1f\0\0\x80\x3e\0\0\x02\0\x10\0");
+        std::fs::write(&path, b).unwrap();
+        let s = read_file(&path).unwrap();
+        assert_eq!((s.frames, s.channels, s.rate), (4, 1, 8000.0));
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
