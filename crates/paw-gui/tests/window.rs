@@ -183,6 +183,8 @@ struct Scene {
     tools: Tools,
     display: String,
     xvfb: Child,
+    /// The display number, held until the server is gone.
+    _display: Claim,
     openbox: Child,
     gui: Child,
     /// The kernel the window is a client of, when it did not start one.
@@ -224,13 +226,71 @@ fn display_in_use(number: u32) -> bool {
     running || UnixStream::connect(format!("/tmp/.X11-unix/X{number}")).is_ok()
 }
 
+/// openbox's own configuration with a rule that takes the frame off every
+/// window (its keys, Alt-F4 among them, stay).
+fn undecorated_openbox_config(openbox: &Path) -> Option<String> {
+    let binary = fs::canonicalize(openbox).ok()?;
+    let rc = binary.parent()?.parent()?.join("etc/xdg/openbox/rc.xml");
+    let text = fs::read_to_string(rc).ok()?;
+    let rule = "<applications><application class=\"*\"><decor>no</decor></application>";
+    text.contains("<applications>")
+        .then(|| text.replacen("<applications>", rule, 1))
+}
+
+/// A display number that one test process holds. The X server's own lock
+/// file appears only after it started, so two test processes (two checkouts
+/// testing at once) that probe at the same moment would both take the same
+/// number: one of them then ran its windows on the other's server, and keys
+/// and windows of two tests mixed. The claim is a file made with
+/// `create_new`, which only one process can make; it names the process, so
+/// that the claim of a process that died is let go.
+struct Claim(PathBuf);
+
+impl Claim {
+    fn take(number: u32) -> Option<Claim> {
+        use std::io::ErrorKind;
+        let path = PathBuf::from(format!("/tmp/.paw-test-display-{number}"));
+        for _ in 0..3 {
+            match fs::OpenOptions::new().write(true).create_new(true).open(&path) {
+                Ok(mut file) => {
+                    let _ = write!(file, "{}", std::process::id());
+                    return Some(Claim(path));
+                }
+                Err(err) if err.kind() == ErrorKind::AlreadyExists => {
+                    let owner = fs::read_to_string(&path).unwrap_or_default();
+                    let alive = owner
+                        .trim()
+                        .parse::<u32>()
+                        .is_ok_and(|pid| Path::new(&format!("/proc/{pid}")).exists());
+                    // A claim just made may not hold its pid yet.
+                    if alive || owner.trim().is_empty() {
+                        return None;
+                    }
+                    if fs::read_to_string(&path).unwrap_or_default() == owner {
+                        let _ = fs::remove_file(&path);
+                    }
+                }
+                Err(_) => return None,
+            }
+        }
+        None
+    }
+}
+
+impl Drop for Claim {
+    fn drop(&mut self) {
+        let _ = fs::remove_file(&self.0);
+    }
+}
+
 /// An X server on the first display from 120 up that is free. Tests run side
-/// by side, so the choice is made one at a time.
-fn start_xvfb(tools: &Tools, dir: &Path) -> (Child, String) {
-    static PROBE: Mutex<()> = Mutex::new(());
-    let _one_at_a_time = PROBE.lock().unwrap();
+/// by side, in this process and in others, so a number is claimed first.
+fn start_xvfb(tools: &Tools, dir: &Path) -> (Child, String, Claim) {
     for number in 120..400 {
         let socket = format!("/tmp/.X11-unix/X{number}");
+        let Some(claim) = Claim::take(number) else {
+            continue;
+        };
         if display_in_use(number) {
             continue;
         }
@@ -244,8 +304,11 @@ fn start_xvfb(tools: &Tools, dir: &Path) -> (Child, String) {
         let mut child = spawn_group(&mut command);
         let deadline = Instant::now() + Duration::from_secs(10);
         loop {
-            if UnixStream::connect(&socket).is_ok() {
-                return (child, format!(":{number}"));
+            // The socket is ours when the server that listens is the one
+            // started here (its lock file names it), not a neighbor's.
+            let lock = fs::read_to_string(format!("/tmp/.X{number}-lock")).unwrap_or_default();
+            if lock.trim() == child.id().to_string() && UnixStream::connect(&socket).is_ok() {
+                return (child, format!(":{number}"), claim);
             }
             if child.try_wait().unwrap().is_some() || Instant::now() > deadline {
                 signal_group(&child);
@@ -321,19 +384,72 @@ impl Scene {
                 fs::create_dir_all(path).unwrap();
             }
         }
-        let (xvfb, display) = start_xvfb(&tools, &dir);
+        let (xvfb, display, display_claim) = start_xvfb(&tools, &dir);
         envs.push(("PAW_BIN", paw.clone()));
         // A scene named so asks for the processor (GLX, its parts copied).
         if name.ends_with("-sw") {
             envs.push(("PAW_GUI_RENDERER", "software".into()));
         }
 
-        let mut command = Command::new(&tools.openbox);
-        command
-            .env("DISPLAY", &display)
-            .stdout(Stdio::null())
-            .stderr(Stdio::null());
-        let openbox = spawn_group(&mut command);
+        // The server listens before it answers: on a busy machine it compiles
+        // its keymap for seconds, and a client that connects then (openbox
+        // does, once) is refused and ends. The window manager starts when
+        // the server answers, and again if it ended all the same; the window
+        // opens when it is the window manager. A window that opens before has
+        // no focus and no Alt-F4 (see `take_focus`).
+        let xdotool_ok = |args: &[&str]| {
+            Command::new(&tools.xdotool)
+                .args(args)
+                .env("DISPLAY", &display)
+                .output()
+                .is_ok_and(|o| o.status.success())
+        };
+        let deadline = Instant::now() + Duration::from_secs(60);
+        while !xdotool_ok(&["getdisplaygeometry"]) {
+            assert!(Instant::now() < deadline, "the X server never answered");
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        let rc = undecorated_openbox_config(&tools.openbox).map(|rc| {
+            let file = dir.join("openbox-rc.xml");
+            fs::write(&file, rc).unwrap();
+            file
+        });
+        let mut openbox = None;
+        for _ in 0..5 {
+            let wm_log = fs::File::create(dir.join("openbox.out")).unwrap();
+            let mut command = Command::new(&tools.openbox);
+            command
+                .env("DISPLAY", &display)
+                .stdout(wm_log.try_clone().unwrap())
+                .stderr(wm_log);
+            // No frames: the window's content is where the window is (the
+            // pointer's places count on it).
+            if let Some(file) = &rc {
+                command.arg("--config-file").arg(file);
+            }
+            let mut child = spawn_group(&mut command);
+            let deadline = Instant::now() + Duration::from_secs(20);
+            let mut ready = false;
+            while child.try_wait().unwrap().is_none() && Instant::now() < deadline {
+                if xdotool_ok(&["get_desktop"]) {
+                    ready = true;
+                    break;
+                }
+                std::thread::sleep(Duration::from_millis(50));
+            }
+            if ready {
+                openbox = Some(child);
+                break;
+            }
+            signal_group(&child);
+            let _ = child.wait();
+        }
+        let openbox = openbox.unwrap_or_else(|| {
+            panic!(
+                "openbox never took the screen: {}",
+                fs::read_to_string(dir.join("openbox.out")).unwrap_or_default()
+            )
+        });
 
         let out = fs::File::create(dir.join("window.out")).unwrap();
         let run = envs
@@ -418,6 +534,7 @@ impl Scene {
             tools,
             display,
             xvfb,
+            _display: display_claim,
             openbox,
             gui,
             kernel,
@@ -458,6 +575,7 @@ impl Scene {
         };
         // At the corner of the screen, so that nothing is partly off it.
         self.xdotool(&["windowmove", &id, "0", "0"]);
+        self.take_focus(&id);
         std::thread::sleep(Duration::from_millis(500));
         let geometry = self.xdotool(&["getwindowgeometry", "--shell", &id]);
         let value = |key: &str| -> i32 {
@@ -471,6 +589,28 @@ impl Scene {
         self.size = (value("WIDTH"), value("HEIGHT"));
         // The first state has to arrive and be drawn.
         std::thread::sleep(Duration::from_millis(700));
+    }
+
+    /// Wait until the window has the input focus of the X server, and give it
+    /// when nobody does. openbox gives the focus to a window that it sees
+    /// map; on a busy machine it may start after the window has mapped, and
+    /// then nothing gives the focus (the server's focus stays on no window,
+    /// `xdotool getwindowfocus` fails): every key sent after that goes to no
+    /// window, and the first click is the first thing that gives the focus.
+    fn take_focus(&self, id: &str) {
+        let deadline = Instant::now() + Duration::from_secs(20);
+        loop {
+            if self.xdotool(&["getwindowfocus"]).trim() == id {
+                return;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "{}: the window never got the input focus",
+                self.name
+            );
+            self.xdotool(&["windowfocus", id]);
+            std::thread::sleep(Duration::from_millis(100));
+        }
     }
 
     fn env_path(&self, key: &str) -> &Path {
