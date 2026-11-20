@@ -9,7 +9,14 @@
 //! A module written in Teal (`.tl`) is compiled to Lua first, by the Teal
 //! compiler that the runtime contains (`runtime/lua/tl.lua`): the program
 //! contains the Lua, and no `.tl` module of the runtime is compiled when it
-//! starts. The types are not checked here; the test suite checks them.
+//! starts. The compiler checks the types first, as `tl gen` does, with the
+//! declarations in `runtime/types` (tlconfig.lua): in some places the Lua
+//! depends on the types (`x is F`, where `F` names a function type, tests
+//! for a function). A type error fails the build.
+//!
+//! The declarations are in the program too (`DECLARATIONS`), with a hash of
+//! what a check of a Teal file reads from the runtime (`TEAL_TYPES`): the
+//! loader checks the types of an extension in Teal with them.
 
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
@@ -42,12 +49,14 @@ fn compile_runtime(target: &str) {
     let out = PathBuf::from(std::env::var("OUT_DIR").expect("OUT_DIR"));
     let root = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"))
         .join("../../runtime/lua");
+    let types = root.join("../types");
     println!("cargo:rerun-if-changed={}", root.display());
+    println!("cargo:rerun-if-changed={}", types.display());
     let mut files = Vec::new();
     collect(&root, &root, &mut files);
     files.sort();
     let lua = mlua::Lua::new();
-    let teal = compile_teal(&lua, &root, &files, &out);
+    let teal = compile_teal(&lua, &root, &types, &files, &out);
     if std::env::var("HOST").ok().as_deref() != Some(target) {
         files.clear();
     }
@@ -79,13 +88,35 @@ fn compile_runtime(target: &str) {
         writeln!(code, "    ({rel:?}, include_str!({:?})),", file.display().to_string()).unwrap();
     }
     code.push_str("];\n");
+    // The declarations, and the hash of them and of the Teal modules.
+    let mut declarations = Vec::new();
+    collect(&types, &types, &mut declarations);
+    declarations.retain(|f| f.ends_with(".d.tl"));
+    declarations.sort();
+    let mut hash = Fnv::default();
+    code.push_str("pub static DECLARATIONS: &[(&str, &str)] = &[\n");
+    for rel in &declarations {
+        let file = types.join(rel);
+        hash.add(rel.as_bytes());
+        hash.add(&std::fs::read(&file).expect("a declaration file"));
+        writeln!(code, "    ({rel:?}, include_str!({:?})),", file.display().to_string()).unwrap();
+    }
+    code.push_str("];\n");
+    for rel in files.iter().filter(|f| f.ends_with(".tl")) {
+        hash.add(rel.as_bytes());
+        hash.add(&std::fs::read(root.join(rel)).expect("a Teal module"));
+    }
+    writeln!(code, "pub static TEAL_TYPES: &str = \"{:016x}\";", hash.0).unwrap();
     std::fs::write(out.join("bytecode.rs"), code).expect("writing bytecode.rs");
 }
 
 /// The Lua of each Teal module among `files`, by its path, written to
-/// `$OUT_DIR/teal` as well. A module that does not parse is left out: the
-/// program then says so when the module is required.
-fn compile_teal(lua: &mlua::Lua, root: &Path, files: &[String], out: &Path) -> Vec<(String, String)> {
+/// `$OUT_DIR/teal` as well. Each module is checked first, in one
+/// environment with the configuration of tlconfig.lua: the declarations in
+/// `types`, the global `paw` (`paw.d.tl`), and the modules found by name in
+/// `root`. The build stops at an error, with the file, line and message of
+/// each.
+fn compile_teal(lua: &mlua::Lua, root: &Path, types: &Path, files: &[String], out: &Path) -> Vec<(String, String)> {
     let modules: Vec<&String> = files.iter().filter(|f| f.ends_with(".tl")).collect();
     if modules.is_empty() {
         return Vec::new();
@@ -96,24 +127,77 @@ fn compile_teal(lua: &mlua::Lua, root: &Path, files: &[String], out: &Path) -> V
         .set_name("@runtime/lua/tl.lua")
         .call(())
         .expect("the Teal compiler loads");
-    let parse: mlua::Function = tl.get("parse").unwrap();
+    let (root_s, types_s) = (root.display().to_string(), types.display().to_string());
+    tl.set("path", format!("{types_s}/?.lua;{types_s}/?/init.lua;{root_s}/?.lua;{root_s}/?/init.lua")).unwrap();
+    // As paw.lang.check makes it, from tlconfig.lua.
+    let env: mlua::Table = lua
+        .load(
+            r#"local tl = ...
+            return assert(tl.new_env({
+              defaults = { feat_lax = "off", feat_arity = "on", gen_target = "5.1", gen_compat = "off" },
+              predefined_modules = { "paw" },
+            }))"#,
+        )
+        .call(&tl)
+        .unwrap_or_else(|e| panic!("the Teal declarations (runtime/types/paw.d.tl) do not load: {e}"));
+    let check_file: mlua::Function = tl.get("check_file").unwrap();
     let generate: mlua::Function = tl.get("generate").unwrap();
+    let mut results = Vec::new();
+    for rel in &modules {
+        let result: mlua::Table = check_file
+            .call((format!("{root_s}/{rel}"), &env))
+            .unwrap_or_else(|e| panic!("checking runtime/lua/{rel}: {e}"));
+        results.push(result);
+    }
+    // Each file the check read (the modules, and the declarations they
+    // require), with its errors, said as `tl check` says them.
+    let mut errors = Vec::new();
+    let loaded: mlua::Table = env.get("loaded").unwrap();
+    for pair in loaded.pairs::<String, mlua::Table>() {
+        let (file, result) = pair.unwrap();
+        let file = file.replace(&root_s, "runtime/lua").replace(&types_s, "runtime/types");
+        for list in ["syntax_errors", "type_errors"] {
+            let Ok(list) = result.get::<mlua::Table>(list) else { continue };
+            for e in list.sequence_values::<mlua::Table>() {
+                let e = e.unwrap();
+                let (y, x, msg): (i64, i64, String) = (e.get("y").unwrap(), e.get("x").unwrap(), e.get("msg").unwrap());
+                errors.push(format!("{file}:{y}:{x}: {msg}"));
+            }
+        }
+    }
+    if !errors.is_empty() {
+        errors.sort();
+        panic!("the runtime's Teal has errors (tools/tlcheck.sh says the same):\n{}", errors.join("\n"));
+    }
     let dir = out.join("teal");
     std::fs::create_dir_all(&dir).expect("teal directory");
     let mut done = Vec::new();
-    for rel in modules {
-        let text = std::fs::read_to_string(root.join(rel)).expect("a Teal module");
-        let (ast, errors): (mlua::Value, mlua::Table) =
-            parse.call((text, format!("runtime/lua/{rel}"))).expect("parsing Teal");
-        if errors.raw_len() > 0 {
-            println!("cargo:warning=runtime/lua/{rel} does not parse as Teal");
-            continue;
-        }
+    for (rel, result) in modules.into_iter().zip(results) {
+        let ast: mlua::Value = result.get("ast").unwrap();
         let code: String = generate.call((ast, "5.1")).expect("generating Lua from Teal");
         std::fs::write(dir.join(rel.replace('/', "_")).with_extension("lua"), &code).expect("writing Lua");
         done.push((rel.clone(), code));
     }
     done
+}
+
+/// FNV-1a, 64 bits: a hash that is the same on each build of the same files.
+struct Fnv(u64);
+
+impl Default for Fnv {
+    fn default() -> Self {
+        Fnv(0xcbf2_9ce4_8422_2325)
+    }
+}
+
+impl Fnv {
+    fn add(&mut self, bytes: &[u8]) {
+        for b in bytes {
+            self.0 = (self.0 ^ u64::from(*b)).wrapping_mul(0x0100_0000_01b3);
+        }
+        // The end of a part, so that "ab" + "c" is not "a" + "bc".
+        self.0 = (self.0 ^ 0xff).wrapping_mul(0x0100_0000_01b3);
+    }
 }
 
 /// The `.lua` files under `dir`, as paths relative to `root` with `/`.

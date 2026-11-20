@@ -213,6 +213,7 @@ local record api
    rpc_clients: function(): {integer}
    rpc_push: function(client: integer, event: string, payload: any): boolean
    rpc_version: function(): integer
+   runtime_file: function(path: string): string
    scene_begin: function(w: number, h: number)
    scene_blob: function(client: integer, key: string): {types.CanvasOp}
    scene_cells: function(client: integer, id: string): types.ViewSnapshot
