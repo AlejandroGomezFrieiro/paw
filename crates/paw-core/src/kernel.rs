@@ -361,6 +361,18 @@ impl Kernel {
         self.shared.timers.borrow_mut().clear();
         // Extensions get the whole standard library, including `ffi` and `debug`.
         let lua = unsafe { Lua::unsafe_new() };
+        // Teal compiles `x is integer` to `math.type(x) == "integer"`, which
+        // LuaJIT does not have. Give it the meaning that Teal's `integer` has
+        // on a Lua 5.1 target: a whole number.
+        lua.load(
+            "math.type = math.type or function(x)\n\
+             \x20 if type(x) ~= 'number' then return nil end\n\
+             \x20 return x % 1 == 0 and 'integer' or 'float'\n\
+             end",
+        )
+        .set_name("=math.type")
+        .exec()
+        .map_err(lua_error)?;
         api::install(&lua, &self.shared).map_err(lua_error)?;
         install_loader(&lua, &self.shared.env).map_err(lua_error)?;
         // The old state must not be interrupted once it is gone.

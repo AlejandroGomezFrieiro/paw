@@ -79,6 +79,16 @@ test("teal: the loader compiles with the types: `is` a name of a function type t
   eq(assert(paw.lang.loadfile(file))(), "called", "the function is called")
 end)
 
+test("teal: `is integer` works on LuaJIT: a whole number is an integer", function()
+  local file = T.scratch .. "/teal/integer.tl"
+  write(file, 'local function kind(x: integer | string): string\n'
+    .. '  if x is integer then return "integer" end\n'
+    .. '  return "string"\nend\n'
+    .. 'return kind(3) .. " " .. kind("x")\n')
+  eq(assert(paw.lang.loadfile(file))(), "integer string", "each kind")
+  eq(math.type(3.5), "float", "a fraction is not an integer")
+end)
+
 test("teal: a file with a type error loads, and its errors stay known from the cache", function()
   local file = T.scratch .. "/teal/typo.tl"
   write(file, 'local n: integer = "one"\nreturn 1\n')
