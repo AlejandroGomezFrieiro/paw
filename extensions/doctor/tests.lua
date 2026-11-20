@@ -376,27 +376,27 @@ end)
 
 test("the doctor's round trip measures a click and says when the signal is no loop-back", function()
   load()
-  local wav = require("doctor.wav")
   local path = T.scratch .. "/click-test.wav"
+  local read = paw.api.sound_envelope
   -- A click 1.0123 s into a take that begins 0.004 s after it was played.
   local function make(at)
-    wav.write(path, 48000, 2, 48000 * 3, function(f)
+    doctor.write_sound(path, 48000, 2, 48000 * 3, function(f)
       local t = f / 48000 - at
       return (t >= 0 and t < 0.003) and 0.5 or 0
     end)
-    return wav.read(path)
+    return read(path)
   end
   local found = doctor.round_trip(make(2.0123), 1.0, 0.004)
   near(found.round_trip, 1012.3, 0.1, "the round trip in milliseconds")
   near(found.residual, 1008.3, 0.1, "what the program does not take off yet")
-  local none, why = doctor.round_trip(wav.read(path), 1.0, 0)
+  local none, why = doctor.round_trip(read(path), 1.0, 0)
   eq(none ~= nil, true, "the same file at another place")
-  wav.write(path, 48000, 2, 48000 * 3, function(f) return 0.3 * math.sin(f / 20) end)
-  local tone, problem = doctor.round_trip(wav.read(path), 1.0, 0)
+  doctor.write_sound(path, 48000, 2, 48000 * 3, function(f) return 0.3 * math.sin(f / 20) end)
+  local tone, problem = doctor.round_trip(read(path), 1.0, 0)
   eq(tone, nil, "a tone is not a click")
   eq(problem:find("not a loop-back", 1, true) ~= nil, true, problem)
-  wav.write(path, 48000, 2, 48000, function() return 0 end)
-  local quiet, silence = doctor.round_trip(wav.read(path), 1.0, 0)
+  doctor.write_sound(path, 48000, 2, 48000, function() return 0 end)
+  local quiet, silence = doctor.round_trip(read(path), 1.0, 0)
   eq(quiet, nil, "silence")
   eq(silence:find("no click came back", 1, true) ~= nil, true, silence)
   os.remove(path)

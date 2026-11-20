@@ -309,10 +309,13 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.bytes.u16(data, at)`: The unsigned 16-bit little-endian number at `at` (from 1), or nil past the end.
 - `paw.bytes.u32(data, at)`: The unsigned 32-bit little-endian number at `at` (from 1), or nil past the end.
 - `paw.bytes.unbase64(text)`: The bytes of base64 text (either alphabet, padded or not, spaces and line ends passed over). Raises when the text is not base64.
+- `paw.bytes.vst3_join(component, controller)`: A VST3 plugin's state as paw keeps it, from its component's part and its controller's part.
+- `paw.bytes.vst3_split(raw)`: The component's part and the controller's part of a VST3 plugin's state as paw keeps it (each after its length, 32 bits, little-endian), or nil and why. A state without a controller part gives "" for it.
 
 ## Module paw.canvas
 
 - `paw.canvas.back(name)`: Give the keyboard back to the main window from a view in a separate window. It goes to the window that had it before the view went there, else to the current window of the tab.
+- `paw.canvas.button(g, hits, x, y, label, action, opts)`: A button: a rounded box with a label, painted with `g` and added to the hit list `hits` to run `action` (a function of the event, or a table as `Hits:add` takes) when pressed. `opts`: `width`, `height` (24), `fill`, `color`, `on` (lit, in `lit` or the selection's color), `size`. Returns where the next button goes to its right, and the width.
 - `paw.canvas.cell_event(window, event, bare)`: A pointer event in pixels as the terminal gives it to the `on_mouse` of a view. It is in cells, with `kind` down, up, drag, `scroll_up` and other kinds, `button`, and `mods` ("C", "A", "S"). Nil for an event that the terminal cannot tell (the second click of a double click comes as down and up).
 - `paw.canvas.close(name)`: Close the separate window of a view. The keyboard returns to the main window, where it was before. For a view docked in the layout, its window there closes, as `:close` does.
 - `paw.canvas.dock(name)`: Put a view in a separate window back into the layout, with the keyboard. It goes where it was before it left the layout. If not, it goes where it docks. If not, it goes in a window split from the current window. paw does this when its separate window closes. `Ctrl-w d` in it does the same.
@@ -323,6 +326,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   ```
 - `paw.canvas.focus(name)`: Give a view in a window the keyboard, as a click in it does.
 - `paw.canvas.glyph_outline(font, codepoint)`: A music font's glyph as commands and numbers in staff spaces from its origin, y down, from the fonts built into the kernel, or nil.
+- `paw.canvas.hit_list()`: A list of places that the pointer acts on (see `view.hits`).
 - `paw.canvas.key(name, keys)`: Keys typed in the window of a view. They go to the key mappings with that view focused (or to an open prompt), as when typed in the terminal. In its window, a view can give a key its own meaning, as other programs do (`view.window_keys`, for example Ctrl-A to select all notes). The terminal keeps the one rule of all views.
 - `paw.canvas.leave(name, pane)`: A view that will show in a separate window leaves the layout, so it does not show two times. Its windows in the tabs close and keep their place. Returns the window that had the keyboard, to give the keyboard back to it. A view that a frontend draws itself (the arrange view, the mixer and other views) also stays where it is. The separate window is a second view of it. A view with a state for each window leaves only the pane `pane` that it goes out of: its other windows stay.
 - `paw.canvas.open(name, opts)`: Show a view that paints in a graphical frontend, and give it the keyboard. When the view has a place in the layout (`paw.ui.dock`, or a window that shows it), it is docked, as the terminal shows it. If not, or with `window = true`, it is in a separate window. A view that is already in a separate window stays there. `opts`: `title`, `width`, `height` (the start size of a window), `window`.
@@ -354,6 +358,8 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.canvas.paint_cells(name, window, width, height, opts)`: A view that draws cells, at a size in pixels: its snapshot (`paw.api.ui_view_snapshot`) as runs of text, one style for each run. paw draws it again only after a request for a redraw. It also draws it one time each second for the parts that change by themselves (times), and on each call while the song plays. The result is `{ same = true }` when the drawing is the same as the last drawing. `window` keeps the last drawing. The view in a separate window has a line below it for prompts, messages and the keys of the view. This is not so when the frontend draws a status line there itself (`opts.status`). paw sends the windows of a graphical frontend as scenes (`paw.ui.render_scene`).
 - `paw.canvas.pointer(name, event)`: Pass a pointer event from a frontend to a view, which then has the keyboard. It goes to its `pointer` function in pixels. For a view in cells, it goes to its `on_mouse` function, as from the terminal.
 - `paw.canvas.shown(name)`: True if a graphical frontend shows a view. The view is in a separate window, or docked where the screen of the seat is the main area of a frontend. That is a frontend that told its size to `paw.panes`, or the frontend of the instance when there is no terminal.
+- `paw.canvas.text_width(text, size)`: The width of a line of text in pixels, near enough, at `size` (12).
+- `paw.canvas.view_pointer(view, e)`: Give a pointer event in pixels to a painted view: to its hit list (`view.hits`) first, then to its `pointer` function.
 - `paw.canvas.windows()`: The windows that are open, for a frontend: `{ name, title, width, height, cells }` each, `cells` for a view drawn as the terminal draws it.
 
 ## Module paw.commands
@@ -666,6 +672,19 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   ```
 - `paw.files.sound_info(path, stat)`: What a sound file's header says: `{ rate, channels, seconds }`, or nil for a file that is not one that can be read.
 - `paw.files.watch()`: Start to watch the cursor, when a files buffer exists.
+
+## Module paw.formats
+
+- `paw.formats.export(path, opts)`: Write the project with the format of a file. Says what it did.
+- `paw.formats.extensions(side)`: The extensions of the files that a side takes, for lists and completion.
+- `paw.formats.for_path(path, side)`: The format that takes `path` for `side` ("import" or "export"): one whose `detect` says yes, else one of the file's extension. Nil when none does.
+- `paw.formats.get(name)`: The format of a name, or nil.
+- `paw.formats.help_text()`: The page of `:help formats`, in Markdown: what each format reads and writes, and how to add one.
+- `paw.formats.import(path, opts)`: Bring a file in with its format: `opts.merge` adds to the project, else it opens in place of the project. Says what it did; returns what the format returned, or nil when it could not.
+- `paw.formats.list()`: The formats, by name: `{ name, desc, extensions, project, import, export }` each.
+- `paw.formats.register(spec)`: Register a format of files (see the top of paw/formats.lua). A format of the same name is replaced. Returns the name.
+- `paw.formats.split_args(line)`: The path at the start of a command line and the `key=value` words at its end: `song.rpp instrument=synth` is `"song.rpp", { instrument = "synth" }`.
+- `paw.formats.unregister(name)`: Take a format away again.
 
 ## Module paw.freeze
 
@@ -1609,7 +1628,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.seats
 
 - `paw.seats.close(id, why)`: Let go of a reason for `id`'s seat (or of all of them, with none): the seat closes with its last one.
-- `paw.seats.copy(value)`: A deep copy of a value. A new seat starts from the values of seat 0 with it, and does not share them.
+- `paw.seats.copy(value)`: A deep copy of a value: tables are copied all the way down (their metatables are not), anything else is given back as it is.
 - `paw.seats.enter(id)`: Make `id`'s seat the current one: an open seat, else the instance's. Returns the seat entered.
 - `paw.seats.fields(name, tbl, keys, start)`: Keep fields of a table (a view's scroll, say) for each seat: `keys` names them, `start` gives what a new seat starts with (nil if absent).
 
@@ -1955,6 +1974,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.util
 
 - `paw.util.clamp(v, lo, hi)`: `v`, kept between `lo` and `hi`.
+- `paw.util.copy`: the same as `paw.seats.copy`.
 - `paw.util.expand_path(path)`: A path as typed, with `~` at its start for the home folder, as a shell reads it: `~/mix.wav`. Every command that takes a file name reads it so.
 - `paw.util.fader_db(now, want, lo, hi)`: The level a fader goes to from `now` when it is moved to `want`: in its travel (`lo` to `hi`, the fader's when not given), but never back past where it is. A track at +10 dB that is turned down goes to +9, not to the top of the travel.
 - `paw.util.fit(text, width)`: Cut or pad text to exactly `width` columns.
@@ -1972,6 +1992,17 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.vca.members(vca)`: The tracks in a VCA, in the order of the track list.
 - `paw.vca.of(track)`: The VCAs of a track (their ids), in the order in which paw put the track in them.
 - `paw.vca.unassign(track, vca)`: Take a track out of a VCA, or out of all of them without `vca`.
+
+## Module paw.xml
+
+- `paw.xml.child(el, name)`: The first child of an element with a name, or nil.
+- `paw.xml.children(el, name)`: Every child of an element with a name (every child without one).
+- `paw.xml.decode(text, opts)`: The root element of an XML text, or nil and what is wrong. `opts.spans` keeps where each element is in the text, for `encode` with `opts.source` (see `paw.api.xml_decode`).
+- `paw.xml.element(name, attr, order)`: A new element: `paw.xml.element("Track", { id = "t1", name = "Bass" })`. Its attributes are written in the order of `order`, then the others by name.
+- `paw.xml.encode(root, opts)`: The XML text of an element: see `paw.api.xml_encode` for `opts`.
+- `paw.xml.escape(text)`: Text made safe for XML, in text and in an attribute's quotes.
+- `paw.xml.number(el, name)`: The text of a child as a number, or nil.
+- `paw.xml.text(el, name)`: The text of a child, trimmed; nil when there is no such child.
 
 ## Module paw.zip
 
@@ -2033,6 +2064,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.device_alias(old, new)`: Devices of `old`, a kind that was renamed, are made as `new`.
 - `paw.api.device_call(id, method, data)`: A request to a device that accepts data from scripts. Bytes in, bytes out.
 - `paw.api.device_editor(id, open)`: Show or hide the window of a plugin. With no second argument, toggle it.
+- `paw.api.device_find(query)`: The kind of device installed that answers `query`, `{ kind, format, id, name, vendor }` (each optional), as an entry of `device_types`; nil when none does. It looks by `kind` (an old name too), else by the plugin's own `id` (a CLAP id, a VST3 class id in either case, an LV2 URI), else by `name` with the `vendor` (a kind without a vendor answers any), else by `name` in any case; `format` ("clap", "vst3", "lv2", "builtin") keeps to one format. With `all = true`, the list of all that answer the first test that finds one. The list of all kinds is not made, so it is quick with many plugins.
 - `paw.api.device_get(id)`
 - `paw.api.device_load(id, load)`: Load a preset into a device, as one undo step: `{ name =, state =, params =, factory =, call = }`. `call = { method =, data = }` is a `device_call` that changes the state of the plugin (`property.set` of an LV2 plugin). The state after it is kept.
 - `paw.api.device_move(id, track, index)`
@@ -2060,9 +2092,12 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.events_take()`
 - `paw.api.fs_copy(...)`
 - `paw.api.fs_create(...)`
+- `paw.api.fs_exists(path)`: True when a file or directory is there (a link that leads nowhere is not).
 - `paw.api.fs_mkdir(...)`
 - `paw.api.fs_move(...)`
+- `paw.api.fs_remove(path)`: Remove a file, or a directory with all it holds: only for what paw or an extension made for itself, a cache or a temporary folder. The files of the user go to the trash (`fs_trash`) instead. Nothing there is no error.
 - `paw.api.fs_sound(...)`
+- `paw.api.fs_space(path)`: The space of the disk that holds a path: `{ free, total }` in bytes (free: what a program that is not root can use).
 - `paw.api.fs_stat(...)`
 - `paw.api.fs_trash(...)`
 - `paw.api.grid_fill(x, y, w, h, fill, style, cx, cy, cw, ch)`: Restyle the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, and overwrite its characters when `fill` is given.
@@ -2077,6 +2112,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.hl_set(name, def, full)`
 - `paw.api.inflate(data, format)`: The bytes `data` holds compressed as `format` says ("raw", "zlib" or "gzip"), and the number of bytes of `data` the compressed stream took (what follows is not part of it). Nil and the reason when they are not compressed so.
 - `paw.api.input_levels()`: The level of each input channel of the device, as linear gain, whatever takes it.
+- `paw.api.json_array(t)`: Mark a table (a new one without `t`) as a JSON array, so that `json_encode` writes it as `[]` when it is empty. Returns it.
 - `paw.api.json_decode(text)`: Nil and the reason, when the text is not JSON.
 - `paw.api.json_encode(value, pretty)`: JSON text of a value; `pretty` lays it out on lines, indented.
 - `paw.api.lane_add(track, opts)`
@@ -2202,6 +2238,8 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.sock_listen(path)`
 - `paw.api.sock_read(id, max)`: The bytes that came, "" when none came, nil after the peer closed.
 - `paw.api.sock_write(id, data)`
+- `paw.api.sound_envelope(path)`: The levels of a sound file, any format the engine plays: `{ rate, channels, frames, seconds, peaks, peak, onset, blocks }`, levels as linear gain. `peaks` holds the loudest sample of each channel, `peak` the loudest of all. `onset(level, from)` gives the time in seconds of the first frame, at `from` seconds or later, where a channel is louder than `level` (nil when none is). `blocks(from, to, ms)` gives the loudest sample of each block of `ms` milliseconds (default 1) between two times in seconds.
+- `paw.api.sound_write(path, opts, samples)`: Write a WAV file: `opts` is `{ rate, channels (2), bits (16, 24, or 32 for float) }`. `samples` is the interleaved samples as bytes of 32-bit floats in the order of the machine (`ffi.string` of a `float[?]`), or a function `(frame, count)` that gives them one piece at a time and nil at the end. Returns the number of frames.
 - `paw.api.state_get(key)`
 - `paw.api.state_set(key, value)`
 - `paw.api.str_width(text)`
@@ -2213,6 +2251,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.tempo_bbt(...)`
 - `paw.api.tempo_beat(...)`
 - `paw.api.tempo_from_bbt(...)`
+- `paw.api.tempo_from_seconds(tempos, signatures)`: A tempo map from points placed in seconds, as other programs keep them: `tempos` is `{ { seconds, bpm, ramp } }`, `signatures` is `{ { seconds, num, den } }`. Each point's beat follows from the stretch before it, held, or ramped linearly in time. Returns `{ tempos, signatures, beat, seconds }`: the points in beats, as `tempo_set_points` takes them, and two functions that convert with this map, `beat(seconds)` and `seconds(beat)`.
 - `paw.api.tempo_is_bar_line(...)`
 - `paw.api.tempo_lines(...)`
 - `paw.api.tempo_points(...)`
@@ -2225,6 +2264,8 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.test_panic(why)`: Panic, as a bug in the program does. Tests use it to see what paw keeps.
 - `paw.api.timer_start(ms, repeat, func)`: --- timers ---
 - `paw.api.timer_stop(id)`
+- `paw.api.toml_decode(text)`: The table of a TOML text, or nil and what is wrong (`line 4: ...`). Each table keeps the order of its keys in its metatable, `getmetatable(t).__keys`. A date or a time is its text.
+- `paw.api.toml_encode(value, inline)`: The TOML text of a table; with `inline`, of any value on one line (`{ a = 1, b = "x" }`). The keys of a table come in the order of its metatable's `__keys`, then the others by name. A list of tables is an array of tables.
 - `paw.api.track_add(opts)`
 - `paw.api.track_attr_delay(id, attr)`: The milliseconds that the attribute map of the track moves a note with `attr` (below 0: earlier). 0 when the track has no attribute map.
 - `paw.api.track_chain_file(track, file, refer)`: Give a track the devices of a chain file (a `devices.json`). With `refer`, the track refers to the file until the chain's first edit. Returns how many devices.
@@ -2281,3 +2322,6 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.undo_tree()`: The undo tree and checkpoints: crate::history, session/undo.rs.
 - `paw.api.wait(ms)`: Let `ms` milliseconds pass. Timers fire and events come, as between the key presses of a person. `sleep` stops all of that. A script that waits for the result of a timer uses `wait`.
 - `paw.api.warnings()`
+- `paw.api.which(program)`: Where a program is on `PATH`, as `command -v` says; nil when it is not there. A name with a `/` is checked as it is.
+- `paw.api.xml_decode(text, opts)`: The root element of an XML text, or nil and what is wrong (with the byte). An element is `{ name, attr, order, children, text }`: `attr` maps each attribute to its text, `order` lists them as written, `children` holds the child elements, `text` the text and CDATA directly in it (nil when there is none). References are read; an entity a DTD defines is kept as it is written. UTF-16 with a byte order mark is read too. `opts.spans` gives each element `span = { from, open, close, to, lead, tail }`, the bytes it takes in the text, so that `xml_encode` can write what is not changed byte for byte. `opts.meta` is set as the metatable of each element.
+- `paw.api.xml_encode(root, opts)`: The XML text of an element (as `xml_decode` gives them, or made with the same fields). Attributes are written in `order`, then the others by name; numbers as the shortest text that reads back the same, or with at most `opts.digits` digits after the point. `opts.indent` puts each element on a line, indented by it. `opts.declaration` is written first (true: the usual one). `opts.source` is the text the tree was read from with `spans`: what did not change is written as it was, byte for byte, and the text around the root element too.

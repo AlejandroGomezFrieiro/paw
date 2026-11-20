@@ -100,11 +100,11 @@ value moved in the editor of the plugin, and then the event also has
 
 ## Interchange
 
-- The [DAWproject](../../extensions/dawproject/README.md) extension writes
+- The [interop](../../extensions/interop/README.md) extension writes a DAWproject file with
   the `id` of a CLAP or VST3 parameter as `parameterID`, and the plugin
   `id` as `deviceID`. It writes the ids of 2^31 and more as negative
   numbers, as other programs do.
-- The [REAPER](../../extensions/rpp/README.md) extension writes a
-  parameter envelope as `<PARMENV 5:-1611133501`: the place from 0, and
+- The [interop](../../extensions/interop/README.md) extension writes a
+  parameter envelope of a REAPER project as `<PARMENV 5:-1611133501`: the place from 0, and
   the id after the colon, as REAPER writes it. REAPER and paw find the
   parameter by the id first.

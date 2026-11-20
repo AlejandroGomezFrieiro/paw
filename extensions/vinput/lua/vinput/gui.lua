@@ -22,32 +22,27 @@ local LABEL, SLIDER = 120, 250
 
 -- What only the window keeps: which input is shown, where the pointer can
 -- do something, what is being dragged, and the list that is open.
-local gui = { shown = nil, hits = {}, drag = nil, list = nil }
+local gui = { shown = nil, hits = paw.canvas.hit_list(), list = nil }
+-- The pointer goes to the places of the last paint (`paw.canvas.hit_list`).
+view.hits = gui.hits
 view.gui = gui
 
 local function mix(a, b, t) return paw.draw.mix(a, b, t) end
 
 --- Remember a place the pointer can act on. `on` has `down`, `drag`,
 --- `double` and `wheel`, each given the event.
+--- A second press soon after the first presses again, where the place
+--- says nothing else of it.
 local function hit(x, y, w, h, on)
-  on.x, on.y, on.w, on.h = x, y, w, h
-  gui.hits[#gui.hits + 1] = on
-  return on
+  on.double = on.double or on.down
+  return gui.hits:add(nil, x, y, w, h, on)
 end
 
-local function text_width(text, size)
-  return api.str_width(text) * (size or 12) * 0.58
-end
+local text_width = paw.canvas.text_width
 
 --- A button: drawn, and remembered for the pointer. Returns where the next goes.
 local function button(g, x, y, label, action, opts)
-  opts = opts or {}
-  local w = opts.width or (text_width(label) + 22)
-  local fill = opts.on and (opts.lit or c.select) or opts.fill or c.control
-  g:rect(x, y, w, 24, { fill = fill, radius = 5 })
-  g:text(x + w / 2, y + 5, label, { color = opts.on and c.surface or opts.color or c.text, bold = opts.on, align = "center", width = w })
-  hit(x, y, w, 24, { down = action })
-  return x + w + 8
+  return (paw.canvas.button(g, gui.hits, x, y, label, { down = action, double = action }, opts))
 end
 
 local state_colour = { running = c.play_on, failed = c.error, blocked = c.warn, off = c.text_3 }
@@ -209,7 +204,7 @@ end
 
 function view:paint(g, ctx)
   local w, h = ctx.width, ctx.height
-  gui.hits = {}
+  gui.hits:clear()
   g:rect(0, 0, w, h, { fill = c.surface })
   g:rect(0, 0, w, TOP, { fill = c.panel })
   local input = shown()
@@ -276,36 +271,8 @@ function view:paint(g, ctx)
   end
 end
 
-local function under(e)
-  for index = #gui.hits, 1, -1 do
-    local on = gui.hits[index]
-    if e.x >= on.x and e.x < on.x + on.w and e.y >= on.y and e.y < on.y + on.h then return on end
-  end
-end
-
-function view:pointer(e)
-  if e.kind == "move" then
-    if gui.drag and gui.drag.drag then gui.drag.drag(e) end
-    return
-  end
-  if e.kind == "up" then
-    gui.drag = nil
-    return
-  end
-  local on = under(e)
-  if not on then return end
-  if e.kind == "down" and e.button == "left" then
-    gui.drag = on
-    if on.down then on.down(e) end
-  elseif e.kind == "double" then
-    if on.double then on.double(e) elseif on.down then on.down(e) end
-  elseif e.kind == "wheel" then
-    if on.wheel then on.wheel(e) end
-  end
-end
-
 function view:on_close()
-  gui.list, gui.drag = nil, nil
+  gui.list, gui.hits.drag = nil, nil
 end
 
 return gui

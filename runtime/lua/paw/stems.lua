@@ -84,7 +84,7 @@ function M.render(plan, opts)
   local files = {}
   for _, stem in ipairs(plan) do
     local dir = stem.file:match("^(.*)/[^/]*$")
-    if dir then os.execute("mkdir -p '" .. dir:gsub("'", "'\\''") .. "'") end
+    if dir then pcall(paw.api.fs_mkdir, dir) end
     local ext = stem.file:match("%.(%w+)$")
     -- A lossy stem is titled after its track, unless the options say otherwise.
     local lossy = ext ~= "wav" and ext ~= "flac"

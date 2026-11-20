@@ -174,6 +174,30 @@ The pointer event `e`:
 
 Keys go to the view's key mappings, or to its `on_key`, as in the terminal.
 
+Buttons and the places that the pointer acts on go in a hit list. A
+view that has one in `view.hits` gets the pointer there first. The place
+that the view painted last gets the event. The view's `pointer` gets the
+events that no place takes. Each button does what a key of the view
+does, so that the terminal has the same action.
+
+```lua
+view.hits = paw.canvas.hit_list()
+function view:paint(g, ctx)
+  view.hits:clear()
+  local x = paw.canvas.button(g, view.hits, 12, 8, "Play", function() paw.cmd("play") end)
+  paw.canvas.button(g, view.hits, x, 8, "Loop", toggle_loop, { on = paw.transport.loop })
+  view.hits:add(g, 0, 40, ctx.width, 30, { down = choose_row, double = open_row })
+end
+```
+
+| Function | Effect |
+| --- | --- |
+| `paw.canvas.hit_list()` | A new hit list. `:clear()` removes the places of the paint before. |
+| `hits:add(g, x, y, w, h, on)` | A place, from the corner of the painter `g`. `on` is a function for a press, or a table of `down`, `drag`, `up`, `double`, `wheel` and `right`. |
+| `hits:under(x, y)` | The place under a point, or nil. |
+| `hits:pointer(e)` | Gives an event to the place under it, or to the place where a drag started. True when a place takes it. |
+| `paw.canvas.button(g, hits, x, y, label, action, opts)` | Paints a button and adds it to `hits`. `opts` has `width`, `height`, `fill`, `color`, `on` (lit) and `size`. Returns the `x` of the next button. |
+
 | Function | Effect |
 | --- | --- |
 | `paw.canvas.open(name, opts)` | Shows a view that paints. A view that docks (`paw.ui.dock`, or a view with a window in the layout) shows in its pane, under `opts.title`. A view with no place in the layout, or with `opts.window = true`, shows in a window of its own of `opts.width` by `opts.height`. |

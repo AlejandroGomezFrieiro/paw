@@ -63,7 +63,7 @@ The Ex commands `:volume` and `:pan` use the same rule (`:t* volume -=3`).
 Work is unsaved when the project has changes. Work is also unsaved in a
 project with no file that is not empty. An example is a project opened
 from a MIDI file or a REAPER project. These commands do not replace a project with unsaved work:
-`:open`, `:edit`, `:new`, `:recent`, `:recover`, `:rpp.import`, `:tutor`
+`:open`, `:edit`, `:new`, `:recent`, `:recover`, `:tutor`
 and `:q`. They show a message and stop.
 
 - `:w` saves the work first.

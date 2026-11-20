@@ -11,7 +11,7 @@
 --            is written into its saved state (a state codec)
 local api = paw.api
 local plugstate = require("plugstate")
-local vst3 = require("plugstate.vst3state")
+local vst3 = { split = paw.bytes.vst3_split, join = paw.bytes.vst3_join }
 
 local M = {}
 

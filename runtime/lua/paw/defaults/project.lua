@@ -113,8 +113,17 @@ command("write", function(ctx)
   -- A project that has no file yet is asked where it goes, when there is
   -- somebody to ask.
   if not path and not api.project_get("path") and paw.fx.interactive() then return paw.frontend.save_as() end
-  if path and paw.midifile.is_midi_file(path) then
-    return paw.notify("a project is not saved as a MIDI file: `:export " .. path .. "` writes one", "warn")
+  -- A file of another program: written in its format when it holds whole
+  -- projects, else it is for `:export` (paw/formats.lua).
+  local format = path and paw.formats.for_path(path, "export")
+  if format and format.project then
+    local args = {}
+    for k, v in pairs(ctx.args) do
+      if type(k) == "string" then args[k] = v end
+    end
+    return paw.formats.export(path, { args = args })
+  elseif format then
+    return paw.notify("a project is not saved as " .. (format.desc or format.name) .. ": `:export " .. path .. "` writes one", "warn")
   end
   -- A project is a folder: one that holds other files and no project is
   -- not taken over.
@@ -154,7 +163,13 @@ command("edit", function(ctx)
   local win = view and not how and paw.layout.current()
   if win then return paw.layout.show_in(win, view, buf and not buf.single and buf.id or nil, target) end
   path = paw.files.path(path)
-  if paw.midifile.is_midi_file(path) or paw.midifile.is_clip_file(path) or paw.is_audio_file(path) or paw.is_chain_file(path) then return paw.commands.run("open", { path }) end
+  if paw.formats.for_path(path, "import") or paw.midifile.is_clip_file(path) or paw.is_audio_file(path) or paw.is_chain_file(path) then
+    local args = { path }
+    for k, v in pairs(ctx.args) do
+      if type(k) == "string" then args[k] = v end
+    end
+    return paw.commands.run("open", args)
+  end
   if not paw.project.guard("edit") then return end
   paw.open(path, { plugins_offline = how == "offline", all_online = how == "online" })
 end, { desc = "Open a project: `edit song`; alone, the project's file again (`edit!` goes back to it as saved); `edit song offline` with every plugin offline, `online` with none held back; a MIDI or sound file as `open` does", complete = { "openable", function() return { "offline", "online" } end } })

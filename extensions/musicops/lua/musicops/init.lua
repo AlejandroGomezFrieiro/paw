@@ -23,12 +23,7 @@ local function copy(n)
   return out
 end
 
-local function deep(t)
-  if type(t) ~= "table" then return t end
-  local out = {}
-  for k, v in pairs(t) do out[k] = deep(v) end
-  return out
-end
+local deep = paw.util.copy
 
 local clamp = paw.util.clamp
 

@@ -56,7 +56,7 @@ end
 --- folder, so that saving keeps it with the project.
 local function file_for(track)
   local dir = api.media_dir()
-  os.execute("mkdir -p '" .. dir:gsub("'", "'\\''") .. "'")
+  pcall(paw.api.fs_mkdir, dir)
   local name = api.track_get(track, "name"):gsub("[^%w%-_]", "_")
   return string.format("%s/%s-frozen-%d-%d.wav", dir, name, os.time(), track)
 end

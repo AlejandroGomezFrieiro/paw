@@ -1,6 +1,7 @@
 //! `paw.api.fs_*`: what the file manager (`paw/files.lua`) does to files.
 //! Nothing here removes a file: a file leaves its place by being moved, to
-//! another place or to the trash, and what would overwrite is refused.
+//! another place or to the trash, and what would overwrite is refused
+//! (`paw.api.fs_remove`, in api.rs, is for what paw made itself).
 
 use std::fs;
 use std::io;
@@ -38,6 +39,23 @@ fn relocate(from: &Path, to: &Path) -> Result<(), String> {
                 .map_err(|e| format!("{} was copied but not removed: {e}", from.display()))
         }
         Err(e) => Err(format!("{}: {e}", from.display())),
+    }
+}
+
+/// Copy a file, or a directory and all it holds; links are copied as links.
+fn copy_tree(from: &Path, to: &Path) -> io::Result<()> {
+    let meta = from.symlink_metadata()?;
+    if meta.file_type().is_symlink() {
+        std::os::unix::fs::symlink(fs::read_link(from)?, to)
+    } else if meta.is_dir() {
+        fs::create_dir(to)?;
+        for entry in fs::read_dir(from)? {
+            let entry = entry?;
+            copy_tree(&entry.path(), &to.join(entry.file_name()))?;
+        }
+        Ok(())
+    } else {
+        fs::copy(from, to).map(|_| ())
     }
 }
 
@@ -199,19 +217,14 @@ pub fn install(lua: &Lua, api: &Table) -> mlua::Result<()> {
             relocate(Path::new(&from), Path::new(&to)).map_err(fail)
         })?,
     )?;
-    // Copy a file (not a directory) to where there is nothing.
+    // Copy a file, or a directory with all it holds, to where there is nothing.
     api.set(
         "fs_copy",
         lua.create_function(|_, (from, to): (String, String)| {
-            if Path::new(&from).is_dir() {
-                return Err(fail(format!("{from} is a directory: only files are copied")));
-            }
             if Path::new(&to).symlink_metadata().is_ok() {
                 return Err(fail(format!("{to} is there already")));
             }
-            fs::copy(&from, &to)
-                .map(|_| ())
-                .map_err(|e| fail(format!("{from}: {e}")))
+            copy_tree(Path::new(&from), Path::new(&to)).map_err(|e| fail(format!("{from}: {e}")))
         })?,
     )?;
     // Put a file or directory in the freedesktop trash; returns where it is.

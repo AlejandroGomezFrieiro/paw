@@ -11,6 +11,7 @@ pub mod clip;
 pub mod device;
 pub mod devices;
 pub mod engine;
+pub mod envelope;
 pub mod event;
 pub mod guard;
 pub mod host;

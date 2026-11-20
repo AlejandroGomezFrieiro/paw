@@ -88,16 +88,7 @@ end
 
 --- An executable on the PATH, or at a path: where it is, or nil.
 function M.executable(name)
-  local function runs(path)
-    local f = io.open(path, "r")
-    if not f then return false end
-    f:close()
-    return os.execute("test -x '" .. path:gsub("'", "'\\''") .. "'") == 0 or nil
-  end
-  if name:find("/") then return runs(name) and name or nil end
-  for dir in (os.getenv("PATH") or ""):gmatch("[^:]+") do
-    if runs(dir .. "/" .. name) then return dir .. "/" .. name end
-  end
+  return paw.api.which(name)
 end
 
 -- The core's own checks ----------------------------------------------------------

@@ -33,6 +33,13 @@ extension.
 | Modal keys, the picker, the views | all other parts use them |
 | The key of the song (`project.key`) | the harmony, the LSP and many extensions read it |
 | Base64, deflate, CRC-32, ZIP archives (`paw.bytes`, `paw.zip`) | the file formats of several extensions use them |
+| XML and TOML (`paw.xml`, `paw.toml`) | MusicXML, DAWproject, the states of JUCE plugins and the articulation maps use them |
+| The formats of other programs' files (`paw.formats`), and MIDI files | `:import`, `:open` and `:export` take each format that an extension registers |
+| The levels of a sound file, a WAV file from samples (`paw.api.sound_envelope`, `sound_write`) | the doctor and the articulations measure sound with them |
+| Finding an installed plugin (`paw.api.device_find`) | each importer of projects finds plugins, without the list of all of them |
+| A tempo map from points in seconds (`paw.api.tempo_from_seconds`) | REAPER and DAWproject files keep times in seconds |
+| Files without a shell (`paw.api.fs_*`, `which`) | an extension makes folders, copies and finds programs without running a shell |
+| Buttons and hit lists of a window (`paw.canvas.button`, `paw.canvas.hit_list`) | the windows of several extensions have buttons |
 
 Two extensions that need the same thing do not each keep a copy. Some
 data of an extension is read by the core or by other extensions, such as

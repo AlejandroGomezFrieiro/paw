@@ -629,7 +629,7 @@ start = function(client)
     return M.sync()
   end
   local log = M.log_path(client.name)
-  os.execute("mkdir -p '" .. log:match("^(.*)/"):gsub("'", "'\\''") .. "'")
+  pcall(paw.api.fs_mkdir, log:match("^(.*)/"))
   if config.server then
     client.transport, client.server = "lua", config.server
     -- What the server is handed: `notify` sends this program a notification,

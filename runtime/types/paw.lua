@@ -86,6 +86,9 @@ paw.external = {}
 ---@class paw.files
 paw.files = {}
 
+---@class paw.formats
+paw.formats = {}
+
 ---@class paw.freeze
 paw.freeze = {}
 
@@ -271,6 +274,9 @@ paw.util = {}
 
 ---@class paw.vca
 paw.vca = {}
+
+---@class paw.xml
+paw.xml = {}
 
 ---@class paw.zip
 paw.zip = {}
@@ -1247,11 +1253,37 @@ function paw.bytes.u32(data, at) end
 ---@param text any
 function paw.bytes.unbase64(text) end
 
+--- A VST3 plugin's state as paw keeps it, from its component's part and
+--- its controller's part.
+---@param component any
+---@param controller any
+function paw.bytes.vst3_join(component, controller) end
+
+--- The component's part and the controller's part of a VST3 plugin's
+--- state as paw keeps it (each after its length, 32 bits, little-endian),
+--- or nil and why. A state without a controller part gives "" for it.
+---@param raw any
+function paw.bytes.vst3_split(raw) end
+
 --- Give the keyboard back to the main window from a view in a separate
 --- window. It goes to the window that had it before the view went there,
 --- else to the current window of the tab.
 ---@param name any
 function paw.canvas.back(name) end
+
+--- A button: a rounded box with a label, painted with `g` and added to the
+--- hit list `hits` to run `action` (a function of the event, or a table as
+--- `Hits:add` takes) when pressed. `opts`: `width`, `height` (24), `fill`,
+--- `color`, `on` (lit, in `lit` or the selection's color), `size`.
+--- Returns where the next button goes to its right, and the width.
+---@param g any
+---@param hits any
+---@param x any
+---@param y any
+---@param label any
+---@param action any
+---@param opts any
+function paw.canvas.button(g, hits, x, y, label, action, opts) end
 
 --- A pointer event in pixels as the terminal gives it to the `on_mouse` of
 --- a view. It is in cells, with `kind` down, up, drag, `scroll_up` and other
@@ -1292,6 +1324,9 @@ function paw.canvas.focus(name) end
 ---@param font any
 ---@param codepoint any
 function paw.canvas.glyph_outline(font, codepoint) end
+
+--- A list of places that the pointer acts on (see `view.hits`).
+function paw.canvas.hit_list() end
 
 --- Keys typed in the window of a view. They go to the key mappings with
 --- that view focused (or to an open prompt), as when typed in the terminal.
@@ -1404,6 +1439,17 @@ function paw.canvas.pointer(name, event) end
 --- frontend of the instance when there is no terminal.
 ---@param name any
 function paw.canvas.shown(name) end
+
+--- The width of a line of text in pixels, near enough, at `size` (12).
+---@param text any
+---@param size any
+function paw.canvas.text_width(text, size) end
+
+--- Give a pointer event in pixels to a painted view: to its hit list
+--- (`view.hits`) first, then to its `pointer` function.
+---@param view any
+---@param e any
+function paw.canvas.view_pointer(view, e) end
 
 --- The windows that are open, for a frontend: `{ name, title, width, height, cells }`
 --- each, `cells` for a view drawn as the terminal draws it.
@@ -2657,6 +2703,54 @@ function paw.files.sound_info(path, stat) end
 
 --- Start to watch the cursor, when a files buffer exists.
 function paw.files.watch() end
+
+--- Write the project with the format of a file. Says what it did.
+---@param path any
+---@param opts any
+function paw.formats.export(path, opts) end
+
+--- The extensions of the files that a side takes, for lists and completion.
+---@param side any
+function paw.formats.extensions(side) end
+
+--- The format that takes `path` for `side` ("import" or "export"): one
+--- whose `detect` says yes, else one of the file's extension. Nil when
+--- none does.
+---@param path any
+---@param side any
+function paw.formats.for_path(path, side) end
+
+--- The format of a name, or nil.
+---@param name any
+function paw.formats.get(name) end
+
+--- The page of `:help formats`, in Markdown: what each format reads and
+--- writes, and how to add one.
+function paw.formats.help_text() end
+
+--- Bring a file in with its format: `opts.merge` adds to the project,
+--- else it opens in place of the project. Says what it did; returns what
+--- the format returned, or nil when it could not.
+---@param path any
+---@param opts any
+function paw.formats.import(path, opts) end
+
+--- The formats, by name: `{ name, desc, extensions, project, import, export }` each.
+function paw.formats.list() end
+
+--- Register a format of files (see the top of paw/formats.lua). A format
+--- of the same name is replaced. Returns the name.
+---@param spec any
+function paw.formats.register(spec) end
+
+--- The path at the start of a command line and the `key=value` words at
+--- its end: `song.rpp instrument=synth` is `"song.rpp", { instrument = "synth" }`.
+---@param line any
+function paw.formats.split_args(line) end
+
+--- Take a format away again.
+---@param name any
+function paw.formats.unregister(name) end
 
 --- Freeze a track or a group: render it, and play the file from now on.
 --- `opts.tail` is the seconds rendered after the song's end (2). One undo
@@ -6221,8 +6315,8 @@ function paw.scope.widen() end
 ---@param why any
 function paw.seats.close(id, why) end
 
---- A deep copy of a value. A new seat starts from the values of seat 0 with
---- it, and does not share them.
+--- A deep copy of a value: tables are copied all the way down (their
+--- metatables are not), anything else is given back as it is.
 ---@param value any
 function paw.seats.copy(value) end
 
@@ -7556,6 +7650,8 @@ function paw.ui.keybar.show(lhs) end
 ---@param hi any
 function paw.util.clamp(v, lo, hi) end
 
+paw.util.copy = paw.seats.copy
+
 --- A path as typed, with `~` at its start for the home folder, as a shell
 --- reads it: `~/mix.wav`. Every command that takes a file name reads it so.
 ---@param path any
@@ -7622,6 +7718,50 @@ function paw.vca.of(track) end
 ---@param track any
 ---@param vca any
 function paw.vca.unassign(track, vca) end
+
+--- The first child of an element with a name, or nil.
+---@param el any
+---@param name any
+function paw.xml.child(el, name) end
+
+--- Every child of an element with a name (every child without one).
+---@param el any
+---@param name any
+function paw.xml.children(el, name) end
+
+--- The root element of an XML text, or nil and what is wrong. `opts.spans`
+--- keeps where each element is in the text, for `encode` with
+--- `opts.source` (see `paw.api.xml_decode`).
+---@param text any
+---@param opts any
+function paw.xml.decode(text, opts) end
+
+--- A new element: `paw.xml.element("Track", { id = "t1", name = "Bass" })`.
+--- Its attributes are written in the order of `order`, then the others by
+--- name.
+---@param name any
+---@param attr any
+---@param order any
+function paw.xml.element(name, attr, order) end
+
+--- The XML text of an element: see `paw.api.xml_encode` for `opts`.
+---@param root any
+---@param opts any
+function paw.xml.encode(root, opts) end
+
+--- Text made safe for XML, in text and in an attribute's quotes.
+---@param text any
+function paw.xml.escape(text) end
+
+--- The text of a child as a number, or nil.
+---@param el any
+---@param name any
+function paw.xml.number(el, name) end
+
+--- The text of a child, trimmed; nil when there is no such child.
+---@param el any
+---@param name any
+function paw.xml.text(el, name) end
 
 --- The entries of an archive: a table of name to contents, and the list of
 --- names in the order of the archive (folders left out). Nil and why when
@@ -7898,6 +8038,18 @@ function paw.api.device_call(id, method, data) end
 ---@param open boolean?
 function paw.api.device_editor(id, open) end
 
+--- The kind of device installed that answers `query`, `{ kind, format,
+--- id, name, vendor }` (each optional), as an entry of `device_types`;
+--- nil when none does. It looks by `kind` (an old name too), else by
+--- the plugin's own `id` (a CLAP id, a VST3 class id in either case,
+--- an LV2 URI), else by `name` with the `vendor` (a kind without a
+--- vendor answers any), else by `name` in any case; `format` ("clap",
+--- "vst3", "lv2", "builtin") keeps to one format. With `all = true`,
+--- the list of all that answer the first test that finds one. The
+--- list of all kinds is not made, so it is quick with many plugins.
+---@param query any
+function paw.api.device_find(query) end
+
 ---@param id integer
 function paw.api.device_get(id) end
 
@@ -8022,14 +8174,30 @@ paw.api.fs_copy = nil
 ---@type fun(...): any
 paw.api.fs_create = nil
 
+--- True when a file or directory is there (a link that leads nowhere is not).
+---@param path string
+function paw.api.fs_exists(path) end
+
 ---@type fun(...): any
 paw.api.fs_mkdir = nil
 
 ---@type fun(...): any
 paw.api.fs_move = nil
 
+--- Remove a file, or a directory with all it holds: only for what paw
+--- or an extension made for itself, a cache or a temporary folder.
+--- The files of the user go to the trash (`fs_trash`) instead.
+--- Nothing there is no error.
+---@param path string
+function paw.api.fs_remove(path) end
+
 ---@type fun(...): any
 paw.api.fs_sound = nil
+
+--- The space of the disk that holds a path: `{ free, total }` in
+--- bytes (free: what a program that is not root can use).
+---@param path string
+function paw.api.fs_space(path) end
 
 ---@type fun(...): any
 paw.api.fs_stat = nil
@@ -8128,6 +8296,11 @@ function paw.api.inflate(data, format) end
 --- The level of each input channel of the device, as linear gain,
 --- whatever takes it.
 function paw.api.input_levels() end
+
+--- Mark a table (a new one without `t`) as a JSON array, so that
+--- `json_encode` writes it as `[]` when it is empty. Returns it.
+---@param t table?
+function paw.api.json_array(t) end
 
 --- Nil and the reason, when the text is not JSON.
 ---@param text any
@@ -8632,6 +8805,27 @@ function paw.api.sock_read(id, max) end
 ---@param data any
 function paw.api.sock_write(id, data) end
 
+--- The levels of a sound file, any format the engine plays: `{ rate,
+--- channels, frames, seconds, peaks, peak, onset, blocks }`, levels
+--- as linear gain. `peaks` holds the loudest sample of each channel,
+--- `peak` the loudest of all. `onset(level, from)` gives the time in
+--- seconds of the first frame, at `from` seconds or later, where a
+--- channel is louder than `level` (nil when none is). `blocks(from,
+--- to, ms)` gives the loudest sample of each block of `ms`
+--- milliseconds (default 1) between two times in seconds.
+---@param path string
+function paw.api.sound_envelope(path) end
+
+--- Write a WAV file: `opts` is `{ rate, channels (2), bits (16, 24,
+--- or 32 for float) }`. `samples` is the interleaved samples as bytes
+--- of 32-bit floats in the order of the machine (`ffi.string` of a
+--- `float[?]`), or a function `(frame, count)` that gives them one
+--- piece at a time and nil at the end. Returns the number of frames.
+---@param path string
+---@param opts table
+---@param samples any
+function paw.api.sound_write(path, opts, samples) end
+
 ---@param key string
 function paw.api.state_get(key) end
 
@@ -8665,6 +8859,17 @@ paw.api.tempo_beat = nil
 
 ---@type fun(...): any
 paw.api.tempo_from_bbt = nil
+
+--- A tempo map from points placed in seconds, as other programs keep
+--- them: `tempos` is `{ { seconds, bpm, ramp } }`, `signatures` is
+--- `{ { seconds, num, den } }`. Each point's beat follows from the
+--- stretch before it, held, or ramped linearly in time. Returns
+--- `{ tempos, signatures, beat, seconds }`: the points in beats, as
+--- `tempo_set_points` takes them, and two functions that convert
+--- with this map, `beat(seconds)` and `seconds(beat)`.
+---@param tempos table
+---@param signatures table?
+function paw.api.tempo_from_seconds(tempos, signatures) end
 
 ---@type fun(...): any
 paw.api.tempo_is_bar_line = nil
@@ -8706,6 +8911,20 @@ function paw.api.timer_start(ms, repeat, func) end
 
 ---@param id integer
 function paw.api.timer_stop(id) end
+
+--- The table of a TOML text, or nil and what is wrong (`line 4: ...`).
+--- Each table keeps the order of its keys in its metatable,
+--- `getmetatable(t).__keys`. A date or a time is its text.
+---@param text string
+function paw.api.toml_decode(text) end
+
+--- The TOML text of a table; with `inline`, of any value on one line
+--- (`{ a = 1, b = "x" }`). The keys of a table come in the order of
+--- its metatable's `__keys`, then the others by name. A list of
+--- tables is an array of tables.
+---@param value any
+---@param inline boolean?
+function paw.api.toml_encode(value, inline) end
 
 ---@param opts any
 function paw.api.track_add(opts) end
@@ -8925,3 +9144,35 @@ function paw.api.undo_tree() end
 function paw.api.wait(ms) end
 
 function paw.api.warnings() end
+
+--- Where a program is on `PATH`, as `command -v` says; nil when it
+--- is not there. A name with a `/` is checked as it is.
+---@param program string
+function paw.api.which(program) end
+
+--- The root element of an XML text, or nil and what is wrong (with the
+--- byte). An element is `{ name, attr, order, children, text }`:
+--- `attr` maps each attribute to its text, `order` lists them as
+--- written, `children` holds the child elements, `text` the text and
+--- CDATA directly in it (nil when there is none). References are
+--- read; an entity a DTD defines is kept as it is written. UTF-16
+--- with a byte order mark is read too. `opts.spans` gives each element
+--- `span = { from, open, close, to, lead, tail }`, the bytes it takes
+--- in the text, so that `xml_encode` can write what is not changed
+--- byte for byte. `opts.meta` is set as the metatable of each element.
+---@param text any
+---@param opts table?
+function paw.api.xml_decode(text, opts) end
+
+--- The XML text of an element (as `xml_decode` gives them, or made
+--- with the same fields). Attributes are written in `order`, then the
+--- others by name; numbers as the shortest text that reads back the
+--- same, or with at most `opts.digits` digits after the point.
+--- `opts.indent` puts each element on a line, indented by it.
+--- `opts.declaration` is written first (true: the usual one).
+--- `opts.source` is the text the tree was read from with `spans`:
+--- what did not change is written as it was, byte for byte, and the
+--- text around the root element too.
+---@param root table
+---@param opts table?
+function paw.api.xml_encode(root, opts) end

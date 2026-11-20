@@ -318,7 +318,7 @@ M.read = read
 --- Write a file, making its directory.
 function M.write(path, text)
   local dir = path:match("^(.*)/[^/]*$")
-  if dir then os.execute("mkdir -p '" .. dir:gsub("'", "'\\''") .. "'") end
+  if dir then pcall(paw.api.fs_mkdir, dir) end
   local f, err = io.open(path, "wb")
   if not f then error("cannot write " .. path .. ": " .. tostring(err), 0) end
   f:write(text)

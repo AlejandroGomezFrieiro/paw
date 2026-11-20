@@ -3,11 +3,7 @@ local api = paw.api
 local sampler = require("sampler")
 local command = paw.command
 
-local function exists(path)
-  local f = io.open(path, "rb")
-  if f then f:close() end
-  return f ~= nil
-end
+local exists = paw.api.fs_exists
 
 --- Whether words name a file rather than words to find an instrument by:
 --- a path, or a name with an instrument's extension.

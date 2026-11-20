@@ -189,7 +189,7 @@ function point(view, id, event, drawn)
         win = id, w = drawn.cols, h = drawn.rows, mods = (event.ctrl and "C" or "") .. (event.shift and "S" or "") })
     end
   elseif view.paint then
-    if view.pointer then view:pointer(event) end
+    paw.canvas.view_pointer(view, event)
   else
     drawn = drawn or {}
     local e = paw.canvas.cell_event(drawn, event, true)

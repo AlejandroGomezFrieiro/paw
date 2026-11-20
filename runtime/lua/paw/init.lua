@@ -175,7 +175,7 @@ function paw.bounce(track, opts)
   for _, clip in ipairs(track:clips()) do finish = math.max(finish, clip.start + clip.length) end
   if finish <= 0 then return nil end
   local dir = api.media_dir()
-  os.execute("mkdir -p '" .. dir:gsub("'", "'\\''") .. "'")
+  pcall(paw.api.fs_mkdir, dir)
   local path = string.format("%s/%s-bounce-%d-%d.wav", dir, track.name:gsub("[^%w%-_]", "_"), os.time(), track.id)
   paw.render(path, { tracks = { track.id }, start = 0, ["end"] = finish, tail = opts.tail or 2, bits = 32 })
   local index = 0
@@ -221,6 +221,13 @@ paw.json = { encode = api.json_encode, decode = api.json_decode }
 -- deflate/inflate (raw, zlib, gzip) and crc32.
 paw.bytes = require("paw.bytes")
 paw.zip = require("paw.zip")
+-- XML (paw/xml.lua) and TOML, read and written by the core: a TOML table
+-- keeps the order of its keys in `getmetatable(t).__keys`.
+paw.xml = require("paw.xml")
+paw.toml = { encode = api.toml_encode, decode = api.toml_decode }
+-- The files of other programs that `:import`, `:open` and `:export` take
+-- (paw/formats.lua): MIDI files here, others from extensions.
+paw.formats = require("paw.formats")
 
 -- Values kept by the kernel, so they survive `:reload`.
 paw.state = setmetatable({}, {

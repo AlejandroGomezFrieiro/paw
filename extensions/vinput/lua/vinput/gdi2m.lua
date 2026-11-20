@@ -75,11 +75,7 @@ function K.defaults()
   return input
 end
 
-local function exists(path)
-  local file = io.open(path, "r")
-  if file then file:close() end
-  return file ~= nil
-end
+local exists = paw.api.fs_exists
 
 --- The gdi2m program: `paw.opt.vinput_gdi2m`, `$GDI2M`, `gdi2m` on the
 --- PATH, or a guitar_tracker built in the home directory. Nil when none.

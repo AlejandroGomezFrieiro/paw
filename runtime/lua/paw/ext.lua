@@ -42,11 +42,7 @@ local function name_of(path)
   return one_file(base) and base:gsub("%.[%w_]+$", "") or base
 end
 
-local function exists(path)
-  local file = io.open(path, "r")
-  if file then file:close() end
-  return file ~= nil
-end
+local exists = paw.api.fs_exists
 
 -- Versions --------------------------------------------------------------------------
 
@@ -265,6 +261,9 @@ M.registries = {
     end },
   keyed("languages", "languages", function() return paw.lang and paw.lang.compilers end),
   keyed("health", "health checks", function() return paw.health and paw.health.checks end),
+  keyed("formats", "file formats", function() return paw.formats and paw.formats.registry end, function(key, value)
+    if value then paw.formats.register(value) else paw.formats.unregister(key) end
+  end, function(key) return key end),
   { kind = "hooks", title = "hooks", snapshot = function()
       local out = {}
       for id, h in pairs(require("paw.events").handlers()) do out[id] = h end

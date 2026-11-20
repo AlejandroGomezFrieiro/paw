@@ -354,19 +354,6 @@ end
 
 -- Reading -------------------------------------------------------------------------------------
 
-test("musicxml: the XML reader takes a DOCTYPE, comments, CDATA, entities and attributes with > in them", function()
-  load()
-  local xml = require("notation.xml")
-  local root = assert(xml.parse('\239\187\191<?xml version="1.0"?><!DOCTYPE x [ <!ENTITY a "b"> ]><!-- c --><a k="1 > 0" j=\'q\'>'
-    .. "<b>x &amp; y &#233; &#x263A;</b><![CDATA[<raw>]]><c/></a>"))
-  eq(root.name, "a", "the root")
-  eq(root.attrs.k .. "|" .. root.attrs.j, "1 > 0|q", "attributes, a > inside quotes")
-  eq(xml.text(root, "b"), "x & y é ☺", "entities as UTF-8")
-  eq(root.text, "<raw>", "CDATA as text")
-  eq(#xml.children(root), 2, "two child elements")
-  eq(select(2, xml.parse("<a><b></a>")) ~= nil, true, "a tag closed by the wrong one is an error")
-end)
-
 test("musicxml: a piano piece reads as two staves, voices, a tie, a slur, a hairpin and a tempo mark", function()
   local mx = load()
   local file = assert(mx.parse(PIANO))

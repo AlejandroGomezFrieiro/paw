@@ -17,11 +17,7 @@ local M = {
 
 local link -- { proc, listener, conn, path, buf = { chunks } }
 
-local function exists(path)
-  local file = io.open(path, "r")
-  if file then file:close() end
-  return file ~= nil
-end
+local exists = paw.api.fs_exists
 
 local function home()
   return os.getenv("HOME") or "."
@@ -130,7 +126,7 @@ function M.start()
   flag("--openutau-dir", paw.opt.utau_openutau_dir ~= "" and paw.opt.utau_openutau_dir or os.getenv("PAW_UTAU_OPENUTAU_DIR"))
   flag("--data-dir", paw.opt.utau_data_dir)
   flag("--cache-dir", paw.opt.utau_cache_dir)
-  os.execute("mkdir -p '" .. cache_dir() .. "'")
+  pcall(paw.api.fs_mkdir, cache_dir())
   local ok, proc = pcall(api.proc_spawn, argv, { log = M.log_path() })
   if not ok then
     api.sock_close(listener)

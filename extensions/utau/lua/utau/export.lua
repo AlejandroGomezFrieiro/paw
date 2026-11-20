@@ -82,7 +82,7 @@ function M.write(path, opts)
   file:write(json.encode(desc))
   file:close()
   local dir = path:match("^(.*)/[^/]*$")
-  if dir and dir ~= "" then os.execute("mkdir -p '" .. dir:gsub("'", "'\\''") .. "'") end
+  if dir and dir ~= "" then pcall(paw.api.fs_mkdir, dir) end
   local code, out = engine.tool({ "--export", input, "--out", path }, 120)
   os.remove(input)
   local files = {}

@@ -782,7 +782,7 @@ end
 --- Keep the window's layout (see `layout_get`).
 function M.layout_set(layout)
   local file = layout_file()
-  os.execute("mkdir -p '" .. (file:match("^(.*)/[^/]*$") or "."):gsub("'", "'\\''") .. "'")
+  pcall(paw.api.fs_mkdir, (file:match("^(.*)/[^/]*$") or "."))
   local handle = io.open(file .. ".tmp", "wb")
   if not handle then return end
   handle:write(api.json_encode(layout, true))
