@@ -23,10 +23,8 @@ paw.autosave 1 written in Lua: typed when its module is ported to Teal
 paw.bounce 1 written in Lua: typed when its module is ported to Teal
 paw.buf 1 written in Lua: typed when its module is ported to Teal
 paw.command 1 written in Lua: typed when its module is ported to Teal
-paw.complete 1 written in Lua: typed when its module is ported to Teal
 paw.controls 1 written in Lua: typed when its module is ported to Teal
 paw.device_rows 1 written in Lua: typed when its module is ported to Teal
-paw.diagnostic 1 written in Lua: typed when its module is ported to Teal
 paw.ex 1 written in Lua: typed when its module is ported to Teal
 paw.ext 1 written in Lua: typed when its module is ported to Teal
 paw.external 1 written in Lua: typed when its module is ported to Teal
@@ -34,7 +32,6 @@ paw.files 1 written in Lua: typed when its module is ported to Teal
 paw.freeze 1 written in Lua: typed when its module is ported to Teal
 paw.frontend 1 written in Lua: typed when its module is ported to Teal
 paw.fx 1 written in Lua: typed when its module is ported to Teal
-paw.grep 1 written in Lua: typed when its module is ported to Teal
 paw.health 1 written in Lua: typed when its module is ported to Teal
 paw.help 1 written in Lua: typed when its module is ported to Teal
 paw.import_audio 1 written in Lua: typed when its module is ported to Teal
@@ -58,8 +55,6 @@ paw.panes 1 written in Lua: typed when its module is ported to Teal
 paw.params 1 written in Lua: typed when its module is ported to Teal
 paw.pick 1 written in Lua: typed when its module is ported to Teal
 paw.plugins 1 written in Lua: typed when its module is ported to Teal
-paw.qf 1 written in Lua: typed when its module is ported to Teal
-paw.query 1 written in Lua: typed when its module is ported to Teal
 paw.recent 1 written in Lua: typed when its module is ported to Teal
 paw.reconnect 1 written in Lua: typed when its module is ported to Teal
 paw.remote 1 written in Lua: typed when its module is ported to Teal
@@ -73,7 +68,6 @@ paw.roll_clips 1 written in Lua: typed when its module is ported to Teal
 paw.roll_draw 1 written in Lua: typed when its module is ported to Teal
 paw.routes 1 written in Lua: typed when its module is ported to Teal
 paw.scope 1 written in Lua: typed when its module is ported to Teal
-paw.snippet 1 written in Lua: typed when its module is ported to Teal
 paw.state 1 written in Lua: typed when its module is ported to Teal
 paw.stems 1 written in Lua: typed when its module is ported to Teal
 paw.stretch 1 written in Lua: typed when its module is ported to Teal

@@ -24,10 +24,6 @@ local record partial
       chosen_refs: function(): {{integer}}
       metamethod __index: function(Frontend, string): Untyped
    end
-   record Grep
-      source: function(name: string, fn: contracts.GrepSource)
-      metamethod __index: function(Grep, string): Untyped
-   end
    record Health
       register: function(name: string, fn: contracts.HealthCheck, opts?: contracts.HealthOptions)
       metamethod __index: function(Health, string): Untyped
@@ -47,10 +43,6 @@ local record partial
       sources: {string:contracts.PickEntry}
       metamethod __call: function<T>(Pick, spec: string | contracts.PickSource<T>, extra?: contracts.PickExtra)
       metamethod __index: function(Pick, string): Untyped
-   end
-   record Query
-      field: function(kind: string, name: string, get: contracts.QueryField)
-      metamethod __index: function(Query, string): Untyped
    end
    record Textbuf
       kind: function<I is contracts.TextItem, F>(name: string, spec: contracts.TextKind<I, F>): contracts.TextKind<I, F>
@@ -86,14 +78,12 @@ local record partial
       files: Files
       flush: function()
       frontend: Frontend
-      grep: Grep
       health: Health
       keymap: Keymap
       layout: Layout
       notify: function(text: string, level?: string)
       off: function(id: integer)
       pick: Pick
-      query: Query
       textbuf: Textbuf
       timers: {integer:function()}
       track_kinds: TrackKinds

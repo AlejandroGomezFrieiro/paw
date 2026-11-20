@@ -233,7 +233,7 @@ work of one agent. The areas of one wave do not depend on each other.
 | Done | Contracts, Lua side | `contracts.tl`, the `@type` lines of the modules in Lua (`partial.d.tl`) and the types of the options (`opts.d.tl`): 880 lines of Teal, 12 fewer `paw.Untyped` entries | 10 functions that register | wave 1 |
 | Done | The project | `objects`, `cursor`, `edit`, `address`, `tempo`, `tempolane`, `markers`, `locators`: 4,408 lines of Teal, 24 fewer entries of `any-allowed.txt`, and no `any` or `paw.Untyped` in these modules | 3,100 | wave 1 |
 | Done | Music on the project | `harmony`, `structure`, `takes`, `groups`, `vca`, `lanes`, `curves`, `audition`: 3,859 lines of Teal, 42 fewer entries on the allow-list | 3,000 | wave 1 |
-| 3 | Queries and lists | `query`, `grep`, `qf`, `diagnostic`, `complete`, `snippet` | 3,900 | wave 2 |
+| Done | Queries and lists | `query`, `grep`, `qf`, `diagnostic`, `complete`, `snippet`: 5,601 lines of Teal, 6 fewer entries on the allow-list, and no `any` in these modules | 3,900 | wave 2 |
 | Done | Drawing | `buf`, `draw`, `canvas`, `roles`, `scene`, `theme`, `plot`, `statusline`: 4,740 lines of Teal, 6 fewer entries on the allow-list, and no `any` or `paw.Untyped` in these modules | 3,700 | wave 2 |
 | 4 | Windows | `ui`, `layout`, `panes`, `mouse`, the menus | 4,500 | wave 3 |
 | 4 | Editors | `ex`, `textbuf`, `pick` and `pick/`, `help`, `lsp/` | 9,000 | wave 3 |
@@ -426,3 +426,42 @@ entries.
   pass with no change. A frame on the screen takes the same time as
   before: `bench/redraw.lua` with 16 tracks gives the same median, in the
   spread of six runs of each.
+
+## What the checker found in the queries and lists
+
+- A fix of a diagnostic can be a function (`apply`). `paw.diagnostic.apply`
+  gives it the diagnostic, but `:cfix` gives it the entry of the quickfix
+  list. The two records are different, so the port casts the fix where a
+  diagnostic becomes an entry (`paw.qf.from_diagnostics`). The fixes of
+  paw and of its extensions do not read the value, so the port keeps
+  this behavior.
+- The function `paw.qf.fix` wrote a field `entry` into the changes of each fix, to
+  count the fixes that it made. These changes are the tables of the fix.
+  The port keeps a separate table from each change to its entry.
+- The function `paw.qf.changed(source)` has the name of the event, so the descriptor of the event
+  `qf.changed` is `paw.qf.event`. The descriptors of the other events are
+  `paw.diagnostic.changed`, `paw.complete.changed`,
+  `paw.snippet.expanded` and `paw.snippet.finished`.
+- The quickfix list uses the types of `paw.diagnostic`, and `paw.diagnostic` calls
+  `paw.qf.diagnostics`. Two modules in Teal cannot name the types of each
+  other, so `paw.diagnostic` declares the part of `paw.qf` that it calls.
+- The data of a node of a query is a record of its kind: a track, a clip,
+  a note, a marker, a point. Teal has no union of several records, so a
+  node holds `paw.contracts.QueryData`, and the port casts the data by the
+  kind of the node. The root of the tree has the kind `project`, which
+  `paw.contracts.QueryKind` did not have.
+- The query module kept the item that `paw.ex` reads in a field of the node,
+  which is not a field of `paw.contracts.QueryNode`. The port keeps it in
+  a separate table.
+- A query in the table form and a query that `paw.query.parse` read are
+  both tables. Teal cannot tell two tables apart in a union, so one record
+  (`paw.query.QueryTable`) has the fields of both.
+- The functions `paw.limit.named` and `paw.seats.keep` take values of one type.
+  `paw.complete` gives a source a closure, and `paw.complete` and
+  `paw.snippet` keep the state of each seat in one record.
+- The function `paw.snippet.pick` gives the picker that `paw.pick` opens. Its type says
+  so now.
+- The module `paw.structure` declared its own records for the nodes of a query. It
+  uses the types of `paw.query` now.
+- The checker found no error that changed what the code does: the tests
+  pass with no change.

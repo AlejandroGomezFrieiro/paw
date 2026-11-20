@@ -798,7 +798,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.grep.records()`: Every record of every source, in the order the sources were added. A source that fails is passed over and logged.
 - `paw.grep.search(pattern, opts)`: The records whose text matches `pattern`. `opts.mode` is as `matcher` takes it. `opts.fields` is a set of fields to search (all without it).
 - `paw.grep.source(name, fn)`: Add a source of text, or replace the one of that name.
-- `paw.grep.vimgrep(arg, opts)`: What `:vimgrep` does: search, fill the list, go to the first place found unless the flags hold `j`. `opts.loc` the window's location list, `opts.add` adds to the current list. Returns the records found.
+- `paw.grep.vimgrep(line, opts)`: What `:vimgrep` does: search, fill the list, go to the first place found unless the flags hold `j`. `opts.loc` the window's location list, `opts.add` adds to the current list. Returns the records found.
 
 ## Module paw.groups
 

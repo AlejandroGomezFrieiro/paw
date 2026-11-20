@@ -15,6 +15,7 @@ local api = require("paw.api")
 local commands = require("paw.commands")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
+local type QueryModule = require("paw.query")
 
 local type Context = commands.Context
 
@@ -27,18 +28,10 @@ local record Roll
   set: function(Roll, integer, number)
 end
 
---- A node that a query finds, as far as this module counts it (paw/query.lua).
-local record Node
-  kind: string
-end
-
---- How `:select`, `:query` and `:lquery` run a query (`paw.query.select`).
-local record SelectOptions
-  choose: boolean
-  title: string
-  loc: boolean
-end
-local type Select = function(string, SelectOptions): {Node}
+--- A node that a query finds, and how `:select`, `:query` and `:lquery`
+--- run a query (`paw.query.select`).
+local type Node = contracts.QueryNode
+local type SelectOptions = QueryModule.SelectOptions
 
 -- The global `paw` (runtime/types/paw.d.tl): no module of the global
 -- requires this one, so it sees the global's types.
@@ -273,7 +266,7 @@ local function run(ctx: Context, opts: SelectOptions): {Node}
     paw.notify("usage: " .. ctx.name .. " clip[name~=pizz] > note[pitch>=c5]", "warn")
     return nil
   end
-  local ok, nodes = pcall(paw.query.select as Select, q, opts)
+  local ok, nodes = pcall(paw.query.select, q as QueryModule.Query, opts)
   if not ok then
     paw.notify(tostring(nodes), "error")
     return nil
@@ -292,7 +285,7 @@ end
 
 local function complete_query(text: string): {string}
   local out: {string} = {}
-  for _, k in ipairs(paw.query.KINDS as {string}) do
+  for _, k in ipairs(paw.query.KINDS) do
     if k:sub(1, #text) == text then out[#out + 1] = k end
   end
   return out

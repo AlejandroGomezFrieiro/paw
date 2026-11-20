@@ -28,72 +28,324 @@
 -- [place] = velocity }`) and `controls` (moves added to the clip's, as
 -- `clip:controls()` gives them). `source` says where it came from: the
 -- source's name, unless the item names one of its own (a server's).
-local api = paw.api
-local M = {}
+--
+-- Written in Teal (paw/lang.tl): the build compiles it to Lua.
+local api = require("paw.api")
+local events = require("paw.events")
+local kernel = require("paw.events.kernel")
+local options = require("paw.options")
+local seats = require("paw.seats")
+local limit = require("paw.limit")
+local util = require("paw.util")
+local music = require("paw.music")
+local type types = require("paw.types")
+local type contracts = require("paw.contracts")
+local type partial = require("paw.partial")
+local type objects = require("paw.objects")
+local type HarmonyModule = require("paw.harmony")
+local type DrawModule = require("paw.draw")
 
-paw.option.define("complete_auto", true)          -- ask the sources by themselves after an idle pause
-paw.option.define("complete_idle_ms", 1200)       -- how long without an edit before that
-paw.option.define("complete_deadline_ms", 300)    -- how long a request waits before showing what has arrived
-paw.option.define("complete_audition", false)     -- play each alternative shown through the track
+--- A note of an item as a source gives it: `start` (or `at`) in beats from
+--- the clip's start.
+local record NoteInput
+  pitch: number
+  start: number
+  at: number
+  length: number
+  velocity: number
+end
+
+--- An item as a source gives it (see the top of the file).
+local record ItemInput
+  label: string
+  detail: string
+  source: string
+  notes: {NoteInput}
+  remove: {integer}
+  velocities: {integer:number}
+  controls: {types.Control}
+end
+
+--- A note of an item that shows: its pitch, start (in the clip's beats),
+--- length and velocity.
+local record Ghost
+  pitch: integer
+  start: number
+  length: number
+  velocity: integer
+end
+
+--- An item made safe to draw and to apply: the notes it adds, the notes
+--- it replaces and the velocities it changes (each named by pitch and
+--- start), and the controller moves it adds.
+local record Item
+  label: string
+  detail: string
+  source: string
+  notes: {Ghost}
+  remove: {Ghost}
+  velocities: {Ghost}
+  controls: {types.Control}
+end
+
+--- Who asked: a key ("manual") or an idle pause ("auto").
+local enum Trigger
+  "manual" "auto"
+end
+
+--- What a request is about (`paw.complete.context`).
+local record Context
+  clip: integer
+  track: integer
+  start: number
+  length: number
+  at: number
+  pitch: integer
+  notes: {types.Note}
+  selection: {types.Note}
+  grid: number
+  view: string
+  trigger: Trigger
+  key: HarmonyModule.Key
+  id: integer
+end
+
+--- A source of suggestions (`paw.complete.register`): `complete` calls
+--- `done(items)` once, now or later; `cancel` hears that a newer request
+--- superseded the one it was asked.
+local record Source
+  name: string
+  priority: number
+  views: {string}
+  auto: boolean
+  complete: function(ctx: Context, done: function(items: {ItemInput}))
+  cancel: function(ctx: Context)
+end
+
+--- A request being answered.
+local record Request
+  id: integer
+  ctx: Context
+  waiting: {string:boolean}
+  answers: {string:{Item}}
+  timer: integer
+  stamp: integer
+  presented: boolean
+end
+
+--- What shows.
+local record Shown
+  items: {Item}
+  index: integer
+  clip: integer
+  stamp: integer
+  trigger: Trigger
+  keys: boolean
+end
+
+--- What `paw.complete.current` gives.
+local record Current
+  items: {Item}
+  index: integer
+  item: Item
+  clip: integer
+end
+
+--- What `paw.complete.show` takes: the clip (the one open), the source
+--- of the items, and `keys = false` to show them without their keys.
+local record ShowOptions
+  clip: integer
+  source: string
+  keys: boolean
+end
+
+--- The switch of the window's piano roll toolbar.
+local record Tool
+  label: string
+  on: boolean
+  act: string
+  tip: string
+end
+
+--- The payload of `complete.changed`: whether something shows.
+local record Changed
+  shown: boolean
+end
+
+--- The payload of `option.changed`, as far as this module reads it.
+local record OptionChanged
+  name: string
+  value: options.Value
+end
+
+--- What each seat has of its own.
+local record SeatState
+  shown: Shown
+  request: Request
+  idle_timer: integer
+  audition_stop: function()
+end
+
+-- What this module reads of the modules that are still in Lua.
+
+--- What a layer of the piano roll gets (paw/views/pianoroll.lua).
+local record Layer
+  data: types.Clip
+  roll: contracts.Buf
+  width: integer
+  top: integer
+  rows: integer
+  x: function(beat: number): integer
+  row: function(pitch: integer): integer
+end
+
+--- The piano roll, as far as this module reads it.
+local record Roll
+  clip_id: integer
+  beat: number
+  pitch: integer
+  clip: function(self: Roll): objects.Clip
+  set: function(self: Roll, pitch: integer, beat: number)
+  layer: function(name: string, order: integer, paint: function(Layer))
+  key_scope: function(self: Roll, name: string, order: integer, on: function(): boolean)
+  tool: function(self: Roll, name: string, fn: function(): Tool)
+end
+
+--- A hit region of the badge: a gesture of the window.
+local record ActHit is contracts.HitAction
+  act: string
+  arg: integer
+  tip: string
+end
+
+--- A highlight group (`paw.ui.hl`).
+local record Highlight
+  fg: string
+  bg: string
+  italic: boolean
+  bold: boolean
+end
+
+--- The gestures of the window (paw/frontend.lua) that this module adds.
+local record Acts
+  complete_badge: function(_: integer, index: integer): boolean
+  complete_accept: function(): boolean
+  complete_dismiss: function()
+  complete_request: function(): integer
+  toggle_complete_auto: function()
+end
+local record Frontend
+  act: Acts
+  chosen_notes: function(clip: integer): {integer}
+end
+
+local record Paw is partial.Paw
+  harmony: HarmonyModule
+  time: objects.Time
+  clip: function(id: integer): objects.Clip
+  draw: DrawModule
+end
+local paw = (_G as {string:Paw}).paw
+local opt = options.opt
+
+local record M
+  type NoteInput = NoteInput
+  type ItemInput = ItemInput
+  type Ghost = Ghost
+  type Item = Item
+  type Trigger = Trigger
+  type Context = Context
+  type Source = Source
+  type Current = Current
+  type ShowOptions = ShowOptions
+  type Tool = Tool
+  type Changed = Changed
+  --- The sources, by name.
+  sources: {string:Source}
+  --- The event `complete.changed`.
+  changed: events.Event<Changed>
+  cancel: function()
+  audition: function()
+  tool: function(): Tool
+end
+
+options.define("complete_auto", true)          -- ask the sources by themselves after an idle pause
+options.define("complete_idle_ms", 1200)       -- how long without an edit before that
+options.define("complete_deadline_ms", 300)    -- how long a request waits before showing what has arrived
+options.define("complete_audition", false)     -- play each alternative shown through the track
 
 local EPS = 1e-6
 
-local sources = {}    -- name -> spec
-local request         -- the request being answered: { id, ctx, waiting, answers, late, timer }
-local shown           -- what shows: { items, index, clip, stamp, trigger, keys }
+local sources: {string:Source} = {}    -- name -> spec
+local request: Request         -- the request being answered
+local shown: Shown             -- what shows
 local next_id = 0
-local idle_timer
+local idle_timer: integer
 
 M.sources = sources
+M.changed = events.event("complete.changed")
 
 -- What shows and what is being asked are each person's own: a seat has its
 -- suggestion, its request, its idle pause and what it is hearing.
-local audition_stop
-paw.seats.keep("complete",
-  function() return shown, request, idle_timer, audition_stop end,
-  function(s, r, i, a) shown, request, idle_timer, audition_stop = s, r, i, a end,
-  function() return nil, nil, nil, nil end)
+local audition_stop: function()
+seats.keep("complete",
+  function(): SeatState return { shown = shown, request = request, idle_timer = idle_timer, audition_stop = audition_stop } end,
+  function(s: SeatState) shown, request, idle_timer, audition_stop = s.shown, s.request, s.idle_timer, s.audition_stop end,
+  function(): SeatState return {} end)
 
-local function roll() return paw.ui.views.pianoroll end
+local function roll(): Roll return paw.ui.views.pianoroll as Roll end
+local function frontend(): Frontend return paw.frontend as Frontend end
 
-local function busy()
+local function busy(): boolean
   local t = api.transport_get()
   return t.playing or t.take ~= nil or (t.counting or 0) > 0
 end
 
-local function stamp_of(clip_id)
+-- A clip's notes, all of them.
+local all_notes = api.clip_notes as function(id: integer): {types.Note}
+
+local function stamp_of(clip_id: integer): integer
   local ok, c = pcall(api.clip_get, clip_id)
   return ok and c.stamp or nil
 end
 
+--- A copy of a table with the same fields.
+local record Opaque
+end
+local function shallow<T>(t: T): T
+  local out: {string:Opaque} = {}
+  for k, v in pairs(t as {string:Opaque}) do out[k] = v end
+  return out as T
+end
+
 --- Add a source, or replace the one of the same name.
-function M.register(spec)
-  assert(type(spec) == "table" and type(spec.name) == "string" and type(spec.complete) == "function",
+function M.register(spec: Source)
+  assert(spec is Source and type(spec.name) == "string" and type(spec.complete) == "function",
     "usage: paw.complete.register({ name = ..., complete = function(ctx, done) ... end })")
-  sources[spec.name] = paw.util.merge(spec, {
-    priority = spec.priority or 0,
-    views = spec.views or { "pianoroll" },
-    auto = spec.auto ~= false,
-  })
+  local source = shallow(spec)
+  source.priority = spec.priority or 0
+  source.views = spec.views or { "pianoroll" }
+  source.auto = spec.auto ~= false
+  sources[spec.name] = source
 end
 
 --- Remove the source of a name.
-function M.unregister(name)
+function M.unregister(name: string)
   sources[name] = nil
 end
 
 --- The sources, highest priority first.
-function M.list()
-  local out = {}
+function M.list(): {Source}
+  local out: {Source} = {}
   for _, s in pairs(sources) do out[#out + 1] = s end
-  table.sort(out, function(a, b)
+  table.sort(out, function(a: Source, b: Source): boolean
     if a.priority ~= b.priority then return a.priority > b.priority end
     return a.name < b.name
   end)
   return out
 end
 
-local function offers(source, view, trigger)
+local function offers(source: Source, view: string, trigger: Trigger): boolean
   if trigger == "auto" and not source.auto then return false end
   for _, v in ipairs(source.views) do
     if v == view then return true end
@@ -112,7 +364,7 @@ end
 ---   selection        the chosen notes, or nil
 ---   grid, view, trigger ("manual" or "auto"), id
 ---   key              `paw.harmony.key(at)` when there is such a module
-function M.context(trigger)
+function M.context(trigger?: Trigger): Context
   local r = roll()
   local clip = r and r:clip()
   if not clip then return nil end
@@ -121,8 +373,8 @@ function M.context(trigger)
   -- After the chosen notes when there are any (with the pointer, or a
   -- selection in visual mode), else at the cursor: in insert mode that is
   -- right after the notes entered last.
-  local selection
-  local places = paw.frontend.chosen_notes(c.id)
+  local selection: {types.Note}
+  local places = frontend().chosen_notes(c.id)
   if #places > 0 then
     selection = {}
     for _, place in ipairs(places) do selection[#selection + 1] = notes[place] end
@@ -142,56 +394,64 @@ function M.context(trigger)
     at = 0
     for _, n in ipairs(selection) do at = math.max(at, n.start + n.length) end
   end
-  local key
+  local key: HarmonyModule.Key
   if paw.harmony and paw.harmony.key then
     local ok, k = pcall(paw.harmony.key, c.start + at)
     if ok then key = k end
   end
   return {
     clip = c.id, track = c.track, start = c.start, length = c.length, at = at, pitch = r.pitch,
-    notes = notes, selection = selection, grid = paw.opt.note_grid, view = "pianoroll",
+    notes = notes, selection = selection, grid = opt.note_grid, view = "pianoroll",
     trigger = trigger or "manual", key = key,
   }
 end
 
 -- Items -----------------------------------------------------------------------
 
-local function number(v) return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge end
+local function number(v: number): boolean return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge end
+
+local function round(v: number, lo: integer, hi: integer): integer
+  return util.clamp(math.floor(v + 0.5), lo, hi) as integer
+end
 
 --- A source's item made safe to draw and to apply, or nil when it holds
 --- nothing usable. Places become the notes they name, so that they still
 --- find them after part of the item has been accepted.
-local function normalize(item, source, clip_notes)
-  if type(item) ~= "table" then return nil end
-  local out = {
+local function normalize(item: ItemInput, source: string, clip_notes: {types.Note}): Item
+  if not item is ItemInput then return nil end
+  local out: Item = {
     label = tostring(item.label or source), detail = item.detail and tostring(item.detail) or nil,
     source = type(item.source) == "string" and item.source or source, notes = {}, remove = {}, velocities = {}, controls = {},
   }
-  for _, n in ipairs(type(item.notes) == "table" and item.notes or {}) do
+  local given = item.notes
+  for _, n in ipairs(given is {NoteInput} and given or {}) do
     local start = n.start or n.at
-    if type(n) == "table" and number(n.pitch) and number(start) and number(n.length) and n.length > 0 and start >= 0 then
+    if n is NoteInput and number(n.pitch) and number(start) and number(n.length) and n.length > 0 and start >= 0 then
       out.notes[#out.notes + 1] = {
-        pitch = paw.util.clamp(math.floor(n.pitch + 0.5), 0, 127), start = start, length = n.length,
-        velocity = number(n.velocity) and paw.util.clamp(math.floor(n.velocity + 0.5), 1, 127) or paw.opt.velocity,
+        pitch = round(n.pitch, 0, 127), start = start, length = n.length,
+        velocity = number(n.velocity) and round(n.velocity, 1, 127) or opt.velocity,
       }
     end
   end
-  table.sort(out.notes, function(a, b)
+  table.sort(out.notes, function(a: Ghost, b: Ghost): boolean
     if math.abs(a.start - b.start) > EPS then return a.start < b.start end
     return a.pitch < b.pitch
   end)
-  for _, place in ipairs(type(item.remove) == "table" and item.remove or {}) do
+  local remove = item.remove
+  for _, place in ipairs(remove is {integer} and remove or {}) do
     local n = clip_notes[place]
     if n then out.remove[#out.remove + 1] = { pitch = n.pitch, start = n.start } end
   end
-  for place, v in pairs(type(item.velocities) == "table" and item.velocities or {}) do
+  local velocities = item.velocities
+  for place, v in pairs(velocities is {integer:number} and velocities or {}) do
     local n = clip_notes[place]
     if n and number(v) then
-      out.velocities[#out.velocities + 1] = { pitch = n.pitch, start = n.start, length = n.length, velocity = paw.util.clamp(math.floor(v + 0.5), 1, 127) }
+      out.velocities[#out.velocities + 1] = { pitch = n.pitch, start = n.start, length = n.length, velocity = round(v, 1, 127) }
     end
   end
-  for _, move in ipairs(type(item.controls) == "table" and item.controls or {}) do
-    if type(move) == "table" and number(move.start) and type(move.type) == "string" and number(move.value) then
+  local controls = item.controls
+  for _, move in ipairs(controls is {types.Control} and controls or {}) do
+    if move is types.Control and number(move.start) and type(move.type) == "string" and number(move.value) then
       out.controls[#out.controls + 1] = move
     end
   end
@@ -203,7 +463,7 @@ end
 
 local function changed()
   api.ui_redraw()
-  paw.emit("complete.changed", { shown = shown ~= nil })
+  events.emit(M.changed, { shown = shown ~= nil })
 end
 
 --- Hide what shows, and drop the request being answered.
@@ -217,10 +477,10 @@ function M.dismiss()
 end
 
 local function audition_if_wanted()
-  if paw.opt.complete_audition and shown and shown.keys then M.audition() end
+  if opt.complete_audition and shown and shown.keys then M.audition() end
 end
 
-local function show(items, clip, trigger, keys)
+local function show(items: {Item}, clip: integer, trigger: Trigger, keys: boolean)
   if #items == 0 then return end
   shown = { items = items, index = 1, clip = clip, stamp = stamp_of(clip), trigger = trigger, keys = keys }
   changed()
@@ -232,15 +492,15 @@ end
 --- are for (the one open), `opts.keys = false` shows them only, without
 --- the keys that accept or step through them. Nothing, or an empty list,
 --- hides them.
-function M.show(items, opts)
+function M.show(items: {ItemInput}, opts?: ShowOptions)
   opts = opts or {}
   M.dismiss()
   local r = roll()
   local clip_id = opts.clip or (r:clip() and r.clip_id)
   if not clip_id or not items then return end
-  local ok, notes = pcall(api.clip_notes, clip_id)
+  local ok, notes = pcall(all_notes, clip_id)
   if not ok then return end
-  local list = {}
+  local list: {Item} = {}
   for _, item in ipairs(items) do
     list[#list + 1] = normalize(item, item.source or opts.source or "preview", notes)
   end
@@ -249,7 +509,7 @@ end
 
 --- What shows: `{ items, index, item, clip }`, or nil. A suggestion asked
 --- for by itself does not show while the transport plays or records.
-function M.current()
+function M.current(): Current
   if not shown then return nil end
   if shown.trigger == "auto" and busy() then return nil end
   -- Another seat may have edited the clip since: what shows is stale.
@@ -257,7 +517,7 @@ function M.current()
   return { items = shown.items, index = shown.index, item = shown.items[shown.index], clip = shown.clip }
 end
 
-local function keys_on()
+local function keys_on(): boolean
   return shown ~= nil and shown.keys and M.current() ~= nil and paw.ui.focused == "pianoroll"
     and roll().clip_id == shown.clip
 end
@@ -273,7 +533,7 @@ function M.cancel()
   for name in pairs(r.waiting) do
     local source = sources[name]
     if source and source.cancel then
-      local ok, err = pcall(source.cancel, r.ctx)
+      local ok, err = pcall(function(): string source.cancel(r.ctx) end)
       if not ok then api.log("completion source " .. name .. " failed to cancel: " .. tostring(err)) end
     end
   end
@@ -281,8 +541,8 @@ end
 
 --- Show what has arrived for the request, in the order of the sources'
 --- priorities.
-local function present(r)
-  local items = {}
+local function present(r: Request)
+  local items: {Item} = {}
   for _, source in ipairs(M.list()) do
     for _, item in ipairs(r.answers[source.name] or {}) do items[#items + 1] = item end
   end
@@ -291,11 +551,11 @@ local function present(r)
   show(items, r.ctx.clip, r.ctx.trigger, true)
 end
 
-local function answer(r, name, items)
+local function answer(r: Request, name: string, items: {ItemInput})
   if request ~= r or not r.waiting[name] then return end
   r.waiting[name] = nil
-  local list = {}
-  if type(items) == "table" then
+  local list: {Item} = {}
+  if items is {ItemInput} then
     for _, item in ipairs(items) do list[#list + 1] = normalize(item, name, r.ctx.notes) end
   end
   if r.presented then
@@ -321,12 +581,12 @@ end
 --- Ask every source for this view at once. `trigger` is "manual" (a key,
 --- the default) or "auto". Returns the request's id, or nil when there is
 --- nothing to ask about or nobody to ask.
-function M.request(trigger)
+function M.request(trigger?: Trigger): integer
   trigger = trigger or "manual"
   if trigger == "auto" and busy() then return nil end
   local ctx = M.context(trigger)
   if not ctx then return nil end
-  local asked = {}
+  local asked: {Source} = {}
   for _, source in ipairs(M.list()) do
     if offers(source, ctx.view, trigger) then asked[#asked + 1] = source end
   end
@@ -334,20 +594,21 @@ function M.request(trigger)
   M.dismiss()
   next_id = next_id + 1
   ctx.id = next_id
-  local r = { id = next_id, ctx = ctx, waiting = {}, answers = {}, stamp = stamp_of(ctx.clip) }
+  local r: Request = { id = next_id, ctx = ctx, waiting = {}, answers = {}, stamp = stamp_of(ctx.clip) }
   request = r
   for _, source in ipairs(asked) do r.waiting[source.name] = true end
   for _, source in ipairs(asked) do
     local once = false
-    local function done(items)
+    local function done(items: {ItemInput})
       if once then return end
       once = true
-      local ok, err = pcall(answer, r, source.name, items)
+      local ok, err = pcall(function(): string answer(r, source.name, items) end)
       if not ok then api.log("completion source " .. source.name .. ": " .. tostring(err)) end
     end
     -- Each source gets a context of its own to keep or change.
-    local own = paw.util.merge(ctx, {})
-    local ok, err = pcall(paw.limit.named, "the completion source " .. source.name, source.complete, own, done)
+    local own = shallow(ctx)
+    local ask = function(): string source.complete(own, done) end
+    local ok, err = pcall(function(): string return limit.named("the completion source " .. source.name, ask) end)
     if not ok then
       api.log("completion source " .. source.name .. " failed: " .. tostring(err))
       if trigger == "manual" then paw.notify("completion source " .. source.name .. " failed: " .. tostring(err):match("^[^\n]*"), "warn") end
@@ -358,13 +619,13 @@ function M.request(trigger)
     r.timer = paw.defer(function()
       r.timer = nil
       if request == r and not r.presented then present(r) end
-    end, paw.opt.complete_deadline_ms)
+    end, opt.complete_deadline_ms)
   end
   return r.id
 end
 
 --- True if a request waits for answers.
-function M.pending()
+function M.pending(): boolean
   return request ~= nil
 end
 
@@ -372,7 +633,7 @@ end
 
 --- Show the next alternative (`n` 1), the previous (-1), or with `absolute`
 --- the alternative number `n`.
-function M.select(n, absolute)
+function M.select(n: integer, absolute?: boolean)
   if not M.current() then return end
   local count = #shown.items
   local index = absolute and n or ((shown.index - 1 + n) % count) + 1
@@ -386,8 +647,9 @@ function M.select(n, absolute)
 end
 
 --- The places in `notes` of the notes named by pitch and start.
-local function places_of(notes, named)
-  local out, taken = {}, {}
+local function places_of(notes: {types.Note}, named: {Ghost}): {integer}
+  local out: {integer} = {}
+  local taken: {integer:boolean} = {}
   for _, want in ipairs(named) do
     for place, n in ipairs(notes) do
       if not taken[place] and n.pitch == want.pitch and math.abs(n.start - want.start) < EPS then
@@ -405,7 +667,7 @@ end
 --- the notes of a chord that start together). The rest continues to show.
 --- The cursor goes to the end of the accepted part. Returns true if it
 --- wrote notes.
-function M.accept(next_only)
+function M.accept(next_only?: boolean): boolean
   local cur = M.current()
   if not cur then return false end
   local item, clip = cur.item, paw.clip(cur.clip)
@@ -413,7 +675,8 @@ function M.accept(next_only)
     M.dismiss()
     return false
   end
-  local add, rest = item.notes, {}
+  local add: {Ghost} = item.notes
+  local rest: {Ghost} = {}
   local until_beat = math.huge
   if next_only and #item.notes > 0 then
     local first = item.notes[1].start
@@ -424,8 +687,9 @@ function M.accept(next_only)
     if rest[1] then until_beat = rest[1].start end
   end
   -- Replacements and velocity changes go with the part of the time accepted.
-  local function within(list)
-    local now, later = {}, {}
+  local function within(list: {Ghost}): {Ghost}, {Ghost}
+    local now: {Ghost} = {}
+    local later: {Ghost} = {}
     for _, x in ipairs(list) do
       if x.start < until_beat - EPS then now[#now + 1] = x else later[#later + 1] = x end
     end
@@ -433,24 +697,28 @@ function M.accept(next_only)
   end
   local remove, remove_later = within(item.remove)
   local velocities, velocities_later = within(item.velocities)
-  local controls, controls_later = within(item.controls)
+  local controls: {types.Control} = {}
+  local controls_later: {types.Control} = {}
+  for _, x in ipairs(item.controls) do
+    if x.start < until_beat - EPS then controls[#controls + 1] = x else controls_later[#controls_later + 1] = x end
+  end
 
   local notes = clip:notes()
-  local set = {}
+  local set: {objects.NoteChangeInput} = {}
   local places = places_of(notes, velocities)
   for i, place in ipairs(places) do set[#set + 1] = { index = place, velocity = velocities[i].velocity } end
-  local finish = 0
+  local finish = 0.0
   for _, n in ipairs(add) do finish = math.max(finish, n.start + n.length) end
   local c = clip:get()
   if finish > c.length + EPS then
     clip.length = paw.time.bar_ceil(c.start + finish - EPS) - c.start
   end
-  clip:edit_notes({ set = set, remove = places_of(notes, remove), add = add })
+  clip:edit_notes({ set = set, remove = places_of(notes, remove), add = add as {objects.NoteInput} })
   if #controls > 0 then
     local moves = clip:controls()
     for _, move in ipairs(controls) do moves[#moves + 1] = move end
-    table.sort(moves, function(a, b) return a.start < b.start end)
-    clip:set_controls(moves)
+    table.sort(moves, function(a: types.Control, b: types.Control): boolean return a.start < b.start end)
+    clip:set_controls(moves as {objects.ControlInput})
   end
   api.undo_label(next_only and "Accept the next notes of the suggestion" or "Accept the suggestion")
 
@@ -463,7 +731,9 @@ function M.accept(next_only)
   if next_only and (#rest + #remove_later + #velocities_later + #controls_later) > 0 then
     -- What is left keeps showing: the item without what was written, and
     -- no other alternative, since the others started from before it.
-    shown.items = { paw.util.merge(item, { notes = rest, remove = remove_later, velocities = velocities_later, controls = controls_later }) }
+    local left = shallow(item)
+    left.notes, left.remove, left.velocities, left.controls = rest, remove_later, velocities_later, controls_later
+    shown.items = { left }
     shown.index = 1
     shown.stamp = stamp_of(cur.clip)
     changed()
@@ -481,29 +751,35 @@ end
 function M.audition()
   local cur = M.current()
   if not cur then return end
-  if busy() then return paw.notify("not while playing", "warn") end
+  if busy() then
+    paw.notify("not while playing", "warn")
+    return
+  end
   if audition_stop then audition_stop() end
   local item = cur.item
   local c = api.clip_get(cur.clip)
   local first = item.notes[1] and item.notes[1].start or roll().beat
   local from = math.max(0, first - paw.time.bar(c.start + first))
-  local replaced = {}
+  local replaced: {string:boolean} = {}
   for _, x in ipairs(item.remove) do replaced[x.pitch .. "@" .. x.start] = true end
-  local events = {}
-  for _, n in ipairs(api.clip_notes(cur.clip)) do
-    if n.start >= from - EPS and n.start < first - EPS and not replaced[n.pitch .. "@" .. n.start] then events[#events + 1] = n end
+  local heard: {Ghost} = {}
+  local clip_notes = api.clip_notes(cur.clip)
+  for _, n in ipairs(clip_notes) do
+    if n.start >= from - EPS and n.start < first - EPS and not replaced[n.pitch .. "@" .. n.start] then heard[#heard + 1] = n as Ghost end
   end
-  for _, n in ipairs(item.notes) do events[#events + 1] = n end
+  for _, n in ipairs(item.notes) do heard[#heard + 1] = n end
   local origin = paw.time.to_seconds(c.start + from)
-  local function ms(beat) return math.max(0, (paw.time.to_seconds(c.start + beat) - origin) * 1000) end
-  local track, timers, sounding = c.track, {}, {}
+  local function ms(beat: number): number return math.max(0, (paw.time.to_seconds(c.start + beat) - origin) * 1000) end
+  local track = c.track
+  local timers: {integer} = {}
+  local sounding: {integer:boolean} = {}
   local function stop()
     for _, t in ipairs(timers) do paw.cancel(t) end
     for pitch in pairs(sounding) do pcall(api.note_off, track, pitch) end
     if audition_stop == stop then audition_stop = nil end
   end
   audition_stop = stop
-  for _, n in ipairs(events) do
+  for _, n in ipairs(heard) do
     timers[#timers + 1] = paw.defer(function()
       sounding[n.pitch] = true
       pcall(api.note_on, track, n.pitch, n.velocity)
@@ -520,9 +796,9 @@ end
 
 local function idle_ask()
   idle_timer = nil
-  if not paw.opt.complete_auto or shown or request or busy() then return end
+  if not opt.complete_auto or shown or request or busy() then return end
   local mode = paw.keymap.mode
-  if paw.ui.focused ~= "pianoroll" or paw.ui.float or not (mode == "n" or mode == "i") or paw.keymap.pending() ~= "" then return end
+  if paw.ui.focused ~= "pianoroll" or paw.ui.float or not (mode == "n" or mode == "i") or (paw.keymap.pending() as string) ~= "" then return end
   M.request("auto")
 end
 
@@ -530,61 +806,69 @@ end
 function M.poke()
   if idle_timer then paw.cancel(idle_timer) end
   idle_timer = nil
-  if paw.opt.complete_auto and next(sources) then idle_timer = paw.defer(idle_ask, paw.opt.complete_idle_ms) end
+  if opt.complete_auto and next(sources) then idle_timer = paw.defer(idle_ask, opt.complete_idle_ms) end
 end
 
-paw.on("clip.changed", function(e)
+events.on(kernel.clip_changed, function(e: kernel.Item)
   local r = roll()
   if shown and shown.clip == e.id and stamp_of(e.id) ~= shown.stamp then M.dismiss() end
   if request and request.ctx.clip == e.id and stamp_of(e.id) ~= request.stamp then M.cancel() end
   if r and r.clip_id == e.id then M.poke() end
 end)
 
-paw.on("clip.removed", function(e)
+events.on(kernel.clip_removed, function(e: kernel.Item)
   if (shown and shown.clip == e.id) or (request and request.ctx.clip == e.id) then M.dismiss() end
 end)
 
-paw.on("option.changed", function(e)
+local option_changed: events.Event<OptionChanged> = events.event("option.changed")
+events.on(option_changed, function(e: OptionChanged)
   if e.name == "complete_auto" then
     if e.value then M.poke() elseif shown and shown.trigger == "auto" then M.dismiss() end
   end
 end)
 
-paw.on("project.loaded", function() M.dismiss() end)
+events.on(kernel.project_loaded, function() M.dismiss() end)
 
 -- Drawing ---------------------------------------------------------------------
 
-local styles = {}
+--- The highlight groups of the ghost notes of a colour.
+local record GhostStyle
+  note: string
+  badge: string
+end
+local styles: {string:GhostStyle} = {}
 
 --- The terminal's shades for ghost notes of a colour: a faint fill with
 --- the colour's own text, and the badge.
-local function ghost_style(colour)
+local function ghost_style(colour: string): GhostStyle
   local palette = require("paw.theme").palette
   local key = colour .. palette.bg
   if not styles[key] then
     local name = "CompleteGhost_" .. colour:sub(2)
     local mix = paw.draw.mix
-    paw.ui.hl(name, { fg = mix(palette.bg, colour, 0.9), bg = mix(palette.bg, colour, 0.22), italic = true })
-    paw.ui.hl(name .. "_badge", { fg = palette.bg, bg = mix(palette.bg, colour, 0.7), bold = true })
+    local note: Highlight = { fg = mix(palette.bg, colour, 0.9), bg = mix(palette.bg, colour, 0.22), italic = true }
+    local badge: Highlight = { fg = palette.bg, bg = mix(palette.bg, colour, 0.7), bold = true }
+    paw.ui.hl(name, note)
+    paw.ui.hl(name .. "_badge", badge)
     styles[key] = { note = name, badge = name .. "_badge" }
   end
   return styles[key]
 end
 
-local function badge_text(cur)
+local function badge_text(cur: Current): string
   local item = cur.item
   return string.format(" %d/%d %s ", cur.index, #cur.items, item.label ~= item.source and item.source .. ": " .. item.label or item.label)
 end
 
-local function paint(l)
+local function paint(l: Layer)
   local cur = M.current()
   if not cur or cur.clip ~= l.data.id then return end
   local colour = paw.draw.track_colour(api.track_get(l.data.track))
   local style = ghost_style(colour)
   local g = paw.draw.g
   -- Dashed, to tell them from notes that are there and from other tracks'.
-  local dash = paw.opt.ascii and "-" or "┄"
-  local highest
+  local dash = opt.ascii and "-" or "┄"
+  local highest: integer
   for _, n in ipairs(cur.item.notes) do
     local row = l.row(n.pitch)
     local x0, x1 = l.x(n.start), l.x(n.start + n.length)
@@ -592,7 +876,7 @@ local function paint(l)
       local w = math.max(1, x1 - x0)
       l.roll:fill(x0, row, w, 1, dash, style.note)
       l.roll:text(x0, row, g.clip_start, style.note)
-      if w >= 4 then l.roll:text(x0 + 1, row, paw.music.name(n.pitch):sub(1, w - 1), style.note) end
+      if w >= 4 then l.roll:text(x0 + 1, row, music.name(n.pitch):sub(1, w - 1), style.note) end
     end
     highest = math.max(highest or n.pitch, n.pitch)
   end
@@ -604,54 +888,58 @@ local function paint(l)
   local first = cur.item.notes[1] or cur.item.velocities[1] or cur.item.remove[1]
   local at = first and first.start or roll().beat
   -- Kept on screen when the notes reach past its top or bottom.
-  local row = paw.util.clamp(l.top - ((highest or roll().pitch) + 1), 0, l.rows - 1)
+  local row = util.clamp(l.top - ((highest or roll().pitch) + 1), 0, l.rows - 1)
   local x = math.max(0, math.min(l.x(at), l.width - 12))
   local w = l.roll:text(x, row, badge_text(cur), style.badge)
   -- A click on it accepts the suggestion.
-  l.roll:hit(x, row, w, 1, {
+  local hit: ActHit = {
     kind = "act", act = "complete_badge", arg = cur.index, tip = "accept the suggestion (Tab; Ctrl-l its next notes) · Esc dismisses",
-  })
+  }
+  l.roll:hit(x, row, w, 1, hit)
 end
 
 roll().layer("complete", 50, paint)
 
 roll():key_scope("pianoroll.complete", 50, keys_on)
 -- The terminal's key line while a suggestion shows.
-local keyline = {
+local keyline: {{string}} = {
   { "<Tab>", "accept" }, { "<C-l>", "next notes" }, { "<C-n>", "other" }, { "<A-1>", "pick", "Alt-1…9" },
   { "<Esc>", "dismiss" },
 }
-paw.ui.keybar.set("pianoroll.complete", "n", paw.util.merge(keyline, { [6] = { "gh", "hear" } }))
+local normal_keyline: {{string}} = {}
+for i, key in ipairs(keyline) do normal_keyline[i] = key end
+normal_keyline[6] = { "gh", "hear" }
+paw.ui.keybar.set("pianoroll.complete", "n", normal_keyline)
 paw.ui.keybar.set("pianoroll.complete", "i", keyline)
-roll():tool("complete", function() return M.tool() end)
+roll():tool("complete", function(): Tool return M.tool() end)
 
 -- The window's gestures -------------------------------------------------------
 
-local act = paw.frontend.act
+local act = frontend().act
 
 --- A click on a suggestion's chip: show that alternative, or accept it
 --- when it is the one showing.
-function act.complete_badge(_, index)
+act.complete_badge = function(_: integer, index: integer): boolean
   local cur = M.current()
   if not cur then return end
   if index == cur.index then return M.accept() end
   M.select(index, true)
 end
 
-function act.complete_accept() return M.accept() end
-function act.complete_dismiss() return M.dismiss() end
-function act.complete_request() return M.request("manual") end
+act.complete_accept = function(): boolean return M.accept() end
+act.complete_dismiss = function() M.dismiss() end
+act.complete_request = function(): integer return M.request("manual") end
 
 --- The toolbar's switch for suggestions that come by themselves.
-function act.toggle_complete_auto()
-  paw.opt.complete_auto = not paw.opt.complete_auto
+act.toggle_complete_auto = function()
+  opt.complete_auto = not opt.complete_auto
 end
 
 --- What the window's piano roll toolbar shows of completion: nil without sources.
-function M.tool()
+function M.tool(): Tool
   if not next(sources) then return nil end
   return {
-    label = "Suggest", on = paw.opt.complete_auto, act = "toggle_complete_auto",
+    label = "Suggest", on = opt.complete_auto, act = "toggle_complete_auto",
     tip = "suggestions: ask the completion sources by themselves after a pause (Ctrl-Space asks now) · Tab accepts, Esc dismisses",
   }
 end

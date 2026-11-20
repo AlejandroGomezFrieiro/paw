@@ -712,7 +712,7 @@ fn run() -> Result<i32> {
             kernel.eval("paw.notify(..., 'warn')", &[note])?;
         }
     }
-    // The same notes, for the quickfix list's Problems (paw/qf.lua).
+    // The same notes, for the quickfix list's Problems (paw/qf.tl).
     if scanned > 0 {
         let notes: Vec<&str> = plugin_notes[..scanned].iter().map(String::as_str).collect();
         kernel.eval("paw.emit('plugins.scanned', { notes = { ... } })", &notes)?;

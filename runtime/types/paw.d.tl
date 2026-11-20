@@ -14,13 +14,16 @@ local type AuditionModule = require("paw.audition")
 local type BytesModule = require("paw.bytes")
 local type CanvasModule = require("paw.canvas")
 local type CommandsModule = require("paw.commands")
+local type CompleteModule = require("paw.complete")
 local type ContractsModule = require("paw.contracts")
 local type CursorModule = require("paw.cursor")
 local type CurvesModule = require("paw.curves")
+local type DiagnosticModule = require("paw.diagnostic")
 local type DrawModule = require("paw.draw")
 local type EditModule = require("paw.edit")
 local type EventsModule = require("paw.events")
 local type FormatsModule = require("paw.formats")
+local type GrepModule = require("paw.grep")
 local type GroupsModule = require("paw.groups")
 local type HarmonyModule = require("paw.harmony")
 local type HooksModule = require("paw.hooks")
@@ -34,10 +37,13 @@ local type MusicModule = require("paw.music")
 local type ObjectsModule = require("paw.objects")
 local type OptionModule = require("paw.options")
 local type PlotModule = require("paw.plot")
+local type QfModule = require("paw.qf")
+local type QueryModule = require("paw.query")
 local type RegexModule = require("paw.regex")
 local type RolesModule = require("paw.roles")
 local type SceneModule = require("paw.scene")
 local type SeatsModule = require("paw.seats")
+local type SnippetModule = require("paw.snippet")
 local type StatuslineModule = require("paw.statusline")
 local type TakesModule = require("paw.takes")
 local type TempoModule = require("paw.tempo")
@@ -67,7 +73,7 @@ global record paw
    cmd: function<C is CommandsModule.Context>(name: string, args?: CommandsModule.Args, ctx?: C): CommandsModule.Result
    command: Untyped
    commands: CommandsModule
-   complete: Untyped
+   complete: CompleteModule
    contracts: ContractsModule
    controls: Untyped
    cursor: CursorModule
@@ -76,7 +82,7 @@ global record paw
    device: function(id: integer): ObjectsModule.Device
    device_rows: Untyped
    device_types: function(): {types.DeviceType}
-   diagnostic: Untyped
+   diagnostic: DiagnosticModule
    draw: DrawModule
    edit: EditModule
    emit: function<P>(event: string | EventsModule.Event<P>, payload?: P): boolean, string
@@ -92,7 +98,7 @@ global record paw
    freeze: Untyped
    frontend: Partial.Frontend
    fx: Untyped
-   grep: Partial.Grep
+   grep: GrepModule
    groups: GroupsModule
    harmony: HarmonyModule
    health: Partial.Health
@@ -138,8 +144,8 @@ global record paw
    plot: PlotModule
    plugins: Untyped
    project: ObjectsModule.Project
-   qf: Untyped
-   query: Partial.Query
+   qf: QfModule
+   query: QueryModule
    recent: Untyped
    reconnect: Untyped
    redo: function(): boolean
@@ -161,7 +167,7 @@ global record paw
    scene: SceneModule
    scope: Untyped
    seats: SeatsModule
-   snippet: Untyped
+   snippet: SnippetModule
    state: Untyped
    statusline: StatuslineModule
    stems: Untyped

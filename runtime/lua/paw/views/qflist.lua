@@ -1,4 +1,4 @@
--- The quickfix list's window (paw/qf.lua): a buffer type, so that `:copen`
+-- The quickfix list's window (paw/qf.tl): a buffer type, so that `:copen`
 -- docks it along the bottom, `:vs quickfix` shows it beside, `:lopen` shows
 -- a window's location list below it. A row for each entry: its level, where
 -- it is, what it says and who said it. Enter goes there; the graphical
