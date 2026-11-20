@@ -35,41 +35,140 @@
 -- and `controls` for notes. `origin` is the clip's own offset into its file
 -- at the time the others' offsets were written, so that a clip trimmed or
 -- cut since (which moves its offset) still finds them lined up.
-local api = paw.api
-local M = {}
+--
+-- Written in Teal (paw/lang.tl): the build compiles it to Lua.
+local api = require("paw.api")
+local commands = require("paw.commands")
+local events = require("paw.events")
+local kernel = require("paw.events.kernel")
+local type types = require("paw.types")
+local type contracts = require("paw.contracts")
+local type partial = require("paw.partial")
+local type LanesModule = require("paw.lanes")
+
+--- A take of a clip, as `clip.meta.takes.list` keeps it. The one that plays
+--- holds only its name; the others hold what they play: `file`, `offset`
+--- and `gain` for sound, `notes` and `controls` for notes.
+local record Take
+  name: string
+  file: string
+  offset: number
+  gain: number
+  notes: {types.Note}
+  controls: {types.Control}
+end
+
+--- The takes of a clip (`clip.meta.takes`): which plays, the list, and the
+--- clip's offset into its file when the others' offsets were written.
+local record Takes
+  active: integer
+  origin: number
+  list: {Take}
+end
+
+--- What a take plays, as the clip would have it (`content`).
+local record Content
+  file: string
+  offset: number
+  gain: number
+  notes: {types.Note}
+  controls: {types.Control}
+end
+
+--- A clip: its id, or the clip (`paw.api.clip_get`, `paw.clip`).
+local type ClipRef = integer | types.Clip
+
+--- A track: its id, or the track itself (`paw.track`).
+local type TrackRef = integer | contracts.TrackHandle
+
+--- A value that `copy` passes on and never reads.
+local record Value
+end
+
+--- A note or a controller move: what `same_moved` compares of each.
+local record Item
+  start: number
+  pitch: integer
+  length: number
+  velocity: integer
+  type: types.ControlType
+  number: integer
+  value: number
+end
+
+-- What this module reads of `paw`, which paw/init.lua makes.
+local record Moved
+  offset: number
+  loop_start: number
+  shift: number
+end
+local record Stretch
+  carry: function(c: types.Clip, snap: types.ClipOptions, by: number): Moved
+  moved: function(c: types.Clip, by: number): Moved
+  file_seconds: function(c: types.Clip, beats: number, at?: number): number
+end
+local record Arrange
+  clear: function(track: integer, from: number, to: number, only: {integer:boolean})
+end
+local record Edit
+  arrange: Arrange
+end
+local record Paw is partial.Paw
+  lanes: LanesModule
+  stretch: Stretch
+  edit: Edit
+  add_track: function(types.TrackOptions): contracts.TrackHandle
+  restore_clip: function(snap: types.ClipOptions, track: contracts.TrackHandle)
+end
+local paw = (_G as {string:Paw}).paw
+
+local type Context = commands.Context
+local type Result = commands.Result
+
+local record M
+  type Take = Take
+  type Takes = Takes
+  type Content = Content
+  type ClipRef = ClipRef
+end
 
 local EPS = 1e-9
 
-local function copy(t)
-  local out = {}
-  for k, v in pairs(t) do out[k] = v end
-  return out
+local function copy<T>(t: T): T
+  local out: {string:Value} = {}
+  for k, v in pairs(t as {string:Value}) do out[k] = v end
+  return out as T
+end
+
+local function clip_of(clip: ClipRef): types.Clip
+  if clip is types.Clip then return clip end
+  return api.clip_get(clip)
 end
 
 --- The takes of a clip: { active, list = { { name }, ... } }, or nil for a
 --- clip that has only what it plays.
-function M.of(clip)
-  local c = type(clip) == "table" and clip or api.clip_get(clip)
-  local takes = type(c.meta) == "table" and c.meta.takes
+function M.of(clip: ClipRef): Takes
+  local c = clip_of(clip)
+  local takes = type(c.meta) == "table" and c.meta.takes as Takes
   if type(takes) ~= "table" or type(takes.list) ~= "table" or #takes.list < 2 then return nil end
   return takes
 end
 
 --- How many takes a clip has (1 without any others), and which plays.
-function M.count(clip)
+function M.count(clip: ClipRef): integer, integer
   local takes = M.of(clip)
   if not takes then return 1, 1 end
   return #takes.list, takes.active
 end
 
-local function write(id, c, takes)
+local function write(id: integer, c: types.Clip, takes: Takes)
   local meta = copy(type(c.meta) == "table" and c.meta or {})
   meta.takes = takes
-  api.clip_set(id, "meta", meta)
+  api.clip_set(id, { meta = meta })
 end
 
 --- What the clip plays now, as an entry of the list.
-local function current(id, c, name)
+local function current(id: integer, c: types.Clip, name: string): Take
   if c.kind == "audio" then return { name = name, file = c.file, offset = c.offset, gain = c.gain } end
   return {
     name = name, notes = api.clip_notes(id),
@@ -79,11 +178,11 @@ end
 
 --- Make an entry what the clip plays. `shift` is how far the clip's offset
 --- has moved since the entry's own was written.
-local function play(id, c, entry, shift)
+local function play(id: integer, c: types.Clip, entry: Take, shift: number)
   if c.kind == "audio" then
-    if entry.file ~= c.file then api.clip_set(id, "file", entry.file) end
-    api.clip_set(id, "offset", math.max(0, (entry.offset or 0) + shift))
-    api.clip_set(id, "gain", entry.gain or 0)
+    if entry.file ~= c.file then api.clip_set(id, { file = entry.file }) end
+    api.clip_set(id, { offset = math.max(0, (entry.offset or 0) + shift) })
+    api.clip_set(id, { gain = entry.gain or 0 })
   else
     api.clip_set_notes(id, entry.notes or {})
     api.clip_set_controls(id, entry.controls or {})
@@ -92,7 +191,7 @@ end
 
 --- True if the name of a clip comes from its takes: the name of the take
 --- that plays, or of the recording ("take 1" for "take 1.2").
-function M.named_by_take(c, takes)
+function M.named_by_take(c: types.Clip, takes?: Takes): boolean
   takes = takes or M.of(c)
   local name = takes and takes.list[takes.active] and takes.list[takes.active].name
   if not name then return false end
@@ -100,14 +199,14 @@ function M.named_by_take(c, takes)
 end
 
 --- Play take `index` of a clip. One undo step. Returns the take's name.
-function M.select(id, index)
+function M.select(id: integer, index: integer): string
   local c = api.clip_get(id)
   local takes = M.of(c)
   if not takes then error("the clip has no other takes", 2) end
   index = math.floor(index)
   if not takes.list[index] then error("the clip has " .. #takes.list .. " takes", 2) end
   if index == takes.active then return takes.list[index].name end
-  local list = {}
+  local list: {Take} = {}
   -- How far the clip has been trimmed or slipped since the offsets were written.
   local shift = c.kind == "audio" and (c.offset - (takes.origin or c.offset)) or 0
   for i, entry in ipairs(takes.list) do
@@ -125,14 +224,14 @@ function M.select(id, index)
   -- "take 1.2") or after the take it played is named after the take it
   -- plays now: a piece of a comp says which take it is. A name of the
   -- user's own stays.
-  if takes.list[index].name and M.named_by_take(c, takes) then api.clip_set(id, "name", takes.list[index].name) end
+  if takes.list[index].name and M.named_by_take(c, takes) then api.clip_set(id, { name = takes.list[index].name }) end
   local origin = c.kind == "audio" and api.clip_get(id).offset or nil
   write(id, c, { active = index, origin = origin, list = list })
   return takes.list[index].name
 end
 
 --- Step through a clip's takes, round and round.
-function M.step(id, by)
+function M.step(id: integer, by: integer): string
   local n, active = M.count(id)
   if n < 2 then return nil end
   return M.select(id, (active - 1 + by) % n + 1)
@@ -140,10 +239,10 @@ end
 
 --- Keep the sound of the clip as a take, and continue in a copy of it. The
 --- copy becomes the take that plays. Use it to try a variation. Returns its number.
-function M.new(id, name)
+function M.new(id: integer, name?: string): integer
   local c = api.clip_get(id)
   local takes = M.of(c)
-  local list = {}
+  local list: {Take} = {}
   local shift = takes and c.kind == "audio" and (c.offset - (takes.origin or c.offset)) or 0
   if takes then
     for i, entry in ipairs(takes.list) do
@@ -164,7 +263,7 @@ end
 
 --- Discard a take: by default the take that plays. Then the take before it
 --- plays. With one take left, the clip becomes a clip without takes again.
-function M.remove(id, index)
+function M.remove(id: integer, index?: integer)
   local c = api.clip_get(id)
   local takes = M.of(c)
   if not takes then error("the clip has no other takes", 2) end
@@ -175,7 +274,7 @@ function M.remove(id, index)
     c = api.clip_get(id)
     takes = M.of(c)
   end
-  local list, active = {}, takes.active
+  local list, active: {Take}, integer = {}, takes.active
   for i, entry in ipairs(takes.list) do
     if i ~= index then list[#list + 1] = entry end
   end
@@ -184,25 +283,25 @@ function M.remove(id, index)
 end
 
 --- Throw away every take but the one that plays.
-function M.keep(id)
+function M.keep(id: integer)
   local c = api.clip_get(id)
   if M.of(c) then write(id, c, nil) end
 end
 
 --- Each take as a separate clip, on new tracks below the track of the clip,
 --- one take on each track. The clip keeps the take that plays. Returns the tracks.
-function M.explode(id)
+function M.explode(id: integer): {contracts.TrackHandle}
   local c = api.clip_get(id)
   local takes = M.of(c)
   if not takes then error("the clip has no other takes", 2) end
   local track = api.track_get(c.track)
   local shift = c.kind == "audio" and (c.offset - (takes.origin or c.offset)) or 0
-  local out, at = {}, track.index
+  local out, at: {contracts.TrackHandle}, integer = {}, track.index
   for i, entry in ipairs(takes.list) do
     if i ~= takes.active then
       at = at + 1
       local t = paw.add_track({ name = entry.name or (track.name .. " take " .. i), index = at })
-      local snap = { name = entry.name or c.name, start = c.start, length = c.length, kind = c.kind }
+      local snap: types.ClipOptions = { name = entry.name or c.name, start = c.start, length = c.length, kind = c.kind }
       -- Each plays as the clip does: stretched, shifted, looped.
       paw.stretch.carry(c, snap, 0)
       if c.kind == "audio" then
@@ -225,13 +324,13 @@ end
 --- of the range, counted from the start of the piece. Nil for a clip
 --- without takes. All notes of a looped clip go with each piece, moved by
 --- `shift` as the notes of the piece are (see `paw.stretch.moved`).
-function M.piece(c, from, to, shift)
+function M.piece(c: types.Clip, from: number, to: number, shift?: number): Takes
   local takes = M.of(c)
   if not takes then return nil end
   if c.kind == "audio" then return takes end
   local a, b = from - c.start, to - c.start
   if shift then a, b = -shift, math.huge end
-  local list = {}
+  local list: {Take} = {}
   for i, entry in ipairs(takes.list) do
     local e = copy(entry)
     if entry.notes then
@@ -265,11 +364,11 @@ end
 
 --- Move the notes of a clip's other takes by `by` beats, as its own are
 --- moved when its start is trimmed or its content slipped.
-function M.shift(id, by)
+function M.shift(id: integer, by: number)
   local c = api.clip_get(id)
   local takes = M.of(c)
   if not takes or c.kind ~= "midi" then return end
-  local list = {}
+  local list: {Take} = {}
   for i, entry in ipairs(takes.list) do
     local e = copy(entry)
     if entry.notes then
@@ -292,7 +391,7 @@ function M.shift(id, by)
 end
 
 --- A clip's takes in a few characters, for its label: "2/4", or nil.
-function M.badge(c)
+function M.badge(c: types.Clip): string
   local takes = M.of(c)
   return takes and (takes.active .. "/" .. #takes.list) or nil
 end
@@ -302,8 +401,8 @@ end
 --- offset of the start of the clip in the file. For notes, it is
 --- `{ notes, controls }`, counted from the start of the clip. The take that
 --- plays is the content of the clip.
-function M.content(clip, index)
-  local c = type(clip) == "table" and clip or api.clip_get(clip)
+function M.content(clip: ClipRef, index: integer): Content
+  local c = clip_of(clip)
   local takes = M.of(c)
   local entry = takes and index ~= takes.active and takes.list[index]
   if not entry then
@@ -321,7 +420,7 @@ end
 
 --- Whether every note of a list lies within a clip `length` beats long:
 --- notes hidden past either edge would show if the clip were joined to another.
-local function within(notes, length)
+local function within(notes: {types.Note}, length: number): boolean
   for _, n in ipairs(notes or {}) do
     if n.start < -EPS or n.start >= length - EPS then return false end
   end
@@ -330,14 +429,14 @@ end
 
 --- Whether two lists of notes or controller moves are the same, the first
 --- moved by `by` beats.
-local function same_moved(x, y, by)
-  x, y = x or {}, y or {}
+local function same_moved(xs: {Item}, ys: {Item}, by: number): boolean
+  local x, y = xs or {}, ys or {}
   if #x ~= #y then return false end
-  local function key(item, shift)
+  local function key(item: Item, shift: number): string
     return string.format("%.6f|%s|%s|%s|%s|%s", item.start + shift, tostring(item.pitch), tostring(item.length),
       tostring(item.velocity), tostring(item.type or item.number), tostring(item.value))
   end
-  local a, b = {}, {}
+  local a, b: {string}, {string} = {}, {}
   for i, item in ipairs(x) do a[i] = key(item, by) end
   for i, item in ipairs(y) do b[i] = key(item, 0) end
   table.sort(a)
@@ -351,7 +450,7 @@ end
 --- Whether looped clip `b` carries on `a`'s repeats where `a` ends: the
 --- same loop, turned on as far as `a` is long (see `paw.stretch.moved`),
 --- and for notes the same notes, every take's too.
-local function loop_continues(a, b, ta, tb)
+local function loop_continues(a: types.Clip, b: types.Clip, ta: Takes, tb: Takes): boolean
   if not (a.loop and b.loop) or math.abs(a.loop_length - b.loop_length) > 1e-9 then return false end
   local m = paw.stretch.moved(a, a.length)
   if math.abs(m.loop_start - b.loop_start) > 1e-6 then return false end
@@ -362,15 +461,15 @@ local function loop_continues(a, b, ta, tb)
     end
     return math.abs(m.offset - b.offset) < 1e-6
   end
-  if not same_moved(api.clip_notes(a.id), api.clip_notes(b.id), m.shift) then return false end
+  if not same_moved(api.clip_notes(a.id) as {Item}, api.clip_notes(b.id) as {Item}, m.shift) then return false end
   if (a.control_count > 0 or b.control_count > 0)
-    and not same_moved(api.clip_controls(a.id), api.clip_controls(b.id), m.shift) then
+    and not same_moved(api.clip_controls(a.id) as {Item}, api.clip_controls(b.id) as {Item}, m.shift) then
     return false
   end
   for i = 1, #ta.list do
     if i ~= ta.active then
-      if not same_moved(ta.list[i].notes, tb.list[i].notes, m.shift) then return false end
-      if not same_moved(ta.list[i].controls, tb.list[i].controls, m.shift) then return false end
+      if not same_moved(ta.list[i].notes as {Item}, tb.list[i].notes as {Item}, m.shift) then return false end
+      if not same_moved(ta.list[i].controls as {Item}, tb.list[i].controls as {Item}, m.shift) then return false end
     end
   end
   return true
@@ -382,7 +481,7 @@ end
 --- lined up across the join (the same file, gain and place in it), so that
 --- one clip in their place plays just what the two did. Looped clips join
 --- where the second carries on the first's repeats.
-local function continues(a, b)
+local function continues(a: types.Clip, b: types.Clip): boolean
   if math.abs(a.start + a.length - b.start) > 1e-6 or a.kind ~= b.kind then return false end
   local ta, tb = M.of(a), M.of(b)
   -- Names that only say the take (pieces of a comp) do not keep them apart.
@@ -392,8 +491,9 @@ local function continues(a, b)
   for i = 1, #ta.list do
     if ta.list[i].name ~= tb.list[i].name then return false end
   end
-  for _, key in ipairs({ "stretch", "pitch", "stretch_mode", "source_tempo", "timebase", "loop", "loop_length", "formants" }) do
-    if a[key] ~= b[key] then return false end
+  if a.stretch ~= b.stretch or a.pitch ~= b.pitch or a.stretch_mode ~= b.stretch_mode or a.source_tempo ~= b.source_tempo
+    or a.timebase ~= b.timebase or a.loop ~= b.loop or a.loop_length ~= b.loop_length or a.formants ~= b.formants then
+    return false
   end
   -- Warp markers alike, the same moments of the file in the same places.
   local wa, wb = a.warp or {}, b.warp or {}
@@ -422,25 +522,30 @@ local function continues(a, b)
   return true
 end
 
-local function shifted(list, by)
-  local out = {}
+--- What `shifted` moves: a note or a controller move.
+local interface Moving
+  start: number
+end
+
+local function shifted<T>(list: {T}, by: number): {T}
+  local out: {T} = {}
   for i, item in ipairs(list or {}) do
-    out[i] = copy(item)
-    out[i].start = item.start + by
+    out[i] = copy(item);
+    (out[i] as Moving).start = (item as Moving).start + by
   end
   return out
 end
 
-local function append(into, more)
+local function append<T>(into: {T}, more: {T}): {T}
   for _, item in ipairs(more) do into[#into + 1] = item end
   return into
 end
 
 --- Make clip `b` part of clip `a`, which `continues` has found it carries on.
 --- A looped clip already holds what the other repeats.
-local function join(a, b)
+local function join(a: types.Clip, b: types.Clip)
   if a.loop then
-    if a.kind == "audio" then api.clip_set(a.id, "fade_out", b.fade_out or 0) end
+    if a.kind == "audio" then api.clip_set(a.id, { fade_out = b.fade_out or 0 }) end
   elseif a.kind == "midi" then
     local ta, tb = M.of(a), M.of(b)
     api.clip_set_notes(a.id, append(api.clip_notes(a.id), shifted(api.clip_notes(b.id), a.length)))
@@ -449,7 +554,7 @@ local function join(a, b)
       local theirs = b.control_count > 0 and api.clip_controls(b.id) or {}
       api.clip_set_controls(a.id, append(mine, shifted(theirs, a.length)))
     end
-    local list = {}
+    local list: {Take} = {}
     for i, entry in ipairs(ta.list) do
       local e = copy(entry)
       if i ~= ta.active then
@@ -462,22 +567,22 @@ local function join(a, b)
     end
     write(a.id, a, { active = ta.active, list = list })
   else
-    api.clip_set(a.id, "fade_out", b.fade_out or 0)
+    api.clip_set(a.id, { fade_out = b.fade_out or 0 })
   end
-  api.clip_set(a.id, "length", a.length + b.length)
+  api.clip_set(a.id, { length = a.length + b.length })
   api.clip_remove(b.id)
 end
 
 --- Join the pieces of a track that continue exactly from one another (see
 --- `continues`). This applies to the pieces from beat `from` to `to`, with
 --- the pieces that touch each end. Returns the number of joins.
-function M.join_pieces(track, from, to)
+function M.join_pieces(track: integer, from: number, to: number): integer
   local joins = 0
   local again = true
   while again do
     again = false
     local list = api.clip_list(track)
-    table.sort(list, function(x, y) return x.start < y.start end)
+    table.sort(list, function(x: types.Clip, y: types.Clip): boolean return x.start < y.start end)
     for i = 1, #list - 1 do
       local a, b = list[i], list[i + 1]
       if a.start + a.length >= from - 1e-6 and b.start <= to + 1e-6 and continues(a, b) then
@@ -491,11 +596,11 @@ function M.join_pieces(track, from, to)
 end
 
 -- The pieces of a comp say the take they play, not the recording.
-local function name_pieces(track)
+local function name_pieces(track: integer)
   for _, c in ipairs(api.clip_list(track)) do
     local takes = M.of(c)
     local name = takes and takes.list[takes.active].name
-    if name and c.name ~= name and M.named_by_take(c, takes) then api.clip_set(c.id, "name", name) end
+    if name and c.name ~= name and M.named_by_take(c, takes) then api.clip_set(c.id, { name = name }) end
   end
 end
 
@@ -507,25 +612,25 @@ end
 --- the number of pieces that got the take, or 0 when no clip there has it.
 --- A piece named after its recording or its take is named after the take
 --- that it plays.
-function M.comp(track, take, from, to)
+function M.comp(track: integer, take: integer, from: number, to: number): integer
   take = math.floor(take)
   from, to = math.max(0, math.min(from, to)), math.max(from, to)
-  local function has(c)
+  local function has(c: types.Clip): boolean
     local n = M.count(c)
     return n > 1 and take >= 1 and take <= n
   end
-  local function cut(at)
-    local only = {}
+  local function cut(at: number)
+    local only: {integer:boolean} = {}
     for _, c in ipairs(api.clip_list(track)) do
       if has(c) then only[c.id] = true end
     end
     paw.edit.arrange.clear(track, at, at, only)
   end
-  local any = false
+  local some = false
   for _, c in ipairs(api.clip_list(track)) do
-    any = any or (has(c) and c.start < to - EPS and c.start + c.length > from + EPS)
+    some = some or (has(c) and c.start < to - EPS and c.start + c.length > from + EPS)
   end
-  if not any then return 0 end
+  if not some then return 0 end
   cut(from)
   cut(to)
   local n = 0
@@ -541,7 +646,7 @@ function M.comp(track, take, from, to)
 end
 
 --- The clip of a track at `beat` that has a take `take`, or nil.
-local function piece_at(track, take, beat)
+local function piece_at(track: integer, take: integer, beat: number): types.Clip
   for _, c in ipairs(api.clip_list(track)) do
     local n = M.count(c)
     if beat >= c.start - EPS and beat < c.start + c.length - EPS and n > 1 and take <= n then return c end
@@ -551,7 +656,7 @@ end
 --- Make take `take` play in the piece of a track at `beat`, and join it to
 --- the pieces next to it where that is exact. Returns the clip, or nil if
 --- no piece there has such a take.
-function M.choose_at(track, take, beat)
+function M.choose_at(track: integer, take: number, beat: number): types.Clip
   local c = piece_at(track, math.floor(take), beat)
   if not c then return nil end
   M.select(c.id, math.floor(take))
@@ -562,47 +667,53 @@ end
 
 -- Take lanes -----------------------------------------------------------------------
 
-local lanes_open = {}
+local lanes_open: {integer:boolean} = {}
 do
   local saved = api.state_get("take_lanes_open")
-  for key, on in pairs(type(saved) == "table" and saved or {}) do
-    if on then lanes_open[tonumber(key) or key] = true end
+  if type(saved) == "table" then
+    for key, on in pairs(saved as {string:boolean}) do
+      local id = tonumber(key)
+      if on and id then lanes_open[id as integer] = true end
+    end
   end
 end
 
 local function save_lanes()
-  local out = {}
+  local out: {string:boolean} = {}
   for id, on in pairs(lanes_open) do
     if on then out[tostring(id)] = true end
   end
   api.state_set("take_lanes_open", out)
   api.ui_redraw()
   -- A graphical frontend draws them too.
-  if paw.emit then paw.emit("lanes.changed", {}) end
+  events.emit(paw.lanes.changed, {})
 end
 
-local function id_of(track) return type(track) == "table" and track.id or track end
+local function id_of(track: TrackRef): integer
+  if track is contracts.TrackHandle then return track.id end
+  return track
+end
 
 --- True if a track shows its take lanes.
-function M.lanes_shown(track)
+function M.lanes_shown(track: TrackRef): boolean
   return lanes_open[id_of(track)] == true
 end
 
 --- Show a track's take lanes, or hide them (`on` false).
-function M.show_lanes(track, on)
+function M.show_lanes(track: TrackRef, on?: boolean)
   lanes_open[id_of(track)] = on ~= false or nil
   save_lanes()
 end
 
 --- Show the take lanes of a track, or hide them. Returns true if they show.
-function M.toggle_lanes(track)
+function M.toggle_lanes(track: TrackRef): boolean
   M.show_lanes(track, not M.lanes_shown(track))
   return M.lanes_shown(track)
 end
 
 --- The number of take lanes that a track shows: the highest number of takes
 --- of its clips. None while they are hidden or when no clip has takes.
-function M.lane_count(track)
+function M.lane_count(track: TrackRef): integer
   local id = id_of(track)
   if not lanes_open[id] then return 0 end
   local most = 0
@@ -615,25 +726,23 @@ function M.lane_count(track)
 end
 
 -- A track that goes away takes its take lanes with it.
-if paw.on then
-  paw.on("track.removed", function(event)
-    if lanes_open[event.id] then
-      lanes_open[event.id] = nil
-      save_lanes()
-    end
-  end)
-end
+events.on(kernel.track_removed, function(event: kernel.TrackId)
+  if lanes_open[event.id] then
+    lanes_open[event.id] = nil
+    save_lanes()
+  end
+end)
 
 -- Commands -----------------------------------------------------------------------
 
-local function need_clip()
-  local clip = paw.cursor.clip()
+local function need_clip(): types.Clip
+  local clip = paw.cursor.clip() as types.Clip
   if not clip then paw.notify("no clip under the cursor", "warn") return nil end
   if not M.of(clip.id) then paw.notify("the clip has no other takes: record with the loop on, or `:take.new`", "warn") return nil end
   return clip
 end
 
-local function said(id)
+local function said(id: integer)
   local n, active = M.count(id)
   local takes = M.of(id)
   paw.notify(string.format("take %d of %d: %s", active, n, takes and takes.list[active].name or ""))
@@ -641,19 +750,25 @@ end
 
 --- The cursor's track and the stretch of time selected on it, or nil when
 --- no stretch is selected.
-local function selected_stretch()
+local function selected_stretch(): integer, number, number
   local sel = paw.keymap.selection()
-  local track = paw.cursor.track_id()
+  local track = paw.cursor.track_id() as integer
   if not (sel and sel.kind ~= "line" and sel.c0 and sel.c1 and sel.c1 > sel.c0 and track) then return nil end
   return track, sel.c0, sel.c1
 end
 
-paw.command("take", function(ctx)
-  local word = ctx.args[1]
-  local track, from, to
+--- A take in the list of `:take.list`.
+local record Choice
+  text: string
+  index: integer
+end
+
+commands.define("take", function(ctx: Context): Result
+  local word = ctx.args[1] as string
+  local track, from, to: integer, number, number
   if word then track, from, to = selected_stretch() end
   -- Comping: this take over the selected stretch, whatever plays around it.
-  if track and tonumber(word) and M.comp(track, tonumber(word), from, to) > 0 then
+  if track and tonumber(word) and M.comp(track, tonumber(word) as integer, from, to) > 0 then
     paw.keymap.set_mode("n")
     return paw.notify("take " .. word .. " over the selection")
   end
@@ -664,10 +779,10 @@ paw.command("take", function(ctx)
   elseif word == "prev" then
     M.step(clip.id, -(ctx.count or 1))
   else
-    local index = tonumber(word)
+    local index = tonumber(word) as integer
     if not index then
       for i, entry in ipairs(M.of(clip.id).list) do
-        if entry.name == table.concat(ctx.args, " ") then index = i end
+        if entry.name == table.concat(ctx.args as {string}, " ") then index = i end
       end
     end
     if not index then return paw.notify("take: a number, `next` or `prev`", "warn") end
@@ -676,46 +791,46 @@ paw.command("take", function(ctx)
   said(clip.id)
 end, { desc = "Play another take of the clip: `take 2`, `take next`, `take prev`; over a selected stretch, only there" })
 
-paw.command("take.list", function()
+commands.define("take.list", function(): Result
   local clip = need_clip()
   if not clip then return end
   local takes = M.of(clip.id)
-  local items = {}
+  local items: {Choice} = {}
   for i, entry in ipairs(takes.list) do
     items[i] = { text = string.format("%s %d  %s", i == takes.active and "●" or " ", i, entry.name or ""), index = i }
   end
-  paw.pick({ title = "Takes", items = items, on_choose = function(item)
+  paw.pick({ title = "Takes", items = items, on_choose = function(item: Choice)
     M.select(clip.id, item.index)
     said(clip.id)
   end })
 end, { desc = "Choose the take that plays from a list" })
 
-paw.command("take.new", function(ctx)
-  local clip = paw.cursor.clip()
+commands.define("take.new", function(ctx: Context): Result
+  local clip = paw.cursor.clip() as types.Clip
   if not clip then return paw.notify("no clip under the cursor", "warn") end
-  local n = M.new(clip.id, ctx.args[1] and table.concat(ctx.args, " "))
+  local n = M.new(clip.id, ctx.args[1] and table.concat(ctx.args as {string}, " "))
   paw.notify("take " .. n .. ": a copy to change, with what was there kept as take " .. (n - 1))
 end, { desc = "Keep what the clip plays as a take and carry on in a copy" })
 
-paw.command("take.remove", function(ctx)
+commands.define("take.remove", function(ctx: Context): Result
   local clip = need_clip()
   if not clip then return end
-  M.remove(clip.id, tonumber(ctx.args[1]))
+  M.remove(clip.id, tonumber(ctx.args[1]) as integer)
   if M.of(clip.id) then said(clip.id) else paw.notify("one take left: the clip is a clip again") end
 end, { desc = "Throw away the playing take, or the one numbered: `take.remove 1`" })
 
-paw.command("take.keep", function()
+commands.define("take.keep", function(): Result
   local clip = need_clip()
   if not clip then return end
   M.keep(clip.id)
   paw.notify("kept the playing take alone")
 end, { desc = "Throw away every take but the one that plays" })
 
-paw.command("take.lanes", function(ctx)
-  local track = paw.cursor.track_id()
+commands.define("take.lanes", function(ctx: Context): Result
+  local track = paw.cursor.track_id() as integer
   if not track then return paw.notify("no track selected", "warn") end
   local word = ctx.args[1]
-  local on
+  local on: boolean
   if word == "on" or word == "off" then
     M.show_lanes(track, word == "on")
     on = word == "on"
@@ -728,7 +843,7 @@ paw.command("take.lanes", function(ctx)
   paw.notify(n .. " take lanes: a drag across one in the window makes that take play there; `:take 2` over a selection here")
 end, { desc = "Show the track's takes as lanes under its clips, or hide them: `take.lanes`, `take.lanes on`" })
 
-paw.command("take.explode", function()
+commands.define("take.explode", function(): Result
   local clip = need_clip()
   if not clip then return end
   local tracks = M.explode(clip.id)
