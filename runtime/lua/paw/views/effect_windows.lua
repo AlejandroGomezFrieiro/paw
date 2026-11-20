@@ -139,7 +139,6 @@ paw.ui.view("eq_window", {
       inside:poly(fill, { fill = mix(c.bg, c.accent, 0.14) })
       g:poly(points, { color = c.accent, width = 2 })
     end
-    -- The bands' dots.
     local list = bands(d, width, height)
     for _, b in ipairs(list) do
       if b.on then

@@ -664,7 +664,6 @@ local function staff_ink(st, m, p, staff)
       local shifted, any_shift = seconds(ev)
       local side = round(hw - st.stem)
       local low, high = ev.notes[1].pos, ev.notes[#ev.notes].pos
-      -- Ledger lines.
       local ext = st.ledger_ext
       local lx0 = round(hx - ext - ((any_shift and dir < 0) and side or 0))
       local lx1 = round(hx + hw + ext + ((any_shift and dir > 0) and side or 0))

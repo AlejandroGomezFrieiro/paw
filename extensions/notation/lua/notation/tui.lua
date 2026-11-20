@@ -816,7 +816,6 @@ function view:render(buf, ctx)
         mx = mx, bx = bx, xt = xt, rows = rows, band = band, staff_rows = staff_rows, margin = margin, G = G,
         note_style = note_style, colour = colour, bar_style = bar_style, bottom = h - 1, top = top })
 
-      -- The playhead.
       if t.position >= F.start + m.start - EPS and t.position < F.start + m.start + m.length - EPS then
         local px = xt(t.position - F.start)
         buf:fill(px, y0, 1, y1 - y0 + 1, nil, "Playhead")

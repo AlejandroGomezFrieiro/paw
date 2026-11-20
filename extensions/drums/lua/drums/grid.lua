@@ -287,7 +287,6 @@ function view:render(buf, ctx)
     end
   end
 
-  -- The playhead.
   local t = api.transport_get()
   if t.position >= c.start and t.position < c.start + c.length then
     local i = E.cell(t.position - c.start, step) - self.scroll

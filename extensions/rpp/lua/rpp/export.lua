@@ -567,7 +567,6 @@ function M.doc(opts)
   if tempo_env then root:add(tempo_env) end
   root:add(fmt.block("PROJBAY"))
 
-  -- Tracks.
   local list = {}
   for i, id in ipairs(api.track_list()) do list[i] = api.track_get(id) end
   local depth, unfoldered, index = layout(list)

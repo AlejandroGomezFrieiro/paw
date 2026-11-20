@@ -105,7 +105,6 @@ return function(gui)
       local x0, x1 = math.min(drag.x0, drag.x1), math.max(drag.x0, drag.x1)
       area:rect(x0, 0, x1 - x0, geo.curve_h - TABS, { fill = c.error .. "33", stroke = c.error })
     end
-    -- The cursor and the playhead.
     local cx = x_of(view.beat)
     area:line(cx, 0, cx, geo.curve_h, { color = c.select .. "66" })
     local t = api.transport_get()
