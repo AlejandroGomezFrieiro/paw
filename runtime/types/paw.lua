@@ -2742,7 +2742,7 @@ function paw.formats.import(path, opts) end
 --- The formats, by name: `{ name, desc, extensions, project, import, export }` each.
 function paw.formats.list() end
 
---- Register a format of files (see the top of paw/formats.lua). A format
+--- Register a format of files (see the top of paw/formats.tl). A format
 --- of the same name is replaced. Returns the name.
 ---@param spec any
 function paw.formats.register(spec) end
@@ -9273,7 +9273,7 @@ function paw.api.undo_pending() end
 function paw.api.undo_project(id) end
 
 --- Make the project as it is now the start of its undo history, and
---- unchanged: a MIDI file opened as a project (paw/midifile.lua).
+--- unchanged: a MIDI file opened as a project (paw/midifile.tl).
 function paw.api.undo_reset() end
 
 ---@param n integer

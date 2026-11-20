@@ -10,7 +10,7 @@
 -- how-to guides, reference and explanation, as docs/README.md lists them),
 -- every extension's README.md and doc/*.md (bundled beside the program or in
 -- the configuration, loaded or not), and what `paw.help.add` names, made into
--- text by paw/markdown.lua and shown in text buffers (`help://help.md`)
+-- text by paw/markdown.tl and shown in text buffers (`help://help.md`)
 -- that cannot be changed. Their keys are the text buffers' own (motions,
 -- `v`, `y`, `/`), with `Ctrl-]` (or `Enter`, or a double click) to follow
 -- the link or look up the word under the cursor, `K` to look a word up,
@@ -289,7 +289,7 @@ function M.sources()
     end
   end
   for _, extra in ipairs(M.extra) do out[#out + 1] = extra end
-  -- The formats registered now (paw/formats.lua), a page made from them.
+  -- The formats registered now (paw/formats.tl), a page made from them.
   if docs then
     out[#out + 1] = { path = docs .. "/reference/formats.generated.md", text = paw.formats.help_text, name = "formats.md",
       aliases = { "formats" }, prefix = "formats", group = "added" }

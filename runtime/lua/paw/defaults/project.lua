@@ -114,7 +114,7 @@ command("write", function(ctx)
   -- somebody to ask.
   if not path and not api.project_get("path") and paw.fx.interactive() then return paw.frontend.save_as() end
   -- A file of another program: written in its format when it holds whole
-  -- projects, else it is for `:export` (paw/formats.lua).
+  -- projects, else it is for `:export` (paw/formats.tl).
   local format = path and paw.formats.for_path(path, "export")
   if format and format.project then
     local args = {}

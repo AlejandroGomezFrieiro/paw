@@ -682,7 +682,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.formats.help_text()`: The page of `:help formats`, in Markdown: what each format reads and writes, and how to add one.
 - `paw.formats.import(path, opts)`: Bring a file in with its format: `opts.merge` adds to the project, else it opens in place of the project. Says what it did; returns what the format returned, or nil when it could not.
 - `paw.formats.list()`: The formats, by name: `{ name, desc, extensions, project, import, export }` each.
-- `paw.formats.register(spec)`: Register a format of files (see the top of paw/formats.lua). A format of the same name is replaced. Returns the name.
+- `paw.formats.register(spec)`: Register a format of files (see the top of paw/formats.tl). A format of the same name is replaced. Returns the name.
 - `paw.formats.split_args(line)`: The path at the start of a command line and the `key=value` words at its end: `song.rpp instrument=synth` is `"song.rpp", { instrument = "synth" }`.
 - `paw.formats.unregister(name)`: Take a format away again.
 
@@ -2333,7 +2333,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.undo_name(name, id)`
 - `paw.api.undo_pending()`: `undo_pending` is true if the edits of this turn will close as a step. `undo_discard` puts back what they changed, and no step closes (`edit.before`, paw/hooks.lua).
 - `paw.api.undo_project(id)`: A state's project as a project file holds it (the current state's by default), and the text of a project file for a project given as data: see extensions/projdiff.
-- `paw.api.undo_reset()`: Make the project as it is now the start of its undo history, and unchanged: a MIDI file opened as a project (paw/midifile.lua).
+- `paw.api.undo_reset()`: Make the project as it is now the start of its undo history, and unchanged: a MIDI file opened as a project (paw/midifile.tl).
 - `paw.api.undo_step(n)`
 - `paw.api.undo_travel(seconds)`
 - `paw.api.undo_tree()`: The undo tree and checkpoints: crate::history, session/undo.rs.

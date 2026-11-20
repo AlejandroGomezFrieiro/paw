@@ -9,12 +9,116 @@
 --   doc.lines[3]   --> { text = "...", spans = { { c0, c1, style } }, links = { { c0, c1, target } }, codes = { ... } }
 --
 -- Columns are counted in characters from 0, as the text buffers count them.
-local M = {}
+--
+-- Written in Teal (paw/lang.lua): the build compiles it to Lua.
+
+local record M
+  --- A piece of a line's text with one look: its style (a highlight
+  --- group), the target of the link it is in, whether it is code, and its
+  --- width once measured.
+  record Run
+    text: string
+    style: string
+    link: string
+    code: boolean
+    w: integer
+  end
+
+  --- What a block is.
+  enum BlockType
+    "heading"
+    "para"
+    "item"
+    "table"
+    "code"
+    "quote"
+    "rule"
+    "blank"
+    "tags"
+  end
+
+  --- A block of a document: a `heading` (level, text), a `para` (text,
+  --- depth), an `item` of a list (depth, marker, text), a `table` (rows of
+  --- cells, the first the header; depth), `code` (lines, depth), a `quote`
+  --- (text), a `rule`, a `blank` or `tags` (names). `tag` is free for the
+  --- caller (paw/help.lua names its headings with it).
+  record Block
+    type: BlockType
+    level: integer
+    text: string
+    depth: integer
+    marker: string
+    rows: {{string}}
+    lines: {string}
+    names: {string}
+    tag: string
+  end
+
+  --- Columns `c0` to `c1` of a line in a style.
+  type Span = {integer, integer, string}
+  --- Columns `c0` to `c1` of a line that link to a target.
+  type Link = {integer, integer, string}
+  --- Columns `c0` to `c1` of a line that are code, its text, and whether
+  --- it is `first`: in a table's first column, or at the start of a list
+  --- item, where a key or command is named before it is described.
+  type Code = {integer, integer, string, boolean}
+
+  --- A rendered line: its text, its width, and its styles, links and code.
+  record Line
+    text: string
+    w: integer
+    spans: {Span}
+    links: {Link}
+    codes: {Code}
+  end
+
+  --- What an anchor marks.
+  enum AnchorKind
+    "heading"
+    "tags"
+    "code"
+    "lead"
+  end
+
+  --- A place in the rendered lines that can be named: a heading (level,
+  --- text), help tags (names), code (col, text, first), or the bold words
+  --- at the start of a paragraph (`lead`: text).
+  record Anchor
+    row: integer
+    kind: AnchorKind
+    col: integer
+    level: integer
+    text: string
+    names: {string}
+    first: boolean
+  end
+
+  --- What `render` takes: the width of the lines (78 by default), and the
+  --- tag to show at the right of a heading.
+  record RenderOptions
+    width: integer
+    heading_tag: function(block: Block): string
+  end
+
+  width: function(s: string): integer
+  inline: function(s: string, style?: string, link?: string, out?: {Run}): {Run}
+
+  --- What `render` gives.
+  record Document
+    lines: {Line}
+    anchors: {Anchor}
+  end
+end
+
+local type Run = M.Run
+local type Block = M.Block
+local type Line = M.Line
+local type Anchor = M.Anchor
 
 local CHAR = "[%z\1-\127\194-\244][\128-\191]*"
 
 --- How many cells a string takes.
-local function width(s)
+local function width(s: string): integer
   if not s:find("[\128-\255]") then return #s end
   local _, n = s:gsub("[^\128-\191]", "")
   return n
@@ -22,11 +126,11 @@ end
 M.width = width
 
 --- The first `n` characters of `s`, and the rest.
-local function cut(s, n)
+local function cut(s: string, n: integer): string, string
   local count, at = 0, #s + 1
   for pos in s:gmatch("()" .. CHAR) do
     if count == n then
-      at = pos
+      at = pos as integer
       break
     end
     count = count + 1
@@ -34,17 +138,17 @@ local function cut(s, n)
   return s:sub(1, at - 1), s:sub(at)
 end
 
-local function trim(s) return (s:gsub("^%s+", ""):gsub("%s+$", "")) end
+local function trim(s: string): string return (s:gsub("^%s+", ""):gsub("%s+$", "")) end
 
 -- Inline -----------------------------------------------------------------------
 --
 -- A line's text becomes runs: `{ text, style?, link?, code? }`.
 
-local inline
+local inline: function(s: string, style?: string, link?: string, out?: {Run}): {Run}
 
 --- Where the closing `delim` of an emphasis starting at `from` is, not
 --- inside code.
-local function closing(s, from, delim)
+local function closing(s: string, from: integer, delim: string): integer
   local i = from
   while i <= #s do
     local c = s:sub(i, i)
@@ -65,9 +169,9 @@ local function closing(s, from, delim)
 end
 
 --- The runs of a line of Markdown, each with the style and link given.
-inline = function(s, style, link, out)
+inline = function(s: string, style?: string, link?: string, out?: {Run}): {Run}
   out = out or {}
-  local buf = {}
+  local buf: {string} = {}
   local function flush()
     if #buf > 0 then
       out[#out + 1] = { text = table.concat(buf), style = style, link = link }
@@ -153,8 +257,8 @@ end
 M.inline = inline
 
 --- The text of runs without their marks: a heading as it reads.
-function M.plain(s)
-  local out = {}
+function M.plain(s: string): string
+  local out: {string} = {}
   for _, run in ipairs(inline(s)) do out[#out + 1] = run.text end
   return table.concat(out)
 end
@@ -167,10 +271,12 @@ end
 -- (names).
 
 --- The cells of a table's row: split at `|` not in code nor escaped.
-local function cells(line)
+local function cells(line: string): {string}
   line = trim(line):gsub("^|", ""):gsub("|$", "")
   -- `ticks`: the run of backticks the code being read was opened with.
-  local out, cur, i, ticks = {}, {}, 1, nil
+  local out, cur: {string}, {string} = {}, {}
+  local i = 1
+  local ticks: string
   while i <= #line do
     local c = line:sub(i, i)
     if c == "\\" and line:sub(i + 1, i + 1) == "|" then
@@ -195,27 +301,27 @@ local function cells(line)
   return out
 end
 
-local function is_rule_row(line) return line:match("^%s*|?%s*:?%-%-+:?%s*|") ~= nil or line:match("^%s*|%s*:?%-+") ~= nil end
+local function is_rule_row(line: string): boolean return line:match("^%s*|?%s*:?%-%-+:?%s*|") ~= nil or line:match("^%s*|%s*:?%-+") ~= nil end
 
 --- Markdown as a list of blocks (headings, paragraphs, lists, code, tables)
 --- for `render`.
-function M.parse(text)
-  local lines = {}
+function M.parse(text: string): {Block}
+  local lines: {string} = {}
   for line in (text:gsub("\r", "") .. "\n"):gmatch("([^\n]*)\n") do lines[#lines + 1] = (line:gsub("\t", "    ")) end
-  local blocks = {}
-  local function add(block)
+  local blocks: {Block} = {}
+  local function add(block: Block): Block
     blocks[#blocks + 1] = block
     return block
   end
   -- The indents of the list items open, to tell how deep an item is.
-  local stack = {}
-  local function depth_of(indent)
+  local stack: {integer} = {}
+  local function depth_of(indent: integer): integer
     while #stack > 0 and indent < stack[#stack] do stack[#stack] = nil end
     if #stack == 0 or indent > stack[#stack] then stack[#stack + 1] = indent end
     return #stack
   end
   local i = 1
-  local para
+  local para: Block
   while i <= #lines do
     local line = lines[i]
     local indent = #line:match("^ *")
@@ -228,7 +334,7 @@ function M.parse(text)
       i = i + 1
     elseif fence then
       para = nil
-      local body = {}
+      local body: {string} = {}
       i = i + 1
       while i <= #lines and not lines[i]:match("^%s*" .. fence) do
         body[#body + 1] = lines[i]:sub(math.min(indent, #lines[i]:match("^ *")) + 1)
@@ -245,7 +351,7 @@ function M.parse(text)
       end
       local names = comment:match("<!%-%-%s*tags:%s*(.-)%s*%-%->")
       if names then
-        local block = { type = "tags", names = {} }
+        local block: Block = { type = "tags", names = {} }
         for name in names:gmatch("%S+") do block.names[#block.names + 1] = name end
         add(block)
       end
@@ -281,7 +387,7 @@ function M.parse(text)
       end
       i = i + 1
     elseif indent >= 4 and #stack == 0 and (not blocks[#blocks] or blocks[#blocks].type == "blank") then
-      local body = {}
+      local body: {string} = {}
       while i <= #lines and (lines[i]:match("^    ") or lines[i]:match("^%s*$")) do
         body[#body + 1] = lines[i]:sub(5)
         i = i + 1
@@ -316,8 +422,9 @@ end
 -- command is named before it is described).
 
 --- Runs cut into words: pieces of runs, broken at spaces outside code.
-local function words_of(runs)
-  local words, cur = {}, nil
+local function words_of(runs: {Run}): {{Run}}
+  local words: {{Run}} = {}
+  local cur: {Run}
   for _, run in ipairs(runs) do
     if run.code then
       cur = cur or {}
@@ -343,7 +450,7 @@ local function words_of(runs)
   return words
 end
 
-local function word_width(word)
+local function word_width(word: {Run}): integer
   local n = 0
   for _, piece in ipairs(word) do
     piece.w = piece.w or width(piece.text)
@@ -352,13 +459,13 @@ local function word_width(word)
   return n
 end
 
-local function new_line(prefix, style)
-  local line = { text = prefix or "", w = width(prefix or ""), spans = {}, links = {}, codes = {} }
+local function new_line(prefix?: string, style?: string): Line
+  local line: Line = { text = prefix or "", w = width(prefix or ""), spans = {}, links = {}, codes = {} }
   if style and prefix and prefix ~= "" then line.spans[1] = { 0, width(prefix), style } end
   return line
 end
 
-local function append(line, text, style, link, code, first, tw)
+local function append(line: Line, text: string, style?: string, link?: string, code?: string, first?: boolean, tw?: integer)
   local c0 = line.w
   line.text = line.text .. text
   local c1 = c0 + (tw or width(text))
@@ -380,8 +487,8 @@ end
 --- (a bullet), the rest with `rest` (as many spaces). `style` goes under
 --- every piece that has none (a table's header). `lead` says which code is
 --- marked `first`: "all", or "lead" for the code before the first plain word.
-local function fill(runs, w, first, rest, style, lead)
-  local out = {}
+local function fill(runs: {Run}, w: integer, first: string, rest: string, style?: string, lead?: string): {Line}
+  local out: {Line} = {}
   local line = new_line(first)
   local used = line.w
   local rest_w = width(rest)
@@ -426,17 +533,18 @@ end
 --- How wide each column of a table may be in `w` characters: as wide as
 --- its widest cell while they all fit, else the narrow ones keep theirs and
 --- the wide ones share what is left.
-local function column_widths(natural, w)
+local function column_widths(natural: {integer}, w: integer): {integer}
   local n = #natural
   local room = w - 2 * (n - 1)
   local total = 0
   for _, nw in ipairs(natural) do total = total + nw end
-  local out = {}
+  local out: {integer} = {}
   if total <= room then
     for i, nw in ipairs(natural) do out[i] = nw end
     return out
   end
-  local open, left = {}, room
+  local open: {boolean} = {}
+  local left = room
   for i = 1, n do open[i] = true end
   local changed = true
   while changed do
@@ -461,7 +569,7 @@ local function column_widths(natural, w)
   return out
 end
 
-local function runs_width(runs)
+local function runs_width(runs: {Run}): integer
   local n = 0
   for _, run in ipairs(runs) do n = n + width(run.text) end
   return n
@@ -472,22 +580,22 @@ end
 --- shows `*tag*`). Returns `{ lines, anchors }`. An anchor is `{ row, kind =
 --- "heading" | "tags" | "code" | "lead", ... }` ("lead": the bold words at
 --- the start of a paragraph).
-function M.render(blocks, opts)
+function M.render(blocks: {Block}, opts?: M.RenderOptions): M.Document
   opts = opts or {}
   local W = opts.width or 78
-  local lines, anchors = {}, {}
-  local function push(line) lines[#lines + 1] = line end
+  local lines: {Line} = {}
+  local anchors: {Anchor} = {}
+  local function push(line: Line) lines[#lines + 1] = line end
   local function blank()
     if #lines > 0 and lines[#lines].text ~= "" then push(new_line()) end
   end
-  local function codes_of(from)
+  local function codes_of(from: integer)
     for row = from, #lines do
       for _, code in ipairs(lines[row].codes) do
         anchors[#anchors + 1] = { row = row, col = code[1], kind = "code", text = code[3], first = code[4] }
       end
     end
   end
-  local number = {}
   for _, block in ipairs(blocks) do
     local from = #lines + 1
     local t = block.type
@@ -510,7 +618,6 @@ function M.render(blocks, opts)
         push(line)
       end
       anchors[#anchors + 1] = { row = from + (block.level == 2 and 1 or 0), kind = "heading", level = block.level, text = M.plain(block.text) }
-      number = {}
     elseif t == "para" or t == "quote" then
       -- A paragraph that starts in bold is named by those words.
       local lead = t == "para" and block.text:match("^%*%*(.-)%*%*")
@@ -520,7 +627,7 @@ function M.render(blocks, opts)
       for _, line in ipairs(fill(inline(block.text), W, prefix, prefix)) do push(line) end
     elseif t == "item" then
       local pad = string.rep("    ", block.depth - 1)
-      local bullet
+      local bullet: string
       if block.marker:match("%d") then
         bullet = string.format("%3s ", block.marker)
       else
@@ -545,8 +652,8 @@ function M.render(blocks, opts)
       anchors[#anchors + 1] = { row = #lines + 1, kind = "tags", names = block.names }
     elseif t == "table" then
       local indent = string.rep(" ", (block.depth or 0) * 4)
-      local rows = {}
-      local natural = {}
+      local rows: {{{Run}}} = {}
+      local natural: {integer} = {}
       for r, row in ipairs(block.rows) do
         rows[r] = {}
         for c, cell in ipairs(row) do
@@ -555,7 +662,8 @@ function M.render(blocks, opts)
         end
       end
       local widths = column_widths(natural, W - #indent)
-      local laid, tall = {}, false
+      local laid: {{{Line}}} = {}
+      local tall = false
       for r, row in ipairs(rows) do
         laid[r] = {}
         for c = 1, #widths do
@@ -588,7 +696,7 @@ function M.render(blocks, opts)
           push(line)
         end
         if r == 1 then
-          local parts = {}
+          local parts: {string} = {}
           for c, cw in ipairs(widths) do parts[c] = string.rep("─", cw) end
           push(new_line(indent .. table.concat(parts, "  "), "HelpRule"))
         end

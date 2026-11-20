@@ -422,6 +422,11 @@ end
 
 M.TEAL = "runtime/types/paw.d.tl"
 M.TEAL_API = "runtime/types/paw/api.d.tl"
+-- `paw.Untyped` in a file of its own: a module of the runtime in Teal is a
+-- part of the `paw` global, so it cannot name the global in its types (the
+-- global requires the module). It takes the Lua that is not ported yet as
+-- `local type Untyped = require("paw.untyped")`.
+M.TEAL_UNTYPED = "runtime/types/paw/untyped.d.tl"
 M.ANY = "runtime/types/any-allowed.txt"
 
 local RUST_TEAL = {
@@ -490,8 +495,9 @@ end
 
 --- The text of runtime/types/paw.d.tl, the text of
 --- runtime/types/paw/api.d.tl (the kernel's functions, as the module
---- `paw.api` that a module in Teal requires), and their `any` by the name
---- of what has them: `{ [name] = count }`.
+--- `paw.api` that a module in Teal requires), their `any` by the name
+--- of what has them: `{ [name] = count }`, and the text of
+--- runtime/types/paw/untyped.d.tl.
 function M.teal()
   local anys = {}
   local function count(name, text)
@@ -506,6 +512,7 @@ function M.teal()
     "-- that are written in Teal.", "" }
   local mods = M.teal_modules()
   out[#out + 1] = "local type Api = require(\"paw.api\")"
+  out[#out + 1] = "local type UntypedLua = require(\"paw.untyped\")"
   local tree = { children = {}, order = {}, lines = {} }
   for _, mod in ipairs(mods) do
     local alias = mod.name:gsub("^paw%.", ""):gsub("[._](%l)", string.upper):gsub("^%l", string.upper) .. "Module"
@@ -575,10 +582,13 @@ function M.teal()
   -- What is still written in Lua: `paw.Untyped`, which any use takes and
   -- whose value is cast (`paw.cursor.track_id() as integer`). Each one is
   -- on the allow-list until its module is ported.
-  out[#out + 1] = "   record Untyped"
-  out[#out + 1] = "      " .. count("paw.Untyped", "metamethod __call: function(Untyped, ...: any): Untyped")
-  out[#out + 1] = "      " .. count("paw.Untyped", "metamethod __index: function(Untyped, any): Untyped")
-  out[#out + 1] = "   end"
+  out[#out + 1] = "   type Untyped = UntypedLua"
+  local uout = { "-- " .. HEADER, "-- What is still written in Lua: `paw.Untyped`. A module of the runtime in",
+    "-- Teal names it `local type Untyped = require(\"paw.untyped\")`, as it cannot", "-- name the `paw` global that requires it.", "",
+    "local record Untyped",
+    "   " .. count("paw.Untyped", "metamethod __call: function(Untyped, ...: any): Untyped"),
+    "   " .. count("paw.Untyped", "metamethod __index: function(Untyped, any): Untyped"),
+    "end", "", "return Untyped", "" }
   local function untyped(node, path, value)
     local taken = { api = path == "paw" or nil }
     for _, key in ipairs(node.order) do taken[key] = true end
@@ -606,7 +616,7 @@ function M.teal()
   emit(tree, 1, "paw", paw)
   out[#out + 1] = "end"
   out[#out + 1] = ""
-  return table.concat(out, "\n"), table.concat(kout, "\n"), anys
+  return table.concat(out, "\n"), table.concat(kout, "\n"), anys, table.concat(uout, "\n")
 end
 
 --- The `any` that may stay in paw.d.tl, by name: `{ [name] = { count, why } }`.
@@ -657,17 +667,19 @@ function M.stale()
   local out = {}
   if read(M.META) ~= M.meta() then out[#out + 1] = M.META end
   if read(M.PAGE) ~= M.page() then out[#out + 1] = M.PAGE end
-  local teal, kernel, anys = M.teal()
+  local teal, kernel, anys, untyped = M.teal()
   if read(M.TEAL) ~= teal then out[#out + 1] = M.TEAL end
   if read(M.TEAL_API) ~= kernel then out[#out + 1] = M.TEAL_API end
+  if read(M.TEAL_UNTYPED) ~= untyped then out[#out + 1] = M.TEAL_UNTYPED end
   if read(M.ANY) ~= M.lowered(anys) then out[#out + 1] = M.ANY end
   return out
 end
 
 function M.write()
   os.execute("mkdir -p runtime/types/paw")
-  local teal, kernel, anys = M.teal()
-  for path, text in pairs({ [M.META] = M.meta(), [M.PAGE] = M.page(), [M.TEAL] = teal, [M.TEAL_API] = kernel, [M.ANY] = M.lowered(anys) }) do
+  local teal, kernel, anys, untyped = M.teal()
+  for path, text in pairs({ [M.META] = M.meta(), [M.PAGE] = M.page(), [M.TEAL] = teal, [M.TEAL_API] = kernel,
+    [M.TEAL_UNTYPED] = untyped, [M.ANY] = M.lowered(anys) }) do
     local f = assert(io.open(path, "w"))
     f:write(text)
     f:close()
@@ -686,6 +698,6 @@ if mode == "check" then
   api.quit((#gaps == 0 and #stale == 0 and #loose == 0) and 0 or 1)
 else
   M.write()
-  print("wrote " .. M.META .. ", " .. M.PAGE .. ", " .. M.TEAL .. ", " .. M.TEAL_API .. " and " .. M.ANY)
+  print("wrote " .. M.META .. ", " .. M.PAGE .. ", " .. M.TEAL .. ", " .. M.TEAL_API .. ", " .. M.TEAL_UNTYPED .. " and " .. M.ANY)
   api.quit(0)
 end
