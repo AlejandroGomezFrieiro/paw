@@ -10,6 +10,7 @@ use std::ffi::{CStr, CString, c_char, c_void};
 use std::mem::ManuallyDrop;
 use std::path::{Path, PathBuf};
 use std::ptr;
+use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering, Ordering::Relaxed};
 use std::sync::{Arc, Mutex};
 
@@ -70,13 +71,13 @@ use clap_sys::stream::{clap_istream, clap_ostream};
 use clap_sys::version::CLAP_VERSION;
 use paw_engine::device::{Change, Rest, assign_keys, silent};
 use paw_engine::{
-    Category, Controller, Device, DeviceFactory, DeviceFormat, DeviceInfo, EventKind, Instance, Io,
+    Controller, Device, DeviceFactory, DeviceFormat, DeviceInfo, EventKind, Instance, Io,
     NOTE_BEND_RANGE, NoteCtl, ParamInfo, Ports, ProcessCtx, Registry, ump,
 };
 
 use crate::echo::Echo;
 use crate::window::{HostWindow, Watches, WindowEvent, ui_scale};
-use crate::{Cache, Found, HeldNotes, find_bundles, is_main_thread, search_dirs, write_output};
+use crate::{Found, HeldNotes, PluginFormat, is_main_thread, write_output};
 
 /// A loaded `.clap` file. Never unloaded: plugins commonly leave threads and
 /// static state behind that do not survive it.
@@ -174,52 +175,35 @@ fn list(path: &Path) -> Result<Vec<Found>> {
     Ok(found)
 }
 
-pub(crate) fn scan(registry: &mut Registry, cache: &mut Cache, notes: &mut Vec<String>) {
-    scan_in(registry, cache, notes, &search_dirs("CLAP_PATH", "clap"));
-}
+/// CLAP, for [`scan_in`](crate::scan_in): a `.clap` is a single shared
+/// library on Linux, and its plugins are `clap:<id>`.
+pub(crate) struct Clap;
 
-/// Register the plugins in the `.clap` files under `dirs`.
-pub(crate) fn scan_in(
-    registry: &mut Registry,
-    cache: &mut Cache,
-    notes: &mut Vec<String>,
-    dirs: &[PathBuf],
-) {
-    for path in find_bundles(dirs, "clap") {
-        // A `.clap` is a single shared library on Linux.
-        if path.is_dir() {
-            continue;
-        }
-        match cache.plugins(&path, || crate::list_apart("clap", &path, || list(&path))) {
-            Ok(found) => {
-                for plugin in found {
-                    let Ok(id) = CString::new(plugin.id.as_str()) else {
-                        continue;
-                    };
-                    let info = DeviceInfo {
-                        kind: format!("clap:{}", plugin.id),
-                        name: plugin.name,
-                        category: if plugin.instrument {
-                            Category::Instrument
-                        } else {
-                            Category::Effect
-                        },
-                        format: DeviceFormat::Clap,
-                        vendor: plugin.vendor,
-                        id: plugin.id.clone(),
-                        version: plugin.version,
-                        params: Vec::new(),
-                        features: plugin.features,
-                    };
-                    registry.register(std::rc::Rc::new(ClapFactory {
-                        info,
-                        id,
-                        path: path.clone(),
-                    }));
-                }
-            }
-            Err(err) => notes.push(format!("{}: {err}", path.display())),
-        }
+impl PluginFormat for Clap {
+    const NAME: &'static str = "clap";
+    const FORMAT: DeviceFormat = DeviceFormat::Clap;
+    const ENV: &'static str = "CLAP_PATH";
+    const ONE_PER_ID: bool = false;
+
+    fn library(bundle: &Path) -> Option<PathBuf> {
+        (!bundle.is_dir()).then(|| bundle.to_path_buf())
+    }
+
+    fn list(bundle: &Path) -> Result<Vec<Found>> {
+        list(bundle)
+    }
+
+    fn kind(found: &Found, _registry: &Registry) -> String {
+        format!("clap:{}", found.id)
+    }
+
+    fn factory(info: DeviceInfo, bundle: &Path) -> Option<Rc<dyn DeviceFactory>> {
+        let id = CString::new(info.id.as_str()).ok()?;
+        Some(Rc::new(ClapFactory {
+            info,
+            id,
+            path: bundle.to_path_buf(),
+        }))
     }
 }
 

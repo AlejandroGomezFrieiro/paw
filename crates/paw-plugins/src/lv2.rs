@@ -18,7 +18,7 @@ use std::time::Duration;
 use anyhow::{Context, Result, anyhow, bail};
 use paw_engine::device::Change;
 use paw_engine::{
-    Category, Controller, Device, DeviceFactory, DeviceFormat, DeviceInfo, EventKind, Instance, Io,
+    Controller, Device, DeviceFactory, DeviceFormat, DeviceInfo, EventKind, Instance, Io,
     ParamInfo, Ports, ProcessCtx, Registry, Rest, ump,
 };
 use lilv_sys::*;
@@ -523,20 +523,11 @@ pub(crate) fn scan(registry: &mut Registry, cache: &mut crate::Cache, notes: &mu
         }
     };
     for plugin in found.plugins {
-        let info = DeviceInfo {
-            kind: format!("lv2:{}", plugin.id),
-            name: plugin.name,
-            category: if plugin.instrument { Category::Instrument } else { Category::Effect },
-            format: DeviceFormat::Lv2,
-            vendor: plugin.vendor,
-            id: plugin.id.clone(),
-            version: plugin.version,
-            params: Vec::new(),
-            features: plugin.features,
-        };
+        let uri = plugin.id.clone();
+        let info = plugin.device_info(format!("lv2:{uri}"), DeviceFormat::Lv2);
         registry.register(std::rc::Rc::new(Lv2Factory {
             info,
-            uri: plugin.id,
+            uri,
             plugin: OnceLock::new(),
         }));
     }

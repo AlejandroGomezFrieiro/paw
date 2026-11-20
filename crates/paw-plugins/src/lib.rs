@@ -27,11 +27,14 @@ pub use window::repair_display_env;
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 use std::sync::{Mutex, OnceLock};
 use std::thread::ThreadId;
 use std::time::UNIX_EPOCH;
 
-use paw_engine::{Event, EventKind, Registry};
+use paw_engine::{
+    Category, DeviceFactory, DeviceFormat, DeviceInfo, Event, EventKind, Registry,
+};
 use serde::{Deserialize, Serialize};
 
 static MAIN_THREAD: OnceLock<ThreadId> = OnceLock::new();
@@ -53,9 +56,9 @@ pub fn register(registry: &mut Registry, cache_file: Option<&Path>) -> Vec<Strin
     MAIN_THREAD.get_or_init(|| std::thread::current().id());
     let mut cache = Cache::load(cache_file);
     let mut notes = Vec::new();
-    clap::scan(registry, &mut cache, &mut notes);
+    scan::<clap::Clap>(registry, &mut cache, &mut notes);
     lv2::scan(registry, &mut cache, &mut notes);
-    vst3::scan(registry, &mut cache, &mut notes);
+    scan::<vst3::Vst3>(registry, &mut cache, &mut notes);
     cache.save(cache_file);
     if !cache.skipped.is_empty() {
         let n = cache.skipped.len();
@@ -135,8 +138,8 @@ pub fn add_dir(
     let mut found = Registry::default();
     let mut notes = Vec::new();
     let dirs = [dir.to_path_buf()];
-    clap::scan_in(&mut found, &mut cache, &mut notes, &dirs);
-    vst3::scan_in(&mut found, &mut cache, &mut notes, &dirs);
+    scan_in::<clap::Clap>(&mut found, &mut cache, &mut notes, &dirs);
+    scan_in::<vst3::Vst3>(&mut found, &mut cache, &mut notes, &dirs);
     sandbox::wrap(&mut found);
     let mut kinds = Vec::new();
     for factory in found.iter() {
@@ -184,6 +187,92 @@ pub(crate) struct Found {
     /// Its features (CLAP); empty in a cache from before they were kept.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub features: Vec<String>,
+}
+
+impl Found {
+    /// The device that this plugin is registered as, under `kind`.
+    pub fn device_info(self, kind: String, format: DeviceFormat) -> DeviceInfo {
+        DeviceInfo {
+            kind,
+            name: self.name,
+            category: if self.instrument {
+                Category::Instrument
+            } else {
+                Category::Effect
+            },
+            format,
+            vendor: self.vendor,
+            id: self.id,
+            version: self.version,
+            params: Vec::new(),
+            features: self.features,
+        }
+    }
+}
+
+/// A plugin format whose plugins are found file by file (CLAP and VST3; LV2
+/// is read as one world by lilv, see [`lv2::scan`]): what [`scan_in`] needs to
+/// know of it.
+pub(crate) trait PluginFormat {
+    /// The format's name as [`list_apart`] takes it, which is also the
+    /// extension of its files.
+    const NAME: &'static str;
+    const FORMAT: DeviceFormat;
+    /// The environment variable that replaces the usual places to look.
+    const ENV: &'static str;
+    /// The same plugin found in two places is registered once (the first).
+    const ONE_PER_ID: bool;
+    /// The file in `bundle` that the cache is keyed by, or `None` to pass
+    /// the bundle over.
+    fn library(bundle: &Path) -> Option<PathBuf>;
+    /// Load `bundle` and list the plugins in it, in this process.
+    fn list(bundle: &Path) -> anyhow::Result<Vec<Found>>;
+    /// The device kind of a plugin, unique in `registry`.
+    fn kind(found: &Found, registry: &Registry) -> String;
+    /// The factory of a plugin found in `bundle`, or `None` when its id is
+    /// not one the format can use.
+    fn factory(info: DeviceInfo, bundle: &Path) -> Option<Rc<dyn DeviceFactory>>;
+}
+
+/// Register the plugins of format `F` found where that format is installed.
+pub(crate) fn scan<F: PluginFormat>(
+    registry: &mut Registry,
+    cache: &mut Cache,
+    notes: &mut Vec<String>,
+) {
+    scan_in::<F>(registry, cache, notes, &search_dirs(F::ENV, F::NAME));
+}
+
+/// Register the plugins of format `F` in the files under `dirs`.
+pub(crate) fn scan_in<F: PluginFormat>(
+    registry: &mut Registry,
+    cache: &mut Cache,
+    notes: &mut Vec<String>,
+    dirs: &[PathBuf],
+) {
+    let mut seen = std::collections::HashSet::new();
+    for bundle in find_bundles(dirs, F::NAME) {
+        let Some(library) = F::library(&bundle) else {
+            continue;
+        };
+        match cache.plugins(&library, || {
+            list_apart(F::NAME, &bundle, || F::list(&bundle))
+        }) {
+            Ok(found) => {
+                for plugin in found {
+                    if F::ONE_PER_ID && !seen.insert(plugin.id.clone()) {
+                        continue;
+                    }
+                    let kind = F::kind(&plugin, registry);
+                    let info = plugin.device_info(kind, F::FORMAT);
+                    if let Some(factory) = F::factory(info, &bundle) {
+                        registry.register(factory);
+                    }
+                }
+            }
+            Err(err) => notes.push(format!("{}: {err}", bundle.display())),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize)]
