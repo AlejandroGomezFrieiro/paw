@@ -941,7 +941,7 @@ impl Controller for RemoteController {
         self.link.wake.store(true, Ordering::Relaxed);
         self.reread = Some(self.link.answered.load(Ordering::Relaxed));
         // A preset sets the plugin's parameters anew.
-        if method == "preset.load" {
+        if method == paw_engine::device::method::PRESET_LOAD {
             self.refresh_values();
         }
         Ok(answer)

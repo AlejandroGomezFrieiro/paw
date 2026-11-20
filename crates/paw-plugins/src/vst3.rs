@@ -1632,12 +1632,12 @@ impl Controller for Vst3Controller {
                 && head[8..40].eq_ignore_ascii_case(self.class.as_bytes())
         };
         match method {
-            "presets" => {
+            paw_engine::device::method::PRESETS => {
                 let mut presets = crate::presets::vst3_presets(&self.preset_dirs);
                 presets.retain(|p| ours(Path::new(&p.id)));
                 Ok(crate::presets::to_json(&presets))
             }
-            "preset.load" => {
+            paw_engine::device::method::PRESET_LOAD => {
                 let path = PathBuf::from(String::from_utf8_lossy(data).into_owned());
                 let bytes =
                     std::fs::read(&path).with_context(|| format!("reading {}", path.display()))?;
@@ -1654,7 +1654,7 @@ impl Controller for Vst3Controller {
                 Ok(Vec::new())
             }
             // A preset file of the plugin as it is now, for other hosts.
-            "preset.export" => {
+            paw_engine::device::method::PRESET_EXPORT => {
                 let state = self.save_state()?.unwrap_or_default();
                 let mut rest = state.as_slice();
                 let mut part = || -> Vec<u8> {

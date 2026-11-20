@@ -438,7 +438,7 @@ impl Session {
             }
             let request = match (&load.factory, &load.call) {
                 (Some(_), Some(_)) => bail!("give a preset load `factory` or `call`, not both"),
-                (Some(preset), None) => Some(("preset.load", preset.as_bytes(), 10, 30)),
+                (Some(preset), None) => Some((paw_engine::device::method::PRESET_LOAD, preset.as_bytes(), 10, 30)),
                 // A file the plugin loads in the background (a model) can
                 // take longer than one of its own presets, or much less:
                 // look more often, for up to a second.
@@ -755,7 +755,7 @@ impl Session {
             return BTreeMap::new();
         };
         let names: BTreeMap<String, String> = controller
-            .call("note-names", &[])
+            .call(paw_engine::device::method::NOTE_NAMES, &[])
             .ok()
             .and_then(|bytes| serde_json::from_slice(&bytes).ok())
             .unwrap_or_default();

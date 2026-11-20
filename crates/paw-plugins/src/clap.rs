@@ -1357,13 +1357,13 @@ impl Controller for ClapController {
             return answer;
         }
         match method {
-            "presets" => {
+            paw_engine::device::method::PRESETS => {
                 let presets = self.presets.get_or_insert_with(|| unsafe {
                     crate::presets::clap_presets(self.shared._library.presets, &self.plugin_id)
                 });
                 Ok(crate::presets::to_json(presets))
             }
-            "preset.load" => unsafe {
+            paw_engine::device::method::PRESET_LOAD => unsafe {
                 let plugin = self.shared.plugin;
                 let mut ext: *const clap_plugin_preset_load =
                     extension(plugin, CLAP_EXT_PRESET_LOAD);
@@ -1384,7 +1384,7 @@ impl Controller for ClapController {
                 self.shared.flags.rescan.store(true, Relaxed);
                 Ok(Vec::new())
             },
-            "note-names" => Ok(unsafe { note_names(self.shared.plugin) }),
+            paw_engine::device::method::NOTE_NAMES => Ok(unsafe { note_names(self.shared.plugin) }),
             _ => unsafe {
                 let ext: *const PawPluginCall = extension(self.shared.plugin, PAW_EXT_CALL);
                 let call = ext

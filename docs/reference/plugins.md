@@ -123,6 +123,22 @@ window. Without them, an editor is an empty black window.
   the plugin has after the call. The
   [plugstate](../../extensions/plugstate/README.md) extension uses it.
 
+## The calls of a plugin
+
+`paw.api.device_call(device, method, data)` asks a plugin for one of
+these. A format that does not answer a method fails with "no method".
+
+| Method | Formats | Data | Answer |
+| --- | --- | --- | --- |
+| `presets` | CLAP, LV2, VST3 | nothing | the presets of the plugin, as JSON |
+| `preset.load` | CLAP, LV2, VST3 | the id of a preset, or `file:<path>` | nothing |
+| `preset.export` | VST3 | nothing | the state as a `.vstpreset` file |
+| `note-names` | CLAP | nothing | the names of the keys, as JSON |
+| `properties` | LV2 | nothing | the properties, as JSON |
+| `property.set` | LV2 | `{"property": uri, "value": value}` | nothing |
+
+The names are in `paw_engine::device::method`, where each host finds them.
+
 ## Editors
 
 | Way | Effect |

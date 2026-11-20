@@ -2097,7 +2097,7 @@ impl Controller for Lv2Controller {
     }
 
     fn prepare(&mut self, method: &str, data: &[u8]) -> Result<Option<Vec<u8>>> {
-        if method != "property.set" {
+        if method != paw_engine::device::method::PROPERTY_SET {
             return Ok(None);
         }
         let Some(port) = self.shared.patch_port else {
@@ -2424,10 +2424,10 @@ impl Controller for Lv2Controller {
         match method {
             // What the plugin holds besides its parameters (a model file, an
             // impulse response), and the values it last told.
-            "properties" => Ok(self.properties_json()),
-            "property.set" => self.set_property(data).map(|_| Vec::new()),
+            paw_engine::device::method::PROPERTIES => Ok(self.properties_json()),
+            paw_engine::device::method::PROPERTY_SET => self.set_property(data).map(|_| Vec::new()),
             // The presets the plugin's bundles (and the user's) describe.
-            "presets" => unsafe {
+            paw_engine::device::method::PRESETS => unsafe {
                 let class = uri("http://lv2plug.in/ns/ext/presets#Preset")?;
                 let label = uri("http://www.w3.org/2000/01/rdf-schema#label")?;
                 let related = lilv_plugin_get_related(shared.plugin, class);
@@ -2454,7 +2454,7 @@ impl Controller for Lv2Controller {
                 presets.sort_by(|a, b| a.name.cmp(&b.name));
                 Ok(crate::presets::to_json(&presets))
             },
-            "preset.load" => unsafe {
+            paw_engine::device::method::PRESET_LOAD => unsafe {
                 let node = uri(&String::from_utf8_lossy(data))?;
                 lilv_world_load_resource(w, node);
                 let map = &shared.host.map as *const UridMap as *mut _;

@@ -828,6 +828,24 @@ pub fn unpack_files(mut data: &[u8]) -> Result<Vec<(String, Vec<u8>)>> {
     Ok(files)
 }
 
+/// The methods of [`Controller::call`] that more than one host answers
+/// (scripts reach them through `paw.api.device_call`): each host matches
+/// these names, and a host that does not know one fails with "no method".
+pub mod method {
+    /// The plugin's own presets, as JSON (`[{ id, name }]`).
+    pub const PRESETS: &str = "presets";
+    /// Load one of the plugin's own presets by its id, or `file:<path>`.
+    pub const PRESET_LOAD: &str = "preset.load";
+    /// Write the state as a preset file of the format (VST3: `.vstpreset`).
+    pub const PRESET_EXPORT: &str = "preset.export";
+    /// What the plugin calls its keys, as JSON (`{ "36": "Kick" }`): CLAP's note-name.
+    pub const NOTE_NAMES: &str = "note-names";
+    /// The properties of an LV2 plugin, as JSON.
+    pub const PROPERTIES: &str = "properties";
+    /// Set an LV2 property: `{ "property": uri, "value": value }`.
+    pub const PROPERTY_SET: &str = "property.set";
+}
+
 /// The call that asks a device for the files it keeps beside its state in
 /// the project, packed ([`pack_files`]); a device without such files does
 /// not know the method.
