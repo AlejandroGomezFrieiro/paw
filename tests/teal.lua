@@ -33,6 +33,15 @@ test("teal: the checker finds a type error", function()
   eq(found[1].line, 1, "on its line")
 end)
 
+test("teal: a format that an extension in Teal registers is checked", function()
+  local file = T.scratch .. "/teal/format.tl"
+  write(file, 'paw.formats.register({ name = "notes", extensions = { "txt" },\n'
+    .. '  imprt = function(path: string): string return path end })\n')
+  local found = paw.lang.check({ file })
+  eq(#found, 1, "one error")
+  eq(found[1].msg, "unknown field imprt", "the misspelled side")
+end)
+
 test("teal: an extension in Teal compiles once, then comes from the cache", function()
   local entry = paw.ext.load("config/extensions/scale.tl")
   T.after(function() paw.ext.unload("scale") end)

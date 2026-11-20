@@ -4,27 +4,22 @@
 -- that are written in Teal.
 
 local type Api = require("paw.api")
+local type UntypedLua = require("paw.untyped")
 local type AttrModule = require("paw.attr")
 local type BytesModule = require("paw.bytes")
-local type CommandsModule = require("paw.commands")
-local type EventsModule = require("paw.events")
+local type FormatsModule = require("paw.formats")
 local type HarmonyReadModule = require("paw.harmony.read")
 local type HarmonyVoiceModule = require("paw.harmony.voice")
-local type HooksModule = require("paw.hooks")
-local type LangModule = require("paw.lang")
-local type LimitModule = require("paw.limit")
+local type MarkdownModule = require("paw.markdown")
+local type MidifileModule = require("paw.midifile")
 local type MusicModule = require("paw.music")
-local type OptionModule = require("paw.options")
 local type RegexModule = require("paw.regex")
-local type SeatsModule = require("paw.seats")
-local type UtilModule = require("paw.util")
+local type XmlModule = require("paw.xml")
+local type ZipModule = require("paw.zip")
 
 global record paw
    api: Api
-   record Untyped
-      metamethod __call: function(Untyped, ...: any): Untyped
-      metamethod __index: function(Untyped, any): Untyped
-   end
+   type Untyped = UntypedLua
    record harmony
       at: Untyped
       builtin: Untyped
@@ -83,9 +78,9 @@ global record paw
    cancel: Untyped
    canvas: Untyped
    clip: Untyped
-   cmd: function<C is CommandsModule.Context>(name: string, args?: CommandsModule.Args, ctx?: C): CommandsModule.Result
+   cmd: Untyped
    command: Untyped
-   commands: CommandsModule
+   commands: Untyped
    complete: Untyped
    controls: Untyped
    cursor: Untyped
@@ -97,8 +92,8 @@ global record paw
    diagnostic: Untyped
    draw: Untyped
    edit: Untyped
-   emit: function<P>(name: string, payload?: P): boolean, string
-   events: EventsModule
+   emit: Untyped
+   events: Untyped
    every: Untyped
    ex: Untyped
    ext: Untyped
@@ -106,7 +101,7 @@ global record paw
    failure: Untyped
    files: Untyped
    flush: Untyped
-   formats: Untyped
+   formats: FormatsModule
    freeze: Untyped
    frontend: Untyped
    fx: Untyped
@@ -114,9 +109,9 @@ global record paw
    groups: Untyped
    health: Untyped
    help: Untyped
-   hooks: HooksModule
+   hooks: Untyped
    import_audio: Untyped
-   inspect: function<T>(value: T, indent?: string, seen?: {UtilModule.Data:boolean}): string
+   inspect: Untyped
    is_audio_file: Untyped
    is_chain_file: Untyped
    json: Untyped
@@ -124,31 +119,31 @@ global record paw
    keyrule: Untyped
    lane: Untyped
    lanes: Untyped
-   lang: LangModule
+   lang: Untyped
    layout: Untyped
    layouts: Untyped
    learn: Untyped
-   limit: LimitModule
+   limit: Untyped
    loading: Untyped
    lsp: Untyped
    luadev: Untyped
-   markdown: Untyped
+   markdown: MarkdownModule
    markers: Untyped
    master: Untyped
    media: Untyped
    midi: Untyped
-   midifile: Untyped
+   midifile: MidifileModule
    mixer_rows: Untyped
    mouse: Untyped
    music: MusicModule
    notify: Untyped
-   off: function(id: integer)
-   on: function<P>(pattern: string, fn: function(P, string), opts?: EventsModule.OnOptions): integer
-   once: function<P>(pattern: string, fn: function(P, string)): integer
+   off: Untyped
+   on: Untyped
+   once: Untyped
    open: Untyped
    open_chain: Untyped
-   opt: OptionModule.Opt
-   option: OptionModule
+   opt: Untyped
+   option: Untyped
    panes: Untyped
    params: Untyped
    pick: Untyped
@@ -177,7 +172,7 @@ global record paw
    routes: Untyped
    scene: Untyped
    scope: Untyped
-   seats: SeatsModule
+   seats: Untyped
    snippet: Untyped
    state: Untyped
    statusline: Untyped
@@ -198,11 +193,11 @@ global record paw
    try: Untyped
    ui: Untyped
    undo: Untyped
-   util: UtilModule
+   util: Untyped
    vca: Untyped
    version: Untyped
    wait: Untyped
    win: Untyped
-   xml: Untyped
-   zip: Untyped
+   xml: XmlModule
+   zip: ZipModule
 end

@@ -1,4 +1,4 @@
--- Tests of help (paw/help.lua and paw/markdown.lua): the Markdown made into
+-- Tests of help (paw/help.lua and paw/markdown.tl): the Markdown made into
 -- text, tags, `:help` and its completion, following links and coming back,
 -- `K`, `:helpgrep`, pages of extensions that are not loaded, and help in a
 -- window of the graphical frontend. Loaded by tests/suite.lua with its helpers.

@@ -532,7 +532,7 @@ M.completers = {
     return sorted(out)
   end,
   files = function(word: string): {Item} return files(word) end,
-  -- Sound files, and the files of the formats that read (paw/formats.lua).
+  -- Sound files, and the files of the formats that read (paw/formats.tl).
   audio_files = function(word: string): {Item}
     local ext = set_of({ "wav", "wave", "aif", "aiff", "flac", "mp3", "ogg", "oga" })
     for _, e in ipairs(paw.formats.extensions("import")) do ext[e] = true end

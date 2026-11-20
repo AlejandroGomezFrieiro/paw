@@ -119,7 +119,7 @@ local function midi_said(path, done)
   return text
 end
 
--- Standard MIDI files, a format as any other (paw/formats.lua). `:import`
+-- Standard MIDI files, a format as any other (paw/formats.tl). `:import`
 -- puts the file's tracks at the cursor (`tempo=yes`: its tempo map too),
 -- `:open` makes a new project of it; `:export song.mid clip` or
 -- `selection` writes less than the whole project.
@@ -180,7 +180,7 @@ command("import", function(ctx)
       if not ok then return paw.notify("could not import " .. path .. ": " .. tostring(clip):gsub("^[^:]*:%d+: ", ""), "error") end
       return paw.notify(string.format("imported %s: %d notes on track “%s”; it refers to the file until you edit it", path:match("([^/]+)$") or path, clip.note_count or #clip:notes(), track.name))
     end
-    -- A file of another program: its format (paw/formats.lua).
+    -- A file of another program: its format (paw/formats.tl).
     if paw.formats.for_path(path, "import") then return paw.formats.import(path, { merge = true, args = args }) end
     local ok, clip = pcall(paw.import_audio, path, { track = ctx.args.track })
     if not ok then return paw.notify("could not import " .. path .. ": " .. tostring(clip), "error") end
@@ -209,7 +209,7 @@ command("open", function(ctx)
   end
   local function go(path)
     if not paw.is_audio_file(path) and not paw.project.guard("open", force) then return end
-    -- A file of another program says itself what it opened (paw/formats.lua).
+    -- A file of another program says itself what it opened (paw/formats.tl).
     if paw.formats.for_path(path, "import") then return paw.formats.import(path, { merge = false, args = args }) end
     local ok, err = pcall(paw.open, path)
     if not ok then return paw.notify("could not open " .. path .. ": " .. tostring(err):gsub("^[^:]*:%d+: ", ""), "error") end
