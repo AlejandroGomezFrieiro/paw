@@ -9,7 +9,6 @@
 //! grows without end. The delay is large; this is for monitoring.
 
 use std::collections::VecDeque;
-use std::io::{Seek, SeekFrom, Write};
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -188,41 +187,27 @@ impl Player {
 }
 
 /// A 16-bit stereo WAV file written as it goes, its header kept right
-/// after every piece so that it can be read at any time.
-struct Wav {
-    file: std::fs::File,
-    bytes: u32,
-}
+/// after every piece (`hound`'s `flush`) so that it can be read at any time.
+struct Wav(hound::WavWriter<std::io::BufWriter<std::fs::File>>);
 
 impl Wav {
-    fn create(path: &Path, rate: u32) -> std::io::Result<Self> {
-        let mut file = std::fs::File::create(path)?;
-        let mut header = Vec::with_capacity(44);
-        header.extend_from_slice(b"RIFF\0\0\0\0WAVEfmt ");
-        header.extend_from_slice(&16u32.to_le_bytes());
-        header.extend_from_slice(&1u16.to_le_bytes());
-        header.extend_from_slice(&2u16.to_le_bytes());
-        header.extend_from_slice(&rate.to_le_bytes());
-        header.extend_from_slice(&(rate * 4).to_le_bytes());
-        header.extend_from_slice(&4u16.to_le_bytes());
-        header.extend_from_slice(&16u16.to_le_bytes());
-        header.extend_from_slice(b"data\0\0\0\0");
-        file.write_all(&header)?;
-        Ok(Self { file, bytes: 0 })
+    fn create(path: &Path, rate: u32) -> hound::Result<Self> {
+        let spec = hound::WavSpec {
+            channels: 2,
+            sample_rate: rate,
+            bits_per_sample: 16,
+            sample_format: hound::SampleFormat::Int,
+        };
+        hound::WavWriter::create(path, spec).map(Self)
     }
 
-    fn append(&mut self, samples: &[f32]) -> std::io::Result<()> {
-        let data: Vec<u8> = samples
-            .iter()
-            .flat_map(|s| ((s.clamp(-1.0, 1.0) * 32767.0).round() as i16).to_le_bytes())
-            .collect();
-        self.file.seek(SeekFrom::End(0))?;
-        self.file.write_all(&data)?;
-        self.bytes += data.len() as u32;
-        self.file.seek(SeekFrom::Start(4))?;
-        self.file.write_all(&(36 + self.bytes).to_le_bytes())?;
-        self.file.seek(SeekFrom::Start(40))?;
-        self.file.write_all(&self.bytes.to_le_bytes())
+    fn append(&mut self, samples: &[f32]) -> hound::Result<()> {
+        let mut writer = self.0.get_i16_writer(samples.len() as u32);
+        for sample in samples {
+            writer.write_sample((sample.clamp(-1.0, 1.0) * 32767.0).round() as i16);
+        }
+        writer.flush()?;
+        self.0.flush()
     }
 }
 
@@ -294,9 +279,8 @@ mod tests {
 
     #[test]
     fn the_file_holds_what_would_have_been_played() {
-        let dir = std::env::temp_dir().join(format!("paw-listen-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
-        let path = dir.join("heard.wav");
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("heard.wav");
         let player = Player::file(&path, 48000).unwrap();
         for frame in frames(0.5, 440.0) {
             player.push(&frame).unwrap();
@@ -310,6 +294,5 @@ mod tests {
         assert!(bytes >= 48000 * 4 / 2, "at least half a second written");
         let loud = data[44..].chunks_exact(2).filter(|b| i16::from_le_bytes([b[0], b[1]]).abs() > 10000).count();
         assert!(loud > 1000, "the tone is in it");
-        let _ = std::fs::remove_dir_all(&dir);
     }
 }

@@ -140,7 +140,7 @@ impl Session {
         project.refresh_tempo();
         self.apply_open_opts(&mut project);
         // Another project: a trial of this one's is over with it.
-        self.trial = None;
+        self.audition.trial = None;
         self.stop();
         self.seek(0.0);
         self.next_id = self.next_id.max(project.max_id() + 1);

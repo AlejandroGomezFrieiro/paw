@@ -39,13 +39,13 @@ pub fn parse(value: Value) -> Result<Option<MidiOutput>> {
 impl Session {
     /// Start sending MIDI to the ports, from the current engine.
     pub(super) fn connect_midi_out(&mut self) {
-        if self.midi_out.is_none() {
+        if self.midi.out.is_none() {
             match MidiOutputs::start() {
                 Ok(out) => {
-                    for name in &self.midi_out_own {
+                    for name in &self.midi.out_own {
                         out.open_port(name);
                     }
-                    self.midi_out = Some(out);
+                    self.midi.out = Some(out);
                 }
                 Err(err) => {
                     self.warnings.push(format!("no MIDI output: {err:#}"));
@@ -53,22 +53,22 @@ impl Session {
                 }
             }
         }
-        if let Some(out) = &self.midi_out {
+        if let Some(out) = &self.midi.out {
             out.set_queue(self.handle.midi_output());
         }
     }
 
     /// The ports MIDI can be sent to, and ours that others read from.
     pub fn midi_outputs(&self) -> Value {
-        let ports = self.midi_out.as_ref().map(|m| m.ports()).unwrap_or_default();
+        let ports = self.midi.out.as_ref().map(|m| m.ports()).unwrap_or_default();
         let mut list: Vec<Value> = ports
             .into_iter()
             .map(|p| json!({ "id": p.id, "name": p.name, "own": p.own }))
             .collect();
         // Without a sequencer the ports of our own are still listed.
-        if self.midi_out.is_none() {
+        if self.midi.out.is_none() {
             list.extend(
-                self.midi_out_own
+                self.midi.out_own
                     .iter()
                     .enumerate()
                     .map(|(i, name)| json!({ "id": format!("own:{i}"), "name": name, "own": true })),
@@ -84,9 +84,9 @@ impl Session {
         if name.is_empty() || name.contains('\0') {
             bail!("a MIDI port needs a name");
         }
-        if !self.midi_out_own.iter().any(|known| known == name) {
-            self.midi_out_own.push(name.to_string());
-            if let Some(out) = &self.midi_out {
+        if !self.midi.out_own.iter().any(|known| known == name) {
+            self.midi.out_own.push(name.to_string());
+            if let Some(out) = &self.midi.out {
                 out.open_port(name);
             }
         }
@@ -95,11 +95,11 @@ impl Session {
 
     /// Take away a port made by `midi_open_output`. True if there was one.
     pub fn midi_close_output(&mut self, name: &str) -> bool {
-        let Some(at) = self.midi_out_own.iter().position(|known| known == name) else {
+        let Some(at) = self.midi.out_own.iter().position(|known| known == name) else {
             return false;
         };
-        self.midi_out_own.remove(at);
-        if let Some(out) = &self.midi_out {
+        self.midi.out_own.remove(at);
+        if let Some(out) = &self.midi.out {
             out.close_port(name);
         }
         true

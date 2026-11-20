@@ -169,8 +169,6 @@ Found with grep at a72467cf. Each refactor part that owns the file fixes it.
   shared memory and its process wire on the audio path, the ALSA MIDI
   thread, the terminal's input thread, the watchdog, and the render and
   stretch threads.
-- **MCP:** `paw-mcp` writes its own protocol, tool list and dispatch. Use
-  `rmcp`.
 - **SHA-256:** `paw-proto/src/lib.rs:261`. Use `ring::digest`.
 - **Hex:** five `fn hex` (paw-plugins vst3.rs, paw-proto, paw-gui theme.rs,
   paw-raster vector.rs, paw-scene cells.rs). One color type with

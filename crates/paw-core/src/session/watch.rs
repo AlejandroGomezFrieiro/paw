@@ -87,8 +87,8 @@ impl Session {
     pub(super) fn watching(&self) -> bool {
         self.stream.info.backend != BackendChoice::Null
             || self.watch.gone.is_some()
-            || self.midi.is_some()
-            || !self.test_ports.is_empty()
+            || self.midi.inputs.is_some()
+            || !self.midi.test_ports.is_empty()
     }
 
     fn device_lost(&mut self, why: String) {
@@ -98,7 +98,7 @@ impl Session {
         } else {
             info.device.clone()
         };
-        let recording = self.take.is_some();
+        let recording = self.rec.take.is_some();
         self.stop();
         // Open it again as it ran: the same rate and block, the same devices.
         let mut wanted = self.backend.clone();

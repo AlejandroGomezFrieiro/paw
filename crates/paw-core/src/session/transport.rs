@@ -121,7 +121,7 @@ impl Session {
             self.emit(E::TransportStop(Position { position }));
             // Stopping ends the take and, with it, record mode: the next
             // play is a play, not another take over the one just made.
-            if self.take.is_some() {
+            if self.rec.take.is_some() {
                 self.transport.recording = false;
                 self.emit(E::TransportChanged(Nothing {}));
             }
@@ -132,7 +132,7 @@ impl Session {
     pub fn seek(&mut self, beats: f64) {
         let beats = beats.max(0.0);
         // A take is continuous, so jumping ends it and starts another.
-        let recording = self.take.is_some();
+        let recording = self.rec.take.is_some();
         self.finish_take();
         self.handle.send(Msg::Seek(beats));
         self.seeks = self.seeks.wrapping_add(1);
@@ -167,13 +167,13 @@ impl Session {
     /// Start capturing every armed track: audio from those with an input,
     /// notes from the others.
     pub(super) fn start_take(&mut self) {
-        if self.take.is_some() {
+        if self.rec.take.is_some() {
             return;
         }
         // The engine has to know the tracks before it can capture them.
         self.flush();
-        self.takes += 1;
-        let number = self.takes;
+        self.rec.takes += 1;
+        let number = self.rec.takes;
         let shared = Arc::new(TakeShared::default());
         let sample_rate = self.handle.sample_rate as u32;
         let inputs = self.stream.info.input_channels as usize;
@@ -245,7 +245,7 @@ impl Session {
             }
         }
         self.handle.send(Msg::SetTake(Some(Box::new(take))));
-        self.take = Some(Recording {
+        self.rec.take = Some(Recording {
             number,
             shared,
             audio,
@@ -261,6 +261,7 @@ impl Session {
         // Where the files go and how fast they grow, for a warning when
         // the disk is nearly full; and the files, for a safety copy.
         let files: Vec<PathBuf> = self
+            .rec
             .take
             .iter()
             .flat_map(|t| t.audio.iter().map(|a| a.1.clone()))
@@ -276,7 +277,7 @@ impl Session {
     /// track each is for and where it starts, so that the take can be put
     /// back as clips if the program never gets to finish it.
     pub(super) fn take_in_progress(&self) -> Value {
-        let Some(take) = &self.take else {
+        let Some(take) = &self.rec.take else {
             return Value::Null;
         };
         let start = take.shared.start().unwrap_or_else(|| self.position());
@@ -328,7 +329,7 @@ impl Session {
 
     /// Collect the notes the engine has captured for the take so far.
     pub(super) fn drain_take(&mut self) {
-        let Some(take) = self.take.as_mut() else {
+        let Some(take) = self.rec.take.as_mut() else {
             return;
         };
         while let Ok(frames) = take.wraps.pop() {
@@ -382,7 +383,7 @@ impl Session {
     /// Stop capturing and turn what was captured into clips where the take
     /// began, as one undo step.
     pub(super) fn finish_take(&mut self) {
-        let Some(shared) = self.take.as_ref().map(|t| t.shared.clone()) else {
+        let Some(shared) = self.rec.take.as_ref().map(|t| t.shared.clone()) else {
             return;
         };
         self.handle.send(Msg::SetTake(None));
@@ -394,7 +395,7 @@ impl Session {
         // No engine is running to let go of the take, so let go of it here.
         shared.close(self.position());
         self.drain_take();
-        let mut take = self.take.take().unwrap();
+        let mut take = self.rec.take.take().unwrap();
         let (start, end) = (shared.start(), shared.end());
         let rounds = take.wrapped.len() as u32;
         let held: Vec<(Id, u8)> = take.held.keys().copied().collect();
@@ -813,7 +814,7 @@ impl Session {
     /// audio), and the offset set by hand for what the system does not report.
     pub(super) fn record_latency(&self, audio: bool) -> f64 {
         let info = &self.stream.info;
-        let mut seconds = self.record_offset / 1000.0;
+        let mut seconds = self.rec.offset / 1000.0;
         if info.backend != BackendChoice::Null {
             seconds += info.buffer_size as f64 / info.sample_rate as f64;
             if audio {

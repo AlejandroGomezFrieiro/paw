@@ -22,6 +22,15 @@ use paw_engine::automation::value_at;
 use super::{LaneOpts, Session};
 use crate::model::{AutoMode, Id, Target};
 
+/// Whether moving a fader or a parameter while playing writes automation,
+/// and the values being written.
+#[derive(Default)]
+pub(super) struct Writing {
+    /// The transport's `write` switch: every track latches.
+    pub on: bool,
+    pub latched: Vec<Latch>,
+}
+
 /// A value being written into a lane as the song plays.
 pub(super) struct Latch {
     track: Id,
@@ -62,7 +71,7 @@ impl Session {
             .map_or(AutoMode::Read, |t| t.automation);
         // The transport's switch latches every track that does not write
         // in a way of its own.
-        if self.write && !mode.writes() {
+        if self.writing.on && !mode.writes() {
             return AutoMode::Latch;
         }
         mode
@@ -74,6 +83,7 @@ impl Session {
             return;
         }
         match self
+            .writing
             .latched
             .iter_mut()
             .find(|l| l.track == track && l.target == target)
@@ -83,7 +93,7 @@ impl Session {
                 latch.touched = Instant::now();
                 latch.let_go = false;
             }
-            None => self.latched.push(Latch {
+            None => self.writing.latched.push(Latch {
                 track,
                 target,
                 value,
@@ -109,6 +119,7 @@ impl Session {
             self.touch(track, target.clone(), value, value);
         }
         if let Some(latch) = self
+            .writing
             .latched
             .iter_mut()
             .find(|l| l.track == track && l.target == target)
@@ -171,6 +182,7 @@ impl Session {
             }
             for lane in &track.lanes {
                 let known = self
+                    .writing
                     .latched
                     .iter()
                     .any(|l| l.track == track.id && l.target == lane.target);
@@ -187,15 +199,15 @@ impl Session {
     /// Write what is being held into its lanes at the playhead. Called once a turn.
     pub fn write_automation(&mut self) {
         if !self.playing {
-            self.latched.clear();
+            self.writing.latched.clear();
             return;
         }
         self.hold_written_tracks();
-        if self.latched.is_empty() {
+        if self.writing.latched.is_empty() {
             return;
         }
         let now = self.position();
-        let mut latched = std::mem::take(&mut self.latched);
+        let mut latched = std::mem::take(&mut self.writing.latched);
         latched.retain_mut(|latch| {
             let mode = self.auto_mode(latch.track);
             if !mode.writes() {
@@ -216,8 +228,8 @@ impl Session {
             !let_go
         });
         // Whatever was moved while these were written is held too.
-        latched.append(&mut self.latched);
-        self.latched = latched;
+        latched.append(&mut self.writing.latched);
+        self.writing.latched = latched;
     }
 
     /// The lane a latch writes into, made if the target has none yet.
