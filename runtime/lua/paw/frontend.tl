@@ -20,6 +20,7 @@ local type CanvasModule = require("paw.canvas")
 local type CursorModule = require("paw.cursor")
 local type DrawModule = require("paw.draw")
 local type EditModule = require("paw.edit")
+local type ExModule = require("paw.ex")
 local type GroupsModule = require("paw.groups")
 local type LanesModule = require("paw.lanes")
 local type MarkersModule = require("paw.markers")
@@ -727,24 +728,6 @@ local record Controls
   remove: function(clip: integer): integer
   line: function(clip: integer, kind: string, number: integer, beat0: number, f0: number, beat1: number, f1: number, free: boolean): integer
 end
---- What an Ex line being typed acts on (`paw.ex.shown`, paw/ex.lua).
-local record ShownCurrentClip
-  id: integer
-end
-local record ShownCurrent
-  clip: ShownCurrentClip
-end
-local record Shown
-  from: number
-  to: number
-  tracks: {integer:boolean}
-  clips: {integer:integer}
-  notes: {integer:Value}
-  current: ShownCurrent
-end
-local record Ex
-  shown: function(): Shown
-end
 local record MixerRowInfo
   kind: string
   index: integer
@@ -808,7 +791,7 @@ local record Paw
   stretch: Stretch
   roll_clips: RollClips
   controls: Controls
-  ex: Ex
+  ex: ExModule
   mouse: MouseModule
   panes: PanesModule
   learn: Learn

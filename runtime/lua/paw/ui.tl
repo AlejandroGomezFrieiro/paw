@@ -26,6 +26,7 @@ local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
 local type role_props = require("paw.role_props")
 local type MouseModule = require("paw.mouse")
+local type commands = require("paw.commands")
 local type DrawModule = require("paw.draw")
 
 local type View = contracts.View
@@ -127,7 +128,7 @@ local record InputOptions
   text: string
   history: string
   label: string
-  complete: function(text: string): {string | Candidate}
+  complete: function(text: string): {string | commands.Entry}
   preview: function(text: string): string, string
   on_change: function(text: string): string, string
   anchor: function(): types.Point
@@ -135,12 +136,6 @@ local record InputOptions
   mode: string
   ghost: string
   select: boolean
-end
---- A candidate of a prompt's completion.
-local record Candidate
-  text: string
-  label: string
-  desc: string
 end
 
 --- What `paw.ui.ask_value` takes (paw/views/cmdline.lua).
@@ -165,7 +160,7 @@ end
 local record SeatState
   focused: string
   float: contracts.Float
-  grabber: function(key: string): boolean
+  grabber: function(key: string, pasted?: boolean)
   rects: Arrangement
   tabs: {Tab}
   tab: integer
@@ -177,7 +172,7 @@ local type KeyHint = DrawModule.KeyHint
 local record Keybar
   lines: {string:{string:{KeyHint}}}
   entries: function(): {KeyHint}
-  set: function(view: string, mode: string, entries: {KeyHint})
+  set: function(view: string, mode: string, entries: {KeyHint} | function(): {KeyHint})
   show: function(lhs: string): string
 end
 
@@ -266,7 +261,6 @@ local record M
   type StripOptions = StripOptions
   type Layer = Layer
   type InputOptions = InputOptions
-  type Candidate = Candidate
   type AskOptions = AskOptions
   type PageOptions = PageOptions
   type Keybar = Keybar
@@ -281,7 +275,7 @@ local record M
   --- The one on the command line now.
   message: Message
   --- A function that takes every key while set (prompts).
-  grabber: function(key: string, pasted?: boolean): boolean
+  grabber: function(key: string, pasted?: boolean)
   --- The floating view, if one is open.
   float: contracts.Float
   --- Where each view was last drawn.
@@ -803,7 +797,7 @@ local function float_rect(width: integer, height: integer): ScreenRect
 end
 
 --- Draw a box around a buffer's edge and return a buffer for the inside.
-function M.box(buf: Buf, title?: string, style?: string): Buf
+function M.box(buf: contracts.Buf, title?: string, style?: string): contracts.Buf
   local w, h = buf.width, buf.height
   style = style or "Border"
   local g = paw.draw.g
@@ -825,7 +819,7 @@ end
 --- view's own items), `focused`. When the panel has focus, the whole bar is
 --- in the accent color, inverted.
 ---   local body = paw.ui.titlebar(buf, { name = "Mixer", context = "5 tracks", focused = ctx.focused })
-function M.titlebar(buf: Buf, opts: TitlebarOptions): Buf
+function M.titlebar(buf: contracts.Buf, opts: TitlebarOptions): contracts.Buf
   local g = paw.draw.g
   local focused = opts.focused
   local plain = focused and "TitleBarFocus" or "TitleBar"
@@ -1148,7 +1142,7 @@ function M.render_screen(buf: Buf)
         r.x, r.w = r.x + 1, r.w - 1
         area = buf:sub(r.x, r.y, r.w, r.h)
       elseif r.after == "box" and r.w > 2 and r.h > 2 then
-        area = M.box(area, nil, focused and "BorderFocus" or "Border")
+        area = M.box(area, nil, focused and "BorderFocus" or "Border") as Buf
         r.x, r.y, r.w, r.h = r.x + 1, r.y + 1, r.w - 2, r.h - 2
       end
       local follower = win and followers and followers[win.id]
@@ -1209,7 +1203,7 @@ function M.render_screen(buf: Buf)
   if M.float and M.views[M.float.name] then
     local r = float_rect(buf.width, buf.height)
     local outer = buf:sub(r.x, r.y, r.w, r.h)
-    local inner = M.box(outer, M.float.title, "BorderFocus")
+    local inner = M.box(outer, M.float.title, "BorderFocus") as Buf
     r.x, r.y, r.w, r.h = r.x + 1, r.y + 1, r.w - 2, r.h - 2
     M.rects[#M.rects + 1] = r
     draw(M.views[r.name], inner, { focused = true, x = r.x, y = r.y })

@@ -284,6 +284,9 @@ local record contracts
 
    --- An area of a view's grid: rows `r0` to `r1`, columns `c0` to `c1`.
    --- `kind` is `char`, `line` or `block`.
+   --- `visual` when a selection made it, `object` when a text object made
+   --- it, `unstretched` for a selection that a key has not moved yet, and
+   --- `clips` the clips chosen one by one in the arrange view (a set).
    record Region
       view: string
       kind: string
@@ -291,12 +294,16 @@ local record contracts
       r1: number
       c0: number
       c1: number
+      visual: boolean
+      object: boolean
+      unstretched: boolean
+      clips: {integer:boolean}
    end
 
    --- What a function of a key mapping gets: the count typed before it,
    --- the register, the keys, the key typed after a `char` mapping and the
    --- mode. In a buffer type's keys, also its window and its buffer; in a
-   --- kind of text buffer's, also the kind's name, what its pattern took
+   --- kind of text buffer's, also the kind, what its pattern took
    --- and the name.
    record KeyContext
       count: integer
@@ -306,7 +313,7 @@ local record contracts
       mode: string
       win: Window
       buf: LayoutBuffer
-      kind: string
+      kind: TextKindInfo
       args: {string}
       target: string
    end
@@ -338,6 +345,15 @@ local record contracts
       operators: {string:function(region: Region, ctx?: KeyContext)}
    end
 
+   --- A place that a view's `grid.mark` keeps and `grid.jump` goes back
+   --- to: the row and the column, and what else the view needs to find it
+   --- again (a text buffer's name), or the arrange view's `track` and `beat`.
+   record GridMark
+      {number | string}
+      track: integer
+      beat: number
+   end
+
    --- A place of a search in a grid.
    record GridHit
       row: number
@@ -355,8 +371,8 @@ local record contracts
       step: function(): number
       down: integer
       extent: function(row: number, col: number): number
-      mark: function(): {string:number}
-      jump: function(pos: {string:number})
+      mark: function(): GridMark
+      jump: function(pos: GridMark)
       search: function(text: string): {GridHit}
    end
 
@@ -578,35 +594,49 @@ local record contracts
       id: integer | string
    end
 
-   --- What a kind's functions get: the buffer, the kind's name, what the
-   --- pattern took from the name, and the name.
+   --- What a kind's functions get: the buffer, the kind, what the pattern
+   --- took from the name, and the name.
    record TextContext
       buf: LayoutBuffer
-      kind: string
+      kind: TextKindInfo
       args: {string}
       target: string
    end
 
    --- A line that changed (`changes.changed`): its fields as read and as
    --- they are now, and the names of the fields that differ.
+   --- `row` is the line's row in the text.
    record TextChange<F>
       id: integer | string
       fields: F
       base: F
       keys: {string}
+      row: integer
    end
 
-   --- A line that is new, a copy, gone or moved.
+   --- A line that is new, a copy, gone or moved: its row in the text
+   --- (`row`; of a line gone, where it was read), its place among the
+   --- lines that read (`place`) and where it was read (`from`).
    record TextLine<F>
       id: integer | string
       copy_of: integer | string
       fields: F
       base: F
+      keys: {string}
+      row: integer
       place: integer
       from: integer
    end
 
-   --- What changed in the text, for `plan`.
+   --- A line that does not read: its row, its text and what is wrong.
+   record TextError
+      row: integer
+      text: string
+      error: string
+   end
+
+   --- What changed in the text, for `plan`: also the lines that do not
+   --- read, and `moved` when the lines kept are in another order.
    record TextChanges<F>
       changed: {TextChange<F>}
       deleted: {TextLine<F>}
@@ -614,6 +644,8 @@ local record contracts
       added: {TextLine<F>}
       lines: {TextLine<F>}
       moves: {TextLine<F>}
+      errors: {TextError}
+      moved: boolean
    end
 
    --- What the steps of a plan share: what each step made for a line,
@@ -633,7 +665,19 @@ local record contracts
    --- A kind of text buffer (`paw.textbuf.kind`): a list edited as text.
    --- It reads items (`I`), writes each as cells, reads a line back into
    --- fields (`F`), and makes a plan of steps from the changes.
-   record TextKind<I is TextItem, F> is Powers
+   --- A kind of text buffer, whatever its items and fields: what a kind's
+   --- functions and keys get as `ctx.kind`. A kind with fields of its own
+   --- (`tree` of the files' kinds) is read with a cast.
+   interface TextKindInfo
+      name: string
+      pattern: string
+      readonly: string
+      gutter: boolean
+      static: boolean
+      hint: string
+   end
+
+   record TextKind<I is TextItem, F> is Powers, TextKindInfo
       name: string
       pattern: string
       title: function(ctx?: TextContext): string
@@ -652,7 +696,7 @@ local record contracts
       first_style: string
       hint: string
       describe: function(ctx?: TextContext): Description
-      status: function(ctx?: TextContext, line?: string): string | {Piece}
+      status: function(ctx?: TextContext, line?: StatusContext): string | {Piece}
       keys: {{string, string}}
    end
 
@@ -996,6 +1040,181 @@ local record contracts
       props: {string:string}
       bound: {string}
       ext: string
+   end
+
+   -- Commands ---------------------------------------------------------------------
+
+   --- An argument as the command line reads it: text, a number, true or false.
+   type CommandArg = string | number | boolean
+
+   --- A command's arguments: positional ones in order, named ones by name
+   --- (`track.add Bass volume=-6` is `{ "Bass", volume = -6 }`).
+   record CommandArgs
+      {CommandArg}
+      metamethod __index: function(CommandArgs, string): CommandArg
+      metamethod __newindex: function(CommandArgs, string, CommandArg)
+   end
+
+   --- What an Ex pattern matches (`paw.ex.items`): a note, a clip or a track.
+   enum ExLevel
+      "note"
+      "clip"
+      "track"
+   end
+
+   --- A note, a clip or a track that a range holds (`kind`): the track's id,
+   --- the clip as `paw.api` gives it, the note and its place in the clip,
+   --- and `at`, its beat in the song.
+   record ExItem
+      kind: ExLevel
+      track: integer
+      clip: types.Clip
+      note: types.Note
+      place: integer
+      at: number
+      order: integer
+   end
+
+   --- A range before a command (`paw.ex`): of time (`from` and `to` in
+   --- beats of the song, `to` not included, and `bars`, the first and last
+   --- bar they touch), of tracks (`tracks`), or the visual selection
+   --- (`selection`, its `region` and `view`; `pitches` { low, high } when
+   --- it was of some pitches, `clip_ids` when it was of clips chosen one by
+   --- one). `items` are the matches that `:g` hands a command, `clips` the
+   --- clips that a view's own address named, `single` one plain number (a
+   --- count to commands without a range), `text` the range as typed.
+   record CommandRange
+      from: number
+      to: number
+      bars: {integer}
+      tracks: {integer}
+      track_range: boolean
+      whole: boolean
+      selection: boolean
+      region: Region
+      view: string
+      pitches: {integer}
+      clip_ids: {integer:boolean}
+      items: {ExItem}
+      clips: {integer}
+      single: boolean
+      text: string
+   end
+
+   --- What a command's function gets. The one who runs it may add fields of
+   --- its own, which a command in Teal reads with a record of its own.
+   interface CommandContext
+      args: CommandArgs
+      name: string
+      count: integer
+      range: CommandRange
+      line: string
+   end
+
+   --- What a command gives back to the one who runs it: its own data.
+   record CommandResult
+   end
+
+   --- Where the word being completed is: `word`, its `index` among the
+   --- arguments (from 1), the `words` before it and the whole `line`.
+   record CompleteInfo
+      word: string
+      index: integer
+      words: {string}
+      line: string
+   end
+
+   --- What a function of `complete` may give for each candidate: a table with
+   --- `text` (or the text first) and `desc`.
+   record CompleteCandidate
+      {string}
+      text: string
+      desc: string
+   end
+
+   type CompleteFn = function(string, CompleteInfo): {string | CompleteCandidate}
+
+   --- How a command completes its arguments: a completer's name, a name for
+   --- each argument, or a function.
+   type Complete = string | {string} | CompleteFn
+
+   --- What `paw.command` takes besides the name and the function.
+   record CommandOptions
+      desc: string
+      raw: boolean
+      complete: Complete
+      label: string
+      range: boolean
+      ext: string
+   end
+
+   --- `paw.command`: `paw.command(name, fn, opts)` defines a command, and
+   --- `paw.command.alias(alias, target)` gives it another name.
+   record Command
+      alias: function(alias: string, target: string)
+      metamethod __call: function<C is CommandContext>(self: Command, name: string, run: function(C), opts?: CommandOptions)
+   end
+
+   -- Ex: fields and views -----------------------------------------------------------
+
+   --- What a field of an Ex pattern reads and sets: a number or text.
+   type ExValue = number | string
+
+   --- What `:s` changes in a note, a clip or a track: the fields that
+   --- `paw.api` keeps for it.
+   record ExChange
+      start: number
+      length: number
+      pitch: integer
+      velocity: integer
+      meta: types.Meta
+      attr: types.NoteAttr | boolean
+      name: string
+      muted: boolean
+   end
+
+   --- How a field's value is read: a number, beats (`1/8` too), a pitch
+   --- (`c4`, `c`, `60`) or text.
+   enum ExFieldType
+      "number"
+      "beats"
+      "pitch"
+      "text"
+   end
+
+   --- A field that `:s` and `:g` patterns can name (`paw.ex.field`): its
+   --- `level`, its `type`, `get(item)` and `set(item, value, change)`,
+   --- which writes what changes into `change`. `min` and `max` bound a
+   --- number.
+   record ExField
+      name: string
+      level: ExLevel
+      type: ExFieldType
+      desc: string
+      min: number
+      max: number
+      get: function(item: ExItem): ExValue
+      set: function(item: ExItem, value: ExValue, change: ExChange)
+   end
+
+   --- How a view reads ranges (`paw.ex.view`): its columns as beats of the
+   --- song (`song`, `col`), the clips it edits, its track, and how to go
+   --- to a beat. A view of several clips may also say `clips_at(s, i)`,
+   --- the clips that an address of its own at `i` names and where it ends;
+   --- `selection(region, r)`, what a selection of its grid is as a range;
+   --- `each_clip(r, run)`, how a command of its own runs on its clips.
+   --- How `each_clip` runs a command on a range.
+   type ExRun = function(r: CommandRange): CommandResult
+
+   record ExView
+      song: function(col: number): number
+      col: function(beat: number): number
+      clips: function(): {integer}
+      track: function(): integer
+      go: function(beat: number)
+      clips_at: function(s: string, i: integer): {integer}, integer
+      selection: function(region: Region, r: CommandRange)
+      each_clip: function(r: CommandRange, run: ExRun): CommandResult
    end
 
    -- Extensions -------------------------------------------------------------------

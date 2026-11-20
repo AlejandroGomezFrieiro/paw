@@ -7227,7 +7227,8 @@ function paw.textbuf.kind_of(target) end
 ---@param opts any
 function paw.textbuf.open(name, opts) end
 
---- The plan a buffer's changes make: `{ text, run }` steps, or nil and why.
+--- The plan a buffer's changes make: `{ text, run }` steps, or nil and why
+--- (and the line that does not read).
 ---@param buf any
 function paw.textbuf.plan(buf) end
 

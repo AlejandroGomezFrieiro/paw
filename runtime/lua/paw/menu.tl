@@ -51,7 +51,7 @@ end
 --- before, and how many menus were opened.
 local record Open
   levels: {Level}
-  grabber: function(key: string, pasted?: boolean): boolean
+  grabber: function(key: string, pasted?: boolean)
   count: integer
 end
 

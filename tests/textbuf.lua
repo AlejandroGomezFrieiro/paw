@@ -1,4 +1,4 @@
--- Tests of the listings edited as text (paw/textbuf.lua and
+-- Tests of the listings edited as text (paw/textbuf.tl and
 -- paw/views/tracklist.lua): reading and writing lines, each kind of edit,
 -- the plan `:w` shows, one undo step, and buffers that fall behind the
 -- project. Loaded by tests/suite.lua with its helpers.

@@ -401,7 +401,7 @@ Other fields of a kind:
 | `paint(canvas, x, y, text, kind, width, row, buf)` | draws a line |
 | `keymaps`, `motions`, `textobjects`, `operators` | keys, as a buffer type has them. Their `ctx` has `buf`, `kind`, `args` and `target`. They are in the scope `textbuf.<kind>`, before the keys of the text |
 | `describe(ctx)` | the text of `K` |
-| `status(ctx, line)` | its part of the status line |
+| `status(ctx, line)` | its part of the status line. `line` is what the status line gives the view (`paw.contracts.StatusContext`) |
 | `keys` | the list for the key line |
 
 `paw.textbuf.open(name, opts)` shows a buffer, with the options `here`,

@@ -99,6 +99,9 @@ paw.commands = require("paw.commands")
 -- The types of what an extension gives paw (a view, a picker, ...) for an
 -- extension in Teal: `paw.contracts.View`. An empty table here.
 paw.contracts = require("paw.contracts")
+--- Define a command: `paw.command(name, fn, opts)` (paw.commands.define),
+--- and `paw.command.alias(alias, target)`.
+--- @type contracts.Command
 paw.command = setmetatable({ alias = paw.commands.alias }, {
   __call = function(_, ...) return paw.commands.define(...) end,
 })

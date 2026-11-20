@@ -1875,7 +1875,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   A kind also has the fields of a buffer type, next to the text: `keymaps`, `motions`, `textobjects` and `operators` (see `paw.layout.powers`. Their `ctx` has `buf`, `kind`, `args` and `target`). `describe(ctx)` is for `K`, and `status(ctx, line)` is for the `view` component of the status line. Its keys are in key scope `textbuf.<name>`, before the keys of the text.
 - `paw.textbuf.kind_of(target)`: The kind a buffer name is of, and what its pattern took from it.
 - `paw.textbuf.open(name, opts)`: Show a text buffer: in this window (`opts.here`), split below (beside with `opts.vertical`), or in a graphical frontend's window of its own (`opts.window`). Returns the window.
-- `paw.textbuf.plan(buf)`: The plan a buffer's changes make: `{ text, run }` steps, or nil and why.
+- `paw.textbuf.plan(buf)`: The plan a buffer's changes make: `{ text, run }` steps, or nil and why (and the line that does not read).
 - `paw.textbuf.put(before, register, count)`: Put a register's text after the cursor, or before it (`p`, `P`).
 - `paw.textbuf.quote(name)`: A name as a cell: quoted when it would not read back as itself.
 - `paw.textbuf.reload(buf)`: Read the buffer again from the project: the text, what it was read from, and its undo list.

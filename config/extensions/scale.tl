@@ -1,14 +1,9 @@
 -- A one-file extension written in Teal: paw compiles it as it loads it.
 -- `:scale.notes C4 dorian` says the notes of a scale.
 --
--- paw.music is written in Teal, so its functions are typed here. The parts
--- of paw that are still Lua (paw.command, paw.notify) are `paw.Untyped`:
--- what they give back is cast to its type.
-
---- The command's arguments, as the command line gives them.
-local record Args
-  {string}
-end
+-- paw.music is written in Teal and paw.command has a type
+-- (`paw.contracts.Command`), so both are typed here: the command's function
+-- gets a `paw.contracts.CommandContext`.
 
 local function notes(root: string, scale: string): {string}
   local out: {string} = {}
@@ -19,9 +14,8 @@ local function notes(root: string, scale: string): {string}
   return out
 end
 
-paw.command("scale.notes", function(ctx: paw.Untyped)
-  local args = ctx.args as Args
-  local root, scale = args[1] or "C4", args[2] or "major"
+paw.command("scale.notes", function(ctx: paw.contracts.CommandContext)
+  local root, scale = tostring(ctx.args[1] or "C4"), tostring(ctx.args[2] or "major")
   if not paw.music.scales[scale] then
     paw.notify("no scale `" .. scale .. "`", "error")
     return

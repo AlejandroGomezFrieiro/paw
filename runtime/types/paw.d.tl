@@ -22,6 +22,7 @@ local type DiagnosticModule = require("paw.diagnostic")
 local type DrawModule = require("paw.draw")
 local type EditModule = require("paw.edit")
 local type EventsModule = require("paw.events")
+local type ExModule = require("paw.ex")
 local type FormatsModule = require("paw.formats")
 local type FrontendModule = require("paw.frontend")
 local type GrepModule = require("paw.grep")
@@ -55,6 +56,7 @@ local type StatuslineModule = require("paw.statusline")
 local type TakesModule = require("paw.takes")
 local type TempoModule = require("paw.tempo")
 local type TempolaneModule = require("paw.tempolane")
+local type TextbufModule = require("paw.textbuf")
 local type UiModule = require("paw.ui")
 local type UtilModule = require("paw.util")
 local type VcaModule = require("paw.vca")
@@ -79,7 +81,7 @@ global record paw
    canvas: CanvasModule
    clip: function(id: integer): ObjectsModule.Clip
    cmd: function<C is CommandsModule.Context>(name: string, args?: CommandsModule.Args, ctx?: C): CommandsModule.Result
-   command: Untyped
+   command: contracts.Command
    commands: CommandsModule
    complete: CompleteModule
    contracts: ContractsModule
@@ -96,7 +98,7 @@ global record paw
    emit: function<P>(event: string | EventsModule.Event<P>, payload?: P): boolean, string
    events: EventsModule
    every: function(ms: number, fn: function()): integer
-   ex: Untyped
+   ex: ExModule
    ext: Partial.Ext
    external: Untyped
    failure: function(err: string): string
@@ -184,7 +186,7 @@ global record paw
    takes: TakesModule
    tempo: TempoModule
    tempolane: TempolaneModule
-   textbuf: Partial.Textbuf
+   textbuf: TextbufModule
    time: ObjectsModule.Time
    timers: {integer:function()}
    toml: Untyped

@@ -10,7 +10,7 @@ local need_track = common.need_track
 command("visual", function(ctx)
   keymap.visual_start(ctx.args[1] == "line" and "V" or ctx.args[1] == "block" and "b" or "v")
 end, { desc = "Start or stop selecting: `visual`, `visual line`, `visual block`" })
--- `normal` is an Ex command, with a range or without: paw/ex.lua.
+-- `normal` is an Ex command, with a range or without: paw/ex.tl.
 command("search", function(ctx)
   local function go(text)
     if text == "" then return end

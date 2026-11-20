@@ -46,6 +46,7 @@ local type AttrModule = require("paw.attr")
 local type LanesModule = require("paw.lanes")
 local type RegexModule = require("paw.regex")
 local type QfModule = require("paw.qf")
+local type ExModule = require("paw.ex")
 
 local type Node = contracts.QueryNode
 local type Data = contracts.QueryData
@@ -107,26 +108,8 @@ local record Point
   value: number
 end
 
---- What `paw.ex` reads its fields from (paw/ex.lua).
-local record ExItem
-  kind: string
-  track: integer
-  clip: types.Clip
-  note: types.Note
-  place: integer
-  at: number
-end
-
---- A field of `paw.ex.field`: the level it is of, and how it reads an item.
-local record ExField
-  level: string
-  get: function(item: ExItem): Value
-end
-
---- paw/ex.lua, as far as this module reads it.
-local record Ex
-  fields: {string:ExField}
-end
+--- What `paw.ex` reads its fields from (paw/ex.tl).
+local type ExItem = contracts.ExItem
 
 --- paw/scope.lua: the tracks of the tab, narrowed to a group or not.
 local record Scope
@@ -153,7 +136,7 @@ local record Frontend
 end
 local record Paw is partial.Paw
   frontend: Frontend
-  ex: Ex
+  ex: ExModule
   scope: Scope
   markers: MarkersModule
   music: MusicModule
@@ -524,7 +507,7 @@ M.field("point", "at", function(n: Node): Value return song_beat(n) end)
 M.field("*", "comment", function(n: Node): Value return meta(n).comment end)
 
 -- The level `paw.ex` gives its fields.
-local EX_LEVEL: {string:string} = { note = "note", clip = "clip", track = "track", group = "track" }
+local EX_LEVEL: {string:contracts.ExLevel} = { note = "note", clip = "clip", track = "track", group = "track" }
 
 -- What `paw.ex` reads of each node, made when first asked for.
 local ex_items: {Node:ExItem} = setmetatable({}, { __mode = "k" })

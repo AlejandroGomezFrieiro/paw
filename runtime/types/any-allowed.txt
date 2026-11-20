@@ -19,10 +19,8 @@ paw.api.toml_encode 1 truly any Lua value that TOML can hold
 paw.audio 1 written in Lua: typed when its module is ported to Teal
 paw.autosave 1 written in Lua: typed when its module is ported to Teal
 paw.bounce 1 written in Lua: typed when its module is ported to Teal
-paw.command 1 written in Lua: typed when its module is ported to Teal
 paw.controls 1 written in Lua: typed when its module is ported to Teal
 paw.device_rows 1 written in Lua: typed when its module is ported to Teal
-paw.ex 1 written in Lua: typed when its module is ported to Teal
 paw.ext 1 written in Lua: typed when its module is ported to Teal
 paw.external 1 written in Lua: typed when its module is ported to Teal
 paw.files 1 written in Lua: typed when its module is ported to Teal
@@ -55,7 +53,6 @@ paw.scope 1 written in Lua: typed when its module is ported to Teal
 paw.state 1 written in Lua: typed when its module is ported to Teal
 paw.stems 1 written in Lua: typed when its module is ported to Teal
 paw.stretch 1 written in Lua: typed when its module is ported to Teal
-paw.textbuf 1 written in Lua: typed when its module is ported to Teal
 paw.toml 1 written in Lua: typed when its module is ported to Teal
 paw.track_kinds 1 written in Lua: typed when its module is ported to Teal
 paw.try 1 written in Lua: typed when its module is ported to Teal
