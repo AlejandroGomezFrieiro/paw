@@ -482,8 +482,8 @@ paw.curves.generate("sine", 0, 8, { rate = 1, depth = 0.5, unfrac = c.unfrac })
 paw.curves.editor.open("paw://tempo", { vertical = true })
 ```
 
-The curve editor is a buffer type named `curve` (see [The terminal
-interface](../terminal.md)).
+The curve editor is a buffer type named `curve` (see [The curve
+editor](curve-editor.md)).
 
 `paw.curves.provide(name, fn)` adds curves for more addresses. `fn(uri,
 parts)` returns a target with the fields above (`points`, `write`,
@@ -558,8 +558,8 @@ paw.ui.keybar.set("pianoroll.lint", "n", { { "<C-y>", "fix" } })     -- the key 
 - paw does not draw a layer that fails. It draws the other layers.
 
 `paw.roll_clips.parts()` and `paw.roll_clips.open(ids, active)` give and
-set the clips that the piano roll edits (see [Harmony, completion and
-snippets](../harmony.md)).
+set the clips that the piano roll edits (see [Several clips in the piano
+roll](roll-clips.md)).
 
 ### Hooks for an instrument
 

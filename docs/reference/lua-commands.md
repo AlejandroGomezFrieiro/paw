@@ -38,8 +38,8 @@ the completions of a line.
 ### Ranges
 
 A range before the name of a command gives the command a part of the
-project, as in Vim. The syntax of ranges is in [The terminal
-interface](../terminal.md) under "Ex".
+project, as in Vim. The syntax of ranges is in [Ex
+commands](ex.md).
 
 | Range | `ctx.range` | Which commands get it |
 | --- | --- | --- |
