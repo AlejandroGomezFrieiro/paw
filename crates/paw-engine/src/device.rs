@@ -186,6 +186,20 @@ impl Rest {
     }
 }
 
+/// A value a device tells of one of its parameters by itself
+/// ([`Controller::take_changes`]).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Change {
+    /// The position of the parameter in [`Controller::params`].
+    pub index: usize,
+    pub value: f64,
+    /// An edit: a person moved it in the device's window, or the device
+    /// changed it by itself. Not an edit: the echo of a state the host gave
+    /// the device, or a value the host read back after it. The state is
+    /// the truth, and its echo only mirrors it.
+    pub edit: bool,
+}
+
 /// The main-thread side of a device that has one, such as a hosted plugin:
 /// everything about it that is not processing audio.
 pub trait Controller {
@@ -221,10 +235,10 @@ pub trait Controller {
     fn text_value(&mut self, _index: usize, _text: &str) -> Option<f64> {
         None
     }
-    /// Parameters the device changed by itself since the last call, as
-    /// (position in [`params`](Self::params), new value): what a user did in
-    /// the device's own editor, or a preset it loaded.
-    fn take_changes(&mut self) -> Vec<(usize, f64)> {
+    /// Parameters the device changed by itself since the last call: what a
+    /// user did in the device's own editor, a preset it loaded, or the echo
+    /// of a state it was given (see [`Change::edit`]).
+    fn take_changes(&mut self) -> Vec<Change> {
         Vec::new()
     }
     /// Whether the device has a window of its own to show.

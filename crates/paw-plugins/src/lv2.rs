@@ -16,12 +16,14 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 
 use anyhow::{Context, Result, anyhow, bail};
+use paw_engine::device::Change;
 use paw_engine::{
     Controller, Device, DeviceFactory, DeviceInfo, EventKind, Instance, Io, ParamInfo, Ports,
     ProcessCtx, Registry, Rest, ump,
 };
 use lilv_sys::*;
 
+use crate::echo::Echo;
 use crate::lv2_patch::{self, Kind, PatchUrids, Property};
 use crate::window::{GtkWindow, HostWindow, WindowEvent, ui_scale};
 use crate::{HeldNotes, search_dirs, write_output};
@@ -1331,6 +1333,7 @@ impl DeviceFactory for Lv2Factory {
                 ui: None,
                 ports,
                 values: HashMap::new(),
+                echo: Echo::default(),
             };
             // Ask the plugin what its properties hold now.
             controller.ask_properties();
@@ -1919,6 +1922,10 @@ struct Lv2Controller {
     /// The value of each property the plugin told (by URID), or that was
     /// set from here.
     values: HashMap<u32, serde_json::Value>,
+    /// Tells the echo of a state from an edit. The editor writes a control
+    /// with no gesture (paw offers no `ui:touch`): a value that a state
+    /// gave is its echo, another value an edit.
+    echo: Echo,
 }
 
 /// Note the value a message from the plugin gives a property.
@@ -1929,6 +1936,14 @@ fn note_property(values: &mut HashMap<u32, serde_json::Value>, atom: &[u8]) {
 }
 
 impl Lv2Controller {
+    /// The host set the controls from a state itself: what they hold now
+    /// are the state's values, for the echo.
+    fn expect_values(&mut self) {
+        let values: Vec<Option<f64>> =
+            (0..self.shared.param_slots.len()).map(|i| self.value(i)).collect();
+        self.echo.given(values);
+    }
+
     /// Send a patch message to the plugin's control port. False when the
     /// plugin takes none, or the way to it is full.
     fn send_patch(&mut self, atom: &[u8]) -> bool {
@@ -2125,8 +2140,12 @@ impl Controller for Lv2Controller {
         }
     }
 
-    fn take_changes(&mut self) -> Vec<(usize, f64)> {
-        self.link.changes.take()
+    fn take_changes(&mut self) -> Vec<Change> {
+        let changes = self.link.changes.take();
+        changes
+            .into_iter()
+            .map(|(index, value)| self.echo.change(index, value, false))
+            .collect()
     }
 
     fn has_editor(&self) -> bool {
@@ -2465,6 +2484,7 @@ impl Controller for Lv2Controller {
                 }
                 restore(shared, state);
                 lilv_state_free(state);
+                self.expect_values();
                 Ok(Vec::new())
             },
             _ => bail!("this device has no method `{method}`"),
@@ -2483,6 +2503,7 @@ impl Controller for Lv2Controller {
             restore(shared, state);
             lilv_state_free(state);
         }
+        self.expect_values();
         self.ask_properties();
         Ok(())
     }

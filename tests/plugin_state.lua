@@ -235,3 +235,42 @@ test("an LV2 plugin sleeps once its tail went by in silence, and a note or a par
   end
   eq(api.engine_get().device_runs > runs, true, "a parameter wakes it")
 end)
+
+test("a move in a plugin's window right after a state is an edit, and the echo of the state is not", function()
+  local built = "target/release/examples/libstub_clap.so"
+  if not io.open(built) then return "skipped: `cargo test -p paw-plugins` builds the test plugin" end
+  fresh()
+  local dir = T.scratch .. "/stub-echo"
+  os.execute("mkdir -p '" .. dir .. "' && cp '" .. built .. "' '" .. dir .. "/stub.clap'")
+  paw.plugins.add_dir(dir, "stubs")
+  local d = paw.add_track({ name = "Stub" }):add_device("clap:dev.paw.stub")
+  paw.flush()
+  api.undo_checkpoint()
+  local moves = {}
+  local handler = paw.on("param.touched", function(e)
+    if e.device == d.id and e.from == "editor" then moves[#moves + 1] = e.value end
+  end)
+  local function settle()
+    for _ = 1, 100 do
+      paw.flush()
+      if #moves > 0 then break end
+      api.wait(20)
+    end
+    api.wait(100)
+  end
+  -- The stub takes the state (7) on in its next block and tells of it
+  -- with no gesture; the move to 9 comes in the same block, in a gesture.
+  api.device_load(d.id, { state = "BwAAAA==" })
+  api.device_call(d.id, "stub.move", "9")
+  settle()
+  eq(#moves, 1, "the move is an edit, the echo is not")
+  T.near(moves[1], 9, 1e-6, "the move's value")
+  -- An echo of the state that comes a second late, on a slow computer, is
+  -- still no edit.
+  api.device_load(d.id, { state = "BwAAAA==" })
+  api.wait(1000)
+  api.device_call(d.id, "stub.tell", "7")
+  settle()
+  paw.off(handler)
+  eq(#moves, 1, "the late echo is no edit")
+end)

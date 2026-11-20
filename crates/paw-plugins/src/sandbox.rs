@@ -39,7 +39,7 @@ use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, anyhow, bail};
 use paw_engine::device::{
-    Controller, Device, DeviceFactory, DeviceInfo, Instance, Io, ParamInfo, Ports, Rest,
+    Change, Controller, Device, DeviceFactory, DeviceInfo, Instance, Io, ParamInfo, Ports, Rest,
     Starting,
 };
 use paw_engine::{Event, MAX_PAIRS, ProcessCtx, Registry};
@@ -206,8 +206,10 @@ struct ParamMove {
 
 #[repr(C)]
 #[derive(Clone, Copy)]
-struct Change {
+struct ChangeSlot {
     index: u32,
+    /// 1 for an edit, 0 for the echo of a state ([`Change::edit`]).
+    edit: u32,
     value: f64,
 }
 
@@ -233,7 +235,7 @@ impl Shm {
         let events = align(outs + 2 * (MAX_PAIRS - 1) * max_block * 4);
         let params = align(events + EVENTS * std::mem::size_of::<Event>());
         let changes = align(params + PARAMS * std::mem::size_of::<ParamMove>());
-        let messages = align(changes + CHANGES * std::mem::size_of::<Change>());
+        let messages = align(changes + CHANGES * std::mem::size_of::<ChangeSlot>());
         let len = align(messages + MESSAGES);
         Layout {
             left,
@@ -334,7 +336,7 @@ impl Shm {
         self.part(Self::layout(self.max_block).params, PARAMS)
     }
 
-    fn changes(&self) -> &mut [Change] {
+    fn changes(&self) -> &mut [ChangeSlot] {
         self.part(Self::layout(self.max_block).changes, CHANGES)
     }
 
@@ -655,7 +657,7 @@ struct RemoteController {
     has_editor: bool,
     follows_state: bool,
     ports: Ports,
-    pending: Vec<(usize, f64)>,
+    pending: Vec<Change>,
     /// Why the helper is gone, once it is.
     ended: Option<String>,
     late_seen: u32,
@@ -843,7 +845,11 @@ impl Controller for RemoteController {
             let change = shm.changes()[tail as usize % CHANGES];
             if let Some(slot) = self.values.get_mut(change.index as usize) {
                 *slot = change.value;
-                self.pending.push((change.index as usize, change.value));
+                self.pending.push(Change {
+                    index: change.index as usize,
+                    value: change.value,
+                    edit: change.edit != 0,
+                });
             }
             tail = tail.wrapping_add(1);
         }
@@ -855,15 +861,20 @@ impl Controller for RemoteController {
             self.reread = None;
             let before = self.values.clone();
             self.refresh_values();
+            // Read back by the host: the echo of the state.
             for (index, (old, new)) in before.iter().zip(&self.values).enumerate() {
                 if old != new {
-                    self.pending.push((index, *new));
+                    self.pending.push(Change {
+                        index,
+                        value: *new,
+                        edit: false,
+                    });
                 }
             }
         }
     }
 
-    fn take_changes(&mut self) -> Vec<(usize, f64)> {
+    fn take_changes(&mut self) -> Vec<Change> {
         std::mem::take(&mut self.pending)
     }
 
@@ -1748,12 +1759,13 @@ pub fn serve_with(
                 header.reason_len.store(len as u32, Ordering::Release);
                 break 'serve;
             }
-            for (index, value) in controller.take_changes() {
+            for change in controller.take_changes() {
                 let head = header.change_head.load(Ordering::Relaxed);
                 // A reader that has fallen a whole ring behind loses the oldest.
-                shm.changes()[head as usize % CHANGES] = Change {
-                    index: index as u32,
-                    value,
+                shm.changes()[head as usize % CHANGES] = ChangeSlot {
+                    index: change.index as u32,
+                    edit: change.edit as u32,
+                    value: change.value,
                 };
                 header
                     .change_head

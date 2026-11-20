@@ -110,9 +110,6 @@ pub(crate) fn states_at(project: &Project, beat: f64) -> Vec<(Id, Arc<LaneState>
 /// render starts: its saved state, its request, and the parameters to set
 /// (returned, to send to the render's engine).
 pub(crate) fn give_all(live: &mut LiveDevice, state: &LaneState) -> Result<Vec<(u32, f32)>> {
-    if state.state.is_some() || state.call.is_some() {
-        live.given_state();
-    }
     if let Some(controller) = live.controller.as_mut() {
         if let Some(text) = &state.state {
             let bytes = BASE64.decode(text).context("a lane's state is base64")?;
@@ -138,9 +135,6 @@ pub(crate) fn give_all(live: &mut LiveDevice, state: &LaneState) -> Result<Vec<(
 /// request that could not be prepared for the audio thread. Returns the
 /// parameters to set again after a saved state, which sets them all.
 pub(crate) fn give(live: &mut LiveDevice, state: &LaneState) -> Result<Vec<(u32, f32)>> {
-    if state.state.is_some() || state.call.is_some() {
-        live.given_state();
-    }
     let controller = live
         .controller
         .as_mut()

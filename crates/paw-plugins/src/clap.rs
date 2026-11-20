@@ -10,7 +10,7 @@ use std::ffi::{CStr, CString, c_char, c_void};
 use std::mem::ManuallyDrop;
 use std::path::{Path, PathBuf};
 use std::ptr;
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering::Relaxed};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering, Ordering::Relaxed};
 use std::sync::{Arc, Mutex};
 
 use anyhow::{Context, Result, bail};
@@ -68,12 +68,13 @@ use clap_sys::process::{
 };
 use clap_sys::stream::{clap_istream, clap_ostream};
 use clap_sys::version::CLAP_VERSION;
-use paw_engine::device::{Rest, assign_keys, silent};
+use paw_engine::device::{Change, Rest, assign_keys, silent};
 use paw_engine::{
     Controller, Device, DeviceFactory, DeviceInfo, EventKind, Instance, Io, NOTE_BEND_RANGE,
     NoteCtl, ParamInfo, Ports, ProcessCtx, Registry, ump,
 };
 
+use crate::echo::Echo;
 use crate::window::{HostWindow, Watches, WindowEvent, ui_scale};
 use crate::{Cache, Found, HeldNotes, find_bundles, is_main_thread, search_dirs, write_output};
 
@@ -239,6 +240,13 @@ struct HostFlags {
     wake: AtomicBool,
     /// The plugin says its parameter values changed behind the host's back.
     rescan: AtomicBool,
+    /// Blocks the plugin has processed, to tell when it has taken on a
+    /// state.
+    blocks: AtomicU64,
+    /// States the plugin was given: the first block after a new one is
+    /// the block in which a plugin that takes a state on in its next block
+    /// takes it on.
+    loads: AtomicU64,
     /// The plugin closed its editor itself.
     closed: AtomicBool,
     /// A size the plugin wants its editor window to be.
@@ -255,6 +263,8 @@ impl HostFlags {
             restart: AtomicBool::new(false),
             wake: AtomicBool::new(false),
             rescan: AtomicBool::new(false),
+            blocks: AtomicU64::new(0),
+            loads: AtomicU64::new(0),
             closed: AtomicBool::new(false),
             resize: Mutex::new(None),
             watches: Mutex::new(Watches::new()),
@@ -420,7 +430,11 @@ impl DeviceFactory for ClapFactory {
             let (changed, changes) = rtrb::RingBuffer::new(1024);
             let device = ClapDevice {
                 shared: shared.clone(),
-                changed,
+                out: Out {
+                    changed,
+                    gestures: Vec::with_capacity(64),
+                    taking: false,
+                },
                 inputs,
                 outputs,
                 key_port,
@@ -436,19 +450,26 @@ impl DeviceFactory for ClapFactory {
                 failed: false,
                 steady_time: 0,
                 rest: Rest::default(),
+                loads: 0,
             };
+            let mut controller = ClapController {
+                plugin_id: self.id.to_string_lossy().into_owned(),
+                presets: None,
+                known: vec![f64::NAN; shared.param_ids.len()],
+                shared,
+                changes,
+                echo: Echo::default(),
+                reread: None,
+                editor: None,
+                ports,
+                attached,
+            };
+            // What it starts with is a state too: its first words of its
+            // values are no edit.
+            controller.given_state();
             Ok(Instance {
                 device: Box::new(device),
-                controller: Some(Box::new(ClapController {
-                    plugin_id: self.id.to_string_lossy().into_owned(),
-                    presets: None,
-                    known: vec![f64::NAN; shared.param_ids.len()],
-                    shared,
-                    changes,
-                    editor: None,
-                    ports,
-                    attached,
-                })),
+                controller: Some(Box::new(controller)),
             })
         }
     }
@@ -678,9 +699,8 @@ fn header<T>(time: u32, type_: clap_event_type) -> clap_event_header {
 
 struct ClapDevice {
     shared: Arc<Shared>,
-    /// Parameter values the plugin reports changing, on their way to the
-    /// controller: CLAP id and value.
-    changed: rtrb::Producer<(clap_id, f64)>,
+    /// What the plugin tells in its output events, kept across blocks.
+    out: Out,
     inputs: Buffers,
     outputs: Buffers,
     /// The input port that takes the side-chain, and whether it holds one.
@@ -704,6 +724,8 @@ struct ClapDevice {
     /// What the plugin said of itself after its last block (see
     /// [`Device::resting`]).
     rest: Rest,
+    /// States the plugin had been given at its last block ([`HostFlags::loads`]).
+    loads: u64,
 }
 
 // The buffers hold raw pointers into vectors the device owns.
@@ -886,7 +908,7 @@ impl Device for ClapDevice {
                 get: Some(events_get),
             };
             let out_events = clap_output_events {
-                ctx: &mut self.changed as *mut rtrb::Producer<(clap_id, f64)> as *mut c_void,
+                ctx: &mut self.out as *mut Out as *mut c_void,
                 try_push: Some(events_push),
             };
             let process = clap_process {
@@ -902,7 +924,13 @@ impl Device for ClapDevice {
             };
             self.steady_time += n as i64;
             let Some(run) = (*plugin).process else { return };
+            let loads = self.shared.flags.loads.load(Ordering::Acquire);
+            self.out.taking = loads != self.loads;
+            self.loads = loads;
             let status = run(plugin, &process);
+            // Counted once the block is done: a state taken on in it, and
+            // the plugin's words of it, are there before the count is.
+            self.shared.flags.blocks.fetch_add(1, Ordering::Release);
             if status == CLAP_PROCESS_ERROR {
                 return;
             }
@@ -984,18 +1012,48 @@ unsafe extern "C" fn events_get(
     }
 }
 
-/// The plugin's output events. Only parameter changes are kept: they are how
-/// a plugin tells the host what was done in its editor.
+/// What a plugin tells in its output events.
+struct Out {
+    /// Parameter values it reports changing, on their way to the
+    /// controller: CLAP id, value, whether it came inside a gesture, and
+    /// whether it came in the first block after a state.
+    changed: rtrb::Producer<(clap_id, f64, bool, bool)>,
+    /// The block the plugin processes now is the first after a state.
+    taking: bool,
+    /// The parameters between `GESTURE_BEGIN` and `GESTURE_END` now: a
+    /// person moves them in the plugin's window.
+    gestures: Vec<clap_id>,
+}
+
+/// The plugin's output events. Only parameter changes and gestures are
+/// kept: they are how a plugin tells the host what was done in its editor.
 unsafe extern "C" fn events_push(
     list: *const clap_output_events,
     event: *const clap_event_header,
 ) -> bool {
     unsafe {
-        if (*event).space_id == CLAP_CORE_EVENT_SPACE_ID && (*event).type_ == CLAP_EVENT_PARAM_VALUE
-        {
-            let event = &*(event as *const clap_event_param_value);
-            let changed = &mut *((*list).ctx as *mut rtrb::Producer<(clap_id, f64)>);
-            let _ = changed.push((event.param_id, event.value));
+        if (*event).space_id != CLAP_CORE_EVENT_SPACE_ID {
+            return true;
+        }
+        let out = &mut *((*list).ctx as *mut Out);
+        match (*event).type_ {
+            CLAP_EVENT_PARAM_VALUE => {
+                let event = &*(event as *const clap_event_param_value);
+                let gesture = out.gestures.contains(&event.param_id);
+                let _ = out.changed.push((event.param_id, event.value, gesture, out.taking));
+            }
+            CLAP_EVENT_PARAM_GESTURE_BEGIN => {
+                let event = &*(event as *const clap_event_param_gesture);
+                // Room is kept for many at once: no allocation here.
+                if out.gestures.len() < out.gestures.capacity() {
+                    out.gestures.push(event.param_id);
+                }
+            }
+            CLAP_EVENT_PARAM_GESTURE_END => {
+                let event = &*(event as *const clap_event_param_gesture);
+                out.gestures.retain(|id| *id != event.param_id);
+            }
+            _ => {}
         }
     }
     true
@@ -1006,7 +1064,12 @@ struct ClapController {
     plugin_id: String,
     /// The plugin's own presets, found once asked for.
     presets: Option<Vec<crate::presets::Preset>>,
-    changes: rtrb::Consumer<(clap_id, f64)>,
+    changes: rtrb::Consumer<(clap_id, f64, bool, bool)>,
+    /// Tells the echo of a state from an edit.
+    echo: Echo,
+    /// When it was last given a state, how many blocks it had processed:
+    /// its values are read again once it has processed another.
+    reread: Option<u64>,
     /// The last value seen for each parameter, to tell what a rescan changed.
     known: Vec<f64>,
     /// The open editor: in one of our windows, or (`None` inside) floating in
@@ -1018,6 +1081,16 @@ struct ClapController {
 }
 
 impl ClapController {
+    /// The plugin was given a state (or a preset, or a request that may
+    /// set its parameters): what it holds now, and again after its next
+    /// block, is what it tells of its values for the echo.
+    fn given_state(&mut self) {
+        let values: Vec<Option<f64>> = (0..self.known.len()).map(|i| self.value(i)).collect();
+        self.echo.given(values);
+        self.reread = Some(self.shared.flags.blocks.load(Ordering::Acquire));
+        self.shared.flags.loads.fetch_add(1, Ordering::Release);
+    }
+
     /// The window system to open the editor with, and whether the plugin
     /// floats it in a window of its own. Embedding in an X11 window comes
     /// first, since that is what nearly every plugin offers and it lets the
@@ -1208,6 +1281,7 @@ impl Controller for ClapController {
             }
             // Some plugins take a state on only in their next block.
             self.shared.flags.wake.store(true, Relaxed);
+            self.given_state();
             Ok(())
         }
     }
@@ -1223,10 +1297,34 @@ impl Controller for ClapController {
         self.run_editor();
     }
 
-    fn take_changes(&mut self) -> Vec<(usize, f64)> {
+    fn take_changes(&mut self) -> Vec<Change> {
         let mut out = Vec::new();
+        // A plugin that takes a state on only in its next block has its
+        // new values only then: read them back, as the echo they are.
+        if let Some(blocks) = self.reread
+            && self.shared.flags.blocks.load(Ordering::Acquire) != blocks
+        {
+            self.reread = None;
+            let values: Vec<Option<f64>> = (0..self.known.len()).map(|i| self.value(i)).collect();
+            for (index, value) in values.iter().enumerate() {
+                if let Some(value) = *value
+                    && value != self.known[index]
+                {
+                    let first = self.known[index].is_nan();
+                    self.known[index] = value;
+                    if !first {
+                        out.push(Change {
+                            index,
+                            value,
+                            edit: false,
+                        });
+                    }
+                }
+            }
+            self.echo.given(values);
+        }
         // Changes the plugin reported while processing.
-        while let Ok((id, value)) = self.changes.pop() {
+        while let Ok((id, value, gesture, taking)) = self.changes.pop() {
             if let Some(index) = self
                 .shared
                 .param_ids
@@ -1234,7 +1332,13 @@ impl Controller for ClapController {
                 .position(|(known, _)| *known == id)
             {
                 self.known[index] = value;
-                out.push((index, value));
+                // Told with no gesture in the block that took a state on:
+                // the state's values.
+                out.push(if !gesture && taking {
+                    self.echo.state(index, value)
+                } else {
+                    self.echo.change(index, value, gesture)
+                });
             }
         }
         // And a request to read everything again, as after loading a preset.
@@ -1247,7 +1351,7 @@ impl Controller for ClapController {
                     let first = self.known[index].is_nan();
                     self.known[index] = value;
                     if !first {
-                        out.push((index, value));
+                        out.push(self.echo.change(index, value, false));
                     }
                 }
             }
@@ -1380,8 +1484,10 @@ impl Controller for ClapController {
                 if !load(plugin, kind, ptr_of(&location), ptr_of(&key)) {
                     bail!("the plugin could not load the preset");
                 }
-                // What the preset changed is read back like any other change.
+                // What the preset changed is read back, as the echo of a
+                // state.
                 self.shared.flags.rescan.store(true, Relaxed);
+                self.given_state();
                 Ok(Vec::new())
             },
             paw_engine::device::method::NOTE_NAMES => Ok(unsafe { note_names(self.shared.plugin) }),
