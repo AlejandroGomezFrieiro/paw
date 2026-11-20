@@ -16,7 +16,7 @@ use std::sync::{Arc, Mutex};
 use anyhow::{Context, Result, bail};
 use paw_engine::device::{Change, Rest, assign_keys};
 use paw_engine::{
-    Category, Controller, Ctl, Device, DeviceFactory, DeviceFormat, DeviceInfo, EventKind, Instance,
+    Controller, Ctl, Device, DeviceFactory, DeviceFormat, DeviceInfo, EventKind, Instance,
     Io, NOTE_BEND_RANGE, NoteCtl, ParamInfo, Ports, ProcessCtx, Registry,
 };
 use vst3::Steinberg::Linux::*;
@@ -26,7 +26,7 @@ use vst3::{Class, ComPtr, ComRef, ComWrapper, Interface};
 
 use crate::echo::Echo;
 use crate::window::{HostWindow, Watches, WindowEvent, ui_scale};
-use crate::{Cache, Found, HeldNotes, find_bundles, search_dirs, write_output};
+use crate::{Found, HeldNotes, PluginFormat, write_output};
 
 const OK: tresult = 0;
 const NO_INTERFACE: tresult = -1;
@@ -226,66 +226,43 @@ fn list(bundle: &Path) -> Result<Vec<Found>> {
     Ok(found)
 }
 
-pub(crate) fn scan(registry: &mut Registry, cache: &mut Cache, notes: &mut Vec<String>) {
-    scan_in(registry, cache, notes, &search_dirs("VST3_PATH", "vst3"));
-}
+/// VST3, for [`scan_in`](crate::scan_in): a `.vst3` bundle holds a shared
+/// library, and its plugins are `vst3:<name>`.
+pub(crate) struct Vst3;
 
-/// Register the plugins in the `.vst3` bundles under `dirs`.
-pub(crate) fn scan_in(
-    registry: &mut Registry,
-    cache: &mut Cache,
-    notes: &mut Vec<String>,
-    dirs: &[std::path::PathBuf],
-) {
-    let mut seen = std::collections::HashSet::new();
-    for bundle in find_bundles(dirs, "vst3") {
-        let library = library_path(&bundle);
-        if !library.is_file() {
-            continue;
+impl PluginFormat for Vst3 {
+    const NAME: &'static str = "vst3";
+    const FORMAT: DeviceFormat = DeviceFormat::Vst3;
+    const ENV: &'static str = "VST3_PATH";
+    // The same plugin installed in two places is one plugin.
+    const ONE_PER_ID: bool = true;
+
+    fn library(bundle: &Path) -> Option<PathBuf> {
+        Some(library_path(bundle)).filter(|library| library.is_file())
+    }
+
+    fn list(bundle: &Path) -> Result<Vec<Found>> {
+        list(bundle)
+    }
+
+    /// The name is the handle, so two plugins cannot share one.
+    fn kind(found: &Found, registry: &Registry) -> String {
+        let mut kind = format!("vst3:{}", found.name);
+        let mut copy = 2;
+        while registry.get(&kind).is_some() {
+            kind = format!("vst3:{} ({copy})", found.name);
+            copy += 1;
         }
-        match cache.plugins(&library, || {
-            crate::list_apart("vst3", &bundle, || list(&bundle))
-        }) {
-            Ok(found) => {
-                for plugin in found {
-                    let Some(class) = unhex(&plugin.id) else {
-                        continue;
-                    };
-                    // The same plugin installed in two places is one plugin.
-                    if !seen.insert(plugin.id.clone()) {
-                        continue;
-                    }
-                    // The name is the handle, so two plugins cannot share one.
-                    let mut kind = format!("vst3:{}", plugin.name);
-                    let mut copy = 2;
-                    while registry.get(&kind).is_some() {
-                        kind = format!("vst3:{} ({copy})", plugin.name);
-                        copy += 1;
-                    }
-                    let info = DeviceInfo {
-                        kind,
-                        name: plugin.name,
-                        category: if plugin.instrument {
-                            Category::Instrument
-                        } else {
-                            Category::Effect
-                        },
-                        format: DeviceFormat::Vst3,
-                        vendor: plugin.vendor,
-                        id: plugin.id.clone(),
-                        version: plugin.version,
-                        params: Vec::new(),
-                        features: plugin.features,
-                    };
-                    registry.register(std::rc::Rc::new(Vst3Factory {
-                        info,
-                        bundle: bundle.clone(),
-                        class,
-                    }));
-                }
-            }
-            Err(err) => notes.push(format!("{}: {err}", bundle.display())),
-        }
+        kind
+    }
+
+    fn factory(info: DeviceInfo, bundle: &Path) -> Option<Rc<dyn DeviceFactory>> {
+        let class = unhex(&info.id)?;
+        Some(Rc::new(Vst3Factory {
+            info,
+            bundle: bundle.to_path_buf(),
+            class,
+        }))
     }
 }
 

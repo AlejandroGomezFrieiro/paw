@@ -26,12 +26,14 @@
 //! same cache), creates it, and opens its editor in a window of its own, so
 //! plugin windows work exactly as they do in-process.
 
+use std::cell::UnsafeCell;
 use std::io::{Read, Write};
 use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
 use std::os::unix::net::UnixStream;
 use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
+use std::ptr::NonNull;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
@@ -141,6 +143,10 @@ pub fn remote(
 /// The head of the memory both processes map. What the DAW's audio thread
 /// writes before it asks for a block is read by the helper's only after it
 /// has seen the request, and the other way round for the answer.
+///
+/// Only atomics, fields written once before the other process maps the
+/// memory, and [`UnsafeCell`]s are in it, so a shared `&Header` is sound
+/// while the other process writes.
 #[repr(C)]
 struct Header {
     magic: u32,
@@ -153,7 +159,25 @@ struct Header {
     /// The scheduling of the DAW's audio thread, for the helper's to take.
     policy: AtomicU32,
     priority: AtomicU32,
-    // One block's context.
+    /// One block's context: reached only through a [`Block`].
+    context: UnsafeCell<BlockContext>,
+    // What the helper's main thread tells the DAW's.
+    latency: AtomicU32,
+    editor_open: AtomicU32,
+    /// Changes the plugin made by itself: written at `change_head` by the
+    /// helper, read up to it by the DAW.
+    change_head: AtomicU32,
+    change_tail: AtomicU32,
+    /// Why the helper stopped the device and ended, when it knows: written
+    /// before it ends, read once it has.
+    reason_len: AtomicU32,
+    reason: UnsafeCell<[u8; REASON]>,
+}
+
+/// One block's context and counts, in the header. The audio thread whose
+/// turn it is (see [`Turn`]) is the only one that touches it.
+#[repr(C)]
+struct BlockContext {
     frames: u32,
     sample_rate: f32,
     tempo: f64,
@@ -176,24 +200,43 @@ struct Header {
     keyed: u32,
     /// Which further output pairs are asked for, a bit each from the second.
     outs: u32,
-    // What the helper's main thread tells the DAW's.
-    latency: AtomicU32,
-    editor_open: AtomicU32,
-    /// Changes the plugin made by itself: written at `change_head` by the
-    /// helper, read up to it by the DAW.
-    change_head: AtomicU32,
-    change_tail: AtomicU32,
-    /// Why the helper stopped the device and ended, when it knows: written
-    /// before it ends, read once it has.
-    reason_len: AtomicU32,
-    reason: [u8; REASON],
 }
+
+// The layout is a protocol between the DAW and its helpers: these are the
+// offsets the header had when the context's fields were in it one by one.
+const _: () = {
+    assert!(std::mem::offset_of!(Header, context) == 32);
+    assert!(std::mem::size_of::<BlockContext>() == 88);
+    assert!(std::mem::offset_of!(Header, latency) == 120);
+    assert!(std::mem::offset_of!(Header, reason_len) == 136);
+    assert!(std::mem::offset_of!(Header, reason) == 140);
+    assert!(std::mem::size_of::<Header>() == 1168);
+};
 
 impl Header {
     /// The reason the helper gave for ending, if it gave one.
     fn reason(&self) -> Option<String> {
         let len = (self.reason_len.load(Ordering::Acquire) as usize).min(REASON);
-        (len > 0).then(|| String::from_utf8_lossy(&self.reason[..len]).into_owned())
+        if len == 0 {
+            return None;
+        }
+        // SAFETY: the helper writes the reason only before it publishes its
+        // length (Release, read above with Acquire), and never again.
+        let reason = unsafe { &*self.reason.get() };
+        Some(String::from_utf8_lossy(&reason[..len]).into_owned())
+    }
+
+    /// Give the reason the helper ends for. Called once, by the helper's
+    /// main thread, as it ends.
+    fn set_reason(&self, why: &str) {
+        let bytes = why.as_bytes();
+        let len = bytes.len().min(REASON);
+        // SAFETY: only the helper's main thread writes the reason, once, and
+        // the DAW reads it only after the length below is published.
+        unsafe {
+            std::ptr::copy_nonoverlapping(bytes.as_ptr(), self.reason.get().cast::<u8>(), len);
+        }
+        self.reason_len.store(len as u32, Ordering::Release);
     }
 }
 
@@ -215,15 +258,55 @@ struct ChangeSlot {
 
 /// The mapping, and where each part of it is.
 struct Shm {
-    base: *mut u8,
+    base: NonNull<u8>,
     len: usize,
     max_block: usize,
+    layout: Layout,
     fd: OwnedFd,
+    /// The [`Turn`] has been handed out.
+    turn_taken: AtomicBool,
 }
 
-// Each part is used by one thread on each side, in turn, as the header says.
+// SAFETY: the mapping is plain memory. Its header is atomics and cells that
+// one thread at a time touches (see `Header`); the block's parts are reached
+// only through the one `Turn` of each process, and the changes ring has one
+// writer (the helper's main thread) and one reader (the DAW's).
 unsafe impl Send for Shm {}
+// SAFETY: as for `Send`: `&Shm` gives no unsynchronized access by itself.
 unsafe impl Sync for Shm {}
+
+/// The right to the block's parts in this process: one per mapping, held by
+/// the thread that runs blocks (the DAW's audio thread in the stand-in, the
+/// helper's audio thread). Across the processes, the two take turns by the
+/// header's `request` and `done`.
+struct Turn {
+    /// The mapping it belongs to, as an address.
+    base: usize,
+}
+
+/// The parts of the shared memory that carry one block, borrowed from the
+/// one [`Turn`]: disjoint, by [`Layout`].
+struct Block<'a> {
+    context: &'a mut BlockContext,
+    left: &'a mut [f32],
+    right: &'a mut [f32],
+    /// The side-chain's two channels.
+    key: [&'a mut [f32]; 2],
+    /// The further output pairs, left and right one after the other.
+    outs: &'a mut [f32],
+    events: &'a mut [Event],
+    params: &'a mut [ParamMove],
+    messages: &'a mut [u8],
+    max_block: usize,
+}
+
+impl Block<'_> {
+    /// One channel of a further output pair: `pair` 0 is the second.
+    fn out(&mut self, pair: usize, channel: usize) -> &mut [f32] {
+        let at = (pair * 2 + channel) * self.max_block;
+        &mut self.outs[at..at + self.max_block]
+    }
+}
 
 impl Shm {
     fn layout(max_block: usize) -> Layout {
@@ -253,23 +336,34 @@ impl Shm {
     /// A new block of memory, zeroed, for blocks of up to `max_block` frames.
     fn create(max_block: usize) -> Result<Self> {
         let len = Self::layout(max_block).len;
+        // SAFETY: a plain call with a valid C string; the result is checked.
         let fd = unsafe { libc::memfd_create(c"paw-plugin".as_ptr(), libc::MFD_CLOEXEC) };
         if fd < 0 {
             bail!("no shared memory: {}", std::io::Error::last_os_error());
         }
+        // SAFETY: `fd` was just opened, and nothing else owns it.
         let fd = unsafe { OwnedFd::from_raw_fd(fd) };
+        // SAFETY: a plain call on the descriptor owned above.
         if unsafe { libc::ftruncate(fd.as_raw_fd(), len as libc::off_t) } != 0 {
             bail!("no shared memory: {}", std::io::Error::last_os_error());
         }
         let shm = Self::map(fd, max_block)?;
-        let header = shm.header_mut();
-        header.magic = MAGIC;
-        header.max_block = max_block as u32;
+        let header = shm.base.as_ptr().cast::<Header>();
+        // SAFETY: the memory is ours alone until the helper is started with
+        // its descriptor, and the header is in it, aligned (the mapping is
+        // page-aligned).
+        unsafe {
+            (&raw mut (*header).magic).write(MAGIC);
+            (&raw mut (*header).max_block).write(max_block as u32);
+        }
         Ok(shm)
     }
 
     fn map(fd: OwnedFd, max_block: usize) -> Result<Self> {
-        let len = Self::layout(max_block).len;
+        let layout = Self::layout(max_block);
+        let len = layout.len;
+        // SAFETY: a new shared mapping of a descriptor we own; the result is
+        // checked, and it is unmapped only in `drop`.
         let base = unsafe {
             libc::mmap(
                 std::ptr::null_mut(),
@@ -284,64 +378,100 @@ impl Shm {
             bail!("mapping shared memory: {}", std::io::Error::last_os_error());
         }
         Ok(Self {
-            base: base.cast(),
+            base: NonNull::new(base.cast()).context("mapping shared memory: null")?,
             len,
             max_block,
+            layout,
             fd,
+            turn_taken: AtomicBool::new(false),
         })
     }
 
     fn header(&self) -> &Header {
-        unsafe { &*self.base.cast::<Header>() }
+        // SAFETY: the mapping starts with a `Header` (zeroed, then given its
+        // magic), lives as long as `self`, and the header can be shared (see
+        // `Header`).
+        unsafe { self.base.cast::<Header>().as_ref() }
     }
 
+    /// The right to the block's parts. There is one: a second call panics.
+    fn turn(&self) -> Turn {
+        assert!(
+            !self.turn_taken.swap(true, Ordering::Relaxed),
+            "one turn per mapping"
+        );
+        Turn {
+            base: self.base.as_ptr() as usize,
+        }
+    }
+
+    /// `count` items of `T` at `offset`, borrowed for as long as `self`.
+    ///
+    /// # Safety
+    ///
+    /// The range is inside the mapping, aligned for `T`, does not overlap
+    /// another part borrowed at the same time, and is not touched by the
+    /// other process while it is borrowed.
     #[allow(clippy::mut_from_ref)]
-    fn header_mut(&self) -> &mut Header {
-        unsafe { &mut *self.base.cast::<Header>() }
+    unsafe fn part<T>(&self, offset: usize, count: usize) -> &mut [T] {
+        debug_assert!(offset + count * std::mem::size_of::<T>() <= self.len);
+        // SAFETY: as the caller promises.
+        unsafe { std::slice::from_raw_parts_mut(self.base.as_ptr().add(offset).cast(), count) }
     }
 
-    #[allow(clippy::mut_from_ref)]
-    fn part<T>(&self, offset: usize, count: usize) -> &mut [T] {
-        unsafe { std::slice::from_raw_parts_mut(self.base.add(offset).cast::<T>(), count) }
+    /// The parts that carry a block. The process that holds `turn` has the
+    /// block between asking for it and having its answer (the DAW), or
+    /// between seeing the request and answering it (the helper).
+    fn block<'a>(&'a self, turn: &'a mut Turn) -> Block<'a> {
+        assert_eq!(
+            turn.base,
+            self.base.as_ptr() as usize,
+            "a turn of this mapping"
+        );
+        let (n, at) = (self.max_block, &self.layout);
+        // SAFETY: the one turn is borrowed mutably for as long as the block,
+        // so no other `Block` of this mapping exists in this process. The
+        // parts are disjoint by `Layout`, in the mapping and aligned (each
+        // starts on 64 bytes); the context is in the header, apart from the
+        // atomics. The other process touches them only in its own turn.
+        unsafe {
+            let (key_l, key_r) = self.part(at.key, 2 * n).split_at_mut(n);
+            Block {
+                context: &mut *self.header().context.get(),
+                left: self.part(at.left, n),
+                right: self.part(at.right, n),
+                key: [key_l, key_r],
+                outs: self.part(at.outs, 2 * (MAX_PAIRS - 1) * n),
+                events: self.part(at.events, EVENTS),
+                params: self.part(at.params, PARAMS),
+                messages: self.part(at.messages, MESSAGES),
+                max_block: n,
+            }
+        }
     }
 
-    fn left(&self) -> &mut [f32] {
-        self.part(Self::layout(self.max_block).left, self.max_block)
+    /// Where `slot` of the changes ring is.
+    fn change_at(&self, slot: u32) -> *mut ChangeSlot {
+        let at = self.layout.changes + (slot as usize % CHANGES) * size_of::<ChangeSlot>();
+        // SAFETY: the ring has CHANGES slots from `layout.changes`, in the
+        // mapping.
+        unsafe { self.base.as_ptr().add(at).cast() }
     }
 
-    fn right(&self) -> &mut [f32] {
-        self.part(Self::layout(self.max_block).right, self.max_block)
+    /// The change at `slot` of the ring, as the helper put it.
+    fn change(&self, slot: u32) -> ChangeSlot {
+        // SAFETY: in the mapping and aligned; read by value, with no
+        // reference made. The DAW reads only slots below `change_head`
+        // (Acquire), which the helper wrote before it published them.
+        unsafe { self.change_at(slot).read() }
     }
 
-    /// The side-chain's two channels.
-    fn key(&self) -> (&mut [f32], &mut [f32]) {
-        let at = Self::layout(self.max_block).key;
-        (
-            self.part(at, self.max_block),
-            self.part(at + self.max_block * 4, self.max_block),
-        )
-    }
-
-    /// One channel of a further output pair: `pair` 0 is the second.
-    fn out(&self, pair: usize, channel: usize) -> &mut [f32] {
-        let at = Self::layout(self.max_block).outs + (pair * 2 + channel) * self.max_block * 4;
-        self.part(at, self.max_block)
-    }
-
-    fn events(&self) -> &mut [Event] {
-        self.part(Self::layout(self.max_block).events, EVENTS)
-    }
-
-    fn params(&self) -> &mut [ParamMove] {
-        self.part(Self::layout(self.max_block).params, PARAMS)
-    }
-
-    fn changes(&self) -> &mut [ChangeSlot] {
-        self.part(Self::layout(self.max_block).changes, CHANGES)
-    }
-
-    fn messages(&self) -> &mut [u8] {
-        self.part(Self::layout(self.max_block).messages, MESSAGES)
+    /// Put a change at `slot` of the ring. Only the helper's main thread
+    /// does, before it publishes the slot with `change_head`.
+    fn put_change(&self, slot: u32, change: ChangeSlot) {
+        // SAFETY: in the mapping and aligned; written by value, with no
+        // reference made, by the ring's one writer.
+        unsafe { self.change_at(slot).write(change) }
     }
 }
 
@@ -360,8 +490,10 @@ struct Layout {
 
 impl Drop for Shm {
     fn drop(&mut self) {
+        // SAFETY: mapped in `map` with this length, and no borrow of it
+        // outlives `self`.
         unsafe {
-            libc::munmap(self.base.cast(), self.len);
+            libc::munmap(self.base.as_ptr().cast(), self.len);
         }
     }
 }
@@ -420,6 +552,8 @@ struct RemoteDevice {
     seq: u32,
     /// That block has not been answered yet.
     outstanding: bool,
+    /// The right to the shared block's parts, in this process.
+    turn: Turn,
     /// Parameter moves for the next block.
     moves: Vec<ParamMove>,
     /// Messages for the next block, as the shared memory carries them.
@@ -486,7 +620,8 @@ impl Device for RemoteDevice {
         let events = io.events.as_slice();
         let count = events.len().min(EVENTS);
         {
-            let head = shm.header_mut();
+            let block = shm.block(&mut self.turn);
+            let head = &mut *block.context;
             head.frames = frames as u32;
             head.sample_rate = ctx.sample_rate;
             head.tempo = ctx.tempo;
@@ -508,19 +643,19 @@ impl Device for RemoteDevice {
                 .enumerate()
                 .filter(|(_, out)| out.is_some())
                 .fold(0, |bits, (pair, _)| bits | 1 << pair);
+            block.left[..frames].copy_from_slice(&io.left[..frames]);
+            block.right[..frames].copy_from_slice(&io.right[..frames]);
+            if let Some([l, r]) = io.sidechain {
+                let [key_l, key_r] = block.key;
+                key_l[..frames].copy_from_slice(&l[..frames]);
+                key_r[..frames].copy_from_slice(&r[..frames]);
+            }
+            block.events[..count].copy_from_slice(&events[..count]);
+            block.params[..self.moves.len()].copy_from_slice(&self.moves);
+            self.moves.clear();
+            block.messages[..self.messages.len()].copy_from_slice(&self.messages);
+            self.messages.clear();
         }
-        shm.left()[..frames].copy_from_slice(&io.left[..frames]);
-        shm.right()[..frames].copy_from_slice(&io.right[..frames]);
-        if let Some([l, r]) = io.sidechain {
-            let (key_l, key_r) = shm.key();
-            key_l[..frames].copy_from_slice(&l[..frames]);
-            key_r[..frames].copy_from_slice(&r[..frames]);
-        }
-        shm.events()[..count].copy_from_slice(&events[..count]);
-        shm.params()[..self.moves.len()].copy_from_slice(&self.moves);
-        self.moves.clear();
-        shm.messages()[..self.messages.len()].copy_from_slice(&self.messages);
-        self.messages.clear();
 
         self.seq = self.seq.wrapping_add(1);
         header.request.store(self.seq, Ordering::Release);
@@ -574,18 +709,19 @@ impl Device for RemoteDevice {
             }
         }
         link.answered.fetch_add(1, Ordering::Relaxed);
-        io.left[..frames].copy_from_slice(&shm.left()[..frames]);
-        io.right[..frames].copy_from_slice(&shm.right()[..frames]);
+        let mut block = shm.block(&mut self.turn);
+        io.left[..frames].copy_from_slice(&block.left[..frames]);
+        io.right[..frames].copy_from_slice(&block.right[..frames]);
         for (pair, out) in io.outputs.iter_mut().take(MAX_PAIRS - 1).enumerate() {
             if let Some([l, r]) = out {
-                l[..frames].copy_from_slice(&shm.out(pair, 0)[..frames]);
-                r[..frames].copy_from_slice(&shm.out(pair, 1)[..frames]);
+                l[..frames].copy_from_slice(&block.out(pair, 0)[..frames]);
+                r[..frames].copy_from_slice(&block.out(pair, 1)[..frames]);
             }
         }
-        self.rest.end(header.resting != 0);
-        let out = (header.events_out as usize).min(EVENTS);
+        self.rest.end(block.context.resting != 0);
+        let out = (block.context.events_out as usize).min(EVENTS);
         io.events.clear();
-        for event in &shm.events()[..out] {
+        for event in &block.events[..out] {
             io.events.push(*event);
         }
     }
@@ -842,7 +978,7 @@ impl Controller for RemoteController {
         let head = header.change_head.load(Ordering::Acquire);
         let mut tail = header.change_tail.load(Ordering::Relaxed);
         while tail != head {
-            let change = shm.changes()[tail as usize % CHANGES];
+            let change = shm.change(tail);
             if let Some(slot) = self.values.get_mut(change.index as usize) {
                 *slot = change.value;
                 self.pending.push(Change {
@@ -1209,6 +1345,7 @@ impl RemoteFactory {
                 instrument: self.info.category == Category::Instrument,
                 seq: 0,
                 outstanding: false,
+                turn: controller.link.shm.turn(),
                 moves: Vec::with_capacity(PARAMS),
             messages: Vec::with_capacity(MESSAGES),
                 told_priority: false,
@@ -1441,6 +1578,7 @@ impl Controller for NoController {
 fn audio_loop(shm: Arc<Shm>, mut device: Box<dyn Device>) {
     paw_engine::no_denormals();
     let header = shm.header();
+    let mut turn = shm.turn();
     let mut events = paw_engine::EventBuf::with_capacity(EVENTS);
     // The further output pairs, filled by the plugin and then copied over;
     // those not asked for are put aside while it runs.
@@ -1477,15 +1615,17 @@ fn audio_loop(shm: Arc<Shm>, mut device: Box<dyn Device>) {
                 libc::pthread_setschedparam(libc::pthread_self(), wanted.0 as i32, &param);
             }
         }
-        let frames = (header.frames as usize).min(shm.max_block);
-        for mv in &shm.params()[..(header.params_in as usize).min(PARAMS)] {
+        let mut block = shm.block(&mut turn);
+        let head = &mut *block.context;
+        let frames = (head.frames as usize).min(shm.max_block);
+        for mv in &block.params[..(head.params_in as usize).min(PARAMS)] {
             device.set_param(mv.index, mv.value);
         }
         events.clear();
-        for event in &shm.events()[..(header.events_in as usize).min(EVENTS)] {
+        for event in &block.events[..(head.events_in as usize).min(EVENTS)] {
             events.push(*event);
         }
-        let messages = &shm.messages()[..(header.messages_in as usize).min(MESSAGES)];
+        let messages = &block.messages[..(head.messages_in as usize).min(MESSAGES)];
         let mut at = 0;
         while let Some(head) = messages.get(at..at + 8) {
             let frame = u32::from_le_bytes(head[..4].try_into().unwrap());
@@ -1496,20 +1636,22 @@ fn audio_loop(shm: Arc<Shm>, mut device: Box<dyn Device>) {
             at += 8 + len;
         }
         let ctx = ProcessCtx {
-            sample_rate: header.sample_rate,
-            tempo: header.tempo,
-            sig_num: header.sig_num,
-            sig_den: header.sig_den,
-            playing: header.playing != 0,
-            position: header.position,
-            seconds: header.seconds,
-            bar: header.bar,
-            bar_start: header.bar_start,
+            sample_rate: head.sample_rate,
+            tempo: head.tempo,
+            sig_num: head.sig_num,
+            sig_den: head.sig_den,
+            playing: head.playing != 0,
+            position: head.position,
+            seconds: head.seconds,
+            bar: head.bar,
+            bar_start: head.bar_start,
         };
+        let keyed = head.keyed != 0;
+        let wanted = head.outs;
         {
-            let (left, right) = (shm.left(), shm.right());
-            let (key_l, key_r) = shm.key();
-            let wanted = header.outs;
+            let Block {
+                left, right, key: [key_l, key_r], ..
+            } = &mut block;
             let pairs = (u32::BITS - wanted.leading_zeros()) as usize;
             for (pair, (out, put)) in outs.iter_mut().zip(aside.iter_mut()).enumerate() {
                 // Swapped, not made or freed: what is asked for is in `outs`.
@@ -1525,22 +1667,22 @@ fn audio_loop(shm: Arc<Shm>, mut device: Box<dyn Device>) {
                 left: &mut left[..frames],
                 right: &mut right[..frames],
                 events: &mut events,
-                sidechain: (header.keyed != 0).then_some([&key_l[..frames], &key_r[..frames]]),
+                sidechain: keyed.then_some([&key_l[..frames], &key_r[..frames]]),
                 outputs: &mut outs[..pairs.min(MAX_PAIRS - 1)],
             };
             device.process(&ctx, &mut io);
             for (pair, out) in outs.iter().enumerate() {
                 if let Some([l, r]) = out {
-                    shm.out(pair, 0)[..frames].copy_from_slice(&l[..frames]);
-                    shm.out(pair, 1)[..frames].copy_from_slice(&r[..frames]);
+                    block.out(pair, 0)[..frames].copy_from_slice(&l[..frames]);
+                    block.out(pair, 1)[..frames].copy_from_slice(&r[..frames]);
                 }
             }
         }
         let out = events.as_slice();
         let count = out.len().min(EVENTS);
-        shm.events()[..count].copy_from_slice(&out[..count]);
-        shm.header_mut().events_out = count as u32;
-        shm.header_mut().resting = device.resting() as u32;
+        block.events[..count].copy_from_slice(&out[..count]);
+        block.context.events_out = count as u32;
+        block.context.resting = device.resting() as u32;
         seen = asked;
         header.done.store(asked, Ordering::Release);
         futex_wake(&header.done);
@@ -1753,20 +1895,20 @@ pub fn serve_with(
             // failed) says why, and its helper ends: the DAW shows it as
             // stopped, with that reason.
             if let Some(why) = controller.health() {
-                let bytes = why.as_bytes();
-                let len = bytes.len().min(REASON);
-                shm.header_mut().reason[..len].copy_from_slice(&bytes[..len]);
-                header.reason_len.store(len as u32, Ordering::Release);
+                header.set_reason(&why);
                 break 'serve;
             }
             for change in controller.take_changes() {
                 let head = header.change_head.load(Ordering::Relaxed);
                 // A reader that has fallen a whole ring behind loses the oldest.
-                shm.changes()[head as usize % CHANGES] = ChangeSlot {
-                    index: change.index as u32,
-                    edit: change.edit as u32,
-                    value: change.value,
-                };
+                shm.put_change(
+                    head,
+                    ChangeSlot {
+                        index: change.index as u32,
+                        edit: change.edit as u32,
+                        value: change.value,
+                    },
+                );
                 header
                     .change_head
                     .store(head.wrapping_add(1), Ordering::Release);
