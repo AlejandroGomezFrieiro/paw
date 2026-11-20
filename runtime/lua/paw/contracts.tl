@@ -717,9 +717,10 @@ local record contracts
 
    -- Queries and grep -------------------------------------------------------------
 
-   --- The kinds of node of a query.
+   --- The kinds of node of a query. `project` is the root of the tree,
+   --- which a query does not find.
    enum QueryKind
-      "track" "group" "clip" "note" "cc" "device" "lane" "point" "marker" "region"
+      "project" "track" "group" "clip" "note" "cc" "device" "lane" "point" "marker" "region"
    end
 
    --- A node of a query: `data` is the thing as `paw.api` gives it, the

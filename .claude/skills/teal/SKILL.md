@@ -116,6 +116,9 @@ local paw = (_G as {string:Paw}).paw
 | `paw.Track` is a type in Teal, not a value | `getmetatable(x) == …` checks stay in Lua |
 | A one-field kernel read (`track_get(id, "meta")`) is faster but untyped | keep it through one cast of the function when it is on a hot path |
 | `commands.define` handlers must return `commands.Result` | annotate the handler's return |
+| Two modules cannot name each other's types (`local type` requires in a cycle: "unknown type") | the lower module owns the shared records; the other declares only the part it calls (qf.tl and diagnostic.tl) |
+| `local ok, err = pcall(f)` where `f` returns nothing: "did not produce an initial value for `err`" | wrap it: `pcall(function(): string f() end)` |
+| A record does not fit a contract's interface without `is` (records are nominal) | cast where the value goes in: `data = clip as contracts.QueryData` |
 
 ## What stays Lua
 

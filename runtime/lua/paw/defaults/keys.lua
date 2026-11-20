@@ -798,7 +798,7 @@ imap("<Right>", function() roll:step(1) end, "Step on")
 imap("<Up>", move(0, 1), "Up a semitone")
 imap("<Down>", move(0, -1), "Down a semitone")
 
--- Piano roll: snippets (runtime/lua/paw/snippet.lua). While one is active its
+-- Piano roll: snippets (runtime/lua/paw/snippet.tl). While one is active its
 -- keys come first; otherwise each key does what it does everywhere else.
 roll.layer("snippet", 40, function(p) paw.snippet.paint(p) end)
 command("snippet", function(ctx)

@@ -3233,9 +3233,9 @@ function paw.grep.source(name, fn) end
 --- What `:vimgrep` does: search, fill the list, go to the first place found
 --- unless the flags hold `j`. `opts.loc` the window's location list,
 --- `opts.add` adds to the current list. Returns the records found.
----@param arg any
+---@param line any
 ---@param opts any
-function paw.grep.vimgrep(arg, opts) end
+function paw.grep.vimgrep(line, opts) end
 
 --- Put a track into a group: it then sounds through the group, unless it
 --- was sent somewhere of its own.

@@ -95,13 +95,13 @@ gets.
 | `scope.changed` | `{ scope }` | the tab is narrowed to a group, or not narrowed |
 | `seat.opened`, `seat.closing` | `{ seat }` | a terminal or a graphical window attached, or will go |
 | `address.changed` | `{ uris, revision }` | things with addresses changed (`paw/address.tl`). In Teal, its descriptor is `paw.address.changed` |
-| `annotation.changed`, `diagnostic.changed` | `{ namespace, document, ... }` | annotations or diagnostics changed |
-| `qf.changed` | `{ title, win }` | the quickfix list or a location list changed |
+| `annotation.changed`, `diagnostic.changed` | `{ namespace, document, ... }` | annotations or diagnostics changed. In Teal, the descriptor of `diagnostic.changed` is `paw.diagnostic.changed` |
+| `qf.changed` | `{ title, win }` | the quickfix list or a location list changed. In Teal, its descriptor is `paw.qf.event`: `paw.qf.changed` is a function |
 | `lsp.status` | `{ client, status, document }` | a language server started, failed or stopped |
 | `lsp.analysis` | `{ clip, client }` | the analysis of a clip arrived from a language server |
 | `harmony.changed` | `{ provider }` | the chords that paw hears changed |
-| `complete.changed` | `{ shown }` | suggestions appeared or disappeared |
-| `snippet.expanded`, `snippet.finished` | `{ name, clip }` | a snippet |
+| `complete.changed` | `{ shown }` | suggestions appeared or disappeared. In Teal, its descriptor is `paw.complete.changed` |
+| `snippet.expanded`, `snippet.finished` | `{ name, clip }` | a snippet. In Teal, the descriptors are `paw.snippet.expanded` and `paw.snippet.finished` |
 | `plugins.scanned` | `{ notes, ... }` | a scan for plugins ended |
 | `luadev.checked` | the results | paw checked the devices in Lua again |
 | `ext.loaded` | `{ name, ok }` | an extension loaded, or failed to load |

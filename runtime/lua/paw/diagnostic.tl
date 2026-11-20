@@ -16,43 +16,351 @@
 -- (the notes' own ids, which stay with them through every edit). The older
 -- form for a clip is still taken: `set(namespace, clip, { { notes = { places },
 -- at, length, ..., fixes = { { title, edits = { { note = place, pitch = 73 } } } } } })`.
-local api = paw.api
-local A = paw.address
+--
+-- Written in Teal (paw/lang.tl): the build compiles it to Lua.
+local api = require("paw.api")
+local events = require("paw.events")
+local kernel = require("paw.events.kernel")
+local util = require("paw.util")
+local A = require("paw.address")
+local type types = require("paw.types")
+local type contracts = require("paw.contracts")
+local type partial = require("paw.partial")
+local type objects = require("paw.objects")
 
-local M = {}
+--- A severity: 1 (error) to 4 (hint), or one of the words `error`,
+--- `warning` (`warn`), `info` (`information`) and `hint`.
+local type Level = number | string
 
---- Severities by name and number, as `vim.diagnostic.severity`.
+--- A change of a fix in the older form, about a note of a clip by its
+--- place: a new pitch, start, length or velocity, or `delete`.
+local record OldEdit
+  note: integer
+  delete: boolean
+  pitch: integer
+  start: number
+  length: number
+  velocity: integer
+end
+
+--- What the one who publishes a diagnostic keeps in it (`data`): paw does
+--- not read it.
+local record Data
+end
+
+--- A fix of a diagnostic: changes of a workspace edit (`edit`, see
+--- `paw.address.edit`), or a function (`apply`). `edits` is the older form.
+local record Fix
+  title: string
+  edit: {A.Change}
+  apply: function(d: Diagnostic)
+  edits: {OldEdit}
+end
+
+--- A diagnostic as it is published (`paw.diagnostic.set`). The older form
+--- for a clip gives the places of its notes (`notes`), `at` and `length`
+--- in the clip's beats.
+local record Published
+  location: string | contracts.Location
+  severity: Level
+  message: string
+  rule: string
+  code: string
+  source: string
+  fixes: {Fix}
+  data: Data
+  notes: {number}
+  at: number
+  length: number
+end
+
+--- What a diagnostic is about in its namespace: a clip id, or a text
+--- (the document URI of a server).
+local type Document = integer | string
+
+--- A diagnostic as paw keeps it: the severity a number, the location a
+--- table. About a clip: the clip, the places of its notes (from 1), and
+--- `at` and `length` in the clip's beats.
+local record Diagnostic
+  namespace: string
+  document: Document
+  location: contracts.Location
+  severity: integer
+  message: string
+  rule: string
+  source: string
+  fixes: {Fix}
+  data: Data
+  clip: integer
+  notes: {integer}
+  at: number
+  length: number
+end
+
+--- What `get` asks about: a clip id, an address, or an object of the Lua
+--- interface (`paw.clip(7)`, `paw.track(3)`).
+local type Target = integer | string | A.Thing
+
+--- The least and most severe of `Filter.severity`.
+local record Range
+  min: Level
+  max: Level
+end
+
+--- What `get` keeps: a namespace, a severity (one, or a range), a note's
+--- place in the clip, a kind (as `kind` gives it) and a document.
+local record Filter
+  namespace: string
+  severity: Level | Range
+  note: integer
+  kind: string
+  document: Document
+end
+
+--- How paw shows diagnostics (`paw.diagnostic.config`).
+local record Config
+  virtual_text: boolean
+  signs: boolean
+  underline: boolean
+  severity_sort: boolean
+end
+
+--- The severities by name and by number, as `vim.diagnostic.severity`.
+local record Severity
+  {string}
+  ERROR: integer
+  WARN: integer
+  INFO: integer
+  HINT: integer
+end
+
+--- How many diagnostics there are of each severity.
+local record Count
+  error: integer
+  warning: integer
+  info: integer
+  hint: integer
+  total: integer
+end
+
+--- A fix of the diagnostics about a place (`paw.diagnostic.actions`).
+local record Action
+  title: string
+  diagnostic: Diagnostic
+  fix: Fix
+  run: function(): boolean
+end
+
+--- What `setqflist` and `setloclist` take (`paw.qf.diagnostics`): the
+--- target and the least severity, as `get` takes them, the title of the
+--- list, `win` for a location list (true: the current window's) and
+--- `open` to open its window.
+local record ListOptions
+  target: Target
+  severity: Level
+  title: string
+  win: integer | boolean
+  open: boolean
+end
+
+--- A note that a diagnostic is about, in the piano roll of the window.
+local record RollMark
+  index: integer
+  pitch: integer
+  start: number
+  length: number
+  severity: integer
+  message: string
+  actions: {string}
+end
+
+--- The worst diagnostic about a track, in the window.
+local record TrackMark
+  track: integer
+  severity: integer
+  message: string
+end
+
+--- A stretch of time with a diagnostic, in the window.
+local record TimeMark
+  from: number
+  to: number
+  severity: integer
+  message: string
+end
+
+--- The marks of the window in the views other than the piano roll.
+local record Marks
+  tracks: {TrackMark}
+  times: {TimeMark}
+end
+
+--- The payload of `diagnostic.changed`: the namespace and the document
+--- (nil: all of them), and the clip when the document is one.
+local record Changed
+  namespace: string
+  document: Document
+  clip: integer
+end
+
+--- An item of the picker of `paw.diagnostic.list`.
+local record ListItem
+  text: string
+  diagnostic: Diagnostic
+end
+
+-- What this module reads of the modules that are still in Lua.
+
+--- The glyphs of paw/draw.lua that this module draws.
+local record Glyphs
+  mark: string
+  error: string
+  warn: string
+end
+--- paw/draw.lua, as far as this module reads it.
+local record Draw
+  g: Glyphs
+end
+
+--- What a layer of the piano roll gets (paw/views/pianoroll.lua): the
+--- clip, the parts that it shows (clips and their offsets in beats), the
+--- roll's cells and its ruler, the column of a beat and the row of a pitch.
+local record Part
+  id: integer
+  offset: number
+end
+local record RollLayer
+  clip: types.Clip
+  parts: {Part}
+  roll: contracts.Buf
+  ruler: contracts.Buf
+  x: function(beat: number): integer
+  row: function(pitch: integer): integer
+end
+
+--- The piano roll (paw/views/pianoroll.lua), as far as this module reads it.
+local record Roll
+  clip_id: integer
+  layer: function(name: string, order: integer, paint: function(RollLayer))
+end
+
+--- What a layer of the arrange view's ruler gets: the ruler and the column
+--- of a beat.
+local record RulerLayer
+  ruler: contracts.Buf
+  x: function(beat: number): integer
+end
+
+--- The arrange view, as far as this module adds to it.
+local record Arrange
+  layers: {string: function(view: Arrange, layer: RulerLayer)}
+end
+
+--- What a layer of a view's part gets (`paw.ui.layer`): its cells, where
+--- the part is and what it shows.
+local record ClipOfLayer
+  id: integer
+end
+local record PartLayer
+  buf: contracts.Buf
+  x: integer
+  y: integer
+  width: integer
+  clip: ClipOfLayer
+  track: integer
+  device: integer
+  param: string
+end
+
+--- The gestures of the window (paw/frontend.lua) that this module adds.
+local record Acts
+  note_action: function(clip: integer, place: integer, n: integer)
+end
+local record Frontend
+  act: Acts
+end
+
+--- `paw.qf` (paw/qf.tl), as far as this module calls it. qf.tl names the
+--- types of this module, and two modules cannot name each other's types.
+local record QfList
+  title: string
+end
+local record Qf
+  diagnostics: function(opts: ListOptions): QfList
+end
+
+local record Paw is partial.Paw
+  draw: Draw
+  qf: Qf
+  time: objects.Time
+  Clip: objects.Clip
+end
+local paw = (_G as {string:Paw}).paw
+
+local record M
+  type Level = Level
+  type OldEdit = OldEdit
+  type Data = Data
+  type Fix = Fix
+  type Published = Published
+  type Document = Document
+  type Diagnostic = Diagnostic
+  type Target = Target
+  type Filter = Filter
+  type Config = Config
+  type Count = Count
+  type Action = Action
+  type ListOptions = ListOptions
+  type RollMark = RollMark
+  type Marks = Marks
+  type Changed = Changed
+  --- Severities by name and number, as `vim.diagnostic.severity`.
+  severity: Severity
+  --- Moves on every change, for whoever caches what is drawn.
+  revision: integer
+  severity_of: function(value: Level): integer
+  --- The event `diagnostic.changed`.
+  changed: events.Event<Changed>
+end
+
 M.severity = { ERROR = 1, WARN = 2, INFO = 3, HINT = 4, "error", "warning", "info", "hint" }
-local by_word = { error = 1, warning = 2, warn = 2, info = 3, information = 3, hint = 4 }
+M.changed = events.event("diagnostic.changed")
+local by_word: {string:integer} = { error = 1, warning = 2, warn = 2, info = 3, information = 3, hint = 4 }
 local groups = { "Error", "Warn", "Info", "Hint" }
 
-local options = { virtual_text = true, signs = true, underline = true, severity_sort = true }
+local options: Config = { virtual_text = true, signs = true, underline = true, severity_sort = true }
 
-local store = {}    -- store[namespace][document] = list; a document is a clip id or any string
+local store: {string:{Document:{Diagnostic}}} = {}    -- store[namespace][document] = list; a document is a clip id or any string
 M.revision = 0      -- moves on every change, for whoever caches what is drawn
 
 --- A severity from 1 (error) to 4 (hint), from a number or a word.
-local function severity_of(value)
-  if type(value) == "number" then return math.max(1, math.min(4, math.floor(value))) end
+local function severity_of(value: Level): integer
+  if value is number then return math.max(1, math.min(4, math.floor(value))) end
   return by_word[tostring(value or ""):lower()] or 2
 end
 M.severity_of = severity_of
 
 --- The highlight group for a severity with a prefix: `Diagnostic` gives
 --- `DiagnosticWarn`.
-function M.group(prefix, severity) return prefix .. groups[severity_of(severity)] end
+function M.group(prefix: string, severity: Level): string return prefix .. groups[severity_of(severity)] end
 
-local function document_of(doc)
-  if type(doc) == "table" then return doc.id or A.of(doc) end
+--- What a document is: a clip id or a text, or the id or the address of
+--- an object.
+local function document_of(doc: Document | A.Thing): Document
+  if doc is A.Thing then return (doc as ClipOfLayer).id or A.of(doc) end
   return doc
 end
 
+-- A clip's notes, all of them.
+local clip_notes = api.clip_notes as function(id: integer): {types.Note}
+
 -- A diagnostic about the notes of a clip in the older form: places now,
 -- named by the notes' ids from here on.
-local function from_places(id, d)
-  local notes = {}
-  local ok, list = pcall(api.clip_notes, id)
-  local ids, first, last = {}, math.huge, -math.huge
+local function from_places(id: integer, d: Published): contracts.Location, {Fix}, {integer}
+  local notes: {integer} = {}
+  local ok, list = pcall(clip_notes, id)
+  local ids: {integer} = {}
+  local first, last = math.huge, -math.huge
   for _, place in ipairs(d.notes or {}) do
     local n = ok and list[math.floor(place)]
     if n then
@@ -63,17 +371,19 @@ local function from_places(id, d)
   end
   local at = tonumber(d.at) or (first < math.huge and first or 0)
   local length = tonumber(d.length) or (last > -math.huge and last - first or 0)
-  local fixes = {}
+  local fixes: {Fix} = {}
   for _, fix in ipairs(d.fixes or {}) do
     if fix.edits then
-      local changes = {}
+      local changes: {A.Change} = {}
       for _, e in ipairs(fix.edits) do
         local n = ok and list[e.note]
         local uri = n and n.id and A.note(id, n.id) or ("paw://clip/" .. id .. "/note/gone")
         if e.delete then
           changes[#changes + 1] = { uri = uri, delete = true }
         else
-          changes[#changes + 1] = { uri = uri, set = { pitch = e.pitch, start = e.start, length = e.length, velocity = e.velocity } }
+          local set: {string:number} = { pitch = e.pitch, start = e.start, length = e.length, velocity = e.velocity }
+          local change = { uri = uri, set = set }
+          changes[#changes + 1] = change as A.Change
         end
       end
       fixes[#fixes + 1] = { title = fix.title, edit = changes }
@@ -81,21 +391,25 @@ local function from_places(id, d)
       fixes[#fixes + 1] = fix
     end
   end
-  local selector = { time = { at, at + math.max(0, length) } }
+  local selector: contracts.Selector = { time = { at, at + math.max(0, length) } }
   if #ids > 0 then selector.notes = ids end
   return { uri = A.clip(id), selector = selector }, fixes, notes
 end
 
-local function normalize(ns, doc, d)
-  local location, fixes, places = d.location, d.fixes or {}, nil
-  if not location and type(doc) == "number" then
+local function normalize(ns: string, doc: Document, d: Published): Diagnostic
+  local given = d.location
+  local location: contracts.Location
+  local fixes, places = d.fixes or {}, nil as {integer}
+  if not given and doc is integer then
     location, fixes, places = from_places(doc, d)
-  elseif type(location) == "string" then
-    location = { uri = location }
+  elseif given is string then
+    location = { uri = given }
+  else
+    location = given
   end
   location = location or { uri = A.project() }
   local p = A.parse(location.uri) or {}
-  local out = {
+  local out: Diagnostic = {
     namespace = ns, document = doc, location = location,
     severity = severity_of(d.severity), message = tostring(d.message or ""),
     rule = d.rule or d.code, source = d.source or ns, fixes = fixes, data = d.data,
@@ -122,53 +436,53 @@ local function normalize(ns, doc, d)
   return out
 end
 
-local function changed(ns, doc)
+local function changed(ns: string, doc: Document)
   M.revision = M.revision + 1
-  paw.emit("diagnostic.changed", { namespace = ns, document = doc, clip = type(doc) == "number" and doc or nil })
+  events.emit(M.changed, { namespace = ns, document = doc, clip = doc is integer and doc or nil })
   api.ui_redraw()
 end
 
 --- Publish the diagnostics of `namespace` about a document (a clip, or a
 --- string: the document URI of a server). They replace its old diagnostics
 --- of that document. An empty list clears them.
-function M.set(namespace, doc, list)
-  assert(type(namespace) == "string", "usage: paw.diagnostic.set(namespace, document, { diagnostic, ... })")
-  doc = document_of(doc)
-  local out = {}
-  for _, d in ipairs(list or {}) do out[#out + 1] = normalize(namespace, doc, d) end
+function M.set(namespace: string, doc: Document | A.Thing, list: {Published})
+  assert(namespace is string, "usage: paw.diagnostic.set(namespace, document, { diagnostic, ... })")
+  local document = document_of(doc)
+  local out: {Diagnostic} = {}
+  for _, d in ipairs(list or {}) do out[#out + 1] = normalize(namespace, document, d) end
   store[namespace] = store[namespace] or {}
-  store[namespace][doc] = #out > 0 and out or nil
-  changed(namespace, doc)
+  store[namespace][document] = #out > 0 and out or nil
+  changed(namespace, document)
 end
 
 --- Forget the diagnostics of `namespace` about one document, or all of
 --- them. With a clip id, forget all its diagnostics about that clip. With
 --- no namespace, forget the diagnostics of all namespaces about that
 --- document, or all diagnostics.
-function M.reset(namespace, doc)
-  doc = doc and document_of(doc)
+function M.reset(namespace?: string, doc?: Document | A.Thing)
+  local document = doc and document_of(doc)
   for ns, docs in pairs(store) do
     if not namespace or ns == namespace then
-      if doc == nil then
+      if document == nil then
         store[ns] = nil
       else
-        docs[doc] = nil
-        if type(doc) == "number" then
+        docs[document] = nil
+        if document is integer then
           for key, list in pairs(docs) do
-            local kept = {}
-            for _, d in ipairs(list) do if d.clip ~= doc then kept[#kept + 1] = d end end
+            local kept: {Diagnostic} = {}
+            for _, d in ipairs(list) do if d.clip ~= document then kept[#kept + 1] = d end end
             docs[key] = #kept > 0 and kept or nil
           end
         end
       end
     end
   end
-  changed(namespace, doc)
+  changed(namespace, document)
 end
 
 --- The namespaces that published diagnostics.
-function M.namespaces()
-  local out = {}
+function M.namespaces(): {string}
+  local out: {string} = {}
   for ns, docs in pairs(store) do
     if next(docs) then out[#out + 1] = ns end
   end
@@ -178,8 +492,8 @@ end
 
 --- The current places of the notes of a diagnostic (from 1). The list does
 --- not contain a note that does not exist now.
-function M.places(d)
-  local out = {}
+function M.places(d: Diagnostic): {integer}
+  local out: {integer} = {}
   local sel = d.location and d.location.selector
   local p = d.location and A.parse(d.location.uri)
   if p and p.kind == "note" then
@@ -195,11 +509,11 @@ function M.places(d)
 end
 
 --- The notes of a diagnostic as they are now.
-function M.notes_of(d)
-  local out = {}
+function M.notes_of(d: Diagnostic): {types.Note}
+  local out: {types.Note} = {}
   local p = d.location and A.parse(d.location.uri)
   if not p or not p.clip then return out end
-  local ok, list = pcall(api.clip_notes, p.clip)
+  local ok, list = pcall(clip_notes, p.clip)
   if not ok then return out end
   for _, place in ipairs(M.places(d)) do out[#out + 1] = list[place] end
   return out
@@ -207,7 +521,7 @@ end
 
 --- The kind of item that a diagnostic is about, to make groups: clip,
 --- track, device, time, project, render, or the kind of an extension.
-function M.kind(d)
+function M.kind(d: Diagnostic): string
   local p = A.parse(d.location.uri)
   if not p then return "other" end
   if p.kind == "note" or p.kind == "control" then return "clip" end
@@ -221,7 +535,7 @@ end
 
 --- True if a diagnostic is about an address or an item in it. A note
 --- counts when a diagnostic of its clip names the note in its notes.
-function M.about(d, uri)
+function M.about(d: Diagnostic, uri: string): boolean
   if A.within(d.location.uri, uri) then return true end
   local p = A.parse(uri)
   local sel = d.location.selector
@@ -233,10 +547,10 @@ function M.about(d, uri)
   return false
 end
 
-local KIND_ORDER ={ clip = 1, track = 2, device = 3, time = 4, project = 5, render = 6 }
+local KIND_ORDER: {string:integer} = { clip = 1, track = 2, device = 3, time = 4, project = 5, render = 6 }
 
-local function sorted(list)
-  table.sort(list, function(a, b)
+local function sorted(list: {Diagnostic}): {Diagnostic}
+  table.sort(list, function(a: Diagnostic, b: Diagnostic): boolean
     local ka, kb = KIND_ORDER[M.kind(a)] or 9, KIND_ORDER[M.kind(b)] or 9
     if ka ~= kb then return ka < kb end
     if a.location.uri ~= b.location.uri then return a.location.uri < b.location.uri end
@@ -248,12 +562,12 @@ local function sorted(list)
 end
 
 -- A diagnostic is gone with what it is about.
-local function alive(d)
+local function alive(d: Diagnostic): boolean
   local p = A.parse(d.location.uri)
   if not p then return true end
-  if p.kind == "clip" or p.kind == "note" or p.kind == "control" then return pcall(api.clip_get, p.clip) end
-  if p.kind == "track" or p.kind == "send" then return pcall(api.track_get, p.track) end
-  if p.kind == "device" or p.kind == "param" then return pcall(api.device_get, p.device) end
+  if p.kind == "clip" or p.kind == "note" or p.kind == "control" then return (pcall(api.clip_get, p.clip)) end
+  if p.kind == "track" or p.kind == "send" then return (pcall(api.track_get, p.track)) end
+  if p.kind == "device" or p.kind == "param" then return (pcall(api.device_get, p.device)) end
   return true
 end
 
@@ -262,24 +576,33 @@ end
 --- it holds), or nil for all. `filter`: `namespace`, `severity` (a severity
 --- or `{ min, max }`, min the least severe), `note` (a place in the clip),
 --- `kind` (as `paw.diagnostic.kind`), `document`.
-function M.get(target, filter)
+function M.get(target?: Target, filter?: Filter): {Diagnostic}
   filter = filter or {}
-  local within = type(target) == "string" and target or (type(target) == "table" and A.of(target)) or nil
-  local clip = type(target) == "number" and target or (type(target) == "table" and getmetatable(target) == paw.Clip and target.id) or nil
+  local within: string = nil
+  local clip: integer = nil
+  if target is string then
+    within = target
+  elseif target is integer then
+    clip = target
+  elseif target is A.Thing then
+    within = A.of(target)
+    if getmetatable(target as {string:Data}) == paw.Clip as metatable<{string:Data}> then clip = (target as ClipOfLayer).id end
+  end
   if clip then within = nil end
   local min, max = 1, 4
-  if type(filter.severity) == "table" then
-    min, max = severity_of(filter.severity.max or 1), severity_of(filter.severity.min or 4)
-  elseif filter.severity then
-    min = severity_of(filter.severity)
+  local severity = filter.severity
+  if severity is Range then
+    min, max = severity_of(severity.max or 1), severity_of(severity.min or 4)
+  elseif severity then
+    min = severity_of(severity)
     max = min
   end
-  local out = {}
+  local out: {Diagnostic} = {}
   for ns, docs in pairs(store) do
     if not filter.namespace or filter.namespace == ns then
       for doc, list in pairs(docs) do
         if not filter.document or filter.document == doc then
-          local kept = {}
+          local kept: {Diagnostic} = {}
           for _, d in ipairs(list) do
             if alive(d) then
               kept[#kept + 1] = d
@@ -298,7 +621,7 @@ function M.get(target, filter)
     end
   end
   if filter.note then
-    local kept = {}
+    local kept: {Diagnostic} = {}
     for _, d in ipairs(out) do
       for _, place in ipairs(M.places(d)) do
         if place == filter.note then kept[#kept + 1] = d break end
@@ -311,34 +634,36 @@ end
 
 --- How many diagnostics of each severity (as `get` takes its target):
 --- `{ error = 1, warning = 2, info = 0, hint = 0, total = 3 }`.
-function M.count(target, filter)
-  local out = { error = 0, warning = 0, info = 0, hint = 0, total = 0 }
+function M.count(target?: Target, filter?: Filter): Count
+  local out: Count = { error = 0, warning = 0, info = 0, hint = 0, total = 0 }
+  local by: {string:integer} = out as {string:integer}
   for _, d in ipairs(M.get(target, filter)) do
     local word = M.severity[d.severity]
-    out[word], out.total = out[word] + 1, out.total + 1
+    by[word], out.total = by[word] + 1, out.total + 1
   end
   return out
 end
 
 --- The worst severity said about an address or what it holds, or nil.
-function M.worst(uri, filter)
-  local worst
+function M.worst(uri: Target, filter?: Filter): integer
+  local worst: integer
   for _, d in ipairs(M.get(uri, filter)) do worst = math.min(worst or 4, d.severity) end
   return worst
 end
 
 --- Change how paw shows diagnostics. Returns the options in use.
 ---   paw.diagnostic.config({ virtual_text = false })
-function M.config(opts)
-  for k, v in pairs(opts or {}) do options[k] = v end
+function M.config(opts?: Config): Config
+  local all = options as {string:boolean}
+  for k, v in pairs((opts or {}) as {string:boolean}) do all[k] = v end
   if opts then api.ui_redraw() end
-  return paw.util.merge(options, {})
+  return util.merge(all, {}) as Config
 end
 
 -- Fixes ----------------------------------------------------------------------
 
 --- Do a fix of a diagnostic as one undo step. Returns true if it did the fix.
-function M.apply(d, fix)
+function M.apply(d: Diagnostic, fix?: Fix): boolean
   fix = fix or d.fixes[1]
   if not fix then return false end
   if fix.apply then
@@ -357,28 +682,29 @@ end
 --- The fixes of the diagnostics about a place (as `get` takes its target
 --- and filter), as `{ title, diagnostic, fix, run }`, the most severe first.
 --- `actions(clip, place)` asks about one note of a clip.
-function M.actions(target, place)
-  local out = {}
-  local filter = type(place) == "number" and { note = place } or place
+function M.actions(target?: Target, place?: integer | Filter): {Action}
+  local out: {Action} = {}
+  local filter: Filter
+  if place is integer then filter = { note = place } else filter = place end
   for _, d in ipairs(M.get(target, filter)) do
     for _, fix in ipairs(d.fixes) do
-      out[#out + 1] = { title = fix.title or "Fix", diagnostic = d, fix = fix, run = function() return M.apply(d, fix) end }
+      out[#out + 1] = { title = fix.title or "Fix", diagnostic = d, fix = fix, run = function(): boolean return M.apply(d, fix) end }
     end
   end
-  table.sort(out, function(a, b) return a.diagnostic.severity < b.diagnostic.severity end)
+  table.sort(out, function(a: Action, b: Action): boolean return a.diagnostic.severity < b.diagnostic.severity end)
   return out
 end
 
 -- Where a diagnostic is, in words -------------------------------------------
 
-local function track_name(id)
+local function track_name(id: integer): string
   local ok, t = pcall(api.track_get, id)
   return ok and t.name or ("track " .. id)
 end
 
 --- Where a diagnostic is about, in a few words: `Lead › Synth · cutoff`,
 --- `chords 2.1.00`, `5.1.00–9.1.00`, `mix.wav`.
-function M.where(d)
+function M.where(d: Diagnostic): string
   local loc = d.location
   local p = A.parse(loc.uri)
   local t = loc.selector and loc.selector.time
@@ -407,51 +733,62 @@ function M.where(d)
 end
 
 --- A diagnostic in one line: `warning parallel-perfect: Parallel fifths … [midi-lsp]`.
-function M.format(d)
+function M.format(d: Diagnostic): string
   return string.format("%s%s: %s [%s]", M.severity[d.severity], d.rule and (" " .. d.rule) or "", d.message, d.source)
 end
 
 -- Going from one to the next --------------------------------------------------
 
 --- Put the cursor of the view that shows it best on a diagnostic, and say it.
-function M.show(d)
+function M.show(d: Diagnostic)
   paw.ui.go(d.location)
   paw.notify(M.format(d), d.severity == 1 and "error" or d.severity == 2 and "warn" or "info")
 end
 
--- Where the last jump went, and where it left the cursor: a view that cannot
--- put its cursor exactly there (a finding about the master, in the arrange
--- view) goes on from the diagnostic, not from the cursor.
-local last_jump
+--- Where the last jump went, and where it left the cursor: a view that
+--- cannot put its cursor exactly there (a finding about the master, in the
+--- arrange view) goes on from the diagnostic, not from the cursor.
+local record Jump
+  view: string
+  at: {number}
+  landed: {number}
+end
+local last_jump: Jump
+
+--- A diagnostic and where the focused view places it.
+local record Placed
+  d: Diagnostic
+  at: {number}
+end
 
 --- The next (`dir` 1) or previous (-1) diagnostic that the focused view can
 --- show, from its cursor, `count` times, round the ends. The cursor goes
 --- there. Returns the diagnostic, or nil when the view has none.
-function M.jump(dir, count)
+function M.jump(dir: integer, count?: integer): Diagnostic
   local view = paw.ui.focused
   local loc = paw.ui.locators[view]
-  local found
+  local found: Diagnostic
   if loc then
-    local placed = {}
+    local placed: {Placed} = {}
     for _, d in ipairs(M.get()) do
       local at = loc.place(d.location)
       if at then placed[#placed + 1] = { d = d, at = at } end
     end
-    local function before(a, b)
+    local function before(a: {number}, b: {number}): boolean
       for i = 1, math.max(#a, #b) do
         local x, y = a[i] or 0, b[i] or 0
         if math.abs(x - y) > 1e-6 then return x < y end
       end
       return false
     end
-    table.sort(placed, function(a, b) return before(a.at, b.at) end)
+    table.sort(placed, function(a: Placed, b: Placed): boolean return before(a.at, b.at) end)
     if #placed > 0 then
       local here = loc.position()
       if last_jump and last_jump.view == view and not before(here, last_jump.landed) and not before(last_jump.landed, here) then
         here = last_jump.at
       end
       for _ = 1, count or 1 do
-        local pick
+        local pick: Placed
         if dir > 0 then
           for _, e in ipairs(placed) do if before(here, e.at) then pick = e break end end
           pick = pick or placed[1]
@@ -463,67 +800,77 @@ function M.jump(dir, count)
       end
     end
   end
-  if not found then return paw.notify("no diagnostics here") end
+  if not found then
+    paw.notify("no diagnostics here")
+    return nil
+  end
   loc.go(found.location)
   last_jump = { view = view, at = loc.place(found.location), landed = loc.position() }
   paw.notify(M.format(found), found.severity == 1 and "error" or found.severity == 2 and "warn" or "info")
   return found
 end
 
---- Go to the next diagnostic, or `opts.count` on (`]d`).
-function M.goto_next(opts) return M.jump(1, opts and opts.count) end
---- Go to the diagnostic before, or `opts.count` back (`[d`).
-function M.goto_prev(opts) return M.jump(-1, opts and opts.count) end
+--- What `goto_next` and `goto_prev` take: how many to go.
+local record GotoOptions
+  count: integer
+end
 
-local KIND_TITLE = { clip = "Notes", track = "Tracks", device = "Devices", time = "Time", project = "Project", render = "Renders" }
+--- Go to the next diagnostic, or `opts.count` on (`]d`).
+function M.goto_next(opts?: GotoOptions): Diagnostic return M.jump(1, opts and opts.count) end
+--- Go to the diagnostic before, or `opts.count` back (`[d`).
+function M.goto_prev(opts?: GotoOptions): Diagnostic return M.jump(-1, opts and opts.count) end
+
+local KIND_TITLE: {string:string} = { clip = "Notes", track = "Tracks", device = "Devices", time = "Time", project = "Project", render = "Renders" }
 
 --- Every diagnostic (of `target`, as `get` takes it) in a picker, as the
 --- quickfix list, grouped by what they are about: Enter goes to one.
-function M.list(target)
-  local items, last = {}, nil
+function M.list(target?: Target)
+  local items: {ListItem} = {}
+  local last: string
   for _, d in ipairs(M.get(target)) do
     local kind = M.kind(d)
     if kind ~= last then
       items[#items + 1] = { text = "── " .. (KIND_TITLE[kind] or kind) }
       last = kind
     end
-    items[#items + 1] = { text = string.format("  %-7s %-24s %s", M.severity[d.severity], paw.util.fit(M.where(d), 24), M.format(d):gsub("^%a+ ", "")), diagnostic = d }
+    local said = M.format(d):gsub("^%a+ ", "")
+    items[#items + 1] = { text = string.format("  %-7s %-24s %s", M.severity[d.severity], util.fit(M.where(d), 24), said), diagnostic = d }
   end
-  if #items == 0 then return paw.notify("no diagnostics") end
-  paw.pick({
+  if #items == 0 then
+    paw.notify("no diagnostics")
+    return
+  end
+  local source: contracts.PickSource<ListItem> = {
     title = "Diagnostics",
     items = items,
-    on_choose = function(item) if item and item.diagnostic then M.show(item.diagnostic) end end,
-  })
+    on_choose = function(item: ListItem) if item and item.diagnostic then M.show(item.diagnostic) end end,
+  }
+  paw.pick(source)
 end
 
 --- Put the diagnostics in the quickfix list, as `vim.diagnostic.setqflist`:
 --- `opts` has `target`, `severity` (the least severe), `title`, `open`.
 --- `setloclist` puts them in the current window's location list.
-function M.setqflist(opts) return paw.qf.diagnostics(opts) end
+function M.setqflist(opts?: ListOptions): QfList return paw.qf.diagnostics(opts) end
 --- The diagnostics in the current window's location list.
-function M.setloclist(opts) return paw.qf.diagnostics(paw.util.merge(opts or {}, { win = (opts and opts.win) or true })) end
+function M.setloclist(opts?: ListOptions): QfList
+  local given = opts or {}
+  local with: ListOptions = {}
+  for k, v in pairs(given as {string:Data}) do (with as {string:Data})[k] = v end
+  with.win = given.win or true
+  return paw.qf.diagnostics(with)
+end
 
 -- Drawing ----------------------------------------------------------------------
 
-local g = function() return paw.draw.g end
-
---- Mark the diagnostics of each clip that the piano roll edits, as one of
---- its layers. Each note has a line below it in the color of its severity.
---- The message comes after the last note while there is space, and a mark
---- on the ruler shows where it starts.
-function M.paint_roll(p)
-  for _, part in ipairs(p.parts or { { id = p.clip.id, offset = 0 } }) do
-    M.paint_part(p, part.id, part.offset or 0)
-  end
-end
+local g = function(): Glyphs return paw.draw.g end
 
 --- One clip's, `offset` beats from the roll's own.
-function M.paint_part(p, id, offset)
+function M.paint_part(p: RollLayer, id: integer, offset: number)
   local list = M.get(id)
   if #list == 0 then return end
-  local notes = api.clip_notes(id)
-  local worst = {}
+  local notes = clip_notes(id)
+  local worst: {integer:integer} = {}
   for _, d in ipairs(list) do
     for _, place in ipairs(M.places(d)) do
       if not worst[place] or d.severity < worst[place] then worst[place] = d.severity end
@@ -540,7 +887,7 @@ function M.paint_part(p, id, offset)
     -- On the cell's left edge, where the diagnostic starts.
     if options.signs then p.ruler:text(p.x((d.at or 0) + offset), 0, g().mark, M.group("Diagnostic", d.severity)) end
     if options.virtual_text then
-      local last
+      local last: types.Note
       for _, place in ipairs(M.places(d)) do
         local n = notes[place]
         if not last or n.start + n.length > last.start + last.length then last = n end
@@ -550,7 +897,7 @@ function M.paint_part(p, id, offset)
         local x = p.x(last.start + last.length + offset) + 1
         local room = p.roll.width - x
         if room >= 8 then
-          local text = api.str_width(d.message) > room and paw.util.fit(d.message, room) or d.message
+          local text = api.str_width(d.message) > room and util.fit(d.message, room) or d.message
           p.roll:text(x, row, text, M.group("DiagnosticVirtualText", d.severity))
         end
       end
@@ -558,33 +905,44 @@ function M.paint_part(p, id, offset)
   end
 end
 
+--- Mark the diagnostics of each clip that the piano roll edits, as one of
+--- its layers. Each note has a line below it in the color of its severity.
+--- The message comes after the last note while there is space, and a mark
+--- on the ruler shows where it starts.
+function M.paint_roll(p: RollLayer)
+  for _, part in ipairs(p.parts or { { id = p.clip.id, offset = 0 } }) do
+    M.paint_part(p, part.id, part.offset or 0)
+  end
+end
+
 -- A sign with its colour, and the message after it while there is room.
-local function sign(buf, x, y, room, severity, message)
+local function sign(buf: contracts.Buf, x: integer, y: integer, room: integer, severity: integer, message: string)
   buf:text(x, y, severity == 1 and g().error or g().warn, M.group("Diagnostic", severity))
   if options.virtual_text and message and room > 4 then
-    local text = api.str_width(message) > room - 2 and paw.util.fit(message, room - 2) or message
+    local text = api.str_width(message) > room - 2 and util.fit(message, room - 2) or message
     buf:text(x + 2, y, text, M.group("DiagnosticVirtualText", severity))
   end
 end
 
 -- What the arrange view, the mixer and the device panel show, as layers of
 -- theirs (`paw.ui.layer`), so that other modules' marks go beside them.
-paw.ui.layer("arrange", "clip", "diagnostics", 30, function(c)
+paw.ui.layer("arrange", "clip", "diagnostics", 30, function(c: PartLayer)
   if c.width < 3 or not next(store) then return end
   local worst = M.worst(A.clip(c.clip.id))
   if worst then c.buf:text(c.width - 1, 0, worst == 1 and g().error or g().warn, M.group("Diagnostic", worst)) end
 end)
-paw.ui.layer("arrange", "header", "diagnostics", 30, function(c)
+paw.ui.layer("arrange", "header", "diagnostics", 30, function(c: PartLayer)
   if not next(store) then return end
   -- What is said of the track itself, its devices or sends; its clips have marks of their own.
-  local worst
+  local worst: integer
   for _, d in ipairs(M.get(A.track(c.track))) do
     if M.kind(d) ~= "clip" then worst = math.min(worst or 4, d.severity) end
   end
   if worst then c.buf:text(c.x, c.y, worst == 1 and g().error or g().warn, M.group("Diagnostic", worst)) end
 end)
 -- Stretches of time on the arrange view's ruler (one of its layers).
-paw.ui.views.arrange.layers.diagnostics = function(_, c)
+local arrange = paw.ui.views.arrange as Arrange
+arrange.layers.diagnostics = function(_: Arrange, c: RulerLayer)
   if not next(store) then return end
   for _, d in ipairs(M.get(nil, { kind = "time" })) do
     local t = d.location.selector.time
@@ -598,17 +956,18 @@ paw.ui.views.arrange.layers.diagnostics = function(_, c)
   end
 end
 -- A strip: a sign at the right end of its name plate.
-paw.ui.layer("mixer", "strip", "diagnostics", 30, function(c)
+paw.ui.layer("mixer", "strip", "diagnostics", 30, function(c: PartLayer)
   if not next(store) then return end
   local worst = M.worst(A.track(c.track))
   if worst then c.buf:text(c.x + c.width - 1, c.y, worst == 1 and g().error or g().warn, M.group("Diagnostic", worst)) end
 end)
 -- A device: a sign after its name and what is said of it; a parameter: a sign before its name.
-paw.ui.layer("devices", "device", "diagnostics", 30, function(c)
+paw.ui.layer("devices", "device", "diagnostics", 30, function(c: PartLayer)
   if not next(store) then return end
   local list = M.get(A.device(c.device))
   if #list == 0 then return end
-  local worst, own = 4, nil
+  local worst: integer = 4
+  local own: Diagnostic
   for _, d in ipairs(list) do
     worst = math.min(worst, d.severity)
     if not own and d.location.uri == A.device(c.device) then own = d end
@@ -616,7 +975,7 @@ paw.ui.layer("devices", "device", "diagnostics", 30, function(c)
   -- What is said of the device itself; its parameters have marks of their own.
   sign(c.buf, c.x, c.y, c.width, worst, own and own.message or (#list .. " diagnostics"))
 end)
-paw.ui.layer("devices", "param", "diagnostics", 30, function(c)
+paw.ui.layer("devices", "param", "diagnostics", 30, function(c: PartLayer)
   if not next(store) then return end
   local worst = M.worst(A.param(c.device, c.param))
   if worst then c.buf:text(c.x, c.y, worst == 1 and g().error or g().warn, M.group("Diagnostic", worst)) end
@@ -624,16 +983,17 @@ end)
 
 --- The status line's piece: `E1 W2` for the clip in the piano roll, or the
 --- whole project when none is open. Nil when there is nothing to say.
-function M.status()
+function M.status(): {contracts.Piece}
   if not next(store) then return nil end
-  local view = paw.ui.views.pianoroll
+  local view = paw.ui.views.pianoroll as Roll
   local n = M.count(paw.ui.visible("pianoroll") and view.clip_id or nil)
   if n.total == 0 then return nil end
-  local pieces = {}
+  local by = n as {string:integer}
+  local pieces: {contracts.Piece} = {}
   for i, word in ipairs({ "error", "warning", "info", "hint" }) do
-    if n[word] > 0 then
+    if by[word] > 0 then
       if #pieces > 0 then pieces[#pieces + 1] = { " ", "StatusLine" } end
-      pieces[#pieces + 1] = { ("EWIH"):sub(i, i) .. n[word], i == 1 and "StatusError" or i == 2 and "StatusWarn" or "StatusDim" }
+      pieces[#pieces + 1] = { ("EWIH"):sub(i, i) .. by[word], i == 1 and "StatusError" or i == 2 and "StatusWarn" or "StatusDim" }
     end
   end
   return pieces
@@ -642,10 +1002,11 @@ end
 --- The marks of the window in its piano roll for a clip. These are the
 --- notes that diagnostics are about, by place from 0. Each has its worst
 --- severity, the messages about it and the titles of its fixes.
-function M.roll_marks(id)
-  local out, by_place = {}, {}
+function M.roll_marks(id: integer): {RollMark}
+  local out: {RollMark} = {}
+  local by_place: {integer:RollMark} = {}
   local list = M.get(id)
-  local notes = #list > 0 and api.clip_notes(id) or {}
+  local notes = #list > 0 and clip_notes(id) or {}
   for _, d in ipairs(list) do
     for _, place in ipairs(M.places(d)) do
       local mark = by_place[place]
@@ -670,8 +1031,9 @@ end
 --- The marks of the window in other views. Each track (by id) has the worst
 --- severity about it, its devices or its sends, and the first message.
 --- The ranges of time are also marks.
-function M.marks()
-  local tracks, times = {}, {}
+function M.marks(): Marks
+  local tracks: {integer:TrackMark} = {}
+  local times: {TimeMark} = {}
   for _, d in ipairs(M.get()) do
     local kind = M.kind(d)
     local track = A.track_of(d.location.uri)
@@ -683,20 +1045,22 @@ function M.marks()
       times[#times + 1] = { from = t[1], to = t[2], severity = d.severity, message = M.format(d) }
     end
   end
-  local list = {}
+  local list: {TrackMark} = {}
   for _, t in pairs(tracks) do list[#list + 1] = t end
-  table.sort(list, function(a, b) return a.track < b.track end)
+  table.sort(list, function(a: TrackMark, b: TrackMark): boolean return a.track < b.track end)
   return { tracks = list, times = times }
 end
 
-paw.ui.views.pianoroll.layer("diagnostics", 30, function(p) M.paint_roll(p) end)
+local roll = paw.ui.views.pianoroll as Roll
+roll.layer("diagnostics", 30, function(p: RollLayer) M.paint_roll(p) end)
 
 -- The window's menu on a note: the `n`th of its fixes, as `actions` lists them.
-function paw.frontend.act.note_action(clip, place, n)
+local frontend = paw.frontend as Frontend
+frontend.act.note_action = function(clip: integer, place: integer, n: integer)
   local action = M.actions(clip, place)[n]
   if action then action.run() end
 end
 
-paw.on("project.loaded", function() if next(store) then M.reset() end end)
+events.on(kernel.project_loaded, function() if next(store) then M.reset() end end)
 
 return M
