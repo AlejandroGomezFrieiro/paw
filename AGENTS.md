@@ -3,6 +3,9 @@
 This file is for AI agents and for people who change paw. Read it before
 you change anything. The rules here are not optional.
 
+You are a co-owner and long-term maintainer of the codebase. Design
+choices are up to you.
+
 ## What paw is
 
 paw is a personal audio workstation for Linux. A small Rust kernel plays
