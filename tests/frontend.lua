@@ -854,6 +854,18 @@ test("the chosen clips are split at the edit cursor and glued", function()
     if clip.kind == "audio" then audio[#audio + 1] = clip.start .. "+" .. clip.length end
   end
   eq(table.concat(audio, " "), "20+2", "chosen audio clips are glued into one")
+
+  -- A glue of audio clips that fails says why.
+  local glue = paw.media.glue
+  paw.media.glue = function() error("the disk is full", 0) end
+  T.after(function() paw.media.glue = glue end)
+  local b1 = tracks[2]:add_clip({ file = file, start = 24, length = 1 })
+  local b2 = tracks[2]:add_clip({ file = file, start = 25, length = 1 })
+  act.select_clip(b1.id, 24, "only")
+  act.select_clip(b2.id, 25, "toggle")
+  act.glue_clips()
+  paw.media.glue = glue
+  eq(paw.ui.message.text, "the disk is full", "the message gives the error")
 end)
 
 test("the piano roll's other gestures: erase, keyboard ranges, velocity strokes, note length, snap", function()

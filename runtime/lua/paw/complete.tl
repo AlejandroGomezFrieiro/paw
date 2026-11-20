@@ -219,7 +219,7 @@ local record ActHit is contracts.HitAction
   tip: string
 end
 
---- The gestures of the window (paw/frontend.lua) that this module adds.
+--- The gestures of the window (paw/frontend.tl) that this module adds.
 local record Acts
   complete_badge: function(_: integer, index: integer): boolean
   complete_accept: function(): boolean
@@ -234,6 +234,7 @@ end
 
 local record Paw is partial.Paw
   ui: UiModule
+  frontend: Frontend
   harmony: HarmonyModule
   time: objects.Time
   clip: function(id: integer): objects.Clip
@@ -288,7 +289,7 @@ seats.keep("complete",
   function(): SeatState return {} end)
 
 local function roll(): Roll return paw.ui.views.pianoroll as Roll end
-local function frontend(): Frontend return paw.frontend as Frontend end
+local function frontend(): Frontend return paw.frontend end
 
 local function busy(): boolean
   local t = api.transport_get()

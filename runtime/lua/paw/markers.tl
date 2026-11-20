@@ -56,7 +56,7 @@ local record ById
   id: integer
 end
 
---- A value of the options of a render (paw/render.lua), which this module
+--- A value of the options of a render (paw/render.tl), which this module
 --- passes on.
 local record RenderValue
 end
@@ -94,7 +94,7 @@ end
 --- A range that a render can use: where it starts and ends, in beats.
 local type Range = function(): number, number
 
---- paw/render.lua, as far as this module reads it.
+--- paw/render.tl, as far as this module reads it.
 local record Render
   ranges: {string: Range}
 end

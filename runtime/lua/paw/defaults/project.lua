@@ -238,7 +238,7 @@ end, {
     return out
   end,
 })
--- `:render`, `:render.cancel` and `:stems` are in paw/render.lua.
+-- `:render`, `:render.cancel` and `:stems` are in paw/render.tl.
 command("track.bounce", function()
   local track = need_track()
   if not track then return end

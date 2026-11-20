@@ -19,6 +19,7 @@ local type CommandsModule = require("paw.commands")
 local type CanvasModule = require("paw.canvas")
 local type CursorModule = require("paw.cursor")
 local type MenuModule = require("paw.menu")
+local type FrontendModule = require("paw.frontend")
 
 local type Entry = contracts.MenuEntry
 local type Item = contracts.MenuItem
@@ -33,6 +34,7 @@ local record Paw is partial.Paw
   commands: CommandsModule
   canvas: CanvasModule
   cursor: CursorModule
+  frontend: FrontendModule
 end
 -- The global `paw` of the declarations does not hold this module, so its
 -- local has a name of its own.
@@ -51,8 +53,9 @@ local record M
   choose: function(kind: string, args: {MenuArg}, path: {integer})
 end
 
-local function frontend(): mouse_menus.Frontend return runtime.frontend as mouse_menus.Frontend end
-local function act(): mouse_menus.Act return frontend().act end
+local function frontend(): FrontendModule return runtime.frontend end
+local function act(): FrontendModule.Act return frontend().act end
+local function added_acts(): mouse_menus.MoreActs return frontend().act as mouse_menus.MoreActs end
 local function run(line: string): function() return function() runtime.commands.exec(line) end end
 local function menu(): MenuModule return require("paw.menu") end
 
@@ -76,7 +79,7 @@ end
 --- The File menu, from the project's name.
 function M.file(): {Entry}
   local recent: {Entry} = {}
-  for i, entry in ipairs(frontend().recent_menu()) do
+  for i, entry in ipairs(frontend().recent_menu() as {mouse_menus.Recent}) do
     recent[i] = { label = entry.label, window = "open:" .. entry.path }
   end
   recent[#recent + 1] = "-"
@@ -139,14 +142,14 @@ function M.engine(opts?: mouse_menus.MenuTable): {Entry}
   items[#items + 1] = { label = "Hear it on this machine", checked = opts.listening or false, enabled = opts.remote or false, window = "listen" }
   local function group(name: string): function(i: integer) return function(i: integer) act().choose_engine(name, i) end end
   append(items, { "-", heading("Output") })
-  append(items, choices(engine.output, group("output")))
+  append(items, choices(engine.output as {Choice}, group("output")))
   append(items, { "-", heading("Input") })
-  append(items, choices(engine.input, group("input")))
+  append(items, choices(engine.input as {Choice}, group("input")))
   append(items, {
     "-",
-    { label = "Block size", items = choices(engine.block, group("block")) },
-    { label = "Sample rate", items = choices(engine.rate, group("rate")) },
-    { label = "Sound system", items = choices(engine.backend, group("backend")) },
+    { label = "Block size", items = choices(engine.block as {Choice}, group("block")) },
+    { label = "Sample rate", items = choices(engine.rate as {Choice}, group("rate")) },
+    { label = "Sound system", items = choices(engine.backend as {Choice}, group("backend")) },
   })
   return items
 end
@@ -157,17 +160,17 @@ function M.input(track: integer): {Entry}
   local input = frontend().input_menu(track)
   local function group(name: string): function(i: integer) return function(i: integer) act().choose_input(track, name, i) end end
   local items: {Entry} = { heading("Audio") }
-  append(items, choices(input.audio, group("audio")))
+  append(items, choices(input.audio as {Choice}, group("audio")))
   append(items, { "-", heading("MIDI") })
-  append(items, choices(input.midi, group("midi")))
+  append(items, choices(input.midi as {Choice}, group("midi")))
   append(items, {
-    { label = "MIDI channel", items = choices(input.channel, group("channel")) },
+    { label = "MIDI channel", items = choices(input.channel as {Choice}, group("channel")) },
     "-",
     { label = "Monitor: hear the input without arming", checked = input.monitor or false, run = function() act().toggle(track, "monitor") end },
     "-",
-    { label = "MIDI out: send what it plays to", items = choices(input.midi_out, group("midi_out")) },
-    { label = "MIDI out channel", items = choices(input.midi_out_channel, group("midi_out_channel")) },
-    { label = "MIDI out form, where the port takes no MIDI 2.0", items = choices(input.midi_out_form, group("midi_out_form")) },
+    { label = "MIDI out: send what it plays to", items = choices(input.midi_out as {Choice}, group("midi_out")) },
+    { label = "MIDI out channel", items = choices(input.midi_out_channel as {Choice}, group("midi_out_channel")) },
+    { label = "MIDI out form, where the port takes no MIDI 2.0", items = choices(input.midi_out_form as {Choice}, group("midi_out_form")) },
   })
   return items
 end
@@ -194,28 +197,28 @@ end
 --- A device's presets, and saving one.
 function M.preset(device: integer): {Entry}
   local items: {Entry} = {}
-  for i, name in ipairs(act().preset_menu(device)) do
-    items[i] = { label = name, run = function() act().preset_choose(device, i) end }
+  for i, name in ipairs(added_acts().preset_menu(device)) do
+    items[i] = { label = name, run = function() added_acts().preset_choose(device, i) end }
   end
   append(items, {
-    { label = "Save as a preset…", run = function() act().device_command(device, "preset.save") end },
-    { label = "New ones start from this preset", run = function() act().device_command(device, "preset.default") end },
+    { label = "Save as a preset…", run = function() added_acts().device_command(device, "preset.save") end },
+    { label = "New ones start from this preset", run = function() added_acts().device_command(device, "preset.default") end },
   })
   return items
 end
 
 --- What a device listens to on its side-chain.
 function M.sidechain(device: integer): {Entry}
-  return choices(frontend().sidechain_menu(device), function(i: integer) act().choose_sidechain(device, i) end)
+  return choices(frontend().sidechain_menu(device) as {Choice}, function(i: integer) act().choose_sidechain(device, i) end)
 end
 
 --- Where a device's further output pairs play.
 function M.outputs(device: integer): {Entry}
   local items: {Entry} = {}
   for p, pair in ipairs(frontend().outputs_menu(device)) do
-    items[p] = { label = pair.label, items = choices(pair.choices, function(i: integer) act().route_pair(device, p + 1, i) end) }
+    items[p] = { label = pair.label, items = choices(pair.choices as {Choice}, function(i: integer) act().route_pair(device, p + 1, i) end) }
   end
-  append(items, { "-", { label = "Spread the outputs over new tracks", run = function() act().device_command(device, "device.spread") end } })
+  append(items, { "-", { label = "Spread the outputs over new tracks", run = function() added_acts().device_command(device, "device.spread") end } })
   return items
 end
 
@@ -273,10 +276,10 @@ function M.choose(kind: string, args: {MenuArg}, path: {integer})
   if item and item.enabled ~= false and item.run then item.run() end
 end
 
-frontend().menu = M.describe
-frontend().act.menu_choose = M.choose
+(frontend() as mouse_menus.MoreFrontend).menu = M.describe
+added_acts().menu_choose = M.choose
 --- The window let go of the kernel's menu it showed (`shown`) without
 --- choosing: so does the kernel.
-frontend().act.menu_dismiss = function() menu().close(0) end
+added_acts().menu_dismiss = function() menu().close(0) end
 
 return M

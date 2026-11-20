@@ -1,31 +1,156 @@
 -- Rendering: `paw.render`, stems, the `:render` command, and the render
 -- that runs in the background with its progress and cancelling. The work is
 -- in the kernel (crates/paw-core/src/session/render.rs).
-local api = paw.api
-local M = {}
+--
+-- `paw.render` is this module, and a call of it renders:
+-- `paw.render(path, opts)` is `paw.render.render(path, opts)`.
+--
+-- Written in Teal (paw/lang.tl): the build compiles it to Lua.
+local api = require("paw.api")
+local commands = require("paw.commands")
+local events = require("paw.events")
+local kernel = require("paw.events.kernel")
+local options = require("paw.options")
+local util = require("paw.util")
+local type types = require("paw.types")
+local type partial = require("paw.partial")
+local type objects = require("paw.objects")
+local type CursorModule = require("paw.cursor")
+local type GroupsModule = require("paw.groups")
 
---- Named ranges a render can take besides beats: each a function giving
---- `start, end` in beats, or nil and why not. Extensions may add their own
---- (`paw.render_ranges.chorus = function() return 32, 48 end`).
+--- A range that a render can take: where it starts and ends, in beats (no
+--- end: the end of the last clip), or nil and why not.
+local type Range = function(): number, number | string
+
+--- The options of `paw.render` (see `M.render`): what the kernel takes
+--- (`types.RenderOptions`), and what only Lua knows: `range`, `rate`,
+--- `channels` as a word, `background`, and `format` for stems (false
+--- takes it out).
+local record Options
+  range: string
+  start: number
+  ["end"]: number
+  tail: number
+  sample_rate: integer
+  rate: integer
+  bits: integer
+  channels: integer | string
+  dither: boolean
+  quality: string
+  bitrate: integer | string
+  tags: types.RenderTags
+  normalize: number
+  loudness: number
+  tracks: {integer}
+  master: boolean
+  threads: integer
+  freeze: integer
+  sleep: boolean
+  settle: number
+  ffmpeg: string
+  background: boolean
+  format: string | boolean
+end
+
+--- The render that runs in the background, and how many wait after it.
+local record Status
+  path: string
+  fraction: number
+  seconds: number
+  cancelling: boolean
+  stage: types.RenderStage
+  queued: integer
+end
+
+--- The payload of `render.before`: the file, and the options as the kernel takes them.
+local record Before
+  path: string
+  opts: types.RenderOptions
+end
+
+--- An entry of `M.options`: the key with its `=`, the values to complete, and what it is.
+local record Option
+  {string | {string}}
+end
+
+--- A value that a copy passes on and never reads.
+local record Value
+end
+
+-- What this module reads of `paw`, which paw/init.lua makes, and of the
+-- modules in Lua that it calls: their parts that it uses.
+--- `paw.stems` (paw/stems.lua), as far as `:render` calls it.
+local record Stems
+  names_group: function(word: commands.Arg): boolean
+  command: function(ctx: commands.Context, opts: Options)
+end
+--- `paw.files` (paw/views/files.lua): a path from the folder `:cd` set.
+local record Files
+  path: function(name: string): string
+end
+local type UiModule = require("paw.ui")
+local record Paw is partial.Paw
+  ui: UiModule
+  cursor: CursorModule
+  groups: GroupsModule
+  tracks: function(): {objects.Track}
+end
+local paw = (_G as {string:Paw}).paw
+
+local record M
+  type Range = Range
+  type Options = Options
+  type Status = Status
+  type Before = Before
+  --- Named ranges a render can take besides beats: each a function giving
+  --- `start, end` in beats, or nil and why not. Extensions may add their own
+  --- (`paw.render_ranges.chorus = function() return 32, 48 end`).
+  ranges: {string: Range}
+  --- The tags that `paw.render_tags` reads and sets, in order.
+  tag_names: {string}
+  --- What `:render` takes, for its description and completion: `{ key=, values, what }`.
+  options: {Option}
+  --- The event `render.before`: its handlers run before rendering starts.
+  before: events.Event<Before>
+  --- The event `render.finished`: what a render in the foreground wrote.
+  finished: events.Event<types.RenderResult>
+  --- `paw.render(path, opts)` is `paw.render.render(path, opts)`.
+  metamethod __call: function(self: M, path: string, opts?: Options): types.RenderResult
+end
+
+M.before = events.event("render.before")
+M.finished = events.event("render.finished")
+
 M.ranges = {
-  song = function() return 0, nil end,
-  loop = function()
+  song = function(): number, number | string return 0, nil end,
+  loop = function(): number, number | string
     local t = api.transport_get()
     if not (t.loop_end > t.loop_start) then return nil, "there is no loop" end
     return t.loop_start, t.loop_end
   end,
-  selection = function()
+  selection = function(): number, number | string
     local sel = paw.keymap.selection()
     if not (sel and sel.c0 and sel.c1 and sel.c1 > sel.c0) then return nil, "nothing is selected: select a stretch of time first" end
     return sel.c0, sel.c1
   end,
 }
 
+--- A shallow copy of a record.
+local function copy<T>(t: T): T
+  local out: {string:Value} = {}
+  for k, v in pairs(t as {string:Value}) do out[k] = v end
+  return out as T
+end
+
+--- A shallow copy of a record with the fields of `extra` laid over it.
+local function over<T>(base: T, extra: T): T
+  return util.merge(base as {string:Value}, extra as {string:Value}) as T
+end
+
 --- The options as the kernel takes them: `range` turned into `start` and
 --- `end`, and what only Lua knows taken out.
-local function kernel_opts(opts)
-  local out = {}
-  for k, v in pairs(opts or {}) do out[k] = v end
+local function kernel_opts(opts: Options): types.RenderOptions
+  local out = copy(opts or {})
   local range = out.range
   out.range, out.background, out.format = nil, nil, nil
   if out.channels == "mono" then out.channels = 1 elseif out.channels == "stereo" then out.channels = 2 end
@@ -34,34 +159,40 @@ local function kernel_opts(opts)
   if rate ~= nil and not (type(rate) == "number" and rate % 1 == 0 and rate >= 8000 and rate <= 384000) then
     error("a sample rate is a whole number of Hz from 8000 to 384000, not " .. tostring(rate), 0)
   end
-  out.ffmpeg = out.ffmpeg or paw.opt.ffmpeg
-  out.bitrate = tonumber(out.bitrate)
-  if out.tags and next(out.tags) == nil then out.tags = nil end
+  out.ffmpeg = out.ffmpeg or options.opt.ffmpeg
+  out.bitrate = tonumber(out.bitrate) as integer
+  if out.tags and next(out.tags as {string:string}) == nil then out.tags = nil end
   if range and range ~= "song" then
     local resolve = M.ranges[range]
     if not resolve then
-      local names = {}
+      local names: {string} = {}
       for name in pairs(M.ranges) do names[#names + 1] = name end
       table.sort(names)
       error(string.format("no range `%s`: use %s, or start= and end= in beats", tostring(range), table.concat(names, ", ")), 0)
     end
     local start, finish = resolve()
-    if not start then error(finish, 0) end
-    out.start, out["end"] = start, finish
+    if not start then error(finish as string, 0) end
+    out.start, out["end"] = start, finish as number
   end
-  return out
+  return out as types.RenderOptions
 end
 
-local function check(path)
-  local why = api.render_check(path, paw.opt.ffmpeg)
+local function check(path: string)
+  local why = api.render_check(path, options.opt.ffmpeg)
   if why then error(why, 0) end
 end
 
--- Renders waiting for the one running: stems are rendered one at a time.
-local queue = {}
+--- A render waiting for the one running.
+local record Queued
+  path: string
+  opts: types.RenderOptions
+end
 
-local function start(path, opts)
-  paw.emit("render.before", { path = path, opts = opts })
+-- Renders waiting for the one running: stems are rendered one at a time.
+local queue: {Queued} = {}
+
+local function start(path: string, opts: types.RenderOptions)
+  events.emit(M.before, { path = path, opts = opts })
   api.render_start(path, opts)
   paw.ui.poke()
 end
@@ -94,31 +225,34 @@ end
 ---               and then, and `render.done` (what is returned below),
 ---               `render.failed` ({ path, error }) or `render.cancelled` at the end;
 ---               a render in the foreground emits `render.finished` with what it returns
---- Returns { path, frames, seconds, sample_rate, peak, gain, loudness, format,
---- bits (nil for a lossy format), channels, ... } when done. `render.before` is emitted first, and its
---- handlers run before rendering starts, so an extension that makes audio of
---- its own can finish it. A file that cannot be written is refused before
---- anything is rendered; nothing is left under the name asked for when a
---- render fails or is cancelled.
-function M.render(path, opts)
-  path = paw.util.expand_path(path)
+--- When it is done, it returns `types.RenderResult`. This has the path,
+--- the frames, the seconds, the peak, the gain and the loudness. It also has
+--- the format, the bits (nil for a lossy format) and the channels. paw emits `render.before` first.
+--- Its handlers run before the render starts, so an extension that makes
+--- audio of its own can complete it. paw refuses a file that it cannot
+--- write before it renders. When a render fails or stops, no file has the
+--- name that you gave.
+function M.render(path: string, opts?: Options): types.RenderResult
+  path = util.expand_path(path)
   check(path)
   local background = opts and opts.background
-  opts = kernel_opts(opts)
+  local kopts = kernel_opts(opts)
   if background then
     if api.render_status() then
-      queue[#queue + 1] = { path = path, opts = opts }
+      queue[#queue + 1] = { path = path, opts = kopts }
     else
-      start(path, opts)
+      start(path, kopts)
     end
     return nil
   end
-  paw.emit("render.before", { path = path, opts = opts })
-  local info = api.render(path, opts)
+  events.emit(M.before, { path = path, opts = kopts })
+  local info = api.render(path, kopts)
   -- What the render had to leave out (a plugin that stopped answering).
   for _, why in ipairs(info.left_out or {}) do paw.notify(why, "warn") end
   -- As `render.done` says of a render in the background.
-  paw.emit("render.finished", paw.util.merge(info, { path = info.path or path }))
+  local finished = copy(info)
+  finished.path = info.path or path
+  events.emit(M.finished, finished)
   return info
 end
 
@@ -128,39 +262,40 @@ M.tag_names = { "title", "artist", "album", "track", "year", "genre", "comment",
 --- `paw.render_tags()` gives `{ title, artist, album, track, year, genre, comment, cover }`
 --- as far as set; `paw.render_tags({ artist = "Me" })` sets those fields and keeps the others,
 --- an empty string takes one out. A relative `cover` is from the project's directory.
-function M.tags(set)
+function M.tags(set?: types.RenderTags): types.RenderTags
   local meta = api.project_get().meta
-  local tags = meta.tags or {}
+  local tags = (meta.tags or {}) as {string:string}
+  local given = set as {string:string | number}
   local changed = false
   for _, key in ipairs(M.tag_names) do
-    local value = set and set[key]
+    local value = given and given[key]
     if value ~= nil then
-      value = tostring(value) ~= "" and tostring(value) or nil
-      changed = changed or tags[key] ~= value
-      tags[key] = value
+      local text = tostring(value) ~= "" and tostring(value) or nil
+      changed = changed or tags[key] ~= text
+      tags[key] = text
     end
   end
   -- The project is only touched when a tag is different.
   if changed then
     meta.tags = next(tags) ~= nil and tags or nil
-    api.project_set("meta", meta)
+    api.project_set({ meta = meta })
   end
-  return tags
+  return tags as types.RenderTags
 end
 
---- The render running in the background: { path, fraction, seconds,
---- cancelling, stage, queued }, or nil. `stage` is "rendering", or "encoding"
---- when ffmpeg is making a lossy file from the render: `fraction` is then
---- the encode's.
-function M.status()
-  local s = api.render_status()
+--- The render in the background: `{ path, fraction, seconds, cancelling,
+--- stage, queued }`, or nil. `stage` is "rendering", or "encoding" when
+--- ffmpeg makes a lossy file from the render. Then `fraction` tells how
+--- far the encoding is.
+function M.status(): Status
+  local s = api.render_status() as Status
   if s then s.queued = #queue end
   return s
 end
 
---- Stop the background render, and those waiting after it. Its file is not
---- written. Returns whether one was running.
-function M.cancel()
+--- Stop the render in the background, and the renders that wait after it.
+--- paw does not write its file. Returns true if a render ran.
+function M.cancel(): boolean
   queue = {}
   return api.render_cancel()
 end
@@ -172,13 +307,14 @@ end
 --- that are not muted, by default) and `format` ("wav", "flac", "mp3", "ogg"
 --- or "opus"). With
 --- `background`, they are rendered one after another. Returns the files.
-function M.stems(dir, opts)
-  dir = paw.util.expand_path(dir)
+function M.stems(dir: string, opts?: Options): {string}
+  dir = util.expand_path(dir)
   opts = opts or {}
-  local ext = opts.format or "wav"
+  local ext = opts.format as string or "wav"
   check(dir .. "/stem." .. ext)
-  pcall(paw.api.fs_mkdir, dir)
-  local out, used = {}, {}
+  pcall(api.fs_mkdir, dir)
+  local out: {string} = {}
+  local used: {string:integer} = {}
   local tracks = opts.tracks
   if not tracks then
     tracks = {}
@@ -186,17 +322,18 @@ function M.stems(dir, opts)
       if not track.mute and #track:clips() > 0 then tracks[#tracks + 1] = track.id end
     end
   end
-  for _, id in ipairs(tracks) do
-    id = type(id) == "table" and id.id or id
-    local name = api.track_get(id, "name"):gsub("[^%w%-_ ]", "_")
+  for _, given in ipairs(tracks) do
+    -- A track as a table (from Lua) gives its id.
+    local id = type(given) == "table" and (given as objects.Track).id or given
+    local name = api.track_get(id).name:gsub("[^%w%-_ ]", "_")
     -- Two tracks of one name get a number each.
     used[name] = (used[name] or 0) + 1
     if used[name] > 1 then name = name .. " " .. used[name] end
     local path = string.format("%s/%s.%s", dir, name, ext)
     -- A lossy stem is titled after its track, unless the options say otherwise.
     local lossy = ext ~= "wav" and ext ~= "flac"
-    local tags = paw.util.merge(lossy and { title = name } or {}, opts.tags or {})
-    M.render(path, paw.util.merge(opts, { tracks = { id }, format = false, tags = tags }))
+    local tags = over(lossy and { title = name } or {}, opts.tags or {})
+    M.render(path, over(opts, { tracks = { id }, format = false, tags = tags }))
     out[#out + 1] = path
   end
   return out
@@ -205,7 +342,7 @@ end
 local function next_in_queue()
   local nxt = table.remove(queue, 1)
   if nxt then
-    local ok, err = pcall(start, nxt.path, nxt.opts)
+    local ok, err = pcall(start, nxt.path, nxt.opts) as (boolean, string)
     if not ok then
       paw.notify("could not render " .. nxt.path .. ": " .. tostring(err), "error")
       return next_in_queue()
@@ -213,38 +350,38 @@ local function next_in_queue()
   end
 end
 
-local function name_of(path) return tostring(path):match("([^/]+)$") or tostring(path) end
+local function name_of(path: string): string return tostring(path):match("([^/]+)$") or tostring(path) end
 
 --- Say what a render came to. The peak has its sign (`+6.2 dB` is over
 --- full scale) and a peak over it is a warning, as it clips.
-local function notify_rendered(path, info, more)
+local function notify_rendered(path: string, info: types.RenderResult, more: string)
   local peak = 20 * math.log10(math.max(info.peak, 1e-6))
   paw.notify(string.format("rendered %s: %.1f s, peak %+.1f dB%s%s", name_of(path), info.seconds, peak, more,
     peak > 0 and " (clips)" or ""), peak > 0 and "warn" or "info")
 end
 
-paw.on("render.progress", function() api.ui_redraw() end)
-paw.on("render.done", function(info)
+events.on(kernel.render_progress, function() api.ui_redraw() end)
+events.on(kernel.render_done, function(info: types.RenderResult)
   notify_rendered(info.path, info, info.loudness and string.format(", %.1f LUFS", info.loudness) or "")
   for _, why in ipairs(info.left_out or {}) do paw.notify(why, "warn") end
   next_in_queue()
 end)
-paw.on("render.failed", function(e)
+events.on(kernel.render_failed, function(e: kernel.RenderEnd)
   paw.notify("render of " .. name_of(e.path) .. " failed: " .. tostring(e.error), "error")
   next_in_queue()
 end)
-paw.on("render.cancelled", function(e)
+events.on(kernel.render_cancelled, function(e: kernel.RenderEnd)
   queue = {}
   paw.notify("render of " .. name_of(e.path) .. " cancelled; no file written")
 end)
 -- `Esc` in normal mode, with nothing else to cancel, stops a render.
-paw.on("escape", function()
+local escape: events.Event<events.Payload> = events.event("escape")
+events.on(escape, function()
   if api.render_status() then M.cancel() end
 end)
 
 -- The command ------------------------------------------------------------------
 
---- What `:render` takes, for its description and completion.
 M.options = {
   { "range=", { "song", "loop", "selection" }, "what to render" },
   { "start=", nil, "beat to start at" },
@@ -272,57 +409,60 @@ M.options = {
   { "cover=", nil, "tag: a PNG or JPEG file" },
 }
 
-local function default_path()
+--- The file a render writes when no file is named: the project's name, beside it.
+function M.default_path(): string
   local p = api.project_get()
   local name = (p.name and p.name ~= "" and p.name or "render"):gsub("[^%w%-_ ]", "_")
   local dir = p.path and tostring(p.path):match("^(.*)/[^/]+$")
   return (dir and dir .. "/" or "") .. name .. ".wav"
 end
 
-M.default_path = default_path
-
-local function track_list(spec)
+local function track_list(spec: commands.Arg): {integer}
   if spec == nil or spec == "all" then return nil end
   if spec == "selected" then
     local id = paw.cursor.track_id()
     if not id then error("no track is selected", 0) end
     return { id }
   end
-  local ids = {}
-  for n in tostring(spec):gmatch("[^,%s]+") do ids[#ids + 1] = tonumber(n) or error("not a track id: " .. n, 0) end
+  local ids: {integer} = {}
+  for n in tostring(spec):gmatch("[^,%s]+") do
+    local id = tonumber(n) as integer
+    if not id then error("not a track id: " .. n, 0) end
+    ids[#ids + 1] = id
+  end
   return ids
 end
 
-paw.command("render", function(ctx)
+commands.define("render", function(ctx: commands.Context): commands.Result
   local a = ctx.args
-  local opts = {
-    range = a.range, start = tonumber(a.start), ["end"] = tonumber(a["end"]), tail = tonumber(a.tail),
-    rate = tonumber(a.rate), bits = tonumber(a.bits), quality = a.quality and tostring(a.quality) or nil,
-    bitrate = tonumber(a.bitrate), dither = a.dither == true or nil,
-    channels = a.channels == "mono" and 1 or a.channels == "stereo" and 2 or tonumber(a.channels),
+  local opts: Options = {
+    range = a.range as string, start = tonumber(a.start), ["end"] = tonumber(a["end"]), tail = tonumber(a.tail),
+    rate = tonumber(a.rate) as integer, bits = tonumber(a.bits) as integer, quality = a.quality and tostring(a.quality) or nil,
+    bitrate = tonumber(a.bitrate) as integer, dither = a.dither == true or nil,
+    channels = a.channels == "mono" and 1 or a.channels == "stereo" and 2 or tonumber(a.channels) as integer,
     normalize = tonumber(a.normalize), loudness = tonumber(a.loudness),
     master = a.master ~= false and nil or false, tracks = track_list(a.tracks),
     background = a.wait ~= true,
   }
-  local tags = {}
+  local tags: {string:string} = {}
   for _, key in ipairs(M.tag_names) do
-    if a[key] ~= nil and a[key] ~= true then tags[key] = a[key] end
+    if a[key] ~= nil and a[key] ~= true then tags[key] = a[key] as string end
   end
-  opts.tags = next(tags) ~= nil and tags or nil
+  opts.tags = next(tags) ~= nil and tags as types.RenderTags or nil
   if opts.start or opts["end"] then opts.range = nil end
   -- `:render stems` and `:render Strings`: by group, the plan shown first.
-  local stems = require("paw.stems")
+  local stems = (require as function(string): Stems)("paw.stems")
   if a[1] == "stems" or stems.names_group(a[1]) then
     opts.tracks = nil
     return stems.command(ctx, opts)
   end
   if a.stems == true then
-    local dir = a[1] and paw.files.path(tostring(a[1])) or (default_path():gsub("%.wav$", "") .. " stems")
-    local files = M.stems(dir, paw.util.merge(opts, { format = a.format }))
-    return paw.notify(string.format("rendering %d stem%s into %s", #files, #files == 1 and "" or "s", dir))
+    local dir = a[1] and (paw.files as Files).path(tostring(a[1])) or (M.default_path():gsub("%.wav$", "") .. " stems")
+    local made = M.stems(dir, over(opts, { format = a.format as string }))
+    return paw.notify(string.format("rendering %d stem%s into %s", #made, #made == 1 and "" or "s", dir))
   end
   -- A relative name goes beside the project, or to the folder `:cd` set.
-  local path = a[1] and paw.files.path(tostring(a[1])) or default_path()
+  local path = a[1] and (paw.files as Files).path(tostring(a[1])) or M.default_path()
   local info = M.render(path, opts)
   if info then
     notify_rendered(path, info, "")
@@ -333,34 +473,35 @@ end, {
   desc = "Render to WAV or FLAC by the file's extension, or MP3, Ogg or Opus with ffmpeg installed: `render mix.flac "
     .. "range=loop tail=2 bits=16 dither=true channels=mono rate=44100 normalize=-1 loudness=-14 tracks=selected master=false stems=true`; "
     .. "`render stems [dir]` one file per group (`render stems tracks` per track), `render Strings` one group",
-  complete = function(rest)
+  complete = function(rest: string): {string}
     local before, last = rest:match("^(.-)(%S*)$")
-    local out = {}
+    local out: {string} = {}
     local key = last:match("^(%w+)=")
     if before == "" and not key then
       out[1] = "stems"
       for _, id in ipairs(api.track_list()) do
-        if paw.groups.is_group(id) then out[#out + 1] = api.track_get(id, "name") end
+        if paw.groups.is_group(id) then out[#out + 1] = api.track_get(id).name end
       end
     end
     for _, o in ipairs(M.options) do
-      if key and o[1] == key .. "=" then
-        for _, v in ipairs(o[2] or {}) do out[#out + 1] = before .. o[1] .. v end
+      local name = o[1] as string
+      if key and name == key .. "=" then
+        for _, v in ipairs(o[2] as {string} or {}) do out[#out + 1] = before .. name .. v end
       elseif not key then
-        out[#out + 1] = before .. o[1]
+        out[#out + 1] = before .. name
       end
     end
     return out
   end,
 })
 
-paw.command("render.tags", function(ctx)
-  local set = {}
+commands.define("render.tags", function(ctx: commands.Context): commands.Result
+  local set: {string:string} = {}
   for _, key in ipairs(M.tag_names) do
-    if ctx.args[key] ~= nil and ctx.args[key] ~= true then set[key] = ctx.args[key] end
+    if ctx.args[key] ~= nil and ctx.args[key] ~= true then set[key] = ctx.args[key] as string end
   end
-  local tags = M.tags(next(set) ~= nil and set or nil)
-  local words = {}
+  local tags = M.tags(next(set) ~= nil and set as types.RenderTags or nil) as {string:string}
+  local words: {string} = {}
   for _, key in ipairs(M.tag_names) do
     if tags[key] then words[#words + 1] = key .. "=" .. tostring(tags[key]) end
   end
@@ -371,18 +512,20 @@ end, {
     .. "year=2026 genre=Ambient comment=\"a note\" cover=cover.png`; an empty value takes one out",
 })
 
-paw.command("render.cancel", function()
+commands.define("render.cancel", function(): commands.Result
   if not M.cancel() then paw.notify("nothing is being rendered") end
 end, { desc = "Stop the render running in the background; it leaves no file" })
 
-paw.command("stems", function(ctx)
-  local dir = paw.files.path(tostring(ctx.args[1] or "stems"))
-  local files = M.stems(dir, {
-    tail = tonumber(ctx.args.tail), bits = tonumber(ctx.args.bits), format = ctx.args.format,
-    quality = ctx.args.quality and tostring(ctx.args.quality) or nil, bitrate = tonumber(ctx.args.bitrate),
+commands.define("stems", function(ctx: commands.Context): commands.Result
+  local dir = (paw.files as Files).path(tostring(ctx.args[1] or "stems"))
+  local made = M.stems(dir, {
+    tail = tonumber(ctx.args.tail), bits = tonumber(ctx.args.bits) as integer, format = ctx.args.format as string,
+    quality = ctx.args.quality and tostring(ctx.args.quality) or nil, bitrate = tonumber(ctx.args.bitrate) as integer,
     master = ctx.args.master ~= false and nil or false, background = ctx.args.wait ~= true,
   })
-  paw.notify(string.format("rendering %d stem%s into %s", #files, #files == 1 and "" or "s", dir))
+  paw.notify(string.format("rendering %d stem%s into %s", #made, #made == 1 and "" or "s", dir))
 end, { desc = "Render each track on its own into a directory: `stems out tail=2 bits=24 format=flac master=false`" })
 
-return M
+return setmetatable(M, {
+  __call = function(_: M, path: string, opts?: Options): types.RenderResult return M.render(path, opts) end,
+} as metatable<M>)

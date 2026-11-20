@@ -8,6 +8,7 @@
 local api = require("paw.api")
 local options = require("paw.options")
 local type contracts = require("paw.contracts")
+local type types = require("paw.types")
 local type partial = require("paw.partial")
 local type DiagnosticModule = require("paw.diagnostic")
 local type CommandsModule = require("paw.commands")
@@ -16,16 +17,10 @@ local type GroupsModule = require("paw.groups")
 local type VcaModule = require("paw.vca")
 local type AddressModule = require("paw.address")
 local type TempolaneModule = require("paw.tempolane")
+local type FrontendModule = require("paw.frontend")
 
 local type Entry = contracts.MenuEntry
 local opt = options.opt
-
---- An entry that an extension adds to a menu (`paw.frontend.menus[kind]`):
---- its label, and `only = "midi"` (or `"audio"`) for the clips it fits.
-local record Added
-  label: string
-  only: string
-end
 
 --- A choice of a menu of the frontend (`{ label, checked }`).
 local record Choice
@@ -33,91 +28,22 @@ local record Choice
   checked: boolean
 end
 
---- A recent project of the File menu.
+--- A recent project of the File menu (`paw.frontend.recent_menu`, from
+--- paw/recent.lua).
 local record Recent
   label: string
   path: string
 end
 
---- The choices of the audio devices (`paw.frontend.engine_menu`).
-local record EngineMenu
-  info: {Choice}
-  output: {Choice}
-  input: {Choice}
-  block: {Choice}
-  rate: {Choice}
-  backend: {Choice}
-end
-
---- The choices of a track's input and MIDI output (`paw.frontend.input_menu`).
-local record InputMenu
-  audio: {Choice}
-  midi: {Choice}
-  channel: {Choice}
-  midi_out: {Choice}
-  midi_out_channel: {Choice}
-  midi_out_form: {Choice}
-  monitor: boolean
-end
-
---- A track a track can play into or send to.
-local record Target
-  id: integer
-  name: string
-end
-
---- Where a track's sound goes (`paw.frontend.routing`).
-local record Routing
-  output_id: integer
-  targets: {Target}
-end
-
---- A further output pair of a device and its choices (`paw.frontend.outputs_menu`).
-local record Pair
-  label: string
-  choices: {Choice}
-end
-
---- What a pointer does, for each frontend (`paw.frontend.act`, paw/frontend.lua).
-local record Act
-  menu: function(kind: string, index: integer, target: integer, beat: number)
-  clip_command: function(id: integer, beat: number, line: string)
-  track_command: function(id: integer, line: string)
-  device_command: function(device: integer, line: string)
-  open_clip: function(id: integer)
-  menu_split: function(id: integer)
-  menu_glue: function(id: integer)
-  stretch_clip: function(id: integer, how: string)
-  warp_add: function(id: integer, beat: number)
-  warp_remove: function(id: integer, index: integer)
-  keys: function(keys: string)
+--- The gestures that other modules add to `paw.frontend.act`
+--- (paw/views/curve.lua, paw/fx.lua, paw/diagnostic.tl and paw/window_menus.tl).
+local record MoreActs
   open_curve: function(uri: string)
-  clear_lane: function(lane: integer)
-  toggle_lane: function(lane: integer)
-  hide_lane_rows: function(lane: integer)
-  tempo_mark: function(what: string, kind: string, beat: number)
-  tempo_lane: function(shown: boolean)
   automate_param: function(device: integer, key: string)
-  select_all_notes: function(clip: integer)
-  clear_note_selection: function()
-  remove_chosen_notes: function(clip: integer)
-  quantize_notes: function(clip: integer)
-  toggle_note_snap: function()
   note_action: function(clip: integer, place: integer, n: integer)
-  remove_note: function(clip: integer, place: integer)
-  select_all_controls: function(clip: integer, kind: string, number: integer)
-  clear_control_selection: function(clip: integer)
-  remove_chosen_controls: function(clip: integer)
-  clear_controls: function(clip: integer, kind: string, number: integer)
-  choose_engine: function(group: string, index: integer)
-  choose_input: function(track: integer, group: string, index: integer)
-  toggle: function(track: integer, what: string)
-  set_output: function(track: integer, target: integer)
-  add_send: function(track: integer, target: integer)
   preset_menu: function(device: integer): {string}
   preset_choose: function(device: integer, index: integer)
-  choose_sidechain: function(device: integer, index: integer)
-  route_pair: function(device: integer, pair: integer, index: integer)
+  device_command: function(device: integer, line: string)
   menu_choose: function(kind: string, args: {MenuArg}, path: {integer})
   menu_dismiss: function()
 end
@@ -146,16 +72,8 @@ local record Described
   separator: boolean
 end
 
---- paw/frontend.lua, as far as the menus call it.
-local record Frontend
-  act: Act
-  menus: {string:{Added}}
-  recent_menu: function(): {Recent}
-  engine_menu: function(): EngineMenu
-  input_menu: function(track: integer): InputMenu
-  routing: function(track: integer): Routing
-  sidechain_menu: function(device: integer): {Choice}
-  outputs_menu: function(device: integer): {Pair}
+--- What paw/window_menus.tl adds to `paw.frontend`: the menus as plain data.
+local record MoreFrontend
   menu: function(kind: string, args: {MenuArg}): {Described}
 end
 
@@ -175,6 +93,7 @@ local record Paw is partial.Paw
   vca: VcaModule
   address: AddressModule
   tempolane: TempolaneModule
+  frontend: FrontendModule
 end
 -- The global `paw` of the declarations does not hold this module, so its
 -- local has a name of its own.
@@ -182,15 +101,17 @@ local runtime = (_G as {string:Paw}).paw
 
 local record M
   type Choice = Choice
-  type Act = Act
+  type Recent = Recent
+  type MoreActs = MoreActs
+  type MoreFrontend = MoreFrontend
   type MenuArg = MenuArg
   type MenuTable = MenuTable
   type Described = Described
-  type Frontend = Frontend
 end
 
-local function frontend(): Frontend return runtime.frontend as Frontend end
-local function act(): Act return frontend().act end
+local function frontend(): FrontendModule return runtime.frontend end
+local function act(): FrontendModule.Act return frontend().act end
+local function added_acts(): MoreActs return frontend().act as MoreActs end
 
 --- The entries extensions add (`paw.frontend.menus[kind]`), for `target`
 --- (a clip or a track) clicked at `beat`.
@@ -396,7 +317,7 @@ end
 function M.lane(lane: integer): {Entry}
   local l = api.lane_get(lane)
   return {
-    { label = "Edit the curve…", run = function() act().open_curve(runtime.address.lane(lane)) end },
+    { label = "Edit the curve…", run = function() added_acts().open_curve(runtime.address.lane(lane)) end },
     { label = "Clear this lane", run = function() act().clear_lane(lane) end },
     { label = l.enabled and "Turn this lane off" or "Turn this lane on", run = function() act().toggle_lane(lane) end },
     "-",
@@ -416,7 +337,7 @@ end
 --- The tempo lane under the ruler.
 function M.tempo_lane(): {Entry}
   return {
-    { label = "Edit the tempo as a curve…", run = function() act().open_curve(runtime.address.tempo()) end },
+    { label = "Edit the tempo as a curve…", run = function() added_acts().open_curve(runtime.address.tempo()) end },
     { label = "Hide the tempo lane", run = function() act().tempo_lane(false) end },
   }
 end
@@ -424,8 +345,8 @@ end
 --- A device's parameter: automating it, and its curve.
 function M.param(device: integer, key: string): {Entry}
   return {
-    { label = "Automate this parameter", run = function() act().automate_param(device, key) end },
-    { label = "Edit its curve…", run = function() act().open_curve(runtime.address.param(device, key)) end },
+    { label = "Automate this parameter", run = function() added_acts().automate_param(device, key) end },
+    { label = "Edit its curve…", run = function() added_acts().open_curve(runtime.address.param(device, key)) end },
   }
 end
 
@@ -463,7 +384,7 @@ end
 function M.note(clip: integer, place: integer): {Entry}
   local items: {Entry} = {}
   for n, action in ipairs(runtime.diagnostic and runtime.diagnostic.actions(clip, place) or {}) do
-    items[#items + 1] = { label = action.title, run = function() act().note_action(clip, place, n) end }
+    items[#items + 1] = { label = action.title, run = function() added_acts().note_action(clip, place, n) end }
   end
   local notes = api.clip_notes(clip)
   local note = notes[place]
@@ -479,7 +400,7 @@ function M.strip(clip: integer, kind: string, number: integer): {Entry}
     { label = "Choose every move of this controller", run = function() act().select_all_controls(clip, kind, number) end },
     { label = "Let go of the chosen moves", run = function() act().clear_control_selection(clip) end },
     { label = "Delete the chosen moves", run = function() act().remove_chosen_controls(clip) end },
-    { label = "Clear this controller", run = function() act().clear_controls(clip, kind, number) end },
+    { label = "Clear this controller", run = function() act().clear_controls(clip, kind as types.ControlType, number) end },
   }
 end
 
