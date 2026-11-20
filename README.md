@@ -9,19 +9,17 @@
 ![The demo song plays. 3>ic moves the melody, . moves it again and u undoes it. :%s/e5/g5/g changes it, with a preview while it is typed](docs/images/tui-arrange.gif)
 
 paw is a digital audio workstation (DAW) for musicians who use Vim or
-Neovim. You record, edit, mix and render songs in the terminal, with
-motions, operators, counts, `.` and Ex commands. The same views also open
-in a [graphical window](crates/paw-gui/README.md) for the mouse. Each view,
+Neovim. They write ten lines of Lua before they wait for a feature. You
+record, edit, mix and render songs in the terminal, with motions,
+operators, counts, `.` and Ex commands. The same views also open in a
+[graphical window](crates/paw-gui/README.md) for the mouse. Each view,
 command and key is Lua, and your `init.lua` can change all of them while
 the song plays.
 
-> [!NOTE]
-> paw is a **personal project and it is not complete**. One person made it
-> for their own music. It runs on Linux (PipeWire, ALSA or JACK) and hosts
-> CLAP, LV2 and VST3 plugins. paw has more than 1,600 end-to-end tests in
-> Lua and 700 tests in Rust. Most of them use stand-ins, not real hardware.
-> paw can change without notice. See
-> [what paw does not do](docs/reference/limits.md).
+```sh
+git clone https://github.com/AlejandroGomezFrieiro/custom_daw paw && cd paw
+nix run . -- -e 'dofile("examples/demo-song.lua")'
+```
 
 ## Try it
 
@@ -29,14 +27,8 @@ You need Linux and [Nix](https://nixos.org/download/) with flakes enabled
 (`experimental-features = nix-command flakes` in `nix.conf`). The first run
 builds paw from source. This takes several minutes.
 
-1. Get the source and start paw with the demo song:
-
-   ```sh
-   git clone https://github.com/AlejandroGomezFrieiro/custom_daw paw && cd paw
-   nix run . -- -e 'dofile("examples/demo-song.lua")'
-   ```
-
-   The arrange view shows the song, with one row for each track.
+1. Run the two commands above. They get the source and start paw with the
+   demo song. The arrange view shows the song, with one row for each track.
 2. Press `Space`. The song plays and the playhead moves to the right.
 3. Press `Space` again to stop the song.
 4. Press `?`. A list shows each key of the current view. Press `Esc` to close it.
@@ -48,10 +40,18 @@ lessons. To install paw, see [How to install paw](docs/how-to/install-paw.md).
 If you hear no sound, run `nix run . -- doctor`. The doctor examines your
 sound devices, MIDI ports and plugins.
 
+> [!NOTE]
+> paw is a **personal project and it is not complete**. One person made it
+> for their own music. It runs on Linux (PipeWire, ALSA or JACK) and hosts
+> CLAP, LV2 and VST3 plugins. paw has more than 1,600 end-to-end tests in
+> Lua and 700 tests in Rust. Most of them use stand-ins, not real hardware.
+> paw can change without notice. See
+> [what paw does not do](docs/reference/limits.md).
+
 ## Is paw for you?
 
 paw is for musicians who keep their tools in a configuration that they
-write. They write ten lines of Lua before they wait for a feature.
+write.
 
 | If you want | Look at |
 | --- | --- |
@@ -108,6 +108,10 @@ plays each item before you select it:
 
 ![The mixer while the song plays: a fader moves, a track is muted, and the picker adds a chorus](docs/images/tui-mixer.gif)
 
+The same views open in the graphical window, for the mouse:
+
+![Clips copied, trimmed and zoomed with the mouse](docs/images/gui-arrange.gif)
+
 <details>
 <summary>More: lists as text, find, files, large projects, record, help, configuration</summary>
 
@@ -142,38 +146,13 @@ paw.keymap.set("<leader>T", "track.add Strings device=synth", { desc = "A string
 
 An extension is a folder of Lua that adds commands, keys, views, devices and
 kinds of track, and `:ext.unload` removes all of it. A view that an
-extension writes works in the terminal and in the graphical window. These
-extensions come with paw:
-
-| Extension | Adds |
-| --- | --- |
-| [notation](extensions/notation) | a clip as a score or tablature, engraved, a view over its MIDI |
-| [drums](extensions/drums) | drum tracks and a grid to program them |
-| [sampler](extensions/sampler) | paw's own sample player: SFZ and Decent Sampler, an articulation for each note |
-| [articulations](extensions/articulations) | one file for each instrument: keyswitches, ranges, delays and an articulation for each note |
-| [utau](extensions/utau) | vocal tracks that OpenUtau's voicebanks sing, with their own editor |
-| [pattern](extensions/pattern) | clips written as a line of text, as in TidalCycles |
-| [musicops](extensions/musicops) | humanize, strum, arpeggiate and other note edits |
-| [sections](extensions/sections) | intro, verse and chorus as named parts of the song |
-| [launcher](extensions/launcher) | a clip launcher: slots of clips on each track, started and stopped while the song plays |
-| [continue](extensions/continue) | suggestions in the piano roll for how a phrase continues |
-| [snippets](extensions/snippets) | a first set of snippets for `paw.snippet` |
-| [templates](extensions/templates) | tracks and device chains saved under a name |
-| [undotree](extensions/undotree) | the undo tree, to move through |
-| [mixdiag](extensions/mixdiag) | measurements of the mix, and the problems in it |
-| [plugstate](extensions/plugstate) | amp models, impulse responses and instrument files of plugins, chosen without their windows, and snapshots |
-| [ara](extensions/ara) | ARA plugins on a vocal or a take |
-| [vinput](extensions/vinput) | virtual inputs, for example a guitar converted to MIDI |
-| [projdiff](extensions/projdiff) | the changes in a project, and a merge of two versions of it, also in git |
-| [rpp](extensions/rpp) | open and write REAPER projects |
-| [dawproject](extensions/dawproject) | open and write DAWproject files of Bitwig Studio, Studio One and Cubase |
-| [luafx](extensions/luafx) | devices written in Lua, to use and to copy |
-| [midilsp](extensions/midilsp) | MIDI LSP, a language server for music, as an entry of `paw.lsp` |
-| [tutor](extensions/tutor) | the course, inside paw |
-| [doctor](extensions/doctor) | checks of your sound card, MIDI devices and plugins |
-
-See [How to load an extension](docs/how-to/load-an-extension.md) and
-[Extensions](docs/reference/extensions.md). Scripts, the socket
+extension writes works in the terminal and in the graphical window. The
+extensions that come with paw write scores and tablature, and program
+drums. They play SFZ libraries with an articulation for each note, make
+vocal tracks sing and launch clips live. They also open and write REAPER
+and DAWproject files, and check your sound card. [Extensions](docs/reference/extensions.md) lists all
+of them, and [How to load an extension](docs/how-to/load-an-extension.md)
+tells how to turn one on. Scripts, the socket
 (`paw ctl`) and AI agents also control paw, through the same Lua. See
 [How to drive paw from an agent](docs/how-to/drive-paw-from-an-agent.md).
 
