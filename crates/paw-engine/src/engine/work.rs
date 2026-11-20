@@ -50,6 +50,36 @@ pub(super) struct Work<'a> {
     pub(super) spent: &'a AtomicU64,
 }
 
+/// The program changes a block's state lanes give, each for one device: a
+/// few, on the stack.
+struct Programs {
+    list: [(DeviceSlot, u8, Option<u16>); 4],
+    count: usize,
+}
+
+impl Default for Programs {
+    fn default() -> Self {
+        Self {
+            list: [(DeviceSlot::NONE, 0, None); 4],
+            count: 0,
+        }
+    }
+}
+
+impl Programs {
+    /// Keep a program change for a device, unless there is no room left.
+    fn push(&mut self, change: (DeviceSlot, u8, Option<u16>)) {
+        if self.count < self.list.len() {
+            self.list[self.count] = change;
+            self.count += 1;
+        }
+    }
+
+    fn as_slice(&self) -> &[(DeviceSlot, u8, Option<u16>)] {
+        &self.list[..self.count]
+    }
+}
+
 impl Work<'_> {
     /// Make one track's block, and count the time it took.
     pub(super) fn track(&self, index: usize) {
@@ -64,6 +94,41 @@ impl Work<'_> {
     /// already in its buffer. Touches nothing but the track and its devices.
     pub(super) fn make(&self, index: usize) {
         let entry = &self.entries[index];
+        let Block { n, start, end, .. } = *self.block;
+        let Some(mut claim) = self.tracks.get(entry.slot.index()).and_then(Guarded::claim) else {
+            return;
+        };
+        let Some(t) = claim.as_deref_mut() else {
+            return;
+        };
+        // Half a frame, in beats: how near a launch or a state lane's point
+        // counts as on this block's first or last frame.
+        let slack = if n > 0 {
+            0.5 * (end - start) / n as f64
+        } else {
+            0.0
+        };
+        self.gather(t, slack);
+        let mut programs = Programs::default();
+        if self.block.ctx.playing {
+            self.automate(t);
+            self.give_states(t, slack, &mut programs);
+        }
+        self.run_chain(t, &programs);
+        if let Some(state) = self.shared.launch.get(entry.slot.index()) {
+            t.launcher.publish(state);
+        }
+        // A track with sends or side-chains from before its fader keeps
+        // the fader for when they have been taken.
+        if !entry.taps_pre() {
+            fader(t, entry.slot, self.block, self.shared);
+        }
+    }
+
+    /// What goes into the track's devices: the block's events (notes to
+    /// stop and to chase, what was played live, the clips' or the playing
+    /// slot's), the sound of its audio clips, and its input.
+    fn gather(&self, t: &mut TrackRt, slack: f64) {
         let Block {
             ref ctx,
             n,
@@ -74,19 +139,8 @@ impl Work<'_> {
         } = *self.block;
         let playing = ctx.playing;
         let sr = ctx.sample_rate as f64;
-        let Some(mut claim) = self.tracks.get(entry.slot.index()).and_then(Guarded::claim) else {
-            return;
-        };
-        let Some(t) = claim.as_deref_mut() else {
-            return;
-        };
         // A launch due now: what played stops, and what plays from here
         // starts with its held notes.
-        let slack = if n > 0 {
-            0.5 * (end - start) / n as f64
-        } else {
-            0.0
-        };
         if let Some(change) = t.launcher.commit(start, slack) {
             t.flush = true;
             t.chase |= change.chase;
@@ -181,85 +235,96 @@ impl Work<'_> {
             t.sent
                 .extend(t.events.as_slice().iter().take(room).copied());
         }
+    }
 
-        if playing {
-            for lane in t.automation.lanes.iter_mut() {
-                let Some(value) = automation::value_at(&lane.points, start) else {
-                    continue;
-                };
-                match lane.target {
-                    AutoTarget::Volume => t.gain = crate::db_to_gain(value),
-                    AutoTarget::Pan => t.pan = value as f32,
-                    AutoTarget::Param { device, index } => {
-                        if self.block.reapply || value != lane.last {
-                            if let Some(mut dev) = self.device(device)
-                                && let Some(dev) = dev.as_mut()
-                            {
-                                dev.set_param(index, value as f32);
-                            }
-                            lane.last = value;
+    /// While playing, the automation lanes set the track's fader and pan
+    /// and its devices' parameters, as they are at the block's start.
+    fn automate(&self, t: &mut TrackRt) {
+        let start = self.block.start;
+        for lane in t.automation.lanes.iter_mut() {
+            let Some(value) = automation::value_at(&lane.points, start) else {
+                continue;
+            };
+            match lane.target {
+                AutoTarget::Volume => t.gain = crate::db_to_gain(value),
+                AutoTarget::Pan => t.pan = value as f32,
+                AutoTarget::Param { device, index } => {
+                    if self.block.reapply || value != lane.last {
+                        if let Some(mut dev) = self.device(device)
+                            && let Some(dev) = dev.as_mut()
+                        {
+                            dev.set_param(index, value as f32);
                         }
+                        lane.last = value;
                     }
                 }
             }
         }
-        // State lanes. Blocks end on their points, so a new state is given
-        // on the first frame of the block that starts at its point. A
-        // message for a point at this block's end is handed on its last
-        // frame: a plugin that finishes it after the block (an LV2 worker,
-        // at once in a render) then plays it from the point's frame.
-        let mut programs = [(DeviceSlot::NONE, 0u8, None::<u16>); 4];
-        let mut program_count = 0;
-        if playing {
-            for lane in t.automation.states.iter_mut() {
-                let Some(index) = automation::state_at(&lane.points, start + slack) else {
-                    continue;
-                };
-                if self.block.restate {
-                    lane.last = None;
-                    lane.sent_early = None;
-                }
-                if lane.last != Some(index) {
-                    let early = lane.sent_early.take() == Some(index);
-                    if let Some(change) = lane.changes.get(index as usize)
-                        && let Some(mut dev) = self.device(lane.device)
-                        && let Some(dev) = dev.as_mut()
-                    {
-                        for &(param, value) in change.params.iter() {
-                            dev.set_param(param, value);
-                        }
-                        if let Some(message) = change.message.as_deref()
-                            && !early
-                        {
-                            dev.device.message(0, message);
-                        }
-                        if let Some((program, bank)) = change.program
-                            && program_count < programs.len()
-                        {
-                            programs[program_count] = (lane.device, program, bank);
-                            program_count += 1;
-                        }
-                    }
-                    lane.last = Some(index);
-                }
-                if n > 0
-                    && let Some(next) = automation::next_point(&lane.points, start + slack)
-                    && (next - end).abs() <= slack
-                    && let Some(after) = automation::state_at(&lane.points, next + slack)
-                    && after != index
-                    && let Some(message) = lane
-                        .changes
-                        .get(after as usize)
-                        .and_then(|c| c.message.as_deref())
+    }
+
+    /// While playing, the state lanes give their devices the state at the
+    /// block's start; the program changes among them are kept in
+    /// `programs`, for [`run_chain`](Self::run_chain) to hand each to its
+    /// device only.
+    ///
+    /// Blocks end on the lanes' points, so a new state is given on the
+    /// first frame of the block that starts at its point. A message for a
+    /// point at this block's end is handed on its last frame: a plugin that
+    /// finishes it after the block (an LV2 worker, at once in a render)
+    /// then plays it from the point's frame.
+    fn give_states(&self, t: &mut TrackRt, slack: f64, programs: &mut Programs) {
+        let Block { n, start, end, .. } = *self.block;
+        for lane in t.automation.states.iter_mut() {
+            let Some(index) = automation::state_at(&lane.points, start + slack) else {
+                continue;
+            };
+            if self.block.restate {
+                lane.last = None;
+                lane.sent_early = None;
+            }
+            if lane.last != Some(index) {
+                let early = lane.sent_early.take() == Some(index);
+                if let Some(change) = lane.changes.get(index as usize)
                     && let Some(mut dev) = self.device(lane.device)
                     && let Some(dev) = dev.as_mut()
-                    && dev.device.message(n as u32 - 1, message)
                 {
-                    lane.sent_early = Some(after);
+                    for &(param, value) in change.params.iter() {
+                        dev.set_param(param, value);
+                    }
+                    if let Some(message) = change.message.as_deref()
+                        && !early
+                    {
+                        dev.device.message(0, message);
+                    }
+                    if let Some((program, bank)) = change.program {
+                        programs.push((lane.device, program, bank));
+                    }
                 }
+                lane.last = Some(index);
+            }
+            if n > 0
+                && let Some(next) = automation::next_point(&lane.points, start + slack)
+                && (next - end).abs() <= slack
+                && let Some(after) = automation::state_at(&lane.points, next + slack)
+                && after != index
+                && let Some(message) = lane
+                    .changes
+                    .get(after as usize)
+                    .and_then(|c| c.message.as_deref())
+                && let Some(mut dev) = self.device(lane.device)
+                && let Some(dev) = dev.as_mut()
+                && dev.device.message(n as u32 - 1, message)
+            {
+                lane.sent_early = Some(after);
             }
         }
+    }
 
+    /// Run the block through the track's devices in order, letting those
+    /// at rest sleep through silence, and passing over or silencing those
+    /// that fail.
+    fn run_chain(&self, t: &mut TrackRt, programs: &Programs) {
+        let Block { ref ctx, n, .. } = *self.block;
         let [left, right] = &mut t.buf;
         // Whether the block is silent with no events, as far as it is known:
         // looked at when a device at rest asks, and true still after a
@@ -273,7 +338,7 @@ impl Work<'_> {
             {
                 // A state lane's program change, for this device only:
                 // the devices before it in the chain do not hear it.
-                for &(to, program, bank) in &programs[..program_count] {
+                for &(to, program, bank) in programs.as_slice() {
                     if to == slot {
                         let kind = EventKind::Program {
                             program,
@@ -347,14 +412,6 @@ impl Work<'_> {
         }
         if sleeps > 0 {
             self.shared.device_sleeps.fetch_add(sleeps, Relaxed);
-        }
-        if let Some(state) = self.shared.launch.get(entry.slot.index()) {
-            t.launcher.publish(state);
-        }
-        // A track with sends or side-chains from before its fader keeps
-        // the fader for when they have been taken.
-        if !entry.taps_pre() {
-            fader(t, entry.slot, self.block, self.shared);
         }
     }
 

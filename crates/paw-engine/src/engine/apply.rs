@@ -367,6 +367,8 @@ impl Engine {
         }
     }
 
+    // The box is the message's: it goes back to be freed whole, not here.
+    #[allow(clippy::box_collection)]
     fn launch(&mut self, launches: Box<Vec<Launch>>) {
         let (position, playing) = (self.position, self.playing);
         if let Some(map) = self.map.take() {
