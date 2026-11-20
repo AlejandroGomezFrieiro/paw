@@ -39,7 +39,8 @@ use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, anyhow, bail};
 use paw_engine::device::{
-    Controller, Device, DeviceFactory, DeviceInfo, Instance, Io, ParamInfo, Ports, Starting,
+    Controller, Device, DeviceFactory, DeviceInfo, Instance, Io, ParamInfo, Ports, Rest,
+    Starting,
 };
 use paw_engine::{Event, MAX_PAIRS, ProcessCtx, Registry};
 use serde_json::{Value, json};
@@ -423,7 +424,7 @@ struct RemoteDevice {
     messages: Vec<u8>,
     told_priority: bool,
     /// The plugin said it was at rest after the last block.
-    resting: bool,
+    rest: Rest,
     /// The longest a render waits for one block: a device that is never
     /// in this process (a script) is ended as soon as live, a plugin is
     /// given [`OFFLINE_LIMIT`].
@@ -445,13 +446,12 @@ impl Device for RemoteDevice {
     /// As the plugin said after its last block, unless a parameter has
     /// moved since.
     fn resting(&self) -> bool {
-        self.resting && self.moves.is_empty() && !self.link.wake.load(Ordering::Relaxed)
+        self.rest.resting() && self.moves.is_empty() && !self.link.wake.load(Ordering::Relaxed)
     }
 
     fn process(&mut self, ctx: &ProcessCtx, io: &mut Io) {
-        self.resting = false;
         let link = &*self.link;
-        link.wake.store(false, Ordering::Relaxed);
+        self.rest.begin(io, link.wake.swap(false, Ordering::Relaxed));
         let shm = &link.shm;
         let header = shm.header();
         // A helper that has said why it stopped is ending, or has ended.
@@ -580,7 +580,7 @@ impl Device for RemoteDevice {
                 r[..frames].copy_from_slice(&shm.out(pair, 1)[..frames]);
             }
         }
-        self.resting = header.resting != 0;
+        self.rest.end(header.resting != 0);
         let out = (header.events_out as usize).min(EVENTS);
         io.events.clear();
         for event in &shm.events()[..out] {
@@ -941,7 +941,7 @@ impl Controller for RemoteController {
         self.link.wake.store(true, Ordering::Relaxed);
         self.reread = Some(self.link.answered.load(Ordering::Relaxed));
         // A preset sets the plugin's parameters anew.
-        if method == "preset.load" {
+        if method == paw_engine::device::method::PRESET_LOAD {
             self.refresh_values();
         }
         Ok(answer)
@@ -1201,7 +1201,7 @@ impl RemoteFactory {
                 moves: Vec::with_capacity(PARAMS),
             messages: Vec::with_capacity(MESSAGES),
                 told_priority: false,
-                resting: false,
+                rest: Rest::default(),
                 offline_limit: if self.argv.is_some() { STALL_LIMIT } else { OFFLINE_LIMIT },
             }),
             controller: Some(Box::new(controller)),

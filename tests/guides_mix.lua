@@ -6,10 +6,7 @@ local T = ...
 local test, eq, near, fresh = T.test, T.eq, T.near, T.fresh
 local api = paw.api
 
-local function keys(text)
-  paw.keymap.feed(text)
-  api.undo_checkpoint()
-end
+local keys = T.keys
 
 local function start()
   fresh()
@@ -202,11 +199,11 @@ T.last("guide: check the mix", function()
   -- The meters while the song plays.
   keys(",m")
   keys("<Space>")
-  local loudest, deadline = 0, api.now() + 3000
-  while loudest < 0.01 and api.now() < deadline do
-    api.sleep(20)
+  local loudest = 0
+  T.until_(function()
     loudest = math.max(loudest, (api.track_meter(0)))
-  end
+    return loudest >= 0.01
+  end, "the master meter to move while the song plays")
   keys("<Space>")
   eq(loudest > 0.01, true, "the master strip meters the mix")
   keys("<Esc>")
@@ -216,11 +213,10 @@ T.last("guide: check the mix", function()
   local mixdiag = require("mixdiag")
   keys(",xa")
   eq(mixdiag.job ~= nil, true, ",xa measures the song")
-  local limit = api.now() + 30000
-  while mixdiag.job and api.now() < limit do
-    api.sleep(10)
+  T.until_(function()
     mixdiag.poll()
-  end
+    return not mixdiag.job
+  end, "the measurement to end", 60000)
   eq(mixdiag.job, nil, "the measurement ends")
   eq(mixdiag.line:find("LUFS", 1, true) ~= nil, true, "the message gives the loudness: " .. mixdiag.line)
   local rules = {}

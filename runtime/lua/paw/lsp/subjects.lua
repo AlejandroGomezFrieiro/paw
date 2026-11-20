@@ -59,7 +59,7 @@ function M.track_passes(track, where)
     for _, p in ipairs(where.tracks) do any = any or glob(p, track.name) end
     if not any then return false end
   end
-  if where.drums ~= nil and where.drums ~= document.is_drums(track) then return false end
+  if where.drums ~= nil and where.drums ~= paw.harmony.is_drums(track) then return false end
   return true
 end
 
@@ -122,7 +122,7 @@ local function track_of(id)
   return {
     id = id, address = A.track(id), name = t.name, master = id == 0, volume = t.volume, pan = t.pan,
     mute = t.mute, solo = t.solo, output = t.output, sends = sends, devices = devices,
-    drums = document.is_drums(t) or nil,
+    drums = paw.harmony.is_drums(t) or nil,
   }
 end
 

@@ -1,6 +1,6 @@
 -- Tests of the engraved page's layout: skylines and what is placed against
 -- them, balanced system breaks and the breaks a score keeps, slurs, the
--- page view and its export. Loaded by tests.lua.
+-- page view and its export. Loaded by tests/suite.lua.
 local T = ...
 local test, eq, fresh = T.test, T.eq, T.fresh
 local paw = require("paw")
@@ -13,10 +13,7 @@ end
 
 local function N(pitch, start, length) return { pitch = pitch, start = start, length = length, velocity = 80 } end
 
-local function keys(text)
-  paw.keymap.feed(text)
-  api.undo_checkpoint()
-end
+local keys = T.keys
 
 local W, H = 1053, 900
 local function paint(view)

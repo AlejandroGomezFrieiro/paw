@@ -44,10 +44,7 @@ local function screen() return table.concat(api.ui_snapshot(W, H), "\n") end
 
 local function ex(line) return paw.commands.exec(line) end
 
-local function keys(text)
-  paw.keymap.feed(text)
-  api.undo_checkpoint()
-end
+local keys = T.keys
 
 -- Two tracks, a clip of notes on the first, a synth on the second.
 local function song()

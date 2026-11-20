@@ -221,7 +221,6 @@ pub fn analyze(audio: &Audio, segments: Segments, max_segments: usize) -> Result
         writeln!(out, " {}", line.trim_end().trim_end_matches('·').trim_end())?;
     }
 
-    // Spectrum.
     let (bands, centroid) = spectrum(&mono, rate);
     let loudest = bands.iter().cloned().fold(f64::MIN, f64::max);
     write!(

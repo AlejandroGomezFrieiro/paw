@@ -192,7 +192,7 @@ test("a recording knows the tempo it was made at", function()
   t.input, t.armed = "1", true
   paw.transport.seek(0)
   paw.transport.record()
-  api.sleep(700)
+  T.until_beat(1.4)
   paw.transport.stop()
   paw.flush()
   local clip = t:clips()[1]

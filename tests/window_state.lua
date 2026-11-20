@@ -41,10 +41,7 @@ local function rects()
   return out
 end
 
-local function keys(text)
-  paw.keymap.feed(text)
-  api.undo_checkpoint()
-end
+local keys = T.keys
 
 --- Run `fn` with the screen of the size the tests draw.
 local function sized(fn)

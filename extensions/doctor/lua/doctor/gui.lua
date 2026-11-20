@@ -44,7 +44,6 @@ function view:paint(g, ctx)
   end
   button(g, w - PAD - 70, 13, "Close", function() paw.cmd("doctor.close") end)
 
-  -- The checks.
   local y = TOP + 10
   for _, row in ipairs(model.rows) do
     local chosen = row.index == view.row

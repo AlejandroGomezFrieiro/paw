@@ -202,7 +202,7 @@ test("harmony: the reading is cached, follows edits and undo, and says when it c
   paw.off(id)
 end)
 
-test("harmony: the project's key wins over the one read, and is kept as musicops kept it", function()
+test("harmony: the project's key wins over the one read, and is kept in the project", function()
   fresh()
   chords("Piano", { { "A2 C3 E3", 4 }, { "D3 F3 A3", 4 }, { "E3 G#3 B3", 4 }, { "A2 C3 E3", 4 } })
   paw.flush()
@@ -211,7 +211,7 @@ test("harmony: the project's key wins over the one read, and is kept as musicops
   H.set_key("C major")
   paw.flush()
   eq(H.key(0).name, "C major", "set")
-  eq(api.project_get().meta.musicops.root, "C", "where musicops kept it")
+  eq(api.project_get().key, "C major", "kept as the project's key")
   eq(reading(nil, nil, "roman"), "0:vi 4:ii 8:III 12:vi", "numerals in the key set")
   eq(keys(), "0:C major", "the only key")
   H.set_key(nil)

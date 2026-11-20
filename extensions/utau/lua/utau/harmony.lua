@@ -3,8 +3,7 @@
 -- The new track goes right under the source, as a copy of it (the voice,
 -- every curve, the lyrics and note properties), a little quieter and panned
 -- to one side. For a harmony its notes move a diatonic interval in a key:
--- the project's key when the `musicops` extension has set one
--- (`project.meta.musicops`), else the key the melody is in, found with the
+-- the project's key when one is set (`paw.harmony.project_key`), else the key the melody is in, found with the
 -- Krumhansl-Schmuckler profiles. A double sings the same notes with small,
 -- repeatable differences: each note's onset moves up to 18 ticks either way
 -- (a timing take, kept as the first phoneme's offset), and its tuning up to
@@ -113,13 +112,13 @@ function M.parse_key(text)
   return { tonic = pc % 12, scale = scale, steps = steps }
 end
 
---- The project's key, as the `musicops` extension keeps it, or nil.
+--- The project's key (`paw.harmony.project_key`), or nil; nil too when
+--- its scale is not one of this module's.
 function M.project_key()
-  local stored = (api.project_get().meta or {}).musicops
-  if type(stored) == "table" and stored.root and stored.scale then
-    local ok, key = pcall(M.parse_key, stored.root .. " " .. stored.scale)
-    if ok then return key end
-  end
+  local key = paw.harmony.project_key()
+  if not key then return nil end
+  local ok, mine = pcall(M.parse_key, paw.harmony.key_name(key))
+  if ok then return mine end
 end
 
 --- The notes of a track as `{ pitch, length }`, rests left out.

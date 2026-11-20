@@ -26,10 +26,7 @@ local function hits(clip, vel)
   return table.concat(out, " ")
 end
 
-local function keys(text)
-  paw.keymap.feed(text)
-  api.undo_checkpoint()
-end
+local keys = T.keys
 
 --- A fresh project with a drum track made by the command, its clip open in the grid.
 local function drum_track()

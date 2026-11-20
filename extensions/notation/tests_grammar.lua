@@ -1,6 +1,6 @@
 -- Tests of the grammar for music: text objects over the score, operators
 -- that change what is written, motions by what is written, the entry
--- modes, and Ex over a score clip. Loaded by tests.lua.
+-- modes, and Ex over a score clip. Loaded by tests/suite.lua.
 local T = ...
 local test, eq, fresh = T.test, T.eq, T.fresh
 local paw = require("paw")
@@ -11,10 +11,7 @@ local function load()
   return require("notation")
 end
 
-local function keys(text)
-  paw.keymap.feed(text)
-  api.undo_checkpoint()
-end
+local keys = T.keys
 
 --- A track with an empty clip open as notation; `typed` entered from bar 1.
 local function song(typed, length)

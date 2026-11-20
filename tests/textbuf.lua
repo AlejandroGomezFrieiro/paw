@@ -23,10 +23,7 @@ local function start()
   end
 end
 
-local function keys(text)
-  paw.keymap.feed(text)
-  api.undo_checkpoint()
-end
+local keys = T.keys
 
 local function screen() return table.concat(api.ui_snapshot(W, H), "\n") end
 

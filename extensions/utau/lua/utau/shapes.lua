@@ -41,7 +41,7 @@ end
 
 M.copy = copy
 
-local function clamp(x, lo, hi) return math.max(lo, math.min(hi, x)) end
+local clamp = paw.util.clamp
 M.clamp = clamp
 
 --- Milliseconds as beats at a tempo, and back.

@@ -9,11 +9,7 @@ local function load()
   return require("sections")
 end
 
---- Type keys as one undo step.
-local function keys(text)
-  paw.keymap.feed(text)
-  api.undo_checkpoint()
-end
+local keys = T.keys
 
 --- Where a track's clips are, in time order: "a@0+8 b@8+8".
 local function layout(t)

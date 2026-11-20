@@ -7,11 +7,7 @@ local T = ...
 local test, eq, fresh = T.test, T.eq, T.fresh
 local api = paw.api
 
-local function keys(text)
-  paw.keymap.feed(text)
-  api.undo_checkpoint()
-  paw.flush()
-end
+local keys = T.keys
 
 local function start()
   fresh()
@@ -37,13 +33,6 @@ local function mark()
   return paw.ui.messages[#paw.ui.messages]
 end
 
-local function wait_for(what, limit, fn)
-  local deadline = api.now() + limit
-  while not fn() do
-    if api.now() > deadline then error("waited " .. limit .. " ms for " .. what, 2) end
-    paw.wait(20)
-  end
-end
 
 test("guide: fix no sound", function()
   start()
@@ -82,7 +71,7 @@ test("guide: fix crackles and dropouts", function()
   eq(api.engine_get().block, 1024, ":audio.buffer sets a larger block")
   T.after(function() paw.opt.threads = 0 end)
   keys(":engine threads=2<CR>")
-  wait_for("the engine to use two threads", 3000, function() return api.engine_get().threads == 2 end)
+  T.until_(function() return api.engine_get().threads == 2 end, "the engine to use two threads", 3000)
   local heavy = T.tone("Heavy", 8)
   paw.ui.focus("arrange")
   paw.cursor.set_track(heavy)
@@ -108,7 +97,7 @@ test("guide: deal with a plugin that crashes or hangs", function()
   local before = mark()
   local pid = tonumber(api.device_call(fx.id, "sandbox.pid"))
   os.execute("kill -KILL " .. pid)
-  wait_for("the crash to be told", 5000, function() return fx:get().stopped ~= nil end)
+  T.until_(function() return fx:get().stopped ~= nil end, "the crash to be told", 5000)
   eq(said(before):find("Guide FX on Lead stopped working: it was killed", 1, true) ~= nil, true, "a message names the device and why")
   eq(T.render({ tail = 0 }).peak > 0, true, "the track plays on without the effect")
   -- A save while it is stopped (the autosave too) keeps the state it had.
@@ -119,7 +108,7 @@ test("guide: deal with a plugin that crashes or hangs", function()
   keys(",d")
   keys("w")
   keys("R")
-  wait_for("the restart", 5000, function() return fx:get().stopped == nil end)
+  T.until_(function() return fx:get().stopped == nil end, "the restart", 5000)
   eq(fx:get().status, "running", "R in the device panel starts it again")
   before = mark()
   keys("o")

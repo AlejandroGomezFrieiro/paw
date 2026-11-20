@@ -6,10 +6,7 @@ local T = ...
 local test, eq, near, fresh = T.test, T.eq, T.near, T.fresh
 local api = paw.api
 
-local function keys(text)
-  paw.keymap.feed(text)
-  api.undo_checkpoint()
-end
+local keys = T.keys
 
 local function start()
   fresh()
@@ -212,7 +209,7 @@ T.last("guide: move a song between paw and other DAWs", function()
   paw.tracks()[1]:add_clip({ start = 8, file = wav })
   keys(":dawproject.export " .. d .. "/small.dawproject embed=false<CR>")
   close_page()
-  local files = require("dawproject").zip.read(T.read_file(d .. "/small.dawproject"))
+  local files = paw.zip.read(T.read_file(d .. "/small.dawproject"))
   eq(files["audio/take.wav"], nil, "embed=false keeps the audio outside")
   eq(files["project.xml"]:find(wav, 1, true) ~= nil, true, "and refers to it where it is")
 end)

@@ -42,6 +42,10 @@ pub struct Project {
     /// Where the time signature changes after the start, in order.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub sig_changes: Vec<SigChange>,
+    /// The song's key as `paw.harmony` names it (`"D minor"`), when one is
+    /// set. The core keeps the text; `paw.harmony.parse_key` reads it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub key: Option<String>,
     /// The fields above as a map to convert with, rebuilt by
     /// [`refresh_tempo`](Project::refresh_tempo) and
     /// [`set_tempo_map`](Project::set_tempo_map) whenever they change.
@@ -80,6 +84,7 @@ impl Default for Project {
             tempo_ramp: false,
             tempo_changes: Vec::new(),
             sig_changes: Vec::new(),
+            key: None,
             map: Arc::new(TempoMap::default()),
             master: Arc::new(Track {
                 name: "Master".into(),

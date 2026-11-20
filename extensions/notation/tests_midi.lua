@@ -1,5 +1,5 @@
 -- Notation is a view of the clip's MIDI: tests of what is kept where, and
--- of what a notation edit writes. Loaded by tests.lua.
+-- of what a notation edit writes. Loaded by tests/suite.lua.
 local T = ...
 local test, eq, fresh = T.test, T.eq, T.fresh
 local paw = require("paw")
@@ -10,10 +10,7 @@ local function load()
   return require("notation"), require("notation.model")
 end
 
-local function keys(text)
-  paw.keymap.feed(text)
-  api.undo_checkpoint()
-end
+local keys = T.keys
 
 --- A track with a clip open as notation.
 local function song(notes, length)

@@ -36,14 +36,6 @@ return dev
 
 local function gain_script(scale) return GAIN:gsub("SCALE", tostring(scale or 1)) end
 
-local function wait_for(what, limit, fn)
-  local waited = 0
-  while not fn() do
-    if waited >= limit then error("waited " .. limit .. " ms for " .. what, 2) end
-    paw.wait(20)
-    waited = waited + 20
-  end
-end
 
 test("a device written in Lua is listed among the devices, as lua:<file>", function()
   fresh()
@@ -182,7 +174,7 @@ test("a script that fails is shown as stopped with its error, and starts again",
   local handler = paw.on("device.stopped", function(e) stopped[#stopped + 1] = e end)
   paw.transport.play()
   fx:set("fail", 1)
-  wait_for("the device to stop", 5000, function() return #stopped > 0 end)
+  T.until_(function() return #stopped > 0 end, "the device to stop", 5000)
   paw.transport.stop()
   paw.off(handler)
   eq(stopped[1].device, fx.id, "the stop is told")
@@ -203,9 +195,9 @@ test("a script that fails is shown as stopped with its error, and starts again",
   stopped = {}
   handler = paw.on("device.stopped", function(e) stopped[#stopped + 1] = e end)
   paw.transport.play()
-  api.sleep(100)
+  T.next_block(10)
   os.execute("kill -KILL " .. pid)
-  wait_for("the crash to be told", 5000, function() return #stopped > 0 end)
+  T.until_(function() return #stopped > 0 end, "the crash to be told", 5000)
   paw.transport.stop()
   paw.off(handler)
   eq(stopped[1].reason, "it was killed", "a killed helper is told")

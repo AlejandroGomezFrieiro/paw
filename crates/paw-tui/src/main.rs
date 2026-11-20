@@ -158,6 +158,11 @@ fn parse_args(mut argv: impl Iterator<Item = String>) -> Result<Option<Args>> {
             _ => bail!("unexpected argument `{arg}`"),
         }
     }
+    // paw-gui starts the kernel with `--listen`: a kernel that would not
+    // listen must stop at once rather than leave it waiting for the socket.
+    if args.no_listen && args.listen.is_some() {
+        bail!("--no-listen and --listen contradict each other (the window always talks to the kernel through a socket)");
+    }
     Ok(Some(args))
 }
 

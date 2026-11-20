@@ -17,10 +17,7 @@ local function reset()
   paw.ui.focus("arrange")
 end
 
-local function keys(text)
-  paw.keymap.feed(text)
-  api.undo_checkpoint()
-end
+local keys = T.keys
 
 local function sized(fn)
   local size = api.ui_size

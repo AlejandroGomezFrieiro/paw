@@ -11,7 +11,7 @@ steps, see [How to recover lost work](../how-to/recover-lost-work.md).
 
 ```text
 song/
-├── project.toml            name, tempo, meter, tempo map, order of the tracks, transport
+├── project.toml            name, tempo, meter, tempo map, key, order of the tracks, transport
 ├── meta.json               the data of extensions (`paw.project.meta`), if there is some
 ├── screen.json             the tabs and windows that the project opens with
 ├── .gitattributes          *.midi2 diff=paw-midi2
@@ -254,5 +254,5 @@ The shelf is for tools that need their own tracks without a change to the
 work of the person. The [doctor](../../extensions/doctor) extension uses
 it.
 
-The suite runs `tests/*.lua` and `extensions/*/tests.lua`, and gives each
+The suite runs `tests/*.lua` and `extensions/*/tests*.lua`, and gives each
 the helpers of the suite.

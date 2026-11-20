@@ -9,9 +9,8 @@
 -- play their files in seconds (contentTimeUnit="seconds").
 local api = paw.api
 local xml = require("dawproject.xml")
-local zip = require("dawproject.zip")
 local media = require("dawproject.media")
-local b64 = require("dawproject.base64")
+local b64 = paw.bytes
 local vst3 = require("dawproject.vst3")
 local reports = require("dawproject.report")
 
@@ -121,7 +120,7 @@ local function device(dev_id, ctx, label)
   add(e, bool("Enabled", ctx, not d.bypass, "On/Off"))
   local state = (format == "clap" or format == "vst3") and api.device_state(dev_id)
   if state and state ~= "" then
-    local bytes = b64.decode(state)
+    local bytes = b64.unbase64(state)
     ctx.plugins = ctx.plugins + 1
     local path
     if format == "clap" then
@@ -151,7 +150,7 @@ local function placeholder(holder, ctx)
     ctx.plugins = ctx.plugins + 1
     local ext = (st.attr.path or ""):match("(%.[%w%-]+)$") or ""
     st.attr.path = string.format("plugins/%03d%s", ctx.plugins, ext)
-    ctx.files[#ctx.files + 1] = { name = st.attr.path, data = b64.decode(holder.state) }
+    ctx.files[#ctx.files + 1] = { name = st.attr.path, data = b64.unbase64(holder.state) }
   end
   return e
 end
@@ -517,7 +516,7 @@ function M.file(path, opts)
   opts.name = path:match("([^/]+)$") or path
   local files, report = M.build(opts)
   local f = assert(io.open(path, "wb"))
-  f:write(zip.write(files))
+  f:write(paw.zip.write(files))
   f:close()
   return { report = report, files = files }
 end

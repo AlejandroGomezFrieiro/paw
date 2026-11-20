@@ -682,7 +682,6 @@ local function read_part(part_el, info, count)
       for _, h in ipairs(rec.harmonies) do h.t = h.t + shift end
       for _, c in ipairs(rec.clefs) do c.t = c.t + shift end
     end
-    -- Key and clefs.
     if rec.key then
       if i == 1 or not key_now or key_now.fifths ~= rec.key.fifths or key_now.mode ~= rec.key.mode then
         m.key = { fifths = rec.key.fifths, name = M.key_name(rec.key.fifths, rec.key.mode) }
@@ -745,7 +744,6 @@ local function read_part(part_el, info, count)
       sc.layout = sc.layout or { breaks = {} }
       sc.layout.breaks[#sc.layout.breaks + 1] = { id = D.id(sc, "l"), measure = m.id, kind = "break" }
     end
-    -- The notes.
     out.placed = {}
     build_voices(sc, m, rec, staves, maps, len, mt, out)
     local function ref(t) return { measure = m.id, at = D.ratio(math.max(0, math.min(len, int(t)))) } end
@@ -963,7 +961,7 @@ function M.read_text(path)
   local data = f:read("*a")
   f:close()
   if data:sub(1, 4) ~= "PK\3\4" then return data end
-  local files, why = require("notation.zip").read(data)
+  local files, why = paw.zip.read(data)
   if not files then return nil, why end
   -- The score the container names, else the first that is not the container.
   local container = files["META-INF/container.xml"]
@@ -1278,7 +1276,6 @@ local function part_xml(w, part, pid, divisions, g)
         .. (vs and ('<ending number="' .. m.volta .. '" type="start">' .. m.volta .. ".</ending>") or "")
         .. (m.repeat_start and '<repeat direction="forward"/>' or "") .. "</barline>")
     end
-    -- Attributes.
     local attrs = {}
     local meter = f.meters[mi]
     if mi == 1 then
@@ -1544,7 +1541,7 @@ function M.mxl(text, name)
   name = (name or "score") .. ".musicxml"
   local container = '<?xml version="1.0" encoding="UTF-8"?>\n<container><rootfiles><rootfile full-path="' .. esc(name)
     .. '" media-type="application/vnd.recordare.musicxml+xml"/></rootfiles></container>\n'
-  return require("notation.zip").write({ { "mimetype", "application/vnd.recordare.musicxml" }, { "META-INF/container.xml", container }, { name, text } })
+  return paw.zip.write({ { name = "mimetype", data = "application/vnd.recordare.musicxml" }, { name = "META-INF/container.xml", data = container }, { name = name, data = text } })
 end
 
 return M

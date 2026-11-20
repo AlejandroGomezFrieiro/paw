@@ -4,12 +4,7 @@
 local T = ...
 local test, eq, fresh = T.test, T.eq, T.fresh
 local api = paw.api
-
---- The keys of a guide, as one turn each.
-local function keys(text)
-  paw.keymap.feed(text)
-  api.undo_checkpoint()
-end
+local keys, until_, until_beat = T.keys, T.until_, T.until_beat
 
 --- A fresh project in a saved file, with the test input of the null backend:
 --- input channel 1 has a sine at 440 Hz, channel 2 at 880 Hz, and a MIDI
@@ -29,13 +24,6 @@ local function studio(name)
   paw.project.save(T.scratch .. "/" .. name .. ".json")
 end
 
-local function wait_for(what, limit, fn)
-  local deadline = api.now() + limit
-  while not fn() do
-    if api.now() > deadline then error("waited " .. limit .. " ms for " .. what, 2) end
-    api.sleep(10)
-  end
-end
 
 --- The bottom lines of the terminal screen.
 local function status()
@@ -59,20 +47,20 @@ test("guide: record a guitar or a bass through an audio interface", function()
   eq(gtr.input, "1", "I chooses one input channel, for a guitar")
   keys("r")
   eq(gtr.armed, true, "r arms the track")
-  wait_for("the input level on the header", 3000, function() return paw.audio.levels()[1] > 0.1 end)
+  until_(function() return paw.audio.levels()[1] > 0.1 end, "the input level on the header")
   keys(":tuner<CR>")
   local tuner = gtr:device("tuner")
   eq(tuner ~= nil, true, ":tuner adds a tuner to the track")
-  wait_for("the tuner to hear the A", 3000, function()
+  until_(function()
     local p = paw.params.read(tuner, "pitch")
     return p and p.note == "A4"
-  end)
+  end, "the tuner to hear the A")
   keys(",d")
   eq(paw.ui.focused, "arrange", ",d hides the device panel again")
   keys(":audio.buffer 128<CR>")
   keys("R")
-  wait_for("the recording", 3000, function() return paw.transport.recording and paw.transport.playing end)
-  api.sleep(1000)
+  until_(function() return paw.transport.recording and paw.transport.playing end, "the recording")
+  until_beat(paw.transport.position + 2)
   keys("<Space>")
   paw.flush()
   local clips = gtr:clips()
@@ -96,11 +84,11 @@ test("guide: record vocals with a count-in and a click", function()
   eq(paw.opt.count_in, 1, ":countin 1 counts one bar")
   keys("2|")
   keys("R")
-  wait_for("the count", 2000, function() return paw.transport.counting > 0 end)
+  until_(function() return paw.transport.counting > 0 end, "the count")
   eq(status():find("count", 1, true) ~= nil, true, "the status line shows the count")
   eq(paw.transport.position, 4, "the playhead waits for the count")
-  wait_for("the take after the count", 4000, function() return paw.transport.counting == 0 and paw.transport.position > 4 end)
-  api.sleep(800)
+  until_(function() return paw.transport.counting == 0 and paw.transport.position > 4 end, "the take after the count")
+  until_beat(5.6)
   keys("<Space>")
   paw.flush()
   eq(#vox:clips(), 1, "the take is a clip")
@@ -147,9 +135,9 @@ test("guide: use the metronome", function()
   -- Esc cancels a count.
   keys("gM")
   keys("R")
-  wait_for("the count", 2000, function() return paw.transport.counting > 0 end)
+  until_(function() return paw.transport.counting > 0 end, "the count")
   keys("<Esc>")
-  wait_for("the count to stop", 2000, function() return paw.transport.counting == 0 and not paw.transport.playing end)
+  until_(function() return paw.transport.counting == 0 and not paw.transport.playing end, "the count to stop")
   eq(paw.transport.recording, false, "Esc cancels the count and the recording")
 end)
 
@@ -164,12 +152,13 @@ test("guide: record MIDI from a keyboard", function()
   keys("r")
   local function play(pitch, after)
     keys("R")
-    wait_for("the recording", 3000, function() return paw.transport.recording and paw.transport.playing end)
-    api.sleep(after)
+    until_(function() return paw.transport.recording and paw.transport.playing end, "the recording")
+    -- At 120 bpm, a beat is 500 ms.
+    until_beat(8 + after / 500)
     paw.midi.inject({ type = "note_on", pitch = pitch, velocity = 100, port = "Keys A", channel = 1 })
-    api.sleep(300)
+    until_beat(8 + after / 500 + 0.6)
     paw.midi.inject({ type = "note_off", pitch = pitch, port = "Keys A", channel = 1 })
-    api.sleep(200)
+    until_beat(8 + after / 500 + 1)
     keys("<Space>")
     paw.flush()
   end
@@ -206,15 +195,14 @@ test("guide: record MIDI from a keyboard", function()
   eq(paw.transport.loop_enabled, true, "gl1W loops a bar")
   eq(paw.transport.loop_start .. "-" .. paw.transport.loop_end, "16-20", "the bar of the cursor")
   keys("R")
-  wait_for("the recording", 3000, function() return paw.transport.recording and paw.transport.playing end)
-  for _, pitch in ipairs({ 67, 69 }) do
-    api.sleep(200)
+  until_(function() return paw.transport.recording and paw.transport.playing end, "the recording")
+  for round, pitch in ipairs({ 67, 69 }) do
+    until_beat(16.8, round == 1 and 0 or 1)
     paw.midi.inject({ type = "note_on", pitch = pitch, velocity = 100, port = "Keys A", channel = 1 })
-    api.sleep(200)
+    until_beat(17.6)
     paw.midi.inject({ type = "note_off", pitch = pitch, port = "Keys A", channel = 1 })
-    api.sleep(600)
   end
-  api.sleep(200)
+  until_beat(16.8, 1)
   keys("<Space>")
   paw.flush()
   local looped = t:clip_at(16)

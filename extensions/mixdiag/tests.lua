@@ -328,12 +328,10 @@ end)
 
 --- Poll a measurement started without waiting until it is done.
 local function settle()
-  local deadline = api.now() + 30000
-  while mixdiag.job and api.now() < deadline do
-    api.sleep(10)
+  T.until_(function()
     mixdiag.poll()
-  end
-  assert(not mixdiag.job, "the measurement finished")
+    return not mixdiag.job
+  end, "the measurement to finish", 60000)
 end
 
 test("mixdiag: measuring in the background, the loop and a selection", function()

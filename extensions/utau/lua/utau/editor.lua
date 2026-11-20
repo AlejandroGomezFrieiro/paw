@@ -675,7 +675,6 @@ function view:render(buf, ctx)
   end
   local lines = paw.draw.beats(ruler, self.scroll, span, zoom, clip.start)
 
-  -- The roll.
   local roll = buf:sub(KEYS, 2, tw, rows)
   local end_x = x_of(self, clip.length, zoom)
   for row = 0, rows - 1 do

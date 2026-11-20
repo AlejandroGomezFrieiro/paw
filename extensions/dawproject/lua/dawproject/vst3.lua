@@ -6,10 +6,10 @@
 -- characters, the offset of the chunk list (int64); then the data; then the
 -- chunk list: "List", a count (int32) and for each chunk an id ("Comp" or
 -- "Cont"), its offset and its size (int64 each). All little-endian.
-local b64 = require("dawproject.base64")
+local b64 = paw.bytes
 local M = {}
 
-local function u64(n) return b64.pack_u32(n % 4294967296) .. b64.pack_u32(math.floor(n / 4294967296)) end
+local function u64(n) return b64.le32(n % 4294967296) .. b64.le32(math.floor(n / 4294967296)) end
 local function r64(data, at) return (b64.u32(data, at) or 0) + (b64.u32(data, at + 4) or 0) * 4294967296 end
 
 --- A .vstpreset from paw's state of a plugin, with its class id when known.
@@ -22,8 +22,8 @@ function M.preset(state, class)
   cid = (cid .. string.rep("0", 32)):sub(1, 32)
   local head = 4 + 4 + 32 + 8
   local list_at = head + #comp + #ctrl
-  local list = "List" .. b64.pack_u32(2) .. "Comp" .. u64(head) .. u64(#comp) .. "Cont" .. u64(head + #comp) .. u64(#ctrl)
-  return "VST3" .. b64.pack_u32(1) .. cid .. u64(list_at) .. comp .. ctrl .. list
+  local list = "List" .. b64.le32(2) .. "Comp" .. u64(head) .. u64(#comp) .. "Cont" .. u64(head + #comp) .. u64(#ctrl)
+  return "VST3" .. b64.le32(1) .. cid .. u64(list_at) .. comp .. ctrl .. list
 end
 
 --- paw's state and the class id from a .vstpreset, or nil and why.
@@ -42,7 +42,7 @@ function M.state(preset)
   end
   if not chunks.Comp then return nil, "the .vstpreset has no component state" end
   local ctrl = chunks.Cont or ""
-  return b64.pack_u32(#chunks.Comp) .. chunks.Comp .. b64.pack_u32(#ctrl) .. ctrl, class
+  return b64.le32(#chunks.Comp) .. chunks.Comp .. b64.le32(#ctrl) .. ctrl, class
 end
 
 return M

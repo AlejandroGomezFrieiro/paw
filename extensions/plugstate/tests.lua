@@ -40,16 +40,10 @@ end
 --- slot of `device` holds (two seconds at most).
 local function settle(device, model)
   paw.flush()
-  for _ = 1, 100 do
-    if plugstate.slot(device).value == model then return end
-    api.sleep(20)
-  end
+  T.until_(function() return plugstate.slot(device).value == model end, "the plugin to hold " .. tostring(model))
 end
 
-local function keys(text)
-  paw.keymap.feed(text)
-  api.undo_checkpoint()
-end
+local keys = T.keys
 
 local function write_wav(path, frames)
   -- 16-bit mono at 48 kHz, one sample per entry of `frames` (from -1 to 1).
@@ -68,25 +62,21 @@ local function write_wav(path, frames)
     .. le(48000, 4) .. le(96000, 4) .. le(2, 2) .. le(16, 2) .. "data" .. le(#data, 4) .. data)
 end
 
-test("plugstate: base64 and the sfizz state codec read and write back", function()
+test("plugstate: the sfizz state codec reads and writes back", function()
   load()
-  local bytes = require("plugstate.bytes")
-  for _, text in ipairs({ "", "a", "ab", "abc", "abcd", "\0\1\255 state" }) do
-    eq(bytes.decode64(bytes.encode64(text)), text, "base64 of " .. #text .. " bytes")
-  end
-  eq(bytes.encode64("paw"), "cGF3", "the usual alphabet")
   local codec = require("plugstate.adapters").sfizz_codec
   -- A state as paw keeps it: version 5, an empty SFZ path, then settings;
   -- then a controller state.
-  local component = "\5\0\0\0\0\0\0\0" .. bytes.le32(1) .. "\0" .. "SETTINGS"
-  local state = bytes.encode64(codec.join(component, "CTRL"))
+  local component = "\5\0\0\0\0\0\0\0" .. paw.bytes.le32(1) .. "\0" .. "SETTINGS"
+  local vst3 = require("plugstate.vst3state")
+  local state = paw.bytes.base64(vst3.join(component, "CTRL"))
   eq(codec.path(state), "", "no file yet")
   local with = codec.with_path(state, "/sfz/strings.sfz")
   eq(codec.path(with), "/sfz/strings.sfz", "the file is written in")
-  local c, ctrl = codec.split(bytes.decode64(with))
+  local c, ctrl = vst3.split(paw.bytes.unbase64(with))
   eq(c:sub(-8), "SETTINGS", "the settings after it stay")
   eq(ctrl, "CTRL", "and the controller's state")
-  T.fails(function() codec.path(bytes.encode64("\1\0")) end, "not a VST3 state", "a state of another kind")
+  T.fails(function() codec.path(paw.bytes.base64("\1\0")) end, "not a VST3 state", "a state of another kind")
 end)
 
 test("plugstate: an amp model is chosen with keys, undone, kept in snapshots and in the project", function()
@@ -434,7 +424,6 @@ end)
 test("plugstate: the JUCE layer reads and writes back each container, byte for byte", function()
   load()
   local juce, jx, js = require("plugstate.juce"), require("plugstate.jucexml"), require("plugstate.jucestate")
-  local bytes, zlib = require("plugstate.bytes"), require("plugstate.zlib")
 
   -- vars of each kind
   for _, case in ipairs({ { 7, "int" }, { -2, "int64" }, { 0.25 }, { true }, { false }, { "text" },
@@ -455,14 +444,14 @@ test("plugstate: the JUCE layer reads and writes back each container, byte for b
   local pretty = '<?xml version="1.0" encoding="UTF-8"?>\n\n<Plugin version="3" name="Lead &amp; Pad">\n'
     .. '  <PARAMETERS>\n    <PARAM id="gain" value="0.5"/>\n    <PARAM id="mix" value="1.0"/>\n  </PARAMETERS>\n'
     .. '  <!-- kept -->\n  <Slot file="/a.wav"/>\n  <Slot file="/b.wav"></Slot>\n</Plugin>\n'
-  local vc2 = "VC2!" .. bytes.le32(#pretty) .. pretty .. "\0"
+  local vc2 = "VC2!" .. paw.bytes.le32(#pretty) .. pretty .. "\0"
   local containers = {
     { "valuetree", binary }, { "prefix", "ABC1" .. binary .. "rest" }, { "xml", pretty }, { "vc2", vc2 },
-    { "gzip", zlib.gzip(binary) }, { "zlib", zlib.zlib(vc2) }, { "base64", juce.encode64(binary) },
+    { "gzip", paw.api.deflate(binary, "gzip") }, { "zlib", paw.api.deflate(vc2, "zlib") }, { "base64", juce.encode64(binary) },
   }
   for _, c in ipairs(containers) do
     for _, format in ipairs({ "clap", "vst3", "lv2" }) do
-      local state = bytes.encode64(js.wrap(c[2], format, nil, { uri = "urn:test" }))
+      local state = paw.bytes.base64(js.wrap(c[2], format, nil, { uri = "urn:test" }))
       local doc = js.open(state, format)
       eq(doc:write(), state, c[1] .. " in " .. format .. ": nothing changed, the same bytes")
       eq(doc.root.type, "Plugin", c[1] .. " in " .. format .. ": the tree")
@@ -492,18 +481,18 @@ test("plugstate: the JUCE layer reads and writes back each container, byte for b
   -- The private data of JUCE's VST3 wrapper.
   local private = juce.tree("JUCEPrivateData", { { "Bypass", false } })
   local component = binary .. js.private_trailer(private)
-  local vst3 = bytes.encode64(bytes.le32(#component) .. component .. bytes.le32(4) .. "CTRL")
+  local vst3 = paw.bytes.base64(paw.bytes.le32(#component) .. component .. paw.bytes.le32(4) .. "CTRL")
   local v = js.open(vst3, "vst3")
   eq(v.outer.data, binary, "the plugin's data without JUCE's private data")
   eq(juce.get(v.outer.private, "Bypass"), false, "the private tree")
   eq(v:write(), vst3, "written back the same")
-  eq(js.open(v:write_as("clap"), "clap"):write(), bytes.encode64(binary), "as CLAP: the plugin's data alone")
+  eq(js.open(v:write_as("clap"), "clap"):write(), paw.bytes.base64(binary), "as CLAP: the plugin's data alone")
   local lv2 = js.open(v:write_as("lv2", nil, { uri = "urn:test" }), "lv2")
   eq(lv2.outer.data, binary, "as LV2: in a StateString")
 
   -- Schema learning: the paths that differ.
-  local a = js.open(bytes.encode64(binary), "clap")
-  local b = js.open(bytes.encode64(binary), "clap")
+  local a = js.open(paw.bytes.base64(binary), "clap")
+  local b = js.open(paw.bytes.base64(binary), "clap")
   b:set("/Plugin@name", "Pad")
   b:set_param("hidden", 1)
   b:remove("/Plugin/Slot[2]")
@@ -514,7 +503,7 @@ test("plugstate: the JUCE layer reads and writes back each container, byte for b
 
   -- A preset: edits on a base, in a file, for another format.
   local file = T.scratch .. "/lead.jucepreset"
-  js.write_preset(file, { name = "Lead", base = bytes.encode64(binary), format = "clap",
+  js.write_preset(file, { name = "Lead", base = paw.bytes.base64(binary), format = "clap",
     edits = { { path = "/Plugin@name", value = "Big" }, { param = "gain", value = 0.1 },
       { path = "/Plugin/New[id=x]@data", value = { binary = "\0\255" }, make = true } } })
   local preset = js.read_preset(file)
@@ -583,10 +572,8 @@ test("plugstate: JUCE states of Surge XT: byte for byte, the changes by path, a 
   --- reaches the plugin a moment later.
   local function holds(d, octave, key)
     paw.flush()
-    for _ = 1, 100 do
-      if plugstate.slot(d.id, key or "octave").value == octave then return end
-      api.sleep(20)
-    end
+    T.until_(function() return plugstate.slot(d.id, key or "octave").value == octave end,
+      "the plugin to hold " .. tostring(octave))
   end
 
   -- The preset, written from CLAP, in the other formats.
@@ -888,9 +875,3 @@ test("plugstate: as the song plays, a state lane switches the NAM model and TONE
     "TONE3000 holds the second preset once the playhead is past its point")
 end)
 
--- The search of TONE3000's library, against a mock of its API.
-assert(loadfile("extensions/plugstate/tests_tone3000.lua"))(T)
-assert(loadfile("extensions/plugstate/tests_tone3000_auth.lua"))(T)
-assert(loadfile("extensions/plugstate/tests_tone3000_live.lua"))(T)
--- The framework layer: DPF, LSP, iPlug2, JSON, LV2, the bytes.
-assert(loadfile("extensions/plugstate/tests_frameworks.lua"))(T)

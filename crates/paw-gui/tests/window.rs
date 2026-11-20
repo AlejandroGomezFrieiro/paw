@@ -1851,6 +1851,31 @@ fn a_window_connects_to_a_kernel_over_tcp_and_a_wrong_token_is_refused() {
     assert!(said.contains("did not accept the token"), "{said}");
 }
 
+#[test]
+fn a_window_told_not_to_listen_stops_at_once_and_says_why() {
+    let xdg = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("no-listen-{}", std::process::id()));
+    std::fs::create_dir_all(&xdg).unwrap();
+    let began = Instant::now();
+    let out = Command::new(env!("CARGO_BIN_EXE_paw-gui"))
+        .args(["--no-listen", "--no-plugins", "--audio", "null"])
+        .env("PAW_BIN", kernel_binary())
+        .env_remove("DISPLAY")
+        .env_remove("WAYLAND_DISPLAY")
+        .env("XDG_RUNTIME_DIR", &xdg)
+        .env("XDG_CONFIG_HOME", &xdg)
+        .env("XDG_STATE_HOME", &xdg)
+        .env("XDG_DATA_HOME", &xdg)
+        .env("XDG_CACHE_HOME", &xdg)
+        .stdin(Stdio::null())
+        .output()
+        .unwrap();
+    let _ = std::fs::remove_dir_all(&xdg);
+    let said = String::from_utf8_lossy(&out.stderr).to_string() + &String::from_utf8_lossy(&out.stdout);
+    assert!(!out.status.success(), "{said}");
+    assert!(said.contains("--no-listen"), "{said}");
+    assert!(began.elapsed() < Duration::from_secs(60), "it waited for a socket that never came: {said}");
+}
+
 /// How reliably the screen is read, for whoever changes how: every text the
 /// tests click, in each place they click it, over fresh windows. Run it
 /// with `cargo test -p paw-gui --test window -- --ignored --nocapture

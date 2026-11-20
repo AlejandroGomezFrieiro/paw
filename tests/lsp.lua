@@ -30,14 +30,7 @@ local function python()
   return found and found ~= "" and found or nil
 end
 
---- Wait until `fn()` is true, with events delivered meanwhile.
-local function until_(fn, what, ms)
-  local deadline = api.now() + (ms or 20000)
-  while not fn() do
-    if api.now() > deadline then error("waited in vain for " .. what, 2) end
-    paw.wait(10)
-  end
-end
+local until_ = T.until_
 
 local function start()
   fresh()
@@ -94,7 +87,7 @@ test("lsp: a clip becomes MIDI LSP's document, with what sounds with it", functi
   local bass = paw.add_track({ name = "Bass" })
   bass:add_clip({ start = 2, length = 8, notes = { { pitch = 36, start = 3, length = 2 }, { pitch = 40, start = 7, length = 1 } } })
   paw.add_track({ name = "Drums" }):add_clip({ start = 4, length = 4, notes = { { pitch = 36, start = 0, length = 0.25 } } })
-  api.project_set("meta", { musicops = { root = "D", scale = "harmonic_minor" } })
+  paw.harmony.set_key("D harmonic minor")
   paw.flush()
   local doc = document.build(clip.id)
   eq(doc.uri, "paw://clip/" .. clip.id, "named by the clip")

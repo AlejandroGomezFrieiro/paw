@@ -12,7 +12,7 @@
 -- minute, fewer for the search) and downloads one small model, into the
 -- scratch cache of the test, which the suite removes. The answers are
 -- compared with the mock of tests_tone3000.lua, so that the mock stays
--- true. extensions/plugstate/tests.lua loads this file.
+-- true. The runner loads it after tests_tone3000.lua (names in order), which sets T.t3k.
 local T = ...
 local test, eq = T.test, T.eq
 local api = paw.api

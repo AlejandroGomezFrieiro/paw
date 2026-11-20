@@ -253,9 +253,6 @@ end
 
 -- Context ---------------------------------------------------------------------
 
-local function is_drums(track)
-  return type(track.meta) == "table" and track.meta.drums ~= nil
-end
 
 --- The tracks whose notes can show behind the notes of the roll. These are
 --- the tracks with MIDI clips (of the scope, in a narrowed tab), but not the
@@ -279,7 +276,7 @@ function M.tracks()
       local has_midi = false
       for _, c in ipairs(api.clip_list(id)) do has_midi = has_midi or c.kind == "midi" end
       if has_midi then
-        local drums = is_drums(t)
+        local drums = paw.harmony.is_drums(t)
         local on
         if type(option) == "table" then
           on = listed[id] or false

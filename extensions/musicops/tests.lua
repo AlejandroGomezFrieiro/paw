@@ -5,7 +5,13 @@ local eq, test = T.eq, T.test
 
 local mo, scale
 local function load()
-  if not mo then
+  if not mo or not paw.ext.loaded.musicops then
+    -- As config/init.lua does: utau first, so that musicops' phrase keys
+    -- (`(` `)`) win over the vocal editor's phoneme keys there (two
+    -- extensions on one key: the last loaded wins). Another test may have
+    -- loaded musicops before utau: load it again after.
+    if not package.loaded["utau"] then paw.ext.load("extensions/utau") end
+    if paw.ext.loaded.musicops then paw.ext.unload("musicops") end
     paw.ext.load("extensions/musicops")
     assert(paw.ext.loaded.musicops.ok, paw.ext.loaded.musicops.error)
     mo = require("musicops")
@@ -177,7 +183,7 @@ test("musicops: the project's key is saved and undone", function()
   paw.cmd("key", { "D", "minor" })
   api.undo_checkpoint()
   eq(scale.name(scale.current()), "D minor", "set by the command")
-  eq(api.project_get().meta.musicops.root .. " " .. api.project_get().meta.musicops.scale, "D minor", "in the project's meta")
+  eq(api.project_get().key, "D minor", "kept as the project's key")
   paw.cmd("musicops.key", { "G", "dorian" })
   api.undo_checkpoint()
   paw.undo()

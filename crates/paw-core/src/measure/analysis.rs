@@ -485,7 +485,6 @@ impl Analyzer {
                 self.in_second = 0;
             }
 
-            // Clipping, over both channels.
             for x in [l.abs(), r.abs()] {
                 if x >= FULL_SCALE {
                     self.clipped += 1;

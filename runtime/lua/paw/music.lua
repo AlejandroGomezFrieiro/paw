@@ -40,4 +40,20 @@ function M.degree(root, scale, degree)
   return M.pitch(root) + steps[index % #steps + 1] + 12 * math.floor(index / #steps)
 end
 
+local NOTE = { c = 0, d = 2, e = 4, f = 5, g = 7, a = 9, b = 11 }
+
+--- A pitch as typed in a query or an Ex range: `{ pitch = 61 }` for `c#4`
+--- or `61`, `{ class = 1 }` for `c#` in any octave; nil when it is not one.
+function M.pitch_word(text)
+  local n = text:match("^%d+$")
+  if n then return tonumber(n) <= 127 and { pitch = tonumber(n) } or nil end
+  local letter, acc, octave = text:match("^([A-Ga-g])([#b]?)(%-?%d*)$")
+  if not letter or octave == "-" then return nil end
+  local semitone = NOTE[letter:lower()] + (acc == "#" and 1 or acc == "b" and -1 or 0)
+  if octave == "" then return { class = semitone % 12 } end
+  local pitch = (tonumber(octave) + 1) * 12 + semitone
+  if pitch < 0 or pitch > 127 then return nil end
+  return { pitch = pitch }
+end
+
 return M

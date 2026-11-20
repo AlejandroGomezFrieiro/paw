@@ -31,7 +31,7 @@ server for AI assistants). `--help` on each program prints its options.
 | `--input <name>` | The input device, by its name or a part of it. |
 | `--no-input` | Does not open the input of the audio device. |
 | `--listen <path>` | The path of the control socket. The default is `$XDG_RUNTIME_DIR/paw.sock`. |
-| `--no-listen` | Does not open a control socket. |
+| `--no-listen` | Does not open a control socket. paw stops with an error if you also give `--listen`. The graphical window always gives `--listen`, so `paw-gui --no-listen` stops at once with this error. |
 | `--listen-tcp <address>` | Also accepts connections from the network, on `host:port`, in TLS. `127.0.0.1:7700` accepts only this computer, `0.0.0.0:7700` any computer that knows the token. |
 | `--no-tls` | Accepts network connections without encryption. |
 | `--token-file <path>` | The file of the token for network connections. The default is `~/.local/state/paw/token`. paw makes it if it does not exist. |

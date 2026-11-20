@@ -1,7 +1,7 @@
 -- Tests of MusicXML in and out: hand-written files as MuseScore, Dorico,
 -- Sibelius and Finale write them, read into scores, written out and read
 -- back to the same score; `:open` and `:import` of them; what the score
--- then plays. Loaded by tests.lua.
+-- then plays. Loaded by tests/suite.lua.
 local T = ...
 local test, eq, fresh = T.test, T.eq, T.fresh
 local paw = require("paw")
@@ -458,20 +458,17 @@ end)
 
 test("musicxml: a .mxl, zipped as MuseScore writes it (deflated), reads as the score inside", function()
   local mx = load()
-  local zip = require("notation.zip")
   -- A stored archive written here, and deflate streams of fixed and
   -- dynamic codes from zlib.
   local path = T.scratch .. "/mx-stored.mxl"
   write_file(path, mx.mxl(REPEATS, "repeats"))
   local file = assert(mx.read(path))
   eq(describe(file.parts[1].score), describe(assert(mx.parse(REPEATS)).parts[1].score), "the stored archive")
-  eq(zip.inflate(string.char(0xcb, 0x48, 0xcd, 0xc9, 0xc9, 0x57, 0xc8, 0x40, 0x27, 0x01)), "hello hello hello hello", "fixed codes with a match")
   local bytes = DEFLATED:gsub("%x%x", function(h) return string.char(tonumber(h, 16)) end)
   path = T.scratch .. "/mx-deflated.mxl"
   write_file(path, bytes)
   local text = describe(assert(mx.read(path)).parts[1].score)
   eq(text:find("  s1v1: B5/1:2", 1, true) ~= nil and text:find("m14", 1, true) ~= nil, true, "dynamic codes: all fourteen bars, the last a B:\n" .. text)
-  eq(zip.crc32("hello"), 0x3610a686, "the archive's checksum")
 end)
 
 -- The project ----------------------------------------------------------------------------------

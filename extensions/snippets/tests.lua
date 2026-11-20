@@ -14,10 +14,7 @@ local function load()
   end
 end
 
-local function keys(text)
-  paw.keymap.feed(text)
-  api.undo_checkpoint()
-end
+local keys = T.keys
 
 local function notes_of(list)
   local out = {}

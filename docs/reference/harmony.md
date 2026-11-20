@@ -35,9 +35,9 @@ before it continues.
 The reading finds major and minor keys on all twelve tonics. A key changes
 only where the new key is established, usually at its dominant. A key that
 you set with `:key D minor` replaces the key that paw reads, in all of
-paw. The key is kept in `project.meta.musicops`, so older projects and the
-notation extension read it. The `:key` command comes with the musicops
-extension. In Lua, use `paw.harmony.set_key`.
+paw. The project keeps the key as `key` in its `project.toml`
+(`key = "D minor"`), and undo applies to it. The `:key` command comes with
+the musicops extension. In Lua, use `paw.harmony.set_key`.
 
 ## Names and numerals
 

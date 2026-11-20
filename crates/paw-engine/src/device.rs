@@ -135,6 +135,57 @@ pub fn quiet(io: &Io) -> bool {
         && io.sidechain.is_none_or(|[l, r]| silent(l) && silent(r))
 }
 
+/// When a hosted plugin may sleep: the bookkeeping CLAP, VST3, LV2 and the
+/// sandbox share for [`Device::resting`]. Call [`begin`](Self::begin) at
+/// the start of each block, then [`end`](Self::end) or
+/// [`end_after_tail`](Self::end_after_tail) once the plugin has run.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Rest {
+    /// Frames the input has ended with silent and without events.
+    quiet: u64,
+    /// What the last block said: the plugin may sleep through silence.
+    resting: bool,
+}
+
+impl Rest {
+    /// At the start of a block. `woken` says that something not in the
+    /// block (a state, a message) woke the plugin: its tail starts again.
+    pub fn begin(&mut self, io: &Io, woken: bool) {
+        self.resting = false;
+        if woken {
+            self.quiet = 0;
+        }
+        if quiet(io) {
+            self.quiet = self.quiet.saturating_add(io.left.len() as u64);
+        } else {
+            self.quiet = 0;
+        }
+    }
+
+    /// After the block: whether the plugin allows sleep from here on.
+    pub fn end(&mut self, allows: bool) {
+        self.resting = allows;
+    }
+
+    /// After the block, for a plugin that rings for `tail` frames after
+    /// its input stops (`None` for for ever): it may sleep once the input
+    /// was silent for that long and its output in this block is silent.
+    pub fn end_after_tail(&mut self, tail: Option<u64>, output_silent: bool) {
+        self.resting = tail.is_some_and(|tail| self.quiet >= tail) && output_silent;
+    }
+
+    /// Frames the input has ended with silent and without events.
+    pub fn quiet(&self) -> u64 {
+        self.quiet
+    }
+
+    /// What the last block said. The device adds what it knows of changes
+    /// waiting for its next block, such as a parameter to deliver.
+    pub fn resting(&self) -> bool {
+        self.resting
+    }
+}
+
 /// The main-thread side of a device that has one, such as a hosted plugin:
 /// everything about it that is not processing audio.
 pub trait Controller {
@@ -777,6 +828,24 @@ pub fn unpack_files(mut data: &[u8]) -> Result<Vec<(String, Vec<u8>)>> {
     Ok(files)
 }
 
+/// The methods of [`Controller::call`] that more than one host answers
+/// (scripts reach them through `paw.api.device_call`): each host matches
+/// these names, and a host that does not know one fails with "no method".
+pub mod method {
+    /// The plugin's own presets, as JSON (`[{ id, name }]`).
+    pub const PRESETS: &str = "presets";
+    /// Load one of the plugin's own presets by its id, or `file:<path>`.
+    pub const PRESET_LOAD: &str = "preset.load";
+    /// Write the state as a preset file of the format (VST3: `.vstpreset`).
+    pub const PRESET_EXPORT: &str = "preset.export";
+    /// What the plugin calls its keys, as JSON (`{ "36": "Kick" }`): CLAP's note-name.
+    pub const NOTE_NAMES: &str = "note-names";
+    /// The properties of an LV2 plugin, as JSON.
+    pub const PROPERTIES: &str = "properties";
+    /// Set an LV2 property: `{ "property": uri, "value": value }`.
+    pub const PROPERTY_SET: &str = "property.set";
+}
+
 /// The call that asks a device for the files it keeps beside its state in
 /// the project, packed ([`pack_files`]); a device without such files does
 /// not know the method.
@@ -844,4 +913,5 @@ mod tests {
         assert_eq!(switch.format(1.0), "on");
         assert_eq!(switch.parse("off"), Some(0.0));
     }
+
 }

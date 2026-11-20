@@ -8,10 +8,7 @@ local test, eq, fresh = T.test, T.eq, T.fresh
 local api = paw.api
 local keymap = paw.keymap
 
-local function keys(text)
-  keymap.feed(text)
-  api.undo_checkpoint()
-end
+local keys = T.keys
 
 local function three()
   fresh()

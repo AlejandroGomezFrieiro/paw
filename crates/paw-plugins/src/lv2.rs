@@ -18,7 +18,7 @@ use std::time::Duration;
 use anyhow::{Context, Result, anyhow, bail};
 use paw_engine::{
     Controller, Device, DeviceFactory, DeviceInfo, EventKind, Instance, Io, ParamInfo, Ports,
-    ProcessCtx, Registry, ump,
+    ProcessCtx, Registry, Rest, ump,
 };
 use lilv_sys::*;
 
@@ -832,6 +832,12 @@ struct Shared {
     /// The port index of the atom input that takes patch messages, when
     /// the plugin has properties.
     patch_port: Option<u32>,
+    /// The index in `controls` of the port where the plugin says how many
+    /// frames its output is behind its input, if it has one.
+    latency: Option<usize>,
+    /// A control changed since the plugin last ran: it must run again,
+    /// asleep or not (see [`Device::resting`]).
+    wake: AtomicBool,
 }
 
 /// Where a plugin's editor lives on disk, and how it is shown.
@@ -867,6 +873,16 @@ impl Shared {
 
     fn set_control(&self, slot: usize, value: f32) {
         self.controls[slot].store(value.to_bits(), Relaxed);
+        self.wake.store(true, Relaxed);
+    }
+
+    /// Whether the worker has work not done, or answers the plugin has
+    /// not been given yet.
+    fn working(&self) -> bool {
+        self.host.worker.get().is_some_and(|worker| {
+            worker.pending.load(std::sync::atomic::Ordering::Acquire) > 0
+                || unsafe { (*worker.responses.get()).slots() } > 0
+        })
     }
 }
 
@@ -1220,6 +1236,10 @@ impl DeviceFactory for Lv2Factory {
                         .copied()
                 })
                 .flatten();
+            let latency = lilv_plugin_has_latency(plugin)
+                .then(|| lilv_plugin_get_latency_port_index(plugin))
+                .and_then(|index| control_ports.iter().find(|(port, _)| *port == index))
+                .map(|(_, slot)| *slot);
             let shared = Arc::new(Shared {
                 plugin,
                 instance,
@@ -1238,6 +1258,8 @@ impl DeviceFactory for Lv2Factory {
                 ui_open: AtomicBool::new(false),
                 properties,
                 patch_port,
+                latency,
+                wake: AtomicBool::new(false),
             });
             if !worker_interface.is_null() {
                 let handle = lilv_instance_get_handle(instance);
@@ -1292,6 +1314,8 @@ impl DeviceFactory for Lv2Factory {
                 held: HeldNotes::new(),
                 response: Vec::with_capacity(WORK_CAPACITY),
                 queued: Vec::with_capacity(QUEUED_CAPACITY),
+                rest: Rest::default(),
+                tail: (sample_rate as f64 * TAIL_SECONDS) as u64,
             };
             let mut controller = Lv2Controller {
                 link: Box::new(UiLink {
@@ -1387,10 +1411,19 @@ struct Lv2Device {
     /// Messages a state lane handed for the next block, each as its frame,
     /// the index of its atom input, its length and the atom.
     queued: Vec<u8>,
+    /// Whether the plugin may sleep (see [`Device::resting`]).
+    rest: Rest,
+    /// How long, in frames, the plugin may ring after its input stops,
+    /// besides its latency. LV2 has no way to say it.
+    tail: u64,
 }
 
 /// Room for the messages of state lanes that one block takes.
 const QUEUED_CAPACITY: usize = 16384;
+
+/// The tail an LV2 plugin is given: it sleeps once its input was silent
+/// for this long, plus its latency, and its output is silent too.
+const TAIL_SECONDS: f64 = 5.0;
 
 impl Lv2Device {
     /// Put the messages state lanes handed into their atom inputs: those
@@ -1411,6 +1444,16 @@ impl Lv2Device {
 }
 
 impl Device for Lv2Device {
+    /// Once its tail has gone by in silence and its output was silent,
+    /// unless a control, a message or the worker has something for it.
+    fn resting(&self) -> bool {
+        self.rest.resting()
+            && self.queued.is_empty()
+            && self.from_ui.slots() == 0
+            && !self.shared.wake.load(Relaxed)
+            && !self.shared.working()
+    }
+
     fn message(&mut self, frame: u32, data: &[u8]) -> bool {
         let Some((port, atom)) = data.split_at_checked(4) else {
             return false;
@@ -1431,6 +1474,8 @@ impl Device for Lv2Device {
 
     fn process(&mut self, ctx: &ProcessCtx, io: &mut Io) {
         let n = io.left.len();
+        // Woken: its tail starts again from here.
+        self.rest.begin(io, self.shared.wake.swap(false, Relaxed));
         match self.audio_in.as_mut_slice() {
             [] => {}
             [mono] => {
@@ -1534,6 +1579,12 @@ impl Device for Lv2Device {
             }
         }
 
+        let latency = shared.latency.map_or(0, |slot| shared.control(slot).max(0.0) as u64);
+        self.rest.end_after_tail(
+            Some(self.tail + latency),
+            self.audio_out.iter().all(|c| paw_engine::device::silent(&c[..n])),
+        );
+
         let add = self.audio_in.is_empty();
         match self.audio_out.as_slice() {
             [] => {}
@@ -1614,6 +1665,8 @@ unsafe fn restore(shared: &Shared, state: *const LilvState) {
             shared.host.feature_list.as_ptr().cast(),
         );
     }
+    // A plugin may take part of a state on only in its next block.
+    shared.wake.store(true, Relaxed);
 }
 
 /// What the editor is given as its way back to the host. It lives in a box
@@ -2044,7 +2097,7 @@ impl Controller for Lv2Controller {
     }
 
     fn prepare(&mut self, method: &str, data: &[u8]) -> Result<Option<Vec<u8>>> {
-        if method != "property.set" {
+        if method != paw_engine::device::method::PROPERTY_SET {
             return Ok(None);
         }
         let Some(port) = self.shared.patch_port else {
@@ -2371,10 +2424,10 @@ impl Controller for Lv2Controller {
         match method {
             // What the plugin holds besides its parameters (a model file, an
             // impulse response), and the values it last told.
-            "properties" => Ok(self.properties_json()),
-            "property.set" => self.set_property(data).map(|_| Vec::new()),
+            paw_engine::device::method::PROPERTIES => Ok(self.properties_json()),
+            paw_engine::device::method::PROPERTY_SET => self.set_property(data).map(|_| Vec::new()),
             // The presets the plugin's bundles (and the user's) describe.
-            "presets" => unsafe {
+            paw_engine::device::method::PRESETS => unsafe {
                 let class = uri("http://lv2plug.in/ns/ext/presets#Preset")?;
                 let label = uri("http://www.w3.org/2000/01/rdf-schema#label")?;
                 let related = lilv_plugin_get_related(shared.plugin, class);
@@ -2401,7 +2454,7 @@ impl Controller for Lv2Controller {
                 presets.sort_by(|a, b| a.name.cmp(&b.name));
                 Ok(crate::presets::to_json(&presets))
             },
-            "preset.load" => unsafe {
+            paw_engine::device::method::PRESET_LOAD => unsafe {
                 let node = uri(&String::from_utf8_lossy(data))?;
                 lilv_world_load_resource(w, node);
                 let map = &shared.host.map as *const UridMap as *mut _;

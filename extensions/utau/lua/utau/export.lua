@@ -52,7 +52,7 @@ function M.describe(opts)
         if p.track == t.id and (not opts.clip or p.clip == opts.clip) then
           local part = { name = p.name or "", pos = p.pos, dur = p.dur, notes = json.array(), curves = json.array() }
           for _, n in ipairs(p.notes) do
-            part.notes[#part.notes + 1] = { pos = n.pos, dur = n.dur, tone = n.tone, payload = json.base64url(n.payload) }
+            part.notes[#part.notes + 1] = { pos = n.pos, dur = n.dur, tone = n.tone, payload = paw.api.base64_encode(n.payload, { url = true, pad = false }) }  -- as the engine's `--export` reads it
           end
           for _, c in ipairs(p.curves) do
             if #c.knots > 0 then

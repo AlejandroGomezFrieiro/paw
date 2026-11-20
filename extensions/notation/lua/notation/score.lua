@@ -621,7 +621,6 @@ function M.transcribe(notes, ctx)
     return b.len / d, b
   end
 
-  -- Chords on staves.
   local chords = {}
   local hands = { lh = 48, rh = 67 }
   local split_at = tonumber(set.split)

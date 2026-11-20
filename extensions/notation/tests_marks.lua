@@ -1,7 +1,7 @@
 -- Marks that play (dynamics, hairpins, articulations) follow what is written
 -- in notation, and `notation.apply-marks` brings back MIDI that drifted from
 -- them; the piano roll's edits are never overwritten by another edit. Loaded
--- by tests.lua.
+-- by tests/suite.lua.
 local T = ...
 local test, eq, fresh = T.test, T.eq, T.fresh
 local paw = require("paw")
@@ -12,10 +12,7 @@ local function load()
   return require("notation")
 end
 
-local function keys(text)
-  paw.keymap.feed(text)
-  api.undo_checkpoint()
-end
+local keys = T.keys
 
 --- A track with an empty clip open as notation, `bars` bars long.
 local function song(bars)

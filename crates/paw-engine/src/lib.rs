@@ -32,7 +32,7 @@ pub use backend::no_denormals;
 pub use clip::{AudioData, AudioRegion, ClipSet, MidiEv, Part, PartEdit, Switch};
 pub use device::{
     Controller, Device, DeviceFactory, DeviceInfo, Instance, Io, MAX_PAIRS, ParamInfo, Ports,
-    ProcessCtx, Registry,
+    ProcessCtx, Registry, Rest,
 };
 pub use engine::{
     BlockStats, BlockSummary, Delay, Engine, EngineHandle, KeyBuf, KeyRt, MASTER, MAX_BLOCK,

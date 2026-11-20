@@ -336,7 +336,6 @@ impl Device for Reverb {
             }
             let (el, er) = (el * 0.12, er * 0.12);
 
-            // Diffusion.
             let mut input = [pl, pr];
             for (ch, x) in input.iter_mut().enumerate() {
                 for (ap, d) in self.diffusers[ch].iter_mut().zip(DIFFUSERS_MS[ch]) {

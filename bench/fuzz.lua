@@ -4,8 +4,9 @@
 --   * every error is a clean rejection: a message from the API, never a Lua
 --     runtime error or a Rust panic message
 --   * undo then redo returns to the same project
---   * save then load returns to the same project, and saving again gives the
---     same file
+--   * saving changes nothing; a project folder saved, loaded and saved
+--     again gives the same files, and loads as the same project (the first
+--     load puts notes on the tick grid of a clip file)
 --   * rendering the same project twice gives the same bytes, with devices
 --     at rest asleep and without; and renders never contain NaN or infinity
 --   * every id a view lists can be looked up
@@ -47,9 +48,9 @@ local stats = { ops = 0, rejected = 0, checks = { undo = 0, save = 0, render = 0
 
 local function fail(step, what, detail)
   -- Keep the project that broke, to look at.
-  local kept = pcall(api.project_save, B.tmp .. "/fuzz-failed-" .. seed .. ".json")
+  local kept = pcall(api.project_save, B.tmp .. "/fuzz-failed-" .. seed)
   B.emit({ workload = "fuzz", seed = seed, step = step, failed = what, detail = detail,
-    project = kept and (B.tmp .. "/fuzz-failed-" .. seed .. ".json") or nil })
+    project = kept and (B.tmp .. "/fuzz-failed-" .. seed) or nil })
   io.stdout:flush()
   api.quit(1)
   error("stop", 0)
@@ -335,17 +336,33 @@ local function check_undo(step)
   end
 end
 
+--- Every file of a project folder, by its path in the folder, as one text.
+local function folder(path)
+  local out, pipe = {}, io.popen("cd '" .. path .. "' && find . -type f | LC_ALL=C sort")
+  for name in pipe:lines() do out[#out + 1] = name .. "\n" .. (read(path .. "/" .. name) or "") end
+  pipe:close()
+  return table.concat(out, "\n")
+end
+
 local function check_save(step)
-  local a, b = dir .. "/a.json", dir .. "/b.json"
+  local a, b = dir .. "/a", dir .. "/b"
+  os.execute("rm -rf '" .. a .. "' '" .. b .. "'")
   local before = dump()
   api.project_save(a)
   local saved = dump()
   api.project_load(a)
   paw.flush()
   local loaded = dump()
-  if loaded ~= saved then fail(step, "save", "load changed the project: " .. first_difference(saved, loaded)) end
+  -- A clip file keeps notes in ticks: a note off the tick grid comes back
+  -- on it. From the first load on, save and load change nothing.
   api.project_save(b)
-  if read(a) ~= read(b) then fail(step, "save", "saving the loaded project gave a different file") end
+  if folder(a) ~= folder(b) then fail(step, "save", "saving the loaded project gave different files") end
+  api.project_load(b)
+  paw.flush()
+  local again = dump()
+  if again ~= loaded then fail(step, "save", "a second load changed the project: " .. first_difference(loaded, again)) end
+  -- A project never named takes its folder's name when saved.
+  before = before:gsub("name=untitled,", "name=a,", 1)
   if before ~= saved then
     -- Saving may only move recordings beside the file.
     if not before:find("recordings") then fail(step, "save", "saving changed the project: " .. first_difference(before, saved)) end

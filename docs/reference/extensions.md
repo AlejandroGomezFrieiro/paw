@@ -101,6 +101,11 @@ starts while an extension loads belongs to the core.
 returns it. A command or a key tells its owner (`spec.ext`, `map.ext`).
 `:help` uses this.
 
+Two extensions can map the same key in the same view, or define the same
+command. Then the extension that loads last wins. `:checkhealth extensions`
+gives a warning for each such entry. To choose the other one, load the
+extensions in the other order, or map the key again in `init.lua`.
+
 ### Unload
 
 `paw.ext.unload(name)` removes all that the extension owns.

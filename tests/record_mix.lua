@@ -3,11 +3,7 @@
 local T = ...
 local test, eq, fresh = T.test, T.eq, T.fresh
 local api = paw.api
-
-local function keys(text)
-  paw.keymap.feed(text)
-  api.undo_checkpoint()
-end
+local keys, until_, until_beat = T.keys, T.until_, T.until_beat
 
 local function start()
   fresh()
@@ -104,9 +100,8 @@ test("R records from the cursor, as Shift-Enter plays from it", function()
   keys("3|")
   eq(paw.cursor.beat, 8, "3| puts the cursor at bar 3")
   keys("R")
-  local deadline = api.now() + 3000
-  while not (paw.transport.recording and paw.transport.playing) and api.now() < deadline do api.sleep(10) end
-  api.sleep(300)
+  until_(function() return paw.transport.recording and paw.transport.playing end, "the recording")
+  until_beat(8.6)
   keys("<Space>")
   paw.flush()
   local clips = gtr:clips()
@@ -222,17 +217,17 @@ end
 --- Whether the track sounds when a key is played on the keyboard.
 local function plays(track)
   -- What it played before dies away first.
-  local quiet = api.now() + 3000
-  while track:meter() > 0.005 and api.now() < quiet do api.sleep(20) end
+  until_(function() return track:meter() <= 0.005 end, "what " .. track.name .. " played before to die away")
   paw.midi.inject({ type = "note_on", pitch = 60, velocity = 110, port = "Keys A", channel = 1 })
-  local deadline, heard = api.now() + 1500, false
-  while api.now() < deadline and not heard do
-    api.sleep(20)
-    heard = track:meter() > 0.02
-  end
+  -- Heard within 50 blocks of the engine (about half a second of sound),
+  -- however slowly the machine runs them.
+  local from = api.blocks()
+  local heard = until_(function()
+    return track:meter() > 0.02 and "heard" or api.blocks() - from > 50 and "silent"
+  end, "a key to be heard or not")
   paw.midi.inject({ type = "note_off", pitch = 60, port = "Keys A", channel = 1 })
-  api.sleep(300)
-  return heard
+  T.next_block(5)
+  return heard == "heard"
 end
 
 test("the selected instrument track plays the MIDI keyboard without arming", function()
@@ -342,13 +337,12 @@ test("MIDI overdub: with midi_record merge a take joins the clip under it, in on
   local function take(pitch)
     keys("3|")
     keys("R")
-    local deadline = api.now() + 3000
-    while not (paw.transport.recording and paw.transport.playing) and api.now() < deadline do api.sleep(10) end
-    api.sleep(150)
+    until_(function() return paw.transport.recording and paw.transport.playing end, "the recording")
+    until_beat(8.3)
     paw.midi.inject({ type = "note_on", pitch = pitch, velocity = 100, port = "Keys A", channel = 1 })
-    api.sleep(250)
+    until_beat(8.8)
     paw.midi.inject({ type = "note_off", pitch = pitch, port = "Keys A", channel = 1 })
-    api.sleep(150)
+    until_beat(9.1)
     keys("<Space>")
     paw.flush()
   end

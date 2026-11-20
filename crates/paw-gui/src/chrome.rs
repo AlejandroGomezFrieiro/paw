@@ -113,7 +113,6 @@ impl View {
             self.command(if step > 0.0 { "tempo by=1" } else { "tempo by=-1" });
         }
         x = tempo.right() + 8.0;
-        // The time signature.
         let signature = row(x, 48.0);
         ui.painter().rect_filled(signature, CornerRadius::same(4), t.well);
         let sig = self.s.tick["signature"].as_str().map(String::from).unwrap_or_else(|| text(&self.s.project["signature"]));

@@ -157,7 +157,6 @@ function view:paint(g, ctx)
   if #S.targets == 0 and under then S.targets[1] = under end
   gui.S = S
 
-  -- Toolbar.
   g:rect(0, 0, w, TOOLBAR, { fill = c.panel })
   g:rect(10, 8, #clip.name * 7 + 22, 22, { fill = hue, radius = 5 })
   g:text(21, 12, clip.name, { color = c.surface, bold = true })
@@ -328,7 +327,6 @@ function view:paint(g, ctx)
     roll:rect(x_of(self.beat), y_of(self.pitch), math.max(2, grid * gui.zoom), gui.row, { stroke = c.select .. "aa", radius = 2 })
   end
 
-  -- The playhead.
   local playhead = transport.position >= clip.start and transport.position <= clip.start + clip.length
   if playhead then
     local px = x_of(transport.position - clip.start)
@@ -336,7 +334,6 @@ function view:paint(g, ctx)
     ruler:poly({ px - 4.5, RULER - 6, px + 4.5, RULER - 6, px, RULER }, { fill = c.play })
   end
 
-  -- The keyboard.
   local keys = g:sub(0, top + RULER, KEYS, roll_h)
   keys:rect(0, 0, KEYS, roll_h, { fill = c.key_white })
   for pitch = math.floor(pitch_at(roll_h)), math.ceil(gui.top) do
@@ -383,10 +380,8 @@ function view:paint(g, ctx)
     end
   end
 
-  -- The curve under the notes.
   if curve_h > 0 then curve_panel.paint(self, g, S) end
 
-  -- The inspector at the side.
   if side > 0 then inspector.paint(self, g:sub(w - side, TOOLBAR, side, h - TOOLBAR - INFO), S) end
 
   -- What is under the cursor, or what the pointer does.

@@ -184,7 +184,7 @@ test("pre-roll: recording with punch on starts playing bars before the punch in,
     paw.transport.record()
     local at = api.transport_get().position
     eq(at >= 4 and at < 5, true, "playing from a bar before the punch in: " .. at)
-    api.sleep(3500)
+    T.until_beat(8.5)
     eq(paw.transport.position > 8, true, "past the punch in")
     paw.transport.stop()
     paw.flush()

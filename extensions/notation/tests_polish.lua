@@ -1,6 +1,6 @@
 -- Tests of what using notation as a composer turned up: a played note on
 -- the grid by chance, hairpins over barlines in the cell view, the popover
--- clear of what it previews, `K` on a note. Loaded by tests.lua.
+-- clear of what it previews, `K` on a note. Loaded by tests/suite.lua.
 local T = ...
 local test, eq, fresh = T.test, T.eq, T.fresh
 local paw = require("paw")
@@ -13,10 +13,7 @@ end
 
 local function N(pitch, start, length, velocity) return { pitch = pitch, start = start, length = length, velocity = velocity or 80 } end
 
-local function keys(text)
-  paw.keymap.feed(text)
-  api.undo_checkpoint()
-end
+local keys = T.keys
 
 --- A track with a clip open as notation.
 local function song(notes, length)

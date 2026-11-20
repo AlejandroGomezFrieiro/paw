@@ -32,13 +32,7 @@ local function load()
   return midilsp
 end
 
-local function until_(fn, what, ms)
-  local deadline = api.now() + (ms or 30000)
-  while not fn() do
-    if api.now() > deadline then error("waited in vain for " .. what, 2) end
-    paw.wait(10)
-  end
-end
+local until_ = T.until_
 
 local function start()
   fresh()
@@ -283,7 +277,6 @@ test("midilsp: the engine's delivery and settings checks look at every render of
   if skip then return skip end
   start()
   local checks = require("midilsp.checks")
-  eq(checks.base64("evaw" .. string.char(16)), "ZXZhdxA=", "a 16-bit WAV, as REAPER's render format says it")
   dofile("examples/demo-song.lua")
   paw.flush()
   checks.start()

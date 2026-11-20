@@ -507,6 +507,9 @@ pub fn diff(a: &Project, b: &Project) -> Value {
     if (a.sig_num, a.sig_den) != (b.sig_num, b.sig_den) || a.sig_changes != b.sig_changes {
         d.project.push("time signature");
     }
+    if a.key != b.key {
+        d.project.push("key");
+    }
     if a.meta != b.meta {
         d.project.push("meta");
     }
@@ -605,7 +608,6 @@ pub fn diff(a: &Project, b: &Project) -> Value {
         }
     }
 
-    // Devices.
     for (id, (track, device)) in sorted(&devices_b) {
         match devices_a.get(&id) {
             None => {
@@ -732,7 +734,6 @@ pub fn diff(a: &Project, b: &Project) -> Value {
         }
     }
 
-    // Automation lanes.
     let lane_name = |l: &crate::model::Lane| match &l.target {
         crate::model::Target::Volume => "volume".to_string(),
         crate::model::Target::Pan => "pan".to_string(),

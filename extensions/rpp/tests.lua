@@ -34,10 +34,10 @@ local function write_wav(path, seconds, freq, level)
     samples[#samples + 1] = string.char(v % 256, math.floor(v / 256))
   end
   local data = table.concat(samples)
-  local b64 = require("rpp.base64")
+  local b64 = paw.bytes
   local function u16(x) return string.char(x % 256, math.floor(x / 256) % 256) end
-  T.write_file(path, "RIFF" .. b64.pack_u32(36 + #data) .. "WAVEfmt " .. b64.pack_u32(16) .. u16(1) .. u16(1)
-    .. b64.pack_u32(rate) .. b64.pack_u32(rate * 2) .. u16(2) .. u16(16) .. "data" .. b64.pack_u32(#data) .. data)
+  T.write_file(path, "RIFF" .. b64.le32(36 + #data) .. "WAVEfmt " .. b64.le32(16) .. u16(1) .. u16(1)
+    .. b64.le32(rate) .. b64.le32(rate * 2) .. u16(2) .. u16(16) .. "data" .. b64.le32(#data) .. data)
 end
 
 --- A folder in the scratch directory holding a copy of a fixture, with the
@@ -144,10 +144,10 @@ end)
 
 test("rpp: base64 blocks and plugin chunks", function()
   local r = load()
-  local b64 = require("rpp.base64")
+  local b64 = paw.bytes
   local fx = require("rpp.fx")
   for _, s in ipairs({ "", "a", "ab", "abc", "abcd", string.rep("\0\255\128", 100) }) do
-    eq(b64.decode(b64.encode(s)), s, "base64 round trip of " .. #s .. " bytes")
+    eq(b64.unbase64(b64.base64(s)), s, "base64 round trip of " .. #s .. " bytes")
   end
   local doc = r.parse(T.read_file(FIXTURES .. "format.rpp"))
   local vst = doc.project:child("TRACK"):child("FXCHAIN"):child("VST")
@@ -156,7 +156,7 @@ test("rpp: base64 blocks and plugin chunks", function()
   local parts = assert(fx.vst_parts(vst))
   eq(#parts.data, 24, "state size from the header")
   local state = assert(fx.vst3_state_from_reaper(parts.data))
-  eq(state, b64.pack_u32(4) .. "abcd" .. b64.pack_u32(4) .. "wxyz", "paw's VST3 state")
+  eq(state, b64.le32(4) .. "abcd" .. b64.le32(4) .. "wxyz", "paw's VST3 state")
   eq(fx.vst3_state_to_reaper(state), parts.data, "and back")
   -- Data lines are rewritten in groups of 128 characters.
   local block = r.block("STATE")
@@ -685,8 +685,7 @@ test("rpp: plugins go out and come back with their settings", function()
   b:set("scr", 37)
   b.bypass = true
   t:add_device(vst3)
-  paw.flush()
-  api.sleep(300) -- plugins take new values with their next audio block
+  T.next_block(3) -- plugins take new values with their next audio block
   local result = r.export(dir .. "/fx.rpp")
   eq(has_item(result.report, "Plugins not written", "vst3:Gate Mono"), true, "a VST3 made here is not written")
   local chain = r.read(dir .. "/fx.rpp").project:child("TRACK"):child("FXCHAIN")
@@ -714,25 +713,24 @@ test("rpp: plugins go out and come back with their settings", function()
   }, "\n"))
   -- REAPER's chunk around the state of a gate made here.
   local fx = require("rpp.fx")
-  local b64 = require("rpp.base64")
+  local b64 = paw.bytes
   T.fresh()
   local g = paw.add_track({ name = "tmp" }):add_device(vst3)
   local key = "sidechain_reactivity"
   g:set(key, 0.2)
-  paw.flush()
   -- A VST3 takes a new value with its next audio block; its saved state
   -- only has it after that.
-  api.sleep(300)
+  T.next_block(3)
   local state = api.device_state(g.id)
   -- The plugin rounds the value it saves; what paw's own copy of the
   -- state gives is what the import must give.
   local want = api.device_get(api.device_add(g:track().id, vst3, { state = state })).params[key]
   local default = api.device_get(api.device_add(g:track().id, vst3, {})).params[key]
   eq(math.abs(want - default) > 0.05, true, "the setting is not the default")
-  local reaper_state = fx.vst3_state_to_reaper(b64.decode(state))
-  local header = b64.decode("9mZpeO5e7f4CAAAAAQAAAAAAAAACAAAAAAAAAAIAAAABAAAAAAAAAAIAAAAAAAAAGAAAAAEAAAD//wAA")
-  header = header:sub(1, #header - 12) .. b64.pack_u32(#reaper_state) .. header:sub(#header - 7)
-  vdoc.project:child("TRACK"):child("FXCHAIN"):child("VST"):set_data({ b64.encode(header), b64.encode(reaper_state), "AAAAAAAA" })
+  local reaper_state = fx.vst3_state_to_reaper(b64.unbase64(state))
+  local header = b64.unbase64("9mZpeO5e7f4CAAAAAQAAAAAAAAACAAAAAAAAAAIAAAABAAAAAAAAAAIAAAAAAAAAGAAAAAEAAAD//wAA")
+  header = header:sub(1, #header - 12) .. b64.le32(#reaper_state) .. header:sub(#header - 7)
+  vdoc.project:child("TRACK"):child("FXCHAIN"):child("VST"):set_data({ b64.base64(header), b64.base64(reaper_state), "AAAAAAAA" })
   r.save(vdoc, dir .. "/vst3.rpp")
   r.import(dir .. "/vst3.rpp")
   local v = paw.track("V"):devices()[1]
@@ -741,7 +739,7 @@ test("rpp: plugins go out and come back with their settings", function()
   r.export(dir .. "/vst3-out.rpp")
   local out = r.read(dir .. "/vst3-out.rpp").project:child("TRACK"):child("FXCHAIN"):child("VST")
   eq(out:arg(1), "VST3: Gate Mono (LSP VST3)", "written back under REAPER's name for it")
-  eq(b64.decode(out:data_groups()[1]):sub(1, 8), header:sub(1, 8), "with REAPER's header")
+  eq(b64.unbase64(out:data_groups()[1]):sub(1, 8), header:sub(1, 8), "with REAPER's header")
   r.import(dir .. "/vst3-out.rpp")
   near(paw.track("V"):devices()[1].params[key], want, 1e-6, "and back again")
 end)

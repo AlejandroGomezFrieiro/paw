@@ -313,8 +313,7 @@ Other parts of the page:
   notes would now choose others. For example, a melody taken a little under
   the treble staff stays on it. A clip also keeps a clef change at a bar
   (`\C`, see [Popovers](#popovers)).
-- **Key**: the key of the project, as the `musicops` extension keeps it in
-  `project.meta.musicops`. Modes and minor keys take the signature of their
+- **Key**: the key of the project (`paw.harmony.project_key`). Modes and minor keys take the signature of their
   relative major. `:notation.key Eb major` sets the key, and
   `:notation.key off` clears it. With a clip open in the view, the command
   writes a key signature from the bar of the cursor (`\k`, see
@@ -981,7 +980,7 @@ open), and the motions `staff`, `unit`, `sibling` and `edge`.
 
 **MusicXML in.** paw reads `.musicxml`, `.xml` and `.mxl` (compressed)
 files, as MuseScore, Dorico, Sibelius and Finale write them, partwise or
-timewise (`notation.musicxml`, with its own small XML reader and unzip). A
+timewise (`notation.musicxml`, with its own small XML reader, and `paw.zip`). A
 part becomes a track with one MIDI clip, and the track keeps the clef or
 grand staff of the part. paw reads the file into a score, and writes the
 score into the clip as notation writes it (see

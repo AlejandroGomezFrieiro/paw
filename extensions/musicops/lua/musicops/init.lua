@@ -30,13 +30,9 @@ local function deep(t)
   return out
 end
 
-local function clamp(v, lo, hi)
-  if v < lo then return lo end
-  if v > hi then return hi end
-  return v
-end
+local clamp = paw.util.clamp
 
-local function round(v) return math.floor(v + 0.5) end
+local round = paw.util.round
 
 local function by_time(a, b)
   if math.abs(a.start - b.start) > EPS then return a.start < b.start end

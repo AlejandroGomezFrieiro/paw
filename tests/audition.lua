@@ -26,10 +26,7 @@ local function wait_for(cond, ms)
   return cond()
 end
 
-local function keys(text)
-  paw.keymap.feed(text)
-  api.undo_checkpoint()
-end
+local keys = T.keys
 
 local function heard() return paw.pick.state() and paw.pick.state().audition end
 

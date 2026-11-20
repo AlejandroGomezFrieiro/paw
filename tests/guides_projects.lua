@@ -6,11 +6,7 @@ local T = ...
 local test, eq, fresh = T.test, T.eq, T.fresh
 local api = paw.api
 
-local function keys(text)
-  paw.keymap.feed(text)
-  api.undo_checkpoint()
-  paw.flush()
-end
+local keys = T.keys
 
 local function start()
   fresh()

@@ -435,13 +435,15 @@ test("a MIDI input that goes away and comes back is told of, and its tracks take
       if ours[e.port] then seen[#seen + 1] = word .. " " .. e.port .. " " .. table.concat(e.tracks, ",") end
     end
   end
-  local handlers = { paw.on("midi.lost", note("lost")), paw.on("midi.returned", note("back")) }
+  -- Both ports there first, whatever an earlier test left.
   api.midi_test_ports({ "Keys A", "Pads" })
   paw.wait(300)
+  local handlers = { paw.on("midi.lost", note("lost")), paw.on("midi.returned", note("back")) }
   api.midi_test_ports({ "Pads" })
-  paw.wait(300)
+  T.until_(function() return #seen >= 1 end, "the port's going to be told")
   api.midi_test_ports({ "Pads", "Keys A" })
-  paw.wait(300)
+  T.until_(function() return #seen >= 2 end, "the port's coming back to be told")
+  paw.wait(300) -- told once each: no more come
   for _, h in ipairs(handlers) do paw.off(h) end
   eq(table.concat(seen, "; "), "lost Keys A Keys; back Keys A Keys", "the port's going and coming back, with its track")
   eq(t.midi_input.port, "Keys A", "the track still chooses it")

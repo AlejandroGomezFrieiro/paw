@@ -211,7 +211,6 @@ function M.rebuild(plan)
   end
   local tracks = all_tracks()
 
-  -- Clips.
   for _, t in ipairs(tracks) do
     if t.row > 0 then
       for _, edge in ipairs(edges) do cut(t.id, edge) end
@@ -244,7 +243,6 @@ function M.rebuild(plan)
     end
   end
 
-  -- Automation.
   for _, t in ipairs(tracks) do
     for _, lane in ipairs(api.lane_list(t.id)) do
       local key, points = lane_key(lane), api.lane_points(lane.id)

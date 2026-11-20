@@ -31,6 +31,14 @@ extension.
 | Rendering: stems, dither, normalization | the engine, offline |
 | Undo as a tree, safety copies and recovery | the model, and the safety of your work |
 | Modal keys, the picker, the views | all other parts use them |
+| The key of the song (`project.key`) | the harmony, the LSP and many extensions read it |
+| Base64, deflate, CRC-32, ZIP archives (`paw.bytes`, `paw.zip`) | the file formats of several extensions use them |
+
+Two extensions that need the same thing do not each keep a copy. Some
+data of an extension is read by the core or by other extensions, such as
+the key of the song. That data moves into the project model. When extensions
+read and write the same file format, such as ZIP or base64, the codec
+moves into the core. An extension keeps only its own data in `meta`.
 
 Sometimes an extension needed something that only the core could give.
 Examples are a fast measurement of loudness, a tree of undo states, and

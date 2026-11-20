@@ -7,11 +7,7 @@ local L = paw.layout
 
 local W, H = 160, 48
 
-local function keys(text)
-  paw.keymap.feed(text)
-  paw.flush()
-  api.undo_checkpoint()
-end
+local keys = T.keys
 
 local function windows()
   local out = {}

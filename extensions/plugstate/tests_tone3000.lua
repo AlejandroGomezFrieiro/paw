@@ -23,10 +23,7 @@ local function load()
   return plugstate
 end
 
-local function keys(text)
-  paw.keymap.feed(text)
-  api.undo_checkpoint()
-end
+local keys = T.keys
 
 -- --- the mock of the API ------------------------------------------------------------
 

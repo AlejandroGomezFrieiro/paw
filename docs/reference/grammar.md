@@ -5,7 +5,7 @@
 The keys of paw work as the keys of Neovim, on a timeline in place of a
 text. In the arrange view, a track is a line, a beat is a column and a
 clip is a word. In the piano roll, a pitch is a line and a note is a word.
-All keys are mappings in `runtime/lua/paw/defaults.lua`, made with the
+All keys are mappings in `runtime/lua/paw/defaults/`, made with the
 functions of [your configuration](../how-to/configure-paw.md). You can
 change each of them.
 

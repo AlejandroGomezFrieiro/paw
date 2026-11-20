@@ -199,7 +199,7 @@ test("a project with recordings, moved with its folder, plays them", function()
       t.armed = true
       paw.flush()
       paw.transport.record()
-      api.sleep(500)
+      T.until_beat(paw.transport.position + 1)
       paw.transport.stop()
       paw.flush()
       t.armed = false

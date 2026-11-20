@@ -13,6 +13,11 @@ The Lua suite is the end-to-end test of paw. It runs on the release build.
 
 The suite writes its full output to `target/test-scratch/suite.out`.
 
+`tests/suite.lua` is the runner and the helpers (`T`). The tests of the
+core are in `tests/<area>.lua`. The tests of an extension are beside it,
+in `extensions/<name>/tests.lua` and `tests_<part>.lua`. The runner loads
+each of these files, in the order of their names.
+
 - To run only some tests, give words of their names:
   `tests/tools/suite.sh only "loop on"`.
 - To run the suite with the test plugins, run `tests/tools/suite.sh plugins`.

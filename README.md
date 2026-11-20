@@ -109,7 +109,8 @@ not for the length of its list of features.
   player for SFZ and Decent Sampler libraries. Devices written in Lua, and
   your CLAP, LV2 and VST3 plugins. Each plugin runs in a process of its own,
   so a crash stops only that plugin.
-- **Files.** A project is a JSON file that you can read. paw renders to WAV
+- **Files.** A project is a folder of text files that you can read: a file
+  for each track and for each clip. paw renders to WAV
   and FLAC (MP3, Ogg and Opus through ffmpeg) in the background. It opens and
   exports MIDI files.
 - **Find.** Pickers as in telescope and fzf-lua, with previews that you can
@@ -213,9 +214,15 @@ instructions.
 | [vinput](extensions/vinput) | virtual inputs, for example a guitar converted to MIDI |
 | [tutor](extensions/tutor) | the course, inside paw |
 | [doctor](extensions/doctor) | checks of your sound card, MIDI devices and plugins |
+| [launcher](extensions/launcher) | a clip launcher: slots of clips on each track, started and stopped while the song plays |
+| [continue](extensions/continue) | suggestions in the piano roll for how a phrase continues |
+| [luafx](extensions/luafx) | devices written in Lua, to use and to copy |
+| [midilsp](extensions/midilsp) | MIDI LSP, a language server for music, as an entry of `paw.lsp` |
+| [snippets](extensions/snippets) | a first set of snippets for `paw.snippet` |
 
 The page of each extension shows it at work. Load extensions from `init.lua`
-([config/init.lua](config/init.lua) loads all of them), or build paw with
+([config/init.lua](config/init.lua) loads a set of them, and a line loads
+each other one), or build paw with
 them in Nix: `paw.withExtensions (exts: [ exts.utau ])`.
 
 ## For agents

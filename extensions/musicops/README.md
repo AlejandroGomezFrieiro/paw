@@ -133,6 +133,10 @@ In the piano roll and the vocal editor:
 | `ah` | the chord and each note that starts while it sounds |
 | `)` `(` | motions: the start of the next phrase. The start of this phrase, or of the previous phrase. With a count, that many |
 
+In the vocal editor, the utau extension maps `(` and `)` to the phonemes.
+The extension that loads last has them (`:checkhealth extensions` says
+which). `config/init.lua` loads utau first, so they move by phrase.
+
 `dip` deletes a phrase. `yap` yanks it with the rest after it. `vih`
 selects the chord, and `gzsih` strums it. `d)` deletes to the next phrase.
 
@@ -148,9 +152,8 @@ selects the chord, and `gzsih` strums it. `d)` deletes to the next phrase.
 | `:musicops.apply <function> name=value ...` | applies a function of the module to the full clip that you edit (the clip of the piano roll or the vocal editor, or the clip under the arrange cursor) |
 
 - The key of the project is the key of the core (`paw.harmony.key`, see
-  [Harmony](../../docs/reference/harmony.md)). It is in
-  `project.meta.musicops` (`{ root = "D", scale = "minor" }`). So the
-  project saves it, and undo applies to it.
+  [Harmony](../../docs/reference/harmony.md)). The project keeps it as
+  `key` (`"D minor"`). So the project saves it, and undo applies to it.
 - With no key, the operators use C major. They do not use the key that the
   core reads from the notes.
 - Scales: `major` (`ionian`), `minor` (`aeolian`), `harmonic_minor`,

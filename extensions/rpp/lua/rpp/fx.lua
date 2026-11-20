@@ -17,7 +17,7 @@
 --          beyond the ports) is not carried over.
 -- Everything else (VST2, JSFX, AU, DX, containers) stays behind as a note.
 local fmt = require("rpp.format")
-local b64 = require("rpp.base64")
+local b64 = paw.bytes
 local M = {}
 
 local PLUGIN_BLOCKS = { VST = true, CLAP = true, LV2 = true, JS = true, DX = true, AU = true, VIDEO_EFFECT = true, CONTAINER = true }
@@ -51,7 +51,7 @@ function M.vst3_state_from_reaper(data)
   local ctrl_size = b64.u32(data, 9 + cs)
   if 16 + cs + ctrl_size ~= #data then return nil, "the state's sizes do not add up" end
   local ctrl = data:sub(17 + cs, 16 + cs + ctrl_size)
-  return b64.pack_u32(#comp) .. comp .. b64.pack_u32(#ctrl) .. ctrl
+  return b64.le32(#comp) .. comp .. b64.le32(#ctrl) .. ctrl
 end
 
 --- paw's VST3 state to REAPER's state part.
@@ -61,21 +61,21 @@ function M.vst3_state_to_reaper(state)
   local comp = state:sub(5, 4 + cs)
   local ctrl_size = b64.u32(state, 5 + cs) or 0
   local ctrl = state:sub(9 + cs, 8 + cs + ctrl_size)
-  return b64.pack_u32(#comp) .. b64.pack_u32(1) .. comp .. b64.pack_u32(#ctrl) .. b64.pack_u32(0) .. ctrl
+  return b64.le32(#comp) .. b64.le32(1) .. comp .. b64.le32(#ctrl) .. b64.le32(0) .. ctrl
 end
 
 --- The three parts of a `<VST` block, decoded, with the header checked.
 function M.vst_parts(block)
   local groups = block:data_groups()
   if #groups < 2 then return nil, "the chunk does not have REAPER's three parts" end
-  local ok, header = pcall(b64.decode, groups[1])
+  local ok, header = pcall(b64.unbase64, groups[1])
   if not ok then return nil, "the chunk is not base64" end
   local magic = b64.u32(header, 5)
   if magic ~= 0xfeed5eee and magic ~= 0xfeed5eef then return nil, "the chunk header is not REAPER's" end
-  local data = b64.decode(groups[2])
+  local data = b64.unbase64(groups[2])
   local size = b64.u32(header, #header - 11)
   if size ~= #data then return nil, "the chunk header's size does not match its state" end
-  return { header = header, data = data, trailer = groups[3] and b64.decode(groups[3]) or "" }
+  return { header = header, data = data, trailer = groups[3] and b64.unbase64(groups[3]) or "" }
 end
 
 -- Import -----------------------------------------------------------------------------
@@ -165,7 +165,7 @@ function M.import(block, track, bypass, notes)
     local parts, why = M.vst_parts(block)
     local state
     if parts then state, why = M.vst3_state_from_reaper(parts.data) end
-    local id, err = add(t.kind, { state = state and b64.encode(state) or nil })
+    local id, err = add(t.kind, { state = state and b64.base64(state) or nil })
     if not id and state then
       -- The plugin refused the state: keep the plugin with its defaults.
       id, err = add(t.kind)
@@ -174,8 +174,8 @@ function M.import(block, track, bypass, notes)
     if not id then return nil, err end
     if not state then notes[#notes + 1] = "state not carried over (" .. tostring(why) .. "), defaults used" end
     if parts then
-      meta.vst_header = b64.encode(parts.header)
-      meta.vst_trailer = b64.encode(parts.trailer)
+      meta.vst_header = b64.base64(parts.header)
+      meta.vst_trailer = b64.base64(parts.trailer)
     end
     api.device_set(id, "meta", { rpp = meta })
     return id
@@ -230,13 +230,13 @@ function M.export(device, info)
     if not (meta and meta.vst_header and meta.header) then
       return nil, "a VST3 plugin is only written back when it came from a REAPER project (REAPER's id for it is unknown)"
     end
-    local data = state and M.vst3_state_to_reaper(b64.decode(state))
+    local data = state and M.vst3_state_to_reaper(b64.unbase64(state))
     if not data then return nil, "its state could not be read" end
-    local header = b64.decode(meta.vst_header)
-    header = header:sub(1, #header - 12) .. b64.pack_u32(#data) .. header:sub(#header - 7)
+    local header = b64.unbase64(meta.vst_header)
+    header = header:sub(1, #header - 12) .. b64.le32(#data) .. header:sub(#header - 7)
     local block = fmt.block()
     block.tokens, block.quotes = meta.header, meta.quotes
-    block:set_data({ b64.encode(header), b64.encode(data), meta.vst_trailer or "AAAAAAAA" })
+    block:set_data({ b64.base64(header), b64.base64(data), meta.vst_trailer or "AAAAAAAA" })
     return block
   end
   return nil, "no REAPER equivalent"
