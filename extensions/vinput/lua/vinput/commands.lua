@@ -216,7 +216,7 @@ for lhs, steps in pairs({ l = 1, h = -1, L = 10, H = -10 }) do
   paw.keymap.classic(lhs, adjust(steps), { view = "vinput", desc = steps > 0 and "More; on" or "Less; off" })
 end
 pmap("<CR>", function() M.activate((panel:current())) end, "Change this: on or off, choose, type")
-pmap("=", function()
+pmap("x", function()
   local row = panel:current()
   if row and row.setting then vinput.set(row.input.name, row.setting.key, row.setting.default) end
 end, "Back to the setting's usual value")

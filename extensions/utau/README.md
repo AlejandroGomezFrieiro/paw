@@ -137,7 +137,7 @@ A vocal track is a kind of track (`paw.track_kinds`).
 | `<C-c>`, `d` `x` | copy the selected notes (or the note), cut them. `p` `P` paste, with their pitches |
 | `]c` `[c`, `:utau.curve <abbr>` | the curve under the notes: next, previous, by name |
 | `}` `{` | raise or lower that curve at the cursor (the pitch by 10 cents, the others by their own step. A count multiplies) |
-| `=`, `<leader>=` | reset that curve to its default under the note, in the full clip |
+| `=` | an operator: reset that curve to its default over what it covers. `=in` under the note, `==` in the full clip, `=` on a selection |
 | `[p` `]p` | choose the previous or next phoneme (in the phoneme row and the bottom line) |
 | `[` `]` | that phoneme starts 5 ticks earlier or later |
 | `grp`, `gR` | type the phoneme to sing in its place. Restore it from the voicebank |

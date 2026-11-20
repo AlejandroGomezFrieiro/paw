@@ -488,8 +488,8 @@ test("the vocal editor draws and erases expression curves under the notes", func
   local text = table.concat(api.ui_snapshot(120, 40), "\n")
   eq(text:find("tenc", 1, true) ~= nil and text:find("15", 1, true) ~= nil, true, "the terminal shows the curve and its value at the cursor")
   eq(text:find("[\240][\159][\172-\175]") ~= nil or text:find("[▌▐█]") ~= nil, true, "drawn in sextants under the notes")
-  paw.keymap.feed("=")
-  eq(notes.curve_at(track.id, device, "tenc", clip.start + 2), 0, "= puts it back under the note")
+  paw.keymap.feed("=in")
+  eq(notes.curve_at(track.id, device, "tenc", clip.start + 2), 0, "=in puts it back under the note")
   win.close()
 end)
 

@@ -117,7 +117,7 @@ its state, with its settings under it.
 | `j` `k`, `gg` `G` | move along the rows |
 | `+` `-`, `Ctrl-a` `Ctrl-x` | less and more of a setting, by one step (a count multiplies: `10+`). On a heading, off and on |
 | `Enter` | on a heading, the input on or off. On a setting, flips it, chooses it from a list, or lets you type it |
-| `=` | the usual value of the setting |
+| `x` | the usual value of the setting |
 | `o` | the input on or off |
 | `s` | chooses the source |
 | `ga` | takes the gain that the tracker asked for |

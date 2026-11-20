@@ -126,7 +126,6 @@ dmap("c", function()
   if not row then return end
   paw.cmd(row.param and "device.value" or "preset")
 end, "Change: type the parameter's value; on a device, choose a preset")
-dmap("=", "device.value", "Type the parameter's value")
 dmap("<CR>", function()
   local _, row = panel:selected()
   if not row then return end

@@ -754,8 +754,15 @@ local function raise(dir) return function(ctx)
 end end
 emap("}", raise(1), "Raise the curve here (the pitch 10 cents)")
 emap("{", raise(-1), "Lower the curve here (the pitch 10 cents)")
-emap("=", function() editor:flatten(false) end, "Put the curve back under the note")
-emap("<leader>=", function() editor:flatten(true) end, "Put the curve back in the whole clip")
+-- `=` is an operator in every view: here it puts the chosen curve back over
+-- what it covers (`=in` under the note, `==` the whole clip).
+eop("=", function(_, region)
+  local clip, device = editor:clip(), editor:device()
+  if not device then return end
+  local c0, c1 = region.c0, region.c1
+  if region.kind == "line" then c0, c1 = 0, clip.length end
+  notes.reset(clip.track, device, editor.curve, clip.start + c0, clip.start + c1)
+end, "Put the curve back")
 emap("~", "utau.vibrato", "Vibrato on or off")
 emap("S", "utau.singer", "Choose the singer")
 emap("s", "utau.sheet", "Show or hide the lyric sheet")
