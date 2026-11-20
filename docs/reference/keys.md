@@ -243,7 +243,7 @@ See [Snippets](snippets.md) and [Completion](completion.md).
 | --- | --- |
 | `<Space>` | play, stop |
 | `<S-CR>` | play from the cursor |
-| `gs` `gp` | playhead to the start, to the cursor |
+| `gs` `gp` | playhead to the start, to the cursor. `g0` is the playhead to the start too, also in the views where `gs` does another thing (curve editor, drum grid, score) |
 | `gL` `gm` | loop on and off, metronome |
 | `gM` | count a bar in before recording, or not |
 | `,b` | tap the tempo (the beat): press it on each beat, four times or more |

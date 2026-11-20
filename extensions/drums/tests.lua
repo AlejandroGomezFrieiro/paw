@@ -680,6 +680,9 @@ test("drums: gs swings every other step of what it covers, and does not add up",
   paw.undo()
   keys("50gsic")
   eq(hits(clip), "42@0 36@0.375 42@0.375 42@0.5 42@0.875", "a count is the percent of a step, for every row")
+  paw.transport.seek(4)
+  keys("g0")
+  eq(paw.transport.position, 0, "g0 is the playhead to the start here too")
 end)
 
 test("drums: a beat to start from fills the clip", function()

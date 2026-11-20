@@ -32,6 +32,7 @@ local far_lines = { motion = true, linewise = true, jump = true }
 map("<Space>", "transport.toggle", { mode = nx, desc = "Play or stop" })
 map("<S-CR>", "transport.play_cursor", { mode = nx, desc = "Play from the cursor" })
 map("gs", "transport.start", { mode = nx, desc = "Playhead to the start" })
+map("g0", "transport.start", { mode = nx, desc = "Playhead to the start, in every view" })
 map("gp", "transport.to_cursor", { mode = nx, desc = "Playhead to the cursor" })
 map("gL", "transport.loop", { mode = nx, desc = "Toggle looping" })
 map("gm", "transport.metronome", { mode = nx, desc = "Toggle the metronome" })
