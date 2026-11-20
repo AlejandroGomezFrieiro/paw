@@ -118,6 +118,7 @@ local record M
   type Item = Item
   type Info = Info
   type Candidate = Candidate
+  type Candidates = Candidates
   type Spec = Spec
   type Options = Options
   type Entry = Entry

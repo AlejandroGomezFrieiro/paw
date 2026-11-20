@@ -1,6 +1,6 @@
 -- `:help all`: the keys that work where the cursor is, as one long list.
 -- `?` shows them in a picker (paw/pick/sources.lua), and `:help` with a
--- topic opens the manual (paw/help.lua).
+-- topic opens the manual (paw/help.tl).
 local api = paw.api
 
 -- `modal` sends every key to `on_key`, bypassing the mappings behind the window.

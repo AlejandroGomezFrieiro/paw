@@ -97,7 +97,7 @@ local function lower(list: {string}): {string}
   return out
 end
 
--- `paw.help` (written in Lua) makes its page of the formats again when
+-- `paw.help` (paw/help.tl) makes its page of the formats again when
 -- they change.
 local record Help
   dirty: boolean

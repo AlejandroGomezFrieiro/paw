@@ -33,7 +33,6 @@ paw.freeze 1 written in Lua: typed when its module is ported to Teal
 paw.frontend 1 written in Lua: typed when its module is ported to Teal
 paw.fx 1 written in Lua: typed when its module is ported to Teal
 paw.health 1 written in Lua: typed when its module is ported to Teal
-paw.help 1 written in Lua: typed when its module is ported to Teal
 paw.import_audio 1 written in Lua: typed when its module is ported to Teal
 paw.is_audio_file 1 written in Lua: typed when its module is ported to Teal
 paw.is_chain_file 1 written in Lua: typed when its module is ported to Teal

@@ -26,6 +26,7 @@ local type FormatsModule = require("paw.formats")
 local type GrepModule = require("paw.grep")
 local type GroupsModule = require("paw.groups")
 local type HarmonyModule = require("paw.harmony")
+local type HelpModule = require("paw.help")
 local type HooksModule = require("paw.hooks")
 local type LanesModule = require("paw.lanes")
 local type LangModule = require("paw.lang")
@@ -103,7 +104,7 @@ global record paw
    groups: GroupsModule
    harmony: HarmonyModule
    health: Partial.Health
-   help: Untyped
+   help: HelpModule
    hooks: HooksModule
    import_audio: Untyped
    inspect: function<T>(value: T, indent?: string, seen?: {UtilModule.Data:boolean}): string

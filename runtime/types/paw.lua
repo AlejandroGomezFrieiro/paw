@@ -3616,9 +3616,9 @@ function paw.help.excerpt_for_map(map, width, rows) end
 --- Vim. First the tag itself, then the tags that start with it, the tags
 --- that contain it, and the tags that contain its letters in order. You can
 --- write keys in the two ways: `<C-w>o` finds `Ctrl-w o`.
----@param topic any
+---@param given any
 ---@param limit any
-function paw.help.find(topic, limit) end
+function paw.help.find(given, limit) end
 
 --- `Ctrl-]`: follow the link under the cursor, or find the code or the word there.
 function paw.help.follow() end
@@ -3633,8 +3633,8 @@ function paw.help.for_command(name) end
 function paw.help.for_map(map) end
 
 --- `:helpgrep`: every line of help that holds the words, in the quickfix list.
----@param pattern any
-function paw.help.grep(pattern) end
+---@param given any
+function paw.help.grep(given) end
 
 --- What help knows: `{ sources, tags = name -> { name, source, row, col }, list }`.
 function paw.help.index() end

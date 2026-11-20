@@ -888,11 +888,11 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.help.complete(rest)`: What `:help` completes: the tags, ranked as `:help` ranks them.
 - `paw.help.ex_name(line)`: The command an Ex line runs: `:%s/a/b/g` runs `s`, `:5,8co 17` `co`.
 - `paw.help.excerpt_for_map(map, width, rows)`: The section of help that `for_map` would go to, as at most `rows` lines `{ text, style }` wrapped to `width`. It is for a pane next to a list of keys. The name of the page comes first. Nil when there is no help for the key.
-- `paw.help.find(topic, limit)`: The tags that a topic finds, best first, in the order of the `:help` of Vim. First the tag itself, then the tags that start with it, the tags that contain it, and the tags that contain its letters in order. You can write keys in the two ways: `<C-w>o` finds `Ctrl-w o`.
+- `paw.help.find(given, limit)`: The tags that a topic finds, best first, in the order of the `:help` of Vim. First the tag itself, then the tags that start with it, the tags that contain it, and the tags that contain its letters in order. You can write keys in the two ways: `<C-w>o` finds `Ctrl-w o`.
 - `paw.help.follow()`: `Ctrl-]`: follow the link under the cursor, or find the code or the word there.
 - `paw.help.for_command(name)`: The help for a command (what `Ctrl-]` does in the commands picker).
 - `paw.help.for_map(map)`: The help for a key mapping: of its keys, else of the command it runs (what `Ctrl-]` does in the keys picker).
-- `paw.help.grep(pattern)`: `:helpgrep`: every line of help that holds the words, in the quickfix list.
+- `paw.help.grep(given)`: `:helpgrep`: every line of help that holds the words, in the quickfix list.
 - `paw.help.index()`: What help knows: `{ sources, tags = name -> { name, source, row, col }, list }`.
 - `paw.help.is_help(buf)`: True if a buffer is a page of help.
 - `paw.help.jump(tag)`: Go to a tag: remember where from (for `Ctrl-t` and `Ctrl-o`) and show it.
