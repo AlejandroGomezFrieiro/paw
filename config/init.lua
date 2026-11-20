@@ -1,6 +1,10 @@
--- A configuration to start from: every bundled plugin loaded, and the
--- settings worth knowing about, each with what it does. It runs at startup
--- and again on `:reload`.
+-- A configuration to start from: the bundled extensions loaded, the
+-- settings worth knowing about, each with what it does, and a command, a key
+-- and an event of your own. It runs at startup and again on `:reload`.
+--
+-- `extensions/` beside this file holds two small extensions of your own,
+-- loaded at startup as every folder in the configuration's `extensions` is:
+-- `euclid` (a command and a key) and `clock.lua` (a view, `,C`).
 --
 -- To make it yours, link this directory as the configuration directory:
 --
@@ -67,9 +71,18 @@ end
 -- A colour of your own for anything on screen:
 -- paw.ui.hl("Playhead", { bg = "#ff5555" })
 
--- A key of your own: `,y` adds a track with a synth on it.
--- paw.keymap.set("<leader>y", function()
---   local track = paw.add_track({ name = "Synth" })
---   track:add_device("synth")
---   paw.cursor.set_track(track)
--- end, { desc = "Add a synth track" })
+-- A command of your own. `ctx.args` holds what was typed after the name:
+-- `:track.synth Lead cutoff=900`.
+paw.command("track.synth", function(ctx)
+  local track = paw.add_track({ name = ctx.args[1] or "Synth" })
+  track:add_device("synth", { wave = 1, cutoff = tonumber(ctx.args.cutoff) or 1800 })
+  track:add_device("delay", { mix = 0.2 })
+  paw.cursor.set_track(track)
+end, { desc = "Add a track with a synth and a delay: `track.synth Lead cutoff=900`" })
+
+-- A key of your own: `,y` runs that command. The right-hand side is a
+-- command line or a function.
+paw.keymap.set("<leader>y", "track.synth", { desc = "Add a synth track" })
+
+-- An event: react to what happens in the project.
+-- paw.on("project.saved", function(event) paw.notify("saved to " .. event.path) end)

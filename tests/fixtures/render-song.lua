@@ -1,7 +1,6 @@
--- Builds a short song with nothing but the scripting API.
---
---   paw -e 'dofile("examples/demo.lua")'            open it in the UI
---   paw -l examples/demo.lua demo.wav               render it to a file
+-- A short song for the render tests (tests/media.lua, tests/flac.lua).
+-- Their reference samples come from this song: do not change it. The demo
+-- song for people is examples/demo-song.lua.
 local paw = require("paw")
 local music = paw.music
 
