@@ -234,7 +234,7 @@ pmap("R", function()
 end, "Look for audio ports again")
 pmap("s", "vinput.source", "Choose the source")
 pmap("t", "vinput.track", "A track that takes the input")
-pmap("g", "vinput.gain", "Take the gain the tracker asked for")
+pmap("ga", "vinput.gain", "Take the gain the tracker asked for")
 -- Escape stays, as in every view; `<C-w>p` goes back to the window before.
 pmap("<Esc>", function() paw.keymap.escape_hint() end, "Stay in the panel (Ctrl-w p leaves)", { repeatable = false })
 paw.keymap.classic("<Esc>", function() paw.layout.back() end, { view = "vinput", desc = "Back to the window before" })
@@ -242,7 +242,7 @@ paw.keymap.classic("<Esc>", function() paw.layout.back() end, { view = "vinput",
 if paw.ui.keybar then
   paw.ui.keybar.set("vinput", "n", {
     { "<CR>", "change" }, { "-", "less" }, { "+", "more" }, { "o", "on/off" }, { "s", "source" }, { "a", "add" },
-    { "t", "track" }, { "g", "take gain" }, { "r", "restart" }, { "D", "remove" }, { "<C-w>p", "back" },
+    { "t", "track" }, { "ga", "take gain" }, { "r", "restart" }, { "D", "remove" }, { "<C-w>p", "back" },
   })
 end
 

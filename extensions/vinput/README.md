@@ -57,7 +57,7 @@ track.armed = true                                -- hear it, record it
 ### How to correct the level
 
 1. Play for some time while the input runs.
-2. Press `g` in the panel, or type `:vinput.gain`. The gain becomes the
+2. Press `ga` in the panel, or type `:vinput.gain`. The gain becomes the
    value that the tracker asked for.
 
 The tracker wants about −18 dBFS while you play.
@@ -104,7 +104,7 @@ its state, with its settings under it.
 | --- | --- |
 | Name | the MIDI port that tracks take. When you rename it, the tracks follow |
 | Source | the audio port of the guitar, from the ports that gdi2m lists |
-| Gain | the level before the tracker, which was trained at one level (0.1 to 8). After a run with sound, the tracker tells the gain that it prefers. `g` or the button beside the slider takes it |
+| Gain | the level before the tracker, which was trained at one level (0.1 to 8). After a run with sound, the tracker tells the gain that it prefers. `ga` or the button beside the slider takes it |
 | Threshold | how sure the tracker must be to start a note (0.85). Lower finds more notes, and more wrong notes |
 | Damping | how far the level must fall, in dB, for damped strings to end every note (20). 0 leaves it to the tracker |
 | Ringing | how sure the tracker must stay that a note still rings (0.35). Lower holds notes longer |
@@ -120,7 +120,7 @@ its state, with its settings under it.
 | `=` | the usual value of the setting |
 | `o` | the input on or off |
 | `s` | chooses the source |
-| `g` | takes the gain that the tracker asked for |
+| `ga` | takes the gain that the tracker asked for |
 | `a`, `D` | adds an input. Removes this input |
 | `t` | makes a track that takes the input, with an instrument, armed |
 | `r`, `R` | starts the tracker again. Finds the audio ports again |

@@ -165,8 +165,10 @@ test("vinput: the tracker runs while the input is on, and is started again when 
     return now:find("--gain 2 ", 1, true) ~= nil and vinput.status("Guitar").state == "running"
   end), true, "a changed setting starts it again with the new value")
   near(vinput.status("Guitar").advice.gain, 1.23, 0.001, "what the run that ended said of the level is kept")
-  paw.cmd("vinput.gain", { "Guitar" })
-  near(input.gain, 1.23, 0.001, "and taken with one command")
+  paw.cmd("vinput")
+  T.keys("ga")
+  near(input.gain, 1.23, 0.001, "and taken with `ga` in the panel")
+  paw.ui.focus("arrange")
 
   vinput.set("Guitar", "on", false)
   eq(settle(function() return vinput.status("Guitar").state == "off" end), true, "turned off, the tracker is asked to finish")
