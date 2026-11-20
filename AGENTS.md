@@ -75,8 +75,10 @@ Other rules for documentation:
 - Never edit generated files. `docs/reference/api.md` comes from the doc
   comments through `tools/apidoc.lua`. The course in
   `docs/tutorials/course` comes from the tutor's lessons.
-- Each extension has a README that `:help` shows. It names every command
-  and key of the extension, and a test makes sure of this.
+- Each extension has a README that `:help` shows. The README, or a page
+  in the `doc/` folder of the extension, names every command and key of
+  the extension, and a test makes sure of this. A long reference goes in
+  `doc/reference.md`, and the README links it.
 
 ## How to work
 

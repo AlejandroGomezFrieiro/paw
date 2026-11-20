@@ -426,8 +426,8 @@ of `:help`. This is true when the extension is not loaded too.
 
 - The title of the page has the name of the extension as its tag.
   `doc/more.md` has the tag `name-more`.
-- Each heading has the tag of the name and the words of the heading. `##
-  Keys` in the README of notation is `notation-keys`.
+- Each heading has the tag of the page and the words of the heading. `##
+  About` in the README of notation is `notation-about`.
 - Each key, command (`:name.open`), option and Lua name in code has a tag
   where the page describes it. That place is the first column of a table,
   or the start of a list item.
