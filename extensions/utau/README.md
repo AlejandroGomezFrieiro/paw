@@ -15,7 +15,7 @@ vocal:add_clip({ start = 0, length = 4, notes = {
 paw.render("vocal.wav")   -- waits until every phrase is sung at final quality
 ```
 
-![A vocal track added to the demo song with :track.add vocal, its singer chosen with ,V and its phonemizer with :utau.phonemizer, the melody pasted in, lyrics typed in romaji with :utau.lyrics and made kana with :utau.batch. The phrases turn green as the engine sings them](images/tui-utau.gif)
+![A vocal track added to the demo song with :track.add vocal, its singer chosen with \Vs and its phonemizer with :utau.phonemizer, the melody pasted in, lyrics typed in romaji with :utau.lyrics and made kana with :utau.batch. The phrases turn green as the engine sings them](images/tui-utau.gif)
 
 ![The vocal editor on the sung melody: the phonemes under the notes, ~ puts a vibrato on the long note, \]c and } raise its dynamics, r sings it again, and Space plays it](images/tui-utau-editor.gif)
 

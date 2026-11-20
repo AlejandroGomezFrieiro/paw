@@ -8,7 +8,7 @@ levels, a string section with all its instruments, a mastering chain.
 paw.ext.load("/path/to/paw/extensions/templates")   -- or link it into ~/.config/paw/extensions
 ```
 
-![The keys track saved with ,Ts as a template, then made again below another track with ,Tl and a part of its name, and its devices shown with ,d](images/tui-templates.gif)
+![The keys track saved with \Ts as a template, then made again below another track with \Tl and a part of its name, and its devices shown with ,d](images/tui-templates.gif)
 
 ## Try it
 

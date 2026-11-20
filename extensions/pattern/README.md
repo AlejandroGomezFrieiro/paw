@@ -12,7 +12,7 @@ bd*2 [~ sn] hh(5,8) # vel 1 0.7
 paw.ext.load("extensions/pattern")   -- or put the directory in ~/.config/paw/extensions
 ```
 
-![A pattern clip typed with ,tt into the lead's empty first half while the demo song plays, then edited again, and the clip changes with the text](images/tui-pattern.gif)
+![A pattern clip typed with \tt into the lead's empty first half while the demo song plays, then edited again, and the clip changes with the text](images/tui-pattern.gif)
 
 ## Try it
 

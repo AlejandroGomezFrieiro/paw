@@ -7,8 +7,8 @@ rig_start
 term_start
 key j w; pause 0.4
 rec_start tui-notation
-cap ",n opens the clip as a score, engraved in the terminal"
-pause 0.5; key comma n; pause 1.3
+cap "\\n opens the clip as a score, engraved in the terminal"
+pause 0.5; key backslash n; pause 1.3
 cap "i enters notes by name: 6 a half, 5 a quarter; + sharpens"
 keys 0.15 W W W
 key i; pause 0.2; keys 0.28 6 e 5 b g plus; key Escape; pause 0.7
