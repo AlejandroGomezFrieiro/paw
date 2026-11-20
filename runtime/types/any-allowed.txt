@@ -280,7 +280,6 @@ paw.external 1 written in Lua: typed when its module is ported to Teal
 paw.failure 1 written in Lua: typed when its module is ported to Teal
 paw.files 1 written in Lua: typed when its module is ported to Teal
 paw.flush 1 written in Lua: typed when its module is ported to Teal
-paw.formats 1 written in Lua: typed when its module is ported to Teal
 paw.freeze 1 written in Lua: typed when its module is ported to Teal
 paw.frontend 1 written in Lua: typed when its module is ported to Teal
 paw.fx 1 written in Lua: typed when its module is ported to Teal
@@ -342,12 +341,10 @@ paw.limit 1 written in Lua: typed when its module is ported to Teal
 paw.loading 1 written in Lua: typed when its module is ported to Teal
 paw.lsp 1 written in Lua: typed when its module is ported to Teal
 paw.luadev 1 written in Lua: typed when its module is ported to Teal
-paw.markdown 1 written in Lua: typed when its module is ported to Teal
 paw.markers 1 written in Lua: typed when its module is ported to Teal
 paw.master 1 written in Lua: typed when its module is ported to Teal
 paw.media 1 written in Lua: typed when its module is ported to Teal
 paw.midi 1 written in Lua: typed when its module is ported to Teal
-paw.midifile 1 written in Lua: typed when its module is ported to Teal
 paw.mixer_rows 1 written in Lua: typed when its module is ported to Teal
 paw.mouse 1 written in Lua: typed when its module is ported to Teal
 paw.notify 1 written in Lua: typed when its module is ported to Teal
@@ -411,5 +408,3 @@ paw.vca 1 written in Lua: typed when its module is ported to Teal
 paw.version 1 written in Lua: typed when its module is ported to Teal
 paw.wait 1 written in Lua: typed when its module is ported to Teal
 paw.win 1 written in Lua: typed when its module is ported to Teal
-paw.xml 1 written in Lua: typed when its module is ported to Teal
-paw.zip 1 written in Lua: typed when its module is ported to Teal

@@ -4,19 +4,22 @@
 -- that are written in Teal.
 
 local type Api = require("paw.api")
+local type UntypedLua = require("paw.untyped")
 local type AttrModule = require("paw.attr")
 local type BytesModule = require("paw.bytes")
+local type FormatsModule = require("paw.formats")
 local type HarmonyReadModule = require("paw.harmony.read")
 local type HarmonyVoiceModule = require("paw.harmony.voice")
+local type MarkdownModule = require("paw.markdown")
+local type MidifileModule = require("paw.midifile")
 local type MusicModule = require("paw.music")
 local type RegexModule = require("paw.regex")
+local type XmlModule = require("paw.xml")
+local type ZipModule = require("paw.zip")
 
 global record paw
    api: Api
-   record Untyped
-      metamethod __call: function(Untyped, ...: any): Untyped
-      metamethod __index: function(Untyped, any): Untyped
-   end
+   type Untyped = UntypedLua
    record harmony
       at: Untyped
       builtin: Untyped
@@ -98,7 +101,7 @@ global record paw
    failure: Untyped
    files: Untyped
    flush: Untyped
-   formats: Untyped
+   formats: FormatsModule
    freeze: Untyped
    frontend: Untyped
    fx: Untyped
@@ -124,12 +127,12 @@ global record paw
    loading: Untyped
    lsp: Untyped
    luadev: Untyped
-   markdown: Untyped
+   markdown: MarkdownModule
    markers: Untyped
    master: Untyped
    media: Untyped
    midi: Untyped
-   midifile: Untyped
+   midifile: MidifileModule
    mixer_rows: Untyped
    mouse: Untyped
    music: MusicModule
@@ -195,6 +198,6 @@ global record paw
    version: Untyped
    wait: Untyped
    win: Untyped
-   xml: Untyped
-   zip: Untyped
+   xml: XmlModule
+   zip: ZipModule
 end

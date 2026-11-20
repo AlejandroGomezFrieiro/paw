@@ -22,54 +22,129 @@
 -- where `lost` is a list of lines of what did not carry over, shown on a
 -- page. An error is said as the error. `paw.formats.list()` gives the
 -- formats, `:help formats` lists them.
-local M = {
-  -- The formats, by name.
-  registry = {},
-}
+--
+-- An extension in Teal gives its format the type `paw.formats.Format`, so
+-- the checker checks its fields.
+--
+-- Written in Teal (paw/lang.lua): the build compiles it to Lua.
 
-local function lower(list)
-  local out = {}
+local type Untyped = require("paw.untyped")
+
+-- The `paw` global, for its parts still written in Lua. This module is a
+-- part of the global's types, so it takes the global as `Untyped`.
+local paw = (_G as {string:Untyped}).paw
+
+local record M
+  --- A word of a command line after the path: `key=value` words by their
+  --- key (`true` and `false` as booleans), the others by their place.
+  type Arg = string | boolean | number
+
+  --- What `import` and `export` of a format take: `merge` (import only)
+  --- is true for `:import`, false for `:open` and `:edit`; `args` holds
+  --- the words of the command after the path.
+  record Options
+    merge: boolean
+    args: {string | integer: Arg}
+  end
+
+  --- What `import` and `export` return when they say more than text: what
+  --- they did, and the lines of what did not carry over (shown on a page).
+  record Said
+    said: string
+    lost: {string}
+  end
+
+  --- What `import` and `export` return: what to say (text, or a `Said`),
+  --- false to say nothing, or nil to say what paw says by default.
+  type Result = string | Said | boolean
+
+  --- The side of a format: it reads files, or writes them.
+  enum Side
+    "import"
+    "export"
+  end
+
+  --- A format of files, as `register` takes it.
+  record Format
+    --- The name of the format: `rpp`.
+    name: string
+    --- What the files are, for the list of `:help formats`.
+    desc: string
+    --- The endings of its files: `{ "rpp" }`.
+    extensions: {string}
+    --- True when a file holds a whole project: then `:w song.rpp` writes one too.
+    project: boolean
+    --- Optional: true when the file is of this format, whatever its ending.
+    detect: function(path: string): boolean
+    --- Optional: read the file.
+    import: function(path: string, opts: Options): Result
+    --- Optional: write the project to the file.
+    export: function(path: string, opts: Options): Result
+  end
+
+  --- The formats, by name.
+  registry: {string:Format}
+end
+
+local type Format = M.Format
+local type Options = M.Options
+
+M.registry = {}
+
+local function lower(list: {string}): {string}
+  local out: {string} = {}
   for i, e in ipairs(list or {}) do out[i] = (tostring(e):lower():gsub("^%.", "")) end
   return out
 end
 
---- Register a format of files (see the top of paw/formats.lua). A format
+-- `paw.help` (written in Lua) makes its page of the formats again when
+-- they change.
+local record Help
+  dirty: boolean
+end
+
+local function help_changed()
+  if paw.help then (paw.help as Help).dirty = true end
+end
+
+--- Register a format of files (see the top of paw/formats.tl). A format
 --- of the same name is replaced. Returns the name.
-function M.register(spec)
+function M.register(spec: Format): string
   assert(type(spec) == "table" and type(spec.name) == "string" and spec.name ~= "", "a format has a name")
   assert(spec.import or spec.export, "a format reads files (`import`), writes them (`export`), or both")
-  local f = {}
-  for k, v in pairs(spec) do f[k] = v end
-  f.extensions = lower(spec.extensions)
+  local f: Format = {
+    name = spec.name, desc = spec.desc, extensions = lower(spec.extensions), project = spec.project,
+    detect = spec.detect, import = spec.import, export = spec.export,
+  }
   M.registry[spec.name] = f
-  if paw.help then paw.help.dirty = true end
+  help_changed()
   return spec.name
 end
 
 --- Take a format away again.
-function M.unregister(name)
+function M.unregister(name: string)
   M.registry[name] = nil
-  if paw.help then paw.help.dirty = true end
+  help_changed()
 end
 
 --- The format of a name, or nil.
-function M.get(name) return M.registry[name] end
+function M.get(name: string): Format return M.registry[name] end
 
 --- The formats, by name: `{ name, desc, extensions, project, import, export }` each.
-function M.list()
-  local out = {}
+function M.list(): {Format}
+  local out: {Format} = {}
   for _, f in pairs(M.registry) do out[#out + 1] = f end
-  table.sort(out, function(a, b) return a.name < b.name end)
+  table.sort(out, function(a: Format, b: Format): boolean return a.name < b.name end)
   return out
 end
 
 --- The format that takes `path` for `side` ("import" or "export"): one
 --- whose `detect` says yes, else one of the file's extension. Nil when
 --- none does.
-function M.for_path(path, side)
+function M.for_path(path: string, side: M.Side): Format
   if type(path) ~= "string" or path == "" then return nil end
   local ext = (path:match("%.([^./]+)$") or ""):lower()
-  local by_ext
+  local by_ext: Format
   for _, f in ipairs(M.list()) do
     if f[side] then
       if f.detect then
@@ -87,8 +162,9 @@ function M.for_path(path, side)
 end
 
 --- The extensions of the files that a side takes, for lists and completion.
-function M.extensions(side)
-  local out, seen = {}, {}
+function M.extensions(side: M.Side): {string}
+  local out: {string} = {}
+  local seen: {string:boolean} = {}
   for _, f in ipairs(M.list()) do
     if f[side] then
       for _, e in ipairs(f.extensions) do
@@ -102,8 +178,9 @@ end
 
 --- The path at the start of a command line and the `key=value` words at
 --- its end: `song.rpp instrument=synth` is `"song.rpp", { instrument = "synth" }`.
-function M.split_args(line)
-  local path, args = tostring(line or ""), {}
+function M.split_args(line: string): string, {string:M.Arg}
+  local path = tostring(line or "")
+  local args: {string:M.Arg} = {}
   while true do
     local rest, key, value = path:match("^(.-)%s+([%w_]+)=(%S*)%s*$")
     if not rest then break end
@@ -114,23 +191,23 @@ function M.split_args(line)
 end
 
 --- Say what a side of a format did: its text, and its lost lines on a page.
-local function say(f, result, default)
-  if type(result) == "string" then
+local function say(f: Format, result: M.Result, default: string): M.Result
+  if result is string then
     paw.notify(result)
     return result
   end
-  result = type(result) == "table" and result or {}
-  local lost = result.lost
+  local said: M.Said = result is M.Said and result or {}
+  local lost = said.lost
   if lost and #lost > 0 then
-    paw.notify((result.said or default) .. "; see the list of what was not carried over", "warn")
+    paw.notify((said.said or default) .. "; see the list of what was not carried over", "warn")
     pcall(paw.ui.page, f.desc or f.name, lost)
   else
-    paw.notify(result.said or default)
+    paw.notify(said.said or default)
   end
-  return result
+  return said
 end
 
-local function run(f, side, path, opts)
+local function run(f: Format, side: M.Side, path: string, opts: Options): M.Result
   opts.args = opts.args or {}
   local ok, result = pcall(f[side], path, opts)
   if not ok then
@@ -145,7 +222,7 @@ end
 --- Bring a file in with its format: `opts.merge` adds to the project,
 --- else it opens in place of the project. Says what it did; returns what
 --- the format returned, or nil when it could not.
-function M.import(path, opts)
+function M.import(path: string, opts?: Options): M.Result
   local f = M.for_path(path, "import")
   if not f then
     paw.notify("no format reads " .. path .. ": `:help formats` lists them", "warn")
@@ -155,7 +232,7 @@ function M.import(path, opts)
 end
 
 --- Write the project with the format of a file. Says what it did.
-function M.export(path, opts)
+function M.export(path: string, opts?: Options): M.Result
   local f = M.for_path(path, "export")
   if not f then
     paw.notify("no format writes " .. path .. ": `:help formats` lists them", "warn")
@@ -166,7 +243,7 @@ end
 
 --- The page of `:help formats`, in Markdown: what each format reads and
 --- writes, and how to add one.
-function M.help_text()
+function M.help_text(): string
   local lines = { "# File formats", "",
     "paw opens, brings in and writes the files of other programs in these formats.",
     "The ending of the file selects the format.", "",
@@ -175,7 +252,7 @@ function M.help_text()
     "- `:export file` writes the project to the file. `:write file` does too, for a format of whole projects.", "",
     "| Format | Files | Reads | Writes |", "| --- | --- | --- | --- |" }
   for _, f in ipairs(M.list()) do
-    local ext = {}
+    local ext: {string} = {}
     for i, e in ipairs(f.extensions) do ext[i] = "`." .. e .. "`" end
     lines[#lines + 1] = string.format("| %s (%s) | %s | %s | %s |", f.desc or f.name, f.name, table.concat(ext, " "),
       f.import and "yes" or "no", f.export and (f.project and "yes, also with `:write`" or "yes") or "no")

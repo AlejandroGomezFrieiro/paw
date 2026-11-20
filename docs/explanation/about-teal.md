@@ -53,6 +53,15 @@ paw can load each of these through the same registry of languages
   `paw.Untyped`. A Teal file can call it, and casts what it keeps:
   `paw.cursor.track_id() as integer`. When the module moves to Teal, its
   types replace `paw.Untyped`.
+- **A module of the runtime and the global `paw`.** The declaration of
+  the global `paw` requires each module of the runtime that is in Teal.
+  So such a module cannot use the types of the global: the checker
+  reads the module before the global exists. A module gets the kernel's
+  functions with `require("paw.api")`, and the modules in Teal with
+  `require`. For the modules that are still in Lua, it takes the global
+  as `Untyped`, the type in `runtime/types/paw/untyped.d.tl`:
+  `local paw = (_G as {string:Untyped}).paw`. `paw.Untyped` is the same
+  type.
 
 ## The rule for `any`
 
@@ -92,7 +101,7 @@ work of one agent. The areas of one wave do not depend on each other.
 |---|---|---|---|---|
 | Done | Music data | `music`, `bytes`, `attr`, `regex`, `harmony/read`, `harmony/voice`, `types` | 1,100 | `paw.api` |
 | 1 | Core services | `util`, `events`, `options`, `limit`, `hooks`, `seats`, `commands`, `lang` | 1,600 | none |
-| 1 | File formats | `xml`, `zip`, `markdown`, `formats`, `midifile` | 1,800 | none |
+| Done | File formats | `xml`, `zip`, `markdown`, `formats`, `midifile`: 2,356 lines of Teal, 5 fewer `paw.Untyped` entries | 1,800 | none |
 | 1 | Kernel types | the `// @return` of `api.rs`, and records in `types.tl` | 270 functions | none |
 | 2 | The project | `objects`, `cursor`, `edit`, `address`, `tempo`, `tempolane`, `markers`, `locators` | 3,400 | wave 1 |
 | 2 | Music on the project | `harmony`, `structure`, `takes`, `groups`, `vca`, `lanes`, `curves`, `audition` | 3,100 | wave 1 |
@@ -122,3 +131,20 @@ entries.
   The port gives each one a name.
 - The checker found no error that changed what the code does: the tests
   of these modules pass with no change.
+
+## What the checker found in the file formats
+
+- `paw.midifile` gave the name of a project from a function that returned
+  two values. The second value, a count, went to `paw.api.project_set` as
+  an extra argument. The function now returns one value.
+- A time signature that `paw.midifile` read had a denominator that was
+  not an integer (`2 ^ n`). It is an integer now.
+- `paw.midifile` added a field to each tempo and signature to sort them,
+  and then removed it. The port keeps the order in a separate table.
+- `paw.markdown.render` had a variable that it did not use.
+- `paw.formats.register` copied each field of the table that it got,
+  also the fields that are not part of a format. It copies the fields of
+  a format now. An extension in Teal gets an error for a field with a
+  wrong name (`paw.formats.Format`).
+- The kernel's `xml_encode` takes `{any:any}`, and a record is not a map
+  in Teal. `paw.xml` casts the function to the types of an element.

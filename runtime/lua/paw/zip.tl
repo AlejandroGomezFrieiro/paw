@@ -6,19 +6,27 @@
 --
 -- Reading takes entries stored or compressed with deflate. Writing stores
 -- them as they are (method 0), which every reader of ZIP files takes.
+--
+-- Written in Teal (paw/lang.lua): the build compiles it to Lua.
 local api = require("paw.api")
-
-local M = {}
-
 local bytes = require("paw.bytes")
+
+local record M
+  --- An entry of an archive to write: its name in the archive, and its bytes.
+  record Entry
+    name: string
+    data: string
+  end
+end
+
 local u16, u32, p16, p32 = bytes.u16, bytes.u32, bytes.le16, bytes.le32
 
 --- The entries of an archive: a table of name to contents, and the list of
 --- names in the order of the archive (folders left out). Nil and why when
 --- it is not a ZIP archive or an entry cannot be read.
-function M.read(data)
+function M.read(data: string): {string:string}, {string} | string
   -- The end of the central directory is in the last 64 KiB + 22 bytes.
-  local eocd
+  local eocd: integer
   for at = #data - 21, math.max(1, #data - 65557), -1 do
     if data:sub(at, at + 3) == "PK\5\6" then
       eocd = at
@@ -27,7 +35,8 @@ function M.read(data)
   end
   if not eocd then return nil, "not a ZIP archive (no central directory)" end
   local count, at = u16(data, eocd + 10), u32(data, eocd + 16) + 1
-  local files, names = {}, {}
+  local files: {string:string} = {}
+  local names: {string} = {}
   for _ = 1, count do
     if data:sub(at, at + 3) ~= "PK\1\2" then return nil, "a broken ZIP central directory" end
     local method, size = u16(data, at + 10), u32(data, at + 20)
@@ -42,9 +51,9 @@ function M.read(data)
       if method == 0 then
         files[name] = raw
       elseif method == 8 then
-        local bytes, why = api.inflate(raw, "raw")
-        if not bytes then return nil, name .. ": " .. why end
-        files[name] = bytes
+        local inflated, why = api.inflate(raw, "raw") as (string, string)
+        if not inflated then return nil, name .. ": " .. why end
+        files[name] = inflated
       else
         return nil, string.format("ZIP entry %s uses compression method %d, which paw cannot read", name, method)
       end
@@ -56,8 +65,9 @@ end
 
 --- An archive of `entries` (`{ name = , data = }` each, in order), stored
 --- without compression.
-function M.write(entries)
-  local parts, central, offset = {}, {}, 0
+function M.write(entries: {M.Entry}): string
+  local parts, central: {string}, {string} = {}, {}
+  local offset = 0
   for _, e in ipairs(entries) do
     local crc, size = api.crc32(e.data), #e.data
     -- Version 20, flag 0x800 (the name is UTF-8), method 0, time 0:00 on 1 Jan 1980.

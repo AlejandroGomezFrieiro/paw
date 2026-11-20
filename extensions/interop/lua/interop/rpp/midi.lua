@@ -195,7 +195,7 @@ function M.event_lines(notes, length, controls)
 end
 
 -- Standard MIDI Files: read and written by the program's own reader
--- (runtime/lua/paw/midifile.lua), in the shape a source's events have here.
+-- (runtime/lua/paw/midifile.tl), in the shape a source's events have here.
 
 --- Read a Standard MIDI File. Returns { ppq, notes, length, other, tempo }
 --- with every track's notes merged, ticks counted from the start, and the

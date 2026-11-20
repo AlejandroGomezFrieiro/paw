@@ -1538,7 +1538,7 @@ pub fn install(lua: &Lua, shared: &Rc<Shared>) -> mlua::Result<()> {
         // @return boolean
         fn undo_discard(_, sh, () => ()) { Ok(sh.session.borrow_mut().undo_discard()) }
         // Make the project as it is now the start of its undo history, and
-        // unchanged: a MIDI file opened as a project (paw/midifile.lua).
+        // unchanged: a MIDI file opened as a project (paw/midifile.tl).
         // @return nil
         fn undo_reset(_, sh, () => ()) {
             sh.session.borrow_mut().undo_reset();

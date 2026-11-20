@@ -66,6 +66,12 @@ reads. Add `project = true` when a file holds a whole project. Then
 `:w song.notes` writes it too. Add `detect = function(path) ... end` when
 the files of the format do not always have the same ending.
 
+In an extension that is written in Teal, the checker examines the format.
+The type of the table is `paw.formats.Format`. A field with a wrong name,
+for example `imprt`, is an error. The type of `opts` is
+`paw.formats.Options`. See
+[How to write an extension in Teal](write-an-extension-in-teal.md).
+
 ## Use it
 
 1. Type `:import song.notes`. A track with the notes appears.
