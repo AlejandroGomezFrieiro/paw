@@ -5,7 +5,7 @@
 --   local result = dp.import("song.dawproject")   -- result.report lists what stayed behind
 --   dp.export("out.dawproject")                   -- the project, its plugins' states and its audio
 local M = {
-  xml = require("dawproject.xml"),
+  xml = require("dawproject.xmlio"),
 }
 
 --- Import a .dawproject file. Options: `merge` (add to the current

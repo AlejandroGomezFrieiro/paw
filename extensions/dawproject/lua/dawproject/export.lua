@@ -8,7 +8,7 @@
 -- Times are in beats on the arrangement (timeUnit="beats"); audio clips
 -- play their files in seconds (contentTimeUnit="seconds").
 local api = paw.api
-local xml = require("dawproject.xml")
+local xml = require("dawproject.xmlio")
 local media = require("dawproject.media")
 local b64 = paw.bytes
 local vst3 = require("dawproject.vst3")

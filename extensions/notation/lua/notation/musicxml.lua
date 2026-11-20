@@ -16,7 +16,7 @@
 -- symbols, articulations, fermatas, ornaments, arpeggios and lyrics in
 -- verses with their hyphens and extenders. A pickup is the score's origin.
 -- What a score cannot hold is counted in `skipped`, by element name.
-local xml = require("notation.xml")
+local xml = paw.xml
 local D = require("notation.doc")
 
 local M = {}
@@ -161,8 +161,8 @@ local function harmony_text(h, count)
     return step .. (a > 0 and string.rep("#", a) or a < 0 and string.rep("b", -a) or "")
   end
   local text = named(xml.text(root, "root-step") or "C", xml.text(root, "root-alter"))
-  if kind and kind.attrs.text then
-    text = text .. kind.attrs.text
+  if kind and kind.attr.text then
+    text = text .. kind.attr.text
   else
     text = text .. (KINDS[kind_name] or "")
     if KINDS[kind_name] == nil then count("<kind>" .. kind_name) end
@@ -187,19 +187,19 @@ end
 --- attributes, at places in ticks from its start. `st` is what holds from
 --- the measures before (divisions, staves, transposition, instruments).
 local function read_measure(el, st, count)
-  local rec = { notes = {}, dirs = {}, harmonies = {}, barlines = {}, clefs = {}, implicit = el.attrs.implicit == "yes", number = el.attrs.number }
+  local rec = { notes = {}, dirs = {}, harmonies = {}, barlines = {}, clefs = {}, implicit = el.attr.implicit == "yes", number = el.attr.number }
   local pos, reach = 0, 0
   local last
   local function ticks(d) return (d or 0) * Q / st.divisions end
-  for _, k in ipairs(el.kids) do
+  for _, k in ipairs(el.children) do
     local name = k.name
     if name == "attributes" then
-      for _, a in ipairs(k.kids) do
+      for _, a in ipairs(k.children) do
         local an = a.name
         if an == "divisions" then
           st.divisions = math.max(1, tonumber(a.text or "") or 1)
         elseif an == "key" then
-          if a.attrs.number and a.attrs.number ~= "1" then
+          if a.attr.number and a.attr.number ~= "1" then
             -- A key for one staff of several: the part's key is the first's.
           elseif xml.child(a, "fifths") then
             local fifths = int(xml.number(a, "fifths") or 0)
@@ -226,13 +226,13 @@ local function read_measure(el, st, count)
             end
             if num > 0 then
               rec.time = { num = num, den = den, groups = #groups > 1 and groups or nil,
-                symbol = (a.attrs.symbol == "common" or a.attrs.symbol == "cut") and a.attrs.symbol or nil }
+                symbol = (a.attr.symbol == "common" or a.attr.symbol == "cut") and a.attr.symbol or nil }
             end
           end
         elseif an == "staves" then
           st.staves = math.max(st.staves, tonumber(a.text or "") or 1)
         elseif an == "clef" then
-          local staff = tonumber(a.attrs.number or "1") or 1
+          local staff = tonumber(a.attr.number or "1") or 1
           local clef, sign = clef_of(a)
           if sign == "TAB" then
             st.tab[staff] = true
@@ -264,7 +264,7 @@ local function read_measure(el, st, count)
         local chord = xml.child(k, "chord") ~= nil
         local dur = ticks(tonumber(xml.text(k, "duration") or "") or 0)
         if grace then
-          n.grace = grace.attrs.slash == "yes" and "acciaccatura" or "appoggiatura"
+          n.grace = grace.attr.slash == "yes" and "acciaccatura" or "appoggiatura"
           dur = 0
         end
         if chord and last then
@@ -274,7 +274,7 @@ local function read_measure(el, st, count)
         end
         local rest = xml.child(k, "rest")
         if rest then
-          n.rest, n.measure_rest = true, rest.attrs.measure == "yes"
+          n.rest, n.measure_rest = true, rest.attr.measure == "yes"
         else
           local p, un = xml.child(k, "pitch"), xml.child(k, "unpitched")
           if p then
@@ -295,7 +295,7 @@ local function read_measure(el, st, count)
           elseif un then
             -- A drum's note: where its instrument plays, which the drum kit hears.
             local inst = xml.child(k, "instrument")
-            local key = inst and st.unpitched[inst.attrs.id or ""]
+            local key = inst and st.unpitched[inst.attr.id or ""]
             if key then
               local sp = require("notation.model").spell(key, 0)
               n.pitch = { step = sp.letter, alter = sp.alter, octave = sp.octave }
@@ -316,28 +316,28 @@ local function read_measure(el, st, count)
           if n.tm.actual == n.tm.normal then n.tm = nil end
         end
         for _, t in ipairs(xml.children(k, "tie")) do
-          if t.attrs.type == "start" then n.tie = true end
+          if t.attr.type == "start" then n.tie = true end
         end
         local beam = xml.child(k, "beam")
         for _, b in ipairs(xml.children(k, "beam")) do
-          if (b.attrs.number or "1") == "1" then beam = b end
+          if (b.attr.number or "1") == "1" then beam = b end
         end
         n.beam = beam and (beam.text or ""):match("^%s*(.-)%s*$") or nil
         st.beams = st.beams or beam ~= nil
         local nots = xml.children(k, "notations")
         n.slurs, n.art, n.dyns = {}, {}, {}
         for _, no in ipairs(nots) do
-          for _, x in ipairs(no.kids) do
+          for _, x in ipairs(no.children) do
             local xn = x.name
             if xn == "tied" then
-              if x.attrs.type == "start" then n.tie = true end
+              if x.attr.type == "start" then n.tie = true end
             elseif xn == "slur" then
-              n.slurs[#n.slurs + 1] = { type = x.attrs.type, number = x.attrs.number or "1" }
+              n.slurs[#n.slurs + 1] = { type = x.attr.type, number = x.attr.number or "1" }
             elseif xn == "tuplet" then
-              if x.attrs.type == "start" then n.tuplet_start = true end
-              if x.attrs.type == "stop" then n.tuplet_stop = true end
+              if x.attr.type == "start" then n.tuplet_start = true end
+              if x.attr.type == "stop" then n.tuplet_stop = true end
             elseif xn == "articulations" then
-              for _, a in ipairs(x.kids) do
+              for _, a in ipairs(x.children) do
                 if ARTICULATIONS[a.name] then
                   n.art[ARTICULATIONS[a.name]] = true
                 elseif a.name == "detached-legato" then
@@ -350,19 +350,19 @@ local function read_measure(el, st, count)
               local shape = (x.text or ""):match("^%s*(.-)%s*$")
               n.art[shape == "angled" and "fermata_short" or shape == "square" and "fermata_long" or "fermata"] = true
             elseif xn == "ornaments" then
-              for _, o in ipairs(x.kids) do
-                if ORNAMENTS[o.name] and not (o.name == "tremolo" and o.attrs.type and o.attrs.type ~= "single") then
+              for _, o in ipairs(x.children) do
+                if ORNAMENTS[o.name] and not (o.name == "tremolo" and o.attr.type and o.attr.type ~= "single") then
                   n.orn = ORNAMENTS[o.name]
                 elseif o.name ~= "wavy-line" then
                   count("<" .. o.name .. ">")
                 end
               end
             elseif xn == "arpeggiate" then
-              n.arpeggio = x.attrs.direction == "down" and "down" or "up"
+              n.arpeggio = x.attr.direction == "down" and "down" or "up"
             elseif xn == "dynamics" then
-              for _, d in ipairs(x.kids) do n.dyns[#n.dyns + 1] = d.name == "other-dynamics" and (d.text or "") or d.name end
+              for _, d in ipairs(x.children) do n.dyns[#n.dyns + 1] = d.name == "other-dynamics" and (d.text or "") or d.name end
             elseif xn == "technical" then
-              for _, t in ipairs(x.kids) do count("<" .. t.name .. ">") end
+              for _, t in ipairs(x.children) do count("<" .. t.name .. ">") end
             else
               count("<" .. xn .. ">")
             end
@@ -370,7 +370,7 @@ local function read_measure(el, st, count)
         end
         n.lyrics = {}
         for _, ly in ipairs(xml.children(k, "lyric")) do
-          local number = ly.attrs.number or ly.attrs.name or "1"
+          local number = ly.attr.number or ly.attr.name or "1"
           local verse = st.verses[number]
           if not verse then
             verse = tonumber(number) and floor(tonumber(number)) or nil
@@ -384,7 +384,7 @@ local function read_measure(el, st, count)
           local text = texts(ly, "text")
           local syl = xml.text(ly, "syllabic")
           if syl == "begin" or syl == "middle" then text = text .. "-" end
-          if xml.child(ly, "extend") and (xml.child(ly, "extend").attrs.type or "start") == "start" then text = text .. "_" end
+          if xml.child(ly, "extend") and (xml.child(ly, "extend").attr.type or "start") == "start" then text = text .. "_" end
           if text ~= "" then n.lyrics[#n.lyrics + 1] = { verse = verse, text = text } end
         end
         rec.notes[#rec.notes + 1] = n
@@ -401,16 +401,16 @@ local function read_measure(el, st, count)
       local t = pos + ticks(xml.number(k, "offset") or 0)
       local dir = { t = t, words = {}, dyns = {}, staff = tonumber(xml.text(k, "staff") or "1") or 1 }
       for _, dt in ipairs(xml.children(k, "direction-type")) do
-        for _, x in ipairs(dt.kids) do
+        for _, x in ipairs(dt.children) do
           local xn = x.name
           if xn == "words" then
             local w = (x.text or ""):match("^%s*(.-)%s*$")
             if w ~= "" then dir.words[#dir.words + 1] = w end
           elseif xn == "dynamics" then
-            for _, d in ipairs(x.kids) do dir.dyns[#dir.dyns + 1] = d.name == "other-dynamics" and (d.text or "") or d.name end
+            for _, d in ipairs(x.children) do dir.dyns[#dir.dyns + 1] = d.name == "other-dynamics" and (d.text or "") or d.name end
           elseif xn == "wedge" then
             dir.wedges = dir.wedges or {}
-            dir.wedges[#dir.wedges + 1] = { type = x.attrs.type, number = x.attrs.number or "1", niente = x.attrs.niente == "yes" }
+            dir.wedges[#dir.wedges + 1] = { type = x.attr.type, number = x.attr.number or "1", niente = x.attr.niente == "yes" }
           elseif xn == "metronome" then
             local unit = xml.text(x, "beat-unit")
             if xml.child(x, "per-minute") then
@@ -428,7 +428,7 @@ local function read_measure(el, st, count)
         end
       end
       local sound = xml.child(k, "sound")
-      dir.tempo = sound and tonumber(sound.attrs.tempo or "")
+      dir.tempo = sound and tonumber(sound.attr.tempo or "")
       rec.dirs[#rec.dirs + 1] = dir
     elseif name == "harmony" then
       local text = harmony_text(k, count)
@@ -436,9 +436,9 @@ local function read_measure(el, st, count)
     elseif name == "barline" then
       rec.barlines[#rec.barlines + 1] = k
     elseif name == "sound" then
-      if tonumber(k.attrs.tempo or "") then rec.dirs[#rec.dirs + 1] = { t = pos, words = {}, dyns = {}, tempo = tonumber(k.attrs.tempo), silent = true } end
+      if tonumber(k.attr.tempo or "") then rec.dirs[#rec.dirs + 1] = { t = pos, words = {}, dyns = {}, tempo = tonumber(k.attr.tempo), silent = true } end
     elseif name == "print" then
-      if k.attrs["new-system"] == "yes" or k.attrs["new-page"] == "yes" then rec.new_system = true end
+      if k.attr["new-system"] == "yes" or k.attr["new-page"] == "yes" then rec.new_system = true end
     else
       count("<" .. name .. ">")
     end
@@ -711,12 +711,12 @@ local function read_part(part_el, info, count)
     end
     -- Barlines, repeats and endings.
     for _, b in ipairs(rec.barlines) do
-      local loc = b.attrs.location or "right"
+      local loc = b.attr.location or "right"
       local style = xml.text(b, "bar-style")
       local rep = xml.child(b, "repeat")
       local ending = xml.child(b, "ending")
-      if rep and rep.attrs.direction == "forward" then m.repeat_start = true end
-      if rep and rep.attrs.direction == "backward" then
+      if rep and rep.attr.direction == "forward" then m.repeat_start = true end
+      if rep and rep.attr.direction == "backward" then
         m.barline = ":|"
       elseif loc == "right" and style == "light-light" then
         m.barline = "||"
@@ -726,11 +726,11 @@ local function read_part(part_el, info, count)
         count("barlines of style " .. style)
       end
       if ending then
-        local number = tonumber((ending.attrs.number or ""):match("%d+") or "")
-        if (ending.attrs.number or ""):match("%d+%D+%d") then count("endings of several numbers (the first kept)") end
-        if ending.attrs.type == "start" and number then
+        local number = tonumber((ending.attr.number or ""):match("%d+") or "")
+        if (ending.attr.number or ""):match("%d+%D+%d") then count("endings of several numbers (the first kept)") end
+        if ending.attr.type == "start" and number then
           out.volta = { from = i, number = number }
-        elseif (ending.attrs.type == "stop" or ending.attrs.type == "discontinue") and out.volta then
+        elseif (ending.attr.type == "stop" or ending.attr.type == "discontinue") and out.volta then
           for k = out.volta.from, i do sc.measures[k].volta = out.volta.number end
           out.volta = nil
         end
@@ -894,40 +894,40 @@ end
 --- Read the text of a MusicXML file (partwise or timewise). Returns
 --- `{ title, composer, parts, skipped }`, or nil and why.
 function M.parse(text)
-  local root, err = xml.parse(text)
+  local root, err = xml.decode(text)
   if not root then return nil, "not XML: " .. tostring(err) end
   if root.name == "score-timewise" then
     -- Measures of parts into parts of measures.
     local parts, order = {}, {}
     for _, mel in ipairs(xml.children(root, "measure")) do
       for _, p in ipairs(xml.children(mel, "part")) do
-        local id = p.attrs.id or "P1"
+        local id = p.attr.id or "P1"
         if not parts[id] then
           parts[id] = { name = "part", attrs = { id = id }, kids = {} }
           order[#order + 1] = parts[id]
         end
-        local copy = { name = "measure", attrs = mel.attrs, kids = p.kids }
-        table.insert(parts[id].kids, copy)
+        local copy = { name = "measure", attrs = mel.attr, kids = p.children }
+        table.insert(parts[id].children, copy)
       end
     end
     local kids = {}
-    for _, k in ipairs(root.kids) do
+    for _, k in ipairs(root.children) do
       if k.name ~= "measure" then kids[#kids + 1] = k end
     end
     for _, p in ipairs(order) do kids[#kids + 1] = p end
-    root = { name = "score-partwise", attrs = root.attrs, kids = kids }
+    root = { name = "score-partwise", attrs = root.attr, kids = kids }
   end
   if root.name ~= "score-partwise" then return nil, "not a MusicXML score (its root is <" .. root.name .. ">)" end
   local file = { parts = {}, skipped = {} }
   local function count(what) file.skipped[what] = (file.skipped[what] or 0) + 1 end
   file.title = xml.text(xml.child(root, "work"), "work-title") or xml.text(root, "movement-title")
   for _, c in ipairs(xml.children(xml.child(root, "identification"), "creator")) do
-    if c.attrs.type == "composer" then file.composer = (c.text or ""):match("^%s*(.-)%s*$") end
+    if c.attr.type == "composer" then file.composer = (c.text or ""):match("^%s*(.-)%s*$") end
   end
   if file.title == "" then file.title = nil end
   local infos = {}
   for _, sp in ipairs(xml.children(xml.child(root, "part-list"), "score-part")) do
-    local info = { id = sp.attrs.id, name = xml.text(sp, "part-name"), unpitched = {} }
+    local info = { id = sp.attr.id, name = xml.text(sp, "part-name"), unpitched = {} }
     if not info.name or info.name == "" then info.name = xml.text(sp, "part-abbreviation") end
     local inst = xml.child(sp, "score-instrument")
     if (not info.name or info.name == "") and inst then info.name = xml.text(inst, "instrument-name") end
@@ -935,12 +935,12 @@ function M.parse(text)
       info.channel = info.channel or xml.number(mi, "midi-channel")
       info.program = info.program or xml.number(mi, "midi-program")
       local key = xml.number(mi, "midi-unpitched")
-      if key and mi.attrs.id then info.unpitched[mi.attrs.id] = int(key) - 1 end
+      if key and mi.attr.id then info.unpitched[mi.attr.id] = int(key) - 1 end
     end
     infos[info.id or ""] = info
   end
   for i, p in ipairs(xml.children(root, "part")) do
-    local info = infos[p.attrs.id or ""] or { id = p.attrs.id, unpitched = {} }
+    local info = infos[p.attr.id or ""] or { id = p.attr.id, unpitched = {} }
     local sc, extra = read_part(p, info, count)
     -- A file with no beams at all leaves them to the metre.
     beam_breaks(sc, extra.beams)
@@ -965,11 +965,11 @@ function M.read_text(path)
   if not files then return nil, why end
   -- The score the container names, else the first that is not the container.
   local container = files["META-INF/container.xml"]
-  local root = container and xml.parse(container)
+  local root = container and xml.decode(container)
   if root then
     for _, rf in ipairs(xml.children(xml.child(root, "rootfiles"), "rootfile")) do
-      local name = rf.attrs["full-path"]
-      if name and files[name] and (rf.attrs["media-type"] or "application/vnd.recordare.musicxml+xml"):match("musicxml") then return files[name] end
+      local name = rf.attr["full-path"]
+      if name and files[name] and (rf.attr["media-type"] or "application/vnd.recordare.musicxml+xml"):match("musicxml") then return files[name] end
     end
   end
   local names = {}

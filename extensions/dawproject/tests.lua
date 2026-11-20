@@ -88,25 +88,6 @@ test("dawproject: tempo points in seconds are placed in beats", function()
   near(points[2].beat, 4, 1e-9, "2 s at 120 BPM is beat 4")
 end)
 
-test("dawproject: XML reads and writes back", function()
-  local d = load()
-  local root = d.xml.parse([==[<?xml version="1.0"?>
-<!-- a comment -->
-<Project version="1.0"><Track name="Bass &amp; Drums" id='t1'><Note time="0" key="60"/></Track>
-<Title>A &lt;b&gt; &#233;t&#xE9;<![CDATA[ & raw ]]></Title></Project>]==])
-  eq(root.name, "Project", "root")
-  eq(root:child("Track").attr.name, "Bass & Drums", "entity in an attribute")
-  eq(root:child("Track").attr.id, "t1", "single quotes")
-  eq(root:child("Track"):child("Note").attr.key, "60", "a child")
-  eq(root:child("Title").text, "A <b> été & raw ", "text with entities, references and CDATA")
-  local again = d.xml.parse(d.xml.write(root))
-  eq(again:child("Track").attr.name, "Bass & Drums", "written and read again")
-  eq(again:child("Title").text, "A <b> été & raw ", "text written and read again")
-  eq(pcall(d.xml.parse, "<a><b></a>"), false, "a bad document is refused")
-end)
-
--- Import -------------------------------------------------------------------------------
-
 test("dawproject: import, track by track and clip by clip", function()
   local d = load()
   local dir = scratch_dir()

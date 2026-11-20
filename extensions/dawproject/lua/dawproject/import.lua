@@ -7,7 +7,7 @@
 -- nested track goes into its folder); <Arrangement> gives their clips and
 -- automation. Audio in the archive is copied into a folder beside it.
 local api = paw.api
-local xml = require("dawproject.xml")
+local xml = require("dawproject.xmlio")
 local b64 = paw.bytes
 local vst3 = require("dawproject.vst3")
 local reports = require("dawproject.report")
@@ -132,7 +132,7 @@ local function import_device(e, track, ctx, label, position)
     ctx.placeholders[track] = ctx.placeholders[track] or {}
     table.insert(ctx.placeholders[track], {
       name = name, format = tag, position = position, reason = why,
-      xml = xml.write(e):gsub("^<%?xml[^\n]*\n", ""), state = state and b64.base64(state) or nil,
+      xml = paw.xml.encode(e, { indent = "  ", digits = 12 }), state = state and b64.base64(state) or nil,
     })
     return nil
   end

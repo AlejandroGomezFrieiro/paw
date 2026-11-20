@@ -41,6 +41,28 @@ test("paw.api.device_find finds a kind of device by its kind, its format, or its
   eq(#builtin > 1 and builtin[1].format, "builtin", "a list with all = true")
 end)
 
+test("paw.xml reads a DOCTYPE, comments, CDATA, references and quotes with > in them, and writes back what did not change byte for byte", function()
+  local xml = paw.xml
+  local root = assert(xml.decode('\239\187\191<?xml version="1.0"?><!DOCTYPE x [ <!ENTITY a "b"> ]><!-- c --><a k="1 > 0" j=\'q\'>'
+    .. "<b>x &amp; y &#233; &#x263A; &a;</b><![CDATA[<raw>]]><c/></a>"))
+  eq(root.name, "a", "the root")
+  eq(root.attr.k .. "|" .. root.attr.j, "1 > 0|q", "attributes, a > inside quotes")
+  eq(xml.text(root, "b"), "x & y é ☺ &a;", "references as UTF-8, an entity of the DTD as written")
+  eq(root.text, "<raw>", "CDATA as text")
+  eq(#root:all(), 2, "two child elements")
+  eq(select(2, xml.decode("<a><b></a>")) ~= nil, true, "a tag closed by the wrong one is an error")
+  local made = xml.element("Track", { name = 'A "b" & c', gain = 0.5, on = true }, { "name" })
+  made:add("Note", { key = 60 })
+  eq(xml.encode(made), '<Track name="A &quot;b&quot; &amp; c" gain="0.5" on="true"><Note key="60"/></Track>', "written: `order` first, then by name")
+  local text = '<?xml version="1.0"?>\n<r  a = "1"  >\n  <x v="&#65;"/>\n  <y v="2" ></y>\n</r>\n'
+  local tree = assert(xml.decode(text, { spans = true }))
+  eq(xml.encode(tree, { source = text }), text, "unchanged: the same bytes")
+  tree.children[2].attr.v = "3"
+  table.remove(tree.children, 1)
+  eq(xml.encode(tree, { source = text }), '<?xml version="1.0"?>\n<r  a = "1"  >\n  <y v="3"></y>\n</r>\n',
+    "a changed element written anew, a removed one gone with the space before it")
+end)
+
 test("paw.toml reads TOML with its keys in order, says the line of an error, and writes a table back", function()
   local t = assert(paw.toml.decode([==[
 # a comment
