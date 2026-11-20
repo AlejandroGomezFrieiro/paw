@@ -571,6 +571,11 @@ fn de<T: DeserializeOwned>(key: &str, value: Value) -> Result<T> {
 }
 
 impl Session {
+    /// Report an event to Lua at the end of the turn (`events_take`).
+    pub fn emit(&mut self, event: crate::events::KernelEvent) {
+        self.events.push(event.into());
+    }
+
     pub fn new(opts: &BackendOptions, registry: Registry) -> Result<Self> {
         let (handle, stream) = start_engine(opts)?;
         let project = Project::default();

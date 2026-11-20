@@ -13,6 +13,7 @@
 //! temporary file first, is measured, and is then encoded from there with
 //! the gain applied, which gives the same samples as playing the song twice.
 
+use crate::events::{KernelEvent as E, RenderEnd, RenderProgress};
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
@@ -644,9 +645,9 @@ impl Session {
             let fraction = job.progress.get();
             if fraction != job.reported.0 && job.reported.1.elapsed() >= Duration::from_millis(100) {
                 job.reported = (fraction, Instant::now());
-                let event = json!({ "path": job.path, "fraction": fraction,
-                    "stage": job.progress.stage(), "seconds": job.started.elapsed().as_secs_f64() });
-                self.events.push(("render.progress".into(), event));
+                let progress = RenderProgress { path: job.path.clone(), fraction,
+                    stage: job.progress.stage().to_string(), seconds: job.started.elapsed().as_secs_f64() };
+                self.emit(E::RenderProgress(progress));
             }
             return;
         }
@@ -659,14 +660,11 @@ impl Session {
         };
         let left_out = self.render_left_out(job.live.take());
         let event = match result {
-            Ok(info) => ("render.done", with_left_out(info, left_out)),
-            Err(_) if job.progress.cancelled() => ("render.cancelled", json!({ "path": job.path })),
-            Err(err) => (
-                "render.failed",
-                json!({ "path": job.path, "error": format!("{err:#}") }),
-            ),
+            Ok(info) => E::RenderDone(with_left_out(info, left_out)),
+            Err(_) if job.progress.cancelled() => E::RenderCancelled(RenderEnd { path: job.path, error: None }),
+            Err(err) => E::RenderFailed(RenderEnd { path: job.path, error: Some(format!("{err:#}")) }),
         };
-        self.events.push((event.0.into(), event.1));
+        self.emit(event);
     }
 }
 

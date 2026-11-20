@@ -1,5 +1,6 @@
 //! The project's own fields, opening, saving and the project file.
 
+use crate::events::{KernelEvent as E, Loaded, Saved};
 use super::*;
 
 impl Session {
@@ -172,8 +173,7 @@ impl Session {
         // The old project's audio is not needed for undo any more.
         self.trim_audio();
         self.watch_project_files();
-        self.events
-            .push(("project.loaded".into(), json!({ "path": self.path })));
+        self.emit(E::ProjectLoaded(Loaded { path: self.path.clone() }));
     }
 
     pub fn project_new(&mut self) {
@@ -369,8 +369,8 @@ impl Session {
         }
         self.history.mark_saved(false);
         self.remember_for_panic();
-        self.events
-            .push(("project.saved".into(), json!({ "path": path })));
+        let saved = Saved { path: path.clone(), written: None, unused: None, moved: None };
+        self.emit(E::ProjectSaved(saved));
         Ok(path)
     }
 }

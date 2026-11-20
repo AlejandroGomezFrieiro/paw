@@ -100,7 +100,7 @@ global record paw
    diagnostic: Untyped
    draw: Untyped
    edit: Untyped
-   emit: function<P>(name: string, payload?: P): boolean, string
+   emit: function<P>(event: string | EventsModule.Event<P>, payload?: P): boolean, string
    events: EventsModule
    every: Untyped
    ex: Untyped
@@ -146,8 +146,8 @@ global record paw
    music: MusicModule
    notify: Untyped
    off: function(id: integer)
-   on: function<P>(pattern: string, fn: function(P, string), opts?: EventsModule.OnOptions): integer
-   once: function<P>(pattern: string, fn: function(P, string)): integer
+   on: function<P>(event: EventsModule.Event<P>, fn: function(P, string), opts?: EventsModule.OnOptions): integer
+   once: function<P>(event: EventsModule.Event<P>, fn: function(P, string)): integer
    open: Untyped
    open_chain: Untyped
    opt: OptionModule.Opt

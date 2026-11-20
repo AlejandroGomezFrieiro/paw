@@ -31,7 +31,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.defer(fn, ms)`: Run `fn` once, after `ms` milliseconds (or when the current turn ends).
 - `paw.device(id)`: The device, clip or automation lane of an id, as an object.
 - `paw.device_types()`: Descriptions of each kind of device that you can add to a track. A kind that an extension added (`paw.plugins.add_dir`) has its extension in `from`.
-- `paw.emit(name, payload)`: Call each handler for `name`. paw reports a handler that fails, and goes to the next. Returns true, or false and the reason when a handler returned `false, reason`. So a handler refuses the request of an event (`edit.before`, `project.saving`, `key.pre`).
+- `paw.emit(event, payload)`: Call each handler for `event` (a name, or a descriptor). paw reports a handler that fails, and goes to the next. Returns true, or false and the reason when a handler returned `false, reason`. So a handler refuses the request of an event (`edit.before`, `project.saving`, `key.pre`).
 - `paw.every(ms, fn)`: Run `fn` every `ms` milliseconds. Returns a handle for `paw.cancel`.
 - `paw.failure(err)`: What a user sees of an error: one line, without the list of calls. The place in the code (`paw/x.lua:12:`) moves to the end, where it does not hide what went wrong. The whole error goes to the log.
 - `paw.flush()`: Send the change events for the edits made until now. The kernel does this at the end of each turn. Call `paw.flush()` to make handlers run sooner.
@@ -42,8 +42,8 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.lane(id)`: The automation lane of an id, as a `paw.Lane`.
 - `paw.notify(text, level)`: Show a message. `level` is "info" (default), "warn" or "error".
 - `paw.off(id)`: Stop a listener: `id` is the value that `paw.on` or `paw.once` returned.
-- `paw.on(pattern, fn, opts)`: Listen for an event. Returns a handle for `paw.off`.
-- `paw.once(pattern, fn)`: Listen for an event once: the handler is removed after its first call.
+- `paw.on(event, fn, opts)`: Listen for an event: in Lua its name or a pattern as text, in Teal its descriptor (`paw.events.event`). Returns a handle for `paw.off`.
+- `paw.once(event, fn)`: Listen for an event once: the handler is removed after its first call.
 - `paw.open(path, opts)`: Open what a path names: a folder that is no project as a list of its files, a sound file as a new track, anything else as a project, with plugins offline as `opts` says (see `paw.loading.open`).
 - `paw.open_chain(path)`: Open a chain file (a `devices.json`) alone, as a new project with no file: one track with its devices, and the device panel on it. `:w` writes the chain back to its file. Returns the track.
 - `paw.redo`: the same as `paw.api.redo`.
@@ -595,11 +595,17 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.events
 
 - `paw.events.emit`: the same as `paw.emit`.
+- `paw.events.event(name)`: The descriptor of an event whose payload is a `P`: Teal checks the handlers that `paw.on` is given for it, and what `paw.emit` sends.
+
+  ```lua
+  local changed: paw.events.Event<OptionChanged> = paw.events.event("option.changed")
+  ```
 - `paw.events.handlers()`: Every handler, by its handle: `{ pattern, fn }`.
 - `paw.events.listened(name)`: True if a handler listens for `name` by its name or its family (not `*`). Use it for events that are expensive to make.
 - `paw.events.off`: the same as `paw.off`.
 - `paw.events.on`: the same as `paw.on`.
 - `paw.events.once`: the same as `paw.once`.
+- `paw.events.pattern(pattern)`: The descriptor of a pattern of events (`track.*`, `*`): its handlers read nothing of the payload without a cast.
 
 ## Module paw.ex
 

@@ -361,13 +361,13 @@ function paw.device(id) end
 --- that an extension added (`paw.plugins.add_dir`) has its extension in `from`.
 function paw.device_types() end
 
---- Call each handler for `name`. paw reports a handler that fails, and goes
+--- Call each handler for `event` (a name, or a descriptor). paw reports a handler that fails, and goes
 --- to the next. Returns true, or false and the reason when a handler
 --- returned `false, reason`. So a handler refuses the request of an event
 --- (`edit.before`, `project.saving`, `key.pre`).
----@param name any
+---@param event any
 ---@param payload any
-function paw.emit(name, payload) end
+function paw.emit(event, payload) end
 
 --- Run `fn` every `ms` milliseconds. Returns a handle for `paw.cancel`.
 ---@param ms any
@@ -417,16 +417,17 @@ function paw.notify(text, level) end
 ---@param id any
 function paw.off(id) end
 
---- Listen for an event. Returns a handle for `paw.off`.
----@param pattern any
+--- Listen for an event: in Lua its name or a pattern as text, in Teal its
+--- descriptor (`paw.events.event`). Returns a handle for `paw.off`.
+---@param event any
 ---@param fn any
 ---@param opts any
-function paw.on(pattern, fn, opts) end
+function paw.on(event, fn, opts) end
 
 --- Listen for an event once: the handler is removed after its first call.
----@param pattern any
+---@param event any
 ---@param fn any
-function paw.once(pattern, fn) end
+function paw.once(event, fn) end
 
 --- Open what a path names: a folder that is no project as a list of its
 --- files, a sound file as a new track, anything else as a project, with
@@ -2430,6 +2431,12 @@ function paw.draw.waveform(peaks, rows) end
 
 paw.events.emit = paw.emit
 
+--- The descriptor of an event whose payload is a `P`: Teal checks the
+--- handlers that `paw.on` is given for it, and what `paw.emit` sends.
+---   local changed: paw.events.Event<OptionChanged> = paw.events.event("option.changed")
+---@param name any
+function paw.events.event(name) end
+
 --- Every handler, by its handle: `{ pattern, fn }`.
 function paw.events.handlers() end
 
@@ -2443,6 +2450,11 @@ paw.events.off = paw.off
 paw.events.on = paw.on
 
 paw.events.once = paw.once
+
+--- The descriptor of a pattern of events (`track.*`, `*`): its handlers
+--- read nothing of the payload without a cast.
+---@param pattern any
+function paw.events.pattern(pattern) end
 
 --- The address of an item, for the quickfix list and for going to it.
 ---@param item any

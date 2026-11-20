@@ -12,6 +12,7 @@
 //!
 //! [`DeviceFactory::starts_apart`]: paw_engine::DeviceFactory::starts_apart
 
+use crate::events::{DeviceReady, DeviceTrouble, Item, KernelEvent as E};
 use std::collections::BTreeMap;
 use std::time::{Duration, Instant};
 
@@ -20,7 +21,6 @@ use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use paw_engine::MAX_BLOCK;
 use paw_engine::device::Starting;
-use serde_json::json;
 
 use super::Session;
 use crate::model::Id;
@@ -159,13 +159,10 @@ impl Session {
                 install(&device, instance, &self.map, &mut ctx, &mut send);
             }
             let track = self.project.find_device(id).map(|(track, _)| track);
-            self.events.push((
-                "device.ready".into(),
-                json!({ "id": id, "track": track, "name": self.device_name(&device.kind) }),
-            ));
-            self.events
-                .push(("device.changed".into(), json!({ "id": id, "track": track })));
-            self.events.push(("changed".into(), json!({})));
+            let name = self.device_name(&device.kind);
+            self.emit(E::DeviceReady(DeviceReady { id, track, name }));
+            self.emit(E::DeviceChanged(Item { id, track }));
+            self.emit(E::changed());
             // Its latency lines the tracks up again.
             self.dirty = true;
         }
@@ -174,16 +171,10 @@ impl Session {
                 continue;
             };
             let kind = self.project.device(id).map_or("", |d| d.kind.as_str());
-            self.events.push((
-                "device.stopped".into(),
-                json!({
-                    "device": id, "track": track, "name": self.device_name(kind),
-                    "reason": why, "loading": true,
-                }),
-            ));
-            self.events
-                .push(("device.changed".into(), json!({ "id": id, "track": track })));
-            self.events.push(("changed".into(), json!({})));
+            let name = self.device_name(kind);
+            self.emit(E::DeviceStopped(DeviceTrouble { device: id, track, name, reason: Some(why), loading: true }));
+            self.emit(E::DeviceChanged(Item { id, track: Some(track) }));
+            self.emit(E::changed());
         }
         self.flush();
     }

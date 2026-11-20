@@ -20,6 +20,7 @@ use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 use unicode_width::UnicodeWidthStr;
 
+use crate::events::ModelEvent;
 use crate::grid::{self, Caps, Color, Grid, Highlight, Highlights, Rect, Style};
 use crate::io::Io;
 use crate::model::{ClipContent, Control, Id, Note, NoteAttr};
@@ -121,7 +122,7 @@ impl Shared {
         let arrived = self.io.borrow_mut().arrived();
         let mut session = self.session.borrow_mut();
         for id in arrived {
-            session.events.push(("proc.output".into(), json!({ "id": id })));
+            session.emit(crate::events::KernelEvent::ProcOutput(crate::events::ProcOutput { id }));
         }
     }
 
@@ -2343,7 +2344,7 @@ pub fn install(lua: &Lua, shared: &Rc<Shared>) -> mlua::Result<()> {
 
         // @return {string}
         fn log_get(_, sh, () => ()) { Ok(sh.log.borrow().iter().cloned().collect::<Vec<_>>()) }
-        // @return {types.KernelEvent}
+        // @return {kernel_events.KernelEvent}
         fn events_take(lua, sh, () => ()) {
             // Push pending edits to the engine and hand back the change events.
             let events = {
@@ -2353,11 +2354,16 @@ pub fn install(lua: &Lua, shared: &Rc<Shared>) -> mlua::Result<()> {
                 session.read_ahead();
                 std::mem::take(&mut session.events)
             };
-            let list = lua.create_table()?;
-            for (name, payload) in events {
-                let event = lua.create_table()?;
-                event.set("name", name)?;
-                event.set("payload", to_lua(lua, &payload)?)?;
+            let list = lua.create_table_with_capacity(events.len(), 0)?;
+            for ModelEvent { event, restored } in events {
+                // `{ name, payload }`, as `KernelEvent` is tagged.
+                let event = to_lua(lua, &event)?;
+                if restored
+                    && let LuaValue::Table(event) = &event
+                    && let LuaValue::Table(payload) = event.get("payload")?
+                {
+                    payload.set("restored", true)?;
+                }
                 list.push(event)?;
             }
             Ok(list)

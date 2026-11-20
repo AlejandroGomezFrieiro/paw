@@ -1356,13 +1356,6 @@ local record types
     teal_types: string
   end
 
-  --- A change event of `events_take`: what its payload holds depends on
-  --- its name (the events of `paw.on`).
-  record KernelEvent
-    name: string
-    payload: any
-  end
-
   -- XML (xml.rs) ---------------------------------------------------------------------
 
   --- The bytes an element takes in the text it was read from (`spans`).

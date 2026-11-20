@@ -28,7 +28,8 @@ use crate::model::{
 use crate::peaks::{self, Summary};
 
 /// A change notification for Lua: event name and payload.
-pub type ModelEvent = (String, Value);
+pub use crate::events::ModelEvent;
+use crate::events::{Cue, Item, KernelEvent as E, Nothing, Order, TrackId};
 
 /// Where a track's signal goes, and how late it is when it leaves.
 #[derive(Clone, Debug, PartialEq)]
@@ -482,7 +483,7 @@ pub fn sync(
     events: &mut Vec<ModelEvent>,
 ) {
     let before = events.len();
-    let mut emit = |name: &str, payload: Value| events.push((name.to_string(), payload));
+    let mut emit = |event: E| events.push(event.into());
 
     // A project's map is shared by its copies, so an unchanged map is the
     // very same one. One out of step with its fields (set directly rather
@@ -498,7 +499,7 @@ pub fn sync(
         send(Msg::SetTempoMap(Box::new(map)));
     }
     if retimed || old.name != new.name || old.meta != new.meta {
-        emit("project.changed", json!({}));
+        emit(E::ProjectChanged(Nothing {}));
     }
     // The same tracks in another order: nothing the engine needs to hear of,
     // but whoever draws the track list does.
@@ -510,7 +511,7 @@ pub fn sync(
             .any(|(a, b)| a.id != b.id)
     {
         let order: Vec<Id> = new.tracks.iter().map(|t| t.id).collect();
-        emit("track.moved", json!({ "order": order }));
+        emit(E::TrackMoved(Order { order }));
     }
 
     let old_tracks: HashMap<Id, &Arc<Track>> = old.all_tracks().map(|t| (t.id, t)).collect();
@@ -556,8 +557,8 @@ pub fn sync(
             });
         }
         match prev {
-            None => emit("track.added", json!({ "id": track.id })),
-            Some(p) if !Arc::ptr_eq(p, track) => emit("track.changed", json!({ "id": track.id })),
+            None => emit(E::TrackAdded(TrackId { id: track.id })),
+            Some(p) if !Arc::ptr_eq(p, track) => emit(E::TrackChanged(TrackId { id: track.id })),
             Some(_) => {}
         }
         // From here on, a track that has only now got a slot counts as new.
@@ -585,27 +586,18 @@ pub fn sync(
                     } else {
                         add_device(device, map, ctx, send);
                     }
-                    emit(
-                        "device.changed",
-                        json!({ "id": device.id, "track": track.id }),
-                    );
+                    emit(E::DeviceChanged(Item { id: device.id, track: Some(track.id) }));
                 }
                 None => {
                     add_device(device, map, ctx, send);
                     device_slots = true;
                     if !old_devices.contains_key(&device.id) {
-                        emit(
-                            "device.added",
-                            json!({ "id": device.id, "track": track.id }),
-                        );
+                        emit(E::DeviceAdded(Item { id: device.id, track: Some(track.id) }));
                     }
                 }
                 Some(before) if !Arc::ptr_eq(before, device) => {
                     update_device(before, device, map, ctx, send);
-                    emit(
-                        "device.changed",
-                        json!({ "id": device.id, "track": track.id }),
-                    );
+                    emit(E::DeviceChanged(Item { id: device.id, track: Some(track.id) }));
                 }
                 Some(_) => {}
             }
@@ -698,7 +690,7 @@ pub fn sync(
                 slots: Box::new(slots),
             });
             if !same_cues {
-                emit("cue.changed", json!({ "track": track.id }));
+                emit(E::CueChanged(Cue { track: track.id }));
             }
         }
         match played.remove(&track.id) {
@@ -740,7 +732,7 @@ pub fn sync(
             removals.push(Msg::RemoveDevice { slot });
             map.free_devices.push(slot);
         }
-        emit("device.removed", json!({ "id": id }));
+        emit(E::DeviceRemoved(Item { id: *id, track: None }));
     }
 
     // Only tracks that are not the very same in both snapshots can have
@@ -752,7 +744,7 @@ pub fn sync(
     };
     if clips_changed {
         item_events(
-            "clip",
+            [E::ClipAdded, E::ClipChanged, E::ClipRemoved],
             (&old_tracks, &new_tracks),
             &touched,
             |was, t| match was {
@@ -768,7 +760,7 @@ pub fn sync(
     }
     if lanes_changed {
         item_events(
-            "lane",
+            [E::LaneAdded, E::LaneChanged, E::LaneRemoved],
             (&old_tracks, &new_tracks),
             &touched,
             |was, t| (was.map_or(Vec::new(), |w| w.lanes.iter().collect()), t.lanes.iter().collect()),
@@ -981,7 +973,7 @@ pub fn sync(
         map.inputs.remove(id);
         map.midi_inputs.remove(id);
         map.midi_outputs.remove(id);
-        emit("track.removed", json!({ "id": id }));
+        emit(E::TrackRemoved(TrackId { id: *id }));
     }
     // Removals go last, once nothing in the schedule or a chain refers to them.
     removals.into_iter().for_each(&mut *send);
@@ -989,7 +981,7 @@ pub fn sync(
     deliver_clips(new, ctx);
 
     if events.len() > before {
-        events.push(("changed".to_string(), json!({})));
+        events.push(E::changed().into());
     }
 }
 
@@ -2062,15 +2054,15 @@ type TrackIndex<'a> = HashMap<Id, &'a Arc<Track>>;
 /// items of the state before and of the state after in that stretch.
 type Span<'a, T> = (Vec<&'a Arc<T>>, Vec<&'a Arc<T>>);
 
-/// Report the clips or lanes (`kind`) that the touched tracks gained, lost or
-/// changed, as `<kind>.added`, `<kind>.removed` and `<kind>.changed`.
+/// Report the clips or lanes that the touched tracks gained, lost or
+/// changed, with the events `[added, changed, removed]` of their kind.
 fn item_events<T>(
-    kind: &str,
+    [added_event, changed_event, removed_event]: [fn(Item) -> E; 3],
     (old, new): (&TrackIndex, &TrackIndex),
     touched: &dyn Fn(Id) -> bool,
     span: for<'a> fn(Option<&'a Track>, &'a Track) -> Span<'a, T>,
     id_of: fn(&T) -> Id,
-    emit: &mut dyn FnMut(&str, Value),
+    emit: &mut dyn FnMut(E),
 ) {
     let changed: Vec<(&Arc<Track>, Option<&&Arc<Track>>)> = new
         .values()
@@ -2091,10 +2083,7 @@ fn item_events<T>(
                 Some(k) => {
                     matched[k] = true;
                     if !Arc::ptr_eq(before[k], item) {
-                        emit(
-                            &format!("{kind}.changed"),
-                            json!({ "id": id_of(item), "track": t.id }),
-                        );
+                        emit(changed_event(Item { id: id_of(item), track: Some(t.id) }));
                     }
                 }
                 None => added.push((id_of(item), t.id)),
@@ -2110,14 +2099,11 @@ fn item_events<T>(
     }
     let mut removed: HashMap<Id, Id> = removed.into_iter().collect();
     for (id, track) in added {
-        let event = if removed.remove(&id).is_some() { "changed" } else { "added" };
-        emit(&format!("{kind}.{event}"), json!({ "id": id, "track": track }));
+        let event = if removed.remove(&id).is_some() { changed_event } else { added_event };
+        emit(event(Item { id, track: Some(track) }));
     }
     for (id, track) in removed {
-        emit(
-            &format!("{kind}.removed"),
-            json!({ "id": id, "track": track }),
-        );
+        emit(removed_event(Item { id, track: Some(track) }));
     }
 }
 

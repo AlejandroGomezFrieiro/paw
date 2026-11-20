@@ -3,6 +3,7 @@
 -- `local api = require("paw.api")` in a module written in Teal.
 
 local type types = require("paw.types")
+local type kernel_events = require("paw.events.kernel")
 
 local record api
    version: string
@@ -88,7 +89,7 @@ local record api
    engine_set_sleep: function(sleep: boolean)
    engine_set_threads: function(threads: integer)
    env: function(): types.Env
-   events_take: function(): {types.KernelEvent}
+   events_take: function(): {kernel_events.KernelEvent}
    fs_copy: function(from: string, to: string)
    fs_create: function(path: string)
    fs_exists: function(path: string): boolean

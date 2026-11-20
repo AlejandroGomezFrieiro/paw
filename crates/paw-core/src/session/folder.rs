@@ -23,6 +23,7 @@
 //! together again. The JSON files are written with their keys in order, so
 //! the same project gives the same bytes.
 
+use crate::events::{KernelEvent as E, Saved};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
@@ -1458,15 +1459,13 @@ impl super::Session {
             self.watch_project_files();
             self.files_watch.changed = changed;
         }
-        self.events.push((
-            "project.saved".into(),
-            json!({
-                "path": file,
-                "written": done.written,
-                "unused": done.unused,
-                "moved": done.moved,
-            }),
-        ));
+        let saved = Saved {
+            path: file.clone(),
+            written: Some(done.written.clone()),
+            unused: Some(done.unused.clone()),
+            moved: Some(done.moved.clone()),
+        };
+        self.emit(E::ProjectSaved(saved));
         Ok((file, done))
     }
 }

@@ -169,7 +169,6 @@ paw.vca 1 written in Lua: typed when its module is ported to Teal
 paw.version 1 written in Lua: typed when its module is ported to Teal
 paw.wait 1 written in Lua: typed when its module is ported to Teal
 paw.win 1 written in Lua: typed when its module is ported to Teal
-types.KernelEvent.payload 1 the payload's shape follows the event's name (the events of paw.on): typed when paw.events is
 types.Meta 1 an extension's own data in `meta`, any JSON value: the extension gives it a record of its own
 types.SceneHit.hit 1 a hit region's action, as paw.roles makes it: typed when paw.roles is ported (wave 3)
 types.SceneOpenOptions.hit 1 a hit region's action, as paw.roles makes it: typed when paw.roles is ported (wave 3)
