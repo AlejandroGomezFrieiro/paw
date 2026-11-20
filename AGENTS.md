@@ -42,7 +42,9 @@ commands, and a configuration that can change everything.
    of the runtime is a `.tl` file, and so is a new extension. A Lua file
    that changes much moves to Teal. Lua stays only with a written reason,
    for example the FFI code of `dsp.lua`. Write no `any` where a value has
-   a shape. See [About Teal in paw](docs/explanation/about-teal.md).
+   a shape. See [About Teal in paw](docs/explanation/about-teal.md), and
+   use the skill in [.claude/skills/teal](.claude/skills/teal/SKILL.md)
+   for each `.tl` file that you write or change.
 
 To write an extension, use the skill in
 [.claude/skills/paw-extension](.claude/skills/paw-extension/SKILL.md).
