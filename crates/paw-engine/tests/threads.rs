@@ -2,8 +2,8 @@
 //! bit, as on one, and a schedule that is wrong does no harm.
 
 use paw_engine::{
-    AutoLane, AutoTarget, Automation, ClipSet, Delay, Engine, EngineHandle, MASTER, MAX_BLOCK, Msg,
-    NO_SLOT, Pool, Registry, SchedEntry, Schedule, SendRt, Slot, TrackRt,
+    AutoLane, AutoTarget, Automation, ClipSet, Delay, DeviceSlot, Engine, EngineHandle, MAX_BLOCK,
+    Msg, Pool, Registry, SchedEntry, Schedule, SendRt, TrackRt, TrackSlot,
 };
 
 const SR: f64 = 48000.0;
@@ -28,8 +28,8 @@ fn project(entries: impl FnOnce(Vec<SchedEntry>) -> Vec<SchedEntry>) -> (Engine,
     let (mut engine, mut handle) = Engine::new(SR);
     // As a render: shared between threads whenever that is faster.
     engine.set_offline(true);
-    let buses: Vec<Slot> = (1..=4).collect();
-    let sources: Vec<Slot> = (5..45).collect();
+    let buses: Vec<TrackSlot> = (1..=4).map(TrackSlot).collect();
+    let sources: Vec<TrackSlot> = (5..45).map(TrackSlot).collect();
     let mut next_device = 0;
     let mut list = Vec::new();
     for &slot in sources.iter().chain(&buses) {
@@ -43,10 +43,10 @@ fn project(entries: impl FnOnce(Vec<SchedEntry>) -> Vec<SchedEntry>) -> (Engine,
         );
         let bus = buses.contains(&slot);
         let kinds: &[&str] = if bus { &["delay"] } else { &["synth", "delay"] };
-        let chain: Box<[Slot]> = kinds
+        let chain: Box<[DeviceSlot]> = kinds
             .iter()
             .map(|kind| {
-                let dev = next_device;
+                let dev = DeviceSlot(next_device);
                 next_device += 1;
                 send(
                     &mut handle,
@@ -64,7 +64,7 @@ fn project(entries: impl FnOnce(Vec<SchedEntry>) -> Vec<SchedEntry>) -> (Engine,
             &mut engine,
             Msg::SetChain { track: slot, chain },
         );
-        let i = slot as usize;
+        let i = slot.index();
         if !bus {
             let mut clips = ClipSet::default();
             for step in 0..64 {
@@ -93,7 +93,7 @@ fn project(entries: impl FnOnce(Vec<SchedEntry>) -> Vec<SchedEntry>) -> (Engine,
                 automation: Box::new(Automation { lanes, ..Default::default() }),
             },
         );
-        let mut entry = SchedEntry::new(slot, if bus { MASTER } else { buses[i % 4] });
+        let mut entry = SchedEntry::new(slot, if bus { TrackSlot::MASTER } else { buses[i % 4] });
         if !bus && i.is_multiple_of(5) {
             entry.sends.push(SendRt::new(buses[(i + 1) % 4], 0.3));
         }
@@ -107,7 +107,7 @@ fn project(entries: impl FnOnce(Vec<SchedEntry>) -> Vec<SchedEntry>) -> (Engine,
         }
         list.push(entry);
     }
-    list.push(SchedEntry::new(MASTER, NO_SLOT));
+    list.push(SchedEntry::new(TrackSlot::MASTER, TrackSlot::NONE));
     send(
         &mut handle,
         &mut engine,
@@ -187,7 +187,7 @@ fn a_schedule_that_names_a_track_twice_or_shares_a_device_does_no_harm() {
     let (mut engine, mut handle) = project(|mut entries| {
         let again: Vec<SchedEntry> = entries
             .iter()
-            .filter(|e| e.slot >= 5)
+            .filter(|e| e.slot >= TrackSlot(5))
             .map(|e| SchedEntry::new(e.slot, e.output))
             .collect();
         let master = entries.pop().unwrap();
@@ -197,11 +197,11 @@ fn a_schedule_that_names_a_track_twice_or_shares_a_device_does_no_harm() {
     });
     for slot in 5..45 {
         // Device 0 is the first source's synth.
-        let chain: Box<[Slot]> = Box::new([0, 1]);
+        let chain: Box<[DeviceSlot]> = Box::new([DeviceSlot(0), DeviceSlot(1)]);
         send(
             &mut handle,
             &mut engine,
-            Msg::SetChain { track: slot, chain },
+            Msg::SetChain { track: TrackSlot(slot), chain },
         );
     }
     engine.set_pool(Some(Box::new(Pool::new(8))));
@@ -224,12 +224,12 @@ fn only_a_group_with_enough_work_is_shared_between_threads() {
     // would cost more than the work.
     let (mut engine, mut handle) = Engine::new(SR);
     let mut list = Vec::new();
-    for slot in 1..=4 {
+    for slot in (1..=4).map(TrackSlot) {
         let track = TrackRt::new();
         send(&mut handle, &mut engine, Msg::InsertTrack { slot, track });
-        list.push(SchedEntry::new(slot, MASTER));
+        list.push(SchedEntry::new(slot, TrackSlot::MASTER));
     }
-    list.push(SchedEntry::new(MASTER, NO_SLOT));
+    list.push(SchedEntry::new(TrackSlot::MASTER, TrackSlot::NONE));
     let schedule = Box::new(Schedule::new(list, 0));
     send(&mut handle, &mut engine, Msg::SetSchedule(schedule));
     send(&mut handle, &mut engine, Msg::Play);

@@ -14,7 +14,8 @@ use std::sync::atomic::{AtomicU32, AtomicU64, Ordering::Relaxed};
 
 use crate::clip::{ClipSet, Stamp};
 use crate::device::ProcessCtx;
-use crate::engine::{Slot, mix_audio_constant};
+use crate::engine::mix_audio_constant;
+use crate::slot::TrackSlot;
 use crate::event::{Attr, Event, EventBuf};
 use crate::tempo::TempoMap;
 
@@ -123,7 +124,7 @@ impl Target {
 /// One track's launch.
 #[derive(Clone, Copy, Debug)]
 pub struct Launch {
-    pub track: Slot,
+    pub track: TrackSlot,
     pub target: Target,
     pub quantize: Quantize,
     /// Take over where the clip playing before had got to in its loop,

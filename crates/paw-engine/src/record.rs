@@ -16,7 +16,7 @@ use std::time::{Duration, Instant};
 use anyhow::{Context, Result};
 use rtrb::{Consumer, Producer};
 
-use crate::engine::Slot;
+use crate::slot::TrackSlot;
 use crate::event::EventKind;
 
 /// What the engine captures while a take is installed and the transport plays.
@@ -82,7 +82,7 @@ pub struct AudioCapture {
 /// A note that reached an armed track while recording.
 #[derive(Clone, Copy, Debug)]
 pub struct MidiCapture {
-    pub slot: Slot,
+    pub slot: TrackSlot,
     /// Transport position, in beats, of the block the note was played in.
     pub beat: f64,
     pub kind: EventKind,

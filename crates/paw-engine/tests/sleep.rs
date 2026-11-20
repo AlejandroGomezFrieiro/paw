@@ -3,8 +3,8 @@
 
 use paw_engine::host::HostPath;
 use paw_engine::{
-    ClipSet, Engine, EngineHandle, MASTER, MAX_BLOCK, Msg, NO_SLOT, Registry, SchedEntry,
-    Schedule, SendRt, Slot, TrackRt,
+    ClipSet, DeviceSlot, Engine, EngineHandle, MAX_BLOCK, Msg, Registry, SchedEntry,
+    Schedule, SendRt, TrackRt, TrackSlot,
 };
 
 const SR: f64 = 48000.0;
@@ -21,7 +21,7 @@ fn project(sleep: bool) -> (Engine, EngineHandle) {
     let (mut engine, mut handle) = Engine::new(SR);
     engine.set_sleep(sleep);
     let registry = Registry::with_builtins();
-    let chains: [(Slot, &[&str]); 5] = [
+    let chains: [(u32, &[&str]); 5] = [
         (1, &["synth", "delay", "eq"]),
         (2, &["drums", "chorus", "utility"]),
         (3, &["synth", "phaser", "tremolo", "gain"]),
@@ -30,7 +30,8 @@ fn project(sleep: bool) -> (Engine, EngineHandle) {
     ];
     let mut next = 0;
     let mut list = Vec::new();
-    for (slot, kinds) in chains {
+    for (n, kinds) in chains {
+        let slot = TrackSlot(n);
         send(
             &mut handle,
             &mut engine,
@@ -43,14 +44,14 @@ fn project(sleep: bool) -> (Engine, EngineHandle) {
         for kind in kinds {
             let factory = registry.get(kind).unwrap();
             let device = factory.create(SR as f32, MAX_BLOCK).unwrap().device;
-            let dev = next;
+            let dev = DeviceSlot(next);
             next += 1;
             send(
                 &mut handle,
                 &mut engine,
                 Msg::InsertDevice { slot: dev, device },
             );
-            if dev % 3 == 1 {
+            if dev.0 % 3 == 1 {
                 // Half wet, and the dry signal held back 9000 frames: longer than
                 // some devices take to come to rest.
                 let base = factory.info().params.len() as u32;
@@ -63,7 +64,7 @@ fn project(sleep: bool) -> (Engine, EngineHandle) {
                 };
                 send(&mut handle, &mut engine, wet);
             }
-            if dev == 5 {
+            if dev.0 == 5 {
                 let bypass = Msg::SetBypass {
                     device: dev,
                     bypass: true,
@@ -80,12 +81,12 @@ fn project(sleep: bool) -> (Engine, EngineHandle) {
                 chain: chain.into(),
             },
         );
-        if slot < 5 {
+        if n < 5 {
             let mut clips = ClipSet::default();
             for bars in [0.0, 64.0] {
                 for step in 0..32 {
                     let at = bars + step as f64 * 0.25;
-                    let key = 36 + ((slot as usize * 7 + step * 5) % 40) as u8;
+                    let key = 36 + ((n as usize * 7 + step * 5) % 40) as u8;
                     clips.push_note(at, at + 0.2, key, 0.8);
                 }
             }
@@ -93,13 +94,13 @@ fn project(sleep: bool) -> (Engine, EngineHandle) {
             let clips = Box::new(clips);
             send(&mut handle, &mut engine, Msg::SetClips { track: slot, clips });
         }
-        let mut entry = SchedEntry::new(slot, if slot < 5 { 5 } else { MASTER });
-        if slot == 1 {
-            entry.sends.push(SendRt::new(MASTER, 0.5));
+        let mut entry = SchedEntry::new(slot, if n < 5 { TrackSlot(5) } else { TrackSlot::MASTER });
+        if n == 1 {
+            entry.sends.push(SendRt::new(TrackSlot::MASTER, 0.5));
         }
         list.push(entry);
     }
-    list.push(SchedEntry::new(MASTER, NO_SLOT));
+    list.push(SchedEntry::new(TrackSlot::MASTER, TrackSlot::NONE));
     let schedule = Box::new(Schedule::new(list, 0));
     send(&mut handle, &mut engine, Msg::SetSchedule(schedule));
     send(&mut handle, &mut engine, Msg::SetTempo(120.0));
@@ -121,7 +122,7 @@ fn play(engine: &mut Engine) -> Vec<u32> {
             out.push(r.to_bits());
         }
         for slot in 0..6 {
-            let (l, r) = engine.shared().meter(slot);
+            let (l, r) = engine.shared().meter(TrackSlot(slot));
             out.push(l.to_bits());
             out.push(r.to_bits());
         }

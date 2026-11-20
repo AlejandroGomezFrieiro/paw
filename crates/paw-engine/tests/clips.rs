@@ -1,8 +1,8 @@
 //! Replacing one track's clips while playing must not disturb the others.
 
 use paw_engine::{
-    ClipSet, Engine, EngineHandle, EventKind, MASTER, MAX_BLOCK, Msg, NO_SLOT, Registry,
-    SchedEntry, Schedule, Slot, TrackRt,
+    ClipSet, DeviceSlot, Engine, EngineHandle, EventKind, MAX_BLOCK, Msg, Registry, SchedEntry,
+    Schedule, TrackRt, TrackSlot,
 };
 
 const SR: f64 = 48000.0;
@@ -16,7 +16,8 @@ fn send(handle: &mut EngineHandle, msg: Msg) {
 fn engine(second: bool) -> (Engine, EngineHandle) {
     let (engine, mut handle) = Engine::new(SR);
     let registry = Registry::with_builtins();
-    for (slot, device) in [(1 as Slot, 0 as Slot), (2, 1)] {
+    for (n, device) in [(1u32, DeviceSlot(0)), (2, DeviceSlot(1))] {
+        let slot = TrackSlot(n);
         send(
             &mut handle,
             Msg::InsertTrack {
@@ -45,8 +46,8 @@ fn engine(second: bool) -> (Engine, EngineHandle) {
             },
         );
         let mut clips = ClipSet::default();
-        if slot == 1 || second {
-            clips.push_note(0.0, 64.0, 57 + slot as u8, 0.8);
+        if n == 1 || second {
+            clips.push_note(0.0, 64.0, 57 + n as u8, 0.8);
         }
         clips.finish();
         send(
@@ -57,8 +58,12 @@ fn engine(second: bool) -> (Engine, EngineHandle) {
             },
         );
     }
-    let entry = |slot| SchedEntry::new(slot, MASTER);
-    let entries = vec![entry(1), entry(2), SchedEntry::new(MASTER, NO_SLOT)];
+    let entry = |slot| SchedEntry::new(slot, TrackSlot::MASTER);
+    let entries = vec![
+        entry(TrackSlot(1)),
+        entry(TrackSlot(2)),
+        SchedEntry::new(TrackSlot::MASTER, TrackSlot::NONE),
+    ];
     send(
         &mut handle,
         Msg::SetSchedule(Box::new(Schedule::new(entries, 0))),
@@ -92,7 +97,7 @@ fn replacing_one_tracks_clips_leaves_the_others_playing() {
         send(
             &mut handle,
             Msg::SetClips {
-                track: 2,
+                track: TrackSlot(2),
                 clips: Box::new(empty),
             },
         );
@@ -114,23 +119,23 @@ fn replacing_one_tracks_clips_leaves_the_others_playing() {
 fn replacing_a_tracks_clips_stops_its_own_notes() {
     let (mut edited, mut handle) = engine(true);
     run(&mut edited, 50);
-    assert!(handle.shared.meter(2).0 > 0.01, "track 2 sounds at first");
+    assert!(handle.shared.meter(TrackSlot(2)).0 > 0.01, "track 2 sounds at first");
     let mut empty = ClipSet::default();
     empty.finish();
     send(
         &mut handle,
         Msg::SetClips {
-            track: 2,
+            track: TrackSlot(2),
             clips: Box::new(empty),
         },
     );
     // Release (0.2 s) plus the meter's fall.
     run(&mut edited, 400);
     assert!(
-        handle.shared.meter(2).0 < 1e-3,
+        handle.shared.meter(TrackSlot(2)).0 < 1e-3,
         "the note on track 2 stopped with its clip"
     );
-    assert!(handle.shared.meter(1).0 > 0.01, "track 1 plays on");
+    assert!(handle.shared.meter(TrackSlot(1)).0 > 0.01, "track 1 plays on");
 }
 
 /// A track whose clips were just replaced must not stop and restart its
@@ -160,23 +165,26 @@ fn a_note_at_the_start_is_started_once() {
     clips.finish();
     for msg in [
         Msg::InsertTrack {
-            slot: 1,
+            slot: TrackSlot(1),
             track: TrackRt::new(),
         },
         Msg::InsertDevice {
-            slot: 0,
+            slot: DeviceSlot(0),
             device: Box::new(Counter(count.clone())),
         },
         Msg::SetChain {
-            track: 1,
-            chain: Box::new([0]),
+            track: TrackSlot(1),
+            chain: Box::new([DeviceSlot(0)]),
         },
         Msg::SetClips {
-            track: 1,
+            track: TrackSlot(1),
             clips: Box::new(clips),
         },
         Msg::SetSchedule(Box::new(Schedule::new(
-            vec![SchedEntry::new(1, MASTER), SchedEntry::new(MASTER, NO_SLOT)],
+            vec![
+                SchedEntry::new(TrackSlot(1), TrackSlot::MASTER),
+                SchedEntry::new(TrackSlot::MASTER, TrackSlot::NONE),
+            ],
             0,
         ))),
         Msg::Seek(0.0),
@@ -210,15 +218,18 @@ fn region_engine(data: std::sync::Arc<paw_engine::AudioData>) -> (Engine, Engine
     });
     for msg in [
         Msg::InsertTrack {
-            slot: 1,
+            slot: TrackSlot(1),
             track: TrackRt::new(),
         },
         Msg::SetClips {
-            track: 1,
+            track: TrackSlot(1),
             clips: Box::new(clips),
         },
         Msg::SetSchedule(Box::new(Schedule::new(
-            vec![SchedEntry::new(1, MASTER), SchedEntry::new(MASTER, NO_SLOT)],
+            vec![
+                SchedEntry::new(TrackSlot(1), TrackSlot::MASTER),
+                SchedEntry::new(TrackSlot::MASTER, TrackSlot::NONE),
+            ],
             0,
         ))),
         Msg::SetTempo(120.0),
@@ -385,13 +396,16 @@ fn recording_engine(clips: ClipSet) -> (Engine, EngineHandle, Seen) {
         .unwrap()
         .device;
     for msg in [
-        Msg::InsertTrack { slot: 1, track: TrackRt::new() },
-        Msg::InsertDevice { slot: 0, device: Box::new(Recorder(seen.clone())) },
-        Msg::InsertDevice { slot: 1, device: synth },
-        Msg::SetChain { track: 1, chain: Box::new([0, 1]) },
-        Msg::SetClips { track: 1, clips: Box::new(clips) },
+        Msg::InsertTrack { slot: TrackSlot(1), track: TrackRt::new() },
+        Msg::InsertDevice { slot: DeviceSlot(0), device: Box::new(Recorder(seen.clone())) },
+        Msg::InsertDevice { slot: DeviceSlot(1), device: synth },
+        Msg::SetChain { track: TrackSlot(1), chain: Box::new([DeviceSlot(0), DeviceSlot(1)]) },
+        Msg::SetClips { track: TrackSlot(1), clips: Box::new(clips) },
         Msg::SetSchedule(Box::new(Schedule::new(
-            vec![SchedEntry::new(1, MASTER), SchedEntry::new(MASTER, NO_SLOT)],
+            vec![
+                SchedEntry::new(TrackSlot(1), TrackSlot::MASTER),
+                SchedEntry::new(TrackSlot::MASTER, TrackSlot::NONE),
+            ],
             0,
         ))),
     ] {
@@ -472,13 +486,13 @@ fn an_edit_of_some_parts_plays_as_the_clips_sent_whole() {
     let warm_b = play_from(&mut b, &mut hb, 0.0, 10);
     assert!(warm_a == warm_b);
     let whole = ClipSet::default().with_parts(after, 64);
-    send(&mut ha, Msg::SetClips { track: 1, clips: Box::new(whole) });
+    send(&mut ha, Msg::SetClips { track: TrackSlot(1), clips: Box::new(whole) });
     let edit = PartEdit {
         remove: vec![(103, 400), (111, 1200), (999, 1)],
         add: (20..24).map(|i| part(&clips, i, order(i))).collect(),
         removed: Vec::with_capacity(3),
     };
-    send(&mut hb, Msg::EditClips { track: 1, edit: Box::new(edit) });
+    send(&mut hb, Msg::EditClips { track: TrackSlot(1), edit: Box::new(edit) });
     // On, and from another place, with the held notes chased.
     let mut out_a = play_from(&mut a, &mut ha, 2.25, 100);
     let mut out_b = play_from(&mut b, &mut hb, 2.25, 100);

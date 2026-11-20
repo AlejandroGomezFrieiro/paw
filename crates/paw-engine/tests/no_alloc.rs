@@ -10,9 +10,9 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use paw_engine::record::{AudioCapture, Take, TakeShared};
 use paw_engine::{
-    Attr, AudioData, AudioRegion, AutoLane, AutoTarget, Automation, ClipSet, Ctl, Delay, Engine,
-    EngineHandle, EventKind, KeyRt, MASTER, MAX_BLOCK, Msg, NO_SLOT, NoteCtl, OutRt, Pool,
-    Registry, SchedEntry, Schedule, SendRt, Slot, StateChange, StateLane, Switch, TrackRt,
+    Attr, AudioData, AudioRegion, AutoLane, AutoTarget, Automation, ClipSet, Ctl, Delay,
+    DeviceSlot, Engine, EngineHandle, EventKind, KeyRt, MAX_BLOCK, Msg, NoteCtl, OutRt, Pool,
+    Registry, SchedEntry, Schedule, SendRt, StateChange, StateLane, Switch, TrackRt, TrackSlot,
 };
 
 struct Guard;
@@ -179,18 +179,18 @@ fn clips(audio: &Arc<AudioData>, notes: usize) -> Box<ClipSet> {
 
 /// The device of each track that listens to a side-chain: its last.
 const KINDS: [&str; 5] = ["synth", "drums", "gain", "delay", "compressor"];
-fn keyed_device(track: usize) -> Slot {
-    (track * KINDS.len() + KINDS.len() - 1) as Slot
+fn keyed_device(track: usize) -> DeviceSlot {
+    DeviceSlot((track * KINDS.len() + KINDS.len() - 1) as u32)
 }
 
 /// Each track's drum kit, which has further output pairs.
-fn kit_device(track: usize) -> Slot {
-    (track * KINDS.len() + 1) as Slot
+fn kit_device(track: usize) -> DeviceSlot {
+    DeviceSlot((track * KINDS.len() + 1) as u32)
 }
 
 /// A lane of states on a device: parameters, a program change and a
 /// message, at points that blocks end on, inside the loop and across it.
-fn state_lane(device: Slot) -> StateLane {
+fn state_lane(device: DeviceSlot) -> StateLane {
     let changes = vec![
         StateChange {
             params: vec![(5, 300.0), (6, 0.4)].into(),
@@ -208,14 +208,15 @@ fn state_lane(device: Slot) -> StateLane {
     StateLane::new(device, points, changes)
 }
 
-fn schedule(tracks: &[Slot]) -> Box<Schedule> {
+fn schedule(tracks: &[TrackSlot]) -> Box<Schedule> {
     let mut entries: Vec<SchedEntry> = tracks
         .iter()
         .enumerate()
         .map(|(i, &slot)| {
             // The first track feeds the second, which sends to the third,
             // before its fader and through a delay, as when devices are late.
-            let mut entry = SchedEntry::new(slot, if i == 0 { tracks[1] } else { MASTER });
+            let output = if i == 0 { tracks[1] } else { TrackSlot::MASTER };
+            let mut entry = SchedEntry::new(slot, output);
             if i == 1 {
                 entry.sends.push(SendRt {
                     pre: true,
@@ -249,7 +250,7 @@ fn schedule(tracks: &[Slot]) -> Box<Schedule> {
             entry
         })
         .collect();
-    entries.push(SchedEntry::new(MASTER, NO_SLOT));
+    entries.push(SchedEntry::new(TrackSlot::MASTER, TrackSlot::NONE));
     Box::new(Schedule::new(entries, 300))
 }
 
@@ -285,7 +286,7 @@ fn the_audio_thread_never_allocates() {
         ],
     });
     // Three in a chain, and three more beside them that nothing feeds.
-    let tracks: Vec<Slot> = vec![1, 2, 3, 4, 5, 6];
+    let tracks: Vec<TrackSlot> = (1..=6).map(TrackSlot).collect();
     let kinds = KINDS;
     for (i, &slot) in tracks.iter().enumerate() {
         send(
@@ -296,7 +297,7 @@ fn the_audio_thread_never_allocates() {
             },
         );
         for (k, kind) in kinds.iter().enumerate() {
-            let dev = (i * kinds.len() + k) as Slot;
+            let dev = DeviceSlot((i * kinds.len() + k) as u32);
             send(
                 &mut handle,
                 Msg::InsertDevice {
@@ -305,8 +306,8 @@ fn the_audio_thread_never_allocates() {
                 },
             );
         }
-        let chain: Box<[Slot]> = (0..kinds.len())
-            .map(|k| (i * kinds.len() + k) as Slot)
+        let chain: Box<[DeviceSlot]> = (0..kinds.len())
+            .map(|k| DeviceSlot((i * kinds.len() + k) as u32))
             .collect();
         send(&mut handle, Msg::SetChain { track: slot, chain });
         send(
@@ -321,7 +322,7 @@ fn the_audio_thread_never_allocates() {
             AutoLane::new(AutoTarget::Pan, vec![(0.0, -1.0), (8.0, 1.0)]),
             AutoLane::new(
                 AutoTarget::Param {
-                    device: (i * kinds.len()) as Slot,
+                    device: DeviceSlot((i * kinds.len()) as u32),
                     index: 5,
                 },
                 vec![(0.0, 200.0), (8.0, 4000.0)],
@@ -333,7 +334,7 @@ fn the_audio_thread_never_allocates() {
                 track: slot,
                 automation: Box::new(Automation {
                     lanes,
-                    states: vec![state_lane((i * kinds.len()) as Slot)],
+                    states: vec![state_lane(DeviceSlot((i * kinds.len()) as u32))],
                 }),
             },
         );
@@ -653,7 +654,7 @@ fn the_audio_thread_never_allocates() {
                     automation: Box::default(),
                 },
             );
-            let dev = (i * kinds.len()) as Slot;
+            let dev = DeviceSlot((i * kinds.len()) as u32);
             send(
                 &mut handle,
                 Msg::SetParam {
@@ -665,20 +666,20 @@ fn the_audio_thread_never_allocates() {
             send(
                 &mut handle,
                 Msg::SetBypass {
-                    device: dev + 1,
+                    device: DeviceSlot(dev.0 + 1),
                     bypass: round % 2 == 0,
                 },
             );
             send(
                 &mut handle,
                 Msg::InsertDevice {
-                    slot: dev + 2,
+                    slot: DeviceSlot(dev.0 + 2),
                     device: device("gain"),
                 },
             );
-            let chain: Box<[Slot]> = (0..kinds.len())
+            let chain: Box<[DeviceSlot]> = (0..kinds.len())
                 .rev()
-                .map(|k| (i * kinds.len() + k) as Slot)
+                .map(|k| DeviceSlot((i * kinds.len() + k) as u32))
                 .collect();
             send(&mut handle, Msg::SetChain { track: slot, chain });
             // Side-chains and output pairs taken away and given again.
@@ -758,7 +759,7 @@ fn the_audio_thread_never_allocates() {
             send(
                 &mut handle,
                 Msg::RemoveDevice {
-                    slot: (i * kinds.len() + k) as Slot,
+                    slot: DeviceSlot((i * kinds.len() + k) as u32),
                 },
             );
         }
@@ -767,35 +768,35 @@ fn the_audio_thread_never_allocates() {
     send(
         &mut handle,
         Msg::SetClips {
-            track: 999,
+            track: TrackSlot(999),
             clips: Box::default(),
         },
     );
     send(
         &mut handle,
         Msg::InsertTrack {
-            slot: u32::MAX - 1,
+            slot: TrackSlot(u32::MAX - 1),
             track: TrackRt::new(),
         },
     );
     send(
         &mut handle,
         Msg::InsertDevice {
-            slot: u32::MAX - 1,
+            slot: DeviceSlot(u32::MAX - 1),
             device: device("delay"),
         },
     );
     send(
         &mut handle,
         Msg::SetChain {
-            track: 999,
-            chain: Box::new([1, 2]),
+            track: TrackSlot(999),
+            chain: Box::new([DeviceSlot(1), DeviceSlot(2)]),
         },
     );
     send(
         &mut handle,
         Msg::SetParam {
-            device: 99999,
+            device: DeviceSlot(99999),
             param: 0,
             value: 1.0,
         },
@@ -803,7 +804,7 @@ fn the_audio_thread_never_allocates() {
     send(
         &mut handle,
         Msg::Live {
-            track: 999,
+            track: TrackSlot(999),
             event: EventKind::AllNotesOff,
         },
     );
@@ -815,7 +816,7 @@ fn the_audio_thread_never_allocates() {
     for _ in 0..20000 {
         if handle
             .try_send(Msg::SetAutomation {
-                track: MASTER,
+                track: TrackSlot::MASTER,
                 automation: Box::default(),
             })
             .is_err()
@@ -886,15 +887,18 @@ fn a_sound_being_made_never_allocates() {
     });
     for msg in [
         Msg::InsertTrack {
-            slot: 1,
+            slot: TrackSlot(1),
             track: TrackRt::new(),
         },
         Msg::SetClips {
-            track: 1,
+            track: TrackSlot(1),
             clips: Box::new(clips),
         },
         Msg::SetSchedule(Box::new(Schedule::new(
-            vec![SchedEntry::new(1, MASTER), SchedEntry::new(MASTER, NO_SLOT)],
+            vec![
+                SchedEntry::new(TrackSlot(1), TrackSlot::MASTER),
+                SchedEntry::new(TrackSlot::MASTER, TrackSlot::NONE),
+            ],
             0,
         ))),
         Msg::Play,

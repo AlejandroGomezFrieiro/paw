@@ -4,8 +4,8 @@
 use std::sync::{Arc, Mutex};
 
 use paw_engine::{
-    Automation, Device, Engine, EngineHandle, EventKind, Io, MASTER, Msg, NO_SLOT, ProcessCtx,
-    SchedEntry, Schedule, Slot, StateChange, StateLane, TrackRt,
+    Automation, Device, DeviceSlot, Engine, EngineHandle, EventKind, Io, Msg, ProcessCtx,
+    SchedEntry, Schedule, StateChange, StateLane, TrackRt, TrackSlot,
 };
 
 const SR: f64 = 48000.0;
@@ -67,7 +67,7 @@ fn engine(
 ) -> (Engine, EngineHandle, Arc<Mutex<Vec<(u64, Heard)>>>) {
     let (mut engine, mut handle) = Engine::new(SR);
     let log = Arc::new(Mutex::new(Vec::new()));
-    let track: Slot = 1;
+    let track = TrackSlot(1);
     send(
         &mut handle,
         &mut engine,
@@ -86,7 +86,7 @@ fn engine(
         &mut handle,
         &mut engine,
         Msg::InsertDevice {
-            slot: 0,
+            slot: DeviceSlot(0),
             device: Box::new(ears),
         },
     );
@@ -95,12 +95,12 @@ fn engine(
         &mut engine,
         Msg::SetChain {
             track,
-            chain: Box::new([0]),
+            chain: Box::new([DeviceSlot(0)]),
         },
     );
     let entries = vec![
-        SchedEntry::new(track, MASTER),
-        SchedEntry::new(MASTER, NO_SLOT),
+        SchedEntry::new(track, TrackSlot::MASTER),
+        SchedEntry::new(TrackSlot::MASTER, TrackSlot::NONE),
     ];
     send(
         &mut handle,
@@ -109,7 +109,7 @@ fn engine(
     );
     send(&mut handle, &mut engine, Msg::SetTempo(120.0));
     let automation = Automation {
-        states: vec![StateLane::new(0, points, changes)],
+        states: vec![StateLane::new(DeviceSlot(0), points, changes)],
         ..Default::default()
     };
     send(
