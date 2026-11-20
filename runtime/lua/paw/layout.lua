@@ -30,12 +30,11 @@ local M = {
   names = { pianoroll = "roll" },
   -- What a docked view's pane is called, where the view has no title of its own.
   pane_titles = {
-    arrange = "Arrange", pianoroll = "Piano roll", mixer = "Mixer", devices = "Devices", session = "Session",
-    notation = "Notation",
+    arrange = "Arrange", pianoroll = "Piano roll", mixer = "Mixer", devices = "Devices",
   },
   titles = {
     arrange = "the arrange view", pianoroll = "the piano roll", mixer = "the mixer", devices = "the device panel",
-    session = "the session view", eventlist = "the event list", help = "keys", empty = "an empty window",
+    eventlist = "the event list", help = "keys", empty = "an empty window",
   },
 }
 local by_view = {}   -- view name -> its buffer

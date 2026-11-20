@@ -18,6 +18,7 @@ local EPS = 1e-6
 paw.option.define("notation_grid", 0.25)   -- the smallest value written, in beats
 
 local view = {
+  title = "Notation",  -- what its pane and the list of buffers call it
   clip_id = nil,
   beat = 0,          -- the cursor, in beats from the start of the clip
   step = 35,         -- the cursor's staff position, as a diatonic step (C4 is 35)
