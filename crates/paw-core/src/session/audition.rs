@@ -33,8 +33,31 @@ pub(super) struct Trial {
     pub loaded: HashSet<Id>,
 }
 
+/// What is being tried and heard before it is chosen: the trial under way
+/// and the sound file heard on its own, with the level it plays at.
+pub(super) struct Audition {
+    pub trial: Option<Trial>,
+    preview: Option<Previewing>,
+    /// The last preview's id, so that the engine's reports of an older one
+    /// are told apart.
+    preview_ids: u32,
+    /// The level of the preview in dB.
+    preview_level: f64,
+}
+
+impl Default for Audition {
+    fn default() -> Self {
+        Self {
+            trial: None,
+            preview: None,
+            preview_ids: 0,
+            preview_level: -12.0,
+        }
+    }
+}
+
 /// The sound file heard on its own.
-pub(super) struct Previewing {
+struct Previewing {
     file: PathBuf,
     id: u32,
     stage: Stage,
@@ -78,25 +101,25 @@ impl Session {
     /// [`trial_end`](Self::trial_end) keeps them as one undo step or puts
     /// the project back as it was. Edits made before it close their step.
     pub fn trial_begin(&mut self) -> Result<()> {
-        if self.trial.is_some() {
+        if self.audition.trial.is_some() {
             bail!("a trial is under way already");
         }
         self.flush();
         self.checkpoint();
-        self.trial = Some(Trial::default());
+        self.audition.trial = Some(Trial::default());
         Ok(())
     }
 
     /// Whether a trial is under way.
     pub fn trial_active(&self) -> bool {
-        self.trial.is_some()
+        self.audition.trial.is_some()
     }
 
     /// End the trial: keep its edits, which become the next undo step, or
     /// put the project back exactly as it was before it. True when there
     /// was one.
     pub fn trial_end(&mut self, keep: bool) -> bool {
-        let Some(trial) = self.trial.take() else {
+        let Some(trial) = self.audition.trial.take() else {
             return false;
         };
         if keep || !self.touched {
@@ -137,7 +160,7 @@ impl Session {
     /// A preset is about to be loaded into a device: during a trial its
     /// state before the first is the one to come back to.
     pub(super) fn trial_loads(&mut self, id: Id) -> bool {
-        match &mut self.trial {
+        match &mut self.audition.trial {
             Some(trial) => trial.loaded.insert(id),
             None => true,
         }
@@ -153,8 +176,8 @@ impl Session {
             bail!("{} is not a file", file.display());
         }
         self.preview_stop();
-        self.preview_ids += 1;
-        let id = self.preview_ids;
+        self.audition.preview_ids += 1;
+        let id = self.audition.preview_ids;
         let rate = self.handle.sample_rate as u32;
         // A file the project plays is decoded already.
         let stage = match self.audio.playing(file, rate) {
@@ -170,7 +193,7 @@ impl Session {
                 Stage::Loading(rx)
             }
         };
-        self.preview = Some(Previewing {
+        self.audition.preview = Some(Previewing {
             file: file.to_path_buf(),
             id,
             stage,
@@ -183,7 +206,7 @@ impl Session {
         let voice = Preview::new(
             data.clone(),
             self.handle.sample_rate,
-            paw_engine::db_to_gain(self.preview_level),
+            paw_engine::db_to_gain(self.audition.preview_level),
             id,
         );
         self.handle.send(Msg::SetPreview(Some(Box::new(voice))));
@@ -197,22 +220,22 @@ impl Session {
 
     /// Stop the sound file heard on its own, fading it out.
     pub fn preview_stop(&mut self) {
-        if self.preview.take().is_some() {
+        if self.audition.preview.take().is_some() {
             self.handle.send(Msg::SetPreview(None));
         }
     }
 
     /// The level of the sound file heard on its own, in dB.
     pub fn preview_set_level(&mut self, db: f64) {
-        self.preview_level = db.clamp(-120.0, 12.0);
+        self.audition.preview_level = db.clamp(-120.0, 12.0);
         self.handle
-            .send(Msg::SetPreviewGain(paw_engine::db_to_gain(self.preview_level)));
+            .send(Msg::SetPreviewGain(paw_engine::db_to_gain(self.audition.preview_level)));
     }
 
     /// Take up a file decoded since the last look, and ask for what is
     /// played next to be read in from the disk. Called from `idle`.
     pub(super) fn poll_preview(&mut self) {
-        let Some(preview) = &mut self.preview else {
+        let Some(preview) = &mut self.audition.preview else {
             return;
         };
         let id = preview.id;
@@ -220,7 +243,7 @@ impl Session {
             Stage::Loading(rx) => match rx.try_recv() {
                 Ok(Ok(data)) => {
                     let stage = self.preview_start(id, data);
-                    if let Some(preview) = &mut self.preview {
+                    if let Some(preview) = &mut self.audition.preview {
                         preview.stage = stage;
                     }
                 }
@@ -248,11 +271,11 @@ impl Session {
     /// loudest sample of each of 256 stretches of the file. Null when
     /// nothing is.
     pub fn preview_view(&self) -> Value {
-        let Some(preview) = &self.preview else {
+        let Some(preview) = &self.audition.preview else {
             return Value::Null;
         };
         let mut view = json!({
-            "file": preview.file, "level": self.preview_level,
+            "file": preview.file, "level": self.audition.preview_level,
         });
         match &preview.stage {
             Stage::Loading(_) => view["state"] = "loading".into(),

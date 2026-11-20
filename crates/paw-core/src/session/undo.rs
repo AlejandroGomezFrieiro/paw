@@ -169,7 +169,7 @@ impl Session {
     /// close as a step of their own: not during a trial, whose edits are
     /// one step made when it ends.
     pub fn undo_pending(&self) -> bool {
-        self.touched && self.trial.is_none()
+        self.touched && self.audition.trial.is_none()
     }
 
     /// Put back the project as the open step found it, leaving the history

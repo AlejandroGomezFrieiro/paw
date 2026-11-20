@@ -19,7 +19,7 @@ impl Session {
             // How far the output is behind the transport because of devices
             // that look ahead, in milliseconds.
             "latency": self.map.latency as f64 * 1000.0 / info.sample_rate as f64,
-            "midi": self.midi.is_some(),
+            "midi": self.midi.inputs.is_some(),
             "blocks": block_json(&self.handle.shared.blocks.summary(), info.sample_rate),
             "leaked": self.handle.shared.leaked(),
             // Threads tracks are processed on, counting the audio thread, and
@@ -40,7 +40,7 @@ impl Session {
             // have stopped, and decoded audio files held in memory.
             "late_blocks": self.live.values().filter_map(|l| l.controller.as_ref()).map(|c| c.late_blocks()).sum::<u64>(),
             "midi_dropped": paw_engine::event::dropped(),
-            "record_dropped": self.take.as_ref().map_or(0, |t| t.shared.dropped()),
+            "record_dropped": self.rec.take.as_ref().map_or(0, |t| t.shared.dropped()),
             "devices_stopped": self.live.values().filter(|l| l.stopped.is_some()).count(),
             "audio_files": self.audio.len(),
             // The device that went away and is waited for, or nil.
