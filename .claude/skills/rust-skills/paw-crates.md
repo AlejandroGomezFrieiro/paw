@@ -199,7 +199,7 @@ Found with grep at a72467cf. Each refactor part that owns the file fixes it.
   the numbers agree.
 - **Real-time tools:** the `no_alloc.rs` test of paw-engine (own allocator;
   the sampler's uses `assert_no_alloc`), `backend.rs` `no_denormals`, the atomic `f32`
-  in `devices/dsp.rs` and `engine.rs`.
+  in `devices/dsp.rs` and `engine/shared.rs`.
 - **CLAP host:** `paw-plugins/src/clap.rs` calls `clap-sys` directly.
   Clack's host crate gives safe wrappers. If it is not on crates.io,
   the Nix build must pin its Git commit. Try it on the stub plugin and
