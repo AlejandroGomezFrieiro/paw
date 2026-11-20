@@ -43,8 +43,8 @@ sound devices, MIDI ports and plugins.
 > [!NOTE]
 > paw is a **personal project and it is not complete**. One person made it
 > for their own music. It runs on Linux (PipeWire, ALSA or JACK) and hosts
-> CLAP, LV2 and VST3 plugins. paw has more than 1,600 end-to-end tests in
-> Lua and 700 tests in Rust. Most of them use stand-ins, not real hardware.
+> CLAP, LV2 and VST3 plugins. paw has about 1,700 end-to-end tests in
+> Lua and 500 tests in Rust. Most of them use stand-ins, not real hardware.
 > paw can change without notice. See
 > [what paw does not do](docs/reference/limits.md).
 
