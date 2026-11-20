@@ -130,7 +130,6 @@ real-time crates, read its code for the audio thread rules.
 | A test that the audio thread does not allocate | `assert_no_alloc` | an own `GlobalAlloc` in each test |
 | Denormals off on a thread | `no_denormals` | own MXCSR code |
 | Atomic `f32`/`f64` (meters, parameters) | `atomic_float` | `f32::from_bits(x.load())` by hand |
-| Real-time priority of a thread | `audio_thread_priority` | `pthread_setschedparam` by hand |
 | Hosting CLAP plugins | `clack-host` (Clack), if it covers what paw uses | raw `clap-sys` calls in `unsafe` |
 
 What paw keeps as its own, and why:
@@ -146,6 +145,10 @@ What paw keeps as its own, and why:
   more, measured with the benches.
 - **MIDI 2.0.** paw speaks Universal MIDI Packets to ALSA through
   `alsa-sys`. `midir`, `portmidi` and `wmidi` are MIDI 1.0 only.
+- **Real-time thread priority.** `audio_thread_priority` goes through RtKit
+  over D-Bus on Linux (a C library for the Nix build), and it does not copy
+  the sound thread's own policy and priority as paw does. paw keeps
+  `pthread_setschedparam` in `pool.rs` and `sandbox.rs`.
 - **The sampler's formats** and other formats that are paw's own.
 
 ## Where paw does it by hand today (2026-11-20)
@@ -196,8 +199,7 @@ Found with grep at a72467cf. Each refactor part that owns the file fixes it.
   the numbers agree.
 - **Real-time tools:** the `no_alloc.rs` test of paw-engine (own allocator;
   the sampler's uses `assert_no_alloc`), `backend.rs` `no_denormals`, the atomic `f32`
-  in `devices/dsp.rs` and `engine.rs`, and the thread priority in
-  `pool.rs` and `sandbox.rs`.
+  in `devices/dsp.rs` and `engine.rs`.
 - **CLAP host:** `paw-plugins/src/clap.rs` calls `clap-sys` directly.
   Clack's host crate gives safe wrappers. If it is not on crates.io,
   the Nix build must pin its Git commit. Try it on the stub plugin and
