@@ -4,8 +4,9 @@
 --   * every error is a clean rejection: a message from the API, never a Lua
 --     runtime error or a Rust panic message
 --   * undo then redo returns to the same project
---   * save then load returns to the same project, and saving again gives the
---     same file
+--   * saving changes nothing; a project folder saved, loaded and saved
+--     again gives the same files, and loads as the same project (the first
+--     load puts notes on the tick grid of a clip file)
 --   * rendering the same project twice gives the same bytes, with devices
 --     at rest asleep and without; and renders never contain NaN or infinity
 --   * every id a view lists can be looked up
@@ -352,9 +353,16 @@ local function check_save(step)
   api.project_load(a)
   paw.flush()
   local loaded = dump()
-  if loaded ~= saved then fail(step, "save", "load changed the project: " .. first_difference(saved, loaded)) end
+  -- A clip file keeps notes in ticks: a note off the tick grid comes back
+  -- on it. From the first load on, save and load change nothing.
   api.project_save(b)
   if folder(a) ~= folder(b) then fail(step, "save", "saving the loaded project gave different files") end
+  api.project_load(b)
+  paw.flush()
+  local again = dump()
+  if again ~= loaded then fail(step, "save", "a second load changed the project: " .. first_difference(loaded, again)) end
+  -- A project never named takes its folder's name when saved.
+  before = before:gsub("name=untitled,", "name=a,", 1)
   if before ~= saved then
     -- Saving may only move recordings beside the file.
     if not before:find("recordings") then fail(step, "save", "saving changed the project: " .. first_difference(before, saved)) end
