@@ -1,4 +1,4 @@
--- Tests of the window's menus (paw/window_menus.lua): built in the kernel,
+-- Tests of the window's menus (paw/window_menus.tl): built in the kernel,
 -- shown by the window, an entry chosen by its place. Loaded by
 -- tests/suite.lua with its helpers.
 local T = ...

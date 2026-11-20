@@ -820,11 +820,12 @@ pub fn install(lua: &Lua, shared: &Rc<Shared>) -> mlua::Result<()> {
         }
         // The tabs and windows that the project file keeps, as plain data,
         // or nil. They are not part of the song: setting them is not an
-        // edit, and the next save writes them.
-        // @return any
+        // edit, and the next save writes them (paw/layout.tl).
+        // @return types.ProjectScreen
         fn project_screen(lua, sh, () => ()) {
             to_lua(lua, &sh.session.borrow().screen)
         }
+        // @param value types.ProjectScreen
         // @return nil
         fn project_screen_set(lua, sh, value => LuaValue) {
             let value: Option<Value> = from_lua(lua, value)?;

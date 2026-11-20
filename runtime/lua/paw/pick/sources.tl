@@ -12,6 +12,8 @@ local preview = require("paw.pick.preview")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type UiModule = require("paw.ui")
+local type PanesModule = require("paw.panes")
 local type objects = require("paw.objects")
 local type CommandsModule = require("paw.commands")
 local type CursorModule = require("paw.cursor")
@@ -87,14 +89,6 @@ local record Scope
   tracks: function(): {integer}
 end
 
---- The panes of a window (paw/panes.lua, in Lua): the main area in cells.
-local record Panes
-  record Cells
-    w: integer
-  end
-  cells: function(): Cells
-end
-
 --- A device that can be added, as paw/fx.lua lists it: a device type,
 --- whether it is a favourite, and the extension it came with.
 local record DeviceInfo
@@ -153,14 +147,10 @@ local record Message
   text: string
 end
 
---- What `paw.ui.input` takes.
-local record InputOptions
-  prompt: string
-  history: string
-  text: string
-end
+local type InputOptions = UiModule.InputOptions
 
 local record Paw is partial.Paw
+  ui: UiModule
   commands: CommandsModule
   cursor: CursorModule
   help: HelpModule
@@ -172,7 +162,7 @@ local record Paw is partial.Paw
   project: objects.Project
   frontend: FrontendModule
   scope: Scope
-  panes: Panes
+  panes: PanesModule
   fx: Fx
   open: function(path: string)
   state: {string: util.Data}
@@ -550,7 +540,7 @@ local function make(pick: Pick): Sources
     -- and, beside it, the help of the key chosen.
     -- (A window's main area is wider than the screen the kernel keeps for it.)
     local cells = paw.panes.cells()
-    local total = math.min(150, math.max((api.ui_size()), cells and cells.w or 0) - 4)
+    local total = math.min(150, math.max((api.ui_size()), cells and cells.w as integer or 0) - 4)
     local list_w = math.floor(total * 0.6)
     local preview_w = total - list_w - 3
     local cols = { key = 8, tag = 4, desc = 10 }

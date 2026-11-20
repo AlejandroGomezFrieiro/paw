@@ -26,8 +26,17 @@ local type partial = require("paw.partial")
 
 -- What this module reads of `paw`, which paw/init.lua makes. The global
 -- `paw` (runtime/types/paw.d.tl) does not name this module, which is
--- `paw.ui.Buf` of paw/ui.lua: so its local has a name of its own.
-local runtime = (_G as {string:partial.Paw}).paw
+-- `paw.ui.Buf` of paw/ui.tl: so its local has a name of its own. paw/ui.tl
+-- names this module's type, so this one declares only the part of it that
+-- it calls.
+local record Ui
+  surface: function(buf: Buf, x: number, y: number, w: number, h: number, name?: string): boolean
+  strip: function(buf: Buf, x: number, y: number, w: number, h: number, opts: contracts.StripOptions): boolean
+end
+local record Runtime is partial.Paw
+  ui: Ui
+end
+local runtime = (_G as {string:Runtime}).paw
 local unpack = (_G as {string:function({Buf}, integer, integer): Buf...}).unpack
 
 local grid_text, grid_fill = api.grid_text, api.grid_fill
@@ -79,7 +88,7 @@ end
 --- Then the view draws them:
 ---   if buf:surface(0, 1, buf.width, buf.height - 1) then return end
 function Buf:surface(x: number, y: number, w: number, h: number, name?: string): boolean
-  return runtime.ui.surface(self, x, y, w, h, name) as boolean
+  return runtime.ui.surface(self, x, y, w, h, name)
 end
 
 --- Keep an area for pixels that `opts.draw(g, px)` draws, where the
@@ -100,7 +109,7 @@ end
 ---     draw = function(g, px) paw.plot.curve(g, px, { ... }) end,
 ---   })
 function Buf:strip(x: number, y: number, w: number, h: number, opts: contracts.StripOptions): boolean
-  return runtime.ui.strip(self, x, y, w, h, opts) as boolean
+  return runtime.ui.strip(self, x, y, w, h, opts)
 end
 
 --- Buffers side by side across this buffer, each with a width from the

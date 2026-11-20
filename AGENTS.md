@@ -49,8 +49,11 @@ commands, and a configuration that can change everything.
 For each Rust change, use the skill in
 [.claude/skills/rust-skills](.claude/skills/rust-skills/SKILL.md). Prefer
 clear traits and structs to long functions and flags, and avoid its
-anti-patterns. The audio thread rules come first: no lock, no
-allocation and no wait on that thread.
+anti-patterns. Use the recommended crates, as its page
+[paw-crates.md](.claude/skills/rust-skills/paw-crates.md) says: do not
+write what a crate such as `mlua`, `clap` or `serde` already does. The
+audio thread rules come first: no lock, no allocation and no wait on that
+thread.
 
 To write an extension, use the skill in
 [.claude/skills/paw-extension](.claude/skills/paw-extension/SKILL.md).

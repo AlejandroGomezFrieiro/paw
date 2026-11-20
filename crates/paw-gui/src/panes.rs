@@ -1,5 +1,5 @@
 //! The main area as the kernel's tabs and windows lay it out
-//! (`runtime/lua/paw/panes.lua`): where each view the window draws itself
+//! (`runtime/lua/paw/panes.tl`): where each view the window draws itself
 //! goes, the scenes of the views the kernel draws (crate::scene), the
 //! borders, the tabs and the pane with the keyboard. Gestures go back to
 //! `paw.panes`.

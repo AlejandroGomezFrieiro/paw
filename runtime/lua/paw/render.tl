@@ -88,11 +88,9 @@ end
 local record Files
   path: function(name: string): string
 end
---- The parts of `paw.ui` (paw/ui.lua) that this module calls.
-local record Ui
-  poke: function()
-end
+local type UiModule = require("paw.ui")
 local record Paw is partial.Paw
+  ui: UiModule
   cursor: CursorModule
   groups: GroupsModule
   tracks: function(): {objects.Track}
@@ -196,7 +194,7 @@ local queue: {Queued} = {}
 local function start(path: string, opts: types.RenderOptions)
   events.emit(M.before, { path = path, opts = opts })
   api.render_start(path, opts)
-  (paw.ui as Ui).poke()
+  paw.ui.poke()
 end
 
 --- Render the project to a file: WAV or FLAC, or MP3, Ogg Vorbis or Opus

@@ -111,7 +111,7 @@ mixer.gestures = {
 
 local devices = paw.ui.views.devices
 
---- A menu of the window's (paw/window_menus.lua) at the pointer, on the
+--- A menu of the window's (paw/window_menus.tl) at the pointer, on the
 --- button's release.
 local function menu_at(e, kind, args)
   local items = require("paw.window_menus").items(kind, args)

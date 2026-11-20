@@ -22,7 +22,13 @@ local type TempoModule = require("paw.tempo")
 local type UtilModule = require("paw.util")
 
 -- What this module reads of `paw`, which paw/init.lua makes.
+-- paw/ui.tl names this module's types, so this one declares only the part
+-- of it that it calls.
+local record Ui
+  hl: function(name: string, def: string | types.CellStyle)
+end
 local record Paw is partial.Paw
+  ui: Ui
   groups: GroupsModule
   music: MusicModule
   tempo: TempoModule

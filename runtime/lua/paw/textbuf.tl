@@ -29,6 +29,9 @@ local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
 local type SeatsModule = require("paw.seats")
 local type CanvasModule = require("paw.canvas")
+local type UiModule = require("paw.ui")
+local type MouseModule = require("paw.mouse")
+local type LayoutModule = require("paw.layout")
 
 local type Data = util.Data
 local type Buf = contracts.Buf
@@ -203,7 +206,7 @@ local record SplitOptions
   vertical: boolean
 end
 
---- paw/layout.lua, as far as this module calls it.
+--- paw/layout.tl, as far as this module calls it, with its windows as `contracts.Window`.
 local record Layout
   buffers: {integer:LayoutBuffer}
   current: function(): Window
@@ -219,46 +222,7 @@ local record Layout
   split: function(opts: SplitOptions): Window
 end
 
---- What `paw.ui.titlebar` takes.
-local record TitleOptions
-  name: string
-  context: string
-  focused: boolean
-  right: string
-end
-
---- What `paw.ui.input` takes.
-local record InputOptions
-  prompt: string
-  history: string
-  text: string
-  complete: function(line: string): {commands.Entry}
-end
-
 local type KeyList = {{string}}
-
---- paw/keybar.lua, as far as this module calls it.
-local record Keybar
-  set: function(view: string, mode: string, entries: KeyList | function(): KeyList)
-end
-
---- paw/ui.lua, as far as this module calls it.
-local record Ui
-  focused: string
-  grabber: function(key: string, pasted?: boolean)
-  views: {string:contracts.View}
-  keybar: Keybar
-  view: function<V is contracts.View>(name: string, def: V): V
-  open: function(name: string, opts?: contracts.FloatOptions)
-  close: function()
-  focus: function(name: string)
-  titlebar: function(buf: Buf, opts: TitleOptions)
-  input: function(opts: InputOptions, on_submit: function(line: string))
-end
-
-local record Mouse
-  wheel: function(e: contracts.MouseEvent): integer
-end
 
 --- paw/frontend.tl's actions, as far as this module adds one: the frontend
 --- names the types of paw.statusline, which names this module's, so this
@@ -274,7 +238,9 @@ end
 local record Paw is partial.Paw
   seats: SeatsModule
   canvas: CanvasModule
-  mouse: Mouse
+  mouse: MouseModule
+  ui: UiModule
+  layout: LayoutModule
   frontend: Frontend
   state: PawState
   undo: function(): boolean
@@ -282,7 +248,7 @@ end
 local paw = (_G as {string:Paw}).paw
 local layout = paw.layout as Layout
 local keymap = paw.keymap as Keymap
-local function ui(): Ui return paw.ui as Ui end
+local function ui(): UiModule return paw.ui end
 
 --- The edits of the project: one field of the project, quicker than the whole.
 local project_edits = api.project_get as function(string): integer

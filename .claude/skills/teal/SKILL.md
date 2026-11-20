@@ -129,6 +129,10 @@ local paw = (_G as {string:Paw}).paw
 | `paw.limit.named(name, fn, a, b)` with arguments of two types | a closure: `paw.limit.named(name, function(): boolean return fn(a, b) end)` |
 | Two modules cannot name each other's types (`local type` requires in a cycle: "unknown type") | the lower module owns the shared records; the other declares only the part it calls (qf.tl and diagnostic.tl) |
 | A record does not fit a contract's interface without `is` (records are nominal) | cast where the value goes in: `data = clip as contracts.QueryData` |
+| A field typed `{A \| B}` given a table literal that mixes a text and records (`items = { "-", { label = ... } }`) is not inferred | put the list in a local of that type first (`local items: {contracts.MenuEntry} = { ... }`) |
+| A record with an array part that also implements an interface | the array goes in the `is` list: `record Node is {Node}, contracts.Window` |
+| A module that requires another (as a value) loads it then, earlier than the Lua that read `paw.x` when it ran | keep reading `paw.x` at run time, typed by `local type X = require(...)` (paw/ui.tl and `paw.draw`) |
+| A module many others require (`paw.buf`, `paw.draw`, `paw.cursor`, `paw.commands`) and a module that names its types (`paw.ui`) | the lower one declares the small part of the higher it reads (`record Ui focused: string end`) |
 | `{T} \| function(): {T}` tested with `x is Fn`: the `else` branch is not narrowed | test the table: `if x is {T} then ... elseif x then (x as Fn)() end` |
 | A generic function type in a parameter list (`format?: function(item: T): string, mode?: M`) does not parse | a generic alias: `local type TextOf<T> = function(item: T): string` |
 | `a or b` of two function types, or of a flag and a record | compare: `(spec.preview ~= nil or spec.audition ~= nil)` |

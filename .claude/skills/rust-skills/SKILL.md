@@ -21,6 +21,9 @@ metadata:
 
 # Rust Best Practices
 
+> **paw:** read [paw-crates.md](paw-crates.md) too, paw's own addition: use the
+> recommended crates (<https://blessed.rs/crates>) and do not write what one already does.
+
 Comprehensive guide for writing high-quality, idiomatic, and highly optimized Rust code. Contains 265 rules across 26 categories, prioritized by impact to guide LLMs in code generation and refactoring. Current for Rust 1.96 (2024 edition).
 
 ## When to Apply

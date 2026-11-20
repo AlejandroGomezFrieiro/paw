@@ -31,6 +31,7 @@ local standard = require("paw.lsp.standard")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type UiModule = require("paw.ui")
 local type objects = require("paw.objects")
 local type DiagnosticModule = require("paw.diagnostic")
 local type HarmonyModule = require("paw.harmony")
@@ -73,6 +74,7 @@ local record Act
 end
 
 local record Paw is partial.Paw
+  ui: UiModule
   annotation: Annotations
   state: State
   diagnostic: DiagnosticModule

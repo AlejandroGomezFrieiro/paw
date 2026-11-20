@@ -22,6 +22,7 @@ local options = require("paw.options")
 local commands = require("paw.commands")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type UiModule = require("paw.ui")
 local type objects = require("paw.objects")
 local type CursorModule = require("paw.cursor")
 
@@ -107,6 +108,7 @@ local record Pick
 end
 
 local record Paw is partial.Paw
+  ui: UiModule
   pick: Pick
   cursor: CursorModule
   time: objects.Time

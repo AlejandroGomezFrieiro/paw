@@ -42,6 +42,7 @@ local type QfModule = require("paw.qf")
 local type AttrModule = require("paw.attr")
 local type EditModule = require("paw.edit")
 local type GroupsModule = require("paw.groups")
+local type UiModule = require("paw.ui")
 
 local EPS = 1e-9
 local NEAR = 1e-6   -- how near a bar line a beat may be and still count as on it
@@ -187,13 +188,6 @@ local record Views
   arrange: Arrange
 end
 
---- paw/ui.lua, as far as this module calls it.
-local record Ui
-  focused: string
-  views: {string:contracts.View}
-  focus: function(name: string)
-  layer: function(view: string, part: string, name: string, order: number, paint: function(PartLayer))
-end
 
 local record Scope
   tracks: function(): {integer}
@@ -209,6 +203,7 @@ local record Cmdline
 end
 
 local record Paw is partial.Paw
+  ui: UiModule
   cursor: CursorModule
   address: AddressModule
   qf: QfModule
@@ -227,8 +222,8 @@ local paw = (_G as {string:Paw}).paw
 local opt = options.opt
 
 local function keymap(): Keymap return paw.keymap as Keymap end
-local function ui(): Ui return paw.ui as Ui end
-local function views(): Views return (paw.ui as Ui).views as Views end
+local function ui(): UiModule return paw.ui end
+local function views(): Views return paw.ui.views as Views end
 local function cmdline(): Cmdline return (require as function(string): Cmdline)("paw.views.cmdline") end
 
 local record M

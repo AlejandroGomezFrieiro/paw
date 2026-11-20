@@ -1,5 +1,5 @@
 //! Menus at the pointer. Their entries are the kernel's
-//! (`paw.frontend.menu`, runtime/lua/paw/window_menus.lua): the window shows
+//! (`paw.frontend.menu`, runtime/lua/paw/window_menus.tl): the window shows
 //! them and says which was chosen, by its place. A menu the kernel opens
 //! itself, from a gesture in a pane drawn from its scene, is shown the same
 //! way (`shown`). A few belong to the window alone (which lane a track

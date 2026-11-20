@@ -35,6 +35,8 @@ local commands = require("paw.commands")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type UiModule = require("paw.ui")
+local type LayoutModule = require("paw.layout")
 local type QfModule = require("paw.qf")
 local type FormatsModule = require("paw.formats")
 local type TextbufModule = require("paw.textbuf")
@@ -162,7 +164,7 @@ local record Keymap
   push_jump: function()
 end
 
---- A window that a split makes (paw/layout.lua): its size, which this
+--- A window that a split makes (paw/layout.tl): its size, which this
 --- module sets.
 local record Split
   size: integer
@@ -175,7 +177,7 @@ local record SplitOptions
   buf: integer
 end
 
---- The layout (paw/layout.lua, in Lua): what this module calls of it.
+--- The layout (paw/layout.tl): what this module calls of it.
 local record Layout
   buf_create: function(type: string, target: string): contracts.LayoutBuffer
   buf_of: function(win: contracts.Window): contracts.LayoutBuffer
@@ -210,10 +212,9 @@ local record Ext
   bundled_dir: function(): string
 end
 
---- `paw.ui.size` (paw/ui.lua, in Lua): the screen's width and height in cells.
-local type UiSize = function(): integer, integer
-
 local record Paw is partial.Paw
+  ui: UiModule
+  layout: LayoutModule
   qf: QfModule
   formats: FormatsModule
   textbuf: TextbufModule
@@ -1062,7 +1063,7 @@ function M.show(source: Source, row: integer, col?: integer): contracts.Window
     -- Help takes half the screen, as Vim gives it 'helpheight' rows, whatever
     -- else shares the column.
     if new then
-      local _, height = (paw.ui.size as UiSize)()
+      local _, height = paw.ui.size()
       local split = new as Split
       split.size, split.weight = math.max(8, math.floor(height / 2)), nil
     end

@@ -2,8 +2,8 @@
 -- gives back to it. A view, a buffer type, a kind of text buffer, a kind of
 -- track, a role, a picker, a status line component, a query field, a
 -- source of grep, a health check and a manifest. Each record has the
--- fields that the runtime reads (paw/ui.lua, paw/layout.lua, paw/keymap.lua,
--- paw/mouse.lua, paw/scene.tl, paw/canvas.tl, paw/statusline.tl and the
+-- fields that the runtime reads (paw/ui.tl, paw/layout.tl, paw/keymap.lua,
+-- paw/mouse.tl, paw/scene.tl, paw/canvas.tl, paw/statusline.tl and the
 -- other readers), with the types that they read.
 --
 -- Types only: the module is an empty table at run time. It requires only
@@ -210,11 +210,15 @@ local record contracts
    --- the view's cells (fractions in a window, which says so with
    --- `fine`). `mods` holds `C`, `A` and `S`. On a hit region, `hit` is its
    --- action and `rect` the region; in a plane, `at` is where in its domain.
+   --- A terminal that reports the pointer in pixels gives them too (`px`,
+   --- `py`, on the screen).
    record MouseEvent
       kind: string
       button: string
       x: number
       y: number
+      px: number
+      py: number
       mods: string
       double: boolean
       fine: boolean
@@ -229,14 +233,21 @@ local record contracts
       dx: number
       dy: number
       moved: boolean
+      clip: integer
    end
 
    --- A pointer event in pixels, for a view's `pointer`: `kind` is
    --- `down`, `up`, `move` (a button held), `hover`, `double` or `wheel`.
+   --- From a terminal, `col` and `row` are the cell of the screen under
+   --- the pointer, where a menu opens. A window gives `drop` with the
+   --- `clip` dragged from another window and let go here (paw/panes.tl).
    record PointerEvent
       kind: string
       x: number
       y: number
+      col: number
+      row: number
+      clip: integer
       button: string
       ctrl: boolean
       shift: boolean
@@ -417,7 +428,8 @@ local record contracts
       on_show: function(self: View)
       on_hide: function(self: View)
       on_close: function(self: View)
-      on_drop: function(self: View, paths: {string}, e: MouseEvent)
+      --- A clip let go over the view from another window (`e.clip`, in the cell `e.x`, `e.y`).
+      on_drop: function(self: View, e: MouseEvent)
       --- Functions for the hit regions of roles, by the kind of action.
       gestures: {string:function(self: View, e: MouseEvent): boolean}
       grid: Grid
@@ -454,6 +466,32 @@ local record contracts
       buftype: Buftype
    end
 
+   --- An entry of a menu at the pointer (`paw.ui.menu`): its `label`, what
+   --- choosing it does (`run`) or the entries of its submenu (`items`), the
+   --- keys that do the same (`keys`, shown at the right), a mark when it is
+   --- `checked`, and `enabled = false` to show it but not choose it. An
+   --- entry that the window does itself names it in `window` (paw/window_menus.tl).
+   --- `separator`, or the text `"-"` in place of an entry, is a line.
+   record MenuItem
+      label: string
+      run: function()
+      items: {MenuEntry}
+      keys: string
+      checked: boolean
+      enabled: boolean
+      window: string
+      separator: boolean
+   end
+
+   --- An entry of a menu, or `"-"` for a line between entries.
+   type MenuEntry = string | MenuItem
+
+   --- Where `paw.ui.menu` opens: a cell of the screen.
+   record MenuOptions
+      x: number
+      y: number
+   end
+
    --- Where a view is on the screen (`paw.ui.arrange`): its name, its
    --- window, and its rectangle in cells.
    record ScreenRect
@@ -487,9 +525,11 @@ local record contracts
 
    -- Buffer types -----------------------------------------------------------------
 
-   --- A window of the layout (paw/layout.lua): its id, the view or buffer
-   --- type it shows, its buffer, its options and its own state.
-   record Window
+   --- A window of the layout (paw/layout.tl): its id, the view or buffer
+   --- type it shows, its buffer, its options and its own state. An
+   --- interface: a window of the layout is a node of a tab's tree too
+   --- (`paw.layout.Node`).
+   interface Window
       id: integer
       view: string
       buf: integer
@@ -498,8 +538,9 @@ local record contracts
       state: {string:string | number | boolean}
    end
 
-   --- A buffer (paw/layout.lua): its number, its name, its type, the
-   --- target it was made for, and the state that the type's `create` gave.
+   --- A buffer (paw/layout.tl): its number, its name, its type, the
+   --- target it was made for, the state that the type's `create` gave,
+   --- and its options, from the type's `options`.
    record LayoutBuffer
       id: integer
       name: string
@@ -508,6 +549,7 @@ local record contracts
       listed: boolean
       single: boolean
       state: {string:string | number | boolean}
+      options: {string:string | number | boolean}
    end
 
    --- How a buffer type keeps the time of a window (`timebind`): the beat

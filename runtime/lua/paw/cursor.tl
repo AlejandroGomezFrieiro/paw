@@ -43,7 +43,13 @@ local record Lanes
   any_open: function(): boolean
   shown: function(track: integer): {types.Lane}
 end
+-- paw/ui.tl names this module's types (through paw/layout.tl and
+-- paw/commands.tl), so this one declares only the part of it that it reads.
+local record Ui
+  focused: string
+end
 local record Paw is partial.Paw
+  ui: Ui
   seats: SeatsModule
   groups: Groups
   lanes: Lanes
