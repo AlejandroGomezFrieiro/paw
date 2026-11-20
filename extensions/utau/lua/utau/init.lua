@@ -52,7 +52,7 @@ local dirty = false
 
 -- Reading the project ----------------------------------------------------------
 
-local function round(x) return math.floor(x + 0.5) end
+local round = paw.util.round
 
 --- The `utau` device of a track, as a device id, or nil.
 function M.device_of(track_id)

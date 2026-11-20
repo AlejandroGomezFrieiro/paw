@@ -5,7 +5,7 @@ local eq, test = T.eq, T.test
 
 local mo, scale
 local function load()
-  if not mo then
+  if not mo or not paw.ext.loaded.musicops then
     -- As config/init.lua does: utau first, so that musicops' phrase keys
     -- (`(` `)`) win over the vocal editor's phoneme keys there (two
     -- extensions on one key: the last loaded wins). Another test may have

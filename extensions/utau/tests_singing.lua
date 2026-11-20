@@ -55,6 +55,9 @@ local function load_utau()
     paw.ext.load("extensions/utau")
     utau = require("utau")
   end
+  -- The vocal editor's own keys: musicops maps some of them again (`ip`,
+  -- `(` `)`) when it loads after utau.
+  if paw.ext.loaded.musicops then paw.ext.unload("musicops") end
   return utau
 end
 

@@ -4742,14 +4742,8 @@ function paw.lsp.document_module.build(id, hash) end
 ---@param uri any
 function paw.lsp.document_module.clip_of(uri) end
 
---- True if a track plays drums: it has a drum map (extensions/drums keeps
---- one in `meta.drums`), or a name such as "Drums", "Kit" or "Perc".
----@param track any
-function paw.lsp.document_module.is_drums(track) end
-
---- The project's key at a beat as `{ root = 0..11, scale = "major" }`:
---- from `paw.harmony` when there is one, else the key extensions/musicops
---- keeps in the project. Nil when nobody has said.
+--- The project's key at a beat as `{ root = 0..11, scale = "major" }`, as
+--- `paw.harmony.key` gives it.
 ---@param beat any
 function paw.lsp.document_module.key(beat) end
 
@@ -5188,6 +5182,11 @@ function paw.music.name(pitch) end
 --- MIDI note number for a name such as "C4", "f#3" or "Bb2". Numbers pass through.
 ---@param note any
 function paw.music.pitch(note) end
+
+--- A pitch as typed in a query or an Ex range: `{ pitch = 61 }` for `c#4`
+--- or `61`, `{ class = 1 }` for `c#` in any octave; nil when it is not one.
+---@param text any
+function paw.music.pitch_word(text) end
 
 --- Tells if option `name` accepts `value`: true, or nil and an error that
 --- tells what it accepts. An option with no default accepts any value.

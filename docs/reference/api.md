@@ -1181,8 +1181,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.lsp.document_module.beats(ticks)`: Beats from the clip's start for a tick of its document.
 - `paw.lsp.document_module.build(id, hash)`: The document for a clip, as `midi/didOpen` and `midi/didChange` send it, under `hash` (from `key_of`). Nil when the clip is gone.
 - `paw.lsp.document_module.clip_of(uri)`: The clip a URI names, or nil.
-- `paw.lsp.document_module.is_drums(track)`: True if a track plays drums: it has a drum map (extensions/drums keeps one in `meta.drums`), or a name such as "Drums", "Kit" or "Perc".
-- `paw.lsp.document_module.key(beat)`: The project's key at a beat as `{ root = 0..11, scale = "major" }`: from `paw.harmony` when there is one, else the key extensions/musicops keeps in the project. Nil when nobody has said.
+- `paw.lsp.document_module.key(beat)`: The project's key at a beat as `{ root = 0..11, scale = "major" }`, as `paw.harmony.key` gives it.
 - `paw.lsp.document_module.key_of(id)`: A value that changes each time the data that paw would send about a clip changes, and that is fast to make. It contains the notes of the clip, its position, the tracks around it, the tempo map and the key. Nil when the clip does not exist.
 - `paw.lsp.document_module.tick(beats)`: Beats as ticks of `M.PPQ` a beat, the language server's unit.
 - `paw.lsp.document_module.uri(id)`: The URI that names a clip: `paw://clip/12`.
@@ -1299,6 +1298,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.music.is_black(pitch)`: True if a MIDI pitch is a black key.
 - `paw.music.name(pitch)`: Name of a MIDI note number: 60 -> "C4".
 - `paw.music.pitch(note)`: MIDI note number for a name such as "C4", "f#3" or "Bb2". Numbers pass through.
+- `paw.music.pitch_word(text)`: A pitch as typed in a query or an Ex range: `{ pitch = 61 }` for `c#4` or `61`, `{ class = 1 }` for `c#` in any octave; nil when it is not one.
 
 ## Module paw.option
 

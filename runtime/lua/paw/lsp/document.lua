@@ -21,13 +21,6 @@ function M.clip_of(uri) return tonumber(tostring(uri):match("^paw://clip/(%d+)$"
 --- Beats as ticks of `M.PPQ` a beat, the language server's unit.
 local function tick(beats) return math.floor(beats * M.PPQ + 0.5) end
 
---- True if a track plays drums: it has a drum map (extensions/drums keeps
---- one in `meta.drums`), or a name such as "Drums", "Kit" or "Perc".
-function M.is_drums(track)
-  if type(track.meta) == "table" and track.meta.drums then return true end
-  local name = tostring(track.name or ""):lower()
-  return name:find("drum") ~= nil or name:find("kit") ~= nil or name:find("perc") ~= nil
-end
 
 local function track_info(track)
   local fx = {}
@@ -35,28 +28,14 @@ local function track_info(track)
     local ok, d = pcall(api.device_get, id)
     if ok then fx[#fx + 1] = d.name end
   end
-  return { name = track.name, fx = fx, tag = M.is_drums(track) and "drums" or nil }
+  return { name = track.name, fx = fx, tag = paw.harmony.is_drums(track) and "drums" or nil }
 end
 
-local LETTERS = { c = 0, d = 2, e = 4, f = 5, g = 7, a = 9, b = 11 }
-
---- The project's key at a beat as `{ root = 0..11, scale = "major" }`:
---- from `paw.harmony` when there is one, else the key extensions/musicops
---- keeps in the project. Nil when nobody has said.
+--- The project's key at a beat as `{ root = 0..11, scale = "major" }`, as
+--- `paw.harmony.key` gives it.
 function M.key(beat)
-  if paw.harmony and paw.harmony.key then
-    local ok, key = pcall(paw.harmony.key, beat)
-    if ok and key and key.tonic then return { root = key.tonic % 12, scale = tostring(key.mode or "major"):gsub("_", " ") } end
-  end
-  local stored = (api.project_get().meta or {}).musicops
-  if type(stored) == "table" and stored.root and stored.scale then
-    local letter, accidentals = tostring(stored.root):lower():match("^(%a)([#b]*)$")
-    if letter and LETTERS[letter] then
-      local _, sharps = accidentals:gsub("#", "")
-      local _, flats = accidentals:gsub("b", "")
-      return { root = (LETTERS[letter] + sharps - flats) % 12, scale = tostring(stored.scale):gsub("_", " ") }
-    end
-  end
+  local key = paw.harmony.key(beat)
+  return { root = key.tonic % 12, scale = (tostring(key.mode or "major"):gsub("_", " ")) }
 end
 
 -- The notes of a clip as the protocol has them, those in `[from, to)` beats
