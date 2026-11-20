@@ -13,241 +13,26 @@ paw.Untyped 6 the boundary to the Lua that is not ported yet: goes when the last
 paw.add_track 1 written in Lua: typed when its module is ported to Teal
 paw.address 1 written in Lua: typed when its module is ported to Teal
 paw.annotation 1 written in Lua: typed when its module is ported to Teal
-paw.api.audio_devices 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.audio_test_device 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.audio_use 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.audio_watch 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.automation_hold 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.blocks 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.canvas_export 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.chain_write 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.checkpoint_delete 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.checkpoint_dir 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.checkpoint_list 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.checkpoint_restore 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.checkpoint_write 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.clip_add 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.clip_add_notes 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.clip_collect 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.clip_controls 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.clip_edit_add 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.clip_edits 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.clip_edits_clear 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.clip_get 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.clip_glue 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.clip_list 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.clip_normalize 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.clip_note_add 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.clip_note_at 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.clip_note_remove 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.clip_note_set 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.clip_notes 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.clip_notes_edit 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.clip_peaks 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.clip_reverse 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.clip_set 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.clip_set_controls 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.clip_set_notes 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.clip_to_cues 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.clip_warp_add 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.clip_warp_move 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.clip_warp_remove 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.cue 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.cue_list 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.cue_state 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.deflate 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.device_add 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.device_call 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.device_editor 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.device_find 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.device_get 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.device_load 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.device_move 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.device_note_names 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.device_param 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.device_param_parse 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.device_param_text 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.device_post 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.device_set 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.device_set_param 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.device_state 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.device_types 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.engine_get 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.engine_hold 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.engine_restart 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.engine_set_threads 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.env 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.events_take 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.fs_copy 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.fs_create 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.fs_mkdir 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.fs_move 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.fs_remove 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.fs_sound 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.fs_space 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.fs_stat 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.fs_trash 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.grid_fill 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.grid_live_begin 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.grid_live_restore 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.grid_surface 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.grid_surface_ops 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.grid_text 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.hl_set 3 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.inflate 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.input_levels 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.json_array 3 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.json_decode 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.json_encode 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.lane_add 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.lane_add_point 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.lane_add_state 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.lane_get 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.lane_list 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.lane_points 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.lane_set 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.lane_set_points 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.lane_set_shapes 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.lane_set_states 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.lane_shapes 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.lane_states 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.lane_value_at 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.limit_hook 3 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.log_get 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.lua_devices 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.lua_devices_add 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.lua_devices_remove 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.lua_devices_rescan 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.measure 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.measure_cancel 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.measure_poll 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.measure_start 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.media_adopt 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.media_collect 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.media_dir 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.media_list 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.media_missing 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.media_peaks 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.media_relink 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.media_search 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.media_store 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.midi2_read 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.midi2_text 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.midi2_write 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.midi_inject 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.midi_inject_ump 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.midi_inputs 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.midi_outputs 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.midi_send 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.midi_ump 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.note_off 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.note_on 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.plugins_add_dir 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.plugins_attach 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.plugins_rescan 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.preview_get 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.proc_read 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.proc_spawn 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.proc_status 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.project_backup 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.project_changed_files 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.project_file_text 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.project_files 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.project_get 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.project_load 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.project_recover 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.project_reload 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.project_save 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.project_save_files 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.project_screen 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.project_screen_set 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.project_set 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.read_dir 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.redo 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.render 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.render_check 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.render_formats 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.render_start 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.render_status 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.rpc_clients 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.rpc_push 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.scene_begin 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.scene_blob 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.scene_cells 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.scene_close 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.scene_draw 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.scene_end 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.scene_forget 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.scene_hit 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.scene_open 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.scene_picture 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.scene_roles 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.signature_remove 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.signature_set 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.smufl 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.smufl_outline 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.sock_accept 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.sock_read 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.sock_write 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.sound_envelope 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.sound_write 4 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.state_get 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.state_set 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.tempo_at 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.tempo_bar_length 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.tempo_bar_of 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.tempo_bar_signature 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.tempo_bar_start 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.tempo_bbt 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.tempo_beat 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.tempo_from_bbt 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.tempo_from_seconds 5 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.tempo_is_bar_line 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.tempo_lines 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.tempo_points 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.tempo_remove 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.tempo_seconds 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.tempo_set 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.tempo_set_points 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.tempo_signature 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.timer_start 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.toml_decode 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.toml_encode 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.track_add 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.track_chain_file 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.track_collect 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.track_get 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.track_import_folder 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.track_meter 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.track_move 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.track_set 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.transport_get 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.transport_set 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.ui_attached 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.ui_caps 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.ui_caps_set 2 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.ui_client 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.ui_frame_snapshot 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.ui_frames 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.ui_redraws 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.ui_size 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.ui_snapshot 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.ui_view_snapshot 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.undo 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.undo_current 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.undo_diff 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.undo_keep 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.undo_limits 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.undo_name 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.undo_project 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.undo_step 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.undo_travel 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.undo_tree 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.wait 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.warnings 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.which 1 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.xml_decode 3 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
-paw.api.xml_encode 5 kernel: api.rs gives no `// @return`, or takes a Lua value: type it there
+paw.api.clip_set 1 the value's type follows `key`: the field of types.Clip it names
+paw.api.device_find 1 one types.DeviceType, or with `all = true` a list of them: Teal cannot tell two table types apart by a field's value
+paw.api.device_set 1 the value's type follows `key`: the field of types.Device it names
+paw.api.json_decode 1 truly any JSON value
+paw.api.json_encode 1 truly any Lua value that JSON can hold
+paw.api.lane_set 1 the value's type follows `key`: the field of types.Lane it names
+paw.api.project_backup 1 the script's own note, any JSON value
+paw.api.project_get 1 with `key`, the field of types.Project it names (without, types.Project)
+paw.api.project_recover 1 the note that project_backup was given, as it was given
+paw.api.project_screen 1 the tabs and windows as paw.layout keeps them: typed when it is ported (wave 4)
+paw.api.project_screen_set 1 the tabs and windows as paw.layout keeps them: typed when it is ported (wave 4)
+paw.api.project_set 1 the value's type follows `key`: the field of types.Project it names
+paw.api.rpc_push 1 truly any JSON payload of an event that a script pushes
+paw.api.state_get 1 truly any value a script kept with state_set
+paw.api.state_set 1 truly any value a script keeps over a reload
+paw.api.toml_decode 1 truly any data a TOML text holds
+paw.api.toml_encode 1 truly any Lua value that TOML can hold
+paw.api.track_get 1 with `key`, the field of types.Track it names (without, types.Track)
+paw.api.track_set 1 the value's type follows `key`: the field of types.Track it names
+paw.api.transport_set 1 the value's type follows `key`: the field of types.Transport it names
 paw.audio 1 written in Lua: typed when its module is ported to Teal
 paw.audition 1 written in Lua: typed when its module is ported to Teal
 paw.autosave 1 written in Lua: typed when its module is ported to Teal
@@ -413,3 +198,8 @@ paw.wait 1 written in Lua: typed when its module is ported to Teal
 paw.win 1 written in Lua: typed when its module is ported to Teal
 paw.xml 1 written in Lua: typed when its module is ported to Teal
 paw.zip 1 written in Lua: typed when its module is ported to Teal
+types.KernelEvent.payload 1 the payload's shape follows the event's name (the events of paw.on): typed when paw.events is
+types.Meta 1 an extension's own data in `meta`, any JSON value: the extension gives it a record of its own
+types.SceneHit.hit 1 a hit region's action, as paw.roles makes it: typed when paw.roles is ported (wave 3)
+types.SceneOpenOptions.hit 1 a hit region's action, as paw.roles makes it: typed when paw.roles is ported (wave 3)
+types.SceneOpenOptions.props 1 a role's properties, as paw.roles makes them: typed when paw.roles is ported (wave 3)
