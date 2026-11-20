@@ -580,6 +580,15 @@ function M.teal()
   end
   kout[#kout + 1] = "local record api"
   kout[#kout + 1] = "   version: string"
+  -- The kernel's other plain values (`limit_async`), by their Lua type.
+  local plain = {}
+  for name, v in pairs(api) do
+    if name ~= "version" and (type(v) == "boolean" or type(v) == "string" or type(v) == "number") then
+      plain[#plain + 1] = "   " .. name .. ": " .. (type(v) == "number" and "number" or type(v))
+    end
+  end
+  table.sort(plain)
+  for _, line in ipairs(plain) do kout[#kout + 1] = line end
   local kernel = M.kernel_functions()
   local names = {}
   for name, fn in pairs(api) do

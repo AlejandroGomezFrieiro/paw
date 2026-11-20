@@ -3,6 +3,7 @@
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
+local type types = require("paw.types")
 local options = require("paw.options")
 
 --- An argument as the command line reads it: text, a number, true or false.
@@ -157,11 +158,6 @@ end
 local record Files
   here: function(): string
 end
-local record DeviceType
-  kind: string
-  name: string
-  format: string
-end
 local record DeviceInfo
   kind: string
   name: string
@@ -203,7 +199,7 @@ local record Paw
   limit: LimitModule
   ex: Ex
   files: Files
-  device_types: function(): {DeviceType}
+  device_types: function(): {types.DeviceType}
   cursor: Cursor
   ui: Ui
   pick: Pick

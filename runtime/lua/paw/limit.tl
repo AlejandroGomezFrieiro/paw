@@ -49,11 +49,6 @@ local lua51 = _G as Lua51
 local maxn = (table as LuaTable).maxn
 local jit = (_G as Globals).jit
 
--- The fields of the kernel's table besides its functions.
-local record Kernel
-  limit_async: boolean
-end
-
 local type Fn = function(...: Value): Value...
 local type Body<A> = function(A...): (Value...)
 local type Call<A> = function(Body<A>, A...): (Value...)
@@ -78,7 +73,7 @@ local what: {string} = {}  -- a stack of what is running, for the error
 options.define("lua_limit", 2000, { min = 0 })
 local opt = options.opt
 
-local async = (api as Kernel).limit_async == true
+local async = api.limit_async == true
 
 --- Set when the running call must have returned (nil: it has).
 local function set(to: number)
