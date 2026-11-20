@@ -485,7 +485,7 @@ local function hold(self, e, drag, collect)
 end
 
 -- What the pointer does on each part of the grid, from a terminal in cells
--- or a window in fractions of one alike (paw/roles.lua). The wheel is left to
+-- or a window in fractions of one alike (paw/roles.tl). The wheel is left to
 -- `on_mouse`.
 view.gestures = {
   tool = function(self, e)

@@ -186,7 +186,7 @@ work of one agent. The areas of one wave do not depend on each other.
 | Done | The project | `objects`, `cursor`, `edit`, `address`, `tempo`, `tempolane`, `markers`, `locators`: 4,408 lines of Teal, 24 fewer entries of `any-allowed.txt`, and no `any` or `paw.Untyped` in these modules | 3,100 | wave 1 |
 | Done | Music on the project | `harmony`, `structure`, `takes`, `groups`, `vca`, `lanes`, `curves`, `audition`: 3,859 lines of Teal, 42 fewer entries on the allow-list | 3,000 | wave 1 |
 | 3 | Queries and lists | `query`, `grep`, `qf`, `diagnostic`, `complete`, `snippet` | 3,900 | wave 2 |
-| 3 | Drawing | `buf`, `draw`, `canvas`, `roles`, `scene`, `theme`, `plot`, `statusline` | 4,100 | wave 2 |
+| Done | Drawing | `buf`, `draw`, `canvas`, `roles`, `scene`, `theme`, `plot`, `statusline`: 4,740 lines of Teal, 6 fewer entries on the allow-list, and no `any` or `paw.Untyped` in these modules | 3,700 | wave 2 |
 | 4 | Windows | `ui`, `layout`, `panes`, `mouse`, the menus | 4,500 | wave 3 |
 | 4 | Editors | `ex`, `textbuf`, `pick` and `pick/`, `help`, `lsp/` | 9,000 | wave 3 |
 | 4 | The frontend | `frontend`, `remote`, `render`, `media` | 3,800 | wave 3 |
@@ -343,3 +343,35 @@ entries.
   `lanes.changed` and `harmony.changed`.
 - The checker found no error that changed what the code does: the tests
   pass with no change.
+
+## What the checker found in the drawing
+
+- The part of a strip that shows (`px.view` of `buf:strip`) had the type
+  `{number}` in the contracts. paw gives `{ x, y, w, h }`, and
+  `paw.plot` reads `view.x` and `view.w`. The type is `types.Rect` now.
+- `shrink` of a status line component had the type `string`. The project
+  component gives `true`, and the line uses it as a flag. The type is
+  `boolean` now.
+- Some fields that the code reads and writes were not in the contracts:
+  the roles that a painted view marks over its picture (`ctx.marks`, the
+  playhead of notation), where in a plane a press is (`e.at`), the label of
+  a button of a hit list, and `hit` and `cells` of a plane. The contracts
+  have them now. `contracts.Axis` is `types.SceneAxis`, which the kernel
+  reads.
+- The glyphs (`paw.draw.g`) were a table of text or lists in the context
+  of a status line component. They are the record `contracts.Glyphs` now,
+  and the theme of the context has the groups of the sections.
+- `paw.buf` and `paw.roles` need the types of each other. When two modules
+  require each other's types, Teal makes two copies of a type, and the
+  copies do not agree. So `paw.roles` puts `mark`, `hit` and `plane` on
+  the buffer when it loads, and `paw.buf` needs nothing of it.
+- `paw.limit.named` takes arguments of one type. The calls of the mouse
+  with a view and an event give a closure.
+- `tools/apidoc.lua` declared `paw.ui.Buf`, a module in Teal under a
+  module in Lua, as a record of `paw.ui`, which the declaration of the
+  global could not read. Such a module is left out until its parent is in
+  Teal. The fields of a module in Lua that are functions or tables of a
+  module in Teal have their type in `partial.d.tl` now (`paw.ui.roles`).
+- The checker found no error that changed what the code does: the tests
+  pass with no change. A frame on the screen takes the same time as
+  before.

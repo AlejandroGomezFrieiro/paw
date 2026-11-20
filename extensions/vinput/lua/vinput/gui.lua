@@ -1,5 +1,5 @@
 -- The virtual inputs in a graphical frontend: the panel's view painted in
--- pixels and worked with the pointer (see runtime/lua/paw/canvas.lua).
+-- pixels and worked with the pointer (see runtime/lua/paw/canvas.tl).
 --
 --   top      a tab for each input, and a button for a new one
 --   chain    the input's stages from left to right, each with what it is

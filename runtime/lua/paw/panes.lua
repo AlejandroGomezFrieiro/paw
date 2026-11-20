@@ -6,9 +6,9 @@
 -- state (`state`) where every window of the current tab goes, which has the
 -- keyboard, the borders between them and the tabs. It draws the views it
 -- has its own drawing for (`native`: none now) in their panes, and is sent
--- every other as a scene (paw/scene.lua): a view that paints as a picture
+-- every other as a scene (paw/scene.tl): a view that paints as a picture
 -- at the pane's size, any other cell by cell as the terminal draws it,
--- with the roles it marks (paw/roles.lua) as widgets where it knows them.
+-- with the roles it marks (paw/roles.tl) as widgets where it knows them.
 -- Pointer events in a pane come to `pointer`; a press anywhere in one gives
 -- it the keyboard (`focus`). Keys need nothing: they go to the key mappings
 -- with the focused window, as from the terminal.

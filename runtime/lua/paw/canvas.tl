@@ -43,24 +43,301 @@
 -- window's monospace font, with its keys and its `on_mouse` as in the
 -- terminal. `g:mono` is the primitive that carries it: a run of text in
 -- cells of that font, on a background of its own.
-local api = paw.api
-local band = bit.band
-local own_window
-local M = {
+--
+-- Written in Teal (paw/lang.tl): the build compiles it to Lua.
+local api = require("paw.api")
+local events = require("paw.events")
+local type types = require("paw.types")
+local type contracts = require("paw.contracts")
+local type partial = require("paw.partial")
+local type LimitModule = require("paw.limit")
+
+local type View = contracts.View
+local type Window = contracts.Window
+local type PaintStyle = contracts.PaintStyle
+local type PointerEvent = contracts.PointerEvent
+local type MouseEvent = contracts.MouseEvent
+local type HitPlace = contracts.HitPlace
+local type Pixels = contracts.StripPixels
+local type CanvasOp = types.CanvasOp
+
+-- What this module reads of `paw`, which paw/init.lua makes, and of the
+-- modules in Lua that it calls (paw/layout.lua, paw/panes.lua,
+-- paw/mouse.lua, paw/ui.lua, paw/keymap.lua): their parts that it uses.
+
+--- A tree of windows of a tab (paw/layout.lua), which this module only
+--- passes on.
+local record Tree
+end
+
+--- A tab of the layout: its tree, and the window that had the keyboard
+--- before the current one.
+local record Tab
+  layout: Tree
+  prev: integer
+end
+
+--- How a view keeps a state of its own for each window (paw/layout.lua),
+--- which this module only looks for.
+local record Keeper
+end
+
+--- A buffer type: its window of its own, if it has one.
+local record BufferType
+  window: function(): Window
+end
+
+local record SplitOptions
+  view: string
+  buf: integer
+end
+
+local record Layout
+  keepers: {string:{Keeper}}
+  types: {string:BufferType}
+  homes: {string:{string:string | number}}
+  current: function(): Window
+  find: function(root: Tree, name: string, shown?: boolean): Window
+  find_id: function(root: Tree, id: integer): Window
+  loose: function(name: string, from: Window): Window
+  tab: function(): Tab
+  focusable_windows: function(): {Window}
+  conceal: function(name: string)
+  windows: function(root: Tree): {Window}
+  close: function(win: Window)
+  enter: function(win: Window)
+  hand_over: function(from: Window, to: Window)
+  split: function(opts: SplitOptions): Window
+  show_in: function(win: Window, name: string, buf?: integer): Window
+  reveal: function(name: string): boolean
+  bind: function(win: Window)
+  settle: function()
+end
+
+--- An area a view keeps for pixels (`buf:strip`, paw/ui.lua): where it
+--- shows on the screen, in cells, the part of the whole strip that shows
+--- (`left`, `top`), the whole strip's size and what draws it.
+local record Picture
+  x: number
+  y: number
+  w: number
+  h: number
+  left: number
+  top: number
+  whole_w: number
+  whole_h: number
+  draw: function(g: contracts.Painter, px: Pixels)
+end
+
+local record Ui
+  layout: Tree
+  pictures: {Picture}
+  view_win: Window
+  focus: function(name: string)
+  close: function()
+  visible: function(name: string): boolean
+end
+
+local record Panes
+  stays: {string:boolean}
+  cells: function(): types.Size
+end
+
+local record Mouse
+  to_view: function(view: View, e: MouseEvent): boolean
+end
+
+local record Paw is partial.Paw
+  panes: Panes
+  mouse: Mouse
+  limit: LimitModule
+end
+local paw = (_G as {string:Paw}).paw
+
+-- The parts of LuaJIT that Teal's library of Lua 5.1 does not have.
+local record Bit
+  band: function(a: integer, b: integer): integer
+end
+local record G
+  bit: Bit
+  unpack: function({string}, integer, integer): string...
+end
+local band = (_G as G).bit.band
+local unpack = (_G as G).unpack
+
+
+--- The window's palette by name, each `#rrggbb`.
+local record Palette
+  surface: string
+  lane: string
+  lane_alt: string
+  panel: string
+  panel_sel: string
+  well: string
+  divider: string
+  card: string
+  card_line: string
+  control: string
+  control_hover: string
+  control_press: string
+  line_sub: string
+  line_beat: string
+  line_bar: string
+  text: string
+  text_2: string
+  text_3: string
+  text_off: string
+  on_hue: string
+  select: string
+  play: string
+  play_on: string
+  rec: string
+  mute: string
+  solo: string
+  warn: string
+  error: string
+  meter_low: string
+  meter_mid: string
+  meter_high: string
+  meter_hot: string
+  meter_clip: string
+  meter_well: string
+  key_white: string
+  key_black: string
+  key_line: string
+end
+
+--- A hit list: its places, and the one a drag started on.
+local record Hits is contracts.Hits
+  list: {HitPlace}
+  drag: HitPlace
+end
+
+--- A view in a window of its own (`paw.canvas.open_views`): its title and
+--- size in pixels, the window of the layout to give the keyboard back to
+--- (`back`) and the pane it left (`from`), its own window of the layout
+--- (`win`), and `cells` when it is drawn in cells. `paint_cells` keeps
+--- what it drew last: the cell, the size in cells, when, and the drawing's
+--- key; `cell_event` the button held.
+local record OpenView
+  title: string
+  width: number
+  height: number
+  back: integer
+  win: Window
+  from: integer
+  cells: boolean
+  cell: types.Size
+  bare: boolean
+  drawn: integer
+  cols: integer
+  rows: integer
+  at: number
+  key: string
+  button: string
+end
+
+--- What `paw.canvas.open` and `paw.canvas.open_view` take.
+local record OpenOptions
+  title: string
+  width: number
+  height: number
+  window: boolean
+end
+
+--- The colours of a terminal, where it said them.
+local record Colors
+  fg: string
+  bg: string
+end
+
+--- What `paw.canvas.paint` and `paw.canvas.paint_cells` take (see `M.paint`).
+local record PaintOptions
+  cell: types.Size
+  fresh: boolean
+  glyphs: boolean
+  surface: boolean
+  colors: Colors
+  bars: boolean
+  marks: {contracts.PaintMark}
+  status: boolean
+end
+
+--- A drawing (`paw.canvas.paint`): its operations and the title of its
+--- window, or `same` when nothing changed since the last.
+local record Drawing
+  title: string
+  ops: {CanvasOp}
+  same: boolean
+end
+
+--- A window a frontend can open (`paw.canvas.windows`).
+local record WindowInfo
+  name: string
+  title: string
+  width: number
+  height: number
+  cells: boolean
+end
+
+--- A view a frontend can offer to open in a window (`paw.canvas.openable`).
+local record Openable
+  name: string
+  title: string
+end
+
+--- What `paw.canvas.button` takes.
+local record ButtonOptions
+  width: number
+  height: number
+  fill: string
+  color: string
+  on: boolean
+  lit: string
+  size: number
+end
+
+local record M
+  type Palette = Palette
+  --- A painter: where it draws (`x`, `y`, `width`, `height`, the part
+  --- that shows), the drawing it adds to, and its own corner (`ox`, `oy`)
+  --- where that is outside what shows. The record is its class too.
+  record Painter is contracts.Painter
+    ops: {CanvasOp}
+    ox: number
+    oy: number
+    sub: function(self: Painter, x: number, y: number, w: number, h: number): Painter
+  end
+  type Hits = Hits
+  type OpenView = OpenView
+  type OpenOptions = OpenOptions
+  type PaintOptions = PaintOptions
+  type Drawing = Drawing
+  type WindowInfo = WindowInfo
+  type Openable = Openable
+  type ButtonOptions = ButtonOptions
   -- The views in a window of their own, by name: each has `win`, a window
   -- in no tab with a state of its own (`paw.layout.loose`).
-  open_views = {},
+  open_views: {string:OpenView}
   -- The view whose window of its own has the keyboard, if any.
-  inside = nil,
+  inside: string
   -- What a view was called when it was opened (`open`), for the pane or
   -- the window that shows it.
-  titles = {},
+  titles: {string:string}
   -- The size of a cell of the window's monospace font in pixels. A window
-  -- measures it and says so when it watches scenes (paw/scene.lua), and a
+  -- measures it and says so when it watches scenes (paw/scene.tl), and a
   -- caller of `paint` may give it; this is JetBrains Mono at 13 px until
   -- one has.
-  cell = { w = 7.8, h = 17 },
-}
+  cell: types.Size
+  palette: Palette
+  leave: function(name: string, pane?: Window): integer
+  focus: function(name: string)
+end
+local Painter = M.Painter
+M.open_views = {}
+M.inside = nil
+M.titles = {}
+M.cell = { w = 7.8, h = 17 }
 
 M.palette = {
   -- Surfaces, from the back forward.
@@ -83,15 +360,16 @@ M.palette = {
 }
 local c = M.palette
 
-local Painter = {}
-Painter.__index = Painter
+-- The class is the metatable of its painters (`setmetatable(t, paw.canvas.Painter)`).
+local PainterMeta = Painter as metatable<Painter>
+PainterMeta.__index = Painter
 
-local function painter(ops, x, y, w, h)
-  return setmetatable({ ops = ops, x = x, y = y, width = w, height = h }, Painter)
+local function painter(ops: {CanvasOp}, x: number, y: number, w: number, h: number): Painter
+  return setmetatable({ ops = ops, x = x, y = y, width = w, height = h } as Painter, PainterMeta)
 end
 
 --- A painter for the rectangle `x, y, w, h` of this one.
-function Painter:sub(x, y, w, h)
+function Painter:sub(x: number, y: number, w: number, h: number): Painter
   local x0, y0 = math.max(self.x, self.x + x), math.max(self.y, self.y + y)
   local x1 = math.min(self.x + self.width, self.x + x + w)
   local y1 = math.min(self.y + self.height, self.y + y + h)
@@ -101,11 +379,11 @@ function Painter:sub(x, y, w, h)
   return p
 end
 
-function Painter:origin_x() return self.ox or self.x end
-function Painter:origin_y() return self.oy or self.y end
+function Painter:origin_x(): number return self.ox or self.x end
+function Painter:origin_y(): number return self.oy or self.y end
 
 --- A filled or outlined rectangle. `style`: `fill`, `stroke`, `width`, `radius`.
-function Painter:rect(x, y, w, h, style)
+function Painter:rect(x: number, y: number, w: number, h: number, style: PaintStyle)
   style = style or {}
   local x0, y0 = self:origin_x() + x, self:origin_y() + y
   local x1, y1 = math.min(x0 + w, self.x + self.width), math.min(y0 + h, self.y + self.height)
@@ -117,7 +395,7 @@ end
 --- Text with its top left corner at `x, y`. `style`: `color`, `size`,
 --- `bold`, `align` ("left", "center", "right") within `width`. Text that
 --- starts outside the painter is left out; `width` cuts it short.
-function Painter:text(x, y, text, style)
+function Painter:text(x: number, y: number, text: string, style: PaintStyle)
   style = style or {}
   local x0, y0 = self:origin_x() + x, self:origin_y() + y
   local size = style.size or 12
@@ -131,10 +409,10 @@ function Painter:text(x, y, text, style)
 end
 
 --- Cut a segment to the painter's rectangle. Returns nil when it misses.
-local function cut(self, x0, y0, x1, y1)
-  local t0, t1 = 0, 1
+local function cut(self: Painter, x0: number, y0: number, x1: number, y1: number): number, number, number, number
+  local t0, t1 = 0.0, 1.0
   local dx, dy = x1 - x0, y1 - y0
-  local function edge(p, q)
+  local function edge(p: number, q: number): boolean
     if p == 0 then return q >= 0 end
     local r = q / p
     if p < 0 then
@@ -153,10 +431,11 @@ end
 
 --- A line through the points `{ x1, y1, x2, y2, ... }`. `style`: `color`,
 --- `width`, and `fill` for a closed shape (which is not cut at the edges).
-function Painter:poly(points, style)
+function Painter:poly(points: {number}, style: PaintStyle)
   style = style or {}
   local ox, oy = self:origin_x(), self:origin_y()
-  local parts, pen = {}, nil
+  local parts: {string} = {}
+  local pen: {number}
   if style.fill then
     for i = 1, #points - 1, 2 do
       parts[#parts + 1] = string.format("%s %.1f %.1f", i == 1 and "M" or "L", ox + points[i], oy + points[i + 1])
@@ -178,7 +457,7 @@ function Painter:poly(points, style)
   self.ops[#self.ops + 1] = { "p", table.concat(parts, " "), style.color or "", style.width or 1, style.fill or "" }
 end
 
-function Painter:line(x0, y0, x1, y1, style)
+function Painter:line(x0: number, y0: number, x1: number, y1: number, style: PaintStyle)
   self:poly({ x0, y0, x1, y1 }, style)
 end
 
@@ -186,10 +465,13 @@ end
 --- braille, so each braille character (U+2800 to U+28FF) is left blank in
 --- the run and its dots are drawn as small rectangles over it: the bits of
 --- the character's offset are the dots of a grid of 2 columns by 4 rows.
-local DOT_ROW = { [0] = 0, 1, 2, 0, 1, 2, 3, 3 }
-local DOT_COLUMN = { [0] = 0, 0, 0, 1, 1, 1, 0, 1 }
-local function add_run(ops, x, y, w, h, chars, colour, background, attrs)
-  local dots, sextants, shown, cell = {}, {}, {}, M.cell.w
+local DOT_ROW: {integer:integer} = { [0] = 0, 1, 2, 0, 1, 2, 3, 3 }
+local DOT_COLUMN: {integer:integer} = { [0] = 0, 0, 0, 1, 1, 1, 0, 1 }
+local function add_run(ops: {CanvasOp}, x: number, y: number, w: number, h: number, chars: {string}, colour: string, background: string, attrs: integer)
+  local dots: {{integer}} = {}
+  local sextants: {{integer}} = {}
+  local shown: {string} = {}
+  local cell = M.cell.w
   for i, ch in ipairs(chars) do
     local b1, b2, b3, b4 = ch:byte(1, 4)
     if b1 == 0xF0 and b2 == 0x9F and b3 and b3 >= 0xAC and b3 <= 0xAF and b4
@@ -216,7 +498,7 @@ local function add_run(ops, x, y, w, h, chars, colour, background, attrs)
   -- A sextant is up to six rectangles, a half cell wide and a third tall.
   for _, sx in ipairs(sextants) do
     for bit = 0, 5 do
-      if band(sx[2], 2 ^ bit) ~= 0 then
+      if band(sx[2], (2 ^ bit) as integer) ~= 0 then
         ops[#ops + 1] = { "r", x + (sx[1] + (bit % 2) / 2) * cell, y + math.floor(bit / 2) * h / 3, cell / 2, h / 3, colour, "", 1, 0 }
       end
     end
@@ -224,7 +506,7 @@ local function add_run(ops, x, y, w, h, chars, colour, background, attrs)
   local dw, dh = math.max(1, cell * 0.24), math.max(1, h * 0.13)
   for _, dot in ipairs(dots) do
     for bit = 0, 7 do
-      if band(dot[2], 2 ^ bit) ~= 0 then
+      if band(dot[2], (2 ^ bit) as integer) ~= 0 then
         local cx = x + (dot[1] + (DOT_COLUMN[bit] + 0.5) / 2) * cell
         local cy = y + (DOT_ROW[bit] + 0.5) * h / 4
         ops[#ops + 1] = { "r", cx - dw / 2, cy - dh / 2, dw, dh, colour, "", 1, 0 }
@@ -239,14 +521,14 @@ end
 --- `bold`, `italic`, `underline`, `strike`. Box-drawing and block
 --- characters join from one cell to the next. Cut at the painter's edges by
 --- whole cells.
-function Painter:mono(x, y, text, style, cells)
+function Painter:mono(x: number, y: number, text: string, style: PaintStyle, cells?: integer)
   style = style or {}
   text = tostring(text)
   local cw, ch = M.cell.w, M.cell.h
   local x0, y0 = self:origin_x() + x, self:origin_y() + y
   if y0 < self.y - 0.5 or y0 + ch > self.y + self.height + 0.5 then return end
-  local chars = {}
-  for c in text:gmatch("[%z\1-\127\194-\244][\128-\191]*") do chars[#chars + 1] = c end
+  local chars: {string} = {}
+  for one in text:gmatch("[%z\1-\127\194-\244][\128-\191]*") do chars[#chars + 1] = one end
   cells = cells or #chars
   -- Whole cells that fall outside are left out.
   local skip = math.max(0, math.ceil((self.x - x0) / cw - 1e-6))
@@ -262,7 +544,7 @@ end
 --- the font's em in pixels (four staff spaces), `codepoint` the glyph's,
 --- `colour` as for the rest, `font` the font's name (Leland when nil). Left
 --- out when it is wholly outside the painter, by its em.
-function Painter:glyph(x, y, size, codepoint, colour, font)
+function Painter:glyph(x: number, y: number, size: number, codepoint: integer, colour: string, font?: string)
   local x0, y0 = self:origin_x() + x, self:origin_y() + y
   if x0 + size < self.x or x0 - size > self.x + self.width or y0 + size < self.y or y0 - size > self.y + self.height then return end
   self.ops[#self.ops + 1] = { "g", x0, y0, size, codepoint, colour or c.text, font or "Leland" }
@@ -270,7 +552,7 @@ end
 
 --- Where a frontend that cuts the drawing into images may cut it: a
 --- barline at `x`, across the band `y0` to `y1` (a system). Draws nothing.
-function Painter:cut(x, y0, y1)
+function Painter:cut(x: number, y0: number, y1: number)
   local ox, oy = self:origin_x(), self:origin_y()
   self.ops[#self.ops + 1] = { "cut", ox + x, oy + y0, oy + y1 }
 end
@@ -279,16 +561,14 @@ end
 --- "ink", or what moves over it: "selection", "caret", "ghost",
 --- "diagnostic", "playhead"), so a frontend can keep the page and draw the
 --- rest over it. Draws nothing.
-function Painter:layer(name)
+function Painter:layer(name: string)
   self.ops[#self.ops + 1] = { "layer", name }
 end
 
 --- Whether a point of the painter's own coordinates is inside it.
-function Painter:contains(x, y)
+function Painter:contains(x: number, y: number): boolean
   return x >= 0 and y >= 0 and x < self.width and y < self.height
 end
-
-M.Painter = Painter
 
 -- Buttons, and the places the pointer acts on ------------------------------------------
 --
@@ -299,11 +579,11 @@ M.Painter = Painter
 -- window does what a key of the view does, so that the terminal has the
 -- same action.
 
-local Hits = {}
-Hits.__index = Hits
+local HitsMeta = Hits as metatable<Hits>
+HitsMeta.__index = Hits
 
 --- A list of places that the pointer acts on (see `view.hits`).
-function M.hit_list() return setmetatable({ list = {} }, Hits) end
+function M.hit_list(): Hits return setmetatable({ list = {} } as Hits, HitsMeta) end
 
 --- Forget the places of the paint before.
 function Hits:clear() self.list = {} end
@@ -312,15 +592,16 @@ function Hits:clear() self.list = {} end
 --- painter `g`, or of the view with nil. `on` is a function of the event,
 --- for a press, or a table of `down`, `drag`, `up`, `double`, `wheel` and
 --- `right` (a press of the right button). Returns `on`.
-function Hits:add(g, x, y, w, h, on)
-  if type(on) == "function" then on = { down = on } end
-  on.x, on.y, on.w, on.h = (g and g:origin_x() or 0) + x, (g and g:origin_y() or 0) + y, w, h
-  self.list[#self.list + 1] = on
-  return on
+function Hits:add(g: contracts.Painter, x: number, y: number, w: number, h: number, on: HitPlace | function(PointerEvent)): HitPlace
+  local place: HitPlace
+  if on is HitPlace then place = on else place = { down = on } end
+  place.x, place.y, place.w, place.h = (g and g:origin_x() or 0) + x, (g and g:origin_y() or 0) + y, w, h
+  self.list[#self.list + 1] = place
+  return place
 end
 
 --- The place under a point, the one painted last first, or nil.
-function Hits:under(x, y)
+function Hits:under(x: number, y: number): HitPlace
   for i = #self.list, 1, -1 do
     local on = self.list[i]
     if x >= on.x and x < on.x + on.w and y >= on.y and y < on.y + on.h then return on end
@@ -329,7 +610,7 @@ end
 
 --- Give a pointer event to the place under it, or to the place that a drag
 --- started on. True when a place took it.
-function Hits:pointer(e)
+function Hits:pointer(e: PointerEvent): boolean
   local kind = e.kind
   if kind == "move" then
     local d = self.drag
@@ -364,28 +645,28 @@ end
 
 --- Give a pointer event in pixels to a painted view: to its hit list
 --- (`view.hits`) first, then to its `pointer` function.
-function M.view_pointer(view, e)
+function M.view_pointer(view: View, e: PointerEvent)
   if view.hits and view.hits:pointer(e) then return end
   if view.pointer then view:pointer(e) end
 end
 
 --- The width of a line of text in pixels, near enough, at `size` (12).
-function M.text_width(text, size) return api.str_width(text) * (size or 12) * 0.58 end
+function M.text_width(text: string, size?: number): number return api.str_width(text) * (size or 12) * 0.58 end
 
 --- A button: a rounded box with a label, painted with `g` and added to the
 --- hit list `hits` to run `action` (a function of the event, or a table as
 --- `Hits:add` takes) when pressed. `opts`: `width`, `height` (24), `fill`,
 --- `color`, `on` (lit, in `lit` or the selection's color), `size`.
 --- Returns where the next button goes to its right, and the width.
-function M.button(g, hits, x, y, label, action, opts)
+function M.button(g: contracts.Painter, hits: contracts.Hits, x: number, y: number, label: string, action: HitPlace | function(PointerEvent), opts?: ButtonOptions): number, number
   opts = opts or {}
-  local c = M.palette
+  local p = M.palette
   local w, h = opts.width or (M.text_width(label, opts.size) + 22), opts.height or 24
-  local fill = opts.on and (opts.lit or c.select) or opts.fill or c.control
+  local fill = opts.on and (opts.lit or p.select) or opts.fill or p.control
   g:rect(x, y, w, h, { fill = fill, radius = 5 })
   local size = opts.size or 12
   g:text(x + w / 2, y + (h - size) / 2 - 1, label,
-    { color = opts.on and c.surface or opts.color or c.text, bold = opts.on, align = "center", width = w, size = opts.size })
+    { color = opts.on and p.surface or opts.color or p.text, bold = opts.on, align = "center", width = w, size = opts.size })
   if hits and action then hits:add(g, x, y, w, h, action).label = label end
   return x + w + 8, w
 end
@@ -395,14 +676,14 @@ end
 -- pane it leaves (the one with the keyboard, else the one it showed in
 -- last). So the window of its own keeps its own clip and cursor.
 -- Returns it, and the pane it leaves (nil for one it had).
-function own_window(name)
+local function own_window(name: string): Window, Window
   local had = M.open_views[name] and M.open_views[name].win
   if had then return had end
-  local L = paw.layout
+  local L = (paw.layout as Layout)
   -- A view with one state, or a buffer type, needs none.
   if not L.keepers[name] or L.types[name] then return nil end
   local here = L.current()
-  local from = here and here.view == name and here or L.find(paw.ui.layout, name, true)
+  local from = here and here.view == name and here or L.find((paw.ui as Ui).layout, name, true)
   return L.loose(name, from), from
 end
 
@@ -412,14 +693,14 @@ end
 --- or with `window = true`, it is in a separate window. A view that is
 --- already in a separate window stays there. `opts`: `title`, `width`,
 --- `height` (the start size of a window), `window`.
-function M.open(name, opts)
+function M.open(name: string, opts?: OpenOptions)
   local view = paw.ui.views[name]
   if not (view and view.paint) then error("no view `" .. tostring(name) .. "` that paints", 2) end
   opts = opts or {}
   M.titles[name] = opts.title or M.titles[name]
-  local L = paw.layout
-  if not opts.window and not M.open_views[name] and (L.homes[name] or L.find(paw.ui.layout, name)) then
-    paw.ui.focus(name)
+  local L = (paw.layout as Layout)
+  if not opts.window and not M.open_views[name] and (L.homes[name] or L.find((paw.ui as Ui).layout, name)) then
+    (paw.ui as Ui).focus(name)
     return
   end
   -- Taking the keyboard may have shown its place in the layout too.
@@ -435,7 +716,7 @@ function M.open(name, opts)
     M.inside = name
     if paw.ui.focused ~= name then
       paw.ui.focused = name
-      paw.emit("view.focused", { view = name })
+      events.emit("view.focused", { view = name })
     end
   end
   api.ui_redraw()
@@ -445,9 +726,9 @@ end
 --- window, or docked where the screen of the seat is the main area of a
 --- frontend. That is a frontend that told its size to `paw.panes`, or the
 --- frontend of the instance when there is no terminal.
-function M.shown(name)
+function M.shown(name: string): boolean
   if M.open_views[name] then return true end
-  return paw.ui.visible(name) and (paw.panes.cells() ~= nil or not api.ui_attached())
+  return (paw.ui as Ui).visible(name) and (paw.panes.cells() ~= nil or not api.ui_attached())
 end
 
 --- A view that will show in a separate window leaves the layout, so it does
@@ -457,8 +738,8 @@ end
 --- other views) also stays where it is. The separate window is a second
 --- view of it. A view with a state for each window leaves only the pane
 --- `pane` that it goes out of: its other windows stay.
-function M.leave(name, pane)
-  local L = paw.layout
+function M.leave(name: string, pane?: Window): integer
+  local L = (paw.layout as Layout)
   local here, t = L.current(), L.tab()
   if paw.panes.stays[name] then return here and here.id end
   -- Where the view had the keyboard, the window before it gets it back.
@@ -488,22 +769,22 @@ end
 --- Give the keyboard back to the main window from a view in a separate
 --- window. It goes to the window that had it before the view went there,
 --- else to the current window of the tab.
-function M.back(name)
+function M.back(name: string)
   M.inside = nil
   local window = M.open_views[name]
-  local L = paw.layout
-  local win = window and window.back and L.find_id(paw.ui.layout, window.back)
+  local L = (paw.layout as Layout)
+  local win = window and window.back and L.find_id((paw.ui as Ui).layout, window.back)
   if not (win and not win.hidden) then win = L.current() end
   if win then L.enter(win) end
 end
 
 --- Give a view in a window the keyboard, as a click in it does.
-local function focus(name)
+local function focus(name: string)
   if M.open_views[name] and not paw.ui.float then M.inside = name end
   if paw.ui.focused ~= name and not paw.ui.float then
     if paw.keymap.mode == "x" then paw.keymap.set_mode("n") end
     paw.ui.focused = name
-    paw.emit("view.focused", { view = name })
+    events.emit("view.focused", { view = name })
   end
 end
 
@@ -517,14 +798,17 @@ M.focus = focus
 --- over the views of the terminal moves into the window. `opts`: `title`,
 --- `width`, `height` (in pixels).
 ---   paw.canvas.open_view("undotree")
-function M.open_view(name, opts)
+function M.open_view(name?: string, opts?: OpenOptions)
   name = name or paw.ui.focused
   local view = paw.ui.views[name]
   if not view then error("no view `" .. tostring(name) .. "`", 2) end
-  if view.paint then return M.open(name, paw.util.merge(opts or {}, { window = true })) end
+  if view.paint then
+    opts = opts or {}
+    return M.open(name, { title = opts.title, width = opts.width, height = opts.height, window = true })
+  end
   opts = opts or {}
   local float = paw.ui.float and paw.ui.float.name == name and paw.ui.float
-  if float then paw.ui.close() end
+  if float then (paw.ui as Ui).close() end
   local from = M.open_views[name] and M.open_views[name].from
   local win, pane = own_window(name)
   local back = M.open_views[name] and M.open_views[name].back or M.leave(name, pane)
@@ -543,7 +827,7 @@ end
 -- Views not offered: parts of the screen, views the graphical frontend
 -- shows in its own way, and pages that are opened with something to show.
 -- `:view.window` still opens any of them.
-local not_windows = {
+local not_windows: {string:boolean} = {
   status = true, cmdline = true, arrange = true, mixer = true, pianoroll = true, devices = true,
   help = true, pager = true, pick = true,
 }
@@ -552,25 +836,26 @@ local not_windows = {
 --- keyboard, `{ name, title }` each, by title. A view keeps itself off the
 --- list with `window = false`. A view with a painted twin (`painted = "name"`
 --- of a view that has `paint`) is offered as that one.
-function M.openable()
-  local out = {}
+function M.openable(): {Openable}
+  local out: {Openable} = {}
   for name, view in pairs(paw.ui.views) do
     if view.focusable ~= false and view.window ~= false and not not_windows[name] then
       local twin = view.painted and paw.ui.views[view.painted]
       out[#out + 1] = { name = twin and view.painted or name, title = view.title or name }
     end
   end
-  table.sort(out, function(a, b) return a.title:lower() < b.title:lower() end)
+  table.sort(out, function(a: Openable, b: Openable): boolean return a.title:lower() < b.title:lower() end)
   return out
 end
 
 --- Close the separate window of a view. The keyboard returns to the main
 --- window, where it was before. For a view docked in the layout, its window
 --- there closes, as `:close` does.
-function M.close(name)
+function M.close(name: string)
   if not M.open_views[name] then
-    local win = paw.layout.find(paw.ui.layout, name)
-    if win and not win.hidden then paw.layout.close(win) end
+    local L = (paw.layout as Layout)
+    local win = L.find((paw.ui as Ui).layout, name)
+    if win and not win.hidden then L.close(win) end
     return
   end
   if paw.ui.focused == name and not paw.ui.float then M.back(name) end
@@ -585,22 +870,22 @@ end
 --- It goes where it was before it left the layout. If not, it goes where it
 --- docks. If not, it goes in a window split from the current window. paw
 --- does this when its separate window closes. `Ctrl-w d` in it does the same.
-function M.dock(name)
+function M.dock(name?: string)
   name = name or paw.ui.focused
   local window = M.open_views[name]
   if not window then return end
   M.open_views[name] = nil
   if M.inside == name then M.inside = nil end
-  local L = paw.layout
+  local L = (paw.layout as Layout)
   -- The pane takes what the window of its own showed: its clip, its cursor.
-  local function take(win)
+  local function take(win: Window)
     if win and window.win and not paw.panes.stays[name] then L.hand_over(window.win, win) end
   end
-  if paw.panes.stays[name] then return paw.ui.focus(name) end
+  if paw.panes.stays[name] then return (paw.ui as Ui).focus(name) end
   -- A view with a state for each window goes back to the pane it left,
   -- if that is still its closed place, else into a new window.
   if window.win then
-    local place = window.from and L.find_id(paw.ui.layout, window.from)
+    local place = window.from and L.find_id((paw.ui as Ui).layout, window.from)
     local win = place and place.view == name and place
     if win then
       win.hidden = false
@@ -611,7 +896,7 @@ function M.dock(name)
     L.enter(win)
     return
   end
-  if L.reveal(name) then return paw.ui.focus(name) end
+  if L.reveal(name) then return (paw.ui as Ui).focus(name) end
   -- A type with a buffer for each target shows the buffer it showed.
   local def = L.types[name]
   local loose = def and def.window and def.window()
@@ -624,15 +909,15 @@ end
 
 --- The windows that are open, for a frontend: `{ name, title, width, height, cells }`
 --- each, `cells` for a view drawn as the terminal draws it.
-function M.windows()
-  local out = {}
+function M.windows(): {WindowInfo}
+  local out: {WindowInfo} = {}
   for name, w in pairs(M.open_views) do
     local view = paw.ui.views[name]
     if view and (view.paint or w.cells) then
       out[#out + 1] = { name = name, title = w.title, width = w.width, height = w.height, cells = w.cells or false }
     end
   end
-  table.sort(out, function(a, b) return a.name < b.name end)
+  table.sort(out, function(a: WindowInfo, b: WindowInfo): boolean return a.name < b.name end)
   return out
 end
 
@@ -646,7 +931,7 @@ end
 --- keys of the view. This is not so when the frontend draws a status line
 --- there itself (`opts.status`). paw sends the windows of a graphical
 --- frontend as scenes (`paw.ui.render_scene`).
-function M.paint_cells(name, window, width, height, opts)
+function M.paint_cells(name: string, window: OpenView, width: number, height: number, opts: PaintOptions): Drawing
   local cell = M.cell
   window.cell = cell
   -- Nothing under the view in a window that has a status line of its own.
@@ -659,19 +944,20 @@ function M.paint_cells(name, window, width, height, opts)
     return { title = window.title, same = true }
   end
   local focused = paw.ui.focused == name
+  local u = (paw.ui as Ui)
   -- The strips the view keeps under its cells (`buf:strip`), drawn here
   -- between the cells' backgrounds and their text.
-  paw.ui.pictures = {}
+  u.pictures = {}
   -- The view draws with the state of its window of its own.
-  paw.ui.view_win = window.win
+  u.view_win = window.win
   local ok, snap = pcall(api.ui_view_snapshot, name, cols, bare and rows or rows - 1)
-  paw.ui.view_win = nil
-  paw.layout.settle()
-  local pictures = paw.ui.pictures
-  paw.ui.pictures = nil
+  u.view_win = nil
+  (paw.layout as Layout).settle()
+  local pictures = u.pictures
+  u.pictures = nil
   if not ok then error(snap, 0) end
-  local ops = { { "r", 0, 0, width, height, snap.bg, "", 1, 0 } }
-  local function add(lines, top, layer)
+  local ops: {CanvasOp} = { { "r", 0, 0, width, height, snap.bg, "", 1, 0 } }
+  local function add(lines: {{types.CellRun}}, top: integer, layer?: string)
     for r, row in ipairs(lines) do
       local y = (top + r - 1) * cell.h
       for _, run in ipairs(row) do
@@ -680,7 +966,7 @@ function M.paint_cells(name, window, width, height, opts)
           if back ~= "" then ops[#ops + 1] = { "r", run.x * cell.w, y, run.w * cell.w, cell.h, back, "", 1, 0 } end
         -- Spaces on the window's own background need nothing drawn.
         elseif run.text:find("[^ ]") or (back ~= "" and layer ~= "text") or band(run.attrs, 8 + 32) ~= 0 then
-          local chars = {}
+          local chars: {string} = {}
           for ch in run.text:gmatch("[%z\1-\127\194-\244][\128-\191]*") do chars[#chars + 1] = ch end
           add_run(ops, run.x * cell.w, y, run.w * cell.w, cell.h, chars, run.fg, layer == "text" and "" or back, run.attrs)
         end
@@ -692,16 +978,16 @@ function M.paint_cells(name, window, width, height, opts)
   else
     add(snap.rows, 0, "back")
     for _, p in ipairs(pictures) do
-      local px = { w = p.whole_w * cell.w, h = p.whole_h * cell.h, cell = { w = cell.w, h = cell.h },
+      local px: Pixels = { w = p.whole_w * cell.w, h = p.whole_h * cell.h, cell = { w = cell.w, h = cell.h },
         view = { x = p.left * cell.w, y = p.top * cell.h, w = p.w * cell.w, h = p.h * cell.h } }
       local g = painter(ops, p.x * cell.w, p.y * cell.h, p.w * cell.w, p.h * cell.h)
       g.ox, g.oy = (p.x - p.left) * cell.w, (p.y - p.top) * cell.h
-      local drawn, err = xpcall(p.draw, debug.traceback, g, px)
+      local drawn, err = xpcall(p.draw, debug.traceback, g, px) as (boolean, string)
       if not drawn then api.log("a strip failed to draw: " .. tostring(err)) end
     end
     add(snap.rows, 0, "text")
   end
-  local cursor = snap.cursor and { snap.cursor.x, snap.cursor.y }
+  local cursor: {number} = snap.cursor and { snap.cursor.x, snap.cursor.y }
   if focused and not bare then
     -- The line under the view: a prompt, a message, or the view's keys.
     local line = api.ui_view_snapshot("cmdline", cols, 1)
@@ -711,8 +997,8 @@ function M.paint_cells(name, window, width, height, opts)
   if cursor then
     ops[#ops + 1] = { "r", cursor[1] * cell.w, cursor[2] * cell.h, 2, cell.h, snap.fg, "", 1, 0 }
   end
-  local parts = {}
-  for i, op in ipairs(ops) do parts[i] = table.concat(op, "\1") end
+  local parts: {string} = {}
+  for i, op in ipairs(ops) do parts[i] = table.concat(op as {string}, "\1") end
   local key = table.concat(parts, "\2")
   local same = key == window.key and not opts.fresh
   window.key, window.drawn, window.cols, window.rows, window.at = key, redraws, cols, rows, now
@@ -720,25 +1006,27 @@ function M.paint_cells(name, window, width, height, opts)
   return { title = window.title, ops = ops }
 end
 
-local outlines = {}
+local outlines: {string:{string | number} | boolean} = {}
 --- A music font's glyph as commands and numbers in staff spaces from its
 --- origin, y down, from the fonts built into the kernel, or nil.
-function M.glyph_outline(font, codepoint)
+function M.glyph_outline(font: string, codepoint: integer): {string | number}
   if type(codepoint) ~= "number" then return nil end
   local key = (font or "") .. ":" .. codepoint
   if outlines[key] == nil then outlines[key] = api.smufl_outline(font, codepoint) or false end
-  return outlines[key] or nil
+  local outline = outlines[key]
+  return outline is {string | number} and outline or nil
 end
 
 --- A glyph op as a path, from its outline (`M.glyph_outline`), or nil
 --- when there is none.
-local function glyph_path(op)
-  local outline = M.glyph_outline(op[7], op[5])
+local function glyph_path(op: CanvasOp): CanvasOp
+  local outline = M.glyph_outline(op[7] as string, op[5] as integer)
   if not outline then return nil end
-  local x, y, scale = op[2], op[3], op[4] / 4
-  local out, axis = {}, 0
+  local x, y, scale = op[2] as number, op[3] as number, (op[4] as number) / 4
+  local out: {string} = {}
+  local axis = 0
   for i, v in ipairs(outline) do
-    if type(v) == "string" then
+    if v is string then
       out[i] = v
       axis = 0
     else
@@ -751,8 +1039,8 @@ end
 
 --- What a frontend that does not draw glyphs is given: each glyph as a
 --- path, and no markers.
-local function without_glyphs(ops)
-  local out = {}
+local function without_glyphs(ops: {CanvasOp}): {CanvasOp}
+  local out: {CanvasOp} = {}
   for _, op in ipairs(ops) do
     local kind = op[1]
     if kind == "g" then
@@ -767,7 +1055,7 @@ end
 --- The status line and the command line, as rows of runs at `y`: under a
 --- view that paints in a window of its own, which the main window's would
 --- otherwise be out of sight of (the mode, a prompt typed there, messages).
-local function bars(ops, width, y)
+local function bars(ops: {CanvasOp}, width: number, y: number)
   local cell = M.cell
   local cols = math.max(1, math.floor(width / cell.w))
   for i, name in ipairs({ "status", "cmdline" }) do
@@ -775,7 +1063,7 @@ local function bars(ops, width, y)
     local top = y + (i - 1) * cell.h
     ops[#ops + 1] = { "r", 0, top, width, cell.h, snap.bg, "", 1, 0 }
     for _, run in ipairs(snap.rows[1] or {}) do
-      local chars = {}
+      local chars: {string} = {}
       for ch in run.text:gmatch("[%z\1-\127\194-\244][\128-\191]*") do chars[#chars + 1] = ch end
       add_run(ops, run.x * cell.w, top, run.w * cell.w, cell.h, chars, run.fg, run.bg == snap.bg and "" or run.bg, run.attrs)
     end
@@ -810,7 +1098,7 @@ end
 --- function of the view gets these in its context, as `cell`, `surface`,
 --- `fg` and `bg`. A view that draws cells gives `{ same = true }` when
 --- nothing changes.
-function M.paint(name, width, height, opts)
+function M.paint(name: string, width: number, height: number, opts?: PaintOptions): Drawing
   local view = paw.ui.views[name]
   local window = M.open_views[name]
   opts = opts or {}
@@ -822,8 +1110,8 @@ function M.paint(name, width, height, opts)
   end
   if not view then return nil end
   -- A view in a window of its own paints with that window's state.
-  if window and window.win then paw.layout.bind(window.win) end
-  local ops = {}
+  if window and window.win then (paw.layout as Layout).bind(window.win) end
+  local ops: {CanvasOp} = {}
   -- In a window of its own the view has the two lines of the screen's
   -- bottom under it, when the frontend asks; a pane's frontend has them.
   local under = window and opts.bars and not opts.surface and 2 * M.cell.h or 0
@@ -835,7 +1123,7 @@ function M.paint(name, width, height, opts)
     width = width, height = height, focused = paw.ui.focused == name,
     cell = opts.surface and opts.cell or M.cell, surface = opts.surface or false, fg = colors.fg, bg = colors.bg,
     marks = opts.marks,
-  })
+  } as contracts.PaintContext) as (boolean, string)
   if not ok then
     -- Show the failure where the view would have been.
     ops = {}
@@ -843,7 +1131,7 @@ function M.paint(name, width, height, opts)
     g:rect(0, 0, width, height, { fill = c.surface })
     local row = 0
     for line in tostring(err):gmatch("[^\n]+") do
-      g:text(12, 12 + row * 16, line:gsub("\t", "  "), { color = c.error })
+      g:text(12, 12 + row * 16, (line:gsub("\t", "  ")), { color = c.error })
       row = row + 1
     end
   end
@@ -856,15 +1144,15 @@ end
 --- pixels: what a strip shows (`buf:strip`). `draw(g, px)` gets the painter
 --- and `px`. If it fails, the error shows where it would draw.
 ---   local ops = paw.canvas.draw(function(g, px) g:rect(0, 0, px.w, 2, { fill = "#ffffff" }) end, { w = 80, h = 40 })
-function M.draw(draw, px)
-  local ops = {}
-  local ok, err = xpcall(draw, debug.traceback, painter(ops, 0, 0, px.w, px.h), px)
+function M.draw(draw: function(g: contracts.Painter, px: Pixels), px: Pixels): {CanvasOp}
+  local ops: {CanvasOp} = {}
+  local ok, err = xpcall(draw, debug.traceback, painter(ops, 0, 0, px.w, px.h), px) as (boolean, string)
   if not ok then
     ops = {}
     local g = painter(ops, 0, 0, px.w, px.h)
     local row = 0
     for line in tostring(err):gmatch("[^\n]+") do
-      g:text(4 + (px.view and px.view.x or 0), 2 + (px.view and px.view.y or 0) + row * 14, line:gsub("\t", "  "), { color = c.error })
+      g:text(4 + (px.view and px.view.x or 0), 2 + (px.view and px.view.y or 0) + row * 14, (line:gsub("\t", "  ")), { color = c.error })
       row = row + 1
     end
   end
@@ -875,7 +1163,7 @@ end
 --- a view. It is in cells, with `kind` down, up, drag, `scroll_up` and other
 --- kinds, `button`, and `mods` ("C", "A", "S"). Nil for an event that the terminal
 --- cannot tell (the second click of a double click comes as down and up).
-function M.cell_event(window, event, bare)
+function M.cell_event(window: OpenView, event: PointerEvent, bare?: boolean): MouseEvent
   local cell = window.cell or M.cell
   local kind = event.kind
   if kind == "move" then
@@ -906,16 +1194,16 @@ end
 --- Pass a pointer event from a frontend to a view, which then has the
 --- keyboard. It goes to its `pointer` function in pixels. For a view in
 --- cells, it goes to its `on_mouse` function, as from the terminal.
-function M.pointer(name, event)
+function M.pointer(name: string, event: PointerEvent)
   local view = paw.ui.views[name]
   if not view then return end
   if event.kind == "down" then focus(name) end
   local window = M.open_views[name]
   -- The view takes the pointer with the state of its window of its own.
-  if window and window.win then paw.layout.bind(window.win) end
+  if window and window.win then (paw.layout as Layout).bind(window.win) end
   if not view.paint and window and window.cells then
     local e = M.cell_event(window, event)
-    if e and view.on_mouse then paw.limit.named("the mouse", paw.mouse.to_view, view, e) end
+    if e and view.on_mouse then paw.limit.named("the mouse", function(): boolean return paw.mouse.to_view(view, e) end) end
   else
     M.view_pointer(view, event)
   end
@@ -927,7 +1215,7 @@ end
 --- In its window, a view can give a key its own meaning, as other programs
 --- do (`view.window_keys`, for example Ctrl-A to select all notes). The
 --- terminal keeps the one rule of all views.
-function M.key(name, keys)
+function M.key(name: string, keys: string)
   local view = paw.ui.views[name]
   if view then focus(name) end
   paw.keymap.feed(view and view.window_keys and view.window_keys[keys] or keys)

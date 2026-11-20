@@ -133,7 +133,7 @@ M.parent_of = parent_of
 M.keepers = {}    -- view name -> { { key, get, set, fresh } }
 local bound = {}  -- view name -> the window whose state is in the view's table now
 -- Windows that are in no tab: a view in a window of its own in a graphical
--- frontend (paw/canvas.lua). Each has a state of its own, as a window of a
+-- frontend (paw/canvas.tl). Each has a state of its own, as a window of a
 -- tab has.
 local loose = setmetatable({}, { __mode = "k" })
 paw.seats.keep("layout.bound", function() return bound end, function(b) bound = b end, function() return {} end)

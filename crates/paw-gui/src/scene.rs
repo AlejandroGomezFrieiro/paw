@@ -9,7 +9,7 @@
 //! by the live values (`scene.live`). The window tells the kernel how big
 //! each window is, in cells (`scene.area`), and passes the pointer on in
 //! the same units (`scene.input`), where the view's hit regions give it its
-//! meaning. See runtime/lua/paw/scene.lua and docs/reference/protocol.md.
+//! meaning. See runtime/lua/paw/scene.tl and docs/reference/protocol.md.
 
 use std::collections::{HashMap, HashSet};
 
