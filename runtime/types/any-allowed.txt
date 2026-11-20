@@ -369,7 +369,6 @@ paw.query 1 written in Lua: typed when its module is ported to Teal
 paw.recent 1 written in Lua: typed when its module is ported to Teal
 paw.reconnect 1 written in Lua: typed when its module is ported to Teal
 paw.redo 1 written in Lua: typed when its module is ported to Teal
-paw.regex 1 written in Lua: typed when its module is ported to Teal
 paw.remote 1 written in Lua: typed when its module is ported to Teal
 paw.render 1 written in Lua: typed when its module is ported to Teal
 paw.render_cancel 1 written in Lua: typed when its module is ported to Teal

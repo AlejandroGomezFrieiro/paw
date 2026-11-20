@@ -9,6 +9,7 @@ local type BytesModule = require("paw.bytes")
 local type HarmonyReadModule = require("paw.harmony.read")
 local type HarmonyVoiceModule = require("paw.harmony.voice")
 local type MusicModule = require("paw.music")
+local type RegexModule = require("paw.regex")
 
 global record paw
    api: Api
@@ -151,7 +152,7 @@ global record paw
    recent: Untyped
    reconnect: Untyped
    redo: Untyped
-   regex: Untyped
+   regex: RegexModule
    remote: Untyped
    render: Untyped
    render_cancel: Untyped
