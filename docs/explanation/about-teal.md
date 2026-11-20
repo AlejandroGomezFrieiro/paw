@@ -184,7 +184,7 @@ work of one agent. The areas of one wave do not depend on each other.
 | Done | Contracts, Rust side | the events of the kernel as a Rust type, with a descriptor and a record for each; the setters take a table of changes (`track_set(id, patch)`), and `device_find_all` is separate from `device_find`; the props of the roles that the window paints as Rust types: 13 fewer `any` entries | 45 events, 7 functions, 21 roles | none |
 | Done | Contracts, Lua side | `contracts.tl`, the `@type` lines of the modules in Lua (`partial.d.tl`) and the types of the options (`opts.d.tl`): 880 lines of Teal, 12 fewer `paw.Untyped` entries | 10 functions that register | wave 1 |
 | Done | The project | `objects`, `cursor`, `edit`, `address`, `tempo`, `tempolane`, `markers`, `locators`: 4,408 lines of Teal, 24 fewer entries of `any-allowed.txt`, and no `any` or `paw.Untyped` in these modules | 3,100 | wave 1 |
-| 2 | Music on the project | `harmony`, `structure`, `takes`, `groups`, `vca`, `lanes`, `curves`, `audition` | 3,100 | wave 1 |
+| Done | Music on the project | `harmony`, `structure`, `takes`, `groups`, `vca`, `lanes`, `curves`, `audition`: 3,859 lines of Teal, 42 fewer entries on the allow-list | 3,000 | wave 1 |
 | 3 | Queries and lists | `query`, `grep`, `qf`, `diagnostic`, `complete`, `snippet` | 3,900 | wave 2 |
 | 3 | Drawing | `buf`, `draw`, `canvas`, `roles`, `scene`, `theme`, `plot`, `statusline` | 4,100 | wave 2 |
 | 4 | Windows | `ui`, `layout`, `panes`, `mouse`, the menus | 4,500 | wave 3 |
@@ -311,5 +311,35 @@ entries.
   them now. A view's locator is a contract too: `paw.contracts.Locator`.
 - `ipairs(clip:notes())` gave `ipairs` two values. Teal wants the first
   only, in parentheses. What the code does is the same.
+
+## What the checker found in the music on the project
+
+- `value is integer` stopped with an error, as in the project (see
+  above). Now the kernel gives the Lua state a `math.type`, so the test
+  works. These ports test for the table all the same: a lane is
+  `integer | types.Lane`, and the port tests `lane is types.Lane`.
+- A table of changes cannot hold nil. When `paw.groups` sends a track to
+  the master, the output is nil, so the port uses the key form
+  (`track_set(id, "output", nil)`) there.
+- `paw.groups.rows` gives the tracks, or with `{ lanes = true }` the rows
+  of the lanes too: two types for one function. Teal sees only the form
+  without options, and calls `paw.lanes.lines()` for the rows with lanes.
+  Lua keeps both forms.
+- `paw.api.clip_notes` gives two values. `ipairs` of the call gets both,
+  and Teal finds the extra argument. The ports keep the list in a variable
+  first.
+- `track_get(id, "meta")` and `project_get("edits")` give one entry and are
+  quicker than the whole table. Teal does not see these forms. The ports
+  keep them, with a cast of the function, because `paw.groups.rows` and
+  `paw.harmony.fresh` run each time that paw draws.
+- The function that `paw.command` gets must give a `commands.Result`. A
+  command in Teal that gives nothing declares `: commands.Result`.
+- `paw.harmony.read` gives its types now (`read.Note`, `read.Chord`), and
+  `read.Note` is an interface, so the notes of the song (`paw.harmony.notes`,
+  with their track and clip) go to `read.chords` with no cast.
+  `tools/apidoc.lua` declares `paw.harmony.read` and `paw.harmony.voice` in
+  the record of `paw.harmony`.
+- `paw.lanes.changed` and `paw.harmony.changed` are the descriptors of
+  `lanes.changed` and `harmony.changed`.
 - The checker found no error that changed what the code does: the tests
   pass with no change.

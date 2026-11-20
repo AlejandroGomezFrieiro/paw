@@ -109,7 +109,7 @@ loops.
 | `paw.frontend.take_preview(clip, n, points)` | The drawing of a take that does not play. |
 | `paw.api.media_peaks(file, offset, seconds, points)` | The waveform of a part of a file. |
 
-- The takes are in `clip.meta.takes` (`runtime/lua/paw/takes.lua` shows
+- The takes are in `clip.meta.takes` (`runtime/lua/paw/takes.tl` shows
   the format).
 - The files of takes that do not play count as files of the project. paw
   moves them into `media` at the first save, and looks for them as for

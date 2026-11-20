@@ -10,16 +10,19 @@ local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type AddressModule = require("paw.address")
 local type AttrModule = require("paw.attr")
+local type AuditionModule = require("paw.audition")
 local type BytesModule = require("paw.bytes")
 local type CommandsModule = require("paw.commands")
 local type ContractsModule = require("paw.contracts")
 local type CursorModule = require("paw.cursor")
+local type CurvesModule = require("paw.curves")
 local type EditModule = require("paw.edit")
 local type EventsModule = require("paw.events")
 local type FormatsModule = require("paw.formats")
-local type HarmonyReadModule = require("paw.harmony.read")
-local type HarmonyVoiceModule = require("paw.harmony.voice")
+local type GroupsModule = require("paw.groups")
+local type HarmonyModule = require("paw.harmony")
 local type HooksModule = require("paw.hooks")
+local type LanesModule = require("paw.lanes")
 local type LangModule = require("paw.lang")
 local type LimitModule = require("paw.limit")
 local type MarkdownModule = require("paw.markdown")
@@ -30,61 +33,23 @@ local type ObjectsModule = require("paw.objects")
 local type OptionModule = require("paw.options")
 local type RegexModule = require("paw.regex")
 local type SeatsModule = require("paw.seats")
+local type TakesModule = require("paw.takes")
 local type TempoModule = require("paw.tempo")
 local type TempolaneModule = require("paw.tempolane")
 local type UtilModule = require("paw.util")
+local type VcaModule = require("paw.vca")
 local type XmlModule = require("paw.xml")
 local type ZipModule = require("paw.zip")
 
 global record paw
    api: Api
    type Untyped = UntypedLua
-   record harmony
-      at: Untyped
-      builtin: Untyped
-      chord_name: Untyped
-      chord_roman: Untyped
-      chords: Untyped
-      default_range: Untyped
-      degree: Untyped
-      degree_pitch: Untyped
-      draw: Untyped
-      fresh: Untyped
-      in_key: Untyped
-      invalidate: Untyped
-      is_drums: Untyped
-      key: Untyped
-      key_name: Untyped
-      keys: Untyped
-      label: Untyped
-      next: Untyped
-      notes: Untyped
-      parse_chord: Untyped
-      parse_key: Untyped
-      pc_name: Untyped
-      pitch_class: Untyped
-      prev: Untyped
-      project_key: Untyped
-      provide: Untyped
-      provider: Untyped
-      range: Untyped
-      ranges: Untyped
-      read: HarmonyReadModule
-      scale_names: Untyped
-      scales: Untyped
-      schedule: Untyped
-      set_key: Untyped
-      snap: Untyped
-      step: Untyped
-      tones: Untyped
-      voice: HarmonyVoiceModule
-   end
    add_track: function(opts?: ObjectsModule.TrackInput): ObjectsModule.Track
    address: AddressModule
    annotation: Untyped
    attr: AttrModule
    audio: Untyped
-   audition: Untyped
+   audition: AuditionModule
    autosave: Untyped
    bounce: Untyped
    buf: Untyped
@@ -100,7 +65,7 @@ global record paw
    contracts: ContractsModule
    controls: Untyped
    cursor: CursorModule
-   curves: Untyped
+   curves: CurvesModule
    defer: function(fn: function(), ms?: number): integer
    device: function(id: integer): ObjectsModule.Device
    device_rows: Untyped
@@ -122,7 +87,8 @@ global record paw
    frontend: Partial.Frontend
    fx: Untyped
    grep: Partial.Grep
-   groups: Untyped
+   groups: GroupsModule
+   harmony: HarmonyModule
    health: Partial.Health
    help: Untyped
    hooks: HooksModule
@@ -134,7 +100,7 @@ global record paw
    keymap: Partial.Keymap
    keyrule: Untyped
    lane: function(id: integer): ObjectsModule.Lane
-   lanes: Untyped
+   lanes: LanesModule
    lang: LangModule
    layout: Partial.Layout
    layouts: Untyped
@@ -195,7 +161,7 @@ global record paw
    stems: Untyped
    stretch: Untyped
    tab: Untyped
-   takes: Untyped
+   takes: TakesModule
    tempo: TempoModule
    tempolane: TempolaneModule
    textbuf: Partial.Textbuf
@@ -214,7 +180,7 @@ global record paw
    ui: Partial.Ui
    undo: function(): boolean
    util: UtilModule
-   vca: Untyped
+   vca: VcaModule
    version: Untyped
    wait: function(ms: number)
    win: Untyped

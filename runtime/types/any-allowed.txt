@@ -19,7 +19,6 @@ paw.api.state_set 1 truly any value a script keeps over a reload
 paw.api.toml_decode 1 truly any data a TOML text holds
 paw.api.toml_encode 1 truly any Lua value that TOML can hold
 paw.audio 1 written in Lua: typed when its module is ported to Teal
-paw.audition 1 written in Lua: typed when its module is ported to Teal
 paw.autosave 1 written in Lua: typed when its module is ported to Teal
 paw.bounce 1 written in Lua: typed when its module is ported to Teal
 paw.buf 1 written in Lua: typed when its module is ported to Teal
@@ -27,7 +26,6 @@ paw.canvas 1 written in Lua: typed when its module is ported to Teal
 paw.command 1 written in Lua: typed when its module is ported to Teal
 paw.complete 1 written in Lua: typed when its module is ported to Teal
 paw.controls 1 written in Lua: typed when its module is ported to Teal
-paw.curves 1 written in Lua: typed when its module is ported to Teal
 paw.device_rows 1 written in Lua: typed when its module is ported to Teal
 paw.diagnostic 1 written in Lua: typed when its module is ported to Teal
 paw.draw 1 written in Lua: typed when its module is ported to Teal
@@ -39,43 +37,6 @@ paw.freeze 1 written in Lua: typed when its module is ported to Teal
 paw.frontend 1 written in Lua: typed when its module is ported to Teal
 paw.fx 1 written in Lua: typed when its module is ported to Teal
 paw.grep 1 written in Lua: typed when its module is ported to Teal
-paw.groups 1 written in Lua: typed when its module is ported to Teal
-paw.harmony.at 1 written in Lua: typed when its module is ported to Teal
-paw.harmony.builtin 1 written in Lua: typed when its module is ported to Teal
-paw.harmony.chord_name 1 written in Lua: typed when its module is ported to Teal
-paw.harmony.chord_roman 1 written in Lua: typed when its module is ported to Teal
-paw.harmony.chords 1 written in Lua: typed when its module is ported to Teal
-paw.harmony.default_range 1 written in Lua: typed when its module is ported to Teal
-paw.harmony.degree 1 written in Lua: typed when its module is ported to Teal
-paw.harmony.degree_pitch 1 written in Lua: typed when its module is ported to Teal
-paw.harmony.draw 1 written in Lua: typed when its module is ported to Teal
-paw.harmony.fresh 1 written in Lua: typed when its module is ported to Teal
-paw.harmony.in_key 1 written in Lua: typed when its module is ported to Teal
-paw.harmony.invalidate 1 written in Lua: typed when its module is ported to Teal
-paw.harmony.is_drums 1 written in Lua: typed when its module is ported to Teal
-paw.harmony.key 1 written in Lua: typed when its module is ported to Teal
-paw.harmony.key_name 1 written in Lua: typed when its module is ported to Teal
-paw.harmony.keys 1 written in Lua: typed when its module is ported to Teal
-paw.harmony.label 1 written in Lua: typed when its module is ported to Teal
-paw.harmony.next 1 written in Lua: typed when its module is ported to Teal
-paw.harmony.notes 1 written in Lua: typed when its module is ported to Teal
-paw.harmony.parse_chord 1 written in Lua: typed when its module is ported to Teal
-paw.harmony.parse_key 1 written in Lua: typed when its module is ported to Teal
-paw.harmony.pc_name 1 written in Lua: typed when its module is ported to Teal
-paw.harmony.pitch_class 1 written in Lua: typed when its module is ported to Teal
-paw.harmony.prev 1 written in Lua: typed when its module is ported to Teal
-paw.harmony.project_key 1 written in Lua: typed when its module is ported to Teal
-paw.harmony.provide 1 written in Lua: typed when its module is ported to Teal
-paw.harmony.provider 1 written in Lua: typed when its module is ported to Teal
-paw.harmony.range 1 written in Lua: typed when its module is ported to Teal
-paw.harmony.ranges 1 written in Lua: typed when its module is ported to Teal
-paw.harmony.scale_names 1 written in Lua: typed when its module is ported to Teal
-paw.harmony.scales 1 written in Lua: typed when its module is ported to Teal
-paw.harmony.schedule 1 written in Lua: typed when its module is ported to Teal
-paw.harmony.set_key 1 written in Lua: typed when its module is ported to Teal
-paw.harmony.snap 1 written in Lua: typed when its module is ported to Teal
-paw.harmony.step 1 written in Lua: typed when its module is ported to Teal
-paw.harmony.tones 1 written in Lua: typed when its module is ported to Teal
 paw.health 1 written in Lua: typed when its module is ported to Teal
 paw.help 1 written in Lua: typed when its module is ported to Teal
 paw.import_audio 1 written in Lua: typed when its module is ported to Teal
@@ -84,7 +45,6 @@ paw.is_chain_file 1 written in Lua: typed when its module is ported to Teal
 paw.json 1 written in Lua: typed when its module is ported to Teal
 paw.keymap 1 written in Lua: typed when its module is ported to Teal
 paw.keyrule 1 written in Lua: typed when its module is ported to Teal
-paw.lanes 1 written in Lua: typed when its module is ported to Teal
 paw.layout 1 written in Lua: typed when its module is ported to Teal
 paw.layouts 1 written in Lua: typed when its module is ported to Teal
 paw.learn 1 written in Lua: typed when its module is ported to Teal
@@ -124,13 +84,11 @@ paw.statusline 1 written in Lua: typed when its module is ported to Teal
 paw.stems 1 written in Lua: typed when its module is ported to Teal
 paw.stretch 1 written in Lua: typed when its module is ported to Teal
 paw.tab 1 written in Lua: typed when its module is ported to Teal
-paw.takes 1 written in Lua: typed when its module is ported to Teal
 paw.textbuf 1 written in Lua: typed when its module is ported to Teal
 paw.toml 1 written in Lua: typed when its module is ported to Teal
 paw.track_kinds 1 written in Lua: typed when its module is ported to Teal
 paw.try 1 written in Lua: typed when its module is ported to Teal
 paw.ui 1 written in Lua: typed when its module is ported to Teal
-paw.vca 1 written in Lua: typed when its module is ported to Teal
 paw.version 1 written in Lua: typed when its module is ported to Teal
 paw.win 1 written in Lua: typed when its module is ported to Teal
 types.Meta 1 an extension's own data in `meta`, any JSON value: the extension gives it a record of its own

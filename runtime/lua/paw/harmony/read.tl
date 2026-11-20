@@ -30,8 +30,9 @@ local record Quality
   cost: number
 end
 
---- A note in project beats.
-local record Note
+--- A note in project beats: what the reading reads of it (`paw.harmony.notes`
+--- gives more).
+local interface Note
   pitch: integer
   start: number
   length: number
@@ -68,6 +69,11 @@ end
 local type Weights = {integer:number}
 
 local record M
+  type Quality = Quality
+  type Note = Note
+  type Chord = Chord
+  type Key = Key
+  type ChordOptions = ChordOptions
   qualities: {Quality}
   by_quality: {string:Quality}
   MAJOR: {number}
