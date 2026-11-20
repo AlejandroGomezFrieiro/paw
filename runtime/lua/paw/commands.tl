@@ -107,6 +107,12 @@ local record Ex
   complete_range: function(string): {Entry}
   complete_pattern: function(string): {Entry}
 end
+-- paw/ui.tl names this module's types (through paw/layout.tl), so this
+-- one declares only the part of it that it reads.
+local record Ui
+  views: {string:contracts.View}
+end
+
 --- `paw.pick` (paw/pick.tl, which requires this module): the pickers
 --- by name, which `:pick` completes.
 local record Pick
@@ -114,6 +120,7 @@ local record Pick
 end
 
 local record Paw is partial.Paw
+  ui: Ui
   pick: Pick
   state: State
   emit: function(string, Ran)

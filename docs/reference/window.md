@@ -49,7 +49,7 @@ attached with `--socket` or `--connect` has a seat of its own: its own
 cursor, selection and mode. See [Seats](protocol.md#seats).
 
 The menus of the window are the kernel's menus (`paw.frontend.menu`, in
-`runtime/lua/paw/window_menus.lua`). The window shows them and tells the
+`runtime/lua/paw/window_menus.tl`). The window shows them and tells the
 kernel which entry the user selected.
 
 ## What the window keeps

@@ -15,40 +15,91 @@
 -- goes back out of one, Esc or `q` lets go. The pointer: a click chooses,
 -- moving over an entry selects it (and opens its submenu), a click outside
 -- lets go, the wheel moves.
-local api = paw.api
-local util = paw.util
-local M = {}
+--
+-- Written in Teal (paw/lang.tl): the build compiles it to Lua.
+local api = require("paw.api")
+local util = require("paw.util")
+local seats = require("paw.seats")
+local draw = require("paw.draw")
+local mouse = require("paw.mouse")
+local type contracts = require("paw.contracts")
+local type UiModule = require("paw.ui")
+
+local type Entry = contracts.MenuEntry
+local type Item = contracts.MenuItem
+local type Buf = UiModule.Buf
+
+--- Where a menu was drawn, in cells of the screen.
+local record Rect
+  x: number
+  y: number
+  w: number
+  h: number
+end
+
+--- A menu open: its entries, where it opens, the entry selected, and
+--- where it was drawn.
+local record Level
+  items: {Entry}
+  x: number
+  y: number
+  selected: integer
+  rect: Rect
+end
+
+--- The menus open, the first at the bottom, with what took the keys
+--- before, and how many menus were opened.
+local record Open
+  levels: {Level}
+  grabber: function(key: string, pasted?: boolean)
+  count: integer
+end
+
+-- What this module reads of `paw`, which paw/init.lua makes.
+local record Paw
+  ui: UiModule
+end
+-- The global `paw` of the declarations does not hold this module, so its
+-- local has a name of its own.
+local runtime = (_G as {string:Paw}).paw
+
+local record M
+  type Level = Level
+end
 
 -- The menus open, the first at the bottom: `{ items, x, y, selected, rect }`,
 -- with what took the keys before.
-local open = { levels = {}, grabber = nil }
-paw.seats.keep("menu", function() return open end, function(o) open = o end,
-  function() return { levels = {}, grabber = nil } end)
+local open: Open = { levels = {}, grabber = nil }
+seats.keep("menu", function(): Open return open end, function(o: Open) open = o end,
+  function(): Open return { levels = {}, grabber = nil } end)
 
-local function separator(item) return item == "-" or (type(item) == "table" and item.separator) end
-local function usable(item)
-  return not separator(item) and item.enabled ~= false and (item.run or item.items)
+local function separator(item: Entry): boolean
+  return item == "-" or (item is Item and item.separator)
+end
+local function usable(item: Entry): boolean
+  if separator(item) or not item is Item then return false end
+  return item.enabled ~= false and (item.run ~= nil or item.items ~= nil)
 end
 
 --- Whether a menu is open.
-function M.is_open()
+function M.is_open(): boolean
   return #open.levels > 0
 end
 
-local on_key
+local on_key: function(key: string, pasted?: boolean): boolean
 
 --- Let go of the menu, or of the submenus above level `keep`.
-function M.close(keep)
+function M.close(keep?: integer)
   keep = keep or 0
   for i = #open.levels, keep + 1, -1 do open.levels[i] = nil end
-  if #open.levels == 0 and paw.ui.grabber == on_key then
-    paw.ui.grabber = open.grabber
+  if #open.levels == 0 and runtime.ui.grabber == on_key then
+    runtime.ui.grabber = open.grabber
     open.grabber = nil
   end
   api.ui_redraw()
 end
 
-local function first_usable(items, from, step)
+local function first_usable(items: {Entry}, from: integer, step: integer): integer
   local n = #items
   for k = 0, n - 1 do
     local i = (from - 1 + k * step) % n + 1
@@ -56,20 +107,20 @@ local function first_usable(items, from, step)
   end
 end
 
-local function push(items, x, y)
+local function push(items: {Entry}, x: number, y: number)
   open.levels[#open.levels + 1] = { items = items, x = x, y = y, selected = first_usable(items, 1, 1) or 1 }
   api.ui_redraw()
 end
 
 --- Open a menu of `items` at `opts.x`, `opts.y` on the screen. See the top
 --- of the file.
-function M.open(items, opts)
+function M.open(items: {Entry}, opts?: contracts.MenuOptions)
   opts = opts or {}
   if #items == 0 then return end
-  if #open.levels == 0 then open.grabber = paw.ui.grabber end
+  if #open.levels == 0 then open.grabber = runtime.ui.grabber end
   open.levels = {}
   open.count = (open.count or 0) + 1
-  paw.ui.grabber = on_key
+  runtime.ui.grabber = on_key
   push(items, opts.x or 0, opts.y or 0)
 end
 
@@ -77,17 +128,18 @@ end
 --- for a menu a gesture in one of its panes opened): its entries, and how
 --- many menus were opened, which tells a new one from the one shown. Nil
 --- when none is open.
-function M.shown()
+function M.shown(): {Entry}, integer
   local first = open.levels[1]
   if first then return first.items, open.count end
 end
 
 --- Choose entry `index` of level `at`: a submenu opens beside it, anything
 --- else is done once every menu is let go.
-local function choose(at, index)
+local function choose(at: integer, index: integer)
   local level = open.levels[at]
-  local item = level and level.items[index]
-  if not (item and usable(item)) then return end
+  local entry = level and level.items[index]
+  if not (entry and usable(entry)) then return end
+  local item = entry as Item
   level.selected = index
   M.close(at)
   if item.items then
@@ -99,7 +151,7 @@ local function choose(at, index)
   item.run()
 end
 
-on_key = function(key)
+on_key = function(key: string): boolean
   local level = open.levels[#open.levels]
   if not level then return end
   local items = level.items
@@ -108,23 +160,29 @@ on_key = function(key)
   elseif key == "k" or key == "<Up>" or key == "<C-p>" or key == "<S-Tab>" then
     level.selected = first_usable(items, (level.selected - 2) % #items + 1, -1) or level.selected
   elseif key == "<CR>" or key == "<Space>" or key == "l" or key == "<Right>" then
-    return choose(#open.levels, level.selected)
+    choose(#open.levels, level.selected)
+    return
   elseif key == "h" or key == "<Left>" or key == "<BS>" then
-    if #open.levels > 1 then return M.close(#open.levels - 1) end
+    if #open.levels > 1 then
+      M.close(#open.levels - 1)
+      return
+    end
   elseif key == "<Esc>" or key == "q" or key == "<C-c>" then
-    return M.close(0)
+    M.close(0)
+    return
   end
   api.ui_redraw()
 end
 
 --- Draw the menus over the screen. Called last by `paw.ui.render`.
-function M.draw(buf)
-  local g = paw.draw.g
+function M.draw(buf: Buf)
+  local g = draw.g
   for _, level in ipairs(open.levels) do
     local items = level.items
     local label_w, keys_w = 0, 0
-    for _, item in ipairs(items) do
-      if not separator(item) then
+    for _, entry in ipairs(items) do
+      if not separator(entry) then
+        local item = entry as Item
         label_w = math.max(label_w, api.str_width(item.label) + (item.items and 2 or 0))
         if item.keys then keys_w = math.max(keys_w, api.str_width(item.keys)) end
       end
@@ -140,14 +198,15 @@ function M.draw(buf)
     end
     local y = util.clamp(level.y, 0, math.max(0, buf.height - h))
     level.rect = { x = x, y = y, w = w, h = h }
-    local inner = paw.ui.box(buf:sub(x, y, w, h), nil, "BorderFocus")
+    local inner = runtime.ui.box(buf:sub(x, y, w, h), nil, "BorderFocus")
     inner:fill(0, 0, inner.width, inner.height, " ", "Pmenu")
-    for i, item in ipairs(items) do
+    for i, entry in ipairs(items) do
       local row = i - 1
       if row >= inner.height then break end
-      if separator(item) then
+      if separator(entry) then
         inner:fill(0, row, inner.width, 1, g.h, "Border")
       else
+        local item = entry as Item
         local sel = i == level.selected
         local style = sel and "PmenuSel" or usable(item) and "Pmenu" or "PmenuDesc"
         inner:fill(0, row, inner.width, 1, " ", style)
@@ -164,11 +223,11 @@ function M.draw(buf)
 end
 
 --- The level and entry under a cell of the screen, the topmost first.
-local function under(x, y)
+local function under(x: number, y: number): integer, integer
   for at = #open.levels, 1, -1 do
     local r = open.levels[at].rect
     if r and x >= r.x and x < r.x + r.w and y >= r.y and y < r.y + r.h then
-      local index = y - r.y
+      local index = (y - r.y) as integer
       if index < 1 or index > #open.levels[at].items then index = nil end
       return at, index
     end
@@ -177,17 +236,18 @@ end
 
 -- The pointer goes to the menu first while one is open; anything outside
 -- it lets it go.
-paw.mouse.overlays[#paw.mouse.overlays + 1] = function(e)
+mouse.overlays[#mouse.overlays + 1] = function(e: contracts.MouseEvent): boolean
   if #open.levels == 0 then return false end
   local at, index = under(e.x, e.y)
   local kind = e.kind
   if kind == "move" or kind == "drag" then
     if at and index then
       local level = open.levels[at]
-      local item = level.items[index]
-      local same = level.selected == index and (#open.levels == at or (#open.levels == at + 1 and item.items))
+      local entry = level.items[index]
+      local item = entry is Item and entry or nil
+      local same = level.selected == index and (#open.levels == at or (#open.levels == at + 1 and item and item.items ~= nil))
       if not same then
-        if usable(item) then
+        if usable(entry) then
           level.selected = index
           M.close(at)
           if item.items then choose(at, index) end
@@ -202,7 +262,7 @@ paw.mouse.overlays[#paw.mouse.overlays + 1] = function(e)
       choose(at, index)
     end
   elseif at then
-    local step = paw.mouse.wheel(e)
+    local step = mouse.wheel(e)
     if step then
       local level = open.levels[at]
       level.selected = first_usable(level.items, (level.selected - 1 + step) % #level.items + 1, step) or level.selected
@@ -212,7 +272,7 @@ paw.mouse.overlays[#paw.mouse.overlays + 1] = function(e)
   return true
 end
 
-paw.ui.menu = M.open
-paw.ui.draw_menu = M.draw
+runtime.ui.menu = M.open
+runtime.ui.draw_menu = M.draw
 
 return M

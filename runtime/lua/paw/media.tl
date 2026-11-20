@@ -37,11 +37,9 @@ local record Pick
   open: function<T>(spec: contracts.PickSource<T>)
   file: function(opts: FileOptions)
 end
---- The parts of `paw.ui` (paw/ui.lua) that this module calls.
-local record Ui
-  page: function(title: string, lines: {string})
-end
+local type UiModule = require("paw.ui")
 local record Paw is partial.Paw
+  ui: UiModule
   cursor: CursorModule
   pick: Pick
 end
@@ -279,7 +277,7 @@ commands.define("clip.edits", function(): Result
       lines[i] = string.format("%d. %d samples drawn at %.3f s%s", i, #e.values, e.at, e.channel and (" in channel " .. e.channel) or "")
     end
   end
-  (paw.ui as Ui).page("Edits of " .. clip.name, lines)
+  paw.ui.page("Edits of " .. clip.name, lines)
 end, { desc = "List the edit list of the audio clip under the cursor" })
 
 commands.define("clip.edits.clear", function(): Result

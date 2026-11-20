@@ -34,6 +34,9 @@ local api = require("paw.api")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type UiModule = require("paw.ui")
+local type MouseModule = require("paw.mouse")
+local type PanesModule = require("paw.panes")
 local type role_props = require("paw.role_props")
 local Buf = require("paw.buf")
 local type CanvasModule = require("paw.canvas")
@@ -49,34 +52,14 @@ local type MouseEvent = contracts.MouseEvent
 local type Axis = contracts.Axis
 local type Data = UtilModule.Data
 
---- A gesture of the pointer that paw/mouse.lua holds, which this module
---- only compares.
-local record Gesture
-end
-
--- What this module reads of `paw`, which paw/init.lua makes, and of the
--- modules in Lua that it calls (paw/ui.lua, paw/mouse.lua, paw/panes.lua).
-local record Ui
-  scene_drawing: boolean
-  live_drawing: function(): boolean
-  live: function(buf: Buf, draw: function(b: Buf))
-  live_value: function(bind: string, props: MarkProps)
-end
-local record Mouse
-  hint: function(text: string)
-  gesture: function(): Gesture
-  to_view: function(view: View, e: MouseEvent): boolean
-  mark_double: function(e: MouseEvent)
-end
-local record Panes
-  focus: function(win: integer)
-end
+-- What this module reads of `paw`, which paw/init.lua makes.
 local record Paw is partial.Paw
+  ui: UiModule
   canvas: CanvasModule
   commands: CommandsModule
   limit: LimitModule
-  mouse: Mouse
-  panes: Panes
+  mouse: MouseModule
+  panes: PanesModule
   seats: SeatsModule
   util: UtilModule
 end
@@ -104,7 +87,7 @@ end
 --- What the frontend that gets scenes holds of a drag that started on a
 --- hit region (`held`, which its watcher keeps).
 local record Held
-  gesture: Gesture
+  gesture: MouseModule.Handlers
   button: string
 end
 
@@ -192,7 +175,7 @@ end
 --- Open a node of a scene being drawn over `buf`'s rectangle `x, y, w, h`;
 --- true when one was, to be closed.
 local function open(buf: Buf, x: number, y: number, w: number, h: number, opts: types.SceneOpenOptions): boolean
-  if not (paw.ui as Ui).scene_drawing then return false end
+  if not paw.ui.scene_drawing then return false end
   local r: types.Rect = { x = buf.x + x, y = buf.y + y, w = w, h = h }
   local cut = shown(buf, x, y, w, h)
   if not cut then return false end
@@ -227,7 +210,7 @@ end
 --- screen is a live part of it, which paw draws again by itself as the
 --- value moves (`paw.ui.live`).
 local function cells(sub: Buf, role: string, spec: contracts.Role<contracts.MarkProps>, props: MarkProps)
-  local u = (paw.ui as Ui)
+  local u = paw.ui
   if props.bind and spec.bound and u.live_drawing() then
     return u.live(sub, function(b: Buf)
       u.live_value(props.bind, props)

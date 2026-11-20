@@ -22,6 +22,7 @@ local document = require("paw.lsp.document")
 local type rpc = require("paw.lsp.rpc")
 local type types = require("paw.types")
 local type partial = require("paw.partial")
+local type UiModule = require("paw.ui")
 local type HarmonyModule = require("paw.harmony")
 local type TempoModule = require("paw.tempo")
 local type CursorModule = require("paw.cursor")
@@ -40,6 +41,7 @@ local record PianoRoll
 end
 
 local record Paw is partial.Paw
+  ui: UiModule
   harmony: HarmonyModule
   tempo: TempoModule
   cursor: CursorModule

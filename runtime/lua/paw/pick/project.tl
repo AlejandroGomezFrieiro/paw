@@ -11,6 +11,8 @@ local preview = require("paw.pick.preview")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type UiModule = require("paw.ui")
+local type LayoutModule = require("paw.layout")
 local type objects = require("paw.objects")
 local type HelpModule = require("paw.help")
 local type MarkersModule = require("paw.markers")
@@ -39,7 +41,7 @@ local record SplitOptions
   buf: integer
 end
 
---- The layout (paw/layout.lua, in Lua): what this module calls of it.
+--- The layout (paw/layout.tl): what this module calls of it.
 local record Layout
   buf_create: function(type: string, target: string): contracts.LayoutBuffer
   tab_new: function(name?: string, view?: string)
@@ -79,14 +81,11 @@ local record Fx
   pick: function()
 end
 
---- What `paw.ui.input` takes.
-local record InputOptions
-  prompt: string
-  history: string
-  text: string
-end
+local type InputOptions = UiModule.InputOptions
 
 local record Paw is partial.Paw
+  ui: UiModule
+  layout: LayoutModule
   help: HelpModule
   markers: MarkersModule
   query: QueryModule

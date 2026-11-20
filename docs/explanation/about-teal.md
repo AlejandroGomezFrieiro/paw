@@ -168,8 +168,8 @@ In an extension, the contracts are `paw.contracts.View`,
 `paw.contracts.PickSource<T>` and the others. The functions that take a
 contract (`paw.ui.view`, `paw.buftype`, `paw.textbuf.kind`,
 `paw.track_kinds.define`, `paw.roles.define`, `paw.statusline.component`,
-`paw.query.field`, `paw.grep.source`, `paw.health.register`, `paw.pick`
-and `paw.pick.sources`) take it with its type. So the checker finds a
+`paw.query.field`, `paw.grep.source`, `paw.health.register`, `paw.pick`,
+`paw.pick.sources` and `paw.ui.menu`) take it with its type. So the checker finds a
 field with a wrong name, for example `on_keys` for `on_key`. A picker is
 generic: the type of its items goes to `format`, `on_choose` and the other
 functions.
@@ -235,7 +235,7 @@ work of one agent. The areas of one wave do not depend on each other.
 | Done | Music on the project | `harmony`, `structure`, `takes`, `groups`, `vca`, `lanes`, `curves`, `audition`: 3,859 lines of Teal, 42 fewer entries on the allow-list | 3,000 | wave 1 |
 | Done | Queries and lists | `query`, `grep`, `qf`, `diagnostic`, `complete`, `snippet`: 5,601 lines of Teal, 6 fewer entries on the allow-list, and no `any` in these modules | 3,900 | wave 2 |
 | Done | Drawing | `buf`, `draw`, `canvas`, `roles`, `scene`, `theme`, `plot`, `statusline`: 4,740 lines of Teal, 6 fewer entries on the allow-list, and no `any` or `paw.Untyped` in these modules | 3,700 | wave 2 |
-| 4 | Windows | `ui`, `layout`, `panes`, `mouse`, the menus | 4,500 | wave 3 |
+| Done | Windows | `ui`, `layout`, `panes`, `mouse`, `menu`, `mouse_menus`, `window_menus`: 6,100 lines of Teal, 10 fewer entries on the allow-list (with the two `any` of `project_screen`), and no `any` or `paw.Untyped` in these modules | 4,500 | wave 3 |
 | Done | Editors: Ex and text buffers | `ex`, `textbuf`: 4,817 lines of Teal, `paw.ex` and `paw.command` typed (the types of commands are contracts now), 3 fewer entries on the allow-list, and no `any` or `paw.Untyped` in these modules | 4,100 | wave 3 |
 | Done | Editors: pickers, help and language servers | `pick` and `pick/`, `help`, `lsp/`: 8,039 lines of Teal, 3 fewer entries on the allow-list, and no `any` or `paw.Untyped` in these modules | 4,900 | wave 3 |
 | Done | The frontend | `frontend`, `remote`, `render`, `media`: 5,290 lines of Teal, 9 fewer entries on the allow-list, and no `any` or `paw.Untyped` in these modules | 3,800 | wave 3 |
@@ -513,6 +513,59 @@ entries.
   so now.
 - The module `paw.structure` declared its own records for the nodes of a query. It
   uses the types of `paw.query` now.
+- The checker found no error that changed what the code does: the tests
+  pass with no change.
+
+## What the checker found in the windows
+
+- The type of `on_drop` of `paw.contracts.View` had a list of paths and an
+  event. paw gives one event: the clip that the window let go over the
+  view, and the cell (`e.clip`, `e.x`, `e.y`). The launcher reads that
+  event. The contract is `on_drop(self, e)` now, and `MouseEvent` has
+  `clip`.
+- `paw.contracts.PointerEvent` did not have `col` and `row`, the cell of
+  the screen under the pointer, which `paw.mouse` gives a view's `pointer`,
+  or `clip`, which a window gives with `drop`. `MouseEvent` did not have
+  `px` and `py`, the pixels that a terminal can give.
+  `paw.contracts.LayoutBuffer` did not have `options`, which a buffer gets
+  from its type.
+- A window of the layout is also a node of the tree of its tab. So
+  `paw.contracts.Window` is an interface now, and `paw.layout.Node` is a
+  window or a split. `paw.layout` also gives the records of the tabs
+  (`Tab`) and of the arrangement of the screen (`Arrangement`, with its
+  borders and the areas for pixels).
+- The tabs and windows that a project keeps have records in `types.tl`
+  (`ProjectScreen`, `SavedLayout`, `SavedTab`, `SavedNode`), and the
+  comments of `project_screen` and `project_screen_set` name them. Their
+  two `any` go.
+- A menu at the pointer is a contract: `paw.contracts.MenuItem`, or the
+  text `"-"` for a line (`MenuEntry`). Teal cannot find the type of a list
+  of a text and records in a table, so the ports put such a list in a
+  variable of the type `{MenuEntry}` first.
+- The modules that draw and the views name the types of `paw.ui`,
+  `paw.layout` and `paw.mouse`. So these modules declare only the parts
+  of the modules above them that they call (`paw.roles`, `paw.canvas`,
+  `paw.statusline`, `paw.scene`). `paw.buf`, `paw.draw`, `paw.cursor` and
+  `paw.commands` are below `paw.ui`: each declares the part of `paw.ui`
+  that it reads. `paw.roles` and `paw.statusline` use the real types of
+  `paw.ui`, `paw.mouse` and `paw.panes` now, and `paw.complete` uses
+  `types.CellStyle` for a highlight group.
+- A module in Teal that requires another module loads it at that time.
+  `paw/ui.lua` used `paw.draw` when it drew, and `paw.draw` loads after
+  `paw.ui`. So `paw/ui.tl` names only the types of `paw.draw`, and reads
+  `paw.draw` when it draws, as before.
+- The menus use the types of `paw.frontend`. Its `recent_menu` has the
+  type of a choice of a range (`name`, `label`), but `paw.recent` gives
+  `label` and `path`: the File menu casts the list. `paw.frontend`,
+  `paw.remote`, `paw.render` and `paw.media` use the real types of
+  `paw.mouse`, `paw.panes` and `paw.ui` (not yet the views of `paw.ui`,
+  which `paw.frontend` reads as records of its own until wave 5).
+- `paw.seats.keep` takes values of one type, so `paw.ui` and `paw.panes`
+  keep the state of each seat in a record.
+- `paw.layout.within` and `paw.limit.named` take arguments of one type, so
+  the ports give them closures where a function takes more.
+- The `grid` of a buffer type is a function in the contract, but a type
+  in Lua can give a table. The port keeps both, as the Lua did.
 - The checker found no error that changed what the code does: the tests
   pass with no change.
 

@@ -32,7 +32,7 @@ Some of the functions are:
 | `paw.frontend.act.menu_dismiss()` | Closes the menu that a view opened, without a selection. |
 | `paw.frontend.refresh()` | Makes the frontends get the state again, when nothing in the project changed. An extension calls it after a change of its own. |
 
-The menus of the window are in `runtime/lua/paw/window_menus.lua`, beside
+The menus of the window are in `runtime/lua/paw/window_menus.tl`, beside
 the mouse menus of the terminal.
 
 ## `paw.frontend.menus`
@@ -99,7 +99,7 @@ opener: a double-click on its clip opens its editor.
 ## `paw.panes`
 
 `paw.panes` tells a frontend where each pane of its main area goes
-(`runtime/lua/paw/panes.lua`).
+(`runtime/lua/paw/panes.tl`).
 
 | Function | Effect |
 | --- | --- |

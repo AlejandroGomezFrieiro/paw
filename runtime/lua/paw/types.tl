@@ -1300,6 +1300,49 @@ local record types
     total: number
   end
 
+  --- A node of a tab's tree as a layout keeps it (`paw.layout.capture`,
+  --- `project_screen`): a window, with its view, the target of its buffer or
+  --- what its view opens in it, its options and whether it is closed; or a
+  --- split, with `dir` and its `children`. Both may have a `size`, a
+  --- `weight` and a `min`. The kernel keeps it as JSON.
+  record SavedNode
+    view: string
+    target: string
+    size: integer
+    weight: number
+    min: integer
+    float_below: integer
+    hidden: boolean
+    opts: {string:string | number | boolean}
+    dir: string
+    children: {SavedNode}
+  end
+
+  --- A tab as a layout keeps it: its name, its tree, and the place in the
+  --- tree's order of the window with the keyboard.
+  record SavedTab
+    name: string
+    layout: SavedNode
+    current: integer
+  end
+
+  --- The tabs and windows of a seat (`paw.layout.capture`): the tabs and
+  --- the current one.
+  record SavedLayout
+    tab: integer
+    tabs: {SavedTab}
+  end
+
+  --- The tabs and windows that a project keeps (`project_screen`): a
+  --- `default`, and the layout of each kind of seat (`paw.seats.kind`). A
+  --- project saved with one layout has the fields of that layout instead.
+  record ProjectScreen
+    default: SavedLayout
+    seats: {string:SavedLayout}
+    tab: integer
+    tabs: {SavedTab}
+  end
+
   --- An entry of `read_dir`: `mtime` in seconds since 1970.
   record DirEntry
     name: string

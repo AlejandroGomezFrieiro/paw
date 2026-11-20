@@ -1,5 +1,5 @@
 -- Frames: when the screen is drawn while the song plays, and how much of
--- it (paw/ui.lua). Loaded by tests/suite.lua with its helpers.
+-- it (paw/ui.tl). Loaded by tests/suite.lua with its helpers.
 local T = ...
 local test, eq = T.test, T.eq
 local api = paw.api

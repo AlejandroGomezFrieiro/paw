@@ -33,6 +33,8 @@ local type TakesModule = require("paw.takes")
 local type TempoModule = require("paw.tempo")
 local type TempolaneModule = require("paw.tempolane")
 local type VcaModule = require("paw.vca")
+local type MouseModule = require("paw.mouse")
+local type PanesModule = require("paw.panes")
 
 local opt = options.opt
 
@@ -206,10 +208,6 @@ local record Hints
   items: {Hint}
 end
 
---- The tabs and windows as panes (`paw.panes.state`): the window reads them.
-local record Panes
-end
-
 --- A value that this module passes on or copies, and never reads.
 local record Value
 end
@@ -238,7 +236,7 @@ local record Modal
   qf: QfState
   hints: Hints
   clip: integer
-  panes: Panes
+  panes: PanesModule.State
   windows: {CanvasModule.WindowInfo}
   views: {CanvasModule.Openable}
   menus: {string:{MenuLabel}}
@@ -620,7 +618,7 @@ local record MouseEvent
   x: integer
   y: integer
 end
---- paw/ui.lua.
+--- paw/ui.tl, with the views as this module reads them (wave 5 types the views).
 local record Ui
   focused: string
   float: Float
@@ -744,12 +742,6 @@ end
 local record Cmdline
   state: function(): Prompt
 end
-local record Mouse
-  hint_text: function(): string, string
-end
-local record PaneModule
-  state: function(): Panes
-end
 local record Learn
   learning: Value
   target_name: function(target: Value): string
@@ -800,8 +792,8 @@ local record Paw
   roll_clips: RollClips
   controls: Controls
   ex: ExModule
-  mouse: Mouse
-  panes: PaneModule
+  mouse: MouseModule
+  panes: PanesModule
   learn: Learn
   help: Help
   loading: Loading

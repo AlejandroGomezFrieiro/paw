@@ -41,6 +41,7 @@ local music = require("paw.music")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type UiModule = require("paw.ui")
 local type objects = require("paw.objects")
 local type HarmonyModule = require("paw.harmony")
 local type DrawModule = require("paw.draw")
@@ -218,14 +219,6 @@ local record ActHit is contracts.HitAction
   tip: string
 end
 
---- A highlight group (`paw.ui.hl`).
-local record Highlight
-  fg: string
-  bg: string
-  italic: boolean
-  bold: boolean
-end
-
 --- The gestures of the window (paw/frontend.tl) that this module adds.
 local record Acts
   complete_badge: function(_: integer, index: integer): boolean
@@ -240,6 +233,7 @@ local record Frontend
 end
 
 local record Paw is partial.Paw
+  ui: UiModule
   frontend: Frontend
   harmony: HarmonyModule
   time: objects.Time
@@ -847,8 +841,8 @@ local function ghost_style(colour: string): GhostStyle
   if not styles[key] then
     local name = "CompleteGhost_" .. colour:sub(2)
     local mix = paw.draw.mix
-    local note: Highlight = { fg = mix(palette.bg, colour, 0.9), bg = mix(palette.bg, colour, 0.22), italic = true }
-    local badge: Highlight = { fg = palette.bg, bg = mix(palette.bg, colour, 0.7), bold = true }
+    local note: types.CellStyle = { fg = mix(palette.bg, colour, 0.9), bg = mix(palette.bg, colour, 0.22), italic = true }
+    local badge: types.CellStyle = { fg = palette.bg, bg = mix(palette.bg, colour, 0.7), bold = true }
     paw.ui.hl(name, note)
     paw.ui.hl(name .. "_badge", badge)
     styles[key] = { note = name, badge = name .. "_badge" }

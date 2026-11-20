@@ -22,6 +22,8 @@ local kernel = require("paw.events.kernel")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type UiModule = require("paw.ui")
+local type LayoutModule = require("paw.layout")
 local type CanvasModule = require("paw.canvas")
 local type DrawModule = require("paw.draw")
 local type RolesModule = require("paw.roles")
@@ -35,9 +37,10 @@ local record Value
 end
 
 -- What this module reads of `paw`, which paw/init.lua makes, and of the
--- modules in Lua that it calls: their parts that it uses.
+-- modules that it calls: their parts that it uses. It keeps a window of
+-- paw/layout.tl as a `contracts.Window`, as paw/canvas.tl does.
 
---- A tree of windows of a tab (paw/layout.lua), which this module only
+--- A tree of windows of a tab (paw/layout.tl), which this module only
 --- passes on.
 local record Tree
 end
@@ -82,6 +85,8 @@ local record Remote
   methods: {string:Method}
 end
 local record Paw is partial.Paw
+  ui: UiModule
+  layout: LayoutModule
   audio: Audio
   canvas: CanvasModule
   draw: DrawModule
@@ -381,7 +386,7 @@ methods["scene.watch"] = function(client: integer, given: WatchOptions): Watchin
   local opts: WatchOptions = given is WatchOptions and given or {}
   local asked = opts.cell or {}
   local cell: types.Size = { w = tonumber(asked.w) or paw.canvas.cell.w, h = tonumber(asked.h) or paw.canvas.cell.h }
-  -- The frontend's main area is laid out on its cell (paw/panes.lua).
+  -- The frontend's main area is laid out on its cell (paw/panes.tl).
   paw.canvas.cell = cell
   api.scene_forget(client)
   -- The roles it paints itself are sent as roles, without their cells.
@@ -434,7 +439,7 @@ local input: function(client: integer, name: string | number, event: RolesModule
 
 methods["scene.input"] = function(client: integer, name: string | number, event: RolesModule.SceneEvent): boolean
   -- The view takes the pointer with the state of the window under it
-  -- (paw/layout.lua), and then of the window with the keyboard again.
+  -- (paw/layout.tl), and then of the window with the keyboard again.
   local number = tonumber(name) as integer
   local win = number and L.find_id((paw.ui as Ui).layout, number)
   local own = not win and paw.canvas.open_views[tostring(name):match("^view:(.+)$") or ""]

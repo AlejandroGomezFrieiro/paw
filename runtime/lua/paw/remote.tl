@@ -70,14 +70,11 @@ end
 
 -- What this module reads of `paw`, which paw/init.lua makes, and of the
 -- modules in Lua that it calls: their parts that it uses.
---- paw/ui.lua: whether something moves.
-local record Ui
-  active: function(): boolean
-end
+local type UiModule = require("paw.ui")
 local record Paw
   frontend: FrontendModule
   scene: SceneModule
-  ui: Ui
+  ui: UiModule
   defer: function(fn: function(), ms?: number): integer
   cancel: function(handle: integer)
   notify: function(text: string, level?: string)

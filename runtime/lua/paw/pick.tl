@@ -60,6 +60,8 @@ local theme = require("paw.theme")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type UiModule = require("paw.ui")
+local type LayoutModule = require("paw.layout")
 local type AuditionModule = require("paw.audition")
 local type QfModule = require("paw.qf")
 local type CommandsModule = require("paw.commands")
@@ -248,7 +250,7 @@ local record SeatState
   last: Resume
 end
 
---- The layout (paw/layout.lua, in Lua): what this module calls of it.
+--- The layout (paw/layout.tl): what this module calls of it.
 local record Layout
   record SplitOptions
     vertical: boolean
@@ -265,18 +267,15 @@ local record Keybar
   show: function(key: string): string
 end
 
---- What `paw.ui.input` takes.
-local record InputOptions
-  prompt: string
-  history: string
-  text: string
-end
+local type InputOptions = UiModule.InputOptions
 
 --- What paw keeps over the program's run (paw/state.lua, in Lua): the
 --- values this module keeps there, by name.
 local type Kept = {string: util.Data}
 
 local record Paw is partial.Paw
+  ui: UiModule
+  layout: LayoutModule
   state: Kept
   audition: AuditionModule
   qf: QfModule

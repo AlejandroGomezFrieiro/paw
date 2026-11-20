@@ -1,5 +1,5 @@
 -- Tests of the tabs and windows as a graphical frontend shows them: panes
--- docked in its main area (paw/panes.lua), laid out in pixels, painted, and
+-- docked in its main area (paw/panes.tl), laid out in pixels, painted, and
 -- given the keyboard; and of views that pop out into windows of their own
 -- and give the keyboard back. Loaded by tests/suite.lua with its helpers.
 local T = ...
