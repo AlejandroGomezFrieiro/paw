@@ -28,13 +28,6 @@ local record partial
       selection: function(): contracts.Region
       metamethod __index: function(Keymap, string): Untyped
    end
-   record Pick
-      open: function<T>(spec: contracts.PickSource<T>)
-      open: function(name: string, extra?: contracts.PickExtra)
-      sources: {string:contracts.PickEntry}
-      metamethod __call: function<T>(Pick, spec: string | contracts.PickSource<T>, extra?: contracts.PickExtra)
-      metamethod __index: function(Pick, string): Untyped
-   end
    record TrackKinds
       define: function(name: string, spec: contracts.TrackKind): contracts.TrackKind
       metamethod __index: function(TrackKinds, string): Untyped
@@ -55,7 +48,6 @@ local record partial
       keymap: Keymap
       notify: function(text: string, level?: string)
       off: function(id: integer)
-      pick: Pick
       render_cancel: function(): boolean
       render_tags: function(set?: types.RenderTags): types.RenderTags
       timers: {integer:function()}

@@ -71,6 +71,7 @@ local record M
   type Item = Item
   type Info = Info
   type Candidate = Candidate
+  type Candidates = Candidates
   type Spec = Spec
   type Options = Options
   type Entry = Entry
@@ -111,8 +112,16 @@ end
 local record Ui
   views: {string:contracts.View}
 end
+
+--- `paw.pick` (paw/pick.tl, which requires this module): the pickers
+--- by name, which `:pick` completes.
+local record Pick
+  sources: {string: contracts.PickEntry}
+end
+
 local record Paw is partial.Paw
   ui: Ui
+  pick: Pick
   state: State
   emit: function(string, Ran)
   limit: LimitModule

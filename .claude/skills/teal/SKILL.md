@@ -133,6 +133,11 @@ local paw = (_G as {string:Paw}).paw
 | A record with an array part that also implements an interface | the array goes in the `is` list: `record Node is {Node}, contracts.Window` |
 | A module that requires another (as a value) loads it then, earlier than the Lua that read `paw.x` when it ran | keep reading `paw.x` at run time, typed by `local type X = require(...)` (paw/ui.tl and `paw.draw`) |
 | A module many others require (`paw.buf`, `paw.draw`, `paw.cursor`, `paw.commands`) and a module that names its types (`paw.ui`) | the lower one declares the small part of the higher it reads (`record Ui focused: string end`) |
+| `{T} \| function(): {T}` tested with `x is Fn`: the `else` branch is not narrowed | test the table: `if x is {T} then ... elseif x then (x as Fn)() end` |
+| A generic function type in a parameter list (`format?: function(item: T): string, mode?: M`) does not parse | a generic alias: `local type TextOf<T> = function(item: T): string` |
+| `a or b` of two function types, or of a flag and a record | compare: `(spec.preview ~= nil or spec.audition ~= nil)` |
+| A module that stores values of many item types (`paw.pick`'s open picker) | erase the type once where the value goes in (`spec as PickSource<Item>`), and give it back to the owner's own functions |
+| JSON whose shape depends on the method (`params`, `result` of JSON-RPC) | an empty record (`rpc.Payload`) cast once by each handler to its method's record; user JSON values are `util.Data` |
 
 ## What stays Lua
 

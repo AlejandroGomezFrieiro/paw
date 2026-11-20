@@ -276,8 +276,16 @@ local record PickState
   item: Spec
 end
 
+--- `paw.pick` (paw/pick.tl), the part of it that this module calls: opening
+--- the picker of snippets, and what is open.
+local record Pick
+  open: function(spec: contracts.PickSource<Spec>): Picker
+  state: function(): PickState
+end
+
 local record Paw is partial.Paw
   ui: UiModule
+  pick: Pick
   harmony: HarmonyModule
   edit: EditModule
   audition: AuditionModule
@@ -885,7 +893,7 @@ function M.describe_preview(spec: Spec, opts?: ContextOptions, result?: Run, why
   return lines, result
 end
 
---- The picker that opens (paw/pick.lua).
+--- The picker that opens (paw/pick.tl).
 local record Picker
 end
 

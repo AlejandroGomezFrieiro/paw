@@ -25,14 +25,14 @@ end
 
 -- What this module reads of `paw`, which paw/init.lua makes, and of the
 -- modules in Lua that it calls: their parts that it uses.
---- What `paw.pick.file` takes (paw/pick.lua).
+--- What `paw.pick.file` takes (paw/pick.tl).
 local record FileOptions
   title: string
   directory: boolean
   extensions: {string}
   on_choose: function(path: string)
 end
---- The parts of `paw.pick` (paw/pick.lua) that this module calls.
+--- The parts of `paw.pick` (paw/pick.tl) that this module calls.
 local record Pick
   open: function<T>(spec: contracts.PickSource<T>)
   file: function(opts: FileOptions)
@@ -41,6 +41,7 @@ local type UiModule = require("paw.ui")
 local record Paw is partial.Paw
   ui: UiModule
   cursor: CursorModule
+  pick: Pick
 end
 local paw = (_G as {string:Paw}).paw
 
@@ -100,13 +101,13 @@ function M.relink_pick()
   if #missing == 0 then return paw.notify("no media is missing") end
   local items: {Missing} = { { label = "Search a directory for all of them…", search = true } }
   for _, path in ipairs(missing) do items[#items + 1] = { label = name_of(path) .. "  " .. path, path = path } end
-  (paw.pick as Pick).open({
+  paw.pick.open({
     title = string.format("Missing media (%d)", #missing),
     items = items,
     format = function(item: Missing): string return item.label end,
     on_choose = function(item: Missing)
       if item.search then
-        return (paw.pick as Pick).file({
+        return paw.pick.file({
           title = "Search for missing media", directory = true,
           on_choose = function(dir: string)
             local result = api.media_search(dir)
@@ -115,7 +116,7 @@ function M.relink_pick()
         })
       end
       local ext = item.path:match("%.([^./]+)$")
-      (paw.pick as Pick).file({
+      paw.pick.file({
         title = "Find " .. name_of(item.path),
         extensions = ext and { ext } or nil,
         on_choose = function(path: string)

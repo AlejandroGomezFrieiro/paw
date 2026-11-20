@@ -856,7 +856,7 @@ local record contracts
 
    --- A picker of items of type `T` (`paw.pick`, `paw.pick.sources`): the
    --- items, the line of each, and what Enter does. A source in
-   --- `paw.pick.sources` has a `desc` too. The top of paw/pick.lua tells
+   --- `paw.pick.sources` has a `desc` too. The top of paw/pick.tl tells
    --- each field.
    record PickSource<T> is PickInfo
       prompt: string
@@ -936,12 +936,17 @@ local record contracts
    type QueryField = function(node: QueryNode): QueryValue
 
    --- A part of an address (paw/address.tl): a stretch of time `{ from,
-   --- to }` in beats, notes by id, pitches `{ low, high }`, or a value.
+   --- to }` in beats, notes by id, pitches `{ low, high }`, or a value; in
+   --- a render, a stretch `{ from, to }` in seconds; in a page of help
+   --- (`paw://help/...`), a line and a column.
    record Selector
       time: {number}
       notes: {integer}
       pitch: {number}
       value: number
+      seconds: {number}
+      line: integer
+      col: integer
    end
 
    --- A place: an address and, optionally, a part of it.

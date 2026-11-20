@@ -1,0 +1,1016 @@
+-- The pickers that come with the runtime. Each is a table of the fields
+-- `paw.pick` takes, with a `desc`, or a function that returns one; add your
+-- own to `paw.pick.sources` the same way.
+--
+-- Written in Teal (paw/lang.tl): the build compiles it to Lua. paw/pick.tl
+-- calls this module with itself: `require("paw.pick.sources")(pick)`.
+local api = require("paw.api")
+local util = require("paw.util")
+local options = require("paw.options")
+local project = require("paw.pick.project")
+local preview = require("paw.pick.preview")
+local type types = require("paw.types")
+local type contracts = require("paw.contracts")
+local type partial = require("paw.partial")
+local type UiModule = require("paw.ui")
+local type PanesModule = require("paw.panes")
+local type objects = require("paw.objects")
+local type CommandsModule = require("paw.commands")
+local type CursorModule = require("paw.cursor")
+local type HelpModule = require("paw.help")
+local type AuditionModule = require("paw.audition")
+local type MidifileModule = require("paw.midifile")
+local type MusicModule = require("paw.music")
+local type AddressModule = require("paw.address")
+local type FrontendModule = require("paw.frontend")
+
+local opt = options.opt
+
+--- What these pickers call of `paw.pick` (paw/pick.tl, which requires this
+--- module): its sources, hearing a file, and opening a picker by name.
+local interface Pick is project.Pick
+  metamethod __call: function(self: Pick, name: string, extra?: contracts.PickExtra)
+end
+
+--- The pickers by name, as `paw.pick.sources` holds them.
+local type Sources = project.Sources
+
+--- A key mapping (paw/keymap.lua, in Lua), as paw/help.tl reads it.
+local type Map = HelpModule.Map
+
+--- A mapping with what kind of key it is, as `paw.keymap.all` gives it.
+local record KeyAll
+  map: Map
+  kind: string
+end
+
+--- A position of a mark: a track and a beat (the arrange view), or a
+--- pitch and a beat (the piano roll).
+local record MarkPos
+  {number}
+  track: integer
+  beat: number
+end
+
+--- What a register holds: keys (a macro), tracks, a stretch of time,
+--- notes or a device.
+local record Register
+  record Named
+    name: string
+  end
+  record Device
+    kind: string
+  end
+  kind: string
+  keys: string
+  tracks: {Named}
+  rows: {{integer}}
+  length: number
+  notes: {types.Note}
+  device: Device
+end
+
+--- The key mappings (paw/keymap.lua, in Lua): what this module calls of them.
+local record Keymap
+  list: function(mode: string, view: string): {Map}
+  all: function(view: string): {KeyAll}
+  human: function(keys: string): string
+  normal: function(keys: string)
+  push_jump: function()
+  marks: function(view: string): {string: MarkPos}
+  goto_mark: function(name: string)
+  registers: {string: Register}
+  play: function(name: string)
+  mode: string
+end
+
+--- The tracks in scope (paw/scope.lua, in Lua): what this module calls of it.
+local record Scope
+  tracks: function(): {integer}
+end
+
+--- A device that can be added, as paw/fx.lua lists it: a device type,
+--- whether it is a favourite, and the extension it came with.
+local record DeviceInfo
+  kind: string
+  name: string
+  category: string
+  format: string
+  vendor: string
+  params: {types.ParamInfo}
+  favourite: boolean
+  recent: integer
+  from: string
+end
+
+--- What `paw.fx.add` and `added` take besides the track and the kind.
+local record AddOptions
+  query: string
+end
+
+--- The devices (paw/fx.lua, in Lua): what this module calls of them.
+local record Fx
+  preferred: function(track_id: integer): string
+  device_list: function(wanted: string): {DeviceInfo}
+  device_line: function(info: DeviceInfo): string
+  rank: function(info: DeviceInfo, query: string, line: string, wanted: string): number
+  add: function(track: objects.Track, kind: string, opts?: AddOptions): objects.Device
+  place: function(track: objects.Track, kind: string): types.Device
+  added: function(device: types.Device, kind: string, opts?: AddOptions)
+  toggle_favourite: function(kind: string)
+end
+
+--- A row of the device panel: the device it is on, and what part of it.
+local record DeviceRow
+  record Ref
+    id: integer
+  end
+  device: Ref
+  param: string
+  picture: boolean
+end
+
+--- The device panel (paw/views/devices.lua, in Lua): what this module calls of it.
+local record DevicesView
+  rows: function(self: DevicesView): {DeviceRow}
+  row: integer
+end
+
+--- The arrange view (paw/views/arrange.lua, in Lua): what this module calls of it.
+local record Arrange
+  center: function(self: Arrange)
+end
+
+--- A message of the program (`paw.ui.messages`).
+local record Message
+  level: string
+  text: string
+end
+
+local type InputOptions = UiModule.InputOptions
+
+local record Paw is partial.Paw
+  ui: UiModule
+  commands: CommandsModule
+  cursor: CursorModule
+  help: HelpModule
+  audition: AuditionModule
+  midifile: MidifileModule
+  music: MusicModule
+  address: AddressModule
+  time: objects.Time
+  project: objects.Project
+  frontend: FrontendModule
+  scope: Scope
+  panes: PanesModule
+  fx: Fx
+  open: function(path: string)
+  state: {string: util.Data}
+end
+local paw = (_G as {string:Paw}).paw
+local keymap = paw.keymap as Keymap
+
+--- A line of the picker of pickers.
+local record PickerLine
+  name: string
+  desc: string
+end
+
+--- A key of the keys picker: its mapping and kind, how it is written, what
+--- it does and where (`tag`), and the view it belongs to when that is not
+--- the focused one (`other`).
+local record KeyLine
+  map: Map
+  kind: string
+  other: string
+  human: string
+  desc: string
+  tag: string
+  humans: {string: boolean}
+end
+
+--- A track of the tracks picker.
+local record TrackLine
+  id: integer
+  index: integer
+  name: string
+end
+
+--- A clip of the clips picker.
+local record ClipLine
+  id: integer
+  track: integer
+  track_name: string
+  name: string
+  start: number
+  length: number
+  kind: types.ClipKind
+end
+
+--- A device on the track.
+local record DeviceLine
+  id: integer
+  index: integer
+  name: string
+  kind: string
+  bypass: boolean
+end
+
+--- A mark: its name, its view and where it is.
+local record MarkLine
+  name: string
+  view: string
+  where: string
+end
+
+--- A register: its name and what it holds.
+local record RegisterLine
+  name: string
+  value: Register
+end
+
+--- A file under the current directory: a project, audio or MIDI.
+local record FileLine
+  path: string
+  kind: string
+end
+
+--- A key with the place it had among the keys of a command, to sort them.
+local record Numbered
+  key: string
+  n: integer
+end
+
+local record M
+  type Pick = Pick
+  type Sources = Sources
+  type Map = Map
+  type KeyAll = KeyAll
+  type DeviceInfo = DeviceInfo
+  type PickerLine = PickerLine
+  type KeyLine = KeyLine
+  type TrackLine = TrackLine
+  type ClipLine = ClipLine
+  type DeviceLine = DeviceLine
+  type MarkLine = MarkLine
+  type RegisterLine = RegisterLine
+  type FileLine = FileLine
+  --- The project, audio and MIDI files under a directory, walking at
+  --- most `limit` entries: what the files picker lists.
+  walk: function(root: string, limit: integer): {FileLine}
+  metamethod __call: function(self: M, pick: Pick): Sources
+end
+
+local function need_track(): objects.Track
+  local track = paw.cursor.track()
+  if not track then paw.notify("no track selected", "warn") end
+  return track
+end
+
+local function plural(n: integer, word: string): string return n .. " " .. word .. (n == 1 and "" or "s") end
+
+-- The command a mapping runs, when it runs one.
+local function command_of(map: Map): string
+  local rhs = map.rhs
+  if rhs is string then return rhs:match("^(%S+)") end
+  return nil
+end
+
+-- A key as its human name, without the view in brackets.
+local function human_of(key: string): string return keymap.human((key:gsub(" %(.*%)$", ""))) end
+
+--- Every key that runs a command, by the command's name: lists of
+--- `lhs` strings, with the view in brackets for a view's own.
+local function key_index(): {string: {string}}
+  local index: {string: {string}} = {}
+  local held: {string: {string: boolean}} = {}
+  for _, mode in ipairs({ "n", "x" }) do
+    for _, scope in ipairs({ paw.ui.focused, "arrange", "pianoroll", "devices", "mixer" }) do
+      for _, map in ipairs(keymap.list(mode, scope)) do
+        local name = command_of(map)
+        if name then
+          local key = map.lhs .. (map.scope ~= "global" and " (" .. map.scope .. ")" or "")
+          local list = index[name] or {}
+          index[name] = list
+          local has = held[name] or {}
+          held[name] = has
+          if not has[key] then
+            has[key] = true
+            list[#list + 1] = key
+          end
+        end
+      end
+    end
+  end
+  -- The shortest key first: `u` before `Ctrl-z`.
+  for _, list in pairs(index) do
+    local numbered: {Numbered} = {}
+    for i, key in ipairs(list) do numbered[i] = { key = key, n = i } end
+    table.sort(numbered, function(a: Numbered, b: Numbered): boolean
+      local la, lb = #human_of(a.key), #human_of(b.key)
+      if la ~= lb then return la < lb end
+      return a.n < b.n
+    end)
+    for i, entry in ipairs(numbered) do list[i] = entry.key end
+  end
+  return index
+end
+
+local keys_now: {string: {string}} = {}
+
+--- Keys that run a command, as `lhs` strings.
+local function keys_for(name: string): {string}
+  return keys_now[name] or {}
+end
+
+--- The commands the focused view has keys of its own for, by name.
+local function view_commands(): {string: boolean}
+  local out: {string: boolean} = {}
+  local view = paw.ui.focused
+  for _, mode in ipairs({ "n", "x" }) do
+    for _, map in ipairs(keymap.list(mode, view)) do
+      local name = command_of(map)
+      if map.scope == view and name then out[name] = true end
+    end
+  end
+  return out
+end
+
+local view_set: {string: boolean} = {}
+
+local function edit_command(spec: CommandsModule.Spec)
+  local opts: InputOptions = { prompt = ":", history = "cmdline", text = spec.name .. " " }
+  paw.ui.input(opts, function(line: string)
+    if line:match("%S") then
+      paw.state.last_cmdline = line
+      paw.commands.used(line:match("^%s*:?(%S+)"))
+    end
+    paw.commands.exec(line)
+  end)
+end
+
+-- Key mappings -------------------------------------------------------------------
+
+-- What a key is for, in a few letters: where it works and what kind it is.
+local kind_tags: {string: string} = { motion = "motion", operator = "operator", object = "object", visual = "visual", insert = "insert" }
+
+local function key_tag(entry: KeyLine): string
+  if entry.other then return entry.other .. " view" end
+  local where = entry.map.scope == "global" and "global" or entry.map.scope:gsub("^%a+%.", "")
+  local kind = kind_tags[entry.kind]
+  return kind and where .. " " .. kind or where
+end
+
+--- Run a mapping chosen in the keys picker, as if its keys were typed.
+local function run_key(entry: KeyLine)
+  local map = entry.map
+  if entry.other then
+    paw.ui.focus(entry.other)
+    return paw.notify(keymap.human(map.lhs) .. " is a key of the " .. entry.other .. " view, which has the keys now")
+  end
+  if entry.kind == "object" then
+    return paw.notify(keymap.human(map.lhs) .. " names a region: type it after an operator such as `d` or `y`, or in a selection")
+  end
+  if entry.kind == "insert" then
+    return paw.notify(keymap.human(map.lhs) .. " works in insert mode: `i` first")
+  end
+  if entry.kind == "visual" and keymap.mode ~= "x" then
+    return paw.notify(keymap.human(map.lhs) .. " acts on a selection: `v` or `V` first")
+  end
+  keymap.normal(map.lhs)
+end
+
+-- Tracks and clips ---------------------------------------------------------------
+
+local function track_name(id: integer): string
+  local ok, t = pcall(api.track_get, id) as (boolean, types.Track)
+  return ok and t.name or "?"
+end
+
+-- The arrange view, centred on the cursor when it can be.
+local function center()
+  local arrange = paw.ui.views.arrange as Arrange
+  if arrange.center then arrange:center() end
+end
+
+-- Devices ------------------------------------------------------------------------
+
+--- What a register holds, in a line.
+local function describe(value: Register): string
+  if value.kind == "keys" then return "macro   " .. value.keys end
+  if value.kind == "tracks" then
+    local list: {string} = {}
+    for i, t in ipairs(value.tracks) do list[i] = t.name end
+    return "tracks  " .. table.concat(list, ", ")
+  end
+  if value.kind == "range" then
+    local clips = 0
+    for _, row in ipairs(value.rows) do clips = clips + #row end
+    return string.format("time    %g beats on %s, %s", value.length, plural(#value.rows, "track"), plural(clips, "clip"))
+  end
+  if value.kind == "notes" then return string.format("notes   %d over %g beats", #value.notes, value.length) end
+  if value.kind == "device" then return "device  " .. tostring(value.device.kind) end
+  return tostring(value.kind)
+end
+
+-- Files --------------------------------------------------------------------------
+
+local audio_ext: {string: boolean} = { wav = true, wave = true, aif = true, aiff = true, flac = true, mp3 = true, ogg = true }
+local skip_dir: {string: boolean} = { target = true, node_modules = true, result = true }
+
+local function is_project(path: string): boolean
+  local file = io.open(path, "rb")
+  if not file then return false end
+  local head = file:read(200) or ""
+  file:close()
+  return head:find('"version"', 1, true) ~= nil and head:find('"project"', 1, true) ~= nil
+end
+
+--- Project and audio files under `root`, walking at most `limit` entries.
+local function walk(root: string, limit: integer): {FileLine}
+  local out: {FileLine} = {}
+  local seen = 0
+  local function visit(dir: string, prefix: string, depth: integer)
+    for _, entry in ipairs(api.read_dir(dir)) do
+      seen = seen + 1
+      if seen > limit then return end
+      local name = entry.name
+      local path = prefix .. name
+      if entry.is_dir then
+        if depth < 8 and name:sub(1, 1) ~= "." and not skip_dir[name] then visit(dir .. "/" .. name, path .. "/", depth + 1) end
+      else
+        local ext = (name:match("%.([^.]+)$") or ""):lower()
+        if audio_ext[ext] then
+          out[#out + 1] = { path = path, kind = "audio" }
+        elseif paw.midifile.is_midi_file(name) then
+          out[#out + 1] = { path = path, kind = "midi" }
+        elseif ext == "json" and is_project(dir .. "/" .. name) then
+          out[#out + 1] = { path = path, kind = "project" }
+        end
+      end
+    end
+  end
+  visit(root, root == "." and "" or root .. "/", 0)
+  return out
+end
+
+-- Messages -----------------------------------------------------------------------
+
+local levels: {string: string} = { info = "Normal", warn = "Warn", error = "Error" }
+
+--- The pickers, for `pick`.
+local function make(pick: Pick): Sources
+  local S: Sources = {}
+
+  -- Pickers ------------------------------------------------------------------------
+
+  local pickers: contracts.PickSource<PickerLine> = {
+    desc = "Every picker",
+    title = "Pickers",
+    items = function(): {PickerLine}
+      local out: {PickerLine} = {}
+      for name, source in pairs(pick.sources) do
+        if name ~= "pickers" and not name:match("^_") then
+          local desc = ""
+          if source is contracts.PickInfo then desc = source.desc or source.title end
+          out[#out + 1] = { name = name, desc = desc }
+        end
+      end
+      table.sort(out, function(a: PickerLine, b: PickerLine): boolean return a.name < b.name end)
+      return out
+    end,
+    format = function(s: PickerLine): string return string.format("%-14s %s", s.name, s.desc) end,
+    on_choose = function(s: PickerLine) pick(s.name) end,
+  }
+  S.pickers = pickers
+
+  -- Commands -----------------------------------------------------------------------
+
+  local commands: contracts.PickSource<CommandsModule.Spec> = {
+    desc = "Run a command",
+    title = "Commands",
+    items = function(): {CommandsModule.Spec}
+      keys_now = key_index()
+      view_set = view_commands()
+      return paw.commands.list()
+    end,
+    format = function(spec: CommandsModule.Spec): string
+      local keys = keys_for(spec.alias_of or spec.name)
+      local key = keys[1] and human_of(keys[1]) or ""
+      return string.format("%-24s %-10s %s", spec.name, key, spec.alias_of and "→ " .. spec.alias_of or spec.desc)
+    end,
+    primary = function(spec: CommandsModule.Spec): string return spec.name end,
+    -- Commands used before come first, and those the focused view has keys for.
+    boost = function(spec: CommandsModule.Spec): number
+      local name = spec.alias_of or spec.name
+      return math.min(paw.commands.uses(name), 10) * 8 + (view_set[name] and 40 or 0)
+    end,
+    on_choose = function(spec: CommandsModule.Spec)
+      paw.state.last_cmdline = spec.name
+      paw.commands.used(spec.name)
+      paw.commands.run(spec.name)
+    end,
+    actions = {
+      ["<C-e>"] = { fn = function(spec: CommandsModule.Spec) if spec then edit_command(spec) end end, desc = "edit arguments" },
+      ["<C-]>"] = { fn = function(spec: CommandsModule.Spec) if spec then paw.help.for_command(spec.alias_of or spec.name) end end, desc = "help" },
+    },
+    preview = function(spec: CommandsModule.Spec): {string | contracts.PageLine}
+      local lines: {string | contracts.PageLine} = { { text = spec.name, style = "Title" }, "" }
+      for line in (spec.desc ~= "" and spec.desc or "(no description)"):gmatch("[^\n]+") do lines[#lines + 1] = line end
+      if spec.alias_of then lines[#lines + 1] = "Another name for " .. spec.alias_of end
+      local keys = keys_for(spec.alias_of or spec.name)
+      if #keys > 0 then
+        lines[#lines + 1] = ""
+        lines[#lines + 1] = { text = "Keys", style = "HelpSection" }
+        for _, key in ipairs(keys) do
+          local lhs, where = key:match("^(.-)( %(.*%))$")
+          lines[#lines + 1] = "  " .. keymap.human(lhs or key) .. (where or "")
+        end
+      end
+      lines[#lines + 1] = ""
+      lines[#lines + 1] = { text = "C-e types it on the command line, for arguments", style = "Dim" }
+      return lines
+    end,
+  }
+  S.commands = commands
+
+  S.keys = function(_: contracts.PickExtra): contracts.PickInfo
+    local view = paw.ui.focused
+    -- The picker is as wide as the screen allows, the list on the left
+    -- and, beside it, the help of the key chosen.
+    -- (A window's main area is wider than the screen the kernel keeps for it.)
+    local cells = paw.panes.cells()
+    local total = math.min(150, math.max((api.ui_size()), cells and cells.w as integer or 0) - 4)
+    local list_w = math.floor(total * 0.6)
+    local preview_w = total - list_w - 3
+    local cols = { key = 8, tag = 4, desc = 10 }
+    local keys: contracts.PickSource<KeyLine> = {
+      desc = "Every key that works in the focused view",
+      title = "Keys · " .. tostring(view),
+      empty = "No keys are mapped here.",
+      width = total,
+      choose = "run",
+      -- The view's own keys before the global ones, and those before the keys of other views.
+      boost = function(entry: KeyLine): number return entry.other and 0 or entry.map.scope == "global" and 20 or 40 end,
+      items = function(): {KeyLine}
+        -- Ranked rather than alphabetical: what the view itself adds, then
+        -- what works everywhere; plain keys before motions, operators and
+        -- the rest; short keys before long ones.
+        local rank: {string: integer} = { key = 1, operator = 2, motion = 3, object = 4, visual = 5, insert = 6 }
+        local out: {KeyLine} = {}
+        local seen: {string: KeyLine} = {}
+        for _, given in ipairs(keymap.all(view)) do
+          local map = given.map
+          local rhs = map.rhs
+          local entry: KeyLine = { map = map, kind = given.kind, human = keymap.human(map.lhs),
+            desc = map.desc or (rhs is string and rhs) or "(no description)" }
+          entry.tag = key_tag(entry)
+          -- Keys that do the same thing in the same place are one line.
+          local same = entry.tag .. "\t" .. entry.desc .. "\t" .. tostring(map.rhs)
+          local first = seen[same]
+          if first then
+            if not first.humans[entry.human] then
+              first.humans[entry.human] = true
+              first.human = first.human .. ", " .. entry.human
+            end
+          else
+            entry.humans = { [entry.human] = true }
+            seen[same] = entry
+            out[#out + 1] = entry
+          end
+        end
+        table.sort(out, function(a: KeyLine, b: KeyLine): boolean
+          local ga, gb = a.map.scope == "global" and 1 or 0, b.map.scope == "global" and 1 or 0
+          if ga ~= gb then return ga < gb end
+          if rank[a.kind] ~= rank[b.kind] then return (rank[a.kind] or 9) < (rank[b.kind] or 9) end
+          if #a.map.keys ~= #b.map.keys then return #a.map.keys < #b.map.keys end
+          local la, lb = a.map.lhs:match("^%a") and 0 or 1, b.map.lhs:match("^%a") and 0 or 1
+          if la ~= lb then return la < lb end
+          return a.map.lhs:lower() .. a.map.lhs < b.map.lhs:lower() .. b.map.lhs
+        end)
+        -- After them, the keys of the other views, so that a search for what
+        -- a key does finds it wherever it works: `send` in the mixer finds
+        -- the arrange view's `<leader>s`.
+        local names: {string} = {}
+        for name, v in pairs(paw.ui.views) do
+          if name ~= view and v.focusable ~= false and not v.modal then names[#names + 1] = name end
+        end
+        table.sort(names)
+        for _, name in ipairs(names) do
+          for _, map in ipairs(keymap.list("n", name)) do
+            if map.scope == name and not map.motion and map.desc then
+              local entry: KeyLine = { map = map, kind = "key", other = name, human = keymap.human(map.lhs), desc = map.desc }
+              entry.tag = key_tag(entry)
+              out[#out + 1] = entry
+            end
+          end
+        end
+        -- The columns are as wide as what they hold, the description
+        -- keeping what the others leave.
+        local longest = 0
+        cols.key, cols.tag = 8, 4
+        for _, e in ipairs(out) do
+          cols.key = math.max(cols.key, math.min(14, api.str_width(e.human)))
+          cols.tag = math.max(cols.tag, api.str_width(e.tag))
+          longest = math.max(longest, api.str_width(e.desc))
+        end
+        cols.desc = math.max(10, math.min(longest, list_w - 3 - cols.key - cols.tag - 2))
+        return out
+      end,
+      format = function(e: KeyLine): string
+        return util.fit(e.human, cols.key) .. " " .. util.fit(e.desc, cols.desc) .. " " .. e.tag
+      end,
+      -- What the manual says of the key, or what it is for.
+      preview = function(e: KeyLine): {string | contracts.PageLine}
+        local excerpt = paw.help.excerpt_for_map(e.map, preview_w, 24)
+        if excerpt then return excerpt as {string | contracts.PageLine} end
+        return { { text = e.human, style = "HelpKey" }, "", e.desc, "", { text = "the manual has nothing on it yet", style = "Dim" } }
+      end,
+      primary = function(e: KeyLine): string return e.human end,
+      -- The whole description, not the part that the width leaves.
+      search = function(e: KeyLine): string return e.human .. " " .. e.desc .. " " .. e.tag end,
+      on_choose = run_key,
+      actions = { ["<C-]>"] = { fn = function(e: KeyLine) if e then paw.help.for_map(e.map) end end, desc = "help" } },
+    }
+    return keys
+  end
+
+  -- Tracks and clips ---------------------------------------------------------------
+
+  local tracks: contracts.PickSource<TrackLine> = {
+    desc = "Go to a track",
+    title = "Tracks",
+    items = function(): {TrackLine}
+      local out: {TrackLine} = {}
+      for i, id in ipairs(paw.scope.tracks()) do out[#out + 1] = { id = id, index = i, name = track_name(id) } end
+      return out
+    end,
+    format = function(t: TrackLine): string return string.format("%2d  %s", t.index, t.name) end,
+    location = function(t: TrackLine): string return paw.address.track(t.id) end,
+    on_choose = function(t: TrackLine)
+      keymap.push_jump()
+      paw.cursor.set_track(t.id)
+      center()
+    end,
+    delete = function(list: {TrackLine})
+      api.undo_label(#list == 1 and "Remove the track" or "Remove tracks")
+      for _, t in ipairs(list) do
+        if pcall(api.track_get, t.id) then api.track_remove(t.id) end
+      end
+    end,
+    -- What the track plays around the cursor, heard when asked for.
+    audition_key = "tracks",
+    audition_default = false,
+    audition = function(t: TrackLine): string return t.name .. " · " .. paw.audition.through(t.id) end,
+    preview = function(t: TrackLine): {string | contracts.PageLine}
+      local info = api.track_get(t.id)
+      local lines: {string | contracts.PageLine} = { { text = info.name, style = "Title" }, "" }
+      lines[#lines + 1] = string.format("volume %+.1f dB, pan %+.2f%s%s", info.volume, info.pan, info.mute and ", muted" or "", info.solo and ", solo" or "")
+      lines[#lines + 1] = "output  " .. (info.output and track_name(info.output) or "Master")
+      for i, id in ipairs(info.devices) do lines[#lines + 1] = string.format("%d. %s", i, api.device_get(id).name) end
+      local clips = api.clip_list(t.id)
+      lines[#lines + 1] = ""
+      lines[#lines + 1] = plural(#clips, "clip")
+      for _, c in ipairs(clips) do lines[#lines + 1] = string.format("  %-10s %s", paw.time.format(c.start), c.name) end
+      return lines
+    end,
+  }
+  S.tracks = tracks
+
+  local clips: contracts.PickSource<ClipLine> = {
+    desc = "Go to a clip",
+    title = "Clips",
+    items = function(): {ClipLine}
+      local out: {ClipLine} = {}
+      for _, id in ipairs(paw.scope.tracks()) do
+        local name = track_name(id)
+        for _, c in ipairs(api.clip_list(id)) do
+          out[#out + 1] = { id = c.id, track = id, track_name = name, name = c.name, start = c.start, length = c.length, kind = c.kind }
+        end
+      end
+      return out
+    end,
+    format = function(c: ClipLine): string return string.format("%-20s %-14s %s", c.name, c.track_name, paw.time.format(c.start)) end,
+    location = function(c: ClipLine): string return paw.address.clip(c.id) end,
+    on_choose = function(c: ClipLine)
+      keymap.push_jump()
+      paw.ui.focus("arrange")
+      paw.cursor.set_track(c.track)
+      paw.cursor.set_beat(c.start)
+      local arrange = paw.ui.views.arrange as Arrange
+      arrange:center()
+    end,
+    delete = function(list: {ClipLine})
+      api.undo_label(#list == 1 and "Remove the clip" or "Remove clips")
+      for _, c in ipairs(list) do
+        if pcall(api.clip_get, c.id) then api.clip_remove(c.id) end
+      end
+    end,
+    -- A MIDI clip's notes drawn as a small piano roll, an audio clip's sound.
+    preview = function(c: ClipLine, width: integer, height: integer): {string | contracts.PageLine}
+      local info = api.clip_get(c.id)
+      local lines: {string | contracts.PageLine} = {
+        { text = info.name, style = "Title" },
+        "track   " .. c.track_name,
+        string.format("from    %s to %s, %g beats%s", paw.time.format(info.start), paw.time.format(info.start + info.length), info.length, info.muted and ", muted" or ""),
+        info.kind == "midi" and plural(info.note_count, "note") or "audio   " .. tostring(info.file),
+        "",
+      }
+      local drawn = preview.clip(c.id, width or 40, math.max(4, (height or 20) - #lines - 3))
+      for _, line in ipairs(drawn) do lines[#lines + 1] = line end
+      return lines
+    end,
+    -- Heard: an audio clip's file; a MIDI clip's first bars through its track.
+    audition_key = "clips",
+    audition = function(c: ClipLine): string
+      local info = api.clip_get(c.id)
+      if info.kind == "audio" then
+        paw.audition.file(info.file)
+        return info.name
+      end
+      local length = math.min(info.length, paw.time.bar(info.start) * 2)
+      local notes: {AuditionModule.PhraseNote} = {}
+      local all = api.clip_notes(c.id)
+      for _, n in ipairs(all) do
+        if n.start >= 0 and n.start < length then
+          notes[#notes + 1] = { pitch = n.pitch, start = n.start, length = n.length, velocity = n.velocity }
+        end
+      end
+      paw.audition.phrase(c.track, notes, { length = length, label = info.name, key = "clip" .. c.id })
+      return string.format("%s · %g beats on %s", info.name, length, c.track_name)
+    end,
+  }
+  S.clips = clips
+
+  -- Devices ------------------------------------------------------------------------
+
+  local typed: string -- what was typed in the device picker, remembered with the choice
+  local wanted: string -- the kind of device the track most likely needs, listed first
+  local devices: contracts.PickSource<DeviceInfo> = {
+    desc = "Add a device or plugin to the track",
+    title = "Add a device",
+    -- Favourites first, then the ones used last; `@instrument`, `@clap`,
+    -- `@fav` or `@<vendor>` typed filter (see `paw.fx.rank`).
+    items = function(): {DeviceInfo}
+      wanted = paw.fx.preferred(paw.cursor.track_id())
+      return paw.fx.device_list(wanted)
+    end,
+    format = function(info: DeviceInfo): string return paw.fx.device_line(info) end,
+    rank = function(info: DeviceInfo, query: string, line: string): number
+      typed = query
+      return paw.fx.rank(info, query, line, wanted)
+    end,
+    on_choose = function(info: DeviceInfo)
+      local track = need_track()
+      if not track then return end
+      paw.fx.add(track, info.kind, { query = typed })
+      paw.notify("added " .. info.name .. " to " .. track.name)
+    end,
+    -- Heard on the track, with what it plays around the cursor: added as a
+    -- trial, taken away again unless chosen. A plugin is made apart, so
+    -- the selection rests on it longer first.
+    audition = function(info: DeviceInfo): string | contracts.Hearing<DeviceInfo>
+      local track = paw.cursor.track()
+      if not track then return "no track to try it on" end
+      local device = paw.audition.try(function(): types.Device return paw.fx.place(track, info.kind) end)
+      local hearing: contracts.Hearing<DeviceInfo> = {
+        label = info.name .. " · " .. paw.audition.through(track.id),
+        loading = function(): boolean
+          local ok, d = pcall(api.device_get, device.id) as (boolean, types.Device)
+          return ok and d.status == "loading"
+        end,
+        keep = function()
+          paw.fx.added(device, info.kind, { query = typed })
+          paw.notify("added " .. info.name .. " to " .. track.name)
+        end,
+      }
+      return hearing
+    end,
+    audition_delay = function(info: DeviceInfo, ms: number): number return info.format ~= "builtin" and math.max(ms, 600) or ms end,
+    actions = {
+      ["<C-f>"] = { desc = "favourite", fn = function(info: DeviceInfo, query: string)
+        if info then paw.fx.toggle_favourite(info.kind) end
+        pick("devices", { query = query })
+      end },
+      ["<C-t>"] = { desc = "instruments/effects", fn = function(_: DeviceInfo, query: string)
+        -- Step the filter: none, instruments, effects.
+        local q = query:gsub("%s*@instrument", ""):gsub("%s*@effect", "")
+        local was = query:find("@instrument") and 1 or query:find("@effect") and 2 or 0
+        local tag = ({ [0] = " @instrument", [1] = " @effect", [2] = "" } as {integer: string})[was]
+        pick("devices", { query = ((q .. tag):gsub("^%s+", "")) })
+      end },
+    },
+    preview = function(info: DeviceInfo): {string | contracts.PageLine}
+      local lines: {string | contracts.PageLine} = {
+        { text = info.name, style = "Title" }, "",
+        "kind     " .. info.kind,
+        "format   " .. info.format .. (info.category and info.category ~= "" and ", " .. info.category or ""),
+      }
+      if info.favourite then lines[#lines + 1] = "a favourite (Ctrl-f)" end
+      if info.vendor and info.vendor ~= "" then lines[#lines + 1] = "vendor   " .. info.vendor end
+      local params = info.params or {}
+      if #params > 0 then
+        lines[#lines + 1] = ""
+        lines[#lines + 1] = { text = plural(#params, "parameter"), style = "HelpSection" }
+        for i, p in ipairs(params) do
+          if i > 30 then break end
+          lines[#lines + 1] = "  " .. p.name
+        end
+      end
+      return lines
+    end,
+  }
+  S.devices = devices
+
+  local track_devices: contracts.PickSource<DeviceLine> = {
+    desc = "Devices on the track: show one in the device panel",
+    title = "Devices on the track",
+    empty = "No devices on this track. `<leader>fa` adds one.",
+    items = function(): {DeviceLine}
+      local track = paw.cursor.track()
+      local out: {DeviceLine} = {}
+      for i, device in ipairs(track and track:devices() or {}) do
+        local d = device:get()
+        out[#out + 1] = { id = d.id, index = i, name = d.name, kind = d.kind, bypass = d.bypass }
+      end
+      return out
+    end,
+    format = function(d: DeviceLine): string return string.format("%d. %s%s", d.index, d.name, d.bypass and "  (bypassed)" or "") end,
+    on_choose = function(d: DeviceLine)
+      local panel = paw.ui.views.devices as DevicesView
+      paw.ui.focus("devices")
+      for i, row in ipairs(panel:rows()) do
+        if row.device.id == d.id and not row.param and not row.picture then panel.row = i end
+      end
+      api.ui_redraw()
+    end,
+    actions = {
+      ["<C-e>"] = { fn = function(d: DeviceLine) if d then api.device_editor(d.id) end end, desc = "plugin window" },
+    },
+    preview = function(d: DeviceLine): {string | contracts.PageLine}
+      local info = api.device_get(d.id)
+      local lines: {string | contracts.PageLine} = { { text = info.name, style = "Title" }, "", "kind   " .. info.kind, "" }
+      for i, p in ipairs(info.param_info) do
+        if i > 40 then break end
+        lines[#lines + 1] = string.format("%-18s %s", p.name, paw.frontend.format_value(p, info.params[p.key]))
+      end
+      return lines
+    end,
+  }
+  S.track_devices = track_devices
+
+  -- Marks and registers ------------------------------------------------------------
+
+  local marks: contracts.PickSource<MarkLine> = {
+    desc = "Go to a mark",
+    title = "Marks",
+    empty = "No marks. `ma` sets mark a at the cursor.",
+    items = function(): {MarkLine}
+      local out: {MarkLine} = {}
+      for _, view in ipairs({ "arrange", "pianoroll" }) do
+        local list = keymap.marks(view)
+        local names: {string} = {}
+        for name in pairs(list) do names[#names + 1] = name end
+        table.sort(names)
+        for _, name in ipairs(names) do
+          local pos = list[name]
+          local where: string
+          if view == "arrange" then
+            local ok, t = pcall(api.track_get, pos.track) as (boolean, types.Track)
+            where = paw.time.format(pos.beat) .. "  " .. (ok and t.name or "(track gone)")
+          else
+            where = paw.music.name(math.floor(pos[1])) .. "  beat " .. pos[2] + 1
+          end
+          out[#out + 1] = { name = name, view = view, where = where }
+        end
+      end
+      return out
+    end,
+    format = function(m: MarkLine): string return string.format("%s  %-10s %s", m.name, m.view, m.where) end,
+    on_choose = function(m: MarkLine)
+      if paw.ui.focused ~= m.view then paw.ui.focus(m.view) end
+      keymap.goto_mark(m.name)
+    end,
+  }
+  S.marks = marks
+
+  local registers: contracts.PickSource<RegisterLine> = {
+    desc = "Paste a register, or play a macro",
+    title = "Registers",
+    empty = "Nothing yanked or recorded yet.",
+    items = function(): {RegisterLine}
+      local out: {RegisterLine} = {}
+      for name, value in pairs(keymap.registers) do out[#out + 1] = { name = name, value = value } end
+      table.sort(out, function(a: RegisterLine, b: RegisterLine): boolean return a.name < b.name end)
+      return out
+    end,
+    format = function(r: RegisterLine): string return string.format('"%s  %s', r.name, describe(r.value)) end,
+    on_choose = function(r: RegisterLine)
+      if r.value.kind == "keys" then return keymap.play(r.name) end
+      keymap.normal('"' .. r.name .. "P")
+    end,
+  }
+  S.registers = registers
+
+  -- Messages -----------------------------------------------------------------------
+
+  local messages: contracts.PickSource<Message> = {
+    desc = "Earlier messages, newest first",
+    title = "Messages",
+    empty = "No messages yet.",
+    items = function(): {Message}
+      local out: {Message} = {}
+      local list = paw.ui.messages as {Message}
+      for i = #list, 1, -1 do out[#out + 1] = list[i] end
+      return out
+    end,
+    format = function(m: Message): string return string.format("%-5s %s", m.level, m.text:match("^[^\n]*")) end,
+    on_choose = function(m: Message) paw.ui.page("Message", { { text = m.text, style = levels[m.level] } }) end,
+    preview = function(m: Message): {string | contracts.PageLine} return { { text = m.text, style = levels[m.level] } } end,
+  }
+  S.messages = messages
+
+  -- Files --------------------------------------------------------------------------
+
+  local files: contracts.PickSource<FileLine> = {
+    desc = "Open a project, or import audio or MIDI at the cursor",
+    title = "Files",
+    empty = "No project, audio or MIDI files under this directory.",
+    items = function(): {FileLine} return walk(".", 50000) end,
+    format = function(f: FileLine): string return f.path end,
+    on_choose = function(f: FileLine)
+      if f.kind == "project" then
+        if not paw.project.guard("open") then return end
+        paw.open(f.path)
+        return paw.notify("opened " .. f.path)
+      end
+      if f.kind == "midi" then
+        paw.commands.run("import", { f.path })
+        return
+      end
+      local track = need_track()
+      if not track then return end
+      track:add_clip({ start = paw.cursor.beat, file = f.path })
+    end,
+    audition_key = "files",
+    audition = function(f: FileLine): string return pick.hear_file(f.path) end,
+    preview = function(f: FileLine): {string | contracts.PageLine}
+      if f.kind == "project" then
+        return { { text = f.path, style = "Title" }, "", "A project.", "Enter opens it in place of this one." }
+      end
+      if f.kind == "midi" then
+        return {
+          { text = f.path, style = "Title" }, "", "A MIDI file.",
+          "Enter brings its tracks in at " .. paw.time.format(paw.cursor.beat) .. "; `:open` opens it as a project.",
+        }
+      end
+      local track = paw.cursor.track()
+      return {
+        { text = f.path, style = "Title" }, "", "Audio.",
+        "Enter adds it at " .. paw.time.format(paw.cursor.beat) .. (track and " on " .. track.name or ""),
+      }
+    end,
+  }
+  S.files = files
+
+  -- Options ------------------------------------------------------------------------
+
+  local option_picker: contracts.PickSource<options.Info> = {
+    desc = "Set an option",
+    title = "Options",
+    items = function(): {options.Info} return options.list() end,
+    format = function(o: options.Info): string return string.format("%-14s %s", o.name, tostring(opt[o.name])) end,
+    on_choose = function(o: options.Info)
+      local value = opt[o.name]
+      if value is boolean then
+        opt[o.name] = not value
+        return paw.notify(o.name .. " = " .. tostring(not value))
+      end
+      local input: InputOptions = { prompt = o.name .. " = ", text = tostring(value) }
+      paw.ui.input(input, function(text: string)
+        if text == "" then return end
+        local read, err = options.read(o.name, text)
+        if read == nil then return paw.notify(err, "error") end
+        opt[o.name] = read
+        paw.notify(o.name .. " = " .. tostring(opt[o.name]))
+      end)
+    end,
+    preview = function(o: options.Info): {string | contracts.PageLine}
+      return {
+        { text = o.name, style = "Title" }, "",
+        "now       " .. tostring(opt[o.name]),
+        "default   " .. tostring(o.default),
+        "",
+        { text = type(o.default) == "boolean" and "Enter switches it" or "Enter asks for a new value", style = "Dim" },
+      }
+    end,
+  }
+  S.options = option_picker
+
+  project(pick, S)
+  return S
+end
+
+M.walk = walk
+
+return setmetatable(M, { __call = function(_: M, pick: Pick): Sources return make(pick) end } as metatable<M>)

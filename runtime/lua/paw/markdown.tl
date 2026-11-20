@@ -1,5 +1,5 @@
 -- The Markdown the manual is written in, made into lines of text for the
--- help buffers (paw/help.lua): headings, paragraphs, lists, tables, fenced
+-- help buffers (paw/help.tl): headings, paragraphs, lists, tables, fenced
 -- code, quotes, rules, and inside a line `code`, [links](target), **bold**
 -- and *italic*. Nothing else of Markdown is used in the docs, so nothing
 -- else is read; HTML comments are dropped, except `<!-- tags: a b -->`,
@@ -41,7 +41,7 @@ local record M
   --- depth), an `item` of a list (depth, marker, text), a `table` (rows of
   --- cells, the first the header; depth), `code` (lines, depth), a `quote`
   --- (text), a `rule`, a `blank` or `tags` (names). `tag` is free for the
-  --- caller (paw/help.lua names its headings with it).
+  --- caller (paw/help.tl names its headings with it).
   record Block
     type: BlockType
     level: integer

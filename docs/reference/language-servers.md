@@ -244,7 +244,7 @@ A server that speaks a different protocol gets an adapter:
 `paw.lsp.adapter(name, spec)`, and `adapter = name` in its config. An
 adapter is a set of small functions. They change the subject into the
 messages of the server, and the answers into locations and workspace
-edits. `runtime/lua/paw/lsp/standard.lua` shows the fields of an adapter.
+edits. `runtime/lua/paw/lsp/standard.tl` shows the fields of an adapter.
 The `midi/*` protocol of MIDI LSP has an adapter in
 `extensions/midilsp/lua/midilsp/adapter.lua`.
 

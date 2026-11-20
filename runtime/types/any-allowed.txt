@@ -27,7 +27,6 @@ paw.files 1 written in Lua: typed when its module is ported to Teal
 paw.freeze 1 written in Lua: typed when its module is ported to Teal
 paw.fx 1 written in Lua: typed when its module is ported to Teal
 paw.health 1 written in Lua: typed when its module is ported to Teal
-paw.help 1 written in Lua: typed when its module is ported to Teal
 paw.import_audio 1 written in Lua: typed when its module is ported to Teal
 paw.is_audio_file 1 written in Lua: typed when its module is ported to Teal
 paw.is_chain_file 1 written in Lua: typed when its module is ported to Teal
@@ -36,13 +35,11 @@ paw.keymap 1 written in Lua: typed when its module is ported to Teal
 paw.keyrule 1 written in Lua: typed when its module is ported to Teal
 paw.learn 1 written in Lua: typed when its module is ported to Teal
 paw.loading 1 written in Lua: typed when its module is ported to Teal
-paw.lsp 1 written in Lua: typed when its module is ported to Teal
 paw.luadev 1 written in Lua: typed when its module is ported to Teal
 paw.mixer_rows 1 written in Lua: typed when its module is ported to Teal
 paw.open 1 written in Lua: typed when its module is ported to Teal
 paw.open_chain 1 written in Lua: typed when its module is ported to Teal
 paw.params 1 written in Lua: typed when its module is ported to Teal
-paw.pick 1 written in Lua: typed when its module is ported to Teal
 paw.plugins 1 written in Lua: typed when its module is ported to Teal
 paw.recent 1 written in Lua: typed when its module is ported to Teal
 paw.reconnect 1 written in Lua: typed when its module is ported to Teal

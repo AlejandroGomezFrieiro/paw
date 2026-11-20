@@ -887,11 +887,11 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.help.complete(rest)`: What `:help` completes: the tags, ranked as `:help` ranks them.
 - `paw.help.ex_name(line)`: The command an Ex line runs: `:%s/a/b/g` runs `s`, `:5,8co 17` `co`.
 - `paw.help.excerpt_for_map(map, width, rows)`: The section of help that `for_map` would go to, as at most `rows` lines `{ text, style }` wrapped to `width`. It is for a pane next to a list of keys. The name of the page comes first. Nil when there is no help for the key.
-- `paw.help.find(topic, limit)`: The tags that a topic finds, best first, in the order of the `:help` of Vim. First the tag itself, then the tags that start with it, the tags that contain it, and the tags that contain its letters in order. You can write keys in the two ways: `<C-w>o` finds `Ctrl-w o`.
+- `paw.help.find(given, limit)`: The tags that a topic finds, best first, in the order of the `:help` of Vim. First the tag itself, then the tags that start with it, the tags that contain it, and the tags that contain its letters in order. You can write keys in the two ways: `<C-w>o` finds `Ctrl-w o`.
 - `paw.help.follow()`: `Ctrl-]`: follow the link under the cursor, or find the code or the word there.
 - `paw.help.for_command(name)`: The help for a command (what `Ctrl-]` does in the commands picker).
 - `paw.help.for_map(map)`: The help for a key mapping: of its keys, else of the command it runs (what `Ctrl-]` does in the keys picker).
-- `paw.help.grep(pattern)`: `:helpgrep`: every line of help that holds the words, in the quickfix list.
+- `paw.help.grep(given)`: `:helpgrep`: every line of help that holds the words, in the quickfix list.
 - `paw.help.index()`: What help knows: `{ sources, tags = name -> { name, source, row, col }, list }`.
 - `paw.help.is_help(buf)`: True if a buffer is a page of help.
 - `paw.help.jump(tag)`: Go to a tag: remember where from (for `Ctrl-t` and `Ctrl-o`) and show it.
@@ -1172,7 +1172,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.lsp
 
 - `paw.lsp.actions_at(location, cb)`: Ask each server that gives actions, and contains the location, for the actions there. `cb(actions)` gets `{ { title, source, edit | run } }`.
-- `paw.lsp.adapter(name, spec)`: Add a dialect: how a kind of server is spoken to (see paw/lsp/standard.lua for the functions an adapter has; any it leaves out are the standard ones).
+- `paw.lsp.adapter(name, spec)`: Add a dialect: how a kind of server is spoken to (see paw/lsp/standard.tl for the functions an adapter has; any it leaves out are the standard ones).
 - `paw.lsp.attach(which, address, keep, subject)`: Make a server keep a subject of an address open, when paw would send it and when it would not (`keep` false releases it). A clip id names its clip.
 - `paw.lsp.attaches(which, address, subject)`: True if a server is attached to an address (for its subject, or for any subject).
 - `paw.lsp.cancel(which, id)`: Tell a server to forget a request that it did not answer yet.
@@ -1202,7 +1202,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   ```
 - `paw.lsp.document(which, uri)`: The document a server holds under a URI, or nil.
 - `paw.lsp.enable(name, on)`: Start a configured server (`on` false stops it).
-- `paw.lsp.has(which, feature, lane)`: True if a server that runs (a client or its name) gives a feature: "hover", "completion", "actions", "diagnostics", "analysis".
+- `paw.lsp.has(which, feature, lane)`: True if a server that runs (a client or its name) gives a feature: "hover", "completion", "actions", "diagnostics", "analysis", or "completion" with a lane: `has(name, "completion", "velocity")`. LSP's names (`hoverProvider`, `completionProvider`) are taken too.
 - `paw.lsp.hover(id, pitch, beat, cb)`: Ask about a place in a clip (`pitch` and `beat` from its start), as before addresses: the same as `hover_at` on the note there.
 - `paw.lsp.hover_at(location, cb)`: Ask each server that hovers, and contains the location, for its text there. `cb(sections)` gets `{ { client, lines } }` when all servers answer.
 - `paw.lsp.info_lines()`: What `:lsp info` shows: each server, its transport, state, what it is attached to and can do, and what it holds.
@@ -1214,7 +1214,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.lsp.show_hover(id, pitch, beat)`: Show what is known about a location (by default what is under the cursor of the focused view): the diagnostics about it and what it holds, then each server's hover, in a float.
 - `paw.lsp.show_lines(location, lines, sections)`: The hover float itself: the diagnostics' lines, then each server's.
 - `paw.lsp.stop(name)`: Stop every server, or the one named.
-- `paw.lsp.subject(name, spec)`: Add a subject (see paw/lsp/subjects.lua).
+- `paw.lsp.subject(name, spec)`: Add a subject (see paw/lsp/subjects.tl).
 - `paw.lsp.sync()`: Update each server now. Open the documents that it is attached to, send the changes, and close the documents that it is not attached to now. Requests call this first, so they are about the current state.
 
 ## Module paw.lsp.document_module
@@ -1407,10 +1407,11 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   ```lua
   paw.pick.match("bs", "Bass Synth")   --> score, { 1, 6 }
   ```
-- `paw.pick.open(spec, extra)`: Open a picker. See the top of this file for the fields of `spec`, or pass the name of a source. Returns the picker's state.
+- `paw.pick.open(given, extra)`: Open a picker. See the top of this file for the fields of `spec`, or pass the name of a source. Returns the picker's state.
 - `paw.pick.resume()`: Open the last picker again, as it was: what was typed, the mode, the line selected. Its items are read again.
-- `paw.pick.show(loc, how)`: Show a location: in place (`how` nil), or in a new window to the side ("vsplit"), below ("split") or in a new tab ("tab"). The view that shows it best moves there. Returns true if there was a place to go.
+- `paw.pick.show(where, how)`: Show a location: in place (`how` nil), or in a new window to the side ("vsplit"), below ("split") or in a new tab ("tab"). The view that shows it best moves there. Returns true if there was a place to go.
 - `paw.pick.state()`: The open picker, if any: its query, the matches as lines, and the item under the selection. For tests and for frontends.
+- `paw.pick.walk(root, limit)`: Project and audio files under `root`, walking at most `limit` entries.
 
 ## Module paw.plot
 

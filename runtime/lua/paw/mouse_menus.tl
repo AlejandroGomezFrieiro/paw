@@ -18,6 +18,7 @@ local type VcaModule = require("paw.vca")
 local type AddressModule = require("paw.address")
 local type TempolaneModule = require("paw.tempolane")
 local type FrontendModule = require("paw.frontend")
+local type LspModule = require("paw.lsp")
 
 local type Entry = contracts.MenuEntry
 local opt = options.opt
@@ -77,15 +78,9 @@ local record MoreFrontend
   menu: function(kind: string, args: {MenuArg}): {Described}
 end
 
---- The language servers (paw/lsp/), as far as the menus call them.
-local record Lsp
-  clients: function(): {integer}
-  code_actions: function(location: contracts.Location)
-  show_hover: function(location: contracts.Location)
-end
 
 local record Paw is partial.Paw
-  lsp: Lsp
+  lsp: LspModule
   diagnostic: DiagnosticModule
   commands: CommandsModule
   takes: TakesModule
