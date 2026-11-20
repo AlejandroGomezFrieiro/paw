@@ -351,7 +351,8 @@ end
 -- The step: finer and coarser, as `[g` and `]g` make the arrange view's grid.
 gmap("[g", function() grid:set_step(E.next_step(grid:step_size(), 1)) end, "Finer steps", { mode = { "n", "x" } })
 gmap("]g", function() grid:set_step(E.next_step(grid:step_size(), -1)) end, "Coarser steps", { mode = { "n", "x" } })
-gmap("T", function() grid:set_step(E.toggle_triplet(grid:step_size())) end, "Triplet steps, or straight again")
+-- Triplets are `<localleader>3` here and in the score (its tuplet popover).
+gmap("<localleader>3", function() grid:set_step(E.toggle_triplet(grid:step_size())) end, "Triplet steps, or straight again")
 gmap("&", function(ctx)
   local clip = grid:clip()
   if not clip then return end
@@ -389,7 +390,7 @@ end, "Replace with the register")
 if paw.ui.keybar then
   paw.ui.keybar.set("drums", "n", {
     { "<CR>", "hit" }, { "+", "harder" }, { "-", "softer" }, { "[g", "finer" }, { "]g", "coarser" },
-    { "T", "triplets" }, { "&", "repeat bar" }, { "d", "clear row", "dd" }, { "gh", "hear" }, { "<C-w>p", "back" },
+    { "<localleader>3", "triplets" }, { "&", "repeat bar" }, { "d", "clear row", "dd" }, { "gh", "hear" }, { "<C-w>p", "back" },
   })
   paw.ui.keybar.set("drums", "x", {
     { "x", "delete" }, { "+", "harder" }, { "-", "softer" }, { "gs", "swing" }, { "y", "yank" }, { "<Esc>", "done" },

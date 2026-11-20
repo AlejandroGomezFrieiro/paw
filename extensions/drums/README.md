@@ -121,7 +121,7 @@ and the step under the cursor, and the velocity of the hit there.
 | `Enter` | adds a hit, or removes it. You hear a new hit |
 | `+` `-` (or `]` `[`) | harder and softer, by 16. A count multiplies |
 | `]g` `[g` | larger and smaller steps |
-| `T` | triplets, or straight again |
+| `\3` | triplets, or straight again (as in the score) |
 | `&`, `3&` | repeats the bar of the cursor to the end of the clip, or three times |
 | `dd`, `x` | clears the row. Removes the hit |
 | `d` `y` `>` `<` | operators: delete, yank, move a step later or earlier |
