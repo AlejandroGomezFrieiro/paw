@@ -43,7 +43,8 @@ local record api
    clip_peaks: function(id: integer, n: integer): {types.Peak}
    clip_remove: function(id: integer)
    clip_reverse: function(id: integer): types.ClipEdits
-   clip_set: function(id: integer, key: string, value: any)
+   clip_set: function(id: integer, patch: types.Clip)
+   clip_set: function(id: integer, key: string, value: nil)
    clip_set_controls: function(id: integer, controls: {types.Control})
    clip_set_notes: function(id: integer, notes: {types.Note})
    clip_source_length: function(id: integer): number
@@ -60,7 +61,8 @@ local record api
    device_alias: function(old: string, new: string)
    device_call: function(id: integer, method: string, data?: string): string
    device_editor: function(id: integer, open?: boolean): boolean
-   device_find: function(query: types.DeviceQuery): any
+   device_find: function(query: types.DeviceQuery): types.DeviceType
+   device_find_all: function(query: types.DeviceQuery): {types.DeviceType}
    device_get: function(id: integer): types.Device
    device_load: function(id: integer, load: types.PresetLoad)
    device_move: function(id: integer, track: integer, index: integer)
@@ -71,7 +73,8 @@ local record api
    device_post: function(kind: string, topic: string, data?: string): {types.DeviceRefusal}
    device_remove: function(id: integer)
    device_restart: function(id: integer)
-   device_set: function(id: integer, key: string, value: any)
+   device_set: function(id: integer, patch: types.Device)
+   device_set: function(id: integer, key: string, value: nil)
    device_set_param: function(id: integer, name: string, value: number | string)
    device_state: function(id: integer): string
    device_types: function(): {types.DeviceType}
@@ -118,7 +121,8 @@ local record api
    lane_list: function(track: integer): {types.Lane}
    lane_points: function(id: integer): {types.LanePoint}
    lane_remove: function(id: integer)
-   lane_set: function(id: integer, key: string, value: any)
+   lane_set: function(id: integer, patch: types.Lane)
+   lane_set: function(id: integer, key: string, value: nil)
    lane_set_points: function(id: integer, points: {types.LanePoint})
    lane_set_shapes: function(id: integer, shapes: {types.LaneSegment})
    lane_set_states: function(id: integer, states: {types.LaneState})
@@ -185,7 +189,6 @@ local record api
    project_file_text: function(value: types.ProjectData): string
    project_files: function(): {types.ProjectFile}
    project_get: function(): types.Project
-   project_get: function(key: string): any
    project_keep_changes: function()
    project_load: function(path: string, opts?: types.OpenOptions)
    project_mark_saved: function()
@@ -196,7 +199,8 @@ local record api
    project_save_files: function(paths: {string}): {string}
    project_screen: function(): any
    project_screen_set: function(value: any)
-   project_set: function(key: string, value: any)
+   project_set: function(patch: types.Project)
+   project_set: function(key: string, value: nil)
    project_shelve: function()
    project_shelved: function(): boolean
    project_unshelve: function()
@@ -269,18 +273,19 @@ local record api
    track_chain_file: function(track: integer, file: string, refer?: boolean): integer
    track_collect: function(): integer, integer
    track_get: function(id: integer): types.Track
-   track_get: function(id: integer, key: string): any
    track_import_folder: function(folder: string, index?: integer): integer
    track_list: function(): {integer}
    track_meter: function(id: integer): number, number
    track_move: function(id: integer, index: integer)
    track_remove: function(id: integer)
-   track_set: function(id: integer, key: string, value: any)
+   track_set: function(id: integer, patch: types.Track)
+   track_set: function(id: integer, key: string, value: nil)
    transport_get: function(): types.Transport
    transport_play: function()
    transport_record: function()
    transport_seek: function(beats: number)
-   transport_set: function(key: string, value: any)
+   transport_set: function(patch: types.Transport)
+   transport_set: function(key: string, value: nil)
    transport_stop: function()
    trial_active: function(): boolean
    trial_begin: function()

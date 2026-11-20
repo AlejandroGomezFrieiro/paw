@@ -58,10 +58,12 @@ paw can load each of these through the same registry of languages
   the comments of `crates/paw-core/src/api.rs` and of the other files that
   add to `paw.api` (`fs_api.rs`, `tempo_api.rs`, `luadev_api.rs`,
   `scene.rs` and `measure/mod.rs`): the Rust type of each parameter, a
-  `// @param name T` line, and a `// @return T` line. A function whose
-  result follows from its arguments has a `// @type function(...)` line
-  for each form instead (`track_get(id)` and `track_get(id, key)`). The
-  records of the data that crosses `paw.api` are in
+  `// @param name T` line, and a `// @return T` line. A function with
+  more than one form has a `// @type function(...)` line for each form
+  instead (`track_set(id, patch)` and `track_set(id, key, nil)`). A form
+  whose type follows from the value of an argument is not declared: Lua
+  can call `track_get(id, "name")`, and Teal calls `track_get(id).name`.
+  The records of the data that crosses `paw.api` are in
   `runtime/lua/paw/types.tl`. Each record agrees with the Rust code that
   makes or reads the table.
 - **The global `paw`.** `runtime/types/paw.d.tl` gives `paw.api`, and each

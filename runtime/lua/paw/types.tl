@@ -317,7 +317,6 @@ local record types
     id: string
     name: string
     vendor: string
-    all: boolean
   end
 
   --- The plugin a device is, as its format names it.

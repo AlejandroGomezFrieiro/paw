@@ -235,7 +235,7 @@ function M.open_clip(path: string): Untyped, types.Midi2Clip
   local read = api.midi2_read(path)
   local name: string = (path:match("([^/]+)$") or path):gsub("%.[^.]+$", "")
   api.project_new()
-  api.project_set("name", name)
+  api.project_set({ name = name })
   local track = paw.add_track({ name = name })
   track:add_device("synth")
   local clip = track:add_clip({ name = name, start = 0, length = read.length > 0 and read.length or nil,
@@ -919,7 +919,7 @@ function M.open(path: string): M.Opened
   -- project open stays open.
   if #parts == 0 then error("there are no notes in it", 0) end
   api.project_new()
-  api.project_set("name", stem(path))
+  api.project_set({ name = stem(path) })
   put_tempo_map(file, 0)
   local tracks = add_parts(file, parts, 0, nil)
   add_markers(file, 0)
@@ -1081,7 +1081,7 @@ function M.export(path: string, opts?: M.ExportOptions): integer
   else
     tracks = paw.tracks() as {Untyped}
   end
-  local file: File = { format = 1, ppq = EXPORT_PPQ, tracks = { { name = api.project_get("name") as string } }, signatures = {}, markers = {} }
+  local file: File = { format = 1, ppq = EXPORT_PPQ, tracks = { { name = api.project_get().name } }, signatures = {}, markers = {} }
   local notes = 0
   local last: number = 0
   local lost: M.Lost = { times = 0, values = 0, dropped = 0 }

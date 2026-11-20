@@ -13,26 +13,17 @@ paw.Untyped 6 the boundary to the Lua that is not ported yet: goes when the last
 paw.add_track 1 written in Lua: typed when its module is ported to Teal
 paw.address 1 written in Lua: typed when its module is ported to Teal
 paw.annotation 1 written in Lua: typed when its module is ported to Teal
-paw.api.clip_set 1 the value's type follows `key`: the field of types.Clip it names
-paw.api.device_find 1 one types.DeviceType, or with `all = true` a list of them: Teal cannot tell two table types apart by a field's value
-paw.api.device_set 1 the value's type follows `key`: the field of types.Device it names
 paw.api.json_decode 1 truly any JSON value
 paw.api.json_encode 1 truly any Lua value that JSON can hold
-paw.api.lane_set 1 the value's type follows `key`: the field of types.Lane it names
 paw.api.project_backup 1 the script's own note, any JSON value
-paw.api.project_get 1 with `key`, the field of types.Project it names (without, types.Project)
 paw.api.project_recover 1 the note that project_backup was given, as it was given
 paw.api.project_screen 1 the tabs and windows as paw.layout keeps them: typed when it is ported (wave 4)
 paw.api.project_screen_set 1 the tabs and windows as paw.layout keeps them: typed when it is ported (wave 4)
-paw.api.project_set 1 the value's type follows `key`: the field of types.Project it names
 paw.api.rpc_push 1 truly any JSON payload of an event that a script pushes
 paw.api.state_get 1 truly any value a script kept with state_set
 paw.api.state_set 1 truly any value a script keeps over a reload
 paw.api.toml_decode 1 truly any data a TOML text holds
 paw.api.toml_encode 1 truly any Lua value that TOML can hold
-paw.api.track_get 1 with `key`, the field of types.Track it names (without, types.Track)
-paw.api.track_set 1 the value's type follows `key`: the field of types.Track it names
-paw.api.transport_set 1 the value's type follows `key`: the field of types.Transport it names
 paw.audio 1 written in Lua: typed when its module is ported to Teal
 paw.audition 1 written in Lua: typed when its module is ported to Teal
 paw.autosave 1 written in Lua: typed when its module is ported to Teal
