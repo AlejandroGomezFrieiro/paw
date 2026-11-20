@@ -165,12 +165,14 @@
           # them only remakes this, in a second.
           src = pkgs.lib.fileset.toSource {
             root = ./.;
-            fileset = pkgs.lib.fileset.unions [ ./extensions ./examples ./config ];
+            fileset = pkgs.lib.fileset.unions [ ./extensions ./examples ./config ./runtime ./tlconfig.lua ];
           };
           nativeBuildInputs = [ pkgs.makeBinaryWrapper ];
           installPhase = ''
             mkdir -p $out/share/paw
-            cp -r extensions examples config $out/share/paw/
+            # runtime/ for the Teal declarations (runtime/types) and the
+            # runtime's Teal modules they name; tlconfig.lua points at them.
+            cp -r extensions examples config runtime tlconfig.lua $out/share/paw/
             # `PAW_HOME` is where `paw doctor` finds its script. ffmpeg is
             # there for MP3, Ogg and Opus export (no codec is linked into the
             # program); it goes last on the PATH, so that the user's own wins.
@@ -278,6 +280,19 @@
         touch $out
       '';
 
+      # `tl check` on every Teal file, strict, with the Teal of nixpkgs: the
+      # version runtime/lua/tl.lua is (0.24.8).
+      tealCheck = pkgs: pkgs.runCommand "paw-teal-check" {
+        src = nixpkgs.lib.fileset.toSource {
+          root = ./.;
+          fileset = nixpkgs.lib.fileset.unions [ ./runtime ./config ./extensions ./tlconfig.lua ./tools/tlcheck.sh ];
+        };
+        nativeBuildInputs = [ pkgs.luajitPackages.tl ];
+      } ''
+        sh $src/tools/tlcheck.sh tl
+        touch $out
+      '';
+
       pawUtau = pkgs: (paw pkgs).withExtensions (exts: [ exts.utau ]);
     in {
       packages = forAll (pkgs: {
@@ -295,8 +310,8 @@
       });
 
       # `nix flake check`: clippy, rustfmt, the Rust tests a sandbox can run,
-      # the program itself, and Vale on the docs.
-      checks = forAll (pkgs: (rust pkgs).checks // { paw = paw pkgs; docs = docsCheck pkgs; });
+      # the program itself, Vale on the docs, and `tl check` on the Teal.
+      checks = forAll (pkgs: (rust pkgs).checks // { paw = paw pkgs; docs = docsCheck pkgs; teal = tealCheck pkgs; });
 
       apps = forAll (pkgs:
         nixpkgs.lib.genAttrs [ "paw" "paw-gui" "paw-mcp" ] (name: {
