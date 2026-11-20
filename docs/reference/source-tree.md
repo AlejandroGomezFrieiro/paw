@@ -56,7 +56,7 @@ Do not edit these files. Make them again from their source.
 
 | File | Source | Command |
 | --- | --- | --- |
-| `docs/reference/api.md`, `runtime/types/paw.lua`, `runtime/types/paw.d.tl`, `runtime/types/paw/api.d.tl` | the doc comments of the `paw` modules and of `crates/paw-core/src/api.rs` | `paw --clean --no-plugins -l tools/apidoc.lua` |
+| `docs/reference/api.md`, `runtime/types/paw.lua`, `runtime/types/paw.d.tl`, `runtime/types/paw/api.d.tl` | the doc comments of the `paw` modules, of `crates/paw-core/src/api.rs` and of the other files that add to `paw.api` | `paw --clean --no-plugins -l tools/apidoc.lua` |
 | `docs/tutorials/course/*.md` | the tutor's lessons in `extensions/tutor/lua/tutor/lessons/` | `paw --clean --no-plugins -l extensions/tutor/make-docs.lua` |
 | `docs/images/*.gif`, `docs/images/*.png` | a recording of paw | `docs/images/make/make.sh` |
 
