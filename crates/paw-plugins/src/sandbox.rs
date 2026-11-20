@@ -26,6 +26,7 @@
 //! same cache), creates it, and opens its editor in a window of its own, so
 //! plugin windows work exactly as they do in-process.
 
+use std::borrow::Cow;
 use std::cell::UnsafeCell;
 use std::io::{Read, Write};
 use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
@@ -45,7 +46,8 @@ use paw_engine::device::{
     Rest, Starting,
 };
 use paw_engine::{Event, MAX_PAIRS, ProcessCtx, Registry};
-use serde_json::{Value, json};
+use serde::{Deserialize, Deserializer, Serialize};
+use serde_json::Value;
 
 /// How the helper is started: this program and its first arguments.
 static HOST: OnceLock<Vec<String>> = OnceLock::new();
@@ -746,30 +748,240 @@ impl Device for RemoteDevice {
     }
 }
 
-// --- the DAW's side: the main thread ---------------------------------------------
+// --- the control wire --------------------------------------------------------------
+//
+// The socket carries frames: `[length: u32 LE][first byte][payload]`, the
+// length counting the first byte. A request's first byte is its `Op`. The
+// requests that are answered get a frame back whose first byte is 0, or 1
+// with the reason when the plugin refused. The wire is paw's own: a helper
+// and a DAW built apart understand each other only while these bytes stay.
 
-// Requests. Those that are answered get `[length][0 or 1][payload]` back,
-// 1 with the reason when the plugin refused.
-const SET_VALUE: u8 = 1;
-const SAVE_STATE: u8 = 2;
-const LOAD_STATE: u8 = 3;
-const OPEN_EDITOR: u8 = 4;
-const CLOSE_EDITOR: u8 = 5;
-const SET_OFFLINE: u8 = 6;
-const CALL: u8 = 7;
-const QUIT: u8 = 8;
-const VALUES: u8 = 9;
+/// What a request asks for: its first byte on the wire.
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Op {
+    SetValue = 1,
+    SaveState = 2,
+    LoadState = 3,
+    OpenEditor = 4,
+    CloseEditor = 5,
+    SetOffline = 6,
+    Call = 7,
+    Quit = 8,
+    Values = 9,
+}
 
-fn send(stream: &mut UnixStream, op: u8, payload: &[u8]) -> std::io::Result<()> {
+impl TryFrom<u8> for Op {
+    type Error = u8;
+
+    fn try_from(byte: u8) -> Result<Self, u8> {
+        Ok(match byte {
+            1 => Self::SetValue,
+            2 => Self::SaveState,
+            3 => Self::LoadState,
+            4 => Self::OpenEditor,
+            5 => Self::CloseEditor,
+            6 => Self::SetOffline,
+            7 => Self::Call,
+            8 => Self::Quit,
+            9 => Self::Values,
+            other => return Err(other),
+        })
+    }
+}
+
+/// A request from the DAW to its helper, and what the helper answers.
+#[derive(Clone, Debug, PartialEq)]
+enum Request<'a> {
+    /// Set a parameter. No answer.
+    SetValue { index: u32, value: f64 },
+    /// The plugin's state, answered as [`optional`] bytes.
+    SaveState,
+    LoadState(&'a [u8]),
+    /// Open the editor, in a window with this title.
+    OpenEditor(Cow<'a, str>),
+    /// No answer.
+    CloseEditor,
+    /// No answer.
+    SetOffline(bool),
+    /// A parameter's value as text ([`Controller::value_text`]): a
+    /// [`Op::Call`] of [`PARAM_TEXT`]. Answered with the text.
+    ValueText { index: u32, value: f64 },
+    /// The value that a parameter's text stands for
+    /// ([`Controller::text_value`]): a [`Op::Call`] of [`PARAM_VALUE`].
+    /// Answered with the value in 8 bytes, or with none.
+    TextValue { index: u32, text: Cow<'a, str> },
+    /// Get a call ready for the audio thread ([`Controller::prepare`]): a
+    /// [`Op::Call`] of [`PREPARE`], answered as [`optional`] bytes.
+    Prepare { method: Cow<'a, str>, data: &'a [u8] },
+    /// Any other call ([`Controller::call`]).
+    Call { method: Cow<'a, str>, data: &'a [u8] },
+    /// End. No answer.
+    Quit,
+    /// The parameters' values, answered as a JSON array (see [`read_values`]).
+    Values,
+}
+
+impl<'a> Request<'a> {
+    fn op(&self) -> Op {
+        match self {
+            Self::SetValue { .. } => Op::SetValue,
+            Self::SaveState => Op::SaveState,
+            Self::LoadState(_) => Op::LoadState,
+            Self::OpenEditor(_) => Op::OpenEditor,
+            Self::CloseEditor => Op::CloseEditor,
+            Self::SetOffline(_) => Op::SetOffline,
+            Self::ValueText { .. }
+            | Self::TextValue { .. }
+            | Self::Prepare { .. }
+            | Self::Call { .. } => Op::Call,
+            Self::Quit => Op::Quit,
+            Self::Values => Op::Values,
+        }
+    }
+
+    /// The request as one frame. A call's method ends in a 0 byte.
+    fn frame(&self) -> Vec<u8> {
+        fn method(out: &mut Vec<u8>, name: &str) {
+            out.extend_from_slice(name.as_bytes());
+            out.push(0);
+        }
+        let mut out = vec![0; 4];
+        out.push(self.op() as u8);
+        match self {
+            Self::SetValue { index, value } => {
+                out.extend_from_slice(&index.to_le_bytes());
+                out.extend_from_slice(&value.to_le_bytes());
+            }
+            Self::ValueText { index, value } => {
+                method(&mut out, PARAM_TEXT);
+                out.extend_from_slice(&index.to_le_bytes());
+                out.extend_from_slice(&value.to_le_bytes());
+            }
+            Self::SaveState | Self::CloseEditor | Self::Quit | Self::Values => {}
+            Self::LoadState(state) => out.extend_from_slice(state),
+            Self::OpenEditor(title) => out.extend_from_slice(title.as_bytes()),
+            Self::SetOffline(offline) => out.push(u8::from(*offline)),
+            Self::TextValue { index, text } => {
+                method(&mut out, PARAM_VALUE);
+                out.extend_from_slice(&index.to_le_bytes());
+                out.extend_from_slice(text.as_bytes());
+            }
+            Self::Prepare { method: inner, data } => {
+                method(&mut out, PREPARE);
+                method(&mut out, inner);
+                out.extend_from_slice(data);
+            }
+            Self::Call { method: name, data } => {
+                method(&mut out, name);
+                out.extend_from_slice(data);
+            }
+        }
+        let length = (out.len() - 4) as u32;
+        out[..4].copy_from_slice(&length.to_le_bytes());
+        out
+    }
+
+    /// The request in a frame's payload, or `None` for one too short to
+    /// say what it asks.
+    fn decode(op: Op, payload: &'a [u8]) -> Option<Self> {
+        Some(match op {
+            Op::SetValue => Self::SetValue {
+                index: le_u32(payload)?,
+                value: le_f64(payload.get(4..)?)?,
+            },
+            Op::SaveState => Self::SaveState,
+            Op::LoadState => Self::LoadState(payload),
+            Op::OpenEditor => Self::OpenEditor(String::from_utf8_lossy(payload)),
+            Op::CloseEditor => Self::CloseEditor,
+            Op::SetOffline => Self::SetOffline(payload.first() == Some(&1)),
+            Op::Quit => Self::Quit,
+            Op::Values => Self::Values,
+            Op::Call => {
+                let (method, data) = split_method(payload);
+                let index = le_u32(data);
+                if method == PREPARE {
+                    let (method, data) = split_method(data);
+                    Self::Prepare { method, data }
+                } else if method == PARAM_TEXT
+                    && let (Some(index), Some(value)) = (index, data.get(4..).and_then(le_f64))
+                {
+                    Self::ValueText { index, value }
+                } else if method == PARAM_VALUE
+                    && let Some(index) = index
+                {
+                    Self::TextValue {
+                        index,
+                        text: String::from_utf8_lossy(&data[4..]),
+                    }
+                } else {
+                    Self::Call { method, data }
+                }
+            }
+        })
+    }
+}
+
+/// A call's method, up to its 0 byte, and the data after it.
+fn split_method(payload: &[u8]) -> (Cow<'_, str>, &[u8]) {
+    let end = payload
+        .iter()
+        .position(|b| *b == 0)
+        .unwrap_or(payload.len());
+    (
+        String::from_utf8_lossy(&payload[..end]),
+        payload.get(end + 1..).unwrap_or(&[]),
+    )
+}
+
+fn le_u32(bytes: &[u8]) -> Option<u32> {
+    Some(u32::from_le_bytes(bytes.get(..4)?.try_into().ok()?))
+}
+
+fn le_f64(bytes: &[u8]) -> Option<f64> {
+    Some(f64::from_le_bytes(bytes.get(..8)?.try_into().ok()?))
+}
+
+/// Bytes that may be absent, as a state and a prepared call are answered:
+/// `[0]` for none, `[1][bytes]` for some.
+fn optional(bytes: Option<Vec<u8>>) -> Vec<u8> {
+    match bytes {
+        Some(mut bytes) => {
+            bytes.insert(0, 1);
+            bytes
+        }
+        None => vec![0],
+    }
+}
+
+fn from_optional(mut answer: Vec<u8>) -> Option<Vec<u8>> {
+    (answer.first() == Some(&1)).then(|| answer.split_off(1))
+}
+
+/// The first byte of an answer: the plugin did it.
+const DONE: u8 = 0;
+/// The first byte of an answer: the plugin refused, and the rest says why.
+const REFUSED: u8 = 1;
+
+fn send(stream: &mut UnixStream, request: &Request) -> std::io::Result<()> {
+    stream.write_all(&request.frame())
+}
+
+/// Send an answer: what was asked for, or why the plugin refused.
+fn answer(stream: &mut UnixStream, answer: Result<&[u8], &str>) -> std::io::Result<()> {
+    let (first, payload) = match answer {
+        Ok(bytes) => (DONE, bytes),
+        Err(why) => (REFUSED, why.as_bytes()),
+    };
     let mut frame = Vec::with_capacity(payload.len() + 5);
     frame.extend_from_slice(&(payload.len() as u32 + 1).to_le_bytes());
-    frame.push(op);
+    frame.push(first);
     frame.extend_from_slice(payload);
     stream.write_all(&frame)
 }
 
-/// Read one frame: its first byte and the rest.
-fn receive(stream: &mut UnixStream) -> std::io::Result<(u8, Vec<u8>)> {
+/// Read an answer: what was asked for, or why the plugin refused.
+fn receive(stream: &mut UnixStream) -> std::io::Result<Result<Vec<u8>, String>> {
     let mut length = [0u8; 4];
     stream.read_exact(&mut length)?;
     let length = u32::from_le_bytes(length) as usize;
@@ -779,8 +991,109 @@ fn receive(stream: &mut UnixStream) -> std::io::Result<(u8, Vec<u8>)> {
     let mut frame = vec![0u8; length];
     stream.read_exact(&mut frame)?;
     let rest = frame.split_off(1);
-    Ok((frame[0], rest))
+    Ok(match frame[0] {
+        DONE => Ok(rest),
+        _ => Err(String::from_utf8_lossy(&rest).into_owned()),
+    })
 }
+
+/// The helper's first word: what the plugin that it made is like.
+///
+/// JSON has no word for a number that is not finite: serde_json writes it
+/// as null, and the DAW reads that as 0.
+#[derive(Debug, Default, Serialize, Deserialize)]
+#[serde(default)]
+struct Hello {
+    #[serde(deserialize_with = "params_null_as_zero")]
+    params: Vec<ParamInfo>,
+    #[serde(deserialize_with = "values_null_as_zero")]
+    values: Vec<f64>,
+    has_editor: bool,
+    follows_state: bool,
+    sidechain: bool,
+    outputs: Vec<String>,
+}
+
+impl Hello {
+    /// The bytes on the wire. They go through a [`Value`], whose keys are
+    /// in order, as the helper has always written them.
+    fn to_vec(&self) -> serde_json::Result<Vec<u8>> {
+        serde_json::to_vec(&serde_json::to_value(self)?)
+    }
+}
+
+fn params_null_as_zero<'de, D: Deserializer<'de>>(from: D) -> Result<Vec<ParamInfo>, D::Error> {
+    let mut params = Vec::<Value>::deserialize(from)?;
+    for param in &mut params {
+        for key in ["min", "max", "default"] {
+            if let Some(number) = param.get_mut(key)
+                && number.is_null()
+            {
+                *number = 0.0.into();
+            }
+        }
+    }
+    params
+        .into_iter()
+        .map(|param| ParamInfo::deserialize(param).map_err(serde::de::Error::custom))
+        .collect()
+}
+
+fn values_null_as_zero<'de, D: Deserializer<'de>>(from: D) -> Result<Vec<f64>, D::Error> {
+    let values = Vec::<Option<f64>>::deserialize(from)?;
+    Ok(values.into_iter().map(|v| v.unwrap_or(0.0)).collect())
+}
+
+/// The answer to [`Request::Values`]: each value, or `None` for one that
+/// was not finite.
+fn read_values(answer: &[u8]) -> Option<Vec<Option<f64>>> {
+    serde_json::from_slice(answer).ok()
+}
+
+/// Why a helper is gone, or gave no answer.
+#[derive(Clone, Debug, thiserror::Error)]
+enum HelperError {
+    /// It ended: the reason it gave, or how its process ended.
+    #[error("{0}")]
+    Exited(String),
+    /// The plugin refused, saying why.
+    #[error("{0}")]
+    Refused(String),
+    /// No answer to a request within the limit.
+    #[error("it did not answer for {} seconds and was ended", .0.as_secs())]
+    Silent(Duration),
+    #[error(
+        "it did not answer for {} seconds while it was being made, and was ended",
+        .0.as_secs()
+    )]
+    SilentMaking(Duration),
+    #[error("it did not load its state within {} seconds, and was ended", .0.as_secs())]
+    SilentLoading(Duration),
+    /// No block answered for this long, while some came late.
+    #[error("it stopped answering (no block for {} seconds) and was ended", .0.as_secs())]
+    Stalled(Duration),
+    /// Given up on by the audio side in a render, with no reason given.
+    #[error("it did not answer a block of the render in time and was ended")]
+    LateInRender,
+    #[error("the connection to it broke ({0})")]
+    Broken(String),
+    #[error("the connection to it broke")]
+    Disconnected,
+}
+
+impl HelperError {
+    /// What an error of the socket means: `silent` if no answer came in
+    /// time, else a broken connection.
+    fn of_io(err: &std::io::Error, silent: Self) -> Self {
+        if silence(err) {
+            silent
+        } else {
+            Self::Broken(err.to_string())
+        }
+    }
+}
+
+// --- the DAW's side: the main thread ---------------------------------------------
 
 /// The main-thread half of the stand-in.
 struct RemoteController {
@@ -795,7 +1108,7 @@ struct RemoteController {
     ports: Ports,
     pending: Vec<Change>,
     /// Why the helper is gone, once it is.
-    ended: Option<String>,
+    ended: Option<HelperError>,
     late_seen: u32,
     /// Blocks answered when last looked at, and since when none have been
     /// while some came late.
@@ -809,7 +1122,7 @@ struct RemoteController {
 
 impl RemoteController {
     /// Note that the helper is gone and why, once.
-    fn end(&mut self, why: String) {
+    fn end(&mut self, why: HelperError) {
         if self.ended.is_none() {
             self.link.dead.store(true, Ordering::Relaxed);
             // Whatever is waiting for it gives up now.
@@ -830,48 +1143,37 @@ impl RemoteController {
 
     /// How the helper ended, if it has: the reason it gave, or how its
     /// process ended.
-    fn exited(&mut self) -> Option<String> {
+    fn exited(&mut self) -> Option<HelperError> {
         match self.child.try_wait() {
-            Ok(Some(status)) => Some(
+            Ok(Some(status)) => Some(HelperError::Exited(
                 self.link
                     .shm
                     .header()
                     .reason()
                     .unwrap_or_else(|| describe(status)),
-            ),
+            )),
             _ => None,
         }
     }
 
     /// Ask the helper for something and wait for its answer, but not
     /// longer than `limit`.
-    fn ask(&mut self, op: u8, payload: &[u8], limit: Duration) -> Result<Vec<u8>> {
+    fn ask(&mut self, request: &Request, limit: Duration) -> Result<Vec<u8>> {
         if let Some(why) = &self.ended {
             bail!("{} is not running: {why}", self.name);
         }
-        let outcome = (|| -> std::io::Result<(u8, Vec<u8>)> {
-            send(&mut self.stream, op, payload)?;
+        let outcome = (|| {
+            send(&mut self.stream, request)?;
             self.stream.set_read_timeout(Some(limit))?;
             receive(&mut self.stream)
         })();
         match outcome {
-            Ok((0, answer)) => Ok(answer),
-            Ok((_, reason)) => bail!("{}", String::from_utf8_lossy(&reason)),
+            Ok(Ok(answer)) => Ok(answer),
+            Ok(Err(reason)) => bail!("{reason}"),
             Err(err) => {
-                let why = match self.exited() {
-                    Some(how) => how,
-                    None if matches!(
-                        err.kind(),
-                        std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
-                    ) =>
-                    {
-                        format!(
-                            "it did not answer for {} seconds and was ended",
-                            limit.as_secs()
-                        )
-                    }
-                    None => format!("the connection to it broke ({err})"),
-                };
+                let why = self
+                    .exited()
+                    .unwrap_or_else(|| HelperError::of_io(&err, HelperError::Silent(limit)));
                 self.end(why.clone());
                 bail!("{} stopped: {why}", self.name)
             }
@@ -879,21 +1181,19 @@ impl RemoteController {
     }
 
     /// Tell the helper something that needs no answer.
-    fn tell(&mut self, op: u8, payload: &[u8]) {
-        if self.ended.is_none() && send(&mut self.stream, op, payload).is_err() {
-            let why = self
-                .exited()
-                .unwrap_or_else(|| "the connection to it broke".into());
+    fn tell(&mut self, request: &Request) {
+        if self.ended.is_none() && send(&mut self.stream, request).is_err() {
+            let why = self.exited().unwrap_or(HelperError::Disconnected);
             self.end(why);
         }
     }
 
     fn refresh_values(&mut self) {
-        if let Ok(answer) = self.ask(VALUES, &[], QUICK_LIMIT)
-            && let Ok(Value::Array(values)) = serde_json::from_slice::<Value>(&answer)
+        if let Ok(answer) = self.ask(&Request::Values, QUICK_LIMIT)
+            && let Some(values) = read_values(&answer)
         {
             for (slot, value) in self.values.iter_mut().zip(values) {
-                *slot = value.as_f64().unwrap_or(*slot);
+                *slot = value.unwrap_or(*slot);
             }
         }
     }
@@ -936,22 +1236,18 @@ impl Controller for RemoteController {
         if let Some(slot) = self.values.get_mut(index) {
             *slot = value;
         }
-        let mut payload = Vec::with_capacity(12);
-        payload.extend_from_slice(&(index as u32).to_le_bytes());
-        payload.extend_from_slice(&value.to_le_bytes());
-        self.tell(SET_VALUE, &payload);
+        self.tell(&Request::SetValue {
+            index: index as u32,
+            value,
+        });
     }
 
     fn save_state(&mut self) -> Result<Option<Vec<u8>>> {
-        let mut answer = self.ask(SAVE_STATE, &[], STATE_LIMIT)?;
-        if answer.is_empty() || answer[0] == 0 {
-            return Ok(None);
-        }
-        Ok(Some(answer.split_off(1)))
+        Ok(from_optional(self.ask(&Request::SaveState, STATE_LIMIT)?))
     }
 
     fn load_state(&mut self, state: &[u8]) -> Result<()> {
-        self.ask(LOAD_STATE, state, STATE_LIMIT)?;
+        self.ask(&Request::LoadState(state), STATE_LIMIT)?;
         self.link.wake.store(true, Ordering::Relaxed);
         self.reread = Some(self.link.answered.load(Ordering::Relaxed));
         self.refresh_values();
@@ -1015,22 +1311,20 @@ impl Controller for RemoteController {
     }
 
     fn value_text(&mut self, index: usize, value: f64) -> Option<String> {
-        let mut payload = PARAM_TEXT.as_bytes().to_vec();
-        payload.push(0);
-        payload.extend_from_slice(&(index as u32).to_le_bytes());
-        payload.extend_from_slice(&value.to_le_bytes());
-        let answer = self.ask(CALL, &payload, QUICK_LIMIT).ok()?;
+        let request = Request::ValueText {
+            index: index as u32,
+            value,
+        };
+        let answer = self.ask(&request, QUICK_LIMIT).ok()?;
         (!answer.is_empty()).then(|| String::from_utf8_lossy(&answer).into_owned())
     }
 
     fn text_value(&mut self, index: usize, text: &str) -> Option<f64> {
-        let mut payload = PARAM_VALUE.as_bytes().to_vec();
-        payload.push(0);
-        payload.extend_from_slice(&(index as u32).to_le_bytes());
-        payload.extend_from_slice(text.as_bytes());
-        let answer = self.ask(CALL, &payload, QUICK_LIMIT).ok()?;
-        let bytes: [u8; 8] = answer.get(..8)?.try_into().ok()?;
-        Some(f64::from_le_bytes(bytes))
+        let request = Request::TextValue {
+            index: index as u32,
+            text: text.into(),
+        };
+        le_f64(&self.ask(&request, QUICK_LIMIT).ok()?)
     }
 
     fn has_editor(&self) -> bool {
@@ -1042,12 +1336,12 @@ impl Controller for RemoteController {
     }
 
     fn open_editor(&mut self, title: &str) -> Result<()> {
-        self.ask(OPEN_EDITOR, title.as_bytes(), STATE_LIMIT)
+        self.ask(&Request::OpenEditor(title.into()), STATE_LIMIT)
             .map(|_| ())
     }
 
     fn close_editor(&mut self) {
-        self.tell(CLOSE_EDITOR, &[]);
+        self.tell(&Request::CloseEditor);
     }
 
     fn latency(&self) -> u32 {
@@ -1060,7 +1354,7 @@ impl Controller for RemoteController {
             .header()
             .offline
             .store(offline as u32, Ordering::Relaxed);
-        self.tell(SET_OFFLINE, &[offline as u8]);
+        self.tell(&Request::SetOffline(offline));
     }
 
     fn call(&mut self, method: &str, data: &[u8]) -> Result<Vec<u8>> {
@@ -1081,10 +1375,11 @@ impl Controller for RemoteController {
             }
             _ => {}
         }
-        let mut payload = method.as_bytes().to_vec();
-        payload.push(0);
-        payload.extend_from_slice(data);
-        let answer = self.ask(CALL, &payload, STATE_LIMIT)?;
+        let request = Request::Call {
+            method: method.into(),
+            data,
+        };
+        let answer = self.ask(&request, STATE_LIMIT)?;
         self.link.wake.store(true, Ordering::Relaxed);
         self.reread = Some(self.link.answered.load(Ordering::Relaxed));
         // A preset sets the plugin's parameters anew.
@@ -1099,16 +1394,11 @@ impl Controller for RemoteController {
     }
 
     fn prepare(&mut self, method: &str, data: &[u8]) -> Result<Option<Vec<u8>>> {
-        let mut payload = PREPARE.as_bytes().to_vec();
-        payload.push(0);
-        payload.extend_from_slice(method.as_bytes());
-        payload.push(0);
-        payload.extend_from_slice(data);
-        let mut answer = self.ask(CALL, &payload, STATE_LIMIT)?;
-        if answer.first() != Some(&1) {
-            return Ok(None);
-        }
-        Ok(Some(answer.split_off(1)))
+        let request = Request::Prepare {
+            method: method.into(),
+            data,
+        };
+        Ok(from_optional(self.ask(&request, STATE_LIMIT)?))
     }
 
     fn busy_time(&mut self) -> Option<Duration> {
@@ -1129,19 +1419,16 @@ impl Controller for RemoteController {
             // Given up on by the audio side: a render it did not answer, or
             // one it stopped in, saying why.
             let why = self.link.shm.header().reason();
-            self.end(why.unwrap_or_else(|| "it did not answer a block of the render in time and was ended".into()));
+            self.end(why.map_or(HelperError::LateInRender, HelperError::Exited));
         } else if answered != answered_before {
             self.stalled_since = None;
         } else if late != late_before || self.stalled_since.is_some() {
             let since = *self.stalled_since.get_or_insert_with(Instant::now);
             if since.elapsed() >= STALL_LIMIT {
-                self.end(format!(
-                    "it stopped answering (no block for {} seconds) and was ended",
-                    STALL_LIMIT.as_secs()
-                ));
+                self.end(HelperError::Stalled(STALL_LIMIT));
             }
         }
-        self.ended.clone()
+        self.ended.as_ref().map(ToString::to_string)
     }
 }
 
@@ -1150,7 +1437,7 @@ impl Drop for RemoteController {
         if self.ended.is_none() {
             self.link.shm.header().quit.store(1, Ordering::Release);
             futex_wake(&self.link.shm.header().request);
-            let _ = send(&mut self.stream, QUIT, &[]);
+            let _ = send(&mut self.stream, &Request::Quit);
             // Most plugins are gone in a moment; none is waited for long.
             let deadline = Instant::now() + Duration::from_millis(1500);
             while Instant::now() < deadline {
@@ -1172,46 +1459,6 @@ struct RemoteFactory {
     /// How to start the helper, where it is not the plugins' one.
     argv: Option<Vec<String>>,
     env: Vec<(String, String)>,
-}
-
-fn param_from(value: &Value) -> ParamInfo {
-    let text = |key: &str| value[key].as_str().unwrap_or_default().to_string();
-    let number = |key: &str| value[key].as_f64().unwrap_or(0.0) as f32;
-    let flag = |key: &str, or: bool| value[key].as_bool().unwrap_or(or);
-    ParamInfo {
-        key: text("key"),
-        id: text("id"),
-        name: text("name"),
-        group: text("group"),
-        min: number("min"),
-        max: number("max"),
-        default: number("default"),
-        unit: text("unit"),
-        choices: value["choices"]
-            .as_array()
-            .map(|list| {
-                list.iter()
-                    .map(|c| c.as_str().unwrap_or_default().to_string())
-                    .collect()
-            })
-            .unwrap_or_default(),
-        steps: value["steps"].as_u64().unwrap_or(0) as u32,
-        boolean: flag("boolean", false),
-        enumeration: flag("enumeration", false),
-        automatable: flag("automatable", true),
-        read_only: flag("read_only", false),
-        per_note: flag("per_note", false),
-    }
-}
-
-fn param_to(param: &ParamInfo) -> Value {
-    json!({
-        "key": param.key, "id": param.id, "name": param.name, "group": param.group,
-        "min": param.min, "max": param.max, "default": param.default, "unit": param.unit,
-        "choices": param.choices, "steps": param.steps, "boolean": param.boolean,
-        "enumeration": param.enumeration, "automatable": param.automatable,
-        "read_only": param.read_only, "per_note": param.per_note,
-    })
 }
 
 /// The methods by which the stand-in asks the helper for a parameter's
@@ -1316,28 +1563,15 @@ impl RemoteFactory {
     }
 
     /// The device and its controller, from the helper's first word.
-    fn made(&self, mut controller: RemoteController, made: &Value) -> Instance {
-        controller.params = made["params"]
-            .as_array()
-            .map(|list| list.iter().map(param_from).collect())
-            .unwrap_or_default();
-        controller.values = made["values"]
-            .as_array()
-            .map(|list| list.iter().map(|v| v.as_f64().unwrap_or(0.0)).collect())
-            .unwrap_or_default();
+    fn made(&self, mut controller: RemoteController, hello: Hello) -> Instance {
+        controller.params = hello.params;
+        controller.values = hello.values;
         controller.values.resize(controller.params.len(), 0.0);
-        controller.has_editor = made["has_editor"].as_bool().unwrap_or(false);
-        controller.follows_state = made["follows_state"].as_bool().unwrap_or(false);
+        controller.has_editor = hello.has_editor;
+        controller.follows_state = hello.follows_state;
         controller.ports = Ports {
-            sidechain: made["sidechain"].as_bool().unwrap_or(false),
-            outputs: made["outputs"]
-                .as_array()
-                .map(|list| {
-                    list.iter()
-                        .map(|n| n.as_str().unwrap_or_default().to_string())
-                        .collect()
-                })
-                .unwrap_or_default(),
+            sidechain: hello.sidechain,
+            outputs: hello.outputs,
         };
         Instance {
             device: Box::new(RemoteDevice {
@@ -1357,24 +1591,12 @@ impl RemoteFactory {
     }
 }
 
-/// What the thread that waits for a helper found.
-enum Heard {
-    /// The plugin is made (its first word), and its state loaded.
-    Made(Value),
-    /// The plugin refused, saying why.
-    Refused(String),
-    /// No answer in time while it was being made (true) or loading its state.
-    Silent(bool),
-    /// The connection broke.
-    Broken(String),
-}
-
 /// A plugin being made in its helper while a thread of ours waits for it.
 struct RemoteStarting {
     factory: RemoteFactory,
     controller: Option<RemoteController>,
-    answer: std::sync::mpsc::Receiver<Heard>,
-    limit: Duration,
+    /// The plugin made (the helper's first word), its state loaded, or why not.
+    answer: std::sync::mpsc::Receiver<Result<Hello, HelperError>>,
 }
 
 impl Starting for RemoteStarting {
@@ -1382,40 +1604,20 @@ impl Starting for RemoteStarting {
         let heard = match self.answer.try_recv() {
             Ok(heard) => heard,
             Err(std::sync::mpsc::TryRecvError::Empty) => return None,
-            Err(std::sync::mpsc::TryRecvError::Disconnected) => {
-                Heard::Broken("the thread waiting for it ended".into())
-            }
+            Err(std::sync::mpsc::TryRecvError::Disconnected) => Err(HelperError::Broken(
+                "the thread waiting for it ended".into(),
+            )),
         };
         let mut controller = self.controller.take()?;
         let name = &self.factory.info.name;
         let why = match heard {
-            Heard::Made(mut made) => {
-                // The values its state brought, where it was given one.
-                if let Some(values) = made.get_mut("values_now").map(Value::take) {
-                    made["values"] = values;
-                }
-                return Some(Ok(self.factory.made(controller, &made)));
-            }
-            Heard::Refused(reason) => {
-                controller.end(reason.clone());
+            Ok(hello) => return Some(Ok(self.factory.made(controller, hello))),
+            Err(HelperError::Refused(reason)) => {
+                controller.end(HelperError::Refused(reason.clone()));
                 return Some(Err(anyhow!("{reason}")));
             }
-            Heard::Silent(making) => controller.exited().unwrap_or_else(|| {
-                if making {
-                    format!(
-                        "it did not answer for {} seconds while it was being made, and was ended",
-                        self.limit.as_secs()
-                    )
-                } else {
-                    format!(
-                        "it did not load its state within {} seconds, and was ended",
-                        STATE_LIMIT.as_secs()
-                    )
-                }
-            }),
-            Heard::Broken(err) => controller
-                .exited()
-                .unwrap_or_else(|| format!("the connection to it broke ({err})")),
+            // How it ended says more than the silence or the broken socket.
+            Err(silent) => controller.exited().unwrap_or(silent),
         };
         controller.end(why.clone());
         Some(Err(anyhow!("{name} could not be started: {why}")))
@@ -1428,50 +1630,42 @@ fn wait_for_helper(
     mut stream: UnixStream,
     state: Option<Vec<u8>>,
     limit: Duration,
-    tell: std::sync::mpsc::Sender<Heard>,
+    tell: std::sync::mpsc::Sender<Result<Hello, HelperError>>,
 ) {
     let heard = (|| {
-        let fail = |err: std::io::Error, making| {
-            if silence(&err) {
-                Heard::Silent(making)
-            } else {
-                Heard::Broken(err.to_string())
-            }
-        };
-        if let Err(err) = stream.set_read_timeout(Some(limit)) {
-            return Heard::Broken(err.to_string());
-        }
-        let mut made = match receive(&mut stream) {
-            Ok((0, answer)) => match serde_json::from_slice::<Value>(&answer) {
-                Ok(made) => made,
-                Err(err) => return Heard::Broken(format!("its first word made no sense: {err}")),
-            },
-            Ok((_, reason)) => return Heard::Refused(String::from_utf8_lossy(&reason).into()),
-            Err(err) => return fail(err, true),
+        let broken = |err: std::io::Error| HelperError::Broken(err.to_string());
+        stream.set_read_timeout(Some(limit)).map_err(broken)?;
+        let mut hello = match receive(&mut stream) {
+            Ok(Ok(answer)) => serde_json::from_slice::<Hello>(&answer).map_err(|err| {
+                HelperError::Broken(format!("its first word made no sense: {err}"))
+            })?,
+            Ok(Err(reason)) => return Err(HelperError::Refused(reason)),
+            Err(err) => return Err(HelperError::of_io(&err, HelperError::SilentMaking(limit))),
         };
         let Some(state) = state else {
-            return Heard::Made(made);
+            return Ok(hello);
         };
         let _ = stream.set_read_timeout(Some(STATE_LIMIT));
-        let loaded = send(&mut stream, LOAD_STATE, &state).and_then(|_| receive(&mut stream));
-        match loaded {
-            Ok((0, _)) => {}
-            Ok((_, reason)) => {
-                return Heard::Refused(format!(
-                    "could not restore its state: {}",
-                    String::from_utf8_lossy(&reason)
-                ));
+        match send(&mut stream, &Request::LoadState(&state)).and_then(|_| receive(&mut stream)) {
+            Ok(Ok(_)) => {}
+            Ok(Err(reason)) => {
+                return Err(HelperError::Refused(format!(
+                    "could not restore its state: {reason}"
+                )));
             }
-            Err(err) => return fail(err, false),
+            Err(err) => {
+                return Err(HelperError::of_io(&err, HelperError::SilentLoading(STATE_LIMIT)));
+            }
         }
         // The values the state brought with it.
         let _ = stream.set_read_timeout(Some(QUICK_LIMIT));
-        if let Ok((0, answer)) = send(&mut stream, VALUES, &[]).and_then(|_| receive(&mut stream))
-            && let Ok(values @ Value::Array(_)) = serde_json::from_slice::<Value>(&answer)
+        if let Ok(Ok(answer)) =
+            send(&mut stream, &Request::Values).and_then(|_| receive(&mut stream))
+            && let Some(values) = read_values(&answer)
         {
-            made["values_now"] = values;
+            hello.values = values.into_iter().map(|v| v.unwrap_or(0.0)).collect();
         }
-        Heard::Made(made)
+        Ok(hello)
     })();
     let _ = tell.send(heard);
 }
@@ -1486,26 +1680,19 @@ impl DeviceFactory for RemoteFactory {
         // Its first word is that the plugin exists, or why it does not.
         let limit = create_limit();
         ours.set_read_timeout(Some(limit))?;
-        let made = match receive(&mut ours) {
-            Ok((0, answer)) => serde_json::from_slice::<Value>(&answer)
+        let hello = match receive(&mut ours) {
+            Ok(Ok(answer)) => serde_json::from_slice::<Hello>(&answer)
                 .map_err(|err| anyhow!("the helper's first word made no sense: {err}"))?,
-            Ok((_, reason)) => bail!("{}", String::from_utf8_lossy(&reason)),
+            Ok(Err(reason)) => bail!("{reason}"),
             Err(err) => {
-                let why = controller.exited().unwrap_or_else(|| {
-                    if silence(&err) {
-                        format!(
-                            "it did not answer for {} seconds while it was being made, and was ended",
-                            limit.as_secs()
-                        )
-                    } else {
-                        format!("the connection to it broke ({err})")
-                    }
-                });
+                let why = controller
+                    .exited()
+                    .unwrap_or_else(|| HelperError::of_io(&err, HelperError::SilentMaking(limit)));
                 controller.end(why.clone());
                 bail!("{} could not be started: {why}", self.info.name)
             }
         };
-        Ok(self.made(controller, &made))
+        Ok(self.made(controller, hello))
     }
 
     fn starts_apart(&self) -> bool {
@@ -1540,7 +1727,6 @@ impl DeviceFactory for RemoteFactory {
             factory,
             controller: Some(controller),
             answer,
-            limit,
         }))
     }
 }
@@ -1743,7 +1929,7 @@ pub fn serve_with(
         let instance = match made {
             Ok(instance) => instance,
             Err(err) => {
-                send(&mut stream, 1, format!("{err:#}").as_bytes())?;
+                answer(&mut stream, Err(&format!("{err:#}")))?;
                 return Ok(());
             }
         };
@@ -1755,18 +1941,19 @@ pub fn serve_with(
             .map(|i| controller.value(i).unwrap_or(0.0))
             .collect();
         let ports = controller.ports();
-        let hello = json!({
-            "params": params.iter().map(param_to).collect::<Vec<_>>(),
-            "values": values,
-            "has_editor": controller.has_editor(),
-            "follows_state": controller.follows_state(),
-            "sidechain": ports.sidechain,
-            "outputs": ports.outputs,
-        });
+        let hello = Hello {
+            params,
+            values,
+            has_editor: controller.has_editor(),
+            follows_state: controller.follows_state(),
+            sidechain: ports.sidechain,
+            outputs: ports.outputs,
+        };
         shm.header()
             .latency
             .store(controller.latency(), Ordering::Relaxed);
-        send(&mut stream, 0, &serde_json::to_vec(&hello)?)?;
+        answer(&mut stream, Ok(&hello.to_vec()?))?;
+        let count = hello.params.len();
 
         let audio = {
             let shm = shm.clone();
@@ -1801,92 +1988,63 @@ pub fn serve_with(
                     break;
                 }
                 let frame: Vec<u8> = pending.drain(..4 + length).skip(4).collect();
-                let (op, payload) = (frame[0], &frame[1..]);
-                let answer: Option<Result<Vec<u8>>> = match op {
-                    SET_VALUE if payload.len() >= 12 => {
-                        let index = u32::from_le_bytes(payload[..4].try_into().unwrap()) as usize;
-                        let value = f64::from_le_bytes(payload[4..12].try_into().unwrap());
-                        controller.set_value(index, value);
+                // A request this helper does not know, or one too short to
+                // say what it asks, is passed over.
+                let Some(request) = frame.split_first().and_then(|(&op, payload)| {
+                    Request::decode(Op::try_from(op).ok()?, payload)
+                }) else {
+                    continue;
+                };
+                let reply: Option<Result<Vec<u8>>> = match request {
+                    Request::SetValue { index, value } => {
+                        controller.set_value(index as usize, value);
                         None
                     }
-                    SAVE_STATE => Some(controller.save_state().map(|state| match state {
-                        Some(mut bytes) => {
-                            bytes.insert(0, 1);
-                            bytes
-                        }
-                        None => vec![0],
-                    })),
-                    LOAD_STATE => Some(controller.load_state(payload).map(|_| Vec::new())),
-                    OPEN_EDITOR => Some(
-                        controller
-                            .open_editor(&String::from_utf8_lossy(payload))
-                            .map(|_| Vec::new()),
-                    ),
-                    CLOSE_EDITOR => {
+                    Request::SaveState => Some(controller.save_state().map(optional)),
+                    Request::LoadState(state) => {
+                        Some(controller.load_state(state).map(|()| Vec::new()))
+                    }
+                    Request::OpenEditor(title) => {
+                        Some(controller.open_editor(&title).map(|()| Vec::new()))
+                    }
+                    Request::CloseEditor => {
                         controller.close_editor();
                         None
                     }
-                    SET_OFFLINE => {
-                        controller.set_offline(payload.first() == Some(&1));
+                    Request::SetOffline(offline) => {
+                        controller.set_offline(offline);
                         None
                     }
-                    CALL => {
-                        let split = payload
-                            .iter()
-                            .position(|b| *b == 0)
-                            .unwrap_or(payload.len());
-                        let method = String::from_utf8_lossy(&payload[..split]).into_owned();
-                        let data = payload.get(split + 1..).unwrap_or(&[]);
-                        let index = data
-                            .get(..4)
-                            .map(|b| u32::from_le_bytes(b.try_into().unwrap()) as usize);
-                        if method == "sandbox.hang" {
-                            TEST_HANG.store(data != b"0", Ordering::Relaxed);
-                            Some(Ok(Vec::new()))
-                        } else if method == PREPARE {
-                            let split = data.iter().position(|b| *b == 0).unwrap_or(data.len());
-                            let inner = String::from_utf8_lossy(&data[..split]).into_owned();
-                            let rest = data.get(split + 1..).unwrap_or(&[]);
-                            Some(controller.prepare(&inner, rest).map(|message| match message {
-                                Some(mut bytes) => {
-                                    bytes.insert(0, 1);
-                                    bytes
-                                }
-                                None => vec![0],
-                            }))
-                        } else if method == PARAM_TEXT
-                            && let (Some(index), Some(value)) = (index, data.get(4..12))
-                        {
-                            let value = f64::from_le_bytes(value.try_into().unwrap());
-                            let text = controller.value_text(index, value).unwrap_or_default();
-                            Some(Ok(text.into_bytes()))
-                        } else if method == PARAM_VALUE
-                            && let Some(index) = index
-                        {
-                            let text = String::from_utf8_lossy(&data[4..]);
-                            Some(Ok(controller
-                                .text_value(index, &text)
-                                .map(|v| v.to_le_bytes().to_vec())
-                                .unwrap_or_default()))
-                        } else {
-                            Some(controller.call(&method, data))
-                        }
+                    Request::ValueText { index, value } => Some(Ok(controller
+                        .value_text(index as usize, value)
+                        .unwrap_or_default()
+                        .into_bytes())),
+                    Request::TextValue { index, text } => Some(Ok(controller
+                        .text_value(index as usize, &text)
+                        .map(|v| v.to_le_bytes().to_vec())
+                        .unwrap_or_default())),
+                    Request::Prepare { method, data } => {
+                        Some(controller.prepare(&method, data).map(optional))
                     }
-                    VALUES => {
-                        let values: Vec<f64> = (0..params.len())
+                    Request::Call { method, data } if method == "sandbox.hang" => {
+                        TEST_HANG.store(data != b"0", Ordering::Relaxed);
+                        Some(Ok(Vec::new()))
+                    }
+                    Request::Call { method, data } => Some(controller.call(&method, data)),
+                    Request::Values => {
+                        let values: Vec<f64> = (0..count)
                             .map(|i| controller.value(i).unwrap_or(0.0))
                             .collect();
                         Some(Ok(serde_json::to_vec(&values)?))
                     }
-                    QUIT => break 'serve,
-                    _ => None,
+                    Request::Quit => break 'serve,
                 };
-                if let Some(answer) = answer {
+                if let Some(reply) = reply {
                     // A blocking write: answers can be large.
                     stream.set_write_timeout(Some(STATE_LIMIT))?;
-                    match answer {
-                        Ok(bytes) => send(&mut stream, 0, &bytes)?,
-                        Err(err) => send(&mut stream, 1, format!("{err:#}").as_bytes())?,
+                    match reply {
+                        Ok(bytes) => answer(&mut stream, Ok(&bytes))?,
+                        Err(err) => answer(&mut stream, Err(&format!("{err:#}")))?,
                     }
                 }
             }
@@ -1932,5 +2090,129 @@ pub fn serve_with(
             eprintln!("plugin-host: {err:#}");
             1
         }
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn hex(bytes: &[u8]) -> String {
+        bytes.iter().map(|b| format!("{b:02x}")).collect()
+    }
+
+    fn answered(reply: Result<&[u8], &str>) -> String {
+        let (mut ours, mut theirs) = UnixStream::pair().unwrap();
+        answer(&mut ours, reply).unwrap();
+        drop(ours);
+        let mut bytes = Vec::new();
+        theirs.read_to_end(&mut bytes).unwrap();
+        hex(&bytes)
+    }
+
+    /// The bytes of each request and answer as they were before the
+    /// protocol had types: a helper and a DAW of other versions still
+    /// understand each other.
+    #[test]
+    fn the_wire_keeps_its_bytes() {
+        let cases = [
+            (
+                Request::SetValue {
+                    index: 3,
+                    value: 0.5,
+                },
+                "0d0000000103000000000000000000e03f",
+            ),
+            (Request::SaveState, "0100000002"),
+            (Request::LoadState(b"st\0ate"), "0700000003737400617465"),
+            (Request::OpenEditor("Title é".into()), "09000000045469746c6520c3a9"),
+            (Request::CloseEditor, "0100000005"),
+            (Request::SetOffline(true), "020000000601"),
+            (
+                Request::Call {
+                    method: "m".into(),
+                    data: &[1, 2],
+                },
+                "05000000076d000102",
+            ),
+            (
+                Request::ValueText {
+                    index: 2,
+                    value: 0.25,
+                },
+                "1c000000077061772e706172616d2e746578740002000000000000000000d03f",
+            ),
+            (
+                Request::TextValue {
+                    index: 2,
+                    text: "-3 dB".into(),
+                },
+                "1a000000077061772e706172616d2e76616c756500020000002d33206442",
+            ),
+            (
+                Request::Prepare {
+                    method: "x".into(),
+                    data: b"d",
+                },
+                "140000000773616e64626f782e7072657061726500780064",
+            ),
+            (Request::Quit, "0100000008"),
+            (Request::Values, "0100000009"),
+        ];
+        for (request, today) in cases {
+            let frame = request.frame();
+            assert_eq!(hex(&frame), today, "{request:?}");
+            let op = Op::try_from(frame[4]).unwrap();
+            assert_eq!(Request::decode(op, &frame[5..]), Some(request));
+        }
+        assert_eq!(answered(Ok(b"yes")), "0400000000796573");
+        assert_eq!(answered(Err("no")), "03000000016e6f");
+    }
+
+    /// The helper's first word, with numbers that are not finite: JSON has
+    /// no word for them, so they cross as null and arrive as 0.
+    #[test]
+    fn the_first_word_keeps_its_bytes() {
+        let params = vec![
+            ParamInfo {
+                id: "7".into(),
+                group: "Osc 1".into(),
+                min: f32::NAN,
+                max: f32::INFINITY,
+                default: 0.1,
+                ..ParamInfo::choice("Wave", &["Sine", "Saw"], 1)
+            },
+            ParamInfo::new("Gain", -24.0, 24.0, f32::NEG_INFINITY, "dB"),
+        ];
+        let hello = Hello {
+            params: params.clone(),
+            values: vec![0.5, f64::NAN],
+            has_editor: true,
+            follows_state: false,
+            sidechain: true,
+            outputs: vec!["Aux".into()],
+        };
+        let today = concat!(
+            r#"{"follows_state":false,"has_editor":true,"outputs":["Aux"],"params":["#,
+            r#"{"automatable":true,"boolean":false,"choices":["Sine","Saw"],"default":0.10000000149011612,"#,
+            r#""enumeration":true,"group":"Osc 1","id":"7","key":"Wave","max":null,"min":null,"name":"Wave","#,
+            r#""per_note":false,"read_only":false,"steps":1,"unit":""},"#,
+            r#"{"automatable":true,"boolean":false,"choices":[],"default":null,"enumeration":false,"#,
+            r#""group":"","id":"","key":"Gain","max":24.0,"min":-24.0,"name":"Gain","per_note":false,"#,
+            r#""read_only":false,"steps":0,"unit":"dB"}],"sidechain":true,"values":[0.5,null]}"#,
+        );
+        assert_eq!(String::from_utf8(hello.to_vec().unwrap()).unwrap(), today);
+        let read: Hello = serde_json::from_str(today).unwrap();
+        let finite = |mut p: ParamInfo| {
+            for n in [&mut p.min, &mut p.max, &mut p.default] {
+                if !n.is_finite() {
+                    *n = 0.0;
+                }
+            }
+            p
+        };
+        assert_eq!(read.params, params.into_iter().map(finite).collect::<Vec<_>>());
+        assert_eq!(read.values, [0.5, 0.0]);
     }
 }
