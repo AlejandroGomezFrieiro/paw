@@ -104,6 +104,51 @@ paw can load each of these through the same registry of languages
   value in its module: the signature of the function in the source, or the
   type of the field in the record of the module.
 
+## The standard library
+
+Teal's checker declares the Lua 5.3 standard library. LuaJIT, which runs
+paw, has the Lua 5.1 library and some parts of the Lua 5.2 library. The
+code that Teal makes calls parts of the Lua 5.3 library.
+`value is integer` calls `math.type`. The operators `&`, `|`, `~`, `<<`
+and `>>` call `bit32`. The operator `//` calls `math.floor`, which LuaJIT
+has.
+
+So paw loads lua-compat-5.3 (release 0.14.4, MIT license,
+`runtime/lua/compat53`) when the program starts, before the runtime and
+before each extension. It changes the global functions, so the code in
+Teal and the code in Lua use one library. `runtime/lua/paw/compat.tl`
+loads it and adds the parts that it does not have in Lua:
+
+- `math.type`, `math.tointeger`, `math.ult`, `math.maxinteger` and
+  `math.mininteger`. An integer is a whole number from -2^53 to 2^53.
+  Out of this range, a number is a `"float"`, as compat-5.3 tells.
+- `table.unpack`, `table.pack` and `table.move`, `rawlen`, `utf8` and
+  `bit32`. paw writes `utf8` and `bit32` in Teal. They give the same
+  results as Lua 5.3 and Lua 5.2, and LuaJIT compiles them. `bit32`
+  uses LuaJIT's `bit`.
+- `pairs` uses `__pairs`, and `ipairs` uses `__index`, as in Lua 5.3.
+- In the main code, `coroutine.running` gives the main coroutine and
+  `true`. In Lua 5.1, it gave `nil`.
+- `file:write` and `io.write` give the file. `file:read`, `io.read` and
+  `io.lines` accept `"l"`, `"n"` and `"a"` without `*`.
+- `os.execute` gives `true` or `nil`, then `"exit"` and the exit code, as
+  in Lua 5.3. In Lua 5.1, it gave only the code.
+- `load`, `loadstring`, `string.rep` and `string.format` stay LuaJIT's,
+  which already do what Lua 5.3 does. `bit`, `ffi` and `jit` stay.
+
+Some parts of compat-5.3 are not in paw:
+
+- The parts of compat-5.3 in C, and `string.pack`. A call of a C
+  function stops the code that LuaJIT compiles. Use `ffi` to pack bytes.
+- The forms of `string.find`, `string.match`, `string.gsub` and
+  `string.gmatch` that accept a zero byte in a pattern. They made a
+  search for a plain text 250 times slower and a match 2 times slower.
+  Write `%z` for a zero byte in a pattern.
+
+paw keeps `gen_compat = "off"` in `tlconfig.lua`, so a compiled file
+starts with no extra lines. The devices written in Lua run in a Lua
+state of their own on the audio thread, without compat-5.3.
+
 ## The contracts
 
 An extension gives tables to paw. Examples are a view, a buffer type, a
@@ -164,6 +209,9 @@ goes down.
 - `runtime/lua/tl.lua`, the compiler of Teal (version 0.24.8, MIT
   license, `runtime/lua/tl.LICENSE`). It is a copy of a program from
   outside paw.
+- `runtime/lua/compat53`, lua-compat-5.3 (release 0.14.4, MIT license,
+  `runtime/lua/compat53/LICENSE`). It is a copy of a program from outside
+  paw, with no change.
 - Generated files: `runtime/types/paw.lua` (for LuaLS) and the files of
   `runtime/types`.
 - The test files. The runner loads them with `loadfile`. They can move
@@ -290,7 +338,9 @@ entries.
 ## What the checker found in the project
 
 - In Teal, `value is integer` becomes a call of `math.type`, which LuaJIT
-  does not have. So such a test stops with an error when it runs.
+  does not have. So such a test stopped with an error when it ran. Now
+  paw loads compat-5.3, which gives `math.type`: see
+  [The standard library](#the-standard-library).
   `paw.track` and `Lane:state_index` take a number or a text, and test
   for a number, as the Lua did.
 - A method of an object has the name of a field of the kernel:
