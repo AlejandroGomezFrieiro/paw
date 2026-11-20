@@ -18,6 +18,14 @@ path = "src/bin/paw-sampler.rs"
 
 [dependencies]
 clap-sys = "0.5"
+# The command line of the paw-sampler binary.
+clap = { version = "4", default-features = false, features = ["std", "derive", "help", "usage", "error-context"] }
+# Typed errors for the readers.
+thiserror = "2"
+# Errors of the binary.
+anyhow = "1"
+# WAV samples: the format and the data. The `smpl` chunk (key, loop) is read here.
+hound = "3"
 roxmltree = "0.21"
 serde_json = "1"
 # FLAC and Ogg Vorbis samples (MPL-2.0).
@@ -32,5 +40,7 @@ lto = "thin"
 opt-level = 1
 
 [dev-dependencies]
+# Fails a test when the audio thread allocates.
+assert_no_alloc = { version = "1", default-features = false, features = ["warn_debug", "warn_release"] }
 # FLAC fixtures for the tests.
 flacenc = { version = "0.5", default-features = false }

@@ -7,6 +7,7 @@
 //! ahead by a thread into each voice's ring) can be added behind it
 //! without the voice changing.
 
+use crate::error::{DecodeError, SampleError};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -168,11 +169,11 @@ pub struct Store {
 impl Store {
     /// Every one of `paths`, read on several threads at once: a library is
     /// thousands of files, and the disk and the decoding both go faster so.
-    pub fn load_all(&mut self, paths: &[PathBuf]) -> Vec<Result<Arc<Sample>, String>> {
+    pub fn load_all(&mut self, paths: &[PathBuf]) -> Vec<Result<Arc<Sample>, SampleError>> {
         let missing: Vec<&PathBuf> = paths.iter().filter(|p| !self.files.contains_key(*p)).collect();
         let next = std::sync::atomic::AtomicUsize::new(0);
         let threads = std::thread::available_parallelism().map_or(4, |n| n.get()).clamp(1, 8);
-        let read: Vec<(usize, Result<Sample, String>)> = std::thread::scope(|scope| {
+        let read: Vec<(usize, Result<Sample, SampleError>)> = std::thread::scope(|scope| {
             let workers: Vec<_> = (0..threads.min(missing.len()))
                 .map(|_| {
                     scope.spawn(|| {
@@ -188,7 +189,7 @@ impl Store {
                 .collect();
             workers.into_iter().flat_map(|w| w.join().unwrap_or_default()).collect()
         });
-        let mut failed: HashMap<&Path, String> = HashMap::new();
+        let mut failed: HashMap<&Path, SampleError> = HashMap::new();
         for (i, result) in read {
             match result {
                 Ok(sample) => {
@@ -203,7 +204,7 @@ impl Store {
             .iter()
             .map(|p| match self.files.get(p) {
                 Some(s) => Ok(s.clone()),
-                None => Err(failed.get(p.as_path()).cloned().unwrap_or_else(|| format!("{}: not read", p.display()))),
+                None => Err(failed.get(p.as_path()).cloned().unwrap_or_else(|| SampleError::NotRead(p.clone()))),
             })
             .collect()
     }
@@ -214,27 +215,29 @@ impl Store {
     }
 }
 
-pub fn read_file(path: &Path) -> Result<Sample, String> {
-    let bytes = std::fs::read(path).map_err(|e| format!("{}: {e}", path.display()))?;
-    let result = if bytes.starts_with(b"RIFF") && bytes.get(8..12) == Some(b"WAVE") {
+pub fn read_file(path: &Path) -> Result<Sample, SampleError> {
+    let bytes = std::fs::read(path).map_err(|e| SampleError::io(path, e))?;
+    let decode_error = |reason| SampleError::Decode { path: path.to_path_buf(), reason };
+    if bytes.starts_with(b"RIFF") && bytes.get(8..12) == Some(b"WAVE") {
         read_wav(&bytes)
     } else if bytes.starts_with(b"FORM") && matches!(bytes.get(8..12), Some(b"AIFF") | Some(b"AIFC")) {
         read_aiff(&bytes)
     } else if bytes.starts_with(b"fLaC") || bytes.starts_with(b"OggS") {
         decode(path, bytes)
     } else {
-        Err("not a WAV, AIFF, FLAC or Ogg Vorbis file".to_string())
-    };
-    result.map_err(|e| format!("{}: {e}", path.display()))
+        Err(DecodeError::UnknownKind)
+    }
+    .map_err(decode_error)
 }
 
 /// FLAC and Ogg Vorbis, through symphonia.
-fn decode(path: &Path, bytes: Vec<u8>) -> Result<Sample, String> {
+fn decode(path: &Path, bytes: Vec<u8>) -> Result<Sample, DecodeError> {
     use symphonia::core::codecs::audio::AudioDecoderOptions;
     use symphonia::core::formats::probe::Hint;
     use symphonia::core::formats::{FormatOptions, TrackType};
     use symphonia::core::io::MediaSourceStream;
     use symphonia::core::meta::MetadataOptions;
+    let codec = |e| DecodeError::Codec(Arc::new(e));
     let stream = MediaSourceStream::new(Box::new(std::io::Cursor::new(bytes)), Default::default());
     let mut hint = Hint::new();
     if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
@@ -242,13 +245,13 @@ fn decode(path: &Path, bytes: Vec<u8>) -> Result<Sample, String> {
     }
     let mut format = symphonia::default::get_probe()
         .probe(&hint, stream, FormatOptions::default(), MetadataOptions::default())
-        .map_err(|e| e.to_string())?;
-    let track = format.default_track(TrackType::Audio).ok_or("no audio in it")?;
-    let params = track.codec_params.as_ref().and_then(|p| p.audio()).ok_or("no audio in it")?;
+        .map_err(codec)?;
+    let track = format.default_track(TrackType::Audio).ok_or(DecodeError::NoAudio)?;
+    let params = track.codec_params.as_ref().and_then(|p| p.audio()).ok_or(DecodeError::NoAudio)?;
     let track_id = track.id;
     let mut decoder = symphonia::default::get_codecs()
         .make_audio_decoder(params, &AudioDecoderOptions::default())
-        .map_err(|e| e.to_string())?;
+        .map_err(codec)?;
     let mut rate = params.sample_rate.unwrap_or(0);
     let mut planes: Vec<Vec<f32>> = Vec::new();
     let (mut left, mut right): (Vec<f32>, Vec<f32>) = (Vec::new(), Vec::new());
@@ -270,7 +273,7 @@ fn decode(path: &Path, bytes: Vec<u8>) -> Result<Sample, String> {
         }
     }
     if left.is_empty() || rate == 0 {
-        return Err("no audio decoded".into());
+        return Err(DecodeError::NothingDecoded);
     }
     let data = if stereo {
         left.iter().zip(&right).flat_map(|(l, r)| [*l, *r]).collect()
@@ -280,83 +283,74 @@ fn decode(path: &Path, bytes: Vec<u8>) -> Result<Sample, String> {
     Ok(Sample::from_f32(rate as f64, if stereo { 2 } else { 1 }, data))
 }
 
-fn u16le(b: &[u8], at: usize) -> u16 {
-    u16::from_le_bytes([b[at], b[at + 1]])
-}
-
 fn u32le(b: &[u8], at: usize) -> u32 {
     u32::from_le_bytes([b[at], b[at + 1], b[at + 2], b[at + 3]])
 }
 
-fn read_wav(bytes: &[u8]) -> Result<Sample, String> {
+/// The body of the first RIFF chunk called `id`. `hound` reads the
+/// format and the data of a WAV but not its `smpl` chunk, so the key and
+/// the loop of a sample come from here.
+fn riff_chunk<'a>(bytes: &'a [u8], id: &[u8; 4]) -> Option<&'a [u8]> {
     let mut at = 12;
-    let mut format = None;
-    let mut data: Option<&[u8]> = None;
-    let mut smpl: Option<&[u8]> = None;
     while at + 8 <= bytes.len() {
-        let id = &bytes[at..at + 4];
         let size = u32le(bytes, at + 4) as usize;
-        let body = &bytes[at + 8..(at + 8 + size).min(bytes.len())];
-        match id {
-            b"fmt " if body.len() >= 16 => {
-                let mut tag = u16le(body, 0);
-                if tag == 0xFFFE && body.len() >= 26 {
-                    tag = u16le(body, 24);
-                }
-                format = Some((tag, u16le(body, 2) as usize, u32le(body, 4) as f64, u16le(body, 14) as usize));
-            }
-            b"data" => data = Some(body),
-            b"smpl" => smpl = Some(body),
-            _ => {}
+        if &bytes[at..at + 4] == id {
+            return Some(&bytes[at + 8..(at + 8 + size).min(bytes.len())]);
         }
         at += 8 + size + (size & 1);
     }
-    let (tag, channels, rate, bits) = format.ok_or("no fmt chunk")?;
-    let data = data.ok_or("no data chunk")?;
+    None
+}
+
+/// The first `keep` of every `channels` values, whole frames only: a file
+/// cut short plays what it holds.
+fn wav_values<T: hound::Sample>(reader: &mut hound::WavReader<std::io::Cursor<&[u8]>>, channels: usize, keep: usize) -> Vec<T> {
+    let mut out = Vec::new();
+    let mut values = reader.samples::<T>().map_while(Result::ok);
+    'frames: loop {
+        let start = out.len();
+        for c in 0..channels {
+            match values.next() {
+                Some(v) if c < keep => out.push(v),
+                Some(_) => {}
+                None => {
+                    out.truncate(start);
+                    break 'frames;
+                }
+            }
+        }
+    }
+    out
+}
+
+fn read_wav(bytes: &[u8]) -> Result<Sample, DecodeError> {
+    use hound::SampleFormat::{Float, Int};
+    let wav = |e| DecodeError::Wav(Arc::new(e));
+    let mut reader = hound::WavReader::new(std::io::Cursor::new(bytes)).map_err(wav)?;
+    let spec = reader.spec();
+    let (channels, rate) = (spec.channels as usize, spec.sample_rate as f64);
     if channels == 0 {
-        return Err("no channels".into());
+        return Err(DecodeError::NoChannels);
     }
     let keep = channels.min(2);
-    let width = bits.div_ceil(8);
-    let frames = data.len() / (width * channels);
-    let mut sample = match (tag, bits) {
-        (1, 16) => {
-            let mut out = Vec::with_capacity(frames * keep);
-            for f in 0..frames {
-                for c in 0..keep {
-                    out.push(i16::from_le_bytes([data[(f * channels + c) * 2], data[(f * channels + c) * 2 + 1]]));
-                }
-            }
-            Sample::from_i16(rate, keep, out)
+    let mut sample = match (spec.sample_format, spec.bits_per_sample) {
+        (Int, 16) => Sample::from_i16(rate, keep, wav_values::<i16>(&mut reader, channels, keep)),
+        (Int, 8) => {
+            let data = wav_values::<i8>(&mut reader, channels, keep);
+            Sample::from_i16(rate, keep, data.into_iter().map(|v| (v as i16) << 8).collect())
         }
-        (1, 8) => {
-            let mut out = Vec::with_capacity(frames * keep);
-            for f in 0..frames {
-                for c in 0..keep {
-                    out.push(((data[f * channels + c] as i16 - 128) << 8) as i16);
-                }
-            }
-            Sample::from_i16(rate, keep, out)
+        (Int, 24) => {
+            let data = wav_values::<i32>(&mut reader, channels, keep);
+            Sample::from_f32(rate, keep, data.into_iter().map(|v| v as f32 / 8388608.0).collect())
         }
-        (1, 24) | (1, 32) | (3, 32) | (3, 64) => {
-            let mut out = Vec::with_capacity(frames * keep);
-            for f in 0..frames {
-                for c in 0..keep {
-                    let p = (f * channels + c) * width;
-                    let s = &data[p..p + width];
-                    out.push(match (tag, bits) {
-                        (1, 24) => (i32::from_le_bytes([0, s[0], s[1], s[2]]) >> 8) as f32 / 8388608.0,
-                        (1, 32) => i32::from_le_bytes([s[0], s[1], s[2], s[3]]) as f32 / 2147483648.0,
-                        (3, 32) => f32::from_le_bytes([s[0], s[1], s[2], s[3]]),
-                        _ => f64::from_le_bytes([s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7]]) as f32,
-                    });
-                }
-            }
-            Sample::from_f32(rate, keep, out)
+        (Int, 32) => {
+            let data = wav_values::<i32>(&mut reader, channels, keep);
+            Sample::from_f32(rate, keep, data.into_iter().map(|v| v as f32 / 2147483648.0).collect())
         }
-        _ => return Err(format!("WAV format {tag} with {bits} bits is not read")),
+        (Float, 32) => Sample::from_f32(rate, keep, wav_values::<f32>(&mut reader, channels, keep)),
+        _ => return Err(wav(hound::Error::Unsupported)),
     };
-    if let Some(smpl) = smpl
+    if let Some(smpl) = riff_chunk(bytes, b"smpl")
         && smpl.len() >= 36
     {
         let unity = u32le(smpl, 12);
@@ -375,7 +369,7 @@ fn read_wav(bytes: &[u8]) -> Result<Sample, String> {
     Ok(sample)
 }
 
-fn read_aiff(bytes: &[u8]) -> Result<Sample, String> {
+fn read_aiff(bytes: &[u8]) -> Result<Sample, DecodeError> {
     let be16 = |at: usize| u16::from_be_bytes([bytes[at], bytes[at + 1]]);
     let be32 = |at: usize| u32::from_be_bytes([bytes[at], bytes[at + 1], bytes[at + 2], bytes[at + 3]]);
     let compressed = &bytes[8..12] == b"AIFC";
@@ -404,11 +398,11 @@ fn read_aiff(bytes: &[u8]) -> Result<Sample, String> {
         }
         at = body + size + (size & 1);
     }
-    let (channels, bits, rate, kind) = common.ok_or("no COMM chunk")?;
-    let data = data.ok_or("no SSND chunk")?;
+    let (channels, bits, rate, kind) = common.ok_or(DecodeError::NoComm)?;
+    let data = data.ok_or(DecodeError::NoSsnd)?;
     let little = kind == b"sowt";
     if (kind != b"NONE" && !little) || channels == 0 {
-        return Err("compressed AIFF is not read".into());
+        return Err(DecodeError::CompressedAiff);
     }
     let keep = channels.min(2);
     let width = bits.div_ceil(8);
@@ -428,46 +422,62 @@ fn read_aiff(bytes: &[u8]) -> Result<Sample, String> {
     Ok(Sample::from_f32(rate, keep, out))
 }
 
-/// Writes a 16-bit WAV (for the fixtures the tests make, and for `render`).
-pub fn write_wav(path: &Path, rate: u32, channels: u16, data: &[f32], keycenter: Option<u8>, loop_: Option<(u32, u32)>) -> std::io::Result<()> {
-    let mut body = Vec::new();
-    body.extend_from_slice(b"WAVE");
-    body.extend_from_slice(b"fmt ");
-    body.extend_from_slice(&16u32.to_le_bytes());
-    body.extend_from_slice(&1u16.to_le_bytes());
-    body.extend_from_slice(&channels.to_le_bytes());
-    body.extend_from_slice(&rate.to_le_bytes());
-    body.extend_from_slice(&(rate * channels as u32 * 2).to_le_bytes());
-    body.extend_from_slice(&(channels * 2).to_le_bytes());
-    body.extend_from_slice(&16u16.to_le_bytes());
-    body.extend_from_slice(b"data");
-    body.extend_from_slice(&(data.len() as u32 * 2).to_le_bytes());
+
+/// Writes a 16-bit WAV (for the fixtures the tests make, and for `render`),
+/// with a `smpl` chunk when a key or a loop is given.
+pub fn write_wav(path: &Path, rate: u32, channels: u16, data: &[f32], keycenter: Option<u8>, loop_: Option<(u32, u32)>) -> hound::Result<()> {
+    let spec = hound::WavSpec { channels, sample_rate: rate, bits_per_sample: 16, sample_format: hound::SampleFormat::Int };
+    let mut out = std::io::Cursor::new(Vec::new());
+    let mut writer = hound::WavWriter::new(&mut out, spec)?;
     for v in data {
-        body.extend_from_slice(&((v.clamp(-1.0, 1.0) * 32767.0).round() as i16).to_le_bytes());
+        writer.write_sample((v.clamp(-1.0, 1.0) * 32767.0).round() as i16)?;
     }
+    writer.finalize()?;
+    let mut bytes = out.into_inner();
     if keycenter.is_some() || loop_.is_some() {
         let loops = loop_.iter().count() as u32;
-        body.extend_from_slice(b"smpl");
-        body.extend_from_slice(&(36 + 24 * loops).to_le_bytes());
+        bytes.extend_from_slice(b"smpl");
+        bytes.extend_from_slice(&(36 + 24 * loops).to_le_bytes());
         for v in [0, 0, 1_000_000_000 / rate, keycenter.unwrap_or(60) as u32, 0, 0, 0, loops, 0] {
-            body.extend_from_slice(&v.to_le_bytes());
+            bytes.extend_from_slice(&v.to_le_bytes());
         }
         if let Some((start, end)) = loop_ {
             for v in [0, 0, start, end, 0, 0] {
-                body.extend_from_slice(&v.to_le_bytes());
+                bytes.extend_from_slice(&v.to_le_bytes());
             }
         }
+        // The RIFF size counts what follows its own eight bytes.
+        let riff = (bytes.len() - 8) as u32;
+        bytes[4..8].copy_from_slice(&riff.to_le_bytes());
     }
-    let mut out = Vec::new();
-    out.extend_from_slice(b"RIFF");
-    out.extend_from_slice(&(body.len() as u32).to_le_bytes());
-    out.extend_from_slice(&body);
-    std::fs::write(path, out)
+    std::fs::write(path, bytes)?;
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn other_wav_widths_and_channels_read() {
+        let dir = std::env::temp_dir().join(format!("paw-sampler-wav-width-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("b.wav");
+        // 24-bit, three channels: the first two are kept.
+        let spec = hound::WavSpec { channels: 3, sample_rate: 22050, bits_per_sample: 24, sample_format: hound::SampleFormat::Int };
+        let mut w = hound::WavWriter::create(&path, spec).unwrap();
+        for _ in 0..10 {
+            for v in [4194304, -4194304, 7] {
+                w.write_sample(v).unwrap();
+            }
+        }
+        w.finalize().unwrap();
+        let s = read_file(&path).unwrap();
+        assert_eq!((s.frames, s.channels, s.rate), (10, 2, 22050.0));
+        let Pcm::F32(d) = &s.pcm else { panic!("24-bit reads as float") };
+        assert_eq!((d[PAD * 2], d[PAD * 2 + 1]), (0.5, -0.5));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 
     #[test]
     fn wav_round_trip_with_loop_and_key() {

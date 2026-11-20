@@ -3,6 +3,7 @@
 //! `#include`. Unknown opcodes are reported, never fatal.
 
 use super::{FormatReader, extension_is, parse_key};
+use crate::error::FormatError;
 use crate::model::*;
 use std::path::{Path, PathBuf};
 
@@ -17,7 +18,7 @@ impl FormatReader for Sfz {
         extension_is(path, "sfz")
     }
 
-    fn read(&self, path: &Path) -> Result<Instrument, String> {
+    fn read(&self, path: &Path) -> Result<Instrument, FormatError> {
         let dir = path.parent().unwrap_or(Path::new(".")).to_path_buf();
         let mut text = String::new();
         let mut warnings = Vec::new();
@@ -40,11 +41,11 @@ fn include(
     depth: usize,
     out: &mut String,
     warnings: &mut Vec<String>,
-) -> Result<(), String> {
+) -> Result<(), FormatError> {
     if depth > 16 {
-        return Err(format!("{}: includes nested too deep", path.display()));
+        return Err(FormatError::IncludeTooDeep(path.to_path_buf()));
     }
-    let bytes = std::fs::read(path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let bytes = std::fs::read(path).map_err(|e| FormatError::io(path, e))?;
     let text = String::from_utf8_lossy(&bytes);
     let mut in_block = false;
     for raw in text.lines() {
@@ -499,101 +500,144 @@ fn mod_target(name: &str) -> Option<(Target, &str)> {
         .find_map(|(prefix, t)| name.strip_prefix(prefix).map(|rest| (*t, rest)))
 }
 
+/// An opcode and its value, with the readings that most opcodes need.
+struct Op<'a> {
+    name: &'a str,
+    value: &'a str,
+    /// What `note_offset` and `octave_offset` add to a key.
+    key_offset: i32,
+}
+
+impl Op<'_> {
+    fn f(&self) -> f32 {
+        self.value.trim().parse::<f32>().unwrap_or(0.0)
+    }
+
+    fn key(&self) -> Option<u8> {
+        parse_key(self.value).map(|k| (k + self.key_offset).clamp(0, 127) as u8)
+    }
+
+    fn frames(&self) -> u64 {
+        self.value.trim().parse::<f64>().unwrap_or(0.0).max(0.0) as u64
+    }
+
+    fn byte(&self) -> u8 {
+        self.f().clamp(0.0, 127.0) as u8
+    }
+}
+
 /// Applies one opcode to the region; false when it is not one of these.
 fn opcode(ctx: &mut Ctx, r: &mut Region, sw: &mut SwitchOps, b: &mut Build, name: &str, value: &str) -> bool {
-    let f = || value.trim().parse::<f32>().unwrap_or(0.0);
-    let off = ctx.note_offset + 12 * ctx.octave_offset;
-    let key = |v: &str| parse_key(v).map(|k| (k + off).clamp(0, 127) as u8);
-    let frames = || value.trim().parse::<f64>().unwrap_or(0.0).max(0.0) as u64;
-    let byte = |v: f32| v.clamp(0.0, 127.0) as u8;
+    let op = Op { name, value, key_offset: ctx.note_offset + 12 * ctx.octave_offset };
+    controller_opcode(r, b, &op)
+        || envelope_opcode(ctx, r, b, &op)
+        || mapping_opcode(ctx, r, sw, &op)
+        || playback_opcode(r, &op)
+        || filter_opcode(ctx, r, &op)
+        || crossfade_opcode(r, b, &op)
+}
 
-    // Controllers by number: `loccN`, `xfin_loccN`, `amplitude_onccN`, ...
+/// Controllers by number: `loccN`, `xfin_loccN`, `amplitude_onccN`, ...
+fn controller_opcode(r: &mut Region, b: &mut Build, op: &Op) -> bool {
+    let name = op.name;
+    let f = op.f();
     if let Some(cc) = cc_suffix(name, "locc") {
-        cc_range(r, cc).lo = f() / 127.0;
+        cc_range(r, cc).lo = f / 127.0;
         return true;
     }
     if let Some(cc) = cc_suffix(name, "hicc") {
-        cc_range(r, cc).hi = f() / 127.0;
+        cc_range(r, cc).hi = f / 127.0;
         return true;
     }
     for (prefix, out) in [("xfin_locc", false), ("xfout_locc", true)] {
         if let Some(cc) = cc_suffix(name, prefix) {
-            b.xf_cc_lo.push(((cc, out), f() / 127.0));
+            b.xf_cc_lo.push(((cc, out), f / 127.0));
             return true;
         }
     }
     for (prefix, out) in [("xfin_hicc", false), ("xfout_hicc", true)] {
         if let Some(cc) = cc_suffix(name, prefix) {
-            b.xf_cc_hi.push((cc, out, f() / 127.0));
+            b.xf_cc_hi.push((cc, out, f / 127.0));
             return true;
         }
     }
     if let Some(n) = name.strip_prefix("amp_velcurve_").and_then(|n| n.parse::<u8>().ok()) {
-        b.velcurve.get_or_insert_with(Vec::new).push((n.min(127), f()));
+        b.velcurve.get_or_insert_with(Vec::new).push((n.min(127), f));
         return true;
     }
     if let Some((target, rest)) = mod_target(name) {
         let cc = cc_suffix(rest, "_oncc").or_else(|| cc_suffix(rest, "_cc"));
         if let Some(cc) = cc {
             b.mods.retain(|m| !(m.0 == cc && m.1 == target));
-            b.mods.push((cc, target, f()));
+            b.mods.push((cc, target, f));
             return true;
         }
         if let Some(cc) = cc_suffix(rest, "_curvecc") {
-            b.curves.push((cc, target, f() as usize));
+            b.curves.push((cc, target, f as usize));
             return true;
         }
     }
+    false
+}
 
-    if let Some(stage) = name.strip_prefix("ampeg_") {
-        return envelope(&mut r.amp_eg, stage, f(), ctx);
+/// `ampeg_`, `pitcheg_` and `fileg_` stages.
+fn envelope_opcode(ctx: &mut Ctx, r: &mut Region, b: &mut Build, op: &Op) -> bool {
+    let f = op.f();
+    if let Some(stage) = op.name.strip_prefix("ampeg_") {
+        return envelope(&mut r.amp_eg, stage, f, ctx);
     }
-    if let Some(stage) = name.strip_prefix("pitcheg_") {
+    if let Some(stage) = op.name.strip_prefix("pitcheg_") {
         if stage == "depth" {
-            r.pitch_eg_depth = f();
+            r.pitch_eg_depth = f;
             return true;
         }
-        return envelope(&mut r.pitch_eg, stage, f(), ctx);
+        return envelope(&mut r.pitch_eg, stage, f, ctx);
     }
-    if let Some(stage) = name.strip_prefix("fileg_") {
+    if let Some(stage) = op.name.strip_prefix("fileg_") {
         if stage == "depth" {
-            b.fileg_depth = f();
+            b.fileg_depth = f;
             return true;
         }
-        return envelope(b.fileg(), stage, f(), ctx);
+        return envelope(b.fileg(), stage, f, ctx);
     }
+    false
+}
 
-    match name {
+/// When the region plays: its keys, velocities, channels, random range,
+/// sequence, keyswitches, trigger and groups.
+fn mapping_opcode(ctx: &mut Ctx, r: &mut Region, sw: &mut SwitchOps, op: &Op) -> bool {
+    let (value, f) = (op.value, op.f());
+    match op.name {
         "key" => {
-            if let Some(k) = key(value) {
+            if let Some(k) = op.key() {
                 r.lokey = k;
                 r.hikey = k;
                 r.keycenter = Some(k);
             }
         }
-        "lokey" => r.lokey = key(value).unwrap_or(0),
-        "hikey" => r.hikey = key(value).unwrap_or(127),
-        "lovel" => r.lovel = byte(f()).max(1),
-        "hivel" => r.hivel = byte(f()),
-        "lochan" => r.lochan = f() as u8,
-        "hichan" => r.hichan = f() as u8,
-        "lorand" => r.lorand = f(),
-        "hirand" => r.hirand = f(),
-        "seq_length" => r.seq_length = f().max(1.0) as u32,
-        "seq_position" => r.seq_position = f().max(1.0) as u32,
-        "sw_lokey" => ctx.sw_lokey = key(value),
-        "sw_hikey" => ctx.sw_hikey = key(value),
+        "lokey" => r.lokey = op.key().unwrap_or(0),
+        "hikey" => r.hikey = op.key().unwrap_or(127),
+        "lovel" => r.lovel = op.byte().max(1),
+        "hivel" => r.hivel = op.byte(),
+        "lochan" => r.lochan = f as u8,
+        "hichan" => r.hichan = f as u8,
+        "lorand" => r.lorand = f,
+        "hirand" => r.hirand = f,
+        "seq_length" => r.seq_length = f.max(1.0) as u32,
+        "seq_position" => r.seq_position = f.max(1.0) as u32,
+        "sw_lokey" => ctx.sw_lokey = op.key(),
+        "sw_hikey" => ctx.sw_hikey = op.key(),
         "sw_last" => {
-            sw.lolast = key(value);
-            sw.hilast = key(value);
+            sw.lolast = op.key();
+            sw.hilast = op.key();
         }
-        "sw_lolast" => sw.lolast = key(value),
-        "sw_hilast" => sw.hilast = key(value),
+        "sw_lolast" => sw.lolast = op.key(),
+        "sw_hilast" => sw.hilast = op.key(),
         "sw_label" => sw.label = Some(value.to_string()),
-        "sw_default" => ctx.sw_default = key(value),
-        "sw_down" => r.sw_down = key(value),
-        "sw_up" => r.sw_up = key(value),
-        "sw_previous" => r.sw_previous = key(value),
+        "sw_default" => ctx.sw_default = op.key(),
+        "sw_down" => r.sw_down = op.key(),
+        "sw_up" => r.sw_up = op.key(),
+        "sw_previous" => r.sw_previous = op.key(),
         "trigger" => {
             r.trigger = match value {
                 "release" => Trigger::Release,
@@ -603,20 +647,36 @@ fn opcode(ctx: &mut Ctx, r: &mut Region, sw: &mut SwitchOps, b: &mut Build, name
                 _ => Trigger::Attack,
             }
         }
-        "rt_decay" => r.rt_decay = f(),
-        "pitch_keycenter" => {
-            r.keycenter = if value.trim() == "sample" { None } else { key(value) }
+        "rt_decay" => r.rt_decay = f,
+        "group" => r.groups = vec![value.trim().parse().unwrap_or(0)],
+        "off_by" => r.off_by = vec![value.trim().parse().unwrap_or(0)],
+        "off_mode" => r.off_fast = value != "normal" && value != "time",
+        "off_time" => {
+            r.off_time = f;
+            r.off_fast = false;
         }
-        "pitch_keytrack" => r.keytrack = f(),
-        "tune" | "pitch" => r.tune = f(),
-        "transpose" => r.transpose = f() as i32,
-        "pitch_veltrack" => r.pitch_veltrack = f(),
-        "bend_up" | "bendup" => r.bend_up = f(),
-        "bend_down" | "benddown" => r.bend_down = f(),
-        "offset" => r.offset = frames(),
-        "offset_random" => r.offset_random = frames(),
-        "end" => r.end = Some(frames()),
-        "delay" => r.delay = f(),
+        "polyphony" => r.polyphony = Some(f.max(1.0) as u32),
+        "note_polyphony" => r.note_polyphony = Some(f.max(1.0) as u32),
+        _ => return false,
+    }
+    true
+}
+
+/// How the sample sounds: pitch, offsets, loop, level and place.
+fn playback_opcode(r: &mut Region, op: &Op) -> bool {
+    let (value, f) = (op.value, op.f());
+    match op.name {
+        "pitch_keycenter" => r.keycenter = if value.trim() == "sample" { None } else { op.key() },
+        "pitch_keytrack" => r.keytrack = f,
+        "tune" | "pitch" => r.tune = f,
+        "transpose" => r.transpose = f as i32,
+        "pitch_veltrack" => r.pitch_veltrack = f,
+        "bend_up" | "bendup" => r.bend_up = f,
+        "bend_down" | "benddown" => r.bend_down = f,
+        "offset" => r.offset = op.frames(),
+        "offset_random" => r.offset_random = op.frames(),
+        "end" => r.end = Some(op.frames()),
+        "delay" => r.delay = f,
         "loop_mode" | "loopmode" => {
             r.loop_mode = Some(match value {
                 "one_shot" => LoopMode::OneShot,
@@ -625,17 +685,25 @@ fn opcode(ctx: &mut Ctx, r: &mut Region, sw: &mut SwitchOps, b: &mut Build, name
                 _ => LoopMode::NoLoop,
             })
         }
-        "loop_start" | "loopstart" => r.loop_start = Some(frames()),
-        "loop_end" | "loopend" => r.loop_end = Some(frames()),
-        "loop_crossfade" => r.loop_crossfade = f(),
-        "volume" | "gain" => r.volume = f(),
-        "amplitude" => r.amplitude = f() / 100.0,
-        "pan" => r.pan = f() / 100.0,
-        "width" => r.width = f() / 100.0,
-        "position" => r.position = f() / 100.0,
-        "amp_veltrack" => r.amp_veltrack = f() / 100.0,
+        "loop_start" | "loopstart" => r.loop_start = Some(op.frames()),
+        "loop_end" | "loopend" => r.loop_end = Some(op.frames()),
+        "loop_crossfade" => r.loop_crossfade = f,
+        "volume" | "gain" => r.volume = f,
+        "amplitude" => r.amplitude = f / 100.0,
+        "pan" => r.pan = f / 100.0,
+        "width" => r.width = f / 100.0,
+        "position" => r.position = f / 100.0,
+        "amp_veltrack" => r.amp_veltrack = f / 100.0,
+        _ => return false,
+    }
+    true
+}
+
+fn filter_opcode(ctx: &mut Ctx, r: &mut Region, op: &Op) -> bool {
+    let f = op.f();
+    match op.name {
         "fil_type" | "filtype" => {
-            let kind = match value {
+            let kind = match op.value {
                 "lpf_1p" => FilterKind::Lp1,
                 "hpf_1p" => FilterKind::Hp1,
                 "lpf_2p" => FilterKind::Lp2,
@@ -651,31 +719,30 @@ fn opcode(ctx: &mut Ctx, r: &mut Region, sw: &mut SwitchOps, b: &mut Build, name
             };
             filter(r).kind = kind;
         }
-        "cutoff" => filter(r).cutoff = f(),
-        "resonance" => filter(r).resonance = f(),
-        "fil_keytrack" => filter(r).keytrack = f(),
-        "fil_keycenter" => filter(r).keycenter = key(value).unwrap_or(60),
-        "fil_veltrack" => filter(r).veltrack = f(),
-        "xfin_lokey" => b.xfin_lokey = key(value).map(f32::from),
-        "xfin_hikey" => b.xfin_hikey = key(value).map(f32::from),
-        "xfout_lokey" => b.xfout_lokey = key(value).map(f32::from),
-        "xfout_hikey" => b.xfout_hikey = key(value).map(f32::from),
-        "xfin_lovel" => b.xfin_lovel = Some(f()),
-        "xfin_hivel" => b.xfin_hivel = Some(f()),
-        "xfout_lovel" => b.xfout_lovel = Some(f()),
-        "xfout_hivel" => b.xfout_hivel = Some(f()),
+        "cutoff" => filter(r).cutoff = f,
+        "resonance" => filter(r).resonance = f,
+        "fil_keytrack" => filter(r).keytrack = f,
+        "fil_keycenter" => filter(r).keycenter = op.key().unwrap_or(60),
+        "fil_veltrack" => filter(r).veltrack = f,
+        _ => return false,
+    }
+    true
+}
+
+fn crossfade_opcode(r: &mut Region, b: &mut Build, op: &Op) -> bool {
+    let value = op.value;
+    match op.name {
+        "xfin_lokey" => b.xfin_lokey = op.key().map(f32::from),
+        "xfin_hikey" => b.xfin_hikey = op.key().map(f32::from),
+        "xfout_lokey" => b.xfout_lokey = op.key().map(f32::from),
+        "xfout_hikey" => b.xfout_hikey = op.key().map(f32::from),
+        "xfin_lovel" => b.xfin_lovel = Some(op.f()),
+        "xfin_hivel" => b.xfin_hivel = Some(op.f()),
+        "xfout_lovel" => b.xfout_lovel = Some(op.f()),
+        "xfout_hivel" => b.xfout_hivel = Some(op.f()),
         "xf_keycurve" => r.xf_keycurve = xf_curve(value),
         "xf_velcurve" => r.xf_velcurve = xf_curve(value),
         "xf_cccurve" => r.xf_cccurve = xf_curve(value),
-        "group" => r.groups = vec![value.trim().parse().unwrap_or(0)],
-        "off_by" => r.off_by = vec![value.trim().parse().unwrap_or(0)],
-        "off_mode" => r.off_fast = value != "normal" && value != "time",
-        "off_time" => {
-            r.off_time = f();
-            r.off_fast = false;
-        }
-        "polyphony" => r.polyphony = Some(f().max(1.0) as u32),
-        "note_polyphony" => r.note_polyphony = Some(f().max(1.0) as u32),
         _ => return false,
     }
     true

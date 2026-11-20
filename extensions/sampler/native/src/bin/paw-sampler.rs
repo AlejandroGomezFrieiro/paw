@@ -7,38 +7,70 @@
 //!   paw-sampler bench <instrument> [voices]  the cost of a voice
 //!   paw-sampler fixtures <dir>               writes the test instruments (sines of known pitches)
 
+use anyhow::{Context, Result, anyhow};
+use clap::{Parser, Subcommand};
 use paw_sampler::audio::{Store, write_wav};
 use paw_sampler::engine::{Engine, Program};
 use paw_sampler::{describe, formats, m2, params};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 
+#[derive(Parser)]
+#[command(name = "paw-sampler", about = "paw's sample player, from the command line")]
+struct Cli {
+    #[command(subcommand)]
+    command: Command,
+}
+
+#[derive(Subcommand)]
+enum Command {
+    /// Prints an instrument's range, keyswitches and articulations as JSON
+    Describe { instrument: PathBuf },
+    /// Plays notes through an instrument into a WAV file
+    Render {
+        instrument: PathBuf,
+        out: PathBuf,
+        /// A note as `key:start:length[:velocity[:m2]]`: seconds, velocity 1-127, m2 like 11.A
+        notes: Vec<String>,
+    },
+    /// Times the cost of a voice
+    Bench {
+        instrument: PathBuf,
+        /// How many voices to hold
+        #[arg(default_value_t = 64)]
+        voices: usize,
+    },
+    /// Writes the test instruments (sines of known pitches) into a folder
+    Fixtures { dir: PathBuf },
+}
+
 fn main() {
-    let args: Vec<String> = std::env::args().skip(1).collect();
-    let result = match args.first().map(String::as_str) {
-        Some("describe") if args.len() == 2 => describe(&args[1]),
-        Some("render") if args.len() >= 3 => render(&args[1], &args[2], &args[3..]),
-        Some("fixtures") if args.len() == 2 => paw_sampler::fixtures::write(Path::new(&args[1])).map_err(|e| e.to_string()),
-        Some("bench") if args.len() >= 2 => bench(&args[1], args.get(2).and_then(|v| v.parse().ok()).unwrap_or(64)),
-        _ => Err("usage: paw-sampler describe <instrument> | render <instrument> <out.wav> <key:start:length[:velocity[:m2]]>... | bench <instrument> [voices] | fixtures <dir>".into()),
-    };
-    if let Err(e) = result {
-        eprintln!("paw-sampler: {e}");
+    if let Err(e) = run(Cli::parse().command) {
+        eprintln!("paw-sampler: {e:#}");
         std::process::exit(1);
     }
 }
 
-fn load(path: &str) -> Result<Arc<Program>, String> {
-    let instrument = formats::read(Path::new(path))?;
+fn run(command: Command) -> Result<()> {
+    match command {
+        Command::Describe { instrument } => describe_instrument(&instrument),
+        Command::Render { instrument, out, notes } => render(&instrument, &out, &notes),
+        Command::Bench { instrument, voices } => bench(&instrument, voices),
+        Command::Fixtures { dir } => Ok(paw_sampler::fixtures::write(&dir)?),
+    }
+}
+
+fn load(path: &Path) -> Result<Arc<Program>> {
+    let instrument = formats::read(path)?;
     Ok(Arc::new(Program::new(instrument, &mut Store::default())))
 }
 
-fn describe(path: &str) -> Result<(), String> {
+fn describe_instrument(path: &Path) -> Result<()> {
     let program = load(path)?;
     let defaults: Vec<f64> = params::PARAMS.iter().map(|p| p.default).collect();
-    let v = describe::describe(Some(&program), path, None, &defaults);
-    println!("{}", serde_json::to_string_pretty(&v).unwrap());
+    let v = describe::describe(Some(&program), &path.to_string_lossy(), None, &defaults);
+    println!("{}", serde_json::to_string_pretty(&v)?);
     Ok(())
 }
 
@@ -50,18 +82,21 @@ struct Note {
     attr: Option<(u8, u16)>,
 }
 
-fn render(path: &str, out: &str, notes: &[String]) -> Result<(), String> {
+/// A note as `key:start:length[:velocity[:m2]]`.
+fn parse_note(text: &str) -> Result<Note> {
+    let bad = || anyhow!("bad note `{text}`");
+    let f: Vec<&str> = text.split(':').collect();
+    let num = |i: usize| f.get(i).and_then(|v| v.parse::<f64>().ok());
+    let key = f.first().and_then(|k| formats::parse_key(k)).ok_or_else(bad)?;
+    let start = num(1).ok_or_else(bad)?;
+    let length = num(2).ok_or_else(bad)?;
+    let attr = f.get(4).and_then(|c| m2::parse_code(c)).map(|c| ((c >> 16) as u8, c as u16));
+    Ok(Note { key: key as u8, start, end: start + length, vel: num(3).unwrap_or(100.0) as f32 / 127.0, attr })
+}
+
+fn render(path: &Path, out: &Path, notes: &[String]) -> Result<()> {
     let program = load(path)?;
-    let mut parsed = Vec::new();
-    for n in notes {
-        let f: Vec<&str> = n.split(':').collect();
-        let num = |i: usize| f.get(i).and_then(|v| v.parse::<f64>().ok());
-        let key = f.first().and_then(|k| formats::parse_key(k)).ok_or(format!("bad note `{n}`"))?;
-        let start = num(1).ok_or(format!("bad note `{n}`"))?;
-        let length = num(2).ok_or(format!("bad note `{n}`"))?;
-        let attr = f.get(4).and_then(|c| m2::parse_code(c)).map(|c| ((c >> 16) as u8, c as u16));
-        parsed.push(Note { key: key as u8, start, end: start + length, vel: num(3).unwrap_or(100.0) as f32 / 127.0, attr });
-    }
+    let parsed = notes.iter().map(|n| parse_note(n)).collect::<Result<Vec<_>>>()?;
     let rate = 48000.0;
     let mut engine = Engine::new(rate);
     engine.swap(Some(program));
@@ -93,15 +128,15 @@ fn render(path: &str, out: &str, notes: &[String]) -> Result<(), String> {
         interleaved.push(left[i]);
         interleaved.push(right[i]);
     }
-    write_wav(Path::new(out), rate as u32, 2, &interleaved, None, None).map_err(|e| e.to_string())
+    Ok(write_wav(out, rate as u32, 2, &interleaved, None, None)?)
 }
 
 /// Holds `voices` notes across the instrument's range and times a
 /// quarter of a second of blocks, five times over; the best time counts,
 /// as the least disturbed by whatever else the machine does.
-fn bench(path: &str, voices: usize) -> Result<(), String> {
+fn bench(path: &Path, voices: usize) -> Result<()> {
     let program = load(path)?;
-    let (lo, hi) = program.instrument.range().ok_or("the instrument plays no key")?;
+    let (lo, hi) = program.instrument.range().context("the instrument plays no key")?;
     let rate = 48000.0;
     let block = 256;
     let blocks = 47;

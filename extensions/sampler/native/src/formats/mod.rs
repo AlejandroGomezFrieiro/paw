@@ -1,7 +1,9 @@
 //! Instrument formats. Each is a reader that turns a file into the one
 //! model in `model.rs`; adding a format is adding a reader here and a test.
 
+use crate::error::FormatError;
 use crate::model::Instrument;
+use std::io::Read;
 use std::path::Path;
 
 pub mod dspreset;
@@ -12,21 +14,25 @@ pub trait FormatReader: Sync {
     fn name(&self) -> &'static str;
     /// Whether the file is of this format (by its name, or its first bytes).
     fn detect(&self, path: &Path, head: &[u8]) -> bool;
-    fn read(&self, path: &Path) -> Result<Instrument, String>;
+    fn read(&self, path: &Path) -> Result<Instrument, FormatError>;
 }
 
 /// Every format the player reads, tried in order.
 pub static READERS: &[&dyn FormatReader] = &[&sfz::Sfz, &dspreset::DecentSampler];
 
+/// How much of a file the readers look at to know its format.
+const HEAD: u64 = 512;
+
 /// Reads an instrument file of any known format.
-pub fn read(path: &Path) -> Result<Instrument, String> {
-    let head = std::fs::read(path)
-        .map(|bytes| bytes.into_iter().take(512).collect::<Vec<u8>>())
-        .map_err(|e| format!("{}: {e}", path.display()))?;
+pub fn read(path: &Path) -> Result<Instrument, FormatError> {
+    let mut head = Vec::new();
+    std::fs::File::open(path)
+        .and_then(|file| file.take(HEAD).read_to_end(&mut head))
+        .map_err(|e| FormatError::io(path, e))?;
     let reader = READERS
         .iter()
         .find(|r| r.detect(path, &head))
-        .ok_or_else(|| format!("{}: not an instrument this player reads", path.display()))?;
+        .ok_or_else(|| FormatError::UnknownFormat(path.to_path_buf()))?;
     let mut instrument = reader.read(path)?;
     instrument.format = reader.name().to_string();
     instrument.path = path.to_path_buf();

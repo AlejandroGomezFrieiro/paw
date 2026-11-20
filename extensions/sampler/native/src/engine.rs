@@ -66,7 +66,7 @@ impl Program {
                     sample_of_path.push(Some(samples.len() - 1));
                 }
                 Err(e) => {
-                    instrument.warn(e);
+                    instrument.warn(e.to_string());
                     sample_of_path.push(None);
                 }
             }

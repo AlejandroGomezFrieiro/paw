@@ -6,6 +6,7 @@
 pub mod audio;
 pub mod describe;
 pub mod engine;
+pub mod error;
 pub mod fixtures;
 pub mod formats;
 pub mod interp;
