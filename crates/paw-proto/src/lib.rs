@@ -47,7 +47,9 @@ pub fn proof(token: &str, nonce: &str) -> String {
 /// Bytes as lowercase hexadecimal digits: the `hex` crate's, the one
 /// function for this in paw (`hex::encode_upper` where a format wants
 /// capitals).
-pub use hex::encode as hex;
+pub fn hex(bytes: &[u8]) -> String {
+    hex::encode(bytes)
+}
 
 /// A connection to a kernel, for programs that talk to one: `paw ctl`,
 /// `paw attach`, the window. Replies come back from [`call`](Self::call);
