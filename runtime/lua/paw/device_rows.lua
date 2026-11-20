@@ -147,7 +147,10 @@ dmap("<A-k>", function()
   local device = panel:selected()
   if device and device.index > 1 then device:move(device.index - 1) end
 end, "Move the device earlier in the chain")
+-- `s` `M` `r` solo, mute and arm the track, as wherever there is a track.
 dmap("s", "track.solo", "Solo the track")
+dmap("M", "track.mute", "Mute the track")
+dmap("r", "track.armed", "Arm the track for recording")
 dmap("gS", "device.sidechain", "Choose the track the device listens to (side-chain)")
 
 --- What `K` shows: the device, or the parameter, under the cursor.

@@ -125,7 +125,7 @@ loop. A clip that waits for its boundary has a mark until it starts.
 | `<CR>` | launch the slot (on an empty slot: stop the track) |
 | `L` | launch the scene of the row at the cursor |
 | `S` `gS` | stop the clip of the track, stop every clip |
-| `s` `M` | solo the track, mute the track (as in every view) |
+| `s` `M` `r` | solo the track, mute the track, arm the track (as in every view) |
 | `B` `gB` | send the track back to its timeline, send every track back |
 | `n` | make a MIDI clip of one bar in the slot (`:slot.new 2` for two bars) |
 | `i` | open the notes of the clip in the piano roll |

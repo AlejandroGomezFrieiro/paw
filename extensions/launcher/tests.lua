@@ -347,6 +347,8 @@ test("launcher: the session view shows the slots and scenes, and its keys launch
   eq(launcher.clip(t.id, 2), nil, "x empties it")
   paw.keymap.feed("km")
   eq(launcher.clip(t.id, 1).mode, "gate", "m goes round the modes")
+  paw.keymap.feed("r")
+  eq(api.track_get(t.id).armed, true, "r arms the track, as in every view")
   eq(#paw.ui.keybar.check(), 0, "every key the key bar shows is mapped")
   paw.transport.stop()
   paw.ui.hide("session")

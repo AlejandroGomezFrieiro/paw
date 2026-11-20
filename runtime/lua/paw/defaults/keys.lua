@@ -18,7 +18,9 @@ local motion, need_track, amap = common.motion, common.need_track, common.amap
 
 -- The names the key hints give to prefixes that only lead to more keys.
 keymap.group("<leader>a", "automation")
-keymap.group("<leader>c", "clip")
+-- `,ca` is in every view that shows diagnostics; `,cf` only in the arrange view.
+keymap.group("<leader>c", "fixes and actions")
+keymap.group("<leader>c", "fixes, clip fade", { view = "arrange" })
 keymap.group("<leader>f", "find")
 keymap.group("gr", "set a value")
 
