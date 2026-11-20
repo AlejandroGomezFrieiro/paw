@@ -337,8 +337,12 @@ fn handshake_and_tool_list() {
         check_schema(schema, name);
     }
 
-    // The 2026-07-28 revision: version in `_meta`, no handshake needed.
-    let meta = json!({ "_meta": { "io.modelcontextprotocol/protocolVersion": "2026-07-28" } });
+    // The 2026-07-28 revision: version and capabilities in `_meta`, no
+    // handshake needed.
+    let meta = json!({ "_meta": {
+        "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+        "io.modelcontextprotocol/clientCapabilities": {},
+    } });
     let modern = client.request("tools/list", meta.clone());
     assert_eq!(modern["result"]["resultType"], "complete");
     assert_eq!(
@@ -346,10 +350,8 @@ fn handshake_and_tool_list() {
         tools.len()
     );
     let discover = client.request("server/discover", meta);
-    assert_eq!(
-        discover["result"]["supportedVersions"],
-        json!(["2026-07-28"])
-    );
+    let versions = discover["result"]["supportedVersions"].as_array().unwrap();
+    assert!(versions.contains(&json!("2026-07-28")), "{discover}");
     let unsupported = client.request(
         "tools/list",
         json!({ "_meta": { "io.modelcontextprotocol/protocolVersion": "2099-01-01" } }),
@@ -370,9 +372,10 @@ fn handshake_and_tool_list() {
     assert!(unknown["result"]["content"][0]["text"].as_str().unwrap().contains("get_project"));
     client.send(&json!("not a request"));
     assert_eq!(client.receive()["error"]["code"], -32600);
+    // A line that is not JSON has no id to answer: it is passed over.
     writeln!(client.stdin, "{{ this is not json").unwrap();
     client.stdin.flush().unwrap();
-    assert_eq!(client.receive()["error"]["code"], -32700);
+    assert_eq!(client.request("ping", json!({}))["result"], json!({}));
     client.finish();
 }
 

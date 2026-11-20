@@ -13,4 +13,9 @@ device = ["dep:cpal"]
 anyhow.workspace = true
 serde_json.workspace = true
 paw-proto.workspace = true
+# The WAV file that the null device writes.
+hound = "3.5"
 cpal = { version = "0.18", optional = true, features = ["pipewire"] }
+
+[dev-dependencies]
+tempfile = "3"

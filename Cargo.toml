@@ -26,6 +26,12 @@ bitflags = "2"
 serde = { version = "1", features = ["derive", "rc"] }
 # Exact round trips of every f64 through a saved project.
 serde_json = { version = "1", features = ["float_roundtrip"] }
+# Command lines of the binaries.
+clap = { version = "4", features = ["derive"] }
+# I/O that waits (paw-crates.md): each crate adds the features it uses.
+tokio = { version = "1", default-features = false }
+# Bytes as hexadecimal digits: digests, fingerprints, plugin ids.
+hex = "0.4"
 # TLS for network connections, pure Rust with ring: no OpenSSL.
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 

@@ -281,7 +281,11 @@ is not built.
 
 The server is a client of the control socket, as `paw ctl` and the
 graphical frontend are. It adds nothing to the kernel. It sends each tool
-call as one `eval` of [mcp.lua](src/mcp.lua) with the arguments of the
+call as one `eval` of [mcp.lua](src/tools/mcp.lua) with the arguments of the
 tool. So a call is one turn of the kernel, every change goes through
 `paw.api`, and a call that writes is exactly one undo step. A call that
 fails part way rolls back.
+
+The server speaks MCP through `rmcp`, the
+official Rust SDK. Each tool is one entry of the table in
+[src/tools](src/tools/mod.rs), with its schema and its code.

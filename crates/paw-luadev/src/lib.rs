@@ -22,8 +22,9 @@ use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::process::ExitStatus;
 use std::rc::Rc;
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
@@ -45,6 +46,37 @@ const SCRIPT_ENV: &str = "PAW_LUA_DEVICE";
 /// How long looking into scripts may take before the helper doing it is ended.
 const SCAN_LIMIT: Duration = Duration::from_secs(30);
 
+/// Why a script could not be looked into. Its text is what `paw.api`
+/// shows as the script's error.
+#[derive(Debug, Clone, thiserror::Error)]
+pub enum ScanError {
+    /// The script did not load: why, as the helper (or Lua) said it.
+    #[error("{0}")]
+    Script(String),
+    /// The helper could not be started or watched.
+    #[error("{0}")]
+    Helper(#[source] Arc<std::io::Error>),
+    /// The helper did not finish in time and was ended.
+    #[error("looking into it took over {} seconds", SCAN_LIMIT.as_secs())]
+    Hung,
+    /// The helper ended without an answer.
+    #[error("looking into it failed ({0})")]
+    Failed(ExitStatus),
+    /// The helper answered for another number of scripts.
+    #[error("looking into it gave a wrong answer")]
+    WrongAnswer,
+}
+
+impl From<std::io::Error> for ScanError {
+    fn from(err: std::io::Error) -> Self {
+        Self::Helper(Arc::new(err))
+    }
+}
+
+/// What a helper prints for each script: the description, or why it did
+/// not load. The wire between `plugin-scan lua` and [`describe_all`].
+type ScanAnswer = Result<Descriptor, String>;
+
 /// Say how to run Lua devices apart: `exe` is this program, which runs one
 /// as `plugin-host lua:<name>` and looks into scripts as `plugin-scan lua`.
 /// Until this is called they run in this process, which is only for tests
@@ -62,7 +94,7 @@ pub fn serve_make(rate: f32, max_block: usize) -> Result<Instance> {
 /// In a helper: say what each script named in `args` is, as one line of
 /// JSON (a list of descriptions or reasons, in order). Returns the exit code.
 pub fn scan_main(args: &[String]) -> i32 {
-    let found: Vec<Result<Descriptor, String>> = args
+    let found: Vec<ScanAnswer> = args
         .iter()
         .map(|path| describe(Path::new(path)).map_err(|err| format!("{err:#}")))
         .collect();
@@ -102,14 +134,14 @@ fn factory(info: DeviceInfo, path: &Path) -> Rc<dyn DeviceFactory> {
 
 /// Look into scripts: in a helper where there is one, so that a script
 /// that crashes or never finishes loading costs nothing else.
-fn describe_all(paths: &[PathBuf]) -> Vec<Result<Descriptor, String>> {
+fn describe_all(paths: &[PathBuf]) -> Vec<Result<Descriptor, ScanError>> {
     let Some((exe, _)) = HELPER.get() else {
         return paths
             .iter()
-            .map(|p| describe(p).map_err(|err| format!("{err:#}")))
+            .map(|p| describe(p).map_err(|err| ScanError::Script(format!("{err:#}"))))
             .collect();
     };
-    let apart = || -> Result<Vec<Result<Descriptor, String>>> {
+    let apart = || -> Result<Vec<ScanAnswer>, ScanError> {
         let mut child = std::process::Command::new(exe)
             .arg("plugin-scan")
             .arg("lua")
@@ -118,7 +150,7 @@ fn describe_all(paths: &[PathBuf]) -> Vec<Result<Descriptor, String>> {
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::null())
             .spawn()?;
-        let mut out = child.stdout.take().context("no output")?;
+        let mut out = child.stdout.take().expect("the helper's output is piped");
         let reader = std::thread::spawn(move || {
             let mut text = String::new();
             let _ = out.read_to_string(&mut text);
@@ -132,7 +164,7 @@ fn describe_all(paths: &[PathBuf]) -> Vec<Result<Descriptor, String>> {
             if started.elapsed() > SCAN_LIMIT {
                 let _ = child.kill();
                 let _ = child.wait();
-                anyhow::bail!("looking into it took over {} seconds", SCAN_LIMIT.as_secs());
+                return Err(ScanError::Hung);
             }
             std::thread::sleep(Duration::from_millis(5));
         };
@@ -140,12 +172,14 @@ fn describe_all(paths: &[PathBuf]) -> Vec<Result<Descriptor, String>> {
         text.lines()
             .rev()
             .find_map(|line| serde_json::from_str(line).ok())
-            .with_context(|| format!("looking into it failed ({status})"))
+            .ok_or(ScanError::Failed(status))
     };
     match apart() {
-        Ok(found) if found.len() == paths.len() => found,
-        Ok(_) => vec![Err("looking into it gave a wrong answer".into()); paths.len()],
-        Err(err) => vec![Err(format!("{err:#}")); paths.len()],
+        Ok(found) if found.len() == paths.len() => {
+            found.into_iter().map(|answer| answer.map_err(ScanError::Script)).collect()
+        }
+        Ok(_) => vec![Err(ScanError::WrongAnswer); paths.len()],
+        Err(err) => vec![Err(err); paths.len()],
     }
 }
 
@@ -177,7 +211,7 @@ struct Script {
     /// What it said it was when it last loaded.
     desc: Option<Descriptor>,
     /// Why it did not load, the last time it was looked into.
-    error: Option<String>,
+    error: Option<ScanError>,
 }
 
 /// Every directory looked in, and the scripts found there.
@@ -324,7 +358,7 @@ pub fn rescan(registry: &mut Registry) -> Scanned {
                     script.error = None;
                 }
                 Err(why) => {
-                    scanned.errors.push((kind, path, why.clone()));
+                    scanned.errors.push((kind, path, why.to_string()));
                     script.error = Some(why);
                 }
             }
@@ -379,7 +413,7 @@ pub fn scripts() -> Vec<Listed> {
                     .and_then(|d| d.name.clone())
                     .unwrap_or_else(|| s.kind[4..].to_string()),
                 category: s.desc.as_ref().map(|d| d.category.to_string()).unwrap_or_default(),
-                error: s.error.clone(),
+                error: s.error.as_ref().map(ToString::to_string),
                 active: winner(&s.kind).as_ref() == Some(path),
             })
             .collect()
