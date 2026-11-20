@@ -3,7 +3,7 @@
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
-local type types = require("paw.types")
+local type contracts = require("paw.contracts")
 local options = require("paw.options")
 
 --- An argument as the command line reads it: text, a number, true or false.
@@ -130,16 +130,11 @@ end
 
 -- What this module reads of `paw`, which paw/init.lua makes. A module of the
 -- runtime in Teal does not see the global `paw`: runtime/types/paw.d.tl
--- declares it from these modules. Most of these modules are Lua.
-local record Extension
-  name: string
-end
-local record Ext
-  current: Extension
-  loaded: {string:boolean}
-  caller: function(): string
-  bundled: function(): {string}
-end
+-- declares it from these modules. The modules in Lua type their parts in
+-- their doc comments (`partial.Paw`); the rest is here.
+local type partial = require("paw.partial")
+local type LimitModule = require("paw.limit")
+local type FormatsModule = require("paw.formats")
 local record State
   command_uses: {string:integer}
 end
@@ -149,61 +144,19 @@ local record Ran
   command: string
   args: Args
 end
+--- paw/ex.lua, as far as it reads this module's own types.
 local record Ex
   range: function(string): Range, string
   exec: function(string, Context): Result...
   complete_range: function(string): {Entry}
   complete_pattern: function(string): {Entry}
 end
-local record Files
-  here: function(): string
-end
-local record DeviceInfo
-  kind: string
-  name: string
-end
-local record Device
-  get: function(Device): DeviceInfo
-end
-local record Track
-  devices: function(Track): {Device}
-end
-local record Cursor
-  track: function(): Track
-end
-local record View
-  focusable: boolean
-end
-local record Ui
-  views: {string:View}
-end
-local record Source
-  desc: string
-end
-local record Pick
-  sources: {string:Source | function}
-end
-local record Format
-  project: boolean
-  extensions: {string}
-end
-local record Formats
-  extensions: function(string): {string}
-  list: function(): {Format}
-end
-local type LimitModule = require("paw.limit")
-local record Paw
-  ext: Ext
+local record Paw is partial.Paw
   state: State
   emit: function(string, Ran)
   limit: LimitModule
   ex: Ex
-  files: Files
-  device_types: function(): {types.DeviceType}
-  cursor: Cursor
-  ui: Ui
-  pick: Pick
-  formats: Formats
+  formats: FormatsModule
 end
 local paw = (_G as {string:Paw}).paw
 
@@ -226,7 +179,7 @@ end
 --- The extension that paw loads now, or whose code registers these commands
 --- and keys later. `:help` goes to its page for them, and an unload removes them.
 function M.owner(): string
-  local ext = rawget(paw as {string:Ext}, "ext")
+  local ext = rawget(paw as {string:partial.Ext}, "ext")
   if not ext then return nil end
   -- While it loads, or later from code of its own files.
   return ext.current and ext.current.name or ext.caller()
@@ -527,7 +480,7 @@ M.completers = {
   pickers = function(): {Item}
     local out: {Item} = {}
     for name, source in pairs(paw.pick.sources) do
-      out[#out + 1] = item(name, source is Source and source.desc or nil)
+      out[#out + 1] = item(name, source is contracts.PickInfo and source.desc or nil)
     end
     return sorted(out)
   end,

@@ -284,7 +284,7 @@ function M.meta()
     if f.alias_of then
       add(f.name .. " = " .. f.alias_of)
     else
-      for _, line in ipairs(f.doc or {}) do add("--- " .. line) end
+      for _, line in ipairs(f.doc or {}) do if not line:match("^@") then add("--- " .. line) end end
       for _, p in ipairs(f.params) do
         if p ~= "..." and not (f.doc and table.concat(f.doc, "\n"):find("@param " .. p .. "%f[^%w_]")) then add("---@param " .. p .. " any") end
       end
@@ -428,6 +428,15 @@ M.TEAL_API = "runtime/types/paw/api.d.tl"
 -- `local type Untyped = require("paw.untyped")`.
 M.TEAL_UNTYPED = "runtime/types/paw/untyped.d.tl"
 M.ANY = "runtime/types/any-allowed.txt"
+-- The parts of the modules in Lua that their doc comments type (`@type`),
+-- for a module of the runtime in Teal, which cannot name the global:
+-- `local type partial = require("paw.partial")`.
+M.TEAL_PARTIAL = "runtime/types/paw/partial.d.tl"
+-- The options that the runtime defines, each with its type: `paw.opt`.
+M.TEAL_OPTS = "runtime/types/paw/opts.d.tl"
+-- The files of records whose `any` count as the kernel's do, by the name
+-- that a declaration gives the module.
+M.RECORDS = { { "types", "runtime/lua/paw/types.tl" }, { "contracts", "runtime/lua/paw/contracts.tl" } }
 
 local RUST_TEAL = {
   String = "string", f64 = "number", f32 = "number", i64 = "integer", u64 = "integer", u32 = "integer",
@@ -537,6 +546,123 @@ local function teal_values(mods, alias_of)
   return out
 end
 
+-- The modules in Lua: the types their doc comments give -----------------------------
+--
+-- A module that is not ported yet types what an extension or a module in
+-- Teal calls with `@type` lines in its `---` comments, as api.rs does for
+-- the kernel. Over a function, each line is one form of it:
+--
+--   --- Register a view. ...
+--   --- @type function<V is contracts.View>(name: string, def: V): V
+--   function M.view(name, def)
+--
+-- Over a value (`M.views = {}`, or a field of the table that makes the
+-- module, `views = {},`), the line is its type: `--- @type {string:contracts.View}`.
+-- A function whose module is callable gives the call with `@call` (paw.pick).
+-- The types may name `types.X` (runtime/lua/paw/types.tl) and `contracts.X`
+-- (runtime/lua/paw/contracts.tl). What a module does not type is
+-- `paw.Untyped`, as before.
+
+--- The forms of a function in Lua (`@type` lines) and its call (`@call`).
+local function lua_forms(fn, key)
+  local doc = lua_doc(fn, key)
+  local forms, call = {}, nil
+  for _, line in ipairs(doc or {}) do
+    local t = line:match("^@type%s+(function.+)$")
+    if t then forms[#forms + 1] = t end
+    call = call or line:match("^@call%s+(function.+)$")
+  end
+  return forms, call
+end
+
+--- The types of the values of a module in Lua, by key: each line that sets
+--- one (`M.key =`, `paw.key =`, or `key =` in the table that makes the
+--- module) under a `--- @type T` comment. A value that is nil until later
+--- (`M.current = nil`) is found too.
+local function lua_value_types(file)
+  sources[file] = sources[file] or lines_of(file) or {}
+  local lines, out = sources[file], {}
+  for i, line in ipairs(lines) do
+    local key = line:match("^%s*[%w_]+%.([%w_]+)%s*=") or line:match("^%s+([%w_]+)%s*=")
+    if key and not out[key] then
+      local n = i - 1
+      while n > 0 and lines[n]:match("^%s*%-%-%-") do
+        local t = lines[n]:match("^%s*%-%-%-%s*@type%s+(.+)$")
+        if t then out[key] = t break end
+        n = n - 1
+      end
+    end
+  end
+  return out
+end
+
+--- A record's name for a module: `paw.track_kinds` is `TrackKinds`.
+local function record_name(name)
+  return (name:gsub("^paw%.", ""):gsub("[._](%l)", string.upper):gsub("^%l", string.upper))
+end
+
+--- `function<T>(a: A): R` as a metamethod of `self`: `function<T>(self, a: A): R`.
+local function with_self(form, self)
+  local generics, rest = form:match("^function(<[^>]*>)%((.*)$")
+  if not generics then generics, rest = "", form:match("^function%((.*)$") end
+  return "function" .. generics .. "(" .. self .. (rest:match("^%)") and "" or ", ") .. rest
+end
+
+--- What the doc comments of the modules in Lua type: `{ records, forms,
+--- top }`. `records` is a list of `{ name, table, record, lines, call }`
+--- for each module of `paw` in Lua that types something (`record` its name
+--- in partial.d.tl, `lines` its fields as `{ key, type }`, `call` the type
+--- of a call of the module); `forms[fn]` are the forms of each typed
+--- function, by the function, so that another name of it has its type;
+--- `top[key]` the types of the typed values and functions of `paw` itself.
+local function lua_types(teal_mods)
+  local is_teal = {}
+  for _, mod in ipairs(teal_mods) do is_teal[mod.name] = true end
+  local out = { records = {}, forms = {}, top = {} }
+  local function file_of(module)
+    local file = "runtime/lua/" .. module:gsub("%.", "/")
+    return read(file .. ".lua") and file .. ".lua" or file .. "/init.lua"
+  end
+  local function members(t, module)
+    local lines, keys, valued = {}, {}, lua_value_types(file_of(module))
+    for k in pairs(t) do
+      if type(k) == "string" and k:match("^%a[%w_]*$") and not KEYWORDS[k] then keys[#keys + 1] = k end
+    end
+    for k in pairs(valued) do
+      if t[k] == nil and not KEYWORDS[k] then keys[#keys + 1] = k end
+    end
+    table.sort(keys)
+    local call
+    for _, k in ipairs(keys) do
+      local v = t[k]
+      if type(v) == "function" then
+        local forms, c = lua_forms(v, k)
+        if #forms > 0 then out.forms[v] = forms end
+        for _, form in ipairs(forms) do lines[#lines + 1] = { k, form } end
+        call = call or c
+      elseif valued[k] then
+        lines[#lines + 1] = { k, valued[k] }
+      end
+    end
+    return lines, call
+  end
+  for _, mod in ipairs(M.modules()) do
+    local depth = select(2, mod.name:gsub("%.", ""))
+    if depth == 1 and mod.module and not is_teal[mod.name] and not mod.name:match("^paw%.%u") then
+      local lines, call = members(mod.table, mod.module)
+      if #lines > 0 then
+        out.records[#out.records + 1] = { name = mod.name, table = mod.table, record = record_name(mod.name), lines = lines, call = call }
+      end
+    end
+  end
+  -- `paw` itself: its functions, and the values that init.lua types.
+  for _, line in ipairs((members(paw, "paw"))) do
+    out.top[line[1]] = out.top[line[1]] or {}
+    table.insert(out.top[line[1]], line[2])
+  end
+  return out
+end
+
 --- The text of runtime/types/paw.d.tl, the text of
 --- runtime/types/paw/api.d.tl (the kernel's functions, as the module
 --- `paw.api` that a module in Teal requires), their `any` by the name
@@ -557,11 +683,46 @@ function M.teal()
   local mods = M.teal_modules()
   out[#out + 1] = "local type Api = require(\"paw.api\")"
   out[#out + 1] = "local type UntypedLua = require(\"paw.untyped\")"
+  out[#out + 1] = "local type Partial = require(\"paw.partial\")"
+  out[#out + 1] = "local type types = require(\"paw.types\")"
+  out[#out + 1] = "local type contracts = require(\"paw.contracts\")"
   local tree = { children = {}, order = {}, lines = {} }
   local function alias_of(mod)
-    return (mod.name:gsub("^paw%.", ""):gsub("[._](%l)", string.upper):gsub("^%l", string.upper)) .. "Module"
+    return record_name(mod.name) .. "Module"
   end
   local values = teal_values(mods, alias_of)
+  -- The modules in Lua, and what of them their comments type.
+  local lua = lua_types(mods)
+  local partial_of = {}
+  local pout = { "-- " .. HEADER, "-- The parts of the modules of the runtime in Lua that their doc comments",
+    "-- type (`@type`): a module of the runtime in Teal takes the global as",
+    "-- `partial.Paw`. What a module does not type is `paw.Untyped`.", "",
+    "local type types = require(\"paw.types\")", "local type contracts = require(\"paw.contracts\")",
+    "local type Untyped = require(\"paw.untyped\")", "", "local record partial" }
+  local paw_fields = {}
+  for _, rec in ipairs(lua.records) do
+    partial_of[rec.table] = rec.record
+    pout[#pout + 1] = "   record " .. rec.record
+    for _, line in ipairs(rec.lines) do
+      pout[#pout + 1] = "      " .. count(rec.name .. "." .. line[1], line[1] .. ": " .. line[2])
+    end
+    if rec.call then pout[#pout + 1] = "      metamethod __call: " .. with_self(rec.call, rec.record) end
+    pout[#pout + 1] = "      " .. count(rec.name, "metamethod __index: function(" .. rec.record .. ", string): Untyped")
+    pout[#pout + 1] = "   end"
+    paw_fields[#paw_fields + 1] = rec.name:match("^paw%.(.*)$") .. ": " .. rec.record
+  end
+  for k, list in pairs(lua.top) do
+    for _, t in ipairs(list) do paw_fields[#paw_fields + 1] = k .. ": " .. t end
+  end
+  table.sort(paw_fields)
+  pout[#pout + 1] = "   --- The global `paw`, as far as the modules in Lua type it."
+  pout[#pout + 1] = "   interface Paw"
+  for _, line in ipairs(paw_fields) do pout[#pout + 1] = "      " .. line end
+  pout[#pout + 1] = "   end"
+  pout[#pout + 1] = "end"
+  pout[#pout + 1] = ""
+  pout[#pout + 1] = "return partial"
+  pout[#pout + 1] = ""
   for _, mod in ipairs(mods) do
     local alias = alias_of(mod)
     out[#out + 1] = "local type " .. alias .. " = require(\"" .. mod.module .. "\")"
@@ -614,22 +775,25 @@ function M.teal()
   -- The records of the data that crosses `paw.api` count too: an `any`
   -- moved from a signature into a record is still one.
   local stack = {}
-  for _, line in ipairs(lines_of("runtime/lua/paw/types.tl") or {}) do
-    local code = line:gsub("%-%-.*$", "")
-    local record = code:match("^%s*record%s+([%w_]+)") or code:match("^%s*local%s+record%s+([%w_]+)")
-    if record then
-      stack[#stack + 1] = record
-    elseif code:match("^%s*enum%s") then
-      stack[#stack + 1] = false
-    elseif code:match("^%s*end%s*$") then
-      stack[#stack] = nil
-    else
-      local field = code:match("^%s*type%s+([%w_]+)%s*=") or code:match("^%s*%[?\"?([%w_]+)\"?%]?%s*:")
-      if field then
-        local path = {}
-        for i = 2, #stack do path[#path + 1] = stack[i] end
-        path[#path + 1] = field
-        count("types." .. table.concat(path, "."), code)
+  for _, records in ipairs(M.RECORDS) do
+    for _, line in ipairs(lines_of(records[2]) or {}) do
+      local code = line:gsub("%-%-.*$", "")
+      local record = code:match("^%s*record%s+([%w_]+)") or code:match("^%s*local%s+record%s+([%w_]+)")
+        or code:match("^%s*interface%s+([%w_]+)")
+      if record then
+        stack[#stack + 1] = record
+      elseif code:match("^%s*enum%s") then
+        stack[#stack + 1] = false
+      elseif code:match("^%s*end%s*$") then
+        stack[#stack] = nil
+      else
+        local field = code:match("^%s*type%s+([%w_]+)%s*=") or code:match("^%s*%[?\"?([%w_]+)\"?%]?%s*:")
+        if field then
+          local path = {}
+          for i = 2, #stack do path[#path + 1] = stack[i] end
+          path[#path + 1] = field
+          count(records[1] .. "." .. table.concat(path, "."), code)
+        end
       end
     end
   end
@@ -647,6 +811,15 @@ function M.teal()
     "   " .. count("paw.Untyped", "metamethod __call: function(Untyped, ...: any): Untyped"),
     "   " .. count("paw.Untyped", "metamethod __index: function(Untyped, any): Untyped"),
     "end", "", "return Untyped", "" }
+  -- Another name of a kernel function (`paw.wait`) has its type, where the
+  -- type has no `any`.
+  local kernel_forms = {}
+  for name, fn in pairs(api) do
+    if type(fn) == "function" and kernel[name] then
+      local forms = kernel_sig(kernel[name])
+      if not table.concat(forms, " "):find("%f[%w_]any%f[^%w_]") then kernel_forms[fn] = forms end
+    end
+  end
   local function untyped(node, path, value)
     local taken = { api = path == "paw" or nil }
     for _, key in ipairs(node.order) do taken[key] = true end
@@ -656,9 +829,21 @@ function M.teal()
       if type(k) == "string" and k:match("^%a[%w_]*$") and not KEYWORDS[k] and not taken[k] then keys[#keys + 1] = k end
     end
     for _, k in ipairs(keys) do
+      local v = value[k]
       -- Another name of a value of a module in Teal has its type.
-      local typed = values[value[k]]
-      node.lines[#node.lines + 1] = typed and k .. ": " .. typed or count(path .. "." .. k, k .. ": Untyped")
+      local typed = values[v]
+      -- What the comments of a module in Lua type: a function by its forms,
+      -- a module by its record of partial.d.tl, a value of `paw` by its type.
+      local forms = lua.forms[v] or kernel_forms[v] or (path == "paw" and lua.top[k])
+      if typed then
+        node.lines[#node.lines + 1] = k .. ": " .. typed
+      elseif forms then
+        for _, form in ipairs(forms) do node.lines[#node.lines + 1] = count(path .. "." .. k, k .. ": " .. form) end
+      elseif partial_of[v] then
+        node.lines[#node.lines + 1] = k .. ": Partial." .. partial_of[v]
+      else
+        node.lines[#node.lines + 1] = count(path .. "." .. k, k .. ": Untyped")
+      end
     end
   end
   local function emit(node, depth, path, value)
@@ -676,7 +861,47 @@ function M.teal()
   emit(tree, 1, "paw", paw)
   out[#out + 1] = "end"
   out[#out + 1] = ""
-  return table.concat(out, "\n"), table.concat(kout, "\n"), anys, table.concat(uout, "\n")
+  return table.concat(out, "\n"), table.concat(kout, "\n"), anys, table.concat(uout, "\n"),
+    table.concat(pout, "\n"), M.opts()
+end
+
+-- Options ------------------------------------------------------------------------------
+
+--- The Teal type of an option: of its spec's `type` (a type or a list of
+--- them), or of its default; `integer` for a whole number.
+local function option_type(default, spec)
+  local list = spec and spec.type or type(default)
+  if type(list) == "string" then list = { list } end
+  local out = {}
+  for _, t in ipairs(list) do
+    if t == "number" then
+      out[#out + 1] = spec and spec.integer and "integer" or "number"
+    elseif t == "table" then
+      out[#out + 1] = "{string | number}"
+    else
+      out[#out + 1] = t
+    end
+  end
+  return table.concat(out, " | ")
+end
+
+--- The text of runtime/types/paw/opts.d.tl: `paw.opt`, each option that
+--- the runtime defines by its type, and any other by its name.
+function M.opts()
+  local out = { "-- " .. HEADER, "-- `paw.opt`: each option that the runtime defines (`paw.option.list`), by",
+    "-- the type of its default and its spec, and any other option by its name.", "",
+    "local record Opts", "   --- What an option holds: text, a number, true or false, or a list.",
+    "   type Value = string | number | boolean | {string | number}", "" }
+  for _, info in ipairs(paw.option.list()) do
+    out[#out + 1] = "   " .. info.name .. ": " .. option_type(info.default, paw.option.spec(info.name))
+  end
+  out[#out + 1] = "   metamethod __index: function(Opts, string): Value"
+  out[#out + 1] = "   metamethod __newindex: function(Opts, string, Value)"
+  out[#out + 1] = "end"
+  out[#out + 1] = ""
+  out[#out + 1] = "return Opts"
+  out[#out + 1] = ""
+  return table.concat(out, "\n")
 end
 
 --- The `any` that may stay in paw.d.tl, by name: `{ [name] = { count, why } }`.
@@ -910,10 +1135,12 @@ function M.stale()
   local out = {}
   if read(M.META) ~= M.meta() then out[#out + 1] = M.META end
   if read(M.PAGE) ~= M.page() then out[#out + 1] = M.PAGE end
-  local teal, kernel, anys, untyped = M.teal()
+  local teal, kernel, anys, untyped, partial, opts = M.teal()
   if read(M.TEAL) ~= teal then out[#out + 1] = M.TEAL end
   if read(M.TEAL_API) ~= kernel then out[#out + 1] = M.TEAL_API end
   if read(M.TEAL_UNTYPED) ~= untyped then out[#out + 1] = M.TEAL_UNTYPED end
+  if read(M.TEAL_PARTIAL) ~= partial then out[#out + 1] = M.TEAL_PARTIAL end
+  if read(M.TEAL_OPTS) ~= opts then out[#out + 1] = M.TEAL_OPTS end
   if read(M.ANY) ~= M.lowered(anys) then out[#out + 1] = M.ANY end
   if read(M.EVENTS_TL) ~= M.kernel_events() then out[#out + 1] = M.EVENTS_TL end
   if read(M.PROPS_TL) ~= M.role_props() then out[#out + 1] = M.PROPS_TL end
@@ -922,10 +1149,10 @@ end
 
 function M.write()
   os.execute("mkdir -p runtime/types/paw runtime/lua/paw/events")
-  local teal, kernel, anys, untyped = M.teal()
+  local teal, kernel, anys, untyped, partial, opts = M.teal()
   for path, text in pairs({ [M.META] = M.meta(), [M.PAGE] = M.page(), [M.TEAL] = teal, [M.TEAL_API] = kernel,
-    [M.TEAL_UNTYPED] = untyped, [M.ANY] = M.lowered(anys), [M.EVENTS_TL] = M.kernel_events(),
-    [M.PROPS_TL] = M.role_props() }) do
+    [M.TEAL_UNTYPED] = untyped, [M.TEAL_PARTIAL] = partial, [M.TEAL_OPTS] = opts, [M.ANY] = M.lowered(anys),
+    [M.EVENTS_TL] = M.kernel_events(), [M.PROPS_TL] = M.role_props() }) do
     local f = assert(io.open(path, "w"))
     f:write(text)
     f:close()
@@ -944,7 +1171,7 @@ if mode == "check" then
   api.quit((#gaps == 0 and #stale == 0 and #loose == 0) and 0 or 1)
 else
   M.write()
-  print("wrote " .. M.META .. ", " .. M.PAGE .. ", " .. M.TEAL .. ", " .. M.TEAL_API .. ", " .. M.TEAL_UNTYPED .. ", "
-    .. M.EVENTS_TL .. ", " .. M.PROPS_TL .. " and " .. M.ANY)
+  print("wrote " .. table.concat({ M.META, M.PAGE, M.TEAL, M.TEAL_API, M.TEAL_UNTYPED, M.TEAL_PARTIAL, M.TEAL_OPTS,
+    M.EVENTS_TL, M.PROPS_TL, M.ANY }, ", "))
   api.quit(0)
 end

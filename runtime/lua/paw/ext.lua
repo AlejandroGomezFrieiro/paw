@@ -27,7 +27,13 @@
 --     provides = { "rhythms" },                      -- names others may require it by
 --   }
 local api = paw.api
-local M = { loaded = {} }
+local M = {}
+--- The extensions that paw loaded, or tried to, by name.
+--- @type {string:contracts.ExtEntry}
+M.loaded = {}
+--- The extension that loads now, or nil.
+--- @type contracts.ExtEntry
+M.current = nil
 
 --- Whether `path` is a one-file extension: a file of Lua, or of a language
 --- that compiles to Lua.
@@ -117,6 +123,7 @@ end
 
 --- The loaded extension whose code called the function this is called
 --- from, or nil for the core's or the user's.
+--- @type function(): string
 function M.caller()
   for level = 3, 64 do
     local info = debug.getinfo(level, "S")
@@ -638,6 +645,7 @@ function M.bundled_dir()
 end
 
 --- The names of the bundled extensions, loaded or not, sorted.
+--- @type function(): {string}
 function M.bundled()
   local dir, out = M.bundled_dir(), {}
   for _, item in ipairs(dir and api.read_dir(dir) or {}) do

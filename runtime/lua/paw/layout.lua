@@ -727,6 +727,7 @@ paw.on("project.loaded", function() M.drop_dead() end)
 --- It can also have the fields that `paw.layout.powers` maps: `keymaps`,
 --- `motions`, `textobjects` and `operators`. Their functions get `ctx.win`
 --- and `ctx.buf`.
+--- @type function<B is contracts.Buftype>(name: string, def: B): B
 function M.buftype(name, def)
   def.name = name
   M.types[name] = def

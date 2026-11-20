@@ -48,7 +48,12 @@
 -- add a table of the same fields with a `desc`, or a function returning one.
 -- The picker of pickers (`paw.pick("pickers")`) lists every source.
 local api = paw.api
-local M = { sources = {} }
+local M = {
+  --- The pickers by name, for `paw.pick(name)`: a picker, or a function
+  --- that makes one.
+  --- @type {string:contracts.PickEntry}
+  sources = {},
+}
 
 local byte, lower, sub = string.byte, string.lower, string.sub
 local floor, max, min = math.floor, math.max, math.min
@@ -1116,6 +1121,9 @@ end
 
 --- Open a picker. See the top of this file for the fields of `spec`, or pass
 --- the name of a source. Returns the picker's state.
+--- @type function<T>(spec: contracts.PickSource<T>)
+--- @type function(name: string, extra?: contracts.PickExtra)
+--- @call function<T>(spec: string | contracts.PickSource<T>, extra?: contracts.PickExtra)
 function M.open(spec, extra)
   local source_name
   if type(spec) == "string" then

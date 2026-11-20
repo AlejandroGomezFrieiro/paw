@@ -67,6 +67,7 @@ function M.cwd() return chosen end
 --- The folder that a relative name in a command goes to: the folder that
 --- `:cd` set; else the folder of the project's file; else the folder that
 --- paw started in.
+--- @type function(): string
 function M.here()
   if chosen then return chosen end
   local path = api.project_get("path")

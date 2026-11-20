@@ -30,6 +30,7 @@ end
 
 --- Define a kind of track (see above). `name` is a word: what is typed
 --- after `:track.add` and kept in the track's `meta.kind`.
+--- @type function(name: string, spec: contracts.TrackKind): contracts.TrackKind
 function M.define(name, spec)
   if type(name) ~= "string" or not name:match("^[%w_]+$") then error("a kind of track is named by a word", 2) end
   if type(spec) ~= "table" then error("track_kinds.define takes a name and a table", 2) end

@@ -66,8 +66,18 @@ with the Lua cached in `~/.cache/paw/lang`. No build step. Read
 - The `paw` global for Teal is `runtime/types/paw.d.tl` (`tlconfig.lua`
   names it): `paw.api` (from api.rs), and the runtime's modules already in
   Teal (`paw.music`, `paw.attr`, `paw.regex`, `paw.harmony.read`, ...) with
-  their real types. The rest of paw is still Lua and is `paw.Untyped`:
-  callable and indexable, and you cast what you keep (`x as integer`).
+  their real types. The modules still in Lua type what their doc comments
+  give (`--- @type ...`, collected in `runtime/types/paw/partial.d.tl`):
+  the functions that register a view, a buffer type, a text kind, a track
+  kind, a role, a picker, a status component, a query field, a grep source
+  and a health check. The rest of paw is `paw.Untyped`: callable and
+  indexable, and you cast what you keep (`x as integer`).
+- The tables you give paw have types in `paw.contracts`
+  (runtime/lua/paw/contracts.tl): `local record V is paw.contracts.View`,
+  `paw.contracts.PickSource<Item>`, `paw.contracts.Buftype`, ... A method
+  of such a record takes every parameter of the contract. `paw.opt.X` has
+  its type, and `paw.option.define(name, default)` gives a typed handle
+  (`h:get()`, `h:set(v)`).
 - No `any` where a value has a shape: a record for each options table, each
   event payload (`paw.on("project.saved", function(p: Saved) ... end)`) and
   each `meta` entry of yours (`note.meta.lyric as Lyric`).

@@ -12,12 +12,18 @@ local api = paw.api
 local L = require("paw.layout")
 local M = {
   Buf = require("paw.buf"),
+  --- The views, by name.
+  --- @type {string:contracts.View}
   views = {},
-  focused = nil,   -- the view of the window with the keyboard
+  --- The view of the window with the keyboard.
+  --- @type string
+  focused = nil,
   messages = {},   -- every message so far, oldest first
   message = nil,   -- the one on the command line now
   grabber = nil,   -- function that takes every key while set (prompts)
-  float = nil,     -- the floating view, if one is open
+  --- The floating view, if one is open.
+  --- @type contracts.Float
+  float = nil,
   rects = {},      -- where each view was last drawn
 }
 
@@ -62,6 +68,7 @@ paw.seats.keep("ui",
 --- a thing by name in the window (`:e roll://7`), and `window_target(self)`
 --- gives that name back for a saved layout. `share` says what part of the
 --- room the view keeps where windows share it: `{ column, least, most }`.
+--- @type function<V is contracts.View>(name: string, def: V): V
 function M.view(name, def)
   def.name = name
   if def.window_state then L.window_fields(name, def, def.window_state, def.window_fresh) end
@@ -383,6 +390,7 @@ end
 --- list of `{ name, win, x, y, w, h }`. The tab line is along the top when
 --- there is more than one tab. `.borders` contains the borders between
 --- windows, and `.nodes` the position of each node of the tree, to resize them.
+--- @type function(width?: integer, height?: integer): {contracts.ScreenRect}
 function M.arrange(width, height)
   if not width then width, height = M.size() end
   local out = { nodes = {}, borders = {}, floating = {} }
@@ -986,6 +994,7 @@ end
 --- Open a view in a float over the other views. It takes the keyboard
 --- until `paw.ui.close()`.
 ---   paw.ui.open("help", { title = "Keys", width = 80, height = 30 })
+--- @type function(name: string, opts?: contracts.FloatOptions)
 function M.open(name, opts)
   if not M.views[name] then error("no view `" .. tostring(name) .. "`", 2) end
   opts = opts or {}
@@ -1099,6 +1108,7 @@ local function clear_later(ms)
 end
 
 --- Show a message. `level` is "info" (default), "warn" or "error".
+--- @type function(text: string, level?: string)
 function M.notify(text, level)
   -- What the kernel refused, as it said it, without the prefix its errors
   -- carry through Lua.

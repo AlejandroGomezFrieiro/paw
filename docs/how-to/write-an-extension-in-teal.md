@@ -133,12 +133,71 @@ end
 local lyric = note.meta.lyric as Lyric
 ```
 
+**Options.** `paw.opt` gives each option of paw with its type:
+`local zoom: number = paw.opt.zoom`. For an option of your own, keep the
+handle that `paw.option.define` gives. Its `get` gives a value of the type
+of the default:
+
+```lua
+local steps = paw.option.define("euclid_steps", 16, { min = 1, max = 64, integer = true })
+local n: integer = steps:get()
+steps:set(n * 2)
+```
+
 **The parts of paw that are in Lua.** A module of paw that is not in Teal
-yet has the type `paw.Untyped`. You can call it and read its fields. Cast
-each value that you keep to its type:
-`local id = paw.cursor.track_id() as integer`. When the module is in
+yet has the type `paw.Untyped`, except for the parts that it types. You
+can call it and read its fields. Cast each value that you keep to its
+type: `local id = paw.cursor.track_id() as integer`. When the module is in
 Teal, the cast is not necessary.
 
+## Use the contracts
+
+A view, a picker, a buffer type and the other tables that you give to paw
+have types in `paw.contracts`. The functions that take them check each
+field, so a wrong name is an error before the extension runs.
+
+1. Write a record for your view that is a `paw.contracts.View`. Put the
+   state of the view in its own fields:
+
+   ```lua
+   local record Tally is paw.contracts.View
+     count: integer
+   end
+
+   local tally: Tally = { count = 0, title = "Tally" }
+
+   function tally:render(buf: paw.contracts.Buf, ctx: paw.contracts.RenderContext)
+     buf:text(0, 0, "tally " .. self.count, ctx.focused and "Title" or "Normal")
+   end
+
+   paw.ui.view("tally", tally)
+   ```
+
+   A method of the record has all of the parameters of the contract.
+   This includes the parameters that it does not use.
+2. Give a picker the type of its items. `format`, `on_choose` and the
+   other functions then get items of that type:
+
+   ```lua
+   local record Fruit
+     name: string
+   end
+
+   local fruit: paw.contracts.PickSource<Fruit> = {
+     desc = "Fruit",
+     items = { { name = "apple" }, { name = "lime" } },
+     format = function(f: Fruit): string return f.name end,
+     on_choose = function(f: Fruit) paw.notify(f.name) end,
+   }
+   paw.pick.sources.fruit = fruit
+   ```
+
+3. Check the types. A field with a wrong name, for example
+   `on_keys = ...` in a view, gives the error `unknown field on_keys`.
+
+The other contracts are `Buftype`, `TextKind<I, F>`, `TrackKind`,
+`Role<P>`, `StatusComponent`, `QueryField`, `GrepSource`, `HealthCheck`
+and `Manifest`. `runtime/lua/paw/contracts.tl` tells the fields of each.
 
 ## Use another language
 
