@@ -2,7 +2,7 @@
 
 <!-- tags: mixer -->
 
-The mixer shows a strip for each track. `,m` shows it. It is a grid. `h`
+The mixer shows a strip for each track. `<Space>m` shows it. It is a grid. `h`
 `l` go from strip to strip. `j` `k` go along the rows of a strip, from the
 top to the bottom. The rows of a strip are its devices (inserts), its
 sends, the fader, the pan, mute, solo, arm and the input monitor.
@@ -16,7 +16,7 @@ sends, the fader, the pan, mute, solo, arm and the input monitor.
 - The top row of the meters is the clip light. It goes red when a level reaches full scale, and stays red until you click it (or the peak), or until the transport starts again.
 - If there is room, the row under the name of a strip gives the track that it plays into (`→ Master`, `→ Drum bus`). A click there, or `:track.output`, chooses it. Four rows name its first devices, and the last row counts the others (`+2 more`). With less room, one row counts the devices and the sends.
 - The Master strip comes last, after a heavier rule. The cursor goes to it with `$` or `l`. Its rows are its devices, the fader and the pan. `a` adds a device to it, for example a limiter.
-- VCAs have strips after the tracks. The arrange view makes them (`,vn` and the other keys of [the arrange view](arrange-view.md)). See [Render](render.md).
+- VCAs have strips after the tracks. The arrange view makes them (`<Space>vn` and the other keys of [the arrange view](arrange-view.md)). See [Render](render.md).
 
 ## Keys
 
@@ -48,6 +48,6 @@ sends, the fader, the pan, mute, solo, arm and the input monitor.
 <!-- tags: session-view -->
 
 The clip launcher extension (`:ext.load launcher`) adds the session view:
-a column of slots under each track, and a scene for each row. `,l` shows
+a column of slots under each track, and a scene for each row. `<Space>l` shows
 it. `Enter` launches a slot, and `L` launches a row as a scene. Its keys
 are in [its README](../../extensions/launcher/README.md).

@@ -114,7 +114,7 @@ gets the function.
   - The regex mode of the pickers and `:vimgrep` change the common kind of regular expression into Lua patterns. So a group cannot repeat (`(ab)+`), and there is no `\b`, no backreference and no lookaround.
   - The preview of a picker draws a clip as a piano roll or a waveform, not as a score (the notation extension draws staves only in its own view).
   - A picker over a hundred thousand notes takes most of a second to open.
-  - The live grep of `,fg` searches the text in the project, not the text that a plugin shows. It does not search the text of automation and of device parameters.
+  - The live grep of `<Space>fg` searches the text in the project, not the text that a plugin shows. It does not search the text of automation and of device parameters.
   - `:select` chooses notes and clips. The tracks, devices, markers and points that it finds go only to the quickfix list.
   - `]c` and `[c` stay on the track of the cursor.
   - In a picker, the keys that open a split open only the first marked line. A view shows in one window at a time.

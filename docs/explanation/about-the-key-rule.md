@@ -38,7 +38,7 @@ meaning:
 - An octave is `Ctrl-d` `Ctrl-u` (half a page in Vim), because `J` `K` are not motions: `K` describes, and `J` joins clips. In insert mode, `J` `K` still move the note an octave.
 - The count-in went from `gC` to `gM`, next to `gm` of the metronome. So `gC` opens curves everywhere. `gc` does not open a curve any more.
 - `gn` stays the next edited clip of the piano roll, as `gn` of Vim goes to the next match. The wave of the curve editor is `g~` (an operator, and `~` looks like a wave), its shapes are `~`, and its own window is `Ctrl-w f`. `gw` is only the warp marker.
-- `s` is solo wherever there is a track. The session view stops the clip of a track with `S` (`gS` every clip). The presets of the device panel are `c` on a device (choose), `]p` `[p` (step), `,w` (save, as `:w` writes) and `,W` (the default).
+- `s` is solo wherever there is a track. The session view stops the clip of a track with `S` (`gS` every clip). The presets of the device panel are `c` on a device (choose), `]p` `[p` (step), `<Space>w` (save, as `:w` writes) and `<Space>W` (the default).
 - The system breaks of the score are `zs` (a system starts here) and `zj` (join the bar to the system before), next to `zg` and `zp`, which also set the layout of the page. `gS` keeps its meaning of the session view and the panel.
 - `a` appends. It already added a device on a track and notes after a note. It does the same in the mixer and the panel.
 - `A` already added a point of automation at the cursor in every view that had it.
@@ -50,6 +50,19 @@ meaning:
 - `]]` `[[` go between sections, as between the sections of a text in Vim. `]s` `[s` stay the tracks of a group. `]p` `[p` go through the phonemes of the vocal editor, so `(` `)` stay the phrase motions.
 - A view in a window of its own is `Ctrl-w f`, for a curve and for a text buffer.
 - The keys of an extension for one view are on the local leader (`\S` sections, `\k` drums). The keys after the leader work from every view.
+
+## The space bar is the leader, and plays with two presses
+
+Many Vim users put the leader on the space bar, because the thumb is
+always on it. In other music programs, the space bar plays and stops. One
+key cannot do the two jobs. If a single Space plays, the leader keys must
+wait for a pause or play a short part of the song first. So the leader is
+Space, and play and stop is `<Space><Space>`. No other key starts with
+`<Space><Space>`, so the second press plays at once, with no wait. A single
+Space waits, and after a moment it lists the keys that can follow it.
+
+The comma is free again in normal mode. As in Vim, `;` and `,` do the
+last `f` or `t` again, in the same direction and the other direction.
 
 ## Escape never leaves
 

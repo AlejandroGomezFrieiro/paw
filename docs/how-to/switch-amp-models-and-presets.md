@@ -18,7 +18,7 @@ see [How to load an extension](load-an-extension.md).
 
 ## Step through the presets
 
-1. Put the cursor on the guitar track, and press `,d`. The device panel
+1. Put the cursor on the guitar track, and press `<Space>d`. The device panel
    opens.
 2. Press `]m`. The plugin loads the next preset, and the message line
    shows its name.

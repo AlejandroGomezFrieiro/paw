@@ -29,8 +29,8 @@ builds paw from source. This takes several minutes.
 
 1. Run the two commands above. They get the source and start paw with the
    demo song. The arrange view shows the song, with one row for each track.
-2. Press `Space`. The song plays and the playhead moves to the right.
-3. Press `Space` again to stop the song.
+2. Press `Space` two times. The song plays and the playhead moves to the right.
+3. Press `Space` two times again to stop the song.
 4. Press `?`. A list shows each key of the current view. Press `Esc` to close it.
 5. Type `:tutor` and press `Enter`. The first of seventeen short lessons starts.
 6. Type `:q` and press `Enter` to quit.

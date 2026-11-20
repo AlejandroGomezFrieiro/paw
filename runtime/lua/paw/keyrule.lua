@@ -45,16 +45,18 @@ function M.broken()
     end
   end
   -- A view's own keys never take a global leader key away: they sit on
-  -- `<localleader>`, so that `,m` is the mixer in every view.
-  local leader = {}
+  -- `<localleader>`, so that `<leader>m` is the mixer in every view.
+  local leader, play = {}, {}
   for _, map in ipairs(keymap.every()) do
     if map.scope == "global" and map.lhs:lower():find("<leader>", 1, true) and (map.mode == "n" or map.mode == "x") then
-      leader[map.mode .. table.concat(map.keys)] = true
+      leader[map.mode .. table.concat(map.keys)] = map
     end
+    if map.role == "play" then play[#play + 1] = table.concat(map.keys) end
   end
+  local alone = table.concat(keymap.parse("<leader>"))
   -- The leader starts keys that work from every view: an extension's keys
   -- of one view go on `<localleader>` (`\S` sections, `\k` drums), unless
-  -- the core has the same keys in its views (`,ca`, fixes and actions).
+  -- the core has the same keys in its views (`<leader>ca`, fixes and actions).
   local core_view = {}
   for _, map in ipairs(keymap.every()) do
     if map.scope ~= "global" and not map.ext then core_view[map.mode .. table.concat(map.keys)] = true end
@@ -62,10 +64,23 @@ function M.broken()
   for _, map in ipairs(keymap.every()) do
     if map.scope ~= "global" and (map.mode == "n" or map.mode == "x") then
       local keys = table.concat(map.keys)
-      if leader["n" .. keys] or leader[map.mode .. keys] then
-        bad(map, "shadows a global leader key: use `<localleader>`")
+      local global = leader[map.mode .. keys] or leader["n" .. keys]
+      if keys == alone then
+        bad(map, "the leader alone: it starts the keys of every view")
+      elseif global then
+        -- A view may play in its own way on the play keys (from its cursor).
+        if not (map.role == "play" and global.role == "play") then bad(map, "shadows a global leader key: use `<localleader>`") end
       elseif map.ext and map.lhs:lower():find("^<leader>") and not core_view[map.mode .. keys] then
         bad(map, "a key of one view on the leader: use `<localleader>`")
+      end
+    end
+  end
+  -- Play and stop run at once: no longer key starts with them.
+  for _, map in ipairs(keymap.every()) do
+    local keys = table.concat(map.keys)
+    if map.mode ~= "i" and not map.prompt then
+      for _, p in ipairs(play) do
+        if #keys > #p and keys:sub(1, #p) == p then bad(map, "starts with the keys that play, which then wait") end
       end
     end
   end

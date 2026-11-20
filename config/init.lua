@@ -4,7 +4,7 @@
 --
 -- `extensions/` beside this file holds three small extensions of your own,
 -- loaded at startup as every folder in the configuration's `extensions` is:
--- `euclid` (a command and a key), `clock.lua` (a view, `,C`) and `scale.tl`
+-- `euclid` (a command and a key), `clock.lua` (a view, `<Space>C`) and `scale.tl`
 -- (a command, written in Teal).
 --
 -- To make it yours, link this directory as the configuration directory:
@@ -31,8 +31,8 @@ for _, name in ipairs({
   "pattern",    -- clips written as a line of pattern text (`\tt`)
   "sections",   -- named sections of the song, and arranging by section (`\S…`)
   "musicops",   -- humanize, strum, arpeggiate, scales and the project's key
-  "mixdiag",    -- the mix measured: loudness, true peak, phase (`,x…`)
-  "undotree",   -- the undo tree, named checkpoints, A/B listening (`,u…`)
+  "mixdiag",    -- the mix measured: loudness, true peak, phase (`<Space>x…`)
+  "undotree",   -- the undo tree, named checkpoints, A/B listening (`<Space>u…`)
   "interop",    -- opening and writing the projects of REAPER and of DAWproject programs (`:e song.rpp`, `:import`, `:export`)
   "tutor",      -- the course: `:tutor` starts it
   "doctor",     -- a guided check of the hardware, with a written report (`:doctor`, `paw doctor`)
@@ -81,7 +81,7 @@ paw.command("track.synth", function(ctx)
   paw.cursor.set_track(track)
 end, { desc = "Add a track with a synth and a delay: `track.synth Lead cutoff=900`" })
 
--- A key of your own: `,y` runs that command. The right-hand side is a
+-- A key of your own: `<Space>y` runs that command. The right-hand side is a
 -- command line or a function.
 paw.keymap.set("<leader>y", "track.synth", { desc = "Add a synth track" })
 

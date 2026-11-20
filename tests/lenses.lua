@@ -86,7 +86,7 @@ test("lenses: a server for the mix marks a hot fader in every view, says what it
 
   -- ,ca offers the diagnostic's fix and the server's own action; each is one undo step.
   api.undo_checkpoint()
-  paw.keymap.feed(",ca")
+  paw.keymap.feed("<leader>ca")
   until_(function() return paw.pick.state() end, "the actions, once the server has answered")
   local matches = paw.pick.state().matches
   eq(#matches, 2, "a fix and an action")
@@ -220,7 +220,7 @@ test("lenses: diagnostics on devices, parameters and stretches of time are drawn
   local row = paw.ui.views.devices:rows()[paw.ui.views.devices.row]
   eq(row.param and row.param.key, "cutoff", "]d goes to the parameter")
   api.undo_checkpoint()
-  paw.keymap.feed(",ca")
+  paw.keymap.feed("<leader>ca")
   has(paw.pick.state().matches[1], "Open the cutoff", "its fix is offered there")
   paw.keymap.feed("<CR>")
   eq(api.device_get(synth.id).params.cutoff, 4000, "and made")

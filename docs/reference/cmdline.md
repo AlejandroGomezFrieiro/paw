@@ -102,7 +102,7 @@ you read it.
 | Key or command | Effect |
 | --- | --- |
 | `:messages` | Shows all messages, newest at the bottom. A long message wraps over many rows. |
-| `,fn` | Chooses a message from a list, newest first. |
+| `<Space>fn` | Chooses a message from a list, newest first. |
 
 ## Keys that are not complete
 
@@ -112,7 +112,7 @@ come next. A group of keys shows its name, for example `+automation`.
 `paw.opt.hints` turns it off.
 
 A key sequence that has no mapping stops with a message, for example
-`,kn is not mapped`. paw discards the other keys that you typed. It does not run them
+`<Space>kn is not mapped`. paw discards the other keys that you typed. It does not run them
 as new commands.
 
 ## Find a key or a command
@@ -120,5 +120,5 @@ as new commands.
 | Key | Effect |
 | --- | --- |
 | `?` | Lists every key of the focused view and the global keys. Type a part of a key or of its description to filter the list. `Enter` runs the key. See [Pickers](pickers.md). |
-| `,,` | Chooses a command by its name. |
+| `<Space>fc` | Chooses a command by its name. |
 | `:help all` | Shows the keys of the focused view as one page. |

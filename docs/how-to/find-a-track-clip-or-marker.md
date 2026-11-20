@@ -21,9 +21,9 @@ press `*`.
 
 | To find | Keys |
 | --- | --- |
-| a track | `,ft` |
-| a clip | `,fl` |
-| a marker or a region | `,f'` |
+| a track | `<Space>ft` |
+| a clip | `<Space>fl` |
+| a marker or a region | `<Space>f'` |
 
 1. Press the keys. A list opens, with a preview on the right.
 2. Type a part of the name. The list shows only the lines that match.

@@ -6,7 +6,7 @@ pan. It also shows how to keep the master below full scale. For each key, see
 
 ## Set the level and the pan of a track
 
-1. Press `,m` to show the mixer. Each track has a strip.
+1. Press `<Space>m` to show the mixer. Each track has a strip.
 2. Press `h` and `l` to go from strip to strip. Press `0` for the first
    strip.
 3. Press `-` to lower the fader by one dB, and `+` to raise it. A count
@@ -30,7 +30,7 @@ click resets it.
 
 ## Keep the master out of the red
 
-1. Play the loudest part of the song with `<Space>`.
+1. Play the loudest part of the song with `<Space><Space>`.
 2. Look at the meters of the Master strip, at the right of the mixer. The
    number under the meters is the highest recent level.
 3. If the top row of the meters turns red, the mix reached full scale. It

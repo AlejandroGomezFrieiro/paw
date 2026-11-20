@@ -24,7 +24,7 @@ play the song. For each rule, see [Recording](../reference/recording.md).
 4. Press `r` to arm the track. Play. The track header shows the level at
    the input, and you hear the instrument.
 5. To tune, type `:tuner`. The device panel shows the tuner, with the note
-   and the cents. When you are in tune, press `,d` to hide the panel.
+   and the cents. When you are in tune, press `<Space>d` to hide the panel.
 
 To play through an amp simulator, press `a` on the track and select the
 plugin. paw records the dry sound of the instrument. So you can change the
@@ -38,7 +38,7 @@ If you hear the instrument late, make the block size smaller: type
 1. Move the cursor to where the take starts.
 2. Press `R`. The song plays from the cursor, and the status line shows
    `rec`.
-3. Play the part. Press `<Space>` to stop. The take is now a clip on the
+3. Play the part. Press `<Space><Space>` to stop. The take is now a clip on the
    track.
 
 paw writes the file into `media` next to the project. If the project is

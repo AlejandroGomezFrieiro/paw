@@ -668,14 +668,14 @@ test("the vocal editor plays notes as they are placed, follows the playhead, and
   eq(audition.heard[#audition.heard], "tone", "is heard, as a tone without the engine")
   eq(audition.error, nil, "through the vocal device")
   clip.length = 64
-  paw.keymap.feed("<Space>")
-  eq(paw.transport.playing, true, "Space plays")
+  paw.keymap.feed("<leader><Space>")
+  eq(paw.transport.playing, true, "Space Space plays")
   near(paw.transport.position, clip.start + editor.beat, 1e-6, "from the cursor")
   paw.transport.seek(40)
   win.paint()
   eq(gui.scroll > 30, true, "the window follows the playhead")
-  paw.keymap.feed("<Space>")
-  eq(paw.transport.playing, false, "Space again stops")
+  paw.keymap.feed("<leader><Space>")
+  eq(paw.transport.playing, false, "and stops")
   win.close()
 end)
 

@@ -254,7 +254,7 @@ test("midilsp: in the terminal, a parallel fifth is marked, gone to, explained a
   paw.ui.focus("pianoroll")
   roll:set(74, 1)
   api.undo_checkpoint()
-  paw.keymap.feed(",ca")
+  paw.keymap.feed("<leader>ca")
   text = screen()
   eq(text:find("Change D5 to C5", 1, true) ~= nil, true, "the fixes, in the picker:\n" .. text)
   paw.keymap.feed("<CR>")

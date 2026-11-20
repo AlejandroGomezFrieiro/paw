@@ -16,8 +16,8 @@ You can also type `:tempo 96`.
 
 To find the tempo of a song that you hear, tap it:
 
-1. Play the song. Press `,b` on a beat of the song.
-2. Press `,b` again on each next beat. Each tap sets the tempo from the
+1. Play the song. Press `<Space>b` on a beat of the song.
+2. Press `<Space>b` again on each next beat. Each tap sets the tempo from the
    taps so far.
 3. After four or more taps, stop. The message gives the tempo, for
    example `tapped 92 bpm at 1.1.00`.

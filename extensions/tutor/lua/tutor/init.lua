@@ -377,7 +377,7 @@ function M.start(which, opts)
   M.show_intro(lesson)
   local note = string.format("Lesson %d: %s%s.", n, lesson.title, step > 1 and string.format(" (from step %d)", step) or "")
   if first and S.back.path then
-    note = note .. " " .. S.back.path .. " is closed while you practise, unchanged; `,hq` reopens it."
+    note = note .. " " .. S.back.path .. " is closed while you practise, unchanged; `<leader>hq` reopens it."
   end
   paw.notify(note)
   return lesson

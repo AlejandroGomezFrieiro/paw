@@ -520,7 +520,7 @@ paw.ui.view("cmdline", {
       local room = buf.width - 2
       if M.unread_error() then
         -- Short, so that the keys keep their room: the key, and what it shows.
-        local key = M.messages_hint():match("^(%S+) or ") or ":messages"
+        local key = M.messages_hint():match("^(.-) or ") or ":messages"
         local w = api.str_width(key) + 12
         local x = buf.width - w
         x = x + buf:text(x, 0, key, "KeyBarKey") + 1

@@ -39,6 +39,6 @@ put the click in a rendered file.
 3. To stop the count-in, press `gM` again, or type `:countin off`.
 
 The count-in clicks also when the metronome is off. To cancel a count,
-press `Esc` or `<Space>`.
+press `Esc` or `<Space><Space>`.
 
 In the graphical window, the transport bar has a button for the metronome.

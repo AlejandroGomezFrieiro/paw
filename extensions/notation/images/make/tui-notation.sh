@@ -17,6 +17,6 @@ keys 0.15 0 v W W
 key backslash d; pause 0.2; TYPE_DELAY=140 typ "mp<f"; pause 1.3
 still tui-notation.png
 key Return; pause 0.7
-cap "gp puts the playhead at the cursor; Space plays what is written"
-key g p; pause 0.2; key space; pause 3.2; key space; pause 0.4
+cap "gp puts the playhead at the cursor; Space Space plays what is written"
+key g p; pause 0.2; key space space; pause 3.2; key space space; pause 0.4
 rec_stop

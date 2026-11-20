@@ -46,7 +46,7 @@ The tutor opens a practice project for this lesson. It checks each step when you
 11. `v` selects a range of time at all pitches. Press `v`. Then press `12<C-a>` to move all notes that start in the range up one octave.
    - *Hint:* Type 1, 2, then Ctrl and a, while the status line shows VISUAL.
    - ✓ The chord is one octave higher. In visual mode, a count gives the amount.
-12. Press `<C-w>p` to return to the arrange view. Press `<Space>` to listen, and `<Space>` to stop.
+12. Press `<C-w>p` to return to the arrange view. Press `<Space><Space>` to listen, and `<Space><Space>` to stop.
    - ✓ The first chord sounds one octave higher.
 
 ## What we did

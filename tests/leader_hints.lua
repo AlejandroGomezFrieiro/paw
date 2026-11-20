@@ -1,4 +1,4 @@
--- The leader's list of keys in every view, ghost examples in an empty popover,
+-- The leader's list of keys in every view, Space Space to play, ghost examples in an empty popover,
 -- panes that keep the arrange view its share, `,p` with no clip open, and
 -- help that lands on a one-line entry for a key. Loaded by tests/suite.lua.
 local T = ...
@@ -49,7 +49,25 @@ local function rows_with(text)
   return rows
 end
 
-test("leader: in the notation view the local leader lists the popovers by name, and , lists the global keys", function()
+test("leader: Space Space plays and stops at once, and Space alone lists the leader keys", function()
+  fresh()
+  paw.ui.focus("arrange")
+  local hints, wait = paw.opt.hint_delay, paw.opt.timeoutlen
+  T.after(function() paw.opt.hint_delay, paw.opt.timeoutlen = hints, wait; paw.keymap.feed("<Esc>"); paw.transport.stop() end)
+  paw.opt.hint_delay, paw.opt.timeoutlen = 20, 10000
+  paw.keymap.feed("<Space>")
+  eq(paw.transport.playing, false, "one Space only waits")
+  paw.wait(100)
+  eq(paw.keymap.pending(), "<Space>", "still waiting, the list is on")
+  eq(hint_of("m") ~= nil and hint_of("<Space>") ~= nil, true, "the list has the mixer and play")
+  paw.keymap.feed("<Space>")
+  eq(paw.transport.playing, true, "the second Space plays at once, with no wait")
+  eq(paw.keymap.pending(), "", "nothing is left half typed")
+  paw.keymap.feed("<Space><Space>")
+  eq(paw.transport.playing, false, "and stops")
+end)
+
+test("leader: in the notation view the local leader lists the popovers by name, and the leader the global keys", function()
   local view = song()
   local hints, wait = paw.opt.hint_delay, paw.opt.timeoutlen
   T.after(function() paw.opt.hint_delay, paw.opt.timeoutlen = hints, wait; paw.keymap.feed("<Esc>") end)
@@ -64,44 +82,46 @@ test("leader: in the notation view the local leader lists the popovers by name, 
   paw.keymap.feed("<Esc>")
   eq(paw.keymap.pending(), "", "Escape drops it")
   -- The leader is the global one here: no popover on it.
-  paw.keymap.feed(",")
+  paw.keymap.feed("<Space>")
   paw.wait(400)
-  eq(paw.keymap.pending(), ",", "the leader waits, with its list")
-  eq((hint_of("d") or ""):match("^Popover") == nil, true, ",d is not a popover")
+  eq((hint_of("d") or ""):match("^Popover") == nil, true, "Space d is not a popover")
   eq(hint_of("m") ~= nil, true, "and the mixer is on it")
   paw.keymap.feed("<Esc>")
-  -- A key no leader map has: the motion runs, then the key is a command of its own.
-  view:set(nil, 2)
-  paw.keymap.feed("fe")
-  local at = view.beat
-  paw.keymap.feed(",")
-  paw.keymap.feed("<Esc>")
-  eq(paw.keymap.pending(), "", "nothing left half typed")
-  eq(at ~= nil, true, "the cursor is somewhere")
-end)
-
-test("leader: , m in the notation view is the mixer, as everywhere", function()
-  local view = song()
   T.after(function() paw.ui.hide("mixer") end)
-  paw.ui.hide("mixer")
-  paw.keymap.feed(",m")
-  paw.wait(50)
-  eq(paw.ui.visible("mixer"), true, ",m reaches the global leader key in the notation view")
+  paw.keymap.feed("<Space>m")
+  eq(paw.ui.visible("mixer"), true, "Space m is the mixer in the notation view, as everywhere")
   eq(view.popover.active(), false, "and no popover opened")
 end)
 
-test("leader: , in the notation view still goes back along an f after a pause, with no list to read", function()
+test("leader: , and ; repeat the last f the other way and the same way, at once", function()
   local view = song()
-  local wait, hints = paw.opt.timeoutlen, paw.opt.hints
-  T.after(function() paw.opt.timeoutlen, paw.opt.hints = wait, hints end)
-  paw.opt.timeoutlen, paw.opt.hints = 20, false
+  local wait = paw.opt.timeoutlen
+  T.after(function() paw.opt.timeoutlen = wait end)
+  paw.opt.timeoutlen = 10000
   view:set(nil, 0)
   paw.keymap.feed("fe")
-  local after_f = view.beat
+  local at_e = view.beat
+  view:set(nil, 3)
   paw.keymap.feed(",")
-  paw.wait(300)
-  eq(paw.keymap.pending(), "", "the wait ended")
-  eq(view.beat < after_f or view.beat == after_f, true, "and , went the other way, or stayed")
+  eq(paw.keymap.pending(), "", ", does not wait")
+  eq(view.beat, at_e, ", goes back to the E")
+  view:set(nil, 0)
+  paw.keymap.feed(";")
+  eq(view.beat, at_e, "; goes on to it")
+end)
+
+test("leader: a leader set in init.lua moves every key on it", function()
+  fresh()
+  paw.ui.focus("arrange")
+  local leader = paw.opt.leader
+  T.after(function() paw.opt.leader = leader; paw.ui.hide("mixer") end)
+  paw.ui.hide("mixer")
+  paw.opt.leader = ","
+  paw.keymap.feed(",m")
+  eq(paw.ui.visible("mixer"), true, ",m is the mixer")
+  paw.keymap.feed(",<Space>")
+  eq(paw.transport.playing, true, ", Space plays")
+  paw.keymap.feed(",<Space>")
 end)
 
 test("popover: an empty prompt shows examples, and Tab fills the line", function()

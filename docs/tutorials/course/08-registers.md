@@ -48,7 +48,7 @@ The tutor opens a practice project for this lesson. It checks each step when you
    - ✓ The first hook went up one octave while you recorded. Register q contains `vic12<C-a>w`.
 11. `@q` plays the macro on the clip under the cursor, and `@@` plays it again. Press `@q`, then `@@`.
    - ✓ Three hooks are one octave higher. The last hook did not change.
-12. Listen to the result. Press `gs` and `<Space>`. Press `<Space>` to stop.
+12. Listen to the result. Press `gs` and `<Space><Space>`. Press `<Space><Space>` to stop.
    - ✓ The hook goes up and then comes down again.
 
 ## What we did

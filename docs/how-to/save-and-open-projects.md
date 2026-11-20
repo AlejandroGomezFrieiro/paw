@@ -22,7 +22,7 @@ In the graphical window, choose File → Save, and File → Open recent.
 
 ## Open a project
 
-- To open a project that you used recently, press `,fR`. Type a part of
+- To open a project that you used recently, press `<Space>fR`. Type a part of
   its name and press `Enter`.
 - To open the second project in that list, type `:recent 2`.
 - To open a project by its folder, type `:e /home/ana/songs/demo`.

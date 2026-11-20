@@ -199,7 +199,7 @@ test("mixdiag: the findings are diagnostics on their tracks, fixed from the mixe
   local screen = table.concat(api.ui_snapshot(140, 50), "\n")
   eq(screen:find(paw.draw.g.warn, 1, true) ~= nil or screen:find(paw.draw.g.error, 1, true) ~= nil, true, "the strip is marked:\n" .. screen)
   api.undo_checkpoint()
-  paw.keymap.feed(",ca")
+  paw.keymap.feed("<leader>ca")
   local state = paw.pick.state()
   eq(state and state.matches[1]:find("Lower Hot by", 1, true) ~= nil, true, "the fix, in the picker")
   paw.keymap.feed("<CR>")

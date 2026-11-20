@@ -100,10 +100,10 @@ changes the project is one undo step.
 1. Press `gg` (the first track) and `0` (the start). Press `gl4W`.
    - `gl` sets the loop over what the next keys select, and `4W` is four
      bars. The status line shows `loop 1–4`.
-2. Press `gs` to move the playhead to the start. Press `<Space>` to play.
+2. Press `gs` to move the playhead to the start. Press `<Space><Space>` to play.
    - The four bars play again and again. Notice how the meters of the
      tracks move.
-3. Press `<Space>` to stop.
+3. Press `<Space><Space>` to stop.
 
 In the graphical window, the play button and a drag on the ruler do the
 same.

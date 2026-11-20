@@ -103,8 +103,8 @@ into the same kind of device in any project. A load is one undo step.
 | `:preset` | `c` on a device | Select a preset in a picker: your presets first, then the presets of the device. |
 | `:preset Warm` | | Load a preset by name, or by a part of the name. |
 | `:preset.next`, `:preset.prev` | `]p` `[p` | The next or previous preset. |
-| `:preset.save Warm` | `,w` | Save the device as a preset. |
-| `:preset.default` | `,W`, or `Ctrl-s` in the picker | New devices of this kind that you add by hand start from the loaded preset. `:preset.default none` stops this. |
+| `:preset.save Warm` | `<Space>w` | Save the device as a preset. |
+| `:preset.default` | `<Space>W`, or `Ctrl-s` in the picker | New devices of this kind that you add by hand start from the loaded preset. `:preset.default none` stops this. |
 | `:preset.delete` | | Delete a preset. |
 
 In the graphical window, the card of a device shows its preset between

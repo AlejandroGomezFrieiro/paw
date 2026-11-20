@@ -125,8 +125,8 @@ the arrange view, `v` with `j` `k` is already a block of time on some tracks.
       hint = "Type 1, 2, then Ctrl and a, while the status line shows VISUAL.",
     },
     {
-      say = "Press `<C-w>p` to return to the arrange view. Press `<Space>` to listen, and `<Space>` to stop.",
-      keys = { "<C-w>p", "<Space>", { wait = 300 }, "<Space>" },
+      say = "Press `<C-w>p` to return to the arrange view. Press `<leader><Space>` to listen, and `<leader><Space>` to stop.",
+      keys = { "<C-w>p", "<leader><Space>", { wait = 300 }, "<leader><Space>" },
       check = function(ctx, look) return look.focused() == "arrange" and look.played(ctx) end,
       done = "The first chord sounds one octave higher.",
     },

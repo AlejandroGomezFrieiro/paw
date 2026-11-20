@@ -23,9 +23,9 @@ Then type `:tutor` in paw. The tutor makes these pages from its lessons, so the 
 | 9 | [Devices, parameters and plugins](09-devices.md) | We used the device panel to select and change parameters. We added and bypassed a device, and found where plugin windows open. |
 | 10 | [The mix: faders, pan, buses, sends, automation](10-mixing.md) | We used the faders, pan, solo and mute of the mixer. We made a bus with `:track.output`, a send, and volume automation with `A`. |
 | 11 | [Loops, marks and jumps](11-loops.md) | We set the loop with `gL`, `glic` and `gl2W`, and the click with `gm`. We used `/` to find, and `ma` `'a` `''` to jump. |
-| 12 | [Record audio and MIDI](12-recording.md) | We selected an input with `I`, armed with `r`, recorded with `R` and stopped with `<Space>`. We made an audio take and a MIDI take. |
+| 12 | [Record audio and MIDI](12-recording.md) | We selected an input with `I`, armed with `r`, recorded with `R` and stopped with `<Space><Space>`. We made an audio take and a MIDI take. |
 | 13 | [Save and render](13-saving.md) | We saved with `:w`, saw `[+]` for changes that are not saved, rendered with `:render name.wav tail=2` and read `:messages`. |
-| 14 | [Find a command or a key](14-finding.md) | We used key hints, `?`, `:commands`, Tab on the command line, `,,`, the `,f` pickers and `K`. |
+| 14 | [Find a command or a key](14-finding.md) | We used key hints, `?`, `:commands`, Tab on the command line, the `<Space>f` pickers and `K`. |
 | 15 | [Make paw your own: options, keys, commands](15-your-own.md) | We made an option, a mapping and a command with `:lua`, and found where to keep them. |
 | 16 | [The bundled extensions](16-extensions.md) | We tried one feature of pattern, musicops, sections, undotree, mixdiag, interop and utau. Their READMEs tell the rest. |
 | 17 | [Ranges, :s and :g: edit by line](17-ranges.md) | We used `:2,3d`, `:t2 4d`, `:t* volume -=3`, `:%s/c4/d4/g` and `:g/name:b/mute`: a range, then a command, one undo step for each. |

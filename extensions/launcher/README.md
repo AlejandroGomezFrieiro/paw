@@ -16,10 +16,10 @@ extension: paw keeps the clips, and plays the timeline.
 ## Try it
 
 1. Type `:ext.load launcher`, and open a song with a few tracks.
-2. Press `,l`. The session view opens under the arrange view. Each track is
+2. Press `<Space>l`. The session view opens under the arrange view. Each track is
    a column of slots, and the scenes are on the right.
 3. Press `o`. The slot under the cursor gets a MIDI clip of one bar. Press
-   `i` and enter some notes in the piano roll, then press `,l` twice to go
+   `i` and enter some notes in the piano roll, then press `<Space>l` twice to go
    back to the session view.
 4. Press `<CR>`. The song starts and the clip loops. The clip is lit, and it
    fills as it goes round its loop. The other tracks play their timelines.
@@ -30,7 +30,7 @@ extension: paw keeps the clips, and plays the timeline.
 
 ### How to record a performance into the timeline
 
-1. Press `,l` to show the session view.
+1. Press `<Space>l` to show the session view.
 2. To set where launches start, type `:launch.quantize bar`.
 3. Press `C` to start a capture.
 4. Move to a slot and press `<CR>` to launch it. The song starts with the
@@ -111,7 +111,7 @@ start.
 
 ### Keys
 
-`,l` shows or hides the session view. The keys below are the keys of the
+`<Space>l` shows or hides the session view. The keys below are the keys of the
 session view. The last row shows what each track plays: a slot, nothing, or
 its timeline. A clip that plays is bright and fills as it goes round its
 loop. A clip that waits for its boundary has a mark until it starts.

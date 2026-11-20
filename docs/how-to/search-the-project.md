@@ -19,11 +19,11 @@ its name, see [How to find a track by name](find-a-track-clip-or-marker.md).
 
 To find only the lyrics, type `:vimgrep /la/ lyric`.
 
-To see the places in a list that filters while you type, press `,fg`.
+To see the places in a list that filters while you type, press `<Space>fg`.
 
 ## Find notes
 
-Press `,fN`. The list shows each note of the project, with its pitch, its
+Press `<Space>fN`. The list shows each note of the project, with its pitch, its
 lyric and its articulation. Type, for example, `c5` or a word of a lyric,
 and press `Enter` to go to the note.
 

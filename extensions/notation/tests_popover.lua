@@ -217,7 +217,7 @@ test("popover: a dot repeats it, @: repeats its line, and the leader with a dot 
   eq(#marks_of(clip, "dynamic"), 3, "@: too")
   view:set(nil, 7)
   keys("<localleader>.")
-  eq(require("paw.views.cmdline").state().before, "p", ",. opens the last popover with its text")
+  eq(require("paw.views.cmdline").state().before, "p", "\\. opens the last popover with its text")
   keys("<CR>")
   eq(#marks_of(clip, "dynamic"), 4, "Enter writes it")
 end)

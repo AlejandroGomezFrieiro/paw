@@ -48,7 +48,7 @@ color. The track of the cursor has a brighter header and a tinted lane.
 | `Alt-h` `Alt-l` | Shortens and lengthens the clip. |
 | `vic` `Ctrl-a` | Transposes the clip. On a selection, `Ctrl-a` `Ctrl-x` change the pitch of the clips. |
 | `gw` `gW` | Puts a warp marker on the audio clip at the cursor. Removes the warp marker nearest to the cursor. |
-| `,cf`, `\ff` | Types the fade in and fade out of the audio clip, in beats (`1 2`, or one length for both). |
+| `<Space>cf`, `\ff` | Types the fade in and fade out of the audio clip, in beats (`1 2`, or one length for both). |
 | `\fi` `\fo` | Fades the audio clip in from its start to the cursor. Fades it out from the cursor to its end. A count gives the beats: `2\fo`. |
 | `\fx` | Crossfades the audio clip into the next clip, over a grid step. A count gives the beats. |
 | `grC` | Chooses the color of the track from the colors of the theme. |
@@ -56,12 +56,12 @@ color. The track of the cursor has a brighter header and a tinted lane.
 | `K` | Describes what is under the cursor. A kind of track also says what it is. |
 | `a` | Adds a device. The list shows instruments first on a track with no instrument, else effects first. |
 | `ge` | Shows the window of the plugin. |
-| `,d` `,m` `,p` `,l` | Shows the device panel, the mixer, the piano roll, the session view (with the clip launcher extension). |
+| `<Space>d` `<Space>m` `<Space>p` `<Space>l` | Shows the device panel, the mixer, the piano roll, the session view (with the clip launcher extension). |
 | `A` | Adds a volume automation point at the cursor. |
-| `,at` `,ax` | Turns the lane off or on (read or bypass). Clears the lane. |
-| `,al` | Chooses what to automate (volume, pan, a device parameter), and shows its lane. |
-| `,aa` `,aA` | Shows or hides the lanes of the track as rows. Shows the lanes of every track. |
-| `,am` | Sets the automation mode of the track: read, touch, latch, write, off, in turn. |
+| `<Space>at` `<Space>ax` | Turns the lane off or on (read or bypass). Clears the lane. |
+| `<Space>al` | Chooses what to automate (volume, pan, a device parameter), and shows its lane. |
+| `<Space>aa` `<Space>aA` | Shows or hides the lanes of the track as rows. Shows the lanes of every track. |
+| `<Space>am` | Sets the automation mode of the track: read, touch, latch, write, off, in turn. |
 | `gs` `gp` | Moves the playhead to the start, to the cursor. |
 | `gL` `gm` | Turns the loop on or off. Turns the metronome on or off. |
 | `Shift-Enter` | Plays from the cursor. |
@@ -77,11 +77,11 @@ color. The track of the cursor has a brighter header and a tinted lane.
 | `zz` `zh` `zl` | Puts the cursor in the center. Scrolls left and right. |
 | `[g` `]g` | Makes the grid finer or coarser. |
 | `zn` `zw` | Narrows to the group at the cursor, in a tab of its own. Widens again. |
-| `,vn` | Makes a VCA over the selected tracks. |
-| `,va` | Puts the selected tracks under a VCA. |
-| `,vr` | Removes the selected tracks from their VCAs. |
-| `,vx` | Removes the VCA at the cursor. |
-| `,vl` | Links the faders of a group. |
+| `<Space>vn` | Makes a VCA over the selected tracks. |
+| `<Space>va` | Puts the selected tracks under a VCA. |
+| `<Space>vr` | Removes the selected tracks from their VCAs. |
+| `<Space>vx` | Removes the VCA at the cursor. |
+| `<Space>vl` | Links the faders of a group. |
 | `Tab`, `Ctrl-w w` | Goes to the next window. |
 | `Ctrl-w +` `Ctrl-w -` | With the arrange view the only window: taller or shorter tracks. |
 | `Ctrl-w =` | With the arrange view the only window: the height of the tracks is automatic again. |
@@ -108,9 +108,9 @@ that shows images also gets a waveform in pixels: see
 
 ## Automation lanes as rows
 
-`,aa` shows the automation lanes of a track as rows under it, two rows each.
-`,aa` again hides them. (`za`, `zM` and `zR` fold groups, not lanes.)
-`,al` chooses a lane to make or show: volume, pan, or a parameter of a
+`<Space>aa` shows the automation lanes of a track as rows under it, two rows each.
+`<Space>aa` again hides them. (`za`, `zM` and `zR` fold groups, not lanes.)
+`<Space>al` chooses a lane to make or show: volume, pan, or a parameter of a
 device of the track.
 
 A lane header gives what the lane moves, its value at the cursor, and if
@@ -130,8 +130,8 @@ draw no curve, to keep the notes clear.
 | `+` `-` | Raise and lower the point under the cursor: a dB, 5% of pan, or 1/100 of the range of a parameter. `Ctrl-a` `Ctrl-x` by the count. |
 | `c` | Types the value of the point. |
 | `x` | Removes the point. |
-| `gc`, `,at` | Bypasses the lane. |
-| `,ax` | Clears the lane. |
+| `gc`, `<Space>at` | Bypasses the lane. |
+| `<Space>ax` | Clears the lane. |
 | `>` `<` | Move points in time, with a motion or on a selection. |
 | `gC`, `Enter` | Opens the curve of the lane in the [curve editor](curve-editor.md). |
 

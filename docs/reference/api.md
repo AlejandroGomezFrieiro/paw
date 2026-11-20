@@ -951,7 +951,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.keymap.groups()`: The names given to prefixes with `group`: scope -> keys -> name.
 - `paw.keymap.has(mode, map)`: True if a mapping with the same keys and scope is also made in `mode`.
 - `paw.keymap.hints()`: The keys that can come after the typed keys, when the user stops to type: a list of { key, desc }, and a title. Nil when there is nothing to show.
-- `paw.keymap.human(keys)`: Keys as a person writes them: `<A-h>` is `Alt-h`, `<leader>at` is `,at`, `<localleader>d` is `\d`, `<C-w>o` is `Ctrl-w o`, `<CR>` is `Enter`. Takes an `lhs` or a list of keys.
+- `paw.keymap.human(keys)`: Keys as a person writes them: `<A-h>` is `Alt-h`, `<leader>at` is `Space at`, `<localleader>d` is `\d`, `<C-w>o` is `Ctrl-w o`, `<CR>` is `Enter`. Takes an `lhs` or a list of keys.
 - `paw.keymap.jump(n)`: Return through the places of the jumps (with a negative `n`, go forward again).
 - `paw.keymap.last_selection()`: The last selection made in the focused view, as `'<,'>` names it: the one open now, or the one visual mode last closed. Nil if there is none.
 - `paw.keymap.list(mode, view)`: Mappings that apply in `mode` for `view`, the view's own first.
@@ -1995,7 +1995,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.ui.keybar.check()`: The keys shown that nothing is mapped to, as `view mode key` strings: empty when every line tells the truth.
 - `paw.ui.keybar.entries()`: The entries for what has the keyboard now, as `{ shown key, text }`.
 - `paw.ui.keybar.set(view, mode, entries)`: Set the keys shown for a view in a mode ("n", "x", "i").
-- `paw.ui.keybar.show(lhs)`: A key as a person reads it: `<leader>m` is `,m`, `<C-w>c` is `Ctrl-w c`.
+- `paw.ui.keybar.show(lhs)`: A key as a person reads it: `<leader>m` is `Space m`, `<C-w>c` is `Ctrl-w c`.
 
 ## Module paw.util
 
