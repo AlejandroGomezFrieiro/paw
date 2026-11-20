@@ -18,47 +18,36 @@ pub mod utility;
 
 use std::rc::Rc;
 
-use crate::device::{Device, DeviceInfo, FnFactory, ParamInfo, Registry};
+use crate::device::{Category, Device, DeviceInfo, FnFactory, ParamInfo, Registry};
 
 pub fn register(registry: &mut Registry) {
     add(
         registry,
         "synth",
         "Synth",
-        "instrument",
+        Category::Instrument,
         synth::params(),
         |sr| Box::new(synth::Synth::new(sr)),
     );
     registry.register(Rc::new(FnFactory {
-        info: DeviceInfo {
-            kind: "drums".into(),
-            name: "Drums".into(),
-            category: "instrument".into(),
-            format: "builtin".into(),
-            vendor: String::new(),
-            params: drums::params(),
-            ..Default::default()
-        },
+        info: DeviceInfo::builtin("drums", "Drums", Category::Instrument, drums::params()),
         make: |sr| Box::new(drums::Drums::new(sr)),
         latency: 0.0,
         outputs: &drums::OUTPUTS,
     }));
     registry.register(Rc::new(sampler::Factory {
-        info: DeviceInfo {
-            kind: "sampler".into(),
-            name: "Sampler kit".into(),
-            category: "instrument".into(),
-            format: "builtin".into(),
-            vendor: String::new(),
-            params: sampler::params(),
-            ..Default::default()
-        },
+        info: DeviceInfo::builtin(
+            "sampler",
+            "Sampler kit",
+            Category::Instrument,
+            sampler::params(),
+        ),
     }));
     add(
         registry,
         "gain",
         "Gain",
-        "effect",
+        Category::Effect,
         fx::gain_params(),
         |_| Box::new(fx::Gain::new()),
     );
@@ -160,15 +149,7 @@ fn effect(
     make: fn(f32) -> panel::Pair,
 ) {
     registry.register(Rc::new(panel::Factory {
-        info: DeviceInfo {
-            kind: kind.into(),
-            name: name.into(),
-            category: "effect".into(),
-            format: "builtin".into(),
-            vendor: String::new(),
-            params,
-            ..Default::default()
-        },
+        info: DeviceInfo::builtin(kind, name, Category::Effect, params),
         make,
     }));
 }
@@ -177,7 +158,7 @@ fn add(
     registry: &mut Registry,
     kind: &str,
     name: &str,
-    category: &str,
+    category: Category,
     params: Vec<ParamInfo>,
     make: fn(f32) -> Box<dyn Device>,
 ) {
@@ -189,22 +170,13 @@ fn add_late(
     registry: &mut Registry,
     kind: &str,
     name: &str,
-    category: &str,
+    category: Category,
     params: Vec<ParamInfo>,
     make: fn(f32) -> Box<dyn Device>,
     latency: f32,
 ) {
-    let info = DeviceInfo {
-        kind: kind.into(),
-        name: name.into(),
-        category: category.into(),
-        format: "builtin".into(),
-        vendor: String::new(),
-        params,
-        ..Default::default()
-    };
     registry.register(Rc::new(FnFactory {
-        info,
+        info: DeviceInfo::builtin(kind, name, category, params),
         make,
         latency,
         outputs: &[],

@@ -1007,7 +1007,7 @@ fn built_in_effects_do_not_allocate() {
     let ctx = ProcessCtx::at(SR as f32, 120.0, 4, 4, true);
     for factory in registry.iter() {
         let info = factory.info().clone();
-        if info.category != "effect" {
+        if info.category != paw_engine::Category::Effect {
             continue;
         }
         let instance = factory.create(SR as f32, MAX_BLOCK).unwrap();

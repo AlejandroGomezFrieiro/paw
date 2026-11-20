@@ -11,7 +11,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use anyhow::{Result, anyhow};
-use paw_engine::device::{Controller, Device, Instance, Io, ParamInfo, Ports};
+use paw_engine::device::{Category, Controller, Device, Instance, Io, ParamInfo, Ports};
 use paw_engine::{Attr, Ctl, Event, EventKind, ProcessCtx};
 use mlua::{Function, HookTriggers, LightUserData, Lua, Table, VmState};
 use serde::{Deserialize, Serialize};
@@ -103,8 +103,7 @@ impl Param {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Descriptor {
     pub name: Option<String>,
-    /// `effect` or `instrument`.
-    pub category: String,
+    pub category: Category,
     pub vendor: Option<String>,
     /// Its events replace those that came in, instead of being added.
     pub midi_effect: bool,
@@ -182,7 +181,10 @@ fn descriptor(host: &Table) -> mlua::Result<Descriptor> {
     }
     Ok(Descriptor {
         name: t.get("name")?,
-        category: t.get("category")?,
+        category: t
+            .get::<String>("category")?
+            .parse()
+            .map_err(mlua::Error::external)?,
         vendor: t.get("vendor")?,
         midi_effect: t.get("midi_effect")?,
         sidechain: t.get("sidechain")?,
@@ -293,7 +295,7 @@ pub fn make(path: &Path, sample_rate: f32, max_block: usize) -> Result<Instance>
             running: running.clone(),
             bufs,
             max_block,
-            instrument: desc.category == "instrument",
+            instrument: desc.category == Category::Instrument,
             midi_effect: desc.midi_effect,
             failed: failed.clone(),
             stopped: false,

@@ -62,7 +62,7 @@ pub const NOT_FINITE: u8 = 2;
 /// and infinity. Each passes its input through otherwise.
 /// They are not part of the registry unless asked for.
 pub fn register_test_devices(registry: &mut crate::Registry) {
-    use crate::device::{DeviceInfo, FnFactory, ParamInfo};
+    use crate::device::{Category, DeviceInfo, FnFactory, ParamInfo};
     for (kind, name, make) in [
         (
             "test.panic",
@@ -72,15 +72,12 @@ pub fn register_test_devices(registry: &mut crate::Registry) {
         ("test.nan", "Test: NaN", |_| Box::new(Failing(1, 0.0))),
     ] {
         registry.register(std::rc::Rc::new(FnFactory {
-            info: DeviceInfo {
-                kind: kind.into(),
-                name: name.into(),
-                category: "effect".into(),
-                format: "builtin".into(),
-                vendor: String::new(),
-                params: vec![ParamInfo::new("fail", 0.0, 1.0, 0.0, "")],
-                ..Default::default()
-            },
+            info: DeviceInfo::builtin(
+                kind,
+                name,
+                Category::Effect,
+                vec![ParamInfo::new("fail", 0.0, 1.0, 0.0, "")],
+            ),
             make,
             latency: 0.0,
             outputs: &[],

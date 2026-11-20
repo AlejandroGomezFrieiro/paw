@@ -33,8 +33,8 @@ pub use automation::{AutoLane, AutoTarget, Automation, StateChange, StateLane};
 pub use backend::no_denormals;
 pub use clip::{AudioData, AudioRegion, ClipSet, MidiEv, Part, PartEdit, Switch};
 pub use device::{
-    Controller, Device, DeviceFactory, DeviceInfo, Instance, Io, MAX_PAIRS, ParamInfo, Ports,
-    ProcessCtx, Registry, Rest,
+    Category, Controller, Device, DeviceFactory, DeviceFormat, DeviceInfo, Instance, Io, MAX_PAIRS,
+    ParamInfo, Ports, ProcessCtx, Registry, Rest,
 };
 pub use engine::{
     BlockStats, BlockSummary, Delay, Engine, EngineHandle, KeyBuf, KeyRt, MAX_BLOCK,

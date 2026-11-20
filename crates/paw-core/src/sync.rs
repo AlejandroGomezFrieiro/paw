@@ -15,7 +15,7 @@ use base64::engine::general_purpose::STANDARD as BASE64;
 use paw_engine::launch::{SlotClip, Slots};
 use paw_engine::{
     AudioData, AudioRegion, AutoLane, AutoTarget, Automation, ClipSet, Controller, Delay, Part, PartEdit,
-    DiskStore, DeviceSlot,
+    Category, DiskStore, DeviceSlot,
     KeyRt, MAX_BLOCK, MAX_DELAY, MAX_DEVICES, MAX_TRACKS, MidiEv, Msg, OutRt, ParamInfo,
     Registry, SchedEntry, Schedule, SendRt, StateChange, StateLane, TrackRt, TrackSlot, db_to_gain,
 };
@@ -1121,7 +1121,7 @@ fn add_device(device: &DeviceInst, map: &mut Mapper, ctx: &mut SyncCtx, send: &m
         };
         // Until it is made: an instrument is silent, an effect passes
         // the sound through.
-        let instrument = factory.info().category == "instrument";
+        let instrument = factory.info().category == Category::Instrument;
         map.devices.insert(device.id, slot);
         map.deferred.push(device.id);
         send(Msg::InsertDevice {
