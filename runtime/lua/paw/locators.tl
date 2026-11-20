@@ -1,38 +1,71 @@
--- Where each view shows things with an address (paw/address.lua), so that
+-- Where each view shows things with an address (paw/address.tl), so that
 -- diagnostics, hover and fixes work on whatever is under the cursor in any
 -- view, and `]d` `[d` go between what a view can show (see `paw.ui.locator`).
-local api = paw.api
+--
+-- Written in Teal (paw/lang.tl): the build compiles it to Lua.
+local api = require("paw.api")
+local type types = require("paw.types")
+local type contracts = require("paw.contracts")
+local type objects = require("paw.objects")
+
+local type Location = contracts.Location
+
+--- The piano roll (paw/views/pianoroll.lua), as far as this module reads
+--- it: its clip, and the pitch and beat of its cursor.
+local record PianoRoll
+  clip_id: integer
+  pitch: integer
+  beat: number
+  edit: function(self: PianoRoll, clip: objects.Clip)
+  set: function(self: PianoRoll, pitch: integer, beat: number)
+end
+
+--- A row of the device panel: a device, a parameter of it, or its picture.
+local record DeviceRow
+  device: objects.Device
+  param: types.ParamInfo
+  picture: boolean
+end
+
+--- The device panel (paw/views/devices.lua), as far as this module reads
+--- it: its rows, and the row of its cursor.
+local record Devices
+  row: integer
+  rows: function(self: Devices): {DeviceRow}
+end
+
+-- No module requires this one, so it sees the global `paw` with its types.
 local A = paw.address
 local views = paw.ui.views
 
-local function rows()
-  local out = {}
+local function rows(): {integer:integer}
+  local out: {integer:integer} = {}
   for i, id in ipairs(api.track_list()) do out[id] = i end
   out[0] = #api.track_list() + 1
   return out
 end
 
-local function time_of(location)
+local function time_of(location: Location): number
   local t = location.selector and location.selector.time
   return t and t[1] or nil
 end
 
 -- The piano roll: notes and stretches of its clip.
-local roll = views.pianoroll
+local roll = views.pianoroll as PianoRoll
 paw.ui.locator("pianoroll", {
-  at = function()
+  at = function(): Location
     local id = roll.clip_id
     if not id then return nil end
     local n = api.clip_note_at(id, roll.pitch, roll.beat)
     if n and n.id then return A.location(A.note(id, n.id)) end
     return A.location(A.clip(id), { time = { roll.beat, roll.beat }, pitch = { roll.pitch, roll.pitch } })
   end,
-  position = function() return { roll.beat, 127 - roll.pitch } end,
-  place = function(location, anywhere)
+  position = function(): {number} return { roll.beat, 127 - roll.pitch } end,
+  place = function(location: Location, anywhere?: boolean): {number}
     local p = A.parse(location.uri)
     if not p or not p.clip or (p.kind ~= "clip" and p.kind ~= "note") then return nil end
     if p.clip ~= roll.clip_id then return anywhere and { 0 } or nil end
-    local first
+    local first: types.Note
     local ids = p.kind == "note" and { p.note } or (location.selector and location.selector.notes) or {}
     for _, id in ipairs(ids) do
       local n = A.find_note(p.clip, id)
@@ -41,16 +74,16 @@ paw.ui.locator("pianoroll", {
     if first then return { first.start, 127 - first.pitch } end
     return { time_of(location) or 0, 0 }
   end,
-  go = function(location)
+  go = function(location: Location)
     local p = A.parse(location.uri)
     if p.clip ~= roll.clip_id then roll:edit(paw.clip(p.clip)) end
     local at = paw.ui.locators.pianoroll.place(location)
-    if at and at[2] and at[2] > 0 then roll:set(127 - at[2], at[1]) else roll:set(nil, at and at[1] or 0) end
+    if at and at[2] and at[2] > 0 then roll:set(127 - at[2] as integer, at[1]) else roll:set(nil, at and at[1] or 0) end
   end,
 })
 
 -- The arrange view: clips, tracks and what is on them, stretches of time.
-local function arrange_place(location)
+local function arrange_place(location: Location): {number}
   local p = A.parse(location.uri)
   if not p or p.kind == "render" or (p.kind == "project" and not time_of(location)) then return nil end
   local row = rows()
@@ -66,20 +99,21 @@ local function arrange_place(location)
 end
 
 paw.ui.locator("arrange", {
-  at = function()
+  at = function(): Location
     local clip = paw.cursor.clip()
     if clip then return A.location(A.clip(clip.id), { time = { paw.cursor.beat - clip.start, paw.cursor.beat - clip.start } }) end
     local id = paw.cursor.track_id()
     return id and A.location(A.track(id), { time = { paw.cursor.beat, paw.cursor.beat } }) or nil
   end,
-  position = function() return { paw.cursor.beat, rows()[paw.cursor.track_id() or 0] or 0 } end,
+  position = function(): {number} return { paw.cursor.beat, rows()[paw.cursor.track_id() or 0] or 0 } end,
   place = arrange_place,
-  go = function(location)
+  go = function(location: Location)
     local at = arrange_place(location)
     local track = A.track_of(location.uri)
     if not track then
       local p = A.parse(location.uri)
-      local ok, c = p and p.clip and pcall(api.clip_get, p.clip)
+      local ok, c: boolean, types.Clip
+      if p and p.clip then ok, c = pcall(api.clip_get, p.clip) end
       track = ok and c.track or nil
     end
     -- The master has no row: the cursor keeps its track.
@@ -90,31 +124,31 @@ paw.ui.locator("arrange", {
 
 -- The mixer: a strip for each track.
 paw.ui.locator("mixer", {
-  at = function()
+  at = function(): Location
     local id = paw.cursor.track_id()
     return id and A.location(A.track(id)) or nil
   end,
-  position = function() return { rows()[paw.cursor.track_id() or 0] or 0 } end,
-  place = function(location)
+  position = function(): {number} return { rows()[paw.cursor.track_id() or 0] or 0 } end,
+  place = function(location: Location): {number}
     local track = A.track_of(location.uri)
     local row = track and rows()[track]
     return row and { row } or nil
   end,
-  go = function(location)
+  go = function(location: Location)
     local track = A.track_of(location.uri)
     if track then paw.cursor.set_track(track) end
   end,
 })
 
 -- The device panel: the devices of the cursor's track and their parameters.
-local devices = views.devices
-local function device_row(device, param)
+local devices = views.devices as Devices
+local function device_row(device: integer, param: string): integer
   for i, row in ipairs(devices:rows()) do
     if row.device.id == device and not row.picture and ((param == nil and not row.param) or (row.param and row.param.key == param)) then return i end
   end
 end
 paw.ui.locator("devices", {
-  at = function()
+  at = function(): Location
     local row = devices:rows()[devices.row or 1]
     if not row then
       local id = paw.cursor.track_id()
@@ -123,8 +157,8 @@ paw.ui.locator("devices", {
     if row.param then return A.location(A.param(row.device.id, row.param.key)) end
     return A.location(A.device(row.device.id))
   end,
-  position = function() return { devices.row or 1 } end,
-  place = function(location, anywhere)
+  position = function(): {number} return { devices.row or 1 } end,
+  place = function(location: Location, anywhere?: boolean): {number}
     local p = A.parse(location.uri)
     if not p or (p.kind ~= "device" and p.kind ~= "param") then return nil end
     if anywhere then return { 0 } end
@@ -132,7 +166,7 @@ paw.ui.locator("devices", {
     local i = device_row(p.device, p.param)
     return i and { i } or nil
   end,
-  go = function(location)
+  go = function(location: Location)
     local p = A.parse(location.uri)
     if p.track ~= paw.cursor.track_id() then paw.cursor.set_track(p.track) end
     devices.row = device_row(p.device, p.param) or devices.row

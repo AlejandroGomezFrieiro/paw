@@ -20,10 +20,11 @@ local events = require("paw.events")
 local options = require("paw.options")
 local seats = require("paw.seats")
 local type types = require("paw.types")
-local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
 local type HarmonyModule = require("paw.harmony")
 local type MidifileModule = require("paw.midifile")
+local type objects = require("paw.objects")
+local type CursorModule = require("paw.cursor")
 
 --- A note of a phrase: `start` in beats from the start of the phrase. Its
 --- own `track` wins over the phrase's.
@@ -106,23 +107,13 @@ local record OptionChanged
   value: options.Value
 end
 
---- A track that plays a phrase, as `paw.add_track` gives it.
-local interface Player is contracts.TrackHandle
-  add_device: function(self: Player, kind: string)
-end
-
 -- What this module reads of `paw`, which paw/init.lua makes.
-local record Time
-  to_seconds: function(beat: number): number
-  bar: function(at?: number): number
-  bar_of: function(beat: number): integer
-  bar_floor: function(beat: number): number
-end
 local record Paw is partial.Paw
   harmony: HarmonyModule
   midifile: MidifileModule
-  time: Time
-  add_track: function(types.TrackOptions): Player
+  time: objects.Time
+  cursor: CursorModule
+  add_track: function(opts?: objects.TrackInput): objects.Track
 end
 local paw = (_G as {string:Paw}).paw
 
@@ -266,7 +257,7 @@ function M.phrase(track: integer, notes: {PhraseNote}, opts?: PhraseOptions): Ph
   silence()
   phrase = {
     track = track, notes = notes, length = length, label = opts.label, key = opts.key,
-    loop = opts.loop ~= false, at = opts.at or paw.cursor.beat as number or 0, tempo = opts.tempo,
+    loop = opts.loop ~= false, at = opts.at or paw.cursor.beat or 0, tempo = opts.tempo,
   }
   if api.transport_get().playing then
     phrase.silent = "the song is playing"
@@ -287,7 +278,7 @@ local DRUMS: {{integer, number, integer}} = {
 --- then as an arpeggio up and down, in the range of the track.
 --- `{ notes, length, label }`.
 function M.builtin(track?: integer, at?: number): Built
-  at = at or paw.cursor.beat as number or 0
+  at = at or paw.cursor.beat or 0
   local notes: {PhraseNote} = {}
   if track and paw.harmony.is_drums(track) then
     for i, d in ipairs(DRUMS) do notes[i] = { pitch = d[1], start = d[2], length = 0.25, velocity = d[3] } end
@@ -313,7 +304,7 @@ end
 --- the cursor. If not, it is the first bar with notes. It is `builtin` when
 --- the track has no notes. `{ notes, length, label, at }`.
 function M.track_phrase(track?: integer): Built
-  local cursor = paw.cursor.beat as number or 0
+  local cursor = paw.cursor.beat or 0
   local bars: {number:{PhraseNote}} = {}
   for _, c in ipairs(track and api.clip_list(track) or {}) do
     if c.kind == "midi" and not c.muted then
@@ -389,7 +380,7 @@ end
 --- else one added as a trial (with the built-in synth, or drums) that
 --- `revert` takes away. `drums` asks for a drum kit.
 function M.player(drums?: boolean): integer
-  local track = paw.cursor.track_id() as integer
+  local track = paw.cursor.track_id()
   if track and M.has_instrument(track) and (not drums or paw.harmony.is_drums(track)) then return track end
   if not api.trial_active() then api.trial_begin() end
   local t = paw.add_track({ name = drums and "Audition drums" or "Audition" })

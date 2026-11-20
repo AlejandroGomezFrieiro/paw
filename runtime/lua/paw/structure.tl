@@ -66,11 +66,11 @@ end
 function M.same_clip(dir: integer, count?: integer): types.Clip
   local track = cursor.track()
   if not track then return nil end
-  local here = cursor.clip() as types.Clip
+  local here = cursor.clip()
   local list = api.clip_list(track.id)
   table.sort(list, function(a: types.Clip, b: types.Clip): boolean return a.start < b.start end)
-  local kind = here and M.clip_kind(here)
-  local beat, found: number, types.Clip = cursor.beat as number, nil
+  local kind = here and M.clip_kind(here:get())
+  local beat, found: number, types.Clip = cursor.beat, nil
   for _ = 1, count or 1 do
     local step: types.Clip
     for i = dir > 0 and 1 or #list, dir > 0 and #list or 1, dir do
@@ -109,7 +109,7 @@ end
 
 local function to_sibling(dir: integer): function(contracts.KeyContext)
   return function(ctx: contracts.KeyContext)
-    local id = cursor.track_id() as integer
+    local id = cursor.track_id()
     if not id then return end
     local list = siblings(id)
     for i, other in ipairs(list) do
@@ -124,13 +124,13 @@ local function to_sibling(dir: integer): function(contracts.KeyContext)
 end
 
 local function to_parent(ctx: contracts.KeyContext)
-  local id = cursor.track_id() as integer
+  local id = cursor.track_id()
   for _ = 1, ctx.count or 1 do
     local up = id and groups.of(id)
     if not up then break end
     id = up
   end
-  if not id or id == cursor.track_id() as integer then return paw.notify("the track is in no group", "warn") end
+  if not id or id == cursor.track_id() then return paw.notify("the track is in no group", "warn") end
   cursor.set_track(id)
 end
 
@@ -140,7 +140,7 @@ local group_rows: function(group: integer): integer, integer
 --- To the last track of the group the cursor's track is in (of the group
 --- around that one, when it is there already; a count goes out further).
 local function to_group_end(ctx: contracts.KeyContext)
-  local id = cursor.track_id() as integer
+  local id = cursor.track_id()
   local list = api.track_list()
   for _ = 1, ctx.count or 1 do
     local group = id and groups.of(id)
@@ -153,12 +153,12 @@ local function to_group_end(ctx: contracts.KeyContext)
     end
     id = list[finish]
   end
-  if not id or id == cursor.track_id() as integer then return paw.notify("the track is in no group, or at its end", "warn") end
+  if not id or id == cursor.track_id() then return paw.notify("the track is in no group, or at its end", "warn") end
   cursor.set_track(id)
 end
 
 local function to_child()
-  local id = cursor.track_id() as integer
+  local id = cursor.track_id()
   local first = id and groups.is_group(id) and groups.members(id)[1]
   if not first then return paw.notify("not a group with tracks in it", "warn") end
   if groups.folded(id) then groups.fold(id, false) end
@@ -168,7 +168,7 @@ end
 --- The group the cursor is in: the track itself when it is one, else the
 --- group it belongs to.
 local function cursor_group(): integer
-  local id = cursor.track_id() as integer
+  local id = cursor.track_id()
   if not id then return nil end
   if groups.is_group(id) then return id end
   return groups.of(id)

@@ -5,13 +5,7 @@
 # here: add one only by hand, with a real reason (a value that is truly any
 # data of the user's). docs/explanation/about-teal.md tells the rules.
 
-paw.Clip 1 written in Lua: typed when its module is ported to Teal
-paw.Device 1 written in Lua: typed when its module is ported to Teal
-paw.Lane 1 written in Lua: typed when its module is ported to Teal
-paw.Track 1 written in Lua: typed when its module is ported to Teal
 paw.Untyped 6 the boundary to the Lua that is not ported yet: goes when the last module is
-paw.add_track 1 written in Lua: typed when its module is ported to Teal
-paw.address 1 written in Lua: typed when its module is ported to Teal
 paw.annotation 1 written in Lua: typed when its module is ported to Teal
 paw.api.json_decode 1 truly any JSON value
 paw.api.json_encode 1 truly any Lua value that JSON can hold
@@ -29,16 +23,12 @@ paw.autosave 1 written in Lua: typed when its module is ported to Teal
 paw.bounce 1 written in Lua: typed when its module is ported to Teal
 paw.buf 1 written in Lua: typed when its module is ported to Teal
 paw.canvas 1 written in Lua: typed when its module is ported to Teal
-paw.clip 1 written in Lua: typed when its module is ported to Teal
 paw.command 1 written in Lua: typed when its module is ported to Teal
 paw.complete 1 written in Lua: typed when its module is ported to Teal
 paw.controls 1 written in Lua: typed when its module is ported to Teal
-paw.cursor 1 written in Lua: typed when its module is ported to Teal
-paw.device 1 written in Lua: typed when its module is ported to Teal
 paw.device_rows 1 written in Lua: typed when its module is ported to Teal
 paw.diagnostic 1 written in Lua: typed when its module is ported to Teal
 paw.draw 1 written in Lua: typed when its module is ported to Teal
-paw.edit 1 written in Lua: typed when its module is ported to Teal
 paw.ex 1 written in Lua: typed when its module is ported to Teal
 paw.ext 1 written in Lua: typed when its module is ported to Teal
 paw.external 1 written in Lua: typed when its module is ported to Teal
@@ -55,17 +45,13 @@ paw.is_chain_file 1 written in Lua: typed when its module is ported to Teal
 paw.json 1 written in Lua: typed when its module is ported to Teal
 paw.keymap 1 written in Lua: typed when its module is ported to Teal
 paw.keyrule 1 written in Lua: typed when its module is ported to Teal
-paw.lane 1 written in Lua: typed when its module is ported to Teal
 paw.layout 1 written in Lua: typed when its module is ported to Teal
 paw.layouts 1 written in Lua: typed when its module is ported to Teal
 paw.learn 1 written in Lua: typed when its module is ported to Teal
 paw.loading 1 written in Lua: typed when its module is ported to Teal
 paw.lsp 1 written in Lua: typed when its module is ported to Teal
 paw.luadev 1 written in Lua: typed when its module is ported to Teal
-paw.markers 1 written in Lua: typed when its module is ported to Teal
-paw.master 1 written in Lua: typed when its module is ported to Teal
 paw.media 1 written in Lua: typed when its module is ported to Teal
-paw.midi 1 written in Lua: typed when its module is ported to Teal
 paw.mixer_rows 1 written in Lua: typed when its module is ported to Teal
 paw.mouse 1 written in Lua: typed when its module is ported to Teal
 paw.open 1 written in Lua: typed when its module is ported to Teal
@@ -75,7 +61,6 @@ paw.params 1 written in Lua: typed when its module is ported to Teal
 paw.pick 1 written in Lua: typed when its module is ported to Teal
 paw.plot 1 written in Lua: typed when its module is ported to Teal
 paw.plugins 1 written in Lua: typed when its module is ported to Teal
-paw.project 1 written in Lua: typed when its module is ported to Teal
 paw.qf 1 written in Lua: typed when its module is ported to Teal
 paw.query 1 written in Lua: typed when its module is ported to Teal
 paw.recent 1 written in Lua: typed when its module is ported to Teal
@@ -87,9 +72,6 @@ paw.render_ranges 1 written in Lua: typed when its module is ported to Teal
 paw.render_status 1 written in Lua: typed when its module is ported to Teal
 paw.render_stems 1 written in Lua: typed when its module is ported to Teal
 paw.render_tags 1 written in Lua: typed when its module is ported to Teal
-paw.restore_clip 1 written in Lua: typed when its module is ported to Teal
-paw.restore_device 1 written in Lua: typed when its module is ported to Teal
-paw.restore_track 1 written in Lua: typed when its module is ported to Teal
 paw.roles 1 written in Lua: typed when its module is ported to Teal
 paw.roll_clips 1 written in Lua: typed when its module is ported to Teal
 paw.roll_draw 1 written in Lua: typed when its module is ported to Teal
@@ -102,15 +84,9 @@ paw.statusline 1 written in Lua: typed when its module is ported to Teal
 paw.stems 1 written in Lua: typed when its module is ported to Teal
 paw.stretch 1 written in Lua: typed when its module is ported to Teal
 paw.tab 1 written in Lua: typed when its module is ported to Teal
-paw.tempo 1 written in Lua: typed when its module is ported to Teal
-paw.tempolane 1 written in Lua: typed when its module is ported to Teal
 paw.textbuf 1 written in Lua: typed when its module is ported to Teal
-paw.time 1 written in Lua: typed when its module is ported to Teal
 paw.toml 1 written in Lua: typed when its module is ported to Teal
-paw.track 1 written in Lua: typed when its module is ported to Teal
 paw.track_kinds 1 written in Lua: typed when its module is ported to Teal
-paw.tracks 1 written in Lua: typed when its module is ported to Teal
-paw.transport 1 written in Lua: typed when its module is ported to Teal
 paw.try 1 written in Lua: typed when its module is ported to Teal
 paw.ui 1 written in Lua: typed when its module is ported to Teal
 paw.version 1 written in Lua: typed when its module is ported to Teal

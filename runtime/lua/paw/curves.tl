@@ -36,6 +36,9 @@ local type types = require("paw.types")
 local type partial = require("paw.partial")
 local type LanesModule = require("paw.lanes")
 local type MusicModule = require("paw.music")
+local type objects = require("paw.objects")
+local type AddressModule = require("paw.address")
+local type TempoModule = require("paw.tempo")
 
 --- The shape of the stretch that leaves a point.
 local type Shape = types.LaneShape
@@ -48,18 +51,8 @@ local record Point
   tension: number
 end
 
---- An address in parts, as far as this module reads it (`paw.address.parse`).
-local record Parts
-  kind: string
-  lane: integer
-  track: integer
-  device: integer
-  param: string
-  clip: integer
-  control: string
-  number: integer
-  fragment: string
-end
+--- An address in parts (`paw.address.parse`).
+local type Parts = AddressModule.Parts
 
 --- A curve, as `target` gives it. A provider's curve may have fields of
 --- its own.
@@ -108,24 +101,6 @@ local record WaveOptions
 end
 
 -- What this module reads of `paw`, which paw/init.lua makes.
-local record Found
-  info: types.ParamInfo
-end
-local record Address
-  parse: function(uri: string): Parts
-  resolve: function(uri: string): Found
-end
-local record LaneHandle
-  id: integer
-end
-local record DeviceHandle
-  lane: function(DeviceHandle, string): LaneHandle
-  automate: function(DeviceHandle, string): LaneHandle
-end
-local record Tempo
-  points: function(): {types.TempoPoint}
-  set_points: function(tempos: {types.TempoPoint}, signatures: {types.SigPoint})
-end
 local record Params
   fraction: function(p: types.ParamInfo, value: number): number
   from_fraction: function(p: types.ParamInfo, fraction: number): number
@@ -133,9 +108,9 @@ end
 local record Paw is partial.Paw
   lanes: LanesModule
   music: MusicModule
-  address: Address
-  device: function(id: integer): DeviceHandle
-  tempo: Tempo
+  address: AddressModule
+  device: function(id: integer): objects.Device
+  tempo: TempoModule
   params: Params
 end
 local paw = (_G as {string:Paw}).paw
@@ -213,7 +188,7 @@ local function param_target(parts: Parts, uri: string): Target, string
   end
   -- No lane yet: the parameter's own value is the curve, flat, until the
   -- first edit makes one.
-  local p = found.info
+  local p = (found as AddressModule.Param).info
   local t: Target = {
     uri = uri, kind = "param", track = parts.track, shapes = { linear = true, hold = true, smooth = true },
     min = p.min, max = p.max, lo = p.min, hi = p.max, param = p,

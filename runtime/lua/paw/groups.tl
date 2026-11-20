@@ -22,6 +22,8 @@ local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
 local type LanesModule = require("paw.lanes")
 local type VcaModule = require("paw.vca")
+local type objects = require("paw.objects")
+local type CursorModule = require("paw.cursor")
 
 --- A track: its id, or the track itself (`paw.track`).
 local type TrackRef = integer | contracts.TrackHandle
@@ -50,7 +52,8 @@ local record Paw is partial.Paw
   lanes: LanesModule
   vca: VcaModule
   scope: Scope
-  add_track: function(types.TrackOptions): contracts.TrackHandle
+  cursor: CursorModule
+  add_track: function(opts?: objects.TrackInput): objects.Track
 end
 local paw = (_G as {string:Paw}).paw
 
@@ -280,7 +283,7 @@ function M.fold(group: TrackRef, on?: boolean)
   m.group_folded = on and true or nil
   set_meta(gid, m)
   -- The cursor does not stay on a track that is out of sight.
-  local cursor = paw.cursor.track_id() as integer
+  local cursor = paw.cursor.track_id()
   if cursor and M.hidden(cursor) then paw.cursor.set_track(gid) end
 end
 

@@ -45,6 +45,9 @@ local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
 local type LanesModule = require("paw.lanes")
+local type objects = require("paw.objects")
+local type CursorModule = require("paw.cursor")
+local type EditModule = require("paw.edit")
 
 --- A take of a clip, as `clip.meta.takes.list` keeps it. The one that plays
 --- holds only its name; the others hold what they play: `file`, `offset`
@@ -103,22 +106,17 @@ local record Moved
   shift: number
 end
 local record Stretch
-  carry: function(c: types.Clip, snap: types.ClipOptions, by: number): Moved
+  carry: function(c: types.Clip, snap: objects.ClipSnapshot, by: number): Moved
   moved: function(c: types.Clip, by: number): Moved
   file_seconds: function(c: types.Clip, beats: number, at?: number): number
-end
-local record Arrange
-  clear: function(track: integer, from: number, to: number, only: {integer:boolean})
-end
-local record Edit
-  arrange: Arrange
 end
 local record Paw is partial.Paw
   lanes: LanesModule
   stretch: Stretch
-  edit: Edit
-  add_track: function(types.TrackOptions): contracts.TrackHandle
-  restore_clip: function(snap: types.ClipOptions, track: contracts.TrackHandle)
+  edit: EditModule
+  cursor: CursorModule
+  add_track: function(opts?: objects.TrackInput): objects.Track
+  restore_clip: function(snap: objects.ClipSnapshot, track: integer | objects.Track): objects.Clip
 end
 local paw = (_G as {string:Paw}).paw
 
@@ -301,7 +299,7 @@ function M.explode(id: integer): {contracts.TrackHandle}
     if i ~= takes.active then
       at = at + 1
       local t = paw.add_track({ name = entry.name or (track.name .. " take " .. i), index = at })
-      local snap: types.ClipOptions = { name = entry.name or c.name, start = c.start, length = c.length, kind = c.kind }
+      local snap: objects.ClipSnapshot = { name = entry.name or c.name, start = c.start, length = c.length, kind = c.kind }
       -- Each plays as the clip does: stretched, shifted, looped.
       paw.stretch.carry(c, snap, 0)
       if c.kind == "audio" then
@@ -735,8 +733,8 @@ end)
 
 -- Commands -----------------------------------------------------------------------
 
-local function need_clip(): types.Clip
-  local clip = paw.cursor.clip() as types.Clip
+local function need_clip(): objects.Clip
+  local clip = paw.cursor.clip()
   if not clip then paw.notify("no clip under the cursor", "warn") return nil end
   if not M.of(clip.id) then paw.notify("the clip has no other takes: record with the loop on, or `:take.new`", "warn") return nil end
   return clip
@@ -752,7 +750,7 @@ end
 --- no stretch is selected.
 local function selected_stretch(): integer, number, number
   local sel = paw.keymap.selection()
-  local track = paw.cursor.track_id() as integer
+  local track = paw.cursor.track_id()
   if not (sel and sel.kind ~= "line" and sel.c0 and sel.c1 and sel.c1 > sel.c0 and track) then return nil end
   return track, sel.c0, sel.c1
 end
@@ -806,7 +804,7 @@ commands.define("take.list", function(): Result
 end, { desc = "Choose the take that plays from a list" })
 
 commands.define("take.new", function(ctx: Context): Result
-  local clip = paw.cursor.clip() as types.Clip
+  local clip = paw.cursor.clip()
   if not clip then return paw.notify("no clip under the cursor", "warn") end
   local n = M.new(clip.id, ctx.args[1] and table.concat(ctx.args as {string}, " "))
   paw.notify("take " .. n .. ": a copy to change, with what was there kept as take " .. (n - 1))
@@ -827,7 +825,7 @@ commands.define("take.keep", function(): Result
 end, { desc = "Throw away every take but the one that plays" })
 
 commands.define("take.lanes", function(ctx: Context): Result
-  local track = paw.cursor.track_id() as integer
+  local track = paw.cursor.track_id()
   if not track then return paw.notify("no track selected", "warn") end
   local word = ctx.args[1]
   local on: boolean

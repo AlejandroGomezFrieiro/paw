@@ -25,7 +25,7 @@ local function append(list, more)
 end
 
 --- What the diagnostics and language servers have for a location
---- (paw/address.lua): its fixes and the servers' actions, and what they say
+--- (paw/address.tl): its fixes and the servers' actions, and what they say
 --- about it. Empty when nothing is said of it and no server is running.
 function M.lens(location)
   if not (paw.lsp and paw.diagnostic) then return {} end

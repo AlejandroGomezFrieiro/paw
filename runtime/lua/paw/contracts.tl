@@ -21,6 +21,9 @@
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local type types = require("paw.types")
+-- The objects of tracks and devices (paw/objects.tl), which a kind of
+-- track gets. Only their types come in: paw/objects.tl requires no contract.
+local type objects = require("paw.objects")
 
 local record contracts
    -- Drawing in cells ----------------------------------------------------------
@@ -750,16 +753,30 @@ local record contracts
    --- A field of a kind of node (`paw.query.field`).
    type QueryField = function(node: QueryNode): QueryValue
 
-   --- A part of an address: a time, notes by id.
+   --- A part of an address (paw/address.tl): a stretch of time `{ from,
+   --- to }` in beats, notes by id, pitches `{ low, high }`, or a value.
    record Selector
       time: {number}
       notes: {integer}
+      pitch: {number}
+      value: number
    end
 
    --- A place: an address and, optionally, a part of it.
    record Location
       uri: string
       selector: Selector
+   end
+
+   --- How a view places locations (`paw.ui.locator`): `at` the location
+   --- under its cursor, `position` where its cursor is and `place` where a
+   --- location is in it (with `anywhere`, also one it does not show now),
+   --- each as a list of numbers to sort by; `go` puts its cursor there.
+   record Locator
+      at: function(): Location
+      position: function(): {number}
+      place: function(location: Location, anywhere?: boolean): {number}
+      go: function(location: Location)
    end
 
    --- A text that `paw.grep` searches: what it says, what kind of text it
@@ -804,20 +821,11 @@ local record contracts
       index: integer
    end
 
-   --- A track as `paw.track(id)` gives it, as far as a kind reads it:
-   --- its id and its `meta`.
-   interface TrackHandle
-      id: integer
-      meta: types.Meta
-      get: function(self: TrackHandle): types.Track
-      devices: function(self: TrackHandle): {DeviceHandle}
-   end
+   --- A track as `paw.track(id)` gives it (`paw.Track`).
+   type TrackHandle = objects.Track
 
-   --- A device as `paw.device(id)` gives it, as far as a caller reads it.
-   interface DeviceHandle
-      id: integer
-      get: function(self: DeviceHandle): types.Device
-   end
+   --- A device as `paw.device(id)` gives it (`paw.Device`).
+   type DeviceHandle = objects.Device
 
    --- A kind of track (`paw.track_kinds.define`). `title` and `letter`
    --- say how it is offered and shown. `create` makes an ordinary track

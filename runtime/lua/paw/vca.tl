@@ -22,6 +22,7 @@ local kernel = require("paw.events.kernel")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type objects = require("paw.objects")
 
 --- A track: its id, or the track itself (`paw.track`).
 local type TrackRef = integer | contracts.TrackHandle
@@ -35,7 +36,7 @@ end
 
 -- What this module reads of `paw`, which paw/init.lua makes.
 local record Paw is partial.Paw
-  add_track: function(types.TrackOptions): contracts.TrackHandle
+  add_track: function(opts?: objects.TrackInput): objects.Track
 end
 local paw = (_G as {string:Paw}).paw
 

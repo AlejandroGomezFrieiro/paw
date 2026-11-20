@@ -27,6 +27,7 @@ local type partial = require("paw.partial")
 local type MusicModule = require("paw.music")
 local type ReadModule = require("paw.harmony.read")
 local type VoiceModule = require("paw.harmony.voice")
+local type objects = require("paw.objects")
 
 --- A key: its tonic (`root`, a pitch class) and its scale (`mode`), with
 --- the scale's steps above the tonic and its name ("D minor"). A key that
@@ -143,10 +144,6 @@ end
 local type LabelHow = string | boolean
 
 -- What this module reads of `paw`, which paw/init.lua makes.
-local record Time
-  bar: function(at?: number): number
-  bar_start: function(n: integer): number
-end
 local record Glyphs
   beat: string
 end
@@ -160,7 +157,7 @@ local record Buf
 end
 local record Paw is partial.Paw
   music: MusicModule
-  time: Time
+  time: objects.Time
   draw: Draw
 end
 local paw = (_G as {string:Paw}).paw

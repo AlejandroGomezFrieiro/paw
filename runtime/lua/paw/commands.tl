@@ -135,6 +135,7 @@ end
 local type partial = require("paw.partial")
 local type LimitModule = require("paw.limit")
 local type FormatsModule = require("paw.formats")
+local type CursorModule = require("paw.cursor")
 local record State
   command_uses: {string:integer}
 end
@@ -157,6 +158,7 @@ local record Paw is partial.Paw
   limit: LimitModule
   ex: Ex
   formats: FormatsModule
+  cursor: CursorModule
 end
 local paw = (_G as {string:Paw}).paw
 
