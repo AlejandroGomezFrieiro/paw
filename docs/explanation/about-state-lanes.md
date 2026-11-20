@@ -150,8 +150,8 @@ gives the controller the state of the component again after the next
 block.
 
 After a state, a plugin tells paw the values of its parameters. These
-messages are the echo of the state, not an edit. For 750 milliseconds
-after a state, paw only updates the values that it shows:
+messages are the echo of the state, not an edit. For the echo, paw only
+updates the values that it shows:
 
 - The echo makes no undo step, and does not change the project.
 - The echo does not remove a parameter that the project sets.
@@ -161,10 +161,33 @@ after a state, paw only updates the values that it shows:
   because the processor already has the state. So, after an undo soon
   after a state, an old echo cannot play the values of the earlier state.
 
-In these 750 milliseconds, a move in the window of a VST3 plugin still
-goes to the processor. The plugin marks such a move as a move of the
-user (`beginEdit`). In these 750 milliseconds, a move in the window of a
-plugin does not write automation.
+A move in the window of a plugin is an edit, also immediately after a
+state. paw tells the echo from a move by what the plugin says, not by
+the time. So, a slow computer that gets the echo late does not make
+it an edit:
+
+- A plugin marks a move of the user in its window as a gesture: CLAP
+  sends `GESTURE_BEGIN` and `GESTURE_END` around the move, and VST3 calls
+  `beginEdit` and `endEdit`. A change in a gesture is always an edit.
+- A value that paw reads back from the plugin after a state is the echo,
+  because paw asked for it. So is a change that a CLAP plugin sends
+  without a gesture in its first block after the state. This is the
+  block in which a plugin such as Surge XT takes the state.
+- Some plugins send a change without a gesture at other times. For such
+  a change, the value tells: a value that a recent state gave the
+  parameter is the echo of that state, and a different value is an edit.
+  paw keeps the values of the states since the last edit of each
+  parameter, so the late echo of a state before an undo is also an echo.
+  A change without a gesture to the value of one of these states makes no
+  edit. This is correct, because the plugin already has that value.
+- An LV2 editor writes a control without a gesture, because paw does not
+  give it `ui:touch`. The value tells, as in the previous item. The
+  messages that an LV2 plugin sends from its audio thread (`patch:Set`)
+  change properties, not parameters. These are never an edit.
+
+paw keeps this mark with each change, also when the plugin runs in a
+process of its own. Each change in the shared memory between the two
+processes has a flag for an edit.
 
 Surge XT stops the notes that sound when it takes a whole state. This
 also stops a note that starts in the same block as the state. Put a

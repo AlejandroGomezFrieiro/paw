@@ -6,9 +6,21 @@
 //! attribute: its type / 256 on the left, its subclass / 16 on the right.
 //! Its state is one number, which it takes on in its next block, as some
 //! plugins do (Surge XT): `stub_clap_state` reads the number it plays with.
+//! The number is its one parameter too: it tells of the state it took on
+//! with no gesture (its echo, as Surge XT does). In its next block, the
+//! call `stub.move` makes it tell of a value inside a gesture (a person
+//! moves the parameter in its window), and `stub.tell` with no gesture.
 
 use std::ffi::{CStr, c_char, c_void};
-use std::sync::atomic::{AtomicU32, Ordering::Relaxed};
+use std::sync::atomic::{AtomicPtr, AtomicU32, Ordering::Relaxed};
+
+use clap_sys::events::{
+    CLAP_CORE_EVENT_SPACE_ID, CLAP_EVENT_PARAM_GESTURE_BEGIN, CLAP_EVENT_PARAM_GESTURE_END,
+    CLAP_EVENT_PARAM_VALUE, clap_event_param_gesture, clap_event_param_value, clap_output_events,
+};
+use clap_sys::ext::params::{
+    CLAP_EXT_PARAMS, CLAP_PARAM_IS_AUTOMATABLE, clap_param_info, clap_plugin_params,
+};
 
 use clap_sys::ext::state::{CLAP_EXT_STATE, clap_plugin_state};
 use clap_sys::stream::{clap_istream, clap_ostream};
@@ -40,6 +52,143 @@ static SOUNDING: AtomicU32 = AtomicU32::new(0);
 /// The state it plays with, and one loaded that waits for the next block.
 static STATE: AtomicU32 = AtomicU32::new(0);
 static LOADED: AtomicU32 = AtomicU32::new(u32::MAX);
+/// A move in its window that waits for the next block, and a value it
+/// tells with no gesture then.
+static MOVE: AtomicU32 = AtomicU32::new(u32::MAX);
+static TELL: AtomicU32 = AtomicU32::new(u32::MAX);
+/// The host, to ask it for a block.
+static HOST: AtomicPtr<clap_host> = AtomicPtr::new(std::ptr::null_mut());
+
+/// Ask the host for a block.
+fn wake() {
+    let host = HOST.load(Relaxed);
+    if !host.is_null() {
+        unsafe { (*host).request_process.unwrap()(host) };
+    }
+}
+
+/// Tell the host of the parameter's value, inside a gesture or not.
+unsafe fn tell(out: *const clap_output_events, value: u32, gesture: bool) {
+    let header = |size: usize, type_| clap_event_header {
+        size: size as u32,
+        time: 0,
+        space_id: CLAP_CORE_EVENT_SPACE_ID,
+        type_,
+        flags: 0,
+    };
+    let edge = |type_| clap_event_param_gesture {
+        header: header(size_of::<clap_event_param_gesture>(), type_),
+        param_id: 0,
+    };
+    let event = clap_event_param_value {
+        header: header(size_of::<clap_event_param_value>(), CLAP_EVENT_PARAM_VALUE),
+        param_id: 0,
+        cookie: std::ptr::null_mut(),
+        note_id: -1,
+        port_index: -1,
+        channel: -1,
+        key: -1,
+        value: value as f64,
+    };
+    unsafe {
+        let push = (*out).try_push.unwrap();
+        if gesture {
+            push(out, &edge(CLAP_EVENT_PARAM_GESTURE_BEGIN).header);
+        }
+        push(out, &event.header);
+        if gesture {
+            push(out, &edge(CLAP_EVENT_PARAM_GESTURE_END).header);
+        }
+    }
+}
+
+unsafe extern "C" fn params_count(_: *const clap_plugin) -> u32 {
+    1
+}
+unsafe extern "C" fn params_info(
+    _: *const clap_plugin,
+    index: u32,
+    info: *mut clap_param_info,
+) -> bool {
+    if index > 0 {
+        return false;
+    }
+    unsafe {
+        let info = &mut *info;
+        info.id = 0;
+        info.flags = CLAP_PARAM_IS_AUTOMATABLE;
+        info.cookie = std::ptr::null_mut();
+        for (to, from) in info.name.iter_mut().zip(c"State".to_bytes_with_nul()) {
+            *to = *from as c_char;
+        }
+        info.module[0] = 0;
+        info.min_value = 0.0;
+        info.max_value = 127.0;
+        info.default_value = 0.0;
+    }
+    true
+}
+unsafe extern "C" fn params_value(_: *const clap_plugin, id: u32, out: *mut f64) -> bool {
+    if id != 0 {
+        return false;
+    }
+    unsafe { *out = STATE.load(Relaxed) as f64 };
+    true
+}
+static PARAMS: clap_plugin_params = clap_plugin_params {
+    count: Some(params_count),
+    get_info: Some(params_info),
+    get_value: Some(params_value),
+    value_to_text: None,
+    text_to_value: None,
+    flush: None,
+};
+
+type Write = Option<unsafe extern "C" fn(*mut c_void, *const u8, usize)>;
+
+/// paw's call extension (`dev.paw.call/1`), for `stub.move` (a move in the
+/// window, made by a script) and `stub.tell`.
+#[repr(C)]
+struct PawCall {
+    call: unsafe extern "C" fn(
+        *const clap_plugin,
+        *const c_char,
+        *const u8,
+        usize,
+        *mut c_void,
+        Write,
+    ) -> bool,
+}
+unsafe extern "C" fn paw_call(
+    _: *const clap_plugin,
+    method: *const c_char,
+    data: *const u8,
+    size: usize,
+    _: *mut c_void,
+    _: Write,
+) -> bool {
+    let (method, data) = unsafe {
+        (
+            CStr::from_ptr(method),
+            std::slice::from_raw_parts(data, size),
+        )
+    };
+    let value = std::str::from_utf8(data)
+        .ok()
+        .and_then(|t| t.trim().parse().ok());
+    let Some(value) = value else { return false };
+    if method == c"stub.move" {
+        MOVE.store(value, Relaxed);
+        wake();
+    } else if method == c"stub.tell" {
+        TELL.store(value, Relaxed);
+        wake();
+    } else {
+        return false;
+    }
+    true
+}
+static PAW_CALL: PawCall = PawCall { call: paw_call };
 
 /// For tests: the state the plugin plays with.
 #[unsafe(no_mangle)]
@@ -117,6 +266,17 @@ unsafe extern "C" fn process(_: *const clap_plugin, p: *const clap_process) -> c
         let loaded = LOADED.swap(u32::MAX, Relaxed);
         if loaded != u32::MAX {
             STATE.store(loaded, Relaxed);
+            tell(p.out_events, loaded, false);
+        }
+        let moved = MOVE.swap(u32::MAX, Relaxed);
+        if moved != u32::MAX {
+            STATE.store(moved, Relaxed);
+            tell(p.out_events, moved, true);
+        }
+        let told = TELL.swap(u32::MAX, Relaxed);
+        if told != u32::MAX {
+            STATE.store(told, Relaxed);
+            tell(p.out_events, told, false);
         }
         let events = &*p.in_events;
         let n = events.size.unwrap()(p.in_events);
@@ -250,6 +410,10 @@ unsafe extern "C" fn get_extension(_: *const clap_plugin, id: *const c_char) -> 
         &NOTE_NAMES as *const _ as *const c_void
     } else if id == CLAP_EXT_STATE {
         &STATE_EXT as *const _ as *const c_void
+    } else if id == CLAP_EXT_PARAMS {
+        &PARAMS as *const _ as *const c_void
+    } else if id == c"dev.paw.call/1" {
+        &PAW_CALL as *const _ as *const c_void
     } else {
         std::ptr::null()
     }
@@ -270,12 +434,13 @@ unsafe extern "C" fn plugin_descriptor(
 }
 unsafe extern "C" fn create_plugin(
     _: *const clap_plugin_factory,
-    _: *const clap_host,
+    host: *const clap_host,
     id: *const c_char,
 ) -> *const clap_plugin {
     if unsafe { CStr::from_ptr(id) } != c"dev.paw.stub" {
         return std::ptr::null();
     }
+    HOST.store(host as *mut clap_host, Relaxed);
     Box::into_raw(Box::new(clap_plugin {
         desc: &DESC.0,
         plugin_data: std::ptr::null_mut(),

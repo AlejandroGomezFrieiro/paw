@@ -475,9 +475,6 @@ impl Session {
             .with_context(|| format!("no device {id}"))?;
         self.flush();
         let first = self.trial_loads(id);
-        if let Some(live) = self.live.get_mut(&id) {
-            live.given_state();
-        }
         let controller = self.live.get_mut(&id).and_then(|l| l.controller.as_mut());
         // What the plugin holds now goes into the step before this one, so
         // that undo comes back to it and not to an older state (in a trial,
@@ -650,7 +647,6 @@ impl Session {
                     invalid.push(*id);
                 }
             }
-            let echoes = live.echoes();
             let Some(controller) = live.controller.as_mut() else {
                 continue;
             };
@@ -668,24 +664,16 @@ impl Session {
                 latency_changed = true;
             }
             let changes = controller.take_changes();
-            // The echo of a state it was given: the values only mirror the
-            // state, which the project already holds. Nothing was edited.
-            if echoes {
-                if !changes.is_empty() || was_open != controller.editor_open() {
-                    changed.push((*id, Vec::new()));
-                }
-                continue;
-            }
-            let keys: Vec<String> = changes
-                .iter()
-                .filter_map(|(index, _)| Some(live.params.get(*index)?.key.clone()))
-                .collect();
-            for (index, value) in &changes {
-                if let Some(param) = live.params.get(*index) {
-                    moved.push((*id, param.key.clone(), param.stable_id().to_string(), *value));
+            // The echo of a state it was given only mirrors the state, which
+            // the project already holds: nothing was edited.
+            let mut keys: Vec<String> = Vec::new();
+            for change in changes.iter().filter(|c| c.edit) {
+                if let Some(param) = live.params.get(change.index) {
+                    keys.push(param.key.clone());
+                    moved.push((*id, param.key.clone(), param.stable_id().to_string(), change.value));
                 }
             }
-            if !keys.is_empty() || was_open != controller.editor_open() {
+            if !changes.is_empty() || was_open != controller.editor_open() {
                 changed.push((*id, keys));
             }
         }

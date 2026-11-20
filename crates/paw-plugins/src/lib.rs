@@ -14,6 +14,7 @@
 
 pub mod attach;
 pub mod clap;
+mod echo;
 pub mod libs;
 pub mod lv2;
 mod lv2_patch;
