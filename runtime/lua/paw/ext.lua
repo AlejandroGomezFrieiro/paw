@@ -25,11 +25,7 @@
 local api = paw.api
 local M = { loaded = {} }
 
-local function exists(path)
-  local file = io.open(path, "r")
-  if file then file:close() end
-  return file ~= nil
-end
+local exists = paw.api.fs_exists
 
 -- Versions --------------------------------------------------------------------------
 

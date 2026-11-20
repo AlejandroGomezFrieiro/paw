@@ -9,7 +9,7 @@ paw.ext.load("extensions/tutor")
 local tutor = require("tutor")
 local docs = require("tutor.docs")
 local dir = ... or "docs/tutorials/course"
-os.execute("mkdir -p '" .. dir .. "'")
+pcall(paw.api.fs_mkdir, dir)
 local n = 0
 for name, text in pairs(docs.files(tutor.lessons)) do
   local file = assert(io.open(dir .. "/" .. name, "w"))

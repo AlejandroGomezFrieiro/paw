@@ -106,7 +106,7 @@ function M.save()
   if not path then return end
   local dir = path:match("^(.*)/[^/]*$")
   if dir and not made_dir[dir] then
-    os.execute("mkdir -p '" .. dir:gsub("'", "'\\''") .. "'")
+    pcall(paw.api.fs_mkdir, dir)
     made_dir[dir] = true
   end
   local file = io.open(path, "w")

@@ -175,7 +175,7 @@ function paw.bounce(track, opts)
   for _, clip in ipairs(track:clips()) do finish = math.max(finish, clip.start + clip.length) end
   if finish <= 0 then return nil end
   local dir = api.media_dir()
-  os.execute("mkdir -p '" .. dir:gsub("'", "'\\''") .. "'")
+  pcall(paw.api.fs_mkdir, dir)
   local path = string.format("%s/%s-bounce-%d-%d.wav", dir, track.name:gsub("[^%w%-_]", "_"), os.time(), track.id)
   paw.render(path, { tracks = { track.id }, start = 0, ["end"] = finish, tail = opts.tail or 2, bits = 32 })
   local index = 0

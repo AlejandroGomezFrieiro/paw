@@ -45,11 +45,7 @@ local function list_dir(dir)
   return ok and items or {}
 end
 
-local function exists(path)
-  local f = io.open(path, "r")
-  if f then f:close() end
-  return f ~= nil
-end
+local exists = paw.api.fs_exists
 
 --- A path without `.` and `..`, made absolute from the current directory.
 local function normalize(path)

@@ -17,12 +17,8 @@ function M.dir()
   return dir
 end
 
-local function quote(path)
-  return "'" .. path:gsub("'", "'\\''") .. "'"
-end
-
 function M.ensure(dir)
-  os.execute("mkdir -p " .. quote(dir))
+  pcall(paw.api.fs_mkdir, dir)
   return dir
 end
 
@@ -82,10 +78,6 @@ function M.save(data)
   assert(os.rename(tmp, path))
 end
 
-function M.exists(path)
-  local file = io.open(path, "r")
-  if file then file:close() end
-  return file ~= nil
-end
+M.exists = paw.api.fs_exists
 
 return M

@@ -1711,7 +1711,7 @@ local function layout_file(name) return layout_dir() .. "/" .. tostring(name):gs
 --- Write the tabs and windows as layout `name`, in the state directory.
 function M.save(name)
   local file = layout_file(name)
-  os.execute("mkdir -p '" .. layout_dir():gsub("'", "'\\''") .. "'")
+  pcall(paw.api.fs_mkdir, layout_dir())
   local handle = io.open(file .. ".tmp", "wb")
   if not handle then return false, "cannot write " .. file end
   handle:write(api.json_encode(M.capture(), true))

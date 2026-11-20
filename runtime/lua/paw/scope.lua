@@ -181,7 +181,7 @@ local made = 0      -- files rendered, for their names
 
 local function held_dir()
   local dir = api.env().data_dir .. "/paw/held"
-  os.execute("mkdir -p '" .. dir:gsub("'", "'\\''") .. "'")
+  pcall(paw.api.fs_mkdir, dir)
   return dir
 end
 

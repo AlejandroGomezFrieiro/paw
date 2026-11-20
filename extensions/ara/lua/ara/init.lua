@@ -7,11 +7,7 @@ local api = paw.api
 
 local M = {}
 
-local function exists(path)
-  local f = io.open(path, "rb")
-  if f then f:close() end
-  return f ~= nil
-end
+local exists = paw.api.fs_exists
 
 --- Where `paw-ara.so` is: the `ara_bridge` option, `lib/` beside the
 --- extension (where its Nix package puts it), or `$PAW_ARA_BRIDGE`.

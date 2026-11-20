@@ -80,11 +80,7 @@ local function slot_and_words(ctx)
   return slot, table.concat(words, " ")
 end
 
-local function exists(path)
-  local f = io.open(path, "rb")
-  if f then f:close() end
-  return f ~= nil
-end
+local exists = paw.api.fs_exists
 
 command("plugstate.load", function(ctx)
   local id = target()

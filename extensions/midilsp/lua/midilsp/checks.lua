@@ -26,14 +26,9 @@ local function tool(name)
   local engine = require("midilsp").engine()
   local dir = engine and engine[1]:match("^(.*)/[^/]+$")
   if dir then
-    local f = io.open(dir .. "/" .. name)
-    if f then
-      f:close()
-      return dir .. "/" .. name
-    end
+    if paw.api.fs_exists(dir .. "/" .. name) then return dir .. "/" .. name end
   end
-  local found = io.popen("command -v " .. name .. " 2>/dev/null"):read("*l")
-  return found and found ~= "" and found or nil
+  return paw.api.which(name)
 end
 
 -- The master lowered by `db`, as a fix.

@@ -90,7 +90,7 @@ end
 local function start(input, job)
   local kind = vinput.kinds[input.kind]
   local argv = kind.argv(input)
-  os.execute("mkdir -p '" .. R.dir():gsub("'", "'\\''") .. "'")
+  pcall(paw.api.fs_mkdir, R.dir())
   local log = R.log_path(input.name)
   -- Each run has the file to itself.
   local file = io.open(log, "w")
@@ -306,7 +306,7 @@ function R.sources(kind, refresh)
       list.items = list.items or {}
       return list.items
     end
-    os.execute("mkdir -p '" .. R.dir():gsub("'", "'\\''") .. "'")
+    pcall(paw.api.fs_mkdir, R.dir())
     list.log = R.dir() .. "/" .. kind .. "-list.txt"
     local file = io.open(list.log, "w")
     if file then file:close() end

@@ -56,7 +56,7 @@ function M.save(track_id, name)
   if not name or name == "" then error("a preset needs a name", 0) end
   local preset = M.from_track(track_id, name)
   local dir = M.dir()
-  os.execute("mkdir -p '" .. dir:gsub("'", "'\\''") .. "'")
+  pcall(paw.api.fs_mkdir, dir)
   local path = M.path(name)
   local file = io.open(path, "wb")
   if not file then error("cannot write " .. path, 0) end

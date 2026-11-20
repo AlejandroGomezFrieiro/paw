@@ -212,7 +212,7 @@ function M.preset_text(ref)
           if name and entries["resources/" .. name] then
             local path = dir .. "/" .. name
             if not io.open(path, "rb") then
-              os.execute("mkdir -p '" .. dir:gsub("'", "'\\''") .. "'")
+              pcall(paw.api.fs_mkdir, dir)
               local f = assert(io.open(path, "wb"))
               f:write(entries["resources/" .. name])
               f:close()

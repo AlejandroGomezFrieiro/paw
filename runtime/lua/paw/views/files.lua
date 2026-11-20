@@ -252,7 +252,7 @@ end
 
 -- Writing ------------------------------------------------------------------------------
 
-local function exists(path) return api.fs_stat(path) ~= nil end
+local exists = api.fs_exists
 
 --- Make a folder and the ones above it that are missing, noting each for undoing.
 local function make_dirs(path, state)
