@@ -261,3 +261,5 @@ Melodyne
 Celemony
 Celemony's
 yabridge
+quantiles
+fuzzer

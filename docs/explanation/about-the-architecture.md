@@ -19,20 +19,11 @@ threads and the data that moves between them.
             └─────────────────────────────────────────┘        └────────────────┘
 ```
 
-| Crate | What it holds |
-| --- | --- |
-| `paw-engine` | The audio thread: tracks, routing, chains of devices, clip playback, the transport, the metronome. The built-in devices. The cpal and null backends. It has no Lua and no UI. |
-| `paw-core` | The project model, undo, the sync that drives the engine from the model, the Lua host and `paw.api`, the grid of cells, the event loop, the control socket. |
-| `paw-plugins` | The hosts of CLAP, LV2 and VST3 plugins: the scan, its cache, and for each format a device for the audio thread and a controller for the main thread. |
-| `paw-luadev` | Devices written in Lua. Each is a script in its own LuaJIT state, in a helper process. Also the directories where paw finds the scripts. |
-| `paw-scene` | What all frontends share of a view: the cells and their styles, and the scene. A scene is the drawing of a view as nodes in cell units. paw keeps nodes by key, sends patches, finds the node under the pointer, and lowers a scene to cells. It has no Lua and no UI. |
-| `paw-raster` | Changes the drawings of views (the operations of `paw.canvas`) into pixels, with music fonts. Also the kitty graphics protocol that shows them in a terminal. |
-| `paw-proto` | The client side of the control protocol, with TLS. A program that only talks to a kernel (the graphical window, a remote terminal) does not need the kernel to build. |
-| `paw-listen` | Plays the sound of an instance on the machine where a terminal or a graphical window is attached. |
-| `paw-tui` | The terminal frontend and the `paw` binary. |
-| `paw-gui` | The graphical frontend, written with egui. It is a client of the control socket and nothing more. |
-| `paw-mcp` | A Model Context Protocol server in front of the control socket. |
-| `runtime/lua/paw` | All other parts. It is compiled into the binary. `--runtime <dir>` loads it from the disk. |
+The kernel is `paw-core`. It drives the audio engine (`paw-engine`) and
+the plugin hosts (`paw-plugins`). The terminal frontend and the `paw`
+binary are `paw-tui`. The graphical window is `paw-gui`, a client of the
+control socket. [The source tree](../reference/source-tree.md) lists every
+crate and folder.
 
 The design obeys these rules:
 
