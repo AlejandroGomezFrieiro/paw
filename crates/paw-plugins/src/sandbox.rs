@@ -1934,3 +1934,110 @@ pub fn serve_with(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn hex(bytes: &[u8]) -> String {
+        bytes.iter().map(|b| format!("{b:02x}")).collect()
+    }
+
+    fn frame(op: u8, payload: &[u8]) -> String {
+        let (mut ours, mut theirs) = UnixStream::pair().unwrap();
+        send(&mut ours, op, payload).unwrap();
+        drop(ours);
+        let mut bytes = Vec::new();
+        theirs.read_to_end(&mut bytes).unwrap();
+        hex(&bytes)
+    }
+
+    fn call(method: &str, data: &[u8]) -> Vec<u8> {
+        let mut payload = method.as_bytes().to_vec();
+        payload.push(0);
+        payload.extend_from_slice(data);
+        payload
+    }
+
+    /// The bytes of each request and answer as they were before the
+    /// protocol had types: a helper and a DAW of other versions still
+    /// understand each other.
+    #[test]
+    fn the_wire_keeps_its_bytes() {
+        let set_value = [&3u32.to_le_bytes()[..], &0.5f64.to_le_bytes()].concat();
+        let text = [&2u32.to_le_bytes()[..], &0.25f64.to_le_bytes()].concat();
+        let value = [&2u32.to_le_bytes()[..], b"-3 dB"].concat();
+        let prepare = call(PREPARE, &call("x", b"d"));
+        let cases = [
+            (frame(SET_VALUE, &set_value), "0d0000000103000000000000000000e03f"),
+            (frame(SAVE_STATE, &[]), "0100000002"),
+            (frame(LOAD_STATE, b"st\0ate"), "0700000003737400617465"),
+            (frame(OPEN_EDITOR, "Title é".as_bytes()), "09000000045469746c6520c3a9"),
+            (frame(CLOSE_EDITOR, &[]), "0100000005"),
+            (frame(SET_OFFLINE, &[1]), "020000000601"),
+            (frame(CALL, &call("m", &[1, 2])), "05000000076d000102"),
+            (
+                frame(CALL, &call(PARAM_TEXT, &text)),
+                "1c000000077061772e706172616d2e746578740002000000000000000000d03f",
+            ),
+            (
+                frame(CALL, &call(PARAM_VALUE, &value)),
+                "1a000000077061772e706172616d2e76616c756500020000002d33206442",
+            ),
+            (frame(CALL, &prepare), "140000000773616e64626f782e7072657061726500780064"),
+            (frame(QUIT, &[]), "0100000008"),
+            (frame(VALUES, &[]), "0100000009"),
+            (frame(0, b"yes"), "0400000000796573"),
+            (frame(1, b"no"), "03000000016e6f"),
+        ];
+        for (bytes, today) in cases {
+            assert_eq!(bytes, today);
+        }
+    }
+
+    /// The helper's first word, with numbers that are not finite: JSON has
+    /// no word for them, so they cross as null and arrive as 0.
+    #[test]
+    fn the_first_word_keeps_its_bytes() {
+        let params = [
+            ParamInfo {
+                id: "7".into(),
+                group: "Osc 1".into(),
+                min: f32::NAN,
+                max: f32::INFINITY,
+                default: 0.1,
+                ..ParamInfo::choice("Wave", &["Sine", "Saw"], 1)
+            },
+            ParamInfo::new("Gain", -24.0, 24.0, f32::NEG_INFINITY, "dB"),
+        ];
+        let hello = json!({
+            "params": params.iter().map(param_to).collect::<Vec<_>>(),
+            "values": [0.5, f64::NAN],
+            "has_editor": true,
+            "follows_state": false,
+            "sidechain": true,
+            "outputs": ["Aux"],
+        });
+        let today = concat!(
+            r#"{"follows_state":false,"has_editor":true,"outputs":["Aux"],"params":["#,
+            r#"{"automatable":true,"boolean":false,"choices":["Sine","Saw"],"default":0.10000000149011612,"#,
+            r#""enumeration":true,"group":"Osc 1","id":"7","key":"Wave","max":null,"min":null,"name":"Wave","#,
+            r#""per_note":false,"read_only":false,"steps":1,"unit":""},"#,
+            r#"{"automatable":true,"boolean":false,"choices":[],"default":null,"enumeration":false,"#,
+            r#""group":"","id":"","key":"Gain","max":24.0,"min":-24.0,"name":"Gain","per_note":false,"#,
+            r#""read_only":false,"steps":0,"unit":"dB"}],"sidechain":true,"values":[0.5,null]}"#,
+        );
+        assert_eq!(String::from_utf8(serde_json::to_vec(&hello).unwrap()).unwrap(), today);
+        let read: Value = serde_json::from_str(today).unwrap();
+        let read: Vec<ParamInfo> = read["params"].as_array().unwrap().iter().map(param_from).collect();
+        let finite = |mut p: ParamInfo| {
+            for n in [&mut p.min, &mut p.max, &mut p.default] {
+                if !n.is_finite() {
+                    *n = 0.0;
+                }
+            }
+            p
+        };
+        assert_eq!(read, params.map(finite));
+    }
+}
