@@ -129,6 +129,11 @@ local paw = (_G as {string:Paw}).paw
 | `paw.limit.named(name, fn, a, b)` with arguments of two types | a closure: `paw.limit.named(name, function(): boolean return fn(a, b) end)` |
 | Two modules cannot name each other's types (`local type` requires in a cycle: "unknown type") | the lower module owns the shared records; the other declares only the part it calls (qf.tl and diagnostic.tl) |
 | A record does not fit a contract's interface without `is` (records are nominal) | cast where the value goes in: `data = clip as contracts.QueryData` |
+| `{T} \| function(): {T}` tested with `x is Fn`: the `else` branch is not narrowed | test the table: `if x is {T} then ... elseif x then (x as Fn)() end` |
+| A generic function type in a parameter list (`format?: function(item: T): string, mode?: M`) does not parse | a generic alias: `local type TextOf<T> = function(item: T): string` |
+| `a or b` of two function types, or of a flag and a record | compare: `(spec.preview ~= nil or spec.audition ~= nil)` |
+| A module that stores values of many item types (`paw.pick`'s open picker) | erase the type once where the value goes in (`spec as PickSource<Item>`), and give it back to the owner's own functions |
+| JSON whose shape depends on the method (`params`, `result` of JSON-RPC) | an empty record (`rpc.Payload`) cast once by each handler to its method's record; user JSON values are `util.Data` |
 
 ## What stays Lua
 

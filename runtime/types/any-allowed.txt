@@ -51,7 +51,6 @@ paw.open 1 written in Lua: typed when its module is ported to Teal
 paw.open_chain 1 written in Lua: typed when its module is ported to Teal
 paw.panes 1 written in Lua: typed when its module is ported to Teal
 paw.params 1 written in Lua: typed when its module is ported to Teal
-paw.pick 1 written in Lua: typed when its module is ported to Teal
 paw.plugins 1 written in Lua: typed when its module is ported to Teal
 paw.recent 1 written in Lua: typed when its module is ported to Teal
 paw.reconnect 1 written in Lua: typed when its module is ported to Teal

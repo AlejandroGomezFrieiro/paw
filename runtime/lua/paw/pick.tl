@@ -47,13 +47,278 @@
 -- `paw.pick("tracks")` opens a source by name. `paw.pick.sources` holds them:
 -- add a table of the same fields with a `desc`, or a function returning one.
 -- The picker of pickers (`paw.pick("pickers")`) lists every source.
-local api = paw.api
-local M = {
+--
+-- Written in Teal (paw/lang.tl): the build compiles it to Lua. A picker's
+-- items are of its own type (`contracts.PickSource<T>`); this module keeps
+-- them as `Item` and gives them back to the picker's own functions.
+local api = require("paw.api")
+local util = require("paw.util")
+local options = require("paw.options")
+local seats = require("paw.seats")
+local A = require("paw.address")
+local theme = require("paw.theme")
+local type types = require("paw.types")
+local type contracts = require("paw.contracts")
+local type partial = require("paw.partial")
+local type AuditionModule = require("paw.audition")
+local type QfModule = require("paw.qf")
+local type CommandsModule = require("paw.commands")
+local type RegexModule = require("paw.regex")
+local type MidifileModule = require("paw.midifile")
+local sources = require("paw.pick.sources")
+local type SourcesModule = require("paw.pick.sources")
+
+--- An item of a picker that is a table, as this module reads one that the
+--- picker gives no `format`: its `text`, its `name`, or its first value.
+local record Fields
+  {string}
+  text: string
+  name: string
+end
+
+--- An item of a picker, as this module keeps it: a picker's items are of
+--- its own type (`contracts.PickSource<T>`), and the picker alone reads
+--- them. `paw.pick.open` takes the picker as one of these once.
+local type Item = Fields | string | number | boolean
+
+--- A picker as this module keeps it.
+local type Source = contracts.PickSource<Item>
+
+--- What a picker says of an item: its line, the part that counts first,
+--- or the text a query matches.
+local type ItemText = function(item: Item): string
+
+--- What a picker says of an item of its own type.
+local type TextOf<T> = function(item: T): string
+
+--- The items of a picker that reads them when it opens.
+local type ItemsFn = function(): {Item}
+
+--- A source of `paw.pick.sources` that makes its picker when it opens.
+local type PickFn = function(extra: contracts.PickExtra): contracts.PickInfo
+
+--- How a query is read: letters in order (`fuzzy`), each word as it is
+--- written (`exact`), or a regular expression (`regex`).
+local enum Mode
+  "fuzzy" "exact" "regex"
+end
+
+--- How a term of a query matches.
+local enum TermKind
+  "fuzzy" "exact" "prefix" "suffix" "regex"
+end
+
+--- A term of a query: a word, or the whole query as a regular expression
+--- (`find`, or `invalid` when it does not read).
+local record Term
+  kind: TermKind
+  text: string
+  exact: boolean
+  negate: boolean
+  find: function(text: string): integer, integer
+  invalid: string
+end
+
+--- An item with its line: the text shown and matched, lowered, and its
+--- place in the list; the part that counts first (`primary`) and the whole
+--- text a query matches (`hay`) when the picker gives them; and its score.
+local record Entry
+  item: Item
+  text: string
+  low: string
+  index: integer
+  primary: string
+  hay: string
+  hay_low: string
+  score: number
+  finish: integer
+end
+
+--- An item that matches (`paw.pick.filter`), with its line and score.
+local record Match<T>
+  item: T
+  text: string
+  score: number
+end
+
+--- An open picker: its source, what is typed (a character each), the
+--- entries and those that match, the selection and the top row shown, the
+--- lines marked, the mode, and what it hears.
+local record Picker
+  spec: Source
+  source: string
+  prompt: string
+  query: {string}
+  entries: {Entry}
+  matches: {Entry}
+  selected: integer
+  top: integer
+  multi: boolean
+  marked: {Entry: boolean}
+  last_query: string
+  last_mode: Mode
+  mode: Mode
+  footer: string
+  rows: integer
+  list_y: integer
+  history_at: integer
+  typed: string
+  hear_timer: integer
+  hear_ticker: integer
+  hear_item: Item
+  heard: Item
+  hearing: contracts.Hearing<Item>
+  hear_error: string
+end
+
+--- The last picker opened, as `resume` opens it again.
+local record Resume
+  spec: Source
+  query: string
+  source: string
+  mode: Mode
+  selected: integer
+end
+
+--- A key that every picker has (`paw.pick.keys`): what the key line says,
+--- whether the picker can use it (`when`), whether it takes every line
+--- that matches when none is marked (`all`), whether the picker stays open
+--- (`keep`), and what it does with the entries chosen.
+local record Key
+  desc: string
+  when: function(p: Picker): boolean
+  all: boolean
+  keep: boolean
+  fn: function(p: Picker, entries: {Entry})
+end
+
+--- What plays, for `paw.pick.state()`: whether hearing is on, the item
+--- heard, its label, an error, and whether it waits for the selection to rest.
+local record HearState
+  on: boolean
+  item: Item
+  label: string
+  error: string
+  waiting: boolean
+end
+
+--- The open picker, for tests and frontends (`paw.pick.state()`).
+local record State
+  query: string
+  matches: {string}
+  selected: integer
+  item: Item
+  title: string
+  audition: HearState
+  mode: Mode
+  marked: {Item}
+  source: string
+end
+
+--- A line of the preview pane: its text and style, and the column a sound
+--- file has got to, across its outline.
+local record Line
+  text: string
+  style: string
+  at: integer
+end
+
+--- What `paw.pick.file` takes.
+local record FileOptions
+  title: string
+  extensions: {string}
+  dir: string
+  hidden: boolean
+  directory: boolean
+  on_choose: function(path: string)
+  on_cancel: function()
+end
+
+--- A line of `paw.pick.file`: a file, a directory, or the directory shown (`here`).
+local record FileItem
+  name: string
+  path: string
+  dir: boolean
+  here: boolean
+end
+
+--- What a seat keeps of the pickers: the open one, and the last one.
+local record SeatState
+  active: Picker
+  last: Resume
+end
+
+--- The layout (paw/layout.lua, in Lua): what this module calls of it.
+local record Layout
+  record SplitOptions
+    vertical: boolean
+    view: string
+  end
+  tab_new: function(name?: string, view?: string)
+  current: function(): contracts.Window
+  split: function(opts: SplitOptions): contracts.Window, string
+end
+
+--- The key line (paw/keybar.lua, in Lua): what this module calls of it.
+local record Keybar
+  set: function(view: string, mode: string, fn: function(): {{string}})
+  show: function(key: string): string
+end
+
+--- What `paw.ui.input` takes.
+local record InputOptions
+  prompt: string
+  history: string
+  text: string
+end
+
+--- What paw keeps over the program's run (paw/state.lua, in Lua): the
+--- values this module keeps there, by name.
+local type Kept = {string: util.Data}
+
+local record Paw is partial.Paw
+  state: Kept
+  audition: AuditionModule
+  qf: QfModule
+  commands: CommandsModule
+  regex: RegexModule
+  midifile: MidifileModule
+  address: A
+end
+local paw = (_G as {string:Paw}).paw
+
+local record M
+  type Fields = Fields
+  type Item = Item
+  type Source = Source
+  type Mode = Mode
+  type TermKind = TermKind
+  type Term = Term
+  type Entry = Entry
+  type Match<T> = Match<T>
+  type TextOf<T> = TextOf<T>
+  type Picker = Picker
+  type Resume = Resume
+  type Key = Key
+  type HearState = HearState
+  type State = State
+  type Line = Line
+  type FileOptions = FileOptions
+  type FileItem = FileItem
   --- The pickers by name, for `paw.pick(name)`: a picker, or a function
   --- that makes one.
-  --- @type {string:contracts.PickEntry}
-  sources = {},
-}
+  sources: {string: contracts.PickEntry}
+  --- The ways a query is read.
+  MODES: {Mode}
+  --- The keys every picker has, by key.
+  keys: {string: Key}
+  --- The project, audio and MIDI files under a directory, walking at
+  --- most `limit` entries: what the files picker lists.
+  walk: function(root: string, limit: integer): {SourcesModule.FileLine}
+  open: function<T>(spec: string | contracts.PickSource<T>, extra?: contracts.PickExtra): Picker
+  metamethod __call: function<T>(self: M, spec: string | contracts.PickSource<T>, extra?: contracts.PickExtra): Picker
+end
+M.sources = {}
 
 local byte, lower, sub = string.byte, string.lower, string.sub
 local floor, max, min = math.floor, math.max, math.min
@@ -80,7 +345,7 @@ local NONE = -1e9
 
 -- Character classes, by byte.
 local WHITE, NONWORD, DELIM, LOWER, UPPER, NUMBER = 0, 1, 2, 3, 4, 5
-local class = {}
+local class: {integer: integer} = {}
 for b = 0, 255 do
   local c = NONWORD
   if b == 32 or b == 9 or b == 10 or b == 13 then
@@ -97,7 +362,7 @@ for b = 0, 255 do
   class[b] = c
 end
 
-local function bonus_for(prev, cur)
+local function bonus_for(prev: integer, cur: integer): number
   if cur > DELIM then
     if prev == WHITE then return BONUS_WHITE end
     if prev == DELIM then return BONUS_DELIMITER end
@@ -109,21 +374,27 @@ local function bonus_for(prev, cur)
   return 0
 end
 
-local bonus_table = {}
+local bonus_table: {integer: {integer: number}} = {}
 for prev = 0, 5 do
   bonus_table[prev] = {}
   for cur = 0, 5 do bonus_table[prev][cur] = bonus_for(prev, cur) end
 end
 
 -- Scratch rows, reused for every line so that matching makes no garbage.
-local bonus, cmp, first, last = {}, {}, {}, {}
-local prev_score, prev_run, score_row, run_row = {}, {}, {}, {}
+local bonus: {integer: number} = {}
+local cmp: {integer: integer} = {}
+local first: {integer: integer} = {}
+local last: {integer: integer} = {}
+local prev_score: {integer: number} = {}
+local prev_run: {integer: integer} = {}
+local score_row: {integer: number} = {}
+local run_row: {integer: integer} = {}
 
 --- Score one term (no spaces) against a line. `text` is the line as it is
 --- compared: lowered when the term is. Returns the score, or nil when the term
 --- is not in the line. With `trace` a table, fills it with the byte positions
 --- matched.
-local function match_term(term, text, orig, trace)
+local function match_term(term: string, text: string, orig: string, trace?: {integer}): number, integer
   local m, n = #term, #text
   if m == 0 then return 0 end
   if m > n then return nil end
@@ -156,7 +427,7 @@ local function match_term(term, text, orig, trace)
 
   -- prev_score[k]: best score with term[i-1] matched at k; run: length of the
   -- run of consecutive matches ending there.
-  local from = trace and {} or nil
+  local from: {{integer: integer}} = trace and {} or nil
   local c1 = byte(term, 1)
   for k = lo, hi do
     if k >= first[1] and k <= last[1] and cmp[k] == c1 then
@@ -172,7 +443,7 @@ local function match_term(term, text, orig, trace)
     local c = byte(term, i)
     local a, b = first[i], last[i]
     local gap, gap_at = NONE, 0   -- best of prev_score[k] less the gap up to here
-    local row_from = from and {} or nil
+    local row_from: {integer: integer} = from and {} or nil
     if from then from[i] = row_from end
     for k = lo, hi do
       -- Bring the gap candidate forward to column k: a match of the
@@ -182,7 +453,9 @@ local function match_term(term, text, orig, trace)
         if gap ~= NONE then gap = gap + GAP_EXTEND end
         if p ~= NONE and p + GAP_START > gap then gap, gap_at = p + GAP_START, k - 2 end
       end
-      local s, r, src = NONE, 0, nil
+      local s: number = NONE
+      local r = 0
+      local src: integer = nil
       if k >= a and k <= b and cmp[k] == c then
         local own = bonus[k]
         local d = k > lo and prev_score[k - 1] or NONE
@@ -208,7 +481,8 @@ local function match_term(term, text, orig, trace)
       prev_score[k], prev_run[k] = score_row[k], run_row[k]
     end
   end
-  local best, at = NONE, nil
+  local best: number = NONE
+  local at: integer = nil
   for k = lo, hi do
     if prev_score[k] > best then best, at = prev_score[k], k end
   end
@@ -232,17 +506,19 @@ M.MODES = { "fuzzy", "exact", "regex" }
 --- typed; one without ignores case. In fuzzy mode a term may say how it
 --- matches, as in fzf: `'word` as written, `^word` at the start of the
 --- line, `word$` at its end, `!word` not in the line (`!^word`, `!word$`).
-local function terms_of(query, mode)
-  local out = {}
+local function terms_of(query: string, mode?: Mode): {Term}
+  local out: {Term} = {}
   if mode == "regex" then
     if query:match("%S") then
       local re, err = paw.regex.try(query)
-      out[1] = { kind = "regex", re = re, invalid = err, text = query }
+      out[1] = { kind = "regex", invalid = err, text = query,
+        find = re and function(s: string): integer, integer return re:find(s) end or nil }
     end
     return out
   end
   for word in query:gmatch("%S+") do
-    local kind, negate = mode == "exact" and "exact" or "fuzzy", false
+    local kind: TermKind = mode == "exact" and "exact" or "fuzzy"
+    local negate = false
     if mode ~= "exact" then
       if #word > 1 and sub(word, 1, 1) == "!" then negate, word, kind = true, sub(word, 2), "exact" end
       if #word > 1 and sub(word, 1, 1) == "'" then
@@ -260,12 +536,12 @@ end
 
 --- Score a term that is not fuzzy: the place it is found, worth what the
 --- same characters in a run would be, with the bonus of where it starts.
-local function match_plain(term, text, orig, trace)
-  local a, b
+local function match_plain(term: Term, text: string, orig: string, trace?: {integer}): number, integer
+  local a, b: integer, integer
   if term.invalid then
     return nil
   elseif term.kind == "regex" then
-    a, b = term.re:find(orig)
+    a, b = term.find(orig)
     if a and b < a then b = a end
   elseif term.kind == "prefix" then
     if sub(text, 1, #term.text) == term.text then a, b = 1, #term.text end
@@ -285,14 +561,14 @@ local function match_plain(term, text, orig, trace)
 end
 
 --- Score one term of any kind against a line; `low` is the line lowered.
-local function score_term(term, orig, low, trace)
+local function score_term(term: Term, orig: string, low: string, trace?: {integer}): number, integer
   local text = term.exact and orig or low
   if term.kind == "fuzzy" then return match_term(term.text, text, orig, trace) end
   return match_plain(term, text, orig, trace)
 end
 
 --- Lower the text of the terms that ignore case, once.
-local function ready(terms)
+local function ready(terms: {Term}): {Term}
   for _, term in ipairs(terms) do
     if not term.exact and term.text and term.kind ~= "regex" then term.text = lower(term.text) end
   end
@@ -304,9 +580,10 @@ end
 --- Words of the query separated by spaces must each match. `mode` is one
 --- of `paw.pick.MODES`, "fuzzy" by default.
 ---   paw.pick.match("bs", "Bass Synth")   --> score, { 1, 6 }
-function M.match(query, text, want_positions, mode)
+function M.match(query: string, text: string, want_positions?: boolean, mode?: Mode): number, {integer}
   if want_positions == nil then want_positions = true end
-  local total, positions = 0, want_positions and {} or nil
+  local total: number = 0
+  local positions: {integer} = want_positions and {} or nil
   local low = lower(text)
   for _, term in ipairs(ready(terms_of(query, mode))) do
     local s = score_term(term, text, low, positions)
@@ -321,20 +598,20 @@ end
 --- (lowered) when the picker says which part of a line counts first.
 --- `search(item)` gives the whole text that a query matches, when the line
 --- shows a part of it (a description cut to the width).
-local function entries_of(items, format, primary, search)
-  local out = {}
+local function entries_of(items: {Item}, format?: ItemText, primary?: ItemText, search?: ItemText): {Entry}
+  local out: {Entry} = {}
   for i, item in ipairs(items) do
-    local text
+    local text: string | Item
     if format then
       text = format(item)
-    elseif type(item) == "table" then
+    elseif item is Fields then
       text = item.text or item.name or item[1]
     end
-    text = tostring(text == nil and item or text):gsub("[\r\n\t]", " ")
-    out[i] = { item = item, text = text, low = lower(text), index = i }
+    local line = tostring(text == nil and item or text):gsub("[\r\n\t]", " ")
+    out[i] = { item = item, text = line, low = lower(line), index = i }
     if primary then out[i].primary = tostring(primary(item) or "") end
     if search then
-      local hay = tostring(search(item) or text):gsub("[\r\n\t]", " ")
+      local hay = tostring(search(item) or line):gsub("[\r\n\t]", " ")
       out[i].hay, out[i].hay_low = hay, lower(hay)
     end
   end
@@ -355,7 +632,7 @@ local WORD_BONUS, PREFIX_BONUS, EXACT_BONUS = 200, 300, 600
 local BOOST_MAX = 120
 
 --- Whether `text` has `term` at the start of a word.
-local function starts_word(text, term)
+local function starts_word(text: string, term: string): boolean
   local from = 1
   while true do
     local at = text:find(term, from, true)
@@ -366,7 +643,7 @@ local function starts_word(text, term)
 end
 
 -- Equal scores go to the match that ends sooner, then to the shorter line.
-local function by_score(a, b)
+local function by_score(a: Entry, b: Entry): boolean
   if a.score ~= b.score then return a.score > b.score end
   if a.finish ~= b.finish then return a.finish < b.finish end
   if #a.text ~= #b.text then return #a.text < #b.text end
@@ -375,10 +652,10 @@ end
 
 --- Keep the entries that match `query`, best first. An empty query keeps
 --- every entry, in its order.
-local function filter_entries(query, entries, mode)
+local function filter_entries(query: string, entries: {Entry}, mode?: Mode): {Entry}
   local terms = ready(terms_of(query, mode))
   if #terms == 0 then
-    local out = {}
+    local out: {Entry} = {}
     for i, e in ipairs(entries) do
       e.score, e.finish = 0, 0
       out[i] = e
@@ -387,9 +664,10 @@ local function filter_entries(query, entries, mode)
   end
   -- A regex finds a place rather than ranks: the lines keep their order.
   local plain = mode == "regex"
-  local out = {}
+  local out: {Entry} = {}
   for _, e in ipairs(entries) do
-    local total, finish = 0, nil
+    local total: number = 0
+    local finish: integer = nil
     for _, term in ipairs(terms) do
       local s, at = score_term(term, e.hay or e.text, e.hay_low or e.low)
       if not s then
@@ -440,27 +718,28 @@ end
 --- The items that match `query`, best first, each as { item, text, score }.
 --- `mode` is as `paw.pick.match` takes it.
 ---   paw.pick.filter("bass", { "Bass", "Bass Synth", "Drums" })
-function M.filter(query, items, format, primary, mode)
-  local out = {}
-  for i, e in ipairs(filter_entries(query, entries_of(items, format, primary), mode)) do
-    out[i] = { item = e.item, text = e.text, score = e.score }
+function M.filter<T>(query: string, items: {T}, format?: TextOf<T>, primary?: TextOf<T>, mode?: Mode): {Match<T>}
+  local out: {Match<T>} = {}
+  local entries = entries_of(items as {Item}, format as ItemText, primary as ItemText)
+  for i, e in ipairs(filter_entries(query, entries, mode)) do
+    out[i] = { item = e.item as T, text = e.text, score = e.score }
   end
   return out
 end
 
 -- The picker --------------------------------------------------------------------
 
-local active        -- the open picker
-local last_spec     -- for `resume`
-paw.seats.keep("pick",
-  function() return active, last_spec end,
-  function(a, spec) active, last_spec = a, spec end,
-  function() return nil, nil end)
+local active: Picker      -- the open picker
+local last_spec: Resume   -- for `resume`
+seats.keep("pick",
+  function(): SeatState return { active = active, last = last_spec } end,
+  function(s: SeatState) active, last_spec = s.active, s.last end,
+  function(): SeatState return {} end)
 
-local view = { modal = true }
+local view: contracts.View = { modal = true }
 
-local function chars_of(text)
-  local out = {}
+local function chars_of(text: string): {string}
+  local out: {string} = {}
   for ch in text:gmatch("[%z\1-\127\194-\244][\128-\191]*") do out[#out + 1] = ch end
   return out
 end
@@ -468,12 +747,12 @@ end
 --- Whether a query typed on from `before` can only narrow what it matched:
 --- in fuzzy and exact mode, unless a word says what must not be there or
 --- what the line ends with.
-local function narrows(p, before, query)
+local function narrows(p: Picker, before: string, query: string): boolean
   if before == "" or query:sub(1, #before) ~= before or p.mode == "regex" then return false end
   return not (query:find("!", 1, true) or query:find("$", 1, true)) or p.mode == "exact"
 end
 
-local function refilter(p)
+local function refilter(p: Picker)
   local query = table.concat(p.query)
   -- Typing on only narrows the matches (a longer term, another term, a
   -- capital that makes a term match case), so start from the last ones.
@@ -483,7 +762,7 @@ local function refilter(p)
   -- A picker may match and rank its items itself: `rank(item, query, line)`
   -- returns a score, higher first, or nil to leave the item out.
   if p.spec.rank then
-    local kept = {}
+    local kept: {Entry} = {}
     for _, e in ipairs(base) do
       e.score, e.finish = p.spec.rank(e.item, query, e.text), 0
       if e.score then kept[#kept + 1] = e end
@@ -505,46 +784,50 @@ local function refilter(p)
   p.selected, p.top = 1, 1
 end
 
-local function current(p)
+local function current(p: Picker): Item, Entry
   local e = p.matches[p.selected]
   return e and e.item, e
 end
 
 -- Hearing ------------------------------------------------------------------------
 
-local function hear_key(p)
+local function hear_key(p: Picker): string
   return "pick.audition." .. tostring(p.spec.audition_key or p.source or p.spec.title or "?")
 end
 
-local function hearing_on(p)
+local function hearing_on(p: Picker): boolean
   if not p.spec.audition then return false end
   local on = paw.state[hear_key(p)]
   if on == nil then return p.spec.audition_default ~= false end
-  return on
+  return on as boolean
 end
 
 --- Forget what the picker plays, and stop its timer.
-local function hush(p)
+local function hush(p: Picker)
   if p.hear_timer then paw.cancel(p.hear_timer) end
   if p.hear_ticker then paw.cancel(p.hear_ticker) end
   p.hear_timer, p.hear_ticker, p.hear_item, p.heard, p.hearing, p.hear_error = nil, nil, nil, nil, nil, nil
 end
 
-local function hear(p, item)
+local function hear(p: Picker, item: Item)
   p.hear_timer = nil
   if active ~= p then return end
   paw.audition.revert()
   p.heard, p.hearing, p.hear_error = nil, nil, nil
-  if item == nil then return paw.audition.stop() end
+  if item == nil then
+    paw.audition.stop()
+    return
+  end
   local asked = paw.audition.asked
-  local ok, result = pcall(p.spec.audition, item)
+  local ok, result = pcall(p.spec.audition, item) as (boolean, string | contracts.Hearing<Item>)
   if not ok then
     paw.audition.stop()
     p.hear_error = tostring(result):match("^[^\n]*"):gsub("^[^:]*:%d+: ", "")
   else
     -- An item with nothing to hear silences the one before.
     if paw.audition.asked == asked then paw.audition.quiet() end
-    p.heard, p.hearing = item, type(result) == "table" and result or { label = result }
+    p.heard = item
+    if result is contracts.Hearing<Item> then p.hearing = result else p.hearing = { label = result } end
   end
   -- While something plays or loads, the pane follows it.
   if not p.hear_ticker then
@@ -556,7 +839,7 @@ local function hear(p, item)
 end
 
 --- After the selection moved: hear the item now under it once it rests there.
-local function follow(p)
+local function follow(p: Picker)
   if not hearing_on(p) then return end
   local item = current(p)
   if item == p.hear_item then return end
@@ -565,12 +848,12 @@ local function follow(p)
   -- A file stops at once; a phrase plays on until the next sound is ready.
   api.preview_stop()
   -- A source may wait longer for what is slow to make ready (a plugin).
-  local delay = tonumber(paw.opt.audition_delay) or 150
+  local delay = tonumber(options.opt.audition_delay) or 150
   if p.spec.audition_delay and item ~= nil then delay = p.spec.audition_delay(item, delay) or delay end
   p.hear_timer = paw.defer(function() hear(p, item) end, math.max(0, delay))
 end
 
-local function toggle_hearing(p)
+local function toggle_hearing(p: Picker)
   if not p.spec.audition then return paw.notify("nothing to hear in this picker", "warn") end
   local on = not hearing_on(p)
   paw.state[hear_key(p)] = on
@@ -580,7 +863,7 @@ local function toggle_hearing(p)
   api.ui_redraw()
 end
 
-local function close(p)
+local function close(p: Picker)
   if active == p then active = nil end
   if p.spec.audition then
     hush(p)
@@ -589,7 +872,7 @@ local function close(p)
   if paw.ui.float and paw.ui.float.name == "pick" then paw.ui.close() end
 end
 
-local function choose(p)
+local function choose(p: Picker)
   local item = current(p)
   local keep = p.hearing and p.hearing.keep
   local kept = keep and item ~= nil and p.heard == item and not (p.multi and next(p.marked))
@@ -603,7 +886,7 @@ local function choose(p)
     paw.audition.revert()
   end
   if p.multi and next(p.marked) then
-    local items = {}
+    local items: {Item} = {}
     for _, e in ipairs(p.entries) do
       if p.marked[e] then items[#items + 1] = e.item end
     end
@@ -618,22 +901,23 @@ local function choose(p)
   if p.spec.on_choose then p.spec.on_choose(item) end
 end
 
-local function cancel(p)
+local function cancel(p: Picker)
   close(p)
   paw.audition.revert()
   if p.spec.on_cancel then p.spec.on_cancel() end
 end
 
-local function move(p, by)
+local function move(p: Picker, by: integer)
   local n = #p.matches
   if n == 0 then return end
   p.selected = (p.selected - 1 + by) % n + 1
 end
 
-local function action_of(p, key)
+local function action_of(p: Picker, key: string): contracts.PickAction<Item>
   local a = p.spec.actions and p.spec.actions[key]
-  if type(a) == "function" then return { fn = a } end
-  return a
+  if a is contracts.PickAction<Item> then return a end
+  if a then return { fn = a } end
+  return nil
 end
 
 -- History -------------------------------------------------------------------------
@@ -643,22 +927,24 @@ end
 
 local HISTORY = 50
 
-local function source_key(p) return tostring(p.source or p.spec.title or "?") end
+local function source_key(p: Picker): string return tostring(p.source or p.spec.title or "?") end
 
-local function history_of(p) return paw.state["pick.history." .. source_key(p)] or {} end
+local function history_of(p: Picker): {string}
+  return (paw.state["pick.history." .. source_key(p)] or {}) as {string}
+end
 
 --- Remember the query of a picker that was used, unless it is the last one.
-local function remember(p)
+local function remember(p: Picker)
   local query = table.concat(p.query)
   if not query:match("%S") then return end
   local list = { query }
   for _, q in ipairs(history_of(p)) do
     if q ~= query and #list < HISTORY then list[#list + 1] = q end
   end
-  paw.state["pick.history." .. source_key(p)] = list
+  paw.state["pick.history." .. source_key(p)] = list as util.Data
 end
 
-local function step_history(p, by)
+local function step_history(p: Picker, by: integer)
   local list = history_of(p)
   if #list == 0 then return paw.notify("nothing typed in this picker before", "warn") end
   if not p.history_at then p.typed = table.concat(p.query) end
@@ -680,8 +966,8 @@ end
 
 --- The entries marked, in their order, or the one under the selection
 --- (with `all`, every one that matches).
-local function chosen_entries(p, all)
-  local out = {}
+local function chosen_entries(p: Picker, all: boolean): {Entry}
+  local out: {Entry} = {}
   for _, e in ipairs(p.entries) do
     if p.marked[e] then out[#out + 1] = e end
   end
@@ -696,21 +982,21 @@ local function chosen_entries(p, all)
   return out
 end
 
-local function location_of(p, item)
+local function location_of(p: Picker, item: Item): contracts.Location
   if not p.spec.location or item == nil then return nil end
-  local ok, loc = pcall(p.spec.location, item)
+  local ok, loc = pcall(p.spec.location, item) as (boolean, string | contracts.Location)
   if not ok or not loc then return nil end
-  if type(loc) == "string" then loc = { uri = loc } end
+  if loc is string then return { uri = loc } end
   return loc
 end
 
 -- The view that shows an address best, for a window of its own.
-local function view_for(loc)
+local function view_for(loc: contracts.Location): string
   local parsed = paw.address.parse(loc.uri)
   if not parsed then return "arrange" end
   if parsed.kind == "note" or parsed.kind == "control" then return "pianoroll" end
   if parsed.kind == "clip" then
-    local ok, c = pcall(api.clip_get, parsed.clip)
+    local ok, c = pcall(api.clip_get, parsed.clip) as (boolean, types.Clip)
     return ok and c.kind == "midi" and "pianoroll" or "arrange"
   end
   if parsed.kind == "device" or parsed.kind == "param" then return "devices" end
@@ -720,11 +1006,11 @@ end
 --- Show a location: in place (`how` nil), or in a new window to the side
 --- ("vsplit"), below ("split") or in a new tab ("tab"). The view that shows
 --- it best moves there. Returns true if there was a place to go.
-function M.show(loc, how)
-  if type(loc) == "string" then loc = { uri = loc } end
+function M.show(where: string | contracts.Location, how?: string): boolean
+  local loc: contracts.Location = where is string and { uri = where } or where as contracts.Location
   if not how then return paw.qf.go({ location = loc }) end
   local name = view_for(loc)
-  local L = paw.layout
+  local L = paw.layout as Layout
   if how == "tab" then
     L.tab_new(nil, name)
   elseif not (L.current() and L.current().view == name) then
@@ -740,8 +1026,8 @@ function M.show(loc, how)
   return paw.qf.go({ location = loc })
 end
 
-local function open_with(how)
-  return function(p, entries)
+local function open_with(how: string): function(p: Picker, entries: {Entry})
+  return function(p: Picker, entries: {Entry})
     local e = entries[1]
     if not e then return end
     if #entries > 1 then paw.notify(string.format("opened the first of %d marked", #entries)) end
@@ -753,9 +1039,9 @@ local function open_with(how)
 end
 
 --- The lines as quickfix entries, with their addresses when the picker has them.
-local function send_to_list(loc)
-  return function(p, entries)
-    local list = {}
+local function send_to_list(loc: boolean): function(p: Picker, entries: {Entry})
+  return function(p: Picker, entries: {Entry})
+    local list: {QfModule.Item} = {}
     for i, e in ipairs(entries) do list[i] = { location = location_of(p, e.item), text = e.text } end
     local query = table.concat(p.query)
     paw.qf.set(list, { title = (p.spec.title or "pick") .. (query ~= "" and " · " .. query or ""), win = loc or nil, source = "pick" })
@@ -764,37 +1050,39 @@ local function send_to_list(loc)
   end
 end
 
-local function insert(p, entries)
+local function insert(p: Picker, entries: {Entry})
   local e = entries[1]
   if not e then return end
   if p.spec.insert then return p.spec.insert(e.item) end
   local text = e.text:gsub("^%s+", ""):gsub("%s+$", "")
-  paw.ui.input({ prompt = ":", history = "cmdline", text = text }, function(line)
+  local opts: InputOptions = { prompt = ":", history = "cmdline", text = text }
+  paw.ui.input(opts, function(line: string)
     if line:match("%S") then paw.commands.exec(line) end
   end)
 end
 
 --- Read a picker's items again, keeping what is typed.
-local function reload(p)
-  local items = p.spec.items
-  if type(items) == "function" then items = items() end
+local function reload(p: Picker)
+  local given = p.spec.items
+  local items: {Item}
+  if given is {Item} then items = given elseif given then items = (given as ItemsFn)() end
   p.entries = entries_of(items or {}, p.spec.format, p.spec.primary, p.spec.search)
   p.marked, p.last_query = {}, ""
   refilter(p)
 end
 
-local function delete(p, entries)
+local function delete(p: Picker, entries: {Entry})
   if #entries == 0 then return end
-  local items = {}
+  local items: {Item} = {}
   for i, e in ipairs(entries) do items[i] = e.item end
-  local ok, err = pcall(p.spec.delete, items)
+  local ok, err = pcall(p.spec.delete, items) as (boolean, string)
   if not ok then paw.notify((tostring(err):gsub("^[^:]*:%d+: ", "")), "error") end
   local selected = p.selected
   reload(p)
   p.selected = max(1, min(selected, #p.matches))
 end
 
-local function can_open(p) return p.spec.location ~= nil or p.spec.open ~= nil end
+local function can_open(p: Picker): boolean return p.spec.location ~= nil or p.spec.open ~= nil end
 
 --- The keys every picker has, by key: `{ desc, when(p), all, keep, fn(p, entries) }`.
 M.keys = {
@@ -804,15 +1092,16 @@ M.keys = {
   ["<C-q>"] = { desc = "quickfix", all = true, fn = send_to_list(false) },
   ["<C-l>"] = { desc = "location list", all = true, fn = send_to_list(true) },
   ["<C-y>"] = { desc = "insert", fn = insert },
-  ["<A-d>"] = { desc = "delete", when = function(p) return p.spec.delete ~= nil end, keep = true, fn = delete },
+  ["<A-d>"] = { desc = "delete", when = function(p: Picker): boolean return p.spec.delete ~= nil end, keep = true, fn = delete },
 }
 
-local function generic_of(p, key)
+local function generic_of(p: Picker, key: string): Key
   local g = M.keys[key]
   if g and (not g.when or g.when(p)) then return g end
+  return nil
 end
 
-local function cycle_mode(p)
+local function cycle_mode(p: Picker)
   local at = 1
   for i, m in ipairs(M.MODES) do
     if m == p.mode then at = i end
@@ -822,9 +1111,12 @@ local function cycle_mode(p)
   refilter(p)
 end
 
-function view:on_key(key)
+function view:on_key(key: string): boolean
   local p = active
-  if not p then return paw.ui.close() end
+  if not p then
+    paw.ui.close()
+    return true
+  end
   -- `resume` reopens as it was when Enter or Escape closed it.
   local function keep_for_resume()
     if last_spec and last_spec.spec == p.spec then
@@ -833,25 +1125,29 @@ function view:on_key(key)
   end
   keep_for_resume()
   local action = action_of(p, key)
-  local g = not action and generic_of(p, key)
+  local g = not action and generic_of(p, key) or nil
   if action or g then
-    local item, entries = current(p), g and chosen_entries(p, g.all)
+    local item = current(p)
+    local entries = g and chosen_entries(p, g.all)
     remember(p)
-    if not (action or g).keep then
+    if not (action and action.keep or g and g.keep) then
       close(p)
       paw.audition.revert()
     end
-    if action then action.fn(item, table.concat(p.query), p) else g.fn(p, entries) end
+    if action then action.fn(item, table.concat(p.query)) else g.fn(p, entries) end
     if active == p then follow(p) end
-    return api.ui_redraw()
+    api.ui_redraw()
+    return true
   end
   local stepping = key == "<C-Up>" or key == "<C-Down>"
   if not stepping then p.history_at = nil end
   if key == "<CR>" then
     remember(p)
-    return choose(p)
+    choose(p)
+    return true
   elseif key == "<Esc>" or key == "<C-c>" then
-    return cancel(p)
+    cancel(p)
+    return true
   elseif key == "<C-Space>" then
     toggle_hearing(p)
   elseif key == "<C-r>" then
@@ -907,30 +1203,36 @@ function view:on_key(key)
   keep_for_resume()
   follow(p)
   api.ui_redraw()
+  return true
 end
 
-function view:on_mouse(event)
+function view:on_mouse(event: contracts.MouseEvent): boolean
   local p = active
-  if not p then return end
+  if not p then return false end
   if event.kind == "scroll_down" then
     move(p, 3)
   elseif event.kind == "scroll_up" then
     move(p, -3)
   elseif event.kind == "down" and p.list_y and event.y >= p.list_y then
-    local at = p.top + event.y - p.list_y
+    -- A row of the list: a window gives a place within the cell.
+    local at = p.top + floor(event.y) - p.list_y
     if p.matches[at] then
-      if at == p.selected then return choose(p) end
+      if at == p.selected then
+        choose(p)
+        return true
+      end
       p.selected = at
     end
   end
   follow(p)
   api.ui_redraw()
+  return true
 end
 
 --- Draw `text` cut to `width` columns, with the characters at byte
 --- `positions` (sorted) in `style`.
-local function draw_matched(buf, x, y, text, positions, width, style)
-  buf:text(x, y, paw.util.fit(text, width), nil)
+local function draw_matched(buf: contracts.Buf, x: integer, y: integer, text: string, positions: {integer}, width: integer, style: string)
+  buf:text(x, y, util.fit(text, width), nil)
   if not positions or #positions == 0 then return end
   -- A line that does not fit ends in "…" in its last column.
   local limit = api.str_width(text) > width and width - 1 or width
@@ -946,16 +1248,18 @@ local function draw_matched(buf, x, y, text, positions, width, style)
   end
 end
 
-local function clock(seconds)
+local function clock(seconds: number): string
   seconds = seconds or 0
   return string.format("%d:%04.1f", math.floor(seconds / 60), seconds % 60)
 end
 
+local marks_of_state: {string: string} = { loading = "… reading ", failed = "✗ ", ended = "■ " }
+
 --- The top of the preview pane in a picker that can be heard: what plays,
 --- and a sound file's outline with the place it has got to.
-local function hearing_lines(p, width)
+local function hearing_lines(p: Picker, width: integer): {Line}
   if not hearing_on(p) then return { { text = "♪ off · Ctrl-Space hears", style = "Dim" }, { text = "" } } end
-  local lines = {}
+  local lines: {Line} = {}
   local now = paw.audition.state()
   local h = p.hearing
   if p.hear_error then
@@ -965,7 +1269,7 @@ local function hearing_lines(p, width)
   elseif h.loading and h.loading() then
     lines[1] = { text = "… loading " .. tostring(h.label or ""), style = "Dim" }
   elseif now and now.kind == "file" then
-    local mark = ({ loading = "… reading ", failed = "✗ ", ended = "■ " })[now.state] or "♪ "
+    local mark = marks_of_state[now.state] or "♪ "
     local name = h.label or now.file:match("[^/]*$")
     lines[1] = { text = mark .. name .. (now.error and " · " .. now.error or ""), style = now.state == "failed" and "Warn" or "PickPlaying" }
     if now.outline then
@@ -986,22 +1290,23 @@ local function hearing_lines(p, width)
   return lines
 end
 
-local function preview_lines(p, item, width, height)
+local function preview_lines(p: Picker, item: Item, width: integer, height: integer): {Line}
   if item == nil or not p.spec.preview then return {} end
-  local ok, lines = pcall(p.spec.preview, item, width, height)
+  local ok, lines = pcall(p.spec.preview, item, width, height) as (boolean, string | {string | contracts.PageLine})
   if not ok then return { { text = tostring(lines), style = "Error" } } end
-  if type(lines) == "string" then lines = { lines } end
-  local out = {}
-  for _, line in ipairs(lines or {}) do
-    line = type(line) == "table" and line or { text = line }
+  local list: {string | contracts.PageLine}
+  if lines is string then list = { lines } else list = lines end
+  local out: {Line} = {}
+  for _, given in ipairs(list or {}) do
+    local line: contracts.PageLine = given is contracts.PageLine and given or { text = given as string }
     for part in (tostring(line.text) .. "\n"):gmatch("([^\n]*)\n") do
-      out[#out + 1] = { text = part:gsub("\t", "  "), style = line.style }
+      out[#out + 1] = { text = (part:gsub("\t", "  ")), style = line.style }
     end
   end
   return out
 end
 
-function view:render(buf, ctx)
+function view:render(buf?: contracts.Buf, ctx?: contracts.RenderContext)
   local p = active
   if not p then return end
   local w, h = buf.width, buf.height
@@ -1028,7 +1333,7 @@ function view:render(buf, ctx)
 
   -- A preview pane takes the right 40% when there is room for one.
   local list_w = w
-  local has_preview = (p.spec.preview or p.spec.audition) and w >= 60
+  local has_preview = (p.spec.preview ~= nil or p.spec.audition ~= nil) and w >= 60
   if has_preview then list_w = floor(w * 0.6) end
 
   local footer = p.footer
@@ -1041,11 +1346,15 @@ function view:render(buf, ctx)
   if #p.entries == 0 then
     buf:text(2, 2, p.spec.empty or "Nothing to choose from.", "Dim")
   elseif #p.matches == 0 then
-    local bad = p.mode == "regex" and select(2, paw.regex.try(query))
-    buf:text(2, 2, bad and paw.util.fit(bad, list_w - 3) or "Nothing matches.", bad and "Warn" or "Dim")
+    local bad: string = nil
+    if p.mode == "regex" then
+      local _, err = paw.regex.try(query)
+      bad = err
+    end
+    buf:text(2, 2, bad and util.fit(bad, list_w - 3) or "Nothing matches.", bad and "Warn" or "Dim")
   end
   -- The column of marks shows once something is marked.
-  local mark_room = (p.spec.multi or next(p.marked)) and 2 or 0
+  local mark_room = (p.spec.multi or next(p.marked) ~= nil) and 2 or 0
   local terms_query = query:match("%S") and query or nil
   for row = 0, rows - 1 do
     local index = p.top + row
@@ -1058,7 +1367,7 @@ function view:render(buf, ctx)
     local heard = selected and p.heard ~= nil and p.heard == e.item and paw.audition.state() ~= nil
     buf:text(0, y, heard and "♪" or selected and "▶" or " ", selected and "PickCaret" or nil)
     if mark_room > 0 then buf:text(2, y, p.marked[e] and "+" or " ", "PickMarked") end
-    local positions
+    local positions: {integer}
     if terms_query then
       local _, pos = M.match(terms_query, e.text, true, p.mode)
       positions = pos
@@ -1076,38 +1385,39 @@ function view:render(buf, ctx)
     end
     for i, line in ipairs(lines) do
       if i > rows then break end
-      buf:text(list_w + 2, 1 + i, paw.util.fit(line.text, pw), line.style or "Normal")
+      buf:text(list_w + 2, 1 + i, util.fit(line.text, pw), line.style or "Normal")
       -- The column a sound file has got to, across its outline.
       if line.at and line.at <= pw then buf:fill(list_w + 1 + line.at, 1 + i, 1, 1, nil, "PickPlayhead") end
     end
   end
-  if footer then buf:text(0, h - 1, paw.util.fit(footer, w), "Dim") end
+  if footer then buf:text(0, h - 1, util.fit(footer, w), "Dim") end
 end
 
 paw.ui.view("pick", view)
 
 -- The key line while a picker is open: what the keys of this one do (the
 -- keys themselves are not mapped: the picker takes every key).
-paw.ui.keybar.set("pick", "n", function()
-  local out = { { "", active and active.spec.choose or "choose", "Enter" } }
-  local keys = {}
+local keybar = paw.ui.keybar as Keybar
+keybar.set("pick", "n", function(): {{string}}
+  local out: {{string}} = { { "", active and active.spec.choose or "choose", "Enter" } }
+  local keys: {{string}} = {}
   for key, a in pairs(active and active.spec.actions or {}) do
-    if type(a) == "table" and a.desc then keys[#keys + 1] = { "", a.desc, paw.ui.keybar.show(key) } end
+    if a is contracts.PickAction<Item> and a.desc then keys[#keys + 1] = { "", a.desc, keybar.show(key) } end
   end
-  table.sort(keys, function(a, b) return a[3] < b[3] end)
+  table.sort(keys, function(a: {string}, b: {string}): boolean return a[3] < b[3] end)
   for _, entry in ipairs(keys) do out[#out + 1] = entry end
   out[#out + 1] = { "", "close", "Esc" }
   return out
 end)
 
-local function footer_of(p)
+local function footer_of(p: Picker): string
   local spec = p.spec
   local parts = { "Enter choose", "Esc cancel", "C-n/C-p move" }
   if p.multi then parts[#parts + 1] = "Tab mark" end
   if spec.audition then parts[#parts + 1] = "C-Space hear" end
-  local keys = {}
+  local keys: {string} = {}
   for key, a in pairs(spec.actions or {}) do
-    if type(a) == "table" and a.desc then keys[#keys + 1] = key:gsub("^<(.*)>$", "%1") .. " " .. a.desc end
+    if a is contracts.PickAction<Item> and a.desc then keys[#keys + 1] = key:gsub("^<(.*)>$", "%1") .. " " .. a.desc end
   end
   table.sort(keys)
   for _, k in ipairs(keys) do parts[#parts + 1] = k end
@@ -1119,38 +1429,56 @@ local function footer_of(p)
   return table.concat(parts, "  ")
 end
 
+local open_spec: function(spec: Source, source_name: string): Picker
+
+-- A copy of a picker with one field more: its source's name, or what is typed.
+local function with_field(spec: Source, key: string, value: string): Source
+  local out: {string: util.Data} = {}
+  for k, v in pairs(spec as {string: util.Data}) do out[k] = v end
+  out[key] = value
+  return out as Source
+end
+
 --- Open a picker. See the top of this file for the fields of `spec`, or pass
 --- the name of a source. Returns the picker's state.
---- @type function<T>(spec: contracts.PickSource<T>)
---- @type function(name: string, extra?: contracts.PickExtra)
---- @call function<T>(spec: string | contracts.PickSource<T>, extra?: contracts.PickExtra)
-function M.open(spec, extra)
-  local source_name
-  if type(spec) == "string" then
-    local name = spec
+function M.open<T>(given: string | contracts.PickSource<T>, extra?: contracts.PickExtra): Picker
+  local source_name: string
+  local spec: Source
+  if given is string then
+    local name = given
     source_name = name
     local source = M.sources[name]
     if not source then error("no picker `" .. name .. "`", 2) end
-    spec = type(source) == "function" and source(extra or {}) or source
-    if not spec then return end
-    if extra and extra.query then spec = paw.util.merge(spec, { query = extra.query }) end
-    if not spec.title then spec = paw.util.merge(spec, { title = name }) end
+    local made: contracts.PickInfo
+    if source is contracts.PickInfo then made = source else made = (source as PickFn)(extra or {}) end
+    if not made then return nil end
+    spec = made as Source
+    if extra and extra.query then spec = with_field(spec, "query", extra.query) end
+    if not spec.title then spec = with_field(spec, "title", name) end
+  else
+    spec = given as Source
   end
+  return open_spec(spec, source_name)
+end
+
+-- Open a picker from its spec; `source_name` is the name it was opened by.
+open_spec = function(spec: Source, source_name: string): Picker
   assert(type(spec) == "table", "usage: paw.pick({ items = ..., on_choose = function(item) end })")
-  local items = spec.items
-  if type(items) == "function" then items = items() end
+  local list = spec.items
+  local items: {Item}
+  if list is {Item} then items = list elseif list then items = (list as ItemsFn)() end
   -- A picker opened over one being heard takes over from it.
   if active and active.spec.audition then
     close(active)
     paw.audition.revert()
   end
-  local p = {
+  local p: Picker = {
     spec = spec, source = source_name, prompt = spec.prompt or "> ", query = chars_of(spec.query or ""),
     entries = entries_of(items or {}, spec.format, spec.primary, spec.search), selected = 1, top = 1,
     multi = spec.multi ~= false, marked = {}, last_query = "",
   }
   -- The mode chosen last in this picker, else the picker's own.
-  p.mode = not spec.rank and (paw.state["pick.mode." .. source_key(p)] or spec.mode) or "fuzzy"
+  p.mode = not spec.rank and (paw.state["pick.mode." .. source_key(p)] or spec.mode) as Mode or "fuzzy"
   p.matches = p.entries
   p.footer = footer_of(p)
   if #p.query > 0 or spec.rank then refilter(p) end
@@ -1158,7 +1486,7 @@ function M.open(spec, extra)
   local width, height = api.ui_size()
   paw.ui.open("pick", {
     title = spec.title or "Pick",
-    width = spec.width or ((spec.preview or spec.audition) and min(120, width - 4) or min(80, width - 4)),
+    width = spec.width or ((spec.preview ~= nil or spec.audition ~= nil) and min(120, width - 4) or min(80, width - 4)),
     height = spec.height or min(28, max(10, height - 4)),
     top = spec.top,
   })
@@ -1168,10 +1496,13 @@ end
 
 --- Open the last picker again, as it was: what was typed, the mode, the
 --- line selected. Its items are read again.
-function M.resume()
-  if not last_spec then return paw.notify("no picker opened yet", "warn") end
+function M.resume(): Picker
+  if not last_spec then
+    paw.notify("no picker opened yet", "warn")
+    return nil
+  end
   local was = last_spec
-  local p = M.open(was.spec)
+  local p = open_spec(was.spec, nil)
   p.source, last_spec.source = was.source, was.source
   p.mode = was.mode or p.mode
   p.query = chars_of(was.query or "")
@@ -1183,24 +1514,24 @@ end
 
 --- The open picker, if any: its query, the matches as lines, and the item
 --- under the selection. For tests and for frontends.
-function M.state()
+function M.state(): State
   local p = active
   if not p or not (paw.ui.float and paw.ui.float.name == "pick") then return nil end
-  local lines = {}
+  local lines: {string} = {}
   for i, e in ipairs(p.matches) do lines[i] = e.text end
-  local hearing
+  local hearing: HearState
   if p.spec.audition then
     hearing = { on = hearing_on(p), item = p.heard, label = p.hearing and p.hearing.label, error = p.hear_error, waiting = p.hear_timer ~= nil }
   end
-  local marked = {}
+  local marked: {Item} = {}
   for _, e in ipairs(p.entries) do
     if p.marked[e] then marked[#marked + 1] = e.item end
   end
-  return { query = table.concat(p.query), matches = lines, selected = p.selected, item = current(p), title = p.spec.title or "Pick",
+  return { query = table.concat(p.query), matches = lines, selected = p.selected, item = (current(p)), title = p.spec.title or "Pick",
     audition = hearing, mode = p.mode, marked = marked, source = p.source }
 end
 
-local palette = require("paw.theme").palette
+local palette = theme.palette
 for name, def in pairs({
   PickPrompt = { fg = palette.blue, bold = true },
   PickCount = { fg = palette.dim },
@@ -1211,26 +1542,28 @@ for name, def in pairs({
   PickPlaying = { fg = palette.green, bold = true },
   PickWave = { fg = palette.blue },
   PickPlayhead = { fg = palette.bg, bg = palette.orange },
-}) do
+} as {string: types.CellStyle}) do
   api.hl_set(name, def)
 end
 
-local SOUND = { wav = true, wave = true, aif = true, aiff = true, flac = true, mp3 = true, ogg = true, oga = true }
+local SOUND: {string: boolean} = { wav = true, wave = true, aif = true, aiff = true, flac = true, mp3 = true, ogg = true, oga = true }
 
 --- Hear a file in a picker of files: a sound file on its own, the first
 --- bars of a MIDI file through an instrument. The label for the pane.
-function M.hear_file(path)
+function M.hear_file(path: string): string
   local ext = (path:match("%.([^./]+)$") or ""):lower()
   if paw.midifile.is_midi_file(path) then
-    return paw.audition.try(function() return paw.audition.midi_file(path) end)
+    return paw.audition.try(function(): string return paw.audition.midi_file(path) end)
   end
   if SOUND[ext] then
     paw.audition.file(path)
     return path:match("[^/]*$")
   end
+  return nil
 end
 
-M.sources = require("paw.pick.sources")(M)
+M.sources = sources(M as SourcesModule.Pick)
+M.walk = sources.walk
 
 --- Select a file from a tree of directories:
 ---
@@ -1243,18 +1576,19 @@ M.sources = require("paw.pick.sources")(M)
 --- then next to the project, then in the home directory. With
 --- `directory = true`, the first item selects the directory that shows,
 --- and `on_choose` gets it.
-function M.file(opts)
-  local wanted
+function M.file(opts: FileOptions)
+  local wanted: {string: boolean}
   if opts.extensions then
     wanted = {}
     for _, ext in ipairs(opts.extensions) do wanted[ext:lower()] = true end
   end
-  local function open(dir)
-    dir = dir:gsub("/+$", "")
+  local function open(at: string)
+    local dir = at:gsub("/+$", "")
     if dir == "" then dir = "/" end
-    local items = {}
+    local items: {FileItem} = {}
     if dir ~= "/" then items[1] = { name = "..", dir = true, path = dir:match("^(.*)/[^/]+$") or "/" } end
-    local dirs, files = {}, {}
+    local dirs: {FileItem} = {}
+    local files: {FileItem} = {}
     for _, entry in ipairs(api.read_dir(dir)) do
       if opts.hidden or entry.name:sub(1, 1) ~= "." then
         local path = (dir == "/" and "" or dir) .. "/" .. entry.name
@@ -1269,26 +1603,33 @@ function M.file(opts)
     if opts.directory then table.insert(items, 1, { name = "[choose this directory]", here = true, path = dir }) end
     for _, item in ipairs(dirs) do items[#items + 1] = item end
     for _, item in ipairs(files) do items[#items + 1] = item end
-    M.open({
+    local picker: contracts.PickSource<FileItem> = {
       title = (opts.title or "Open") .. " · " .. dir,
       items = items,
-      format = function(item) return (item.dir and "▸ " or "  ") .. item.name .. (item.dir and "/" or "") end,
+      format = function(item: FileItem): string return (item.dir and "▸ " or "  ") .. item.name .. (item.dir and "/" or "") end,
       empty = "nothing here to choose",
       audition_key = "files",
-      audition = function(item)
+      audition = function(item: FileItem): string
         if not item.dir then return M.hear_file(item.path) end
+        return nil
       end,
-      on_choose = function(item)
-        if item.here then paw.state.pick_dir = dir return opts.on_choose(dir) end
+      on_choose = function(item: FileItem)
+        if item.here then
+          paw.state.pick_dir = dir
+          return opts.on_choose(dir)
+        end
         if item.dir then return open(item.path == "" and "/" or item.path) end
         paw.state.pick_dir = dir
         opts.on_choose(item.path)
       end,
       on_cancel = opts.on_cancel,
-    })
+    }
+    M.open(picker)
   end
-  local project = api.project_get and api.project_get("path")
-  open(opts.dir or paw.state.pick_dir or (project and project:match("^(.*)/[^/]+$")) or os.getenv("HOME") or "/")
+  local project = api.project_get().path
+  open(opts.dir or paw.state.pick_dir as string or (project and project:match("^(.*)/[^/]+$")) or os.getenv("HOME") or "/")
 end
 
-return setmetatable(M, { __call = function(_, spec, extra) return M.open(spec, extra) end })
+return setmetatable(M, { __call = function<T>(_: M, spec: string | contracts.PickSource<T>, extra?: contracts.PickExtra): Picker
+  return M.open(spec, extra)
+end } as metatable<M>)

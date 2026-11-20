@@ -38,6 +38,7 @@ local type MidifileModule = require("paw.midifile")
 local type MusicModule = require("paw.music")
 local type ObjectsModule = require("paw.objects")
 local type OptionModule = require("paw.options")
+local type PickModule = require("paw.pick")
 local type PlotModule = require("paw.plot")
 local type QfModule = require("paw.qf")
 local type QueryModule = require("paw.query")
@@ -142,7 +143,7 @@ global record paw
    option: OptionModule
    panes: Untyped
    params: Untyped
-   pick: Partial.Pick
+   pick: PickModule
    plot: PlotModule
    plugins: Untyped
    project: ObjectsModule.Project

@@ -100,7 +100,14 @@ end
 
 -- What this module reads of `paw`, which paw/init.lua makes: the parts of
 -- the modules in Lua that their doc comments type, and the rest here.
+--- `paw.pick` (paw/pick.tl), the part of it that this module calls: opening
+--- a picker.
+local record Pick
+  metamethod __call: function<T>(self: Pick, spec: contracts.PickSource<T>)
+end
+
 local record Paw is partial.Paw
+  pick: Pick
   cursor: CursorModule
   time: objects.Time
   transport: objects.Transport

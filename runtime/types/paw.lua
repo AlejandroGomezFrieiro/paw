@@ -5573,9 +5573,9 @@ function paw.pick.match(query, text, want_positions, mode) end
 
 --- Open a picker. See the top of this file for the fields of `spec`, or pass
 --- the name of a source. Returns the picker's state.
----@param spec any
+---@param given any
 ---@param extra any
-function paw.pick.open(spec, extra) end
+function paw.pick.open(given, extra) end
 
 --- Open the last picker again, as it was: what was typed, the mode, the
 --- line selected. Its items are read again.
@@ -5584,13 +5584,18 @@ function paw.pick.resume() end
 --- Show a location: in place (`how` nil), or in a new window to the side
 --- ("vsplit"), below ("split") or in a new tab ("tab"). The view that shows
 --- it best moves there. Returns true if there was a place to go.
----@param loc any
+---@param where any
 ---@param how any
-function paw.pick.show(loc, how) end
+function paw.pick.show(where, how) end
 
 --- The open picker, if any: its query, the matches as lines, and the item
 --- under the selection. For tests and for frontends.
 function paw.pick.state() end
+
+--- Project and audio files under `root`, walking at most `limit` entries.
+---@param root any
+---@param limit any
+function paw.pick.walk(root, limit) end
 
 --- A color `#rrggbb` at `alpha` (0 to 1), as `#rrggbbaa`.
 ---@param colour any

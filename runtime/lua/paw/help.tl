@@ -132,10 +132,16 @@ end
 local record NoFields
 end
 
---- A key mapping (paw/keymap.lua, in Lua): what this module reads of one.
+--- A key mapping (paw/keymap.lua, in Lua): its keys as written (`lhs`)
+--- and one by one, what it runs, what it is for, where it works and the
+--- extension that made it.
 local record Map
   lhs: string
   rhs: string | function
+  desc: string
+  scope: string
+  keys: {string}
+  motion: boolean
   ext: string
 end
 

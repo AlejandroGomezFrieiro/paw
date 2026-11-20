@@ -37,13 +37,6 @@ local record partial
       buftype: function<B is contracts.Buftype>(name: string, def: B): B
       metamethod __index: function(Layout, string): Untyped
    end
-   record Pick
-      open: function<T>(spec: contracts.PickSource<T>)
-      open: function(name: string, extra?: contracts.PickExtra)
-      sources: {string:contracts.PickEntry}
-      metamethod __call: function<T>(Pick, spec: string | contracts.PickSource<T>, extra?: contracts.PickExtra)
-      metamethod __index: function(Pick, string): Untyped
-   end
    record Textbuf
       kind: function<I is contracts.TextItem, F>(name: string, spec: contracts.TextKind<I, F>): contracts.TextKind<I, F>
       metamethod __index: function(Textbuf, string): Untyped
@@ -83,7 +76,6 @@ local record partial
       layout: Layout
       notify: function(text: string, level?: string)
       off: function(id: integer)
-      pick: Pick
       textbuf: Textbuf
       timers: {integer:function()}
       track_kinds: TrackKinds

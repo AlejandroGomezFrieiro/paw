@@ -68,7 +68,14 @@ local record Meta
   tags: {string:string}
 end
 
+--- `paw.pick` (paw/pick.tl), the part of it that this module calls: how a
+--- query matches a line, as the pickers match.
+local record Pick
+  match: function(query: string, text: string, want_positions?: boolean, mode?: string): number, {integer}
+end
+
 local record Paw is partial.Paw
+  pick: Pick
   markers: MarkersModule
   music: MusicModule
   regex: RegexModule

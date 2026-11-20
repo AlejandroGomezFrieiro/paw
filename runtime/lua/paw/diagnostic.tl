@@ -279,7 +279,14 @@ local record Qf
   diagnostics: function(opts: ListOptions): QfList
 end
 
+--- `paw.pick` (paw/pick.tl), the part of it that this module calls: opening
+--- a picker.
+local record Pick
+  metamethod __call: function<T>(self: Pick, spec: contracts.PickSource<T>)
+end
+
 local record Paw is partial.Paw
+  pick: Pick
   draw: DrawModule
   qf: Qf
   time: objects.Time

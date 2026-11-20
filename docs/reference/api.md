@@ -1408,10 +1408,11 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   ```lua
   paw.pick.match("bs", "Bass Synth")   --> score, { 1, 6 }
   ```
-- `paw.pick.open(spec, extra)`: Open a picker. See the top of this file for the fields of `spec`, or pass the name of a source. Returns the picker's state.
+- `paw.pick.open(given, extra)`: Open a picker. See the top of this file for the fields of `spec`, or pass the name of a source. Returns the picker's state.
 - `paw.pick.resume()`: Open the last picker again, as it was: what was typed, the mode, the line selected. Its items are read again.
-- `paw.pick.show(loc, how)`: Show a location: in place (`how` nil), or in a new window to the side ("vsplit"), below ("split") or in a new tab ("tab"). The view that shows it best moves there. Returns true if there was a place to go.
+- `paw.pick.show(where, how)`: Show a location: in place (`how` nil), or in a new window to the side ("vsplit"), below ("split") or in a new tab ("tab"). The view that shows it best moves there. Returns true if there was a place to go.
 - `paw.pick.state()`: The open picker, if any: its query, the matches as lines, and the item under the selection. For tests and for frontends.
+- `paw.pick.walk(root, limit)`: Project and audio files under `root`, walking at most `limit` entries.
 
 ## Module paw.plot
 

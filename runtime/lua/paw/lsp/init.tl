@@ -39,6 +39,7 @@ local type SeatsModule = require("paw.seats")
 local type MusicModule = require("paw.music")
 local type CursorModule = require("paw.cursor")
 local type DocumentModule = require("paw.lsp.document")
+local type PickModule = require("paw.pick")
 
 local type Payload = rpc.Payload
 local type Location = contracts.Location
@@ -80,6 +81,7 @@ local record Paw is partial.Paw
   seats: SeatsModule
   music: MusicModule
   cursor: CursorModule
+  pick: PickModule
   time: objects.Time
   version: string
   wait: function(ms: number)

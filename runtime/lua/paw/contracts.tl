@@ -770,7 +770,7 @@ local record contracts
 
    --- A picker of items of type `T` (`paw.pick`, `paw.pick.sources`): the
    --- items, the line of each, and what Enter does. A source in
-   --- `paw.pick.sources` has a `desc` too. The top of paw/pick.lua tells
+   --- `paw.pick.sources` has a `desc` too. The top of paw/pick.tl tells
    --- each field.
    record PickSource<T> is PickInfo
       prompt: string

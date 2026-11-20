@@ -153,7 +153,14 @@ local record Ex
   complete_range: function(string): {Entry}
   complete_pattern: function(string): {Entry}
 end
+--- `paw.pick` (paw/pick.tl, which requires this module): the pickers
+--- by name, which `:pick` completes.
+local record Pick
+  sources: {string: contracts.PickEntry}
+end
+
 local record Paw is partial.Paw
+  pick: Pick
   state: State
   emit: function(string, Ran)
   limit: LimitModule

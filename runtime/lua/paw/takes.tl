@@ -110,7 +110,15 @@ local record Stretch
   moved: function(c: types.Clip, by: number): Moved
   file_seconds: function(c: types.Clip, beats: number, at?: number): number
 end
+
+--- `paw.pick` (paw/pick.tl), the part of it that this module calls: opening
+--- a picker.
+local record Pick
+  metamethod __call: function<T>(self: Pick, spec: contracts.PickSource<T>)
+end
+
 local record Paw is partial.Paw
+  pick: Pick
   lanes: LanesModule
   stretch: Stretch
   edit: EditModule
