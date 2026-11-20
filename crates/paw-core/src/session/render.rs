@@ -398,7 +398,7 @@ impl Session {
             bypass_master(&mut project);
         }
         let project = &project;
-        let sample_rate = opts.sample_rate.unwrap_or(self.stream.info.sample_rate);
+        let sample_rate = opts.sample_rate.unwrap_or(self.engine.stream.info.sample_rate);
         check_sample_rate(sample_rate)?;
         let end = opts.end.unwrap_or_else(|| project.end());
         if !opts.start.is_finite() || !end.is_finite() || !opts.tail.is_finite() {

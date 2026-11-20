@@ -10,11 +10,11 @@ impl Session {
     /// `seconds` of it; returns its reading end and the engine's sample
     /// rate. A new engine (after `engine_restart`) needs asking again.
     pub fn monitor_output(&mut self, seconds: f64) -> (Consumer<f32>, f64) {
-        (self.handle.monitor(seconds), self.handle.sample_rate)
+        (self.engine.handle.monitor(seconds), self.engine.handle.sample_rate)
     }
 
     /// Stop copying it.
     pub fn stop_monitor(&mut self) {
-        self.handle.stop_monitor();
+        self.engine.handle.stop_monitor();
     }
 }

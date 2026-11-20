@@ -30,10 +30,10 @@ impl Session {
     /// scripts and tests only hear what they inject.
     pub(super) fn connect_midi(&mut self) {
         if let Ok(mut sink) = self.midi.sink.lock() {
-            sink.engine = self.handle.take_midi_input();
+            sink.engine = self.engine.handle.take_midi_input();
         }
         // The `test` backend's pretend device is as silent as the null one.
-        if matches!(self.stream.info.backend, BackendChoice::Null | BackendChoice::Test)
+        if matches!(self.engine.stream.info.backend, BackendChoice::Null | BackendChoice::Test)
             && !self.midi.without_audio
         {
             self.midi.inputs = None;
@@ -144,7 +144,7 @@ impl Session {
     pub fn midi_inject(&mut self, kind: EventKind, port: Option<&str>) {
         self.flush();
         let port = port.map_or(0, paw_engine::midi::port_key);
-        self.handle.send(Msg::MidiIn { port, kind });
+        self.engine.handle.send(Msg::MidiIn { port, kind });
         self.midi_event(port, kind);
     }
 
@@ -197,22 +197,22 @@ impl Session {
     }
 
     pub fn playing(&self) -> bool {
-        self.playing
+        self.play.playing
     }
 
     /// Transport position in beats.
     pub fn position(&self) -> f64 {
         // Until the engine has carried out the last seek, its position is stale.
-        if self.handle.shared.seeks() != self.seeks {
-            return self.seek_target;
+        if self.engine.handle.shared.seeks() != self.play.seeks {
+            return self.play.seek_target;
         }
-        self.handle.shared.position()
+        self.engine.handle.shared.position()
     }
 
     pub fn transport_view(&self) -> Value {
         let t = &self.transport;
         json!({
-            "playing": self.playing, "position": self.position(), "tempo": self.project.tempo,
+            "playing": self.play.playing, "position": self.position(), "tempo": self.project.tempo,
             "loop_enabled": t.loop_enabled, "loop_start": t.loop_start, "loop_end": t.loop_end,
             "metronome": t.metronome, "recording": t.recording,
             "punch_enabled": t.punch_enabled, "punch_start": t.punch_start, "punch_end": t.punch_end,
@@ -291,7 +291,7 @@ impl Session {
         if key == "recording" {
             if !self.transport.recording {
                 self.finish_take();
-            } else if self.playing {
+            } else if self.play.playing {
                 self.start_take();
             }
         }
@@ -304,11 +304,11 @@ impl Session {
     pub fn live(&mut self, track: Id, event: EventKind) -> Result<()> {
         self.flush();
         let slot = *self
-            .map
+            .engine.map
             .tracks
             .get(&track)
             .with_context(|| format!("no track {track}"))?;
-        self.handle.send(Msg::Live { track: slot, event });
+        self.engine.handle.send(Msg::Live { track: slot, event });
         Ok(())
     }
 
@@ -362,10 +362,10 @@ impl Session {
 
     /// Post-fader peak level of a track as linear `(left, right)`.
     pub fn meter(&self, track: Id) -> (f32, f32) {
-        self.map
+        self.engine.map
             .tracks
             .get(&track)
-            .map(|slot| self.handle.shared.meter(*slot))
+            .map(|slot| self.engine.handle.shared.meter(*slot))
             .unwrap_or((0.0, 0.0))
     }
 }

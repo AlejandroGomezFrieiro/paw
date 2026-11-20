@@ -19,6 +19,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
@@ -30,6 +31,75 @@ use crate::model::{ClipContent, Id, Note, Notes, Project, Track};
 
 /// Readable lines in a diff, at most.
 const DIFF_ITEMS: usize = 200;
+
+/// How many steps the undo history keeps until told otherwise
+/// (`paw.opt.undo_steps`).
+const UNDO_LIMIT: usize = 1000;
+/// And at most about this many bytes of what its steps changed
+/// (`paw.opt.undo_memory`): a step that changes one note of a big clip keeps
+/// a copy of the run of notes it changed (`model::Notes`).
+const UNDO_BYTES: usize = 1 << 30;
+
+/// An undo tree for a project, from `project` on, keeping at most `limit`
+/// steps and about `bytes` bytes.
+pub(super) fn new_history(project: Project, (limit, bytes): (usize, usize)) -> History<Project> {
+    History::new(project, history::now(), limit).weigh_with(Project::weight_over, bytes)
+}
+/// The edits of the open undo step: how many, how many of them moved a
+/// control, and which control if they all moved the same one.
+#[derive(Default)]
+pub(super) struct Sweep {
+    pub edits: u32,
+    pub moves: u32,
+    pub key: Option<String>,
+    pub mixed: bool,
+}
+
+/// Moves of one control closer together than this are one undo step.
+pub(super) const SWEEP_GAP: Duration = Duration::from_millis(1000);
+
+/// The undo tree and the step being made: what the project was at the last
+/// step, how the open step's edits are joined, and whether a flush reports a
+/// state put back.
+pub(super) struct Undo {
+    /// The project at the last undo step.
+    pub checkpoint: Project,
+    /// Every undo step, as a tree: see [`crate::history`].
+    pub history: History<Project>,
+    /// Edits were made since the last undo step: the open step has
+    /// something in it.
+    pub touched: bool,
+    /// What the open undo step is made of, to tell a control being moved
+    /// (a fader dragged, a knob turned on a controller) from other edits:
+    /// its moves become one undo step, not one each.
+    pub sweep: Sweep,
+    /// The control the last undo step moved, when it did nothing else.
+    pub last_sweep: Option<(String, Instant, StateId)>,
+    /// The next flush reports a state put back (undo, redo, a file opened)
+    /// rather than an edit: its events carry `restored = true`.
+    pub restoring: bool,
+    /// The undo state the edits of this turn join instead of making a step
+    /// of their own, set by `undo_join`.
+    pub join: Option<StateId>,
+    /// Counts every change to the project, undo and redo included.
+    pub edits: u64,
+}
+
+impl Undo {
+    /// No steps yet: the tree starts at `project`.
+    pub fn new(project: &Project) -> Self {
+        Self {
+            checkpoint: project.clone(),
+            history: new_history(project.clone(), (UNDO_LIMIT, UNDO_BYTES)),
+            touched: false,
+            sweep: Sweep::default(),
+            last_sweep: None,
+            restoring: false,
+            join: None,
+            edits: 0,
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize)]
 struct CheckpointFile {
@@ -53,22 +123,22 @@ impl Session {
         self.checkpoint();
         // Bookkeeping since the step closed (plugin parameters taken over by
         // their editors, recordings moved beside the project) stays with it.
-        self.history.set_current_snapshot(self.checkpoint.clone());
-        let from = self.history.current();
-        let id = go(&mut self.history)?;
+        self.undo.history.set_current_snapshot(self.undo.checkpoint.clone());
+        let from = self.undo.history.current();
+        let id = go(&mut self.undo.history)?;
         if id != from {
-            self.project = self.history.current_snapshot().clone();
-            self.checkpoint = self.project.clone();
+            self.project = self.undo.history.current_snapshot().clone();
+            self.undo.checkpoint = self.project.clone();
             self.dirty = true;
-            self.restoring = true;
-            self.edits += 1;
+            self.undo.restoring = true;
+            self.undo.edits += 1;
         }
         Some(id)
     }
 
     /// The whole tree, as plain data.
     pub fn undo_tree(&self) -> Value {
-        let h = &self.history;
+        let h = &self.undo.history;
         let states: Vec<Value> = h
             .states()
             .map(|s| {
@@ -82,7 +152,7 @@ impl Session {
             .collect();
         json!({
             "current": h.current(), "root": h.root(), "saved": h.saved(),
-            "limit": h.limit(), "pending": self.touched, "states": states,
+            "limit": h.limit(), "pending": self.undo.touched, "states": states,
             "bytes": h.bytes(), "byte_limit": h.byte_limit(),
         })
     }
@@ -102,14 +172,14 @@ impl Session {
         {
             bail!("the undo history keeps 16 MB to 1 TB, not {bytes} bytes");
         }
-        let h = &mut self.history;
+        let h = &mut self.undo.history;
         h.set_limits(steps.unwrap_or(h.limit()), bytes.unwrap_or(h.byte_limit()));
         Ok(())
     }
 
     /// The current state's id.
     pub fn undo_current(&self) -> StateId {
-        self.history.current()
+        self.undo.history.current()
     }
 
     /// Go to any state in the tree. False when there is no such state.
@@ -134,10 +204,10 @@ impl Session {
             Some(id) => id,
             None => {
                 self.checkpoint();
-                self.history.current()
+                self.undo.history.current()
             }
         };
-        if !self.history.set_name(id, name) {
+        if !self.undo.history.set_name(id, name) {
             bail!("no state {id} in the undo tree");
         }
         Ok(id)
@@ -145,7 +215,7 @@ impl Session {
 
     /// Keep a state from being pruned, or let it be again.
     pub fn undo_keep(&mut self, id: StateId, keep: bool) -> Result<()> {
-        if !self.history.set_keep(id, keep) {
+        if !self.undo.history.set_keep(id, keep) {
             bail!("no state {id} in the undo tree");
         }
         Ok(())
@@ -153,15 +223,15 @@ impl Session {
 
     /// The command making the open step: see [`History::label`].
     pub fn undo_label(&mut self, text: Option<String>) {
-        self.history.label(text);
+        self.undo.history.label(text);
     }
 
     /// Make the edits of the open step part of state `id` instead of a step
     /// of their own, if `id` is still the current state and nothing hangs on
     /// it. Returns whether they will be.
     pub fn undo_join(&mut self, id: StateId) -> bool {
-        let joins = id == self.history.current() && self.history.can_extend();
-        self.join = joins.then_some(id);
+        let joins = id == self.undo.history.current() && self.undo.history.can_extend();
+        self.undo.join = joins.then_some(id);
         joins
     }
 
@@ -169,7 +239,7 @@ impl Session {
     /// close as a step of their own: not during a trial, whose edits are
     /// one step made when it ends.
     pub fn undo_pending(&self) -> bool {
-        self.touched && self.audition.trial.is_none()
+        self.undo.touched && self.audition.trial.is_none()
     }
 
     /// Put back the project as the open step found it, leaving the history
@@ -179,34 +249,34 @@ impl Session {
         if !self.undo_pending() {
             return false;
         }
-        self.project = self.checkpoint.clone();
-        self.touched = false;
+        self.project = self.undo.checkpoint.clone();
+        self.undo.touched = false;
         self.dirty = true;
-        self.restoring = true;
-        self.edits += 1;
-        self.sweep = Default::default();
-        self.join = None;
-        self.history.clear_labels();
+        self.undo.restoring = true;
+        self.undo.edits += 1;
+        self.undo.sweep = Default::default();
+        self.undo.join = None;
+        self.undo.history.clear_labels();
         true
     }
 
     /// The keys typed for the open step.
     pub fn undo_keys(&mut self, text: String) {
-        self.history.keys(text);
+        self.undo.history.keys(text);
     }
 
     /// What differs from state `a` to state `b`. `b` defaults to the current
     /// state and `a` to `b`'s parent, which is what `b`'s step changed.
     pub fn undo_diff(&mut self, a: Option<StateId>, b: Option<StateId>) -> Result<Value> {
-        self.history.set_current_snapshot(self.checkpoint.clone());
-        let b = b.unwrap_or(self.history.current());
+        self.undo.history.set_current_snapshot(self.undo.checkpoint.clone());
+        let b = b.unwrap_or(self.undo.history.current());
         let to = self
-            .history
+            .undo.history
             .get(b)
             .with_context(|| format!("no state {b} in the undo tree"))?;
         let a = a.or(to.parent).unwrap_or(b);
         let from = self
-            .history
+            .undo.history
             .get(a)
             .with_context(|| format!("no state {a} in the undo tree"))?;
         let mut value = diff(&from.snapshot, &to.snapshot);
@@ -218,10 +288,10 @@ impl Session {
     /// The project as it was in state `id` (the current one by default), as
     /// a project file holds it, for comparing it with another version.
     pub fn undo_project(&mut self, id: Option<StateId>) -> Result<Project> {
-        self.history.set_current_snapshot(self.checkpoint.clone());
-        let id = id.unwrap_or(self.history.current());
+        self.undo.history.set_current_snapshot(self.undo.checkpoint.clone());
+        let id = id.unwrap_or(self.undo.history.current());
         let state = self
-            .history
+            .undo.history
             .get(id)
             .with_context(|| format!("no state {id} in the undo tree"))?;
         Ok(state.snapshot.clone())
@@ -246,12 +316,12 @@ impl Session {
             "the project has no file yet, so there is nowhere to keep checkpoints: save it first",
         )?;
         let id = self.undo_name(id, Some(name.to_string()))?;
-        let project = if id == self.history.current() {
+        let project = if id == self.undo.history.current() {
             // As saving does: what the plugins hold now goes with it.
             self.capture_states();
             self.project.clone()
         } else {
-            self.history.get(id).unwrap().snapshot.clone()
+            self.undo.history.get(id).unwrap().snapshot.clone()
         };
         let time = history::now();
         let file = CheckpointFile {
@@ -333,18 +403,18 @@ impl Session {
         share_with(&mut project, &self.project);
         self.flush();
         self.checkpoint();
-        self.history.clear_labels();
-        self.history
+        self.undo.history.clear_labels();
+        self.undo.history
             .label(Some(format!("checkpoint.restore {}", file.name)));
         self.next_id = self.next_id.max(project.max_id() + 1);
         self.edit(|p| {
             *p = project;
             Ok(())
         })?;
-        self.restoring = true;
+        self.undo.restoring = true;
         self.checkpoint();
-        let id = self.history.current();
-        self.history.set_name(id, Some(file.name));
+        let id = self.undo.history.current();
+        self.undo.history.set_name(id, Some(file.name));
         Ok(id)
     }
 

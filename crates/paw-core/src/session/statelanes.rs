@@ -170,12 +170,12 @@ impl Session {
     /// While the song plays, give each device the main-thread part of the
     /// state its lane is at, when that changes. Called from `idle`.
     pub(super) fn play_states(&mut self) {
-        if self.map.state_main.is_empty() || !self.playing {
+        if self.engine.map.state_main.is_empty() || !self.play.playing {
             return;
         }
         let beat = self.position();
         let mut todo = Vec::new();
-        for lane in main_lanes(&self.project, &self.map) {
+        for lane in main_lanes(&self.project, &self.engine.map) {
             let Some(index) = index_at(lane.lane, beat) else {
                 continue;
             };
@@ -197,9 +197,9 @@ impl Session {
             };
             match give(live, &state) {
                 Ok(params) => {
-                    if let Some(&slot) = self.map.devices.get(&device) {
+                    if let Some(&slot) = self.engine.map.devices.get(&device) {
                         for (param, value) in params {
-                            self.handle.send(Msg::SetParam {
+                            self.engine.handle.send(Msg::SetParam {
                                 device: slot,
                                 param,
                                 value,

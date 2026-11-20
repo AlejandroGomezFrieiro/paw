@@ -121,12 +121,12 @@ impl Session {
             if self.project.track(opts.track).is_none() {
                 bail!("no track {}", opts.track);
             }
-            let Some(&slot) = self.map.tracks.get(&opts.track) else {
+            let Some(&slot) = self.engine.map.tracks.get(&opts.track) else {
                 continue;
             };
             let target = match (opts.clip, opts.stop, opts.timeline) {
                 (Some(clip), false, false) => {
-                    let row = self.map.cue_row(opts.track, clip).with_context(|| {
+                    let row = self.engine.map.cue_row(opts.track, clip).with_context(|| {
                         if self.project.find_cue_clip(clip).is_some() {
                             format!("clip {clip} is off the timeline of another track")
                         } else {
@@ -148,7 +148,7 @@ impl Session {
             });
         }
         if !launches.is_empty() {
-            self.handle.send(Msg::Launch(Box::new(launches)));
+            self.engine.handle.send(Msg::Launch(Box::new(launches)));
         }
         Ok(())
     }
@@ -160,7 +160,7 @@ impl Session {
             .project
             .tracks
             .iter()
-            .filter_map(|t| self.map.tracks.get(&t.id))
+            .filter_map(|t| self.engine.map.tracks.get(&t.id))
             .map(|&track| Launch {
                 track,
                 target: Target::Arrangement,
@@ -170,7 +170,7 @@ impl Session {
             })
             .collect();
         if !launches.is_empty() {
-            self.handle.send(Msg::Launch(Box::new(launches)));
+            self.engine.handle.send(Msg::Launch(Box::new(launches)));
         }
     }
 
@@ -183,22 +183,22 @@ impl Session {
         let mut out = Vec::new();
         for track in &self.project.tracks {
             let Some(state) = self
-                .map
+                .engine.map
                 .tracks
                 .get(&track.id)
-                .and_then(|&slot| self.handle.shared.launch(slot))
+                .and_then(|&slot| self.engine.handle.shared.launch(slot))
             else {
                 continue;
             };
             let name = |target: Target| match target {
-                Target::Slot(row) => json!(self.map.cue_clip(track.id, row)),
+                Target::Slot(row) => json!(self.engine.map.cue_clip(track.id, row)),
                 Target::Stop => json!("stop"),
                 Target::Arrangement => json!("timeline"),
             };
             let mut view = json!({ "track": track.id, "since": state.since });
             match state.playing {
                 Target::Slot(row) => {
-                    let id = self.map.cue_clip(track.id, row);
+                    let id = self.engine.map.cue_clip(track.id, row);
                     view["clip"] = json!(id);
                     view["phase"] = json!(state.phase);
                     if let Some(c) = id.and_then(|id| track.cues.iter().find(|c| c.id == id)) {

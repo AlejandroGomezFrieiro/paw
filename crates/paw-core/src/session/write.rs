@@ -79,7 +79,7 @@ impl Session {
 
     /// Note that something was moved from `before` to `value`.
     pub(super) fn touch(&mut self, track: Id, target: Target, before: f64, value: f64) {
-        if !self.playing || !self.auto_mode(track).writes() {
+        if !self.play.playing || !self.auto_mode(track).writes() {
             return;
         }
         match self
@@ -198,7 +198,7 @@ impl Session {
 
     /// Write what is being held into its lanes at the playhead. Called once a turn.
     pub fn write_automation(&mut self) {
-        if !self.playing {
+        if !self.play.playing {
             self.writing.latched.clear();
             return;
         }
