@@ -105,6 +105,12 @@ command. Then the extension that loads last wins. `:checkhealth extensions`
 gives a warning for each such entry. To choose the other one, load the
 extensions in the other order, or map the key again in `init.lua`.
 
+An extension can also map a key of the core again. When the new mapping
+has a different description, `:checkhealth extensions` gives a warning:
+a key has the same meaning in every view. A mapping that keeps the
+description (it adds to the action of the core, for example Enter on a
+vocal track) gives no warning.
+
 ### Unload
 
 `paw.ext.unload(name)` removes all that the extension owns.

@@ -563,7 +563,7 @@ map("<CR>", function()
     return editor:edit(clip.id)
   end
   paw.cmd("clip.edit")
-end, { view = "arrange", desc = "Edit the clip: the vocal editor on a vocal track, else the piano roll" })
+end, { view = "arrange", desc = "Edit the clip's notes" })
 paw.keymap.group("<leader>V", "vocal", { view = "arrange" })
 map("<leader>Vt", "utau.track", { view = "arrange", desc = "Add a vocal track" })
 map("<leader>Vs", "utau.singer", { view = "arrange", desc = "Choose the vocal track's singer" })

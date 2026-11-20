@@ -329,3 +329,17 @@ test("an extension that maps a key another one mapped wins, and checkhealth says
   end
   eq(said and said.level, "warn", "checkhealth extensions warns of it")
 end)
+
+test("checkhealth says when an extension gives a key of the core another meaning, not when it wraps it", function()
+  write(dir("rekey") .. "/init.lua", 'paw.keymap.set("]s", function() end, { view = "arrange", motion = true, desc = "Something else" })\n'
+    .. 'paw.keymap.set("<CR>", "clip.edit", { view = "arrange", desc = "Edit the clip\'s notes" })')
+  paw.ext.load(dir("rekey"))
+  T.after(function() paw.ext.unload("rekey") end)
+  local said = {}
+  for _, item in ipairs(paw.health.run("extensions").items) do
+    if item.text:find("rekey replaces the key", 1, true) then said[#said + 1] = item.level .. " " .. item.text end
+  end
+  local text = table.concat(said, "; ")
+  eq(text:find("]s (n, arrange)", 1, true) ~= nil, true, "a warning about ]s: " .. text)
+  eq(text:find("<CR>", 1, true), nil, "none about the wrap of Enter: " .. text)
+end)
