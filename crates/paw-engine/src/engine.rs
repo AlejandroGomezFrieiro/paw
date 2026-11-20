@@ -22,6 +22,7 @@ use crate::midi_out::MidiOut;
 use crate::pool::Pool;
 use crate::preview::Preview;
 use crate::record::{MidiCapture, PUNCH_EPS, Take};
+use crate::slot::{DeviceSlot, TrackSlot};
 use crate::tempo::TempoMap;
 
 /// Largest block handed to devices. Longer callbacks are split.
@@ -34,11 +35,6 @@ pub const MAX_DEVICES: usize = 8192;
 /// Input channels beyond this many are ignored.
 pub const MAX_INPUTS: usize = 32;
 
-/// Index of a track or device in the engine's tables. Assigned by the main thread.
-pub type Slot = u32;
-/// The master track always lives in slot 0.
-pub const MASTER: Slot = 0;
-pub const NO_SLOT: Slot = u32::MAX;
 
 const MSG_CAPACITY: usize = 16384;
 const GARBAGE_CAPACITY: usize = 16384;
@@ -47,7 +43,7 @@ const METER_FALL_SECONDS: f32 = 0.3;
 
 pub struct TrackRt {
     buf: [Vec<f32>; 2],
-    chain: Box<[Slot]>,
+    chain: Box<[DeviceSlot]>,
     clips: Box<ClipSet>,
     automation: Box<Automation>,
     gain: f32,
@@ -230,7 +226,7 @@ impl Delay {
 
 /// A send from one track into another.
 pub struct SendRt {
-    pub target: Slot,
+    pub target: TrackSlot,
     pub gain: f32,
     /// Taken after the devices but before the fader, pan and mute.
     pub pre: bool,
@@ -238,7 +234,7 @@ pub struct SendRt {
 }
 
 impl SendRt {
-    pub fn new(target: Slot, gain: f32) -> Self {
+    pub fn new(target: TrackSlot, gain: f32) -> Self {
         Self {
             target,
             gain,
@@ -252,8 +248,8 @@ impl SendRt {
 /// listens to it, such as a compressor ducking under a kick.
 pub struct KeyRt {
     /// The device that listens, and the track it is on.
-    pub device: Slot,
-    pub track: Slot,
+    pub device: DeviceSlot,
+    pub track: TrackSlot,
     /// Taken after the devices but before the fader, pan and mute, so that
     /// a muted track can still key.
     pub pre: bool,
@@ -266,16 +262,16 @@ pub struct KeyRt {
 /// device's own track do not act on it, the target's do.
 pub struct OutRt {
     /// The device, and which of its further pairs: 0 for its second.
-    pub device: Slot,
+    pub device: DeviceSlot,
     pub pair: usize,
-    pub target: Slot,
+    pub target: TrackSlot,
     pub delay: Delay,
 }
 
 pub struct SchedEntry {
-    pub slot: Slot,
-    /// Where the track's output goes. [`NO_SLOT`] for the master track.
-    pub output: Slot,
+    pub slot: TrackSlot,
+    /// Where the track's output goes. [`TrackSlot::NONE`] for the master track.
+    pub output: TrackSlot,
     /// How long the output waits for slower tracks that feed the same place.
     pub delay: Delay,
     pub sends: Vec<SendRt>,
@@ -286,7 +282,7 @@ pub struct SchedEntry {
 }
 
 impl SchedEntry {
-    pub fn new(slot: Slot, output: Slot) -> Self {
+    pub fn new(slot: TrackSlot, output: TrackSlot) -> Self {
         Self {
             slot,
             output,
@@ -335,7 +331,7 @@ impl Schedule {
     /// `entries` in an order where every track comes after all that feed it.
     pub fn new(entries: Vec<SchedEntry>, latency: u32) -> Self {
         // How many groups each track has to wait for.
-        let mut waits: HashMap<Slot, usize> = HashMap::new();
+        let mut waits: HashMap<TrackSlot, usize> = HashMap::new();
         let mut keyed: Vec<(usize, SchedEntry)> = entries
             .into_iter()
             .map(|entry| {
@@ -350,7 +346,7 @@ impl Schedule {
                 }
                 // The master is last whatever feeds it.
                 (
-                    if entry.slot == MASTER {
+                    if entry.slot == TrackSlot::MASTER {
                         usize::MAX
                     } else {
                         group
@@ -456,15 +452,15 @@ impl<T> Drop for Claim<'_, T> {
 
 pub enum Msg {
     InsertTrack {
-        slot: Slot,
+        slot: TrackSlot,
         track: Box<TrackRt>,
     },
     RemoveTrack {
-        slot: Slot,
+        slot: TrackSlot,
     },
     SetSchedule(Box<Schedule>),
     SetMix {
-        slot: Slot,
+        slot: TrackSlot,
         gain: f32,
         pan: f32,
         mute: bool,
@@ -472,61 +468,61 @@ pub enum Msg {
         quiet: bool,
     },
     InsertDevice {
-        slot: Slot,
+        slot: DeviceSlot,
         device: Box<dyn Device>,
     },
     /// Give a device a buffer for its side-chain, which the track it listens
     /// to fills each block, or take it away with `None`.
     SetKey {
-        device: Slot,
+        device: DeviceSlot,
         key: Option<Box<KeyBuf>>,
     },
     /// Give a device buffers for its further output pairs, as many as are
     /// routed somewhere, or take them away with `None`.
     SetOutputs {
-        device: Slot,
+        device: DeviceSlot,
         outs: Option<Box<OutBufs>>,
     },
     RemoveDevice {
-        slot: Slot,
+        slot: DeviceSlot,
     },
     SetChain {
-        track: Slot,
-        chain: Box<[Slot]>,
+        track: TrackSlot,
+        chain: Box<[DeviceSlot]>,
     },
     SetParam {
-        device: Slot,
+        device: DeviceSlot,
         param: u32,
         value: f32,
     },
     SetBypass {
-        device: Slot,
+        device: DeviceSlot,
         bypass: bool,
     },
     /// The wet/dry mix and gain the host puts around a device (see `host`).
     SetHost {
-        device: Slot,
+        device: DeviceSlot,
         path: Box<crate::host::HostPath>,
     },
     /// Frames the device's output is behind its input, for the dry signal.
     SetDeviceLatency {
-        device: Slot,
+        device: DeviceSlot,
         frames: u32,
     },
     SetClips {
-        track: Slot,
+        track: TrackSlot,
         clips: Box<ClipSet>,
     },
     /// Take out and put in some of the parts of a track's clips (see
     /// [`ClipSet::edit`]): what an edit of a few clips sends.
     EditClips {
-        track: Slot,
+        track: TrackSlot,
         edit: Box<crate::clip::PartEdit>,
     },
     /// While playing, the lanes set the track's fader, pan and device
     /// parameters at the start of each block, over whatever was set directly.
     SetAutomation {
-        track: Slot,
+        track: TrackSlot,
         automation: Box<Automation>,
     },
     /// The devices already hold the states their state lanes give at the
@@ -572,13 +568,13 @@ pub enum Msg {
     Seek(f64),
     /// A note played live rather than from a clip, delivered at the next block.
     Live {
-        track: Slot,
+        track: TrackSlot,
         event: EventKind,
     },
     /// Which input channels a track takes (`channels` is 0 for none), whether
     /// they are heard, and whether the track is armed.
     SetInput {
-        track: Slot,
+        track: TrackSlot,
         first: usize,
         channels: usize,
         monitor: bool,
@@ -588,7 +584,7 @@ pub enum Msg {
     /// key ([`crate::midi::port_key`]) or 0 for all, a channel from 1 to 16
     /// or 0 for all.
     SetMidiInput {
-        track: Slot,
+        track: TrackSlot,
         port: u32,
         channel: u8,
     },
@@ -596,7 +592,7 @@ pub enum Msg {
     /// for none), on a channel from 1 to 16 or 0 for each message's own,
     /// in a form for ports that take no MIDI 2.0.
     SetMidiOutput {
-        track: Slot,
+        track: TrackSlot,
         port: u32,
         channel: u8,
         form: crate::midi_form::Form,
@@ -616,7 +612,7 @@ pub enum Msg {
     SetPool(Option<Box<Pool>>),
     /// The clips in a track's slots, to be launched.
     SetSlots {
-        track: Slot,
+        track: TrackSlot,
         slots: Box<Slots>,
     },
     /// Launch slots, stop them or go back to the arrangement, each track on
@@ -642,7 +638,7 @@ enum Garbage {
     Track(#[allow(dead_code)] Box<TrackRt>),
     Device(#[allow(dead_code)] Box<dyn Device>),
     Schedule(#[allow(dead_code)] Box<Schedule>),
-    Chain(#[allow(dead_code)] Box<[Slot]>),
+    Chain(#[allow(dead_code)] Box<[DeviceSlot]>),
     Clips(#[allow(dead_code)] Box<ClipSet>),
     PartEdit(#[allow(dead_code)] Box<crate::clip::PartEdit>),
     Automation(#[allow(dead_code)] Box<Automation>),
@@ -826,8 +822,8 @@ impl Shared {
 
     /// Blocks the device in `slot` has run since the engine was made, the
     /// blocks it slept through not counted.
-    pub fn device_processed(&self, slot: Slot) -> u64 {
-        self.device_ran.get(slot as usize).map_or(0, |c| c.load(Relaxed))
+    pub fn device_processed(&self, slot: DeviceSlot) -> u64 {
+        self.device_ran.get(slot.index()).map_or(0, |c| c.load(Relaxed))
     }
 
     /// Things the audio thread could not hand back to be freed and leaked
@@ -867,13 +863,13 @@ impl Shared {
     }
 
     /// What a track's clip launcher plays and has queued.
-    pub fn launch(&self, slot: Slot) -> Option<launch::LaunchView> {
-        self.launch.get(slot as usize).map(LaunchState::view)
+    pub fn launch(&self, slot: TrackSlot) -> Option<launch::LaunchView> {
+        self.launch.get(slot.index()).map(LaunchState::view)
     }
 
     /// Post-fader peak level of a track as linear `(left, right)`.
-    pub fn meter(&self, slot: Slot) -> (f32, f32) {
-        match self.meters.get(slot as usize) {
+    pub fn meter(&self, slot: TrackSlot) -> (f32, f32) {
+        match self.meters.get(slot.index()) {
             Some(m) => (
                 f32::from_bits(m[0].load(Relaxed)),
                 f32::from_bits(m[1].load(Relaxed)),
@@ -898,14 +894,14 @@ impl Shared {
     /// What has gone wrong with the device in `slot` since it was put there
     /// ([`guard::PANICKED`], [`guard::NOT_FINITE`]); the bits in `clear` are
     /// taken, so that each is reported once.
-    pub fn fault(&self, slot: Slot, clear: u8) -> u8 {
+    pub fn fault(&self, slot: DeviceSlot, clear: u8) -> u8 {
         self.faults
-            .get(slot as usize)
+            .get(slot.index())
             .map_or(0, |f| f.fetch_and(!clear, Relaxed))
     }
 
-    fn set_fault(&self, slot: Slot, fault: u8) {
-        if let Some(f) = self.faults.get(slot as usize) {
+    fn set_fault(&self, slot: DeviceSlot, fault: u8) {
+        if let Some(f) = self.faults.get(slot.index()) {
             f.fetch_or(fault, Relaxed);
         }
     }
@@ -984,7 +980,7 @@ pub fn out_bufs(routed: &[usize]) -> Box<OutBufs> {
     )
 }
 
-struct DeviceSlot {
+struct DeviceRt {
     device: Box<dyn Device>,
     bypass: bool,
     host: Option<Box<crate::host::HostPath>>,
@@ -998,7 +994,7 @@ struct DeviceSlot {
     flagged: bool,
 }
 
-impl DeviceSlot {
+impl DeviceRt {
     /// Whether a silent block with no events can go by without running
     /// the device: it is at rest, and so is the host's mix around it.
     fn rests(&self) -> bool {
@@ -1049,7 +1045,7 @@ struct Click {
 pub struct Engine {
     sample_rate: f64,
     tracks: Vec<Guarded<Option<Box<TrackRt>>>>,
-    devices: Vec<Guarded<Option<DeviceSlot>>>,
+    devices: Vec<Guarded<Option<DeviceRt>>>,
     pool: Option<Box<Pool>>,
     schedule: Option<Box<Schedule>>,
     rx: Consumer<Msg>,
@@ -1270,8 +1266,8 @@ impl Engine {
         });
         let mut tracks: Vec<Guarded<Option<Box<TrackRt>>>> =
             (0..MAX_TRACKS).map(|_| Guarded::new(None)).collect();
-        *tracks[MASTER as usize].get_mut() = Some(TrackRt::new());
-        let schedule = Schedule::new(vec![SchedEntry::new(MASTER, NO_SLOT)], 0);
+        *tracks[TrackSlot::MASTER.index()].get_mut() = Some(TrackRt::new());
+        let schedule = Schedule::new(vec![SchedEntry::new(TrackSlot::MASTER, TrackSlot::NONE)], 0);
         let engine = Engine {
             sample_rate,
             tracks,
@@ -1380,7 +1376,7 @@ impl Engine {
     fn apply(&mut self, msg: Msg) {
         match msg {
             Msg::InsertTrack { slot, track } => {
-                if let Some(entry) = self.tracks.get_mut(slot as usize) {
+                if let Some(entry) = self.tracks.get_mut(slot.index()) {
                     if let Some(old) = entry.get_mut().replace(track) {
                         self.discard(Garbage::Track(old));
                     }
@@ -1391,7 +1387,7 @@ impl Engine {
             Msg::RemoveTrack { slot } => {
                 if let Some(old) = self
                     .tracks
-                    .get_mut(slot as usize)
+                    .get_mut(slot.index())
                     .and_then(|t| t.get_mut().take())
                 {
                     self.discard(Garbage::Track(old));
@@ -1423,13 +1419,13 @@ impl Engine {
                 }
             }
             Msg::InsertDevice { slot, device } => {
-                if let Some(entry) = self.devices.get_mut(slot as usize) {
-                    self.shared.faults[slot as usize].store(0, Relaxed);
+                if let Some(entry) = self.devices.get_mut(slot.index()) {
+                    self.shared.faults[slot.index()].store(0, Relaxed);
                     // A device put in place of another (one that was being
                     // made, or restarted) listens where that one did.
                     let key = entry.get_mut().as_mut().and_then(|old| old.key.take());
                     let outs = entry.get_mut().as_mut().and_then(|old| old.outs.take());
-                    if let Some(old) = entry.get_mut().replace(DeviceSlot {
+                    if let Some(old) = entry.get_mut().replace(DeviceRt {
                         device,
                         bypass: false,
                         host: None,
@@ -1450,7 +1446,7 @@ impl Engine {
             Msg::RemoveDevice { slot } => {
                 if let Some(old) = self
                     .devices
-                    .get_mut(slot as usize)
+                    .get_mut(slot.index())
                     .and_then(|d| d.get_mut().take())
                 {
                     self.discard(Garbage::Device(old.device));
@@ -1804,7 +1800,7 @@ impl Engine {
         for entry in &schedule.entries {
             if let Some(at) = self
                 .tracks
-                .get_mut(entry.slot as usize)
+                .get_mut(entry.slot.index())
                 .and_then(|t| t.get_mut().as_deref())
                 .and_then(|t| t.launcher.queued_at())
             {
@@ -1833,7 +1829,7 @@ impl Engine {
         for entry in &schedule.entries {
             let Some(t) = self
                 .tracks
-                .get_mut(entry.slot as usize)
+                .get_mut(entry.slot.index())
                 .and_then(|t| t.get_mut().as_deref_mut())
             else {
                 continue;
@@ -1925,12 +1921,12 @@ impl Engine {
         }
     }
 
-    fn track_mut(&mut self, slot: Slot) -> Option<&mut TrackRt> {
-        self.tracks.get_mut(slot as usize)?.get_mut().as_deref_mut()
+    fn track_mut(&mut self, slot: TrackSlot) -> Option<&mut TrackRt> {
+        self.tracks.get_mut(slot.index())?.get_mut().as_deref_mut()
     }
 
-    fn device_mut(&mut self, slot: Slot) -> Option<&mut DeviceSlot> {
-        self.devices.get_mut(slot as usize)?.get_mut().as_mut()
+    fn device_mut(&mut self, slot: DeviceSlot) -> Option<&mut DeviceRt> {
+        self.devices.get_mut(slot.index())?.get_mut().as_mut()
     }
 
     /// Look again whether any track has a state lane (after its
@@ -2376,7 +2372,7 @@ impl Engine {
         let n = block.n;
         let Some(mut track) = self
             .tracks
-            .get_mut(entry.slot as usize)
+            .get_mut(entry.slot.index())
             .and_then(|t| t.get_mut().take())
         else {
             return;
@@ -2408,7 +2404,7 @@ impl Engine {
             for send in entry.sends.iter_mut().filter(|send| send.pre) {
                 if let Some(dst) = self
                     .tracks
-                    .get_mut(send.target as usize)
+                    .get_mut(send.target.index())
                     .and_then(|t| t.get_mut().as_deref_mut())
                 {
                     let src = [&t.buf[0][..n], &t.buf[1][..n]];
@@ -2427,7 +2423,7 @@ impl Engine {
             fader(t, entry.slot, block, &self.shared);
         }
 
-        if entry.slot == MASTER {
+        if entry.slot == TrackSlot::MASTER {
             out_l.copy_from_slice(&t.buf[0][..n]);
             out_r.copy_from_slice(&t.buf[1][..n]);
         } else {
@@ -2438,7 +2434,7 @@ impl Engine {
             let src = [&t.buf[0][..n], &t.buf[1][..n]];
             if let Some(dst) = self
                 .tracks
-                .get_mut(entry.output as usize)
+                .get_mut(entry.output.index())
                 .and_then(|t| t.get_mut().as_deref_mut())
             {
                 let [l, r] = &mut dst.buf;
@@ -2449,7 +2445,7 @@ impl Engine {
             for send in entry.sends.iter_mut().filter(|send| !send.pre) {
                 if let Some(dst) = self
                     .tracks
-                    .get_mut(send.target as usize)
+                    .get_mut(send.target.index())
                     .and_then(|t| t.get_mut().as_deref_mut())
                 {
                     let [l, r] = &mut dst.buf;
@@ -2467,12 +2463,12 @@ impl Engine {
             for out in entry.outs.iter_mut() {
                 let (Some(pair), Some(dst)) = (
                     self.devices
-                        .get_mut(out.device as usize)
+                        .get_mut(out.device.index())
                         .and_then(|d| d.get_mut().as_mut())
                         .and_then(|d| d.outs.as_deref())
                         .and_then(|outs| outs.get(out.pair)?.as_ref()),
                     self.tracks
-                        .get_mut(out.target as usize)
+                        .get_mut(out.target.index())
                         .and_then(|t| t.get_mut().as_deref_mut()),
                 ) else {
                     continue;
@@ -2486,7 +2482,7 @@ impl Engine {
                 );
             }
         }
-        *self.tracks[entry.slot as usize].get_mut() = Some(track);
+        *self.tracks[entry.slot.index()].get_mut() = Some(track);
     }
 
     /// Where the metronome clicks in a block of `n` frames, for the
@@ -2553,10 +2549,10 @@ impl Engine {
 }
 
 /// Put a block of a track into the side-chain of a device that listens to it.
-fn key_into(devices: &mut [Guarded<Option<DeviceSlot>>], key: &mut KeyRt, src: [&[f32]; 2]) {
+fn key_into(devices: &mut [Guarded<Option<DeviceRt>>], key: &mut KeyRt, src: [&[f32]; 2]) {
     let n = src[0].len();
     if let Some([l, r]) = devices
-        .get_mut(key.device as usize)
+        .get_mut(key.device.index())
         .and_then(|d| d.get_mut().as_mut())
         .and_then(|d| d.key.as_deref_mut())
     {
@@ -2599,7 +2595,7 @@ struct Work<'a> {
     block: &'a Block<'a>,
     entries: &'a [SchedEntry],
     tracks: &'a [Guarded<Option<Box<TrackRt>>>],
-    devices: &'a [Guarded<Option<DeviceSlot>>],
+    devices: &'a [Guarded<Option<DeviceRt>>],
     inputs: &'a [Vec<f32>],
     shared: &'a Shared,
     /// Nanoseconds the tracks of the group took, added up.
@@ -2632,7 +2628,7 @@ impl Work<'_> {
         let sr = ctx.sample_rate as f64;
         let Some(mut claim) = self
             .tracks
-            .get(entry.slot as usize)
+            .get(entry.slot.index())
             .and_then(Guarded::claim)
         else {
             return;
@@ -2764,7 +2760,7 @@ impl Work<'_> {
         // message for a point at this block's end is handed on its last
         // frame: a plugin that finishes it after the block (an LV2 worker,
         // at once in a render) then plays it from the point's frame.
-        let mut programs = [(NO_SLOT, 0u8, None::<u16>); 4];
+        let mut programs = [(DeviceSlot::NONE, 0u8, None::<u16>); 4];
         let mut program_count = 0;
         if playing {
             for lane in t.automation.states.iter_mut() {
@@ -2854,7 +2850,7 @@ impl Work<'_> {
                 }
                 quiet = None;
                 runs += 1;
-                if let Some(ran) = self.shared.device_ran.get(slot as usize) {
+                if let Some(ran) = self.shared.device_ran.get(slot.index()) {
                     // One writer per slot: a load and a store, no locked add.
                     ran.store(ran.load(Relaxed) + 1, Relaxed);
                 }
@@ -2900,7 +2896,7 @@ impl Work<'_> {
         if sleeps > 0 {
             self.shared.device_sleeps.fetch_add(sleeps, Relaxed);
         }
-        if let Some(state) = self.shared.launch.get(entry.slot as usize) {
+        if let Some(state) = self.shared.launch.get(entry.slot.index()) {
             t.launcher.publish(state);
         }
         // A track with sends or side-chains from before its fader keeps
@@ -2910,14 +2906,14 @@ impl Work<'_> {
         }
     }
 
-    fn device(&self, slot: Slot) -> Option<Claim<'_, Option<DeviceSlot>>> {
-        self.devices.get(slot as usize)?.claim()
+    fn device(&self, slot: DeviceSlot) -> Option<Claim<'_, Option<DeviceRt>>> {
+        self.devices.get(slot.index())?.claim()
     }
 }
 
 /// Apply a track's fader, pan and mute to its block, moving smoothly from
 /// where the last block left them, and measure what comes out.
-fn fader(t: &mut TrackRt, slot: Slot, block: &Block, shared: &Shared) {
+fn fader(t: &mut TrackRt, slot: TrackSlot, block: &Block, shared: &Shared) {
     let n = block.n;
     let target = t.target_gains();
     if !t.started {
@@ -2942,7 +2938,7 @@ fn fader(t: &mut TrackRt, slot: Slot, block: &Block, shared: &Shared) {
         // A track silenced by a solo shows nothing, as it is heard.
         let peak = if t.quiet { 0.0 } else { peak };
         t.peak[ch] = peak.max(t.peak[ch] * block.meter_fall);
-        if let Some(meter) = shared.meters.get(slot as usize) {
+        if let Some(meter) = shared.meters.get(slot.index()) {
             meter[ch].store(t.peak[ch].to_bits(), Relaxed);
         }
     }

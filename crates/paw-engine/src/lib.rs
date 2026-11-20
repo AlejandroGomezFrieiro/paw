@@ -24,6 +24,7 @@ pub mod preview;
 pub mod probe;
 pub mod record;
 pub mod samples;
+pub mod slot;
 pub mod tempo;
 pub mod ump;
 pub mod wav;
@@ -32,18 +33,19 @@ pub use automation::{AutoLane, AutoTarget, Automation, StateChange, StateLane};
 pub use backend::no_denormals;
 pub use clip::{AudioData, AudioRegion, ClipSet, MidiEv, Part, PartEdit, Switch};
 pub use device::{
-    Controller, Device, DeviceFactory, DeviceInfo, Instance, Io, MAX_PAIRS, ParamInfo, Ports,
-    ProcessCtx, Registry, Rest,
+    Category, Controller, Device, DeviceFactory, DeviceFormat, DeviceInfo, Instance, Io, MAX_PAIRS,
+    ParamInfo, Ports, ProcessCtx, Registry, Rest,
 };
 pub use engine::{
-    BlockStats, BlockSummary, Delay, Engine, EngineHandle, KeyBuf, KeyRt, MASTER, MAX_BLOCK,
-    MAX_DELAY, MAX_DEVICES, MAX_INPUTS, MAX_TRACKS, Msg, NO_SLOT, OutBufs, OutRt, SchedEntry,
-    Schedule, SendRt, Shared, Slot, TrackRt, key_buf, out_bufs,
+    BlockStats, BlockSummary, Delay, Engine, EngineHandle, KeyBuf, KeyRt, MAX_BLOCK,
+    MAX_DELAY, MAX_DEVICES, MAX_INPUTS, MAX_TRACKS, Msg, OutBufs, OutRt, SchedEntry,
+    Schedule, SendRt, Shared, TrackRt, key_buf, out_bufs,
 };
 pub use event::{Attr, Ctl, Event, EventBuf, EventKind, NOTE_BEND_RANGE, NoteCtl};
 pub use pool::Pool;
 pub use preview::Preview;
 pub use samples::{DiskStore, Samples, Sink, store_name};
+pub use slot::{DeviceSlot, TrackSlot};
 pub use tempo::{SigPoint, TempoMap, TempoPoint};
 
 /// Convert decibels to linear gain. Anything at or below -120 dB is silence.

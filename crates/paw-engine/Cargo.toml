@@ -11,6 +11,7 @@ midi = ["dep:alsa-sys"]
 
 [dependencies]
 anyhow.workspace = true
+serde.workspace = true
 rtrb = "0.4"
 hound = "3.5"
 # Pure Rust, so the Nix build needs no codec libraries. Only what audio clips use.
@@ -23,5 +24,6 @@ alsa-sys = { version = "0.4", optional = true }
 libc = "0.2"
 
 [dev-dependencies]
+serde_json.workspace = true
 rtrb = "0.4"
 alsa-sys = "0.4"

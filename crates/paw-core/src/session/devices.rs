@@ -1,6 +1,7 @@
 //! Devices on tracks: adding, removing, parameters, states, presets and calls.
 
 use crate::events::{DeviceTrouble, Item, KernelEvent as E, ParamTouched};
+use paw_engine::DeviceFormat;
 use super::*;
 
 /// What `paw.api.device_find` looks for; each part is optional.
@@ -35,12 +36,13 @@ impl Session {
     /// kinds of `format` when it is given. The list of all kinds is not
     /// made, so this is quick with many plugins.
     pub fn device_find(&self, q: &DeviceQuery) -> Vec<Value> {
+        // A word that names no format (`vst`) finds nothing.
         let format = q.format.as_deref().map(|f| match f.to_ascii_lowercase().as_str() {
-            "vst" | "vst2" => "vst".to_string(),
-            "built in" | "built-in" => "builtin".to_string(),
-            other => other.to_string(),
+            "built in" | "built-in" => Some(DeviceFormat::Builtin),
+            other => other.parse::<DeviceFormat>().ok(),
         });
-        let in_format = |info: &paw_engine::DeviceInfo| format.as_deref().is_none_or(|f| info.format == f);
+        let in_format =
+            |info: &paw_engine::DeviceInfo| format.is_none_or(|f| f == Some(info.format));
         if let Some(kind) = &q.kind {
             return self
                 .registry
@@ -166,7 +168,7 @@ impl Session {
         Ok(json!({
             "plugin": plugin,
             "id": d.id, "kind": d.kind, "name": name, "offline": d.offline,
-            "format": info.map_or("", |i| &i.format),
+            "format": info.map_or("", |i| i.format.as_str()),
             "track": track, "index": index + 1, "bypass": d.bypass, "params": params,
             // The parameters the project sets, over what the plugin's state says.
             "overrides": d.params,
@@ -195,7 +197,7 @@ impl Session {
             .registry
             .get(kind)
             .map(|f| f.info())
-            .filter(|info| info.format != "builtin")
+            .filter(|info| info.format != DeviceFormat::Builtin)
             .map(|info| info.name.clone());
         self.edit(|p| {
             let t = p

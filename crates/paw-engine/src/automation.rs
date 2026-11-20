@@ -1,7 +1,7 @@
 //! Automation as the audio thread sees it: per track, the lanes that are on,
 //! each a list of points in the target's own units.
 
-use crate::engine::Slot;
+use crate::slot::DeviceSlot;
 
 /// The value of a lane at `beat`: linear between points, the first value
 /// before the first point and the last after the last. `points` must be sorted
@@ -23,7 +23,7 @@ pub enum AutoTarget {
     /// -1 (left) to 1 (right).
     Pan,
     /// A parameter, by position in the device's parameter list.
-    Param { device: Slot, index: u32 },
+    Param { device: DeviceSlot, index: u32 },
 }
 
 pub struct AutoLane {
@@ -75,7 +75,7 @@ impl StateChange {
 /// keeps it up to the next point. Before the first point the first state
 /// holds, as a curve's first value does.
 pub struct StateLane {
-    pub device: Slot,
+    pub device: DeviceSlot,
     /// `(beat, index in changes)`, sorted by beat.
     pub points: Box<[(f64, u32)]>,
     pub changes: Box<[StateChange]>,
@@ -89,7 +89,7 @@ pub struct StateLane {
 
 impl StateLane {
     pub fn new(
-        device: Slot,
+        device: DeviceSlot,
         points: impl Into<Box<[(f64, u32)]>>,
         changes: impl Into<Box<[StateChange]>>,
     ) -> Self {

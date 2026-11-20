@@ -273,9 +273,10 @@ impl Session {
         }
         let registry = &self.registry;
         let plugin = |kind: &str| {
+            use paw_engine::DeviceFormat::{Clap, Lua, Lv2, Vst3};
             registry
                 .get(kind)
-                .is_some_and(|f| matches!(f.info().format.as_str(), "clap" | "lv2" | "vst3" | "lua"))
+                .is_some_and(|f| matches!(f.info().format, Clap | Lv2 | Vst3 | Lua))
         };
         for track in project
             .tracks

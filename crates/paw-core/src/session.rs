@@ -12,7 +12,7 @@ use std::time::{Duration, Instant};
 use anyhow::{Context, Result, anyhow, bail};
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64;
-use paw_engine::backend::{self, BackendOptions, Stream, StreamInfo};
+use paw_engine::backend::{self, BackendChoice, BackendOptions, Stream, StreamInfo};
 use paw_engine::midi::{MidiInputs, MidiSink, MidiTarget};
 use paw_engine::record::{self, AudioCapture, MidiCapture, Take, TakeShared};
 use paw_engine::{Engine, EngineHandle, EventKind, Msg, ParamInfo, Pool, Registry};

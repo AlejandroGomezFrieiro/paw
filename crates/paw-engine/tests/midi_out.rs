@@ -11,8 +11,8 @@ use paw_engine::midi::{MidiInputs, MidiTarget, port_key};
 use paw_engine::midi_form::Form;
 use paw_engine::midi_out::{MidiOut, MidiOutputs, clock_ns};
 use paw_engine::{
-    Attr, ClipSet, Ctl, Engine, EventKind, MASTER, MidiEv, Msg, NO_SLOT, NoteCtl, SchedEntry, Schedule,
-    TrackRt,
+    Attr, ClipSet, Ctl, Engine, EventKind, MidiEv, Msg, NoteCtl, SchedEntry, Schedule, TrackRt,
+    TrackSlot,
 };
 
 /// The inputs with a port of ours, `name`, and what arrives there, with
@@ -115,25 +115,28 @@ fn an_engine_sends_what_a_track_plays_and_ends_it_when_stopped() {
     let send = |handle: &mut paw_engine::EngineHandle, engine: &mut Engine, msg| {
         handle.send_while(msg, engine)
     };
-    send(&mut handle, &mut engine, Msg::InsertTrack { slot: 1, track: TrackRt::new() });
+    send(&mut handle, &mut engine, Msg::InsertTrack { slot: TrackSlot(1), track: TrackRt::new() });
     // A held note from the first beat, and another on the second.
     let mut clips = ClipSet::default();
     clips.midi = vec![
         MidiEv { beat: 0.0, kind: EventKind::NoteOn { key: 50, vel: 0.5, ch: 0, attr: Attr::NONE } },
         MidiEv { beat: 1.0, kind: EventKind::NoteOn { key: 52, vel: 0.5, ch: 0, attr: Attr::NONE } },
     ];
-    send(&mut handle, &mut engine, Msg::SetClips { track: 1, clips: Box::new(clips) });
+    send(&mut handle, &mut engine, Msg::SetClips { track: TrackSlot(1), clips: Box::new(clips) });
     send(
         &mut handle,
         &mut engine,
         Msg::SetMidiOutput {
-            track: 1,
+            track: TrackSlot(1),
             port: port_key("paw: Loop B"),
             channel: 10,
             form: Form::Auto,
         },
     );
-    let entries = vec![SchedEntry::new(1, MASTER), SchedEntry::new(MASTER, NO_SLOT)];
+    let entries = vec![
+        SchedEntry::new(TrackSlot(1), TrackSlot::MASTER),
+        SchedEntry::new(TrackSlot::MASTER, TrackSlot::NONE),
+    ];
     send(&mut handle, &mut engine, Msg::SetSchedule(Box::new(Schedule::new(entries, 0))));
     send(&mut handle, &mut engine, Msg::SetTempo(120.0));
     send(&mut handle, &mut engine, Msg::Play);

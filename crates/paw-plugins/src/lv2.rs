@@ -18,8 +18,8 @@ use std::time::Duration;
 use anyhow::{Context, Result, anyhow, bail};
 use paw_engine::device::Change;
 use paw_engine::{
-    Controller, Device, DeviceFactory, DeviceInfo, EventKind, Instance, Io, ParamInfo, Ports,
-    ProcessCtx, Registry, Rest, ump,
+    Category, Controller, Device, DeviceFactory, DeviceFormat, DeviceInfo, EventKind, Instance, Io,
+    ParamInfo, Ports, ProcessCtx, Registry, Rest, ump,
 };
 use lilv_sys::*;
 
@@ -526,13 +526,8 @@ pub(crate) fn scan(registry: &mut Registry, cache: &mut crate::Cache, notes: &mu
         let info = DeviceInfo {
             kind: format!("lv2:{}", plugin.id),
             name: plugin.name,
-            category: if plugin.instrument {
-                "instrument"
-            } else {
-                "effect"
-            }
-            .into(),
-            format: "lv2".into(),
+            category: if plugin.instrument { Category::Instrument } else { Category::Effect },
+            format: DeviceFormat::Lv2,
             vendor: plugin.vendor,
             id: plugin.id.clone(),
             version: plugin.version,

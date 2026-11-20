@@ -12,7 +12,8 @@ impl Session {
             sink.engine = self.handle.take_midi_input();
         }
         // The `test` backend's pretend device is as silent as the null one.
-        if matches!(self.stream.info.backend.as_str(), "null" | "test") && !self.midi_without_audio
+        if matches!(self.stream.info.backend, BackendChoice::Null | BackendChoice::Test)
+            && !self.midi_without_audio
         {
             self.midi = None;
             self.midi_out = None;

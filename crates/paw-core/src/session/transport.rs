@@ -814,7 +814,7 @@ impl Session {
     pub(super) fn record_latency(&self, audio: bool) -> f64 {
         let info = &self.stream.info;
         let mut seconds = self.record_offset / 1000.0;
-        if info.backend != "null" {
+        if info.backend != BackendChoice::Null {
             seconds += info.buffer_size as f64 / info.sample_rate as f64;
             if audio {
                 seconds += self.handle.shared.input_latency() as f64;

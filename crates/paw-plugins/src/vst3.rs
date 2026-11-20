@@ -16,8 +16,8 @@ use std::sync::{Arc, Mutex};
 use anyhow::{Context, Result, bail};
 use paw_engine::device::{Change, Rest, assign_keys};
 use paw_engine::{
-    Controller, Ctl, Device, DeviceFactory, DeviceInfo, EventKind, Instance, Io, NOTE_BEND_RANGE,
-    NoteCtl, ParamInfo, Ports, ProcessCtx, Registry,
+    Category, Controller, Ctl, Device, DeviceFactory, DeviceFormat, DeviceInfo, EventKind, Instance,
+    Io, NOTE_BEND_RANGE, NoteCtl, ParamInfo, Ports, ProcessCtx, Registry,
 };
 use vst3::Steinberg::Linux::*;
 use vst3::Steinberg::Vst::*;
@@ -266,12 +266,11 @@ pub(crate) fn scan_in(
                         kind,
                         name: plugin.name,
                         category: if plugin.instrument {
-                            "instrument"
+                            Category::Instrument
                         } else {
-                            "effect"
-                        }
-                        .into(),
-                        format: "vst3".into(),
+                            Category::Effect
+                        },
+                        format: DeviceFormat::Vst3,
                         vendor: plugin.vendor,
                         id: plugin.id.clone(),
                         version: plugin.version,
