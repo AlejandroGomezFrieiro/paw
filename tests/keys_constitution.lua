@@ -217,13 +217,15 @@ local function param_row(device, key)
   end
 end
 
-test("in the device panel w b go from device to device, + - change a parameter, gc bypasses", function()
-  local _, synth, delay = panel()
+test("in the device panel w b go from device to device, + - change a parameter, gc bypasses, M r the track", function()
+  local t, synth, delay = panel()
   keys("w")
   local device, row = paw.ui.views.devices:selected()
   eq(device.id == delay.id and not row.param, true, "w is the next device's heading")
   keys("gcc")
   eq(api.device_get(delay.id).bypass, true, "gcc bypasses it")
+  keys("Mr")
+  eq(api.track_get(t.id).mute and api.track_get(t.id).armed, true, "M r mute and arm the panel's track, as wherever there is a track")
   keys("b")
   eq(paw.ui.views.devices.row, 1, "b is the device before")
   paw.ui.views.devices.row = param_row(synth, "cutoff")

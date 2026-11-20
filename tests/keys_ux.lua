@@ -35,6 +35,7 @@ test("a named group shows its name in the hints, and an unnamed one how many key
   eq(hint_of("l"), "Choose what to automate, and show its lane", "the keys inside still say what they do")
   paw.keymap.feed("<Esc><leader>")
   eq(hint_of("a"), "+automation", "the built-in groups have names")
+  eq(hint_of("c"), "+fixes, clip fade", "for what the prefix holds in this view")
   paw.keymap.feed("<Esc>")
   paw.keymap.del("<leader>yq1")
   paw.keymap.del("<leader>yq2")

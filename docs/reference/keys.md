@@ -91,7 +91,7 @@ The same keys mean the same in every view:
 | `K` | describe |
 | `ge` | the window of the plugin |
 | `gc` | mute or bypass |
-| `gC` `<CR>` | a curve |
+| `gC` | a curve (`<CR>` too on a lane row and in **D**) |
 | `<Esc>` | cancel, and stay in the view |
 | `<C-w>p` | the window before |
 
@@ -136,6 +136,7 @@ In the **curve editor**:
 | `a` | add a device |
 | `x` | remove (on a parameter: its default) |
 | `gc` | bypass |
+| `s` `M` `r` | solo, mute, arm the track |
 | `c` | a preset or a value |
 | `[p` `]p` | step presets |
 | `,w` | save a preset |
@@ -267,7 +268,7 @@ See [Snippets](snippets.md) and [Completion](completion.md).
 | `:vimgrep /pizz/` | every text in the project that matches, in the quickfix list |
 | `:select clip[name~=pizz] > note[pitch>=C5]` | choose what a query finds; `:query` lists it |
 | `]c` `[c` | next, previous clip of the same kind on the track (R: `]n` `[n`, note of the same pitch) |
-| `]s` `[s` | next, previous track in the group (in a score, instrument in the group) |
+| `]s` `[s` | next, previous track in the group (in a score, instrument in the group). With the sections extension, the next and previous section in A |
 | `[{` `]}` | up to the group the track is in; its last track (in a score, the group's first and last instrument); `[u` is `[{` too |
 | `]u` | down into the group: its first track |
 | `ig` `ag` | the group's tracks; with the group track |

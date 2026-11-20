@@ -25,7 +25,7 @@ For the reasons of the rule, see [About the key rule](../explanation/about-the-k
 | `K` | Describes what is under the cursor. `gK` gives what the diagnostics and language servers say about it. |
 | `ge` | The plugin window of what is under the cursor (an insert in the mixer, a device in the panel), else of the track. |
 | `gc` | Mute: an operator over clips and tracks (`gcc` the track), and over strips in the mixer. A lane of automation off or on. A device bypassed (`gcc` in the panel). |
-| `gC`, `Enter` | Opens the curve of what is under the cursor: a lane row, a parameter, the fader or pan of the mixer, the strip of the piano roll. `gX` opens the expression of the note. |
+| `gC` | Opens the curve of what is under the cursor: a lane row, a parameter, the fader or pan of the mixer, the strip of the piano roll. `Enter` does the same on a lane row and a parameter. `gX` opens the expression of the note. |
 | `Alt-h` `Alt-l`, `H` `L` | Shorter and longer. Earlier and later. For a clip, a note, a chord in the score. |
 | `Esc` | Cancels: a count, an operator, a selection, insert mode, a suggestion, the chosen notes, a check that runs. It never leaves or closes a view. A second `Esc` says how to leave: `Ctrl-w p` returns to the window before, and `:q`, `ZZ`, `Ctrl-w c` or the key of the view (`,m` `,d` `,p`, `q` on a page) close it. Pickers, menus and floating lists are prompts, and close on `Esc`. |
 | `s` `M` `r` | Solo, mute, arm the track: in the arrange view, the mixer, the session view of the clip launcher (the track of the column) and the device panel (its track). |
@@ -62,6 +62,12 @@ For the reasons of the rule, see [About the key rule](../explanation/about-the-k
 A key of one view must not use a key of the global leader.
 `:lua =paw.keyrule.broken()` lists the keys that do. `:map` and the key
 hints show both leaders as you type them.
+
+Some views also have keys of their own after the leader, on keys that no
+global mapping uses. The arrange view has the most: the automation
+(`,a`), groups and VCAs (`,g` `,v`), sends and outputs (`,s` `,o`), and
+the keys of extensions (`,S` sections, `,t` patterns, `,k` drums). The
+device panel saves presets with `,w` `,W`.
 
 ## The classic keys
 

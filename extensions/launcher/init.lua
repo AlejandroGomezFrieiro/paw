@@ -163,9 +163,10 @@ smotion("^", "cursor.first_track", "The first track")
 smotion("$", "cursor.last_track", "The last track")
 smap("<CR>", "launch", "Launch the slot (an empty one stops the track)")
 smap("L", "scene", "Launch the scene: the whole row")
--- `s` solos and `M` mutes, as on a track anywhere; stopping is the session's own.
+-- `s` solos, `M` mutes and `r` arms, as on a track anywhere; stopping is the session's own.
 smap("s", "track.solo", "Solo")
 smap("M", "track.mute", "Mute the track")
+smap("r", "track.armed", "Arm for recording")
 smap("S", "launch.stop", "Stop the track's clip")
 smap("gS", "launch.stop all", "Stop every clip")
 smap("B", "launch.back", "Resume the track's timeline: stop its slot so the arranged clips play again")
