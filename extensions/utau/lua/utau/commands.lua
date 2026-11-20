@@ -564,8 +564,9 @@ map("<CR>", function()
   end
   paw.cmd("clip.edit")
 end, { view = "arrange", desc = "Edit the clip: the vocal editor on a vocal track, else the piano roll" })
-map("<leader>v", "utau.track", { view = "arrange", desc = "Add a vocal track" })
-map("<leader>V", "utau.singer", { view = "arrange", desc = "Choose the vocal track's singer" })
+paw.keymap.group("<leader>V", "vocal", { view = "arrange" })
+map("<leader>Vt", "utau.track", { view = "arrange", desc = "Add a vocal track" })
+map("<leader>Vs", "utau.singer", { view = "arrange", desc = "Choose the vocal track's singer" })
 
 -- The editor is a piano roll, and takes the same grammar: motions, the
 -- operators below with any of them, text objects, visual mode, registers,

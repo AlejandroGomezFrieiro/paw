@@ -228,8 +228,10 @@ test("utau: a vocal track is a kind of track: made, shown, described and opened 
   T.fresh()
   load()
   paw.ui.focus("arrange")
-  local track = paw.cmd("track.add", { "vocal", ask = false })
-  eq(paw.track_kinds.of(track.id), "vocal", "track.add vocal makes a vocal track")
+  T.keys(",Vt")
+  while paw.ui.float do paw.ui.close() end
+  local track = paw.tracks()[#paw.tracks()]
+  eq(paw.track_kinds.of(track.id), "vocal", "the key makes a vocal track")
   eq(utau.device_of(track.id) ~= nil, true, "with the singing device")
   utau.configure(track.id, { singer = "Someone" })
   eq(paw.track_kinds.describe(track.id), "Vocal track · Someone", "described with its singer")

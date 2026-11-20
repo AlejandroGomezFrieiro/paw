@@ -18,7 +18,7 @@ extension each time, link its folder into `~/.config/paw/extensions`.
 The README.md of each extension tells all that it does. Each extension has
 its keys under its own prefix. These are `]s` `[s` and `,S` (sections), `gz`
 (musicops) and `,t` (pattern). They are also `,x` and `]d` `[d` (mixdiag),
-`,u` `g-` `g+` (undotree) and `,v` (utau).]],
+`,u` `g-` `g+` (undotree) and `,V` (utau).]],
   idea = [[
 An extension adds commands, keys, text objects, operators and views with the
 functions of lesson 15. So its additions obey the grammar that you know.
@@ -98,7 +98,7 @@ extensions.]],
           if look.device(t, "lua:utau") then return loaded("utau") end
         end
       end,
-      done = "The track is a vocal track. It sings when you install `paw-utau-engine` and a voicebank (see extensions/utau/README.md). Then `,v` adds a vocal track and asks for its singer in one step.",
+      done = "The track is a vocal track. It sings when you install `paw-utau-engine` and a voicebank (see extensions/utau/README.md). Then `,Vt` adds a vocal track and asks for its singer in one step.",
     },
     {
       say = "Listen to the pattern and the tune. Press `gs` and `<Space>`, and `<Space>` to stop.",

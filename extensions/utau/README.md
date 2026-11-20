@@ -25,7 +25,7 @@ paw.render("vocal.wav")   -- waits until every phrase is sung at final quality
    extension](#how-to-enable-the-extension)). Install a voicebank for
    OpenUtau.
 2. Type `:track.add vocal`. A vocal track appears, with `V` before its name.
-3. Press `,V` and choose a singer.
+3. Press `,Vs` and choose a singer.
 4. Put the cursor on an empty part of the track. Press `i` to make a clip,
    and press Enter. The vocal editor opens.
 5. Press `i` to add a note, then `c`, type `a` and press Enter. The phrase
@@ -111,10 +111,10 @@ Type `:utau.freeze`. To sing it again, type `:utau.unfreeze`.
 
 A vocal track is a kind of track (`paw.track_kinds`).
 
-- `:track.add vocal [singer]`, `<leader>v` (`:utau.track [singer]`) or
+- `:track.add vocal [singer]`, `<leader>Vt` (`:utau.track [singer]`) or
   `:track.new` adds one. The graphical window offers "New vocal track"
   where it makes a track.
-- `<leader>V` (`:utau.singer`) chooses its singer from a list.
+- `<leader>Vs` (`:utau.singer`) chooses its singer from a list.
 - The header shows `V` before the name of the track. `K` and the header in
   the graphical window tell who sings.
 - Enter on a clip of a vocal track opens the vocal editor, not the piano

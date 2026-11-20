@@ -8,7 +8,7 @@ In this lesson, we load seven of the extensions that come with paw, and we try o
 
 Extensions give much of what paw can do. An extension is a folder of Lua in `extensions/` next to the program. It uses the same `paw` module as your `init.lua`. `:tutor.try` loads an extension for this session only. To load an extension each time, link its folder into `~/.config/paw/extensions`.
 
-The README.md of each extension tells all that it does. Each extension has its keys under its own prefix. These are `]s` `[s` and `,S` (sections), `gz` (musicops) and `,t` (pattern). They are also `,x` and `]d` `[d` (mixdiag), `,u` `g-` `g+` (undotree) and `,v` (utau).
+The README.md of each extension tells all that it does. Each extension has its keys under its own prefix. These are `]s` `[s` and `,S` (sections), `gz` (musicops) and `,t` (pattern). They are also `,x` and `]d` `[d` (mixdiag), `,u` `g-` `g+` (undotree) and `,V` (utau).
 
 ## The idea
 
@@ -35,7 +35,7 @@ The tutor opens a practice project for this lesson. It checks each step when you
 6. interop opens and writes REAPER projects and DAWproject files. Type `:tutor.try interop` and `<CR>`. Then type `:export tutor-song.rpp` and `<CR>`. A list of the items that REAPER cannot use opens. Press `q` to close it.
    - ✓ tutor-song.rpp is in the folder where you started paw. As the list told you, the file does not contain the built-in devices.
 7. utau sings notes with lyrics through the engines of OpenUtau. Type `:tutor.try utau` and `<CR>`. Press `o` to add a track. Then type `:utau.voice` and `<CR>` to make it a vocal track.
-   - ✓ The track is a vocal track. It sings when you install `paw-utau-engine` and a voicebank (see extensions/utau/README.md). Then `,v` adds a vocal track and asks for its singer in one step.
+   - ✓ The track is a vocal track. It sings when you install `paw-utau-engine` and a voicebank (see extensions/utau/README.md). Then `,Vt` adds a vocal track and asks for its singer in one step.
 8. Listen to the pattern and the tune. Press `gs` and `<Space>`, and `<Space>` to stop.
    - ✓ You hear the drum pattern and the tune that musicops changed.
 
