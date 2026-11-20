@@ -183,6 +183,8 @@ struct Scene {
     tools: Tools,
     display: String,
     xvfb: Child,
+    /// The display number, held until the server is gone.
+    _display: Claim,
     openbox: Child,
     gui: Child,
     /// The kernel the window is a client of, when it did not start one.
@@ -224,13 +226,60 @@ fn display_in_use(number: u32) -> bool {
     running || UnixStream::connect(format!("/tmp/.X11-unix/X{number}")).is_ok()
 }
 
+/// A display number that one test process holds. The X server's own lock
+/// file appears only after it started, so two test processes (two checkouts
+/// testing at once) that probe at the same moment would both take the same
+/// number: one of them then ran its windows on the other's server, and keys
+/// and windows of two tests mixed. The claim is a file made with
+/// `create_new`, which only one process can make; it names the process, so
+/// that the claim of a process that died is let go.
+struct Claim(PathBuf);
+
+impl Claim {
+    fn take(number: u32) -> Option<Claim> {
+        use std::io::ErrorKind;
+        let path = PathBuf::from(format!("/tmp/.paw-test-display-{number}"));
+        for _ in 0..3 {
+            match fs::OpenOptions::new().write(true).create_new(true).open(&path) {
+                Ok(mut file) => {
+                    let _ = write!(file, "{}", std::process::id());
+                    return Some(Claim(path));
+                }
+                Err(err) if err.kind() == ErrorKind::AlreadyExists => {
+                    let owner = fs::read_to_string(&path).unwrap_or_default();
+                    let alive = owner
+                        .trim()
+                        .parse::<u32>()
+                        .is_ok_and(|pid| Path::new(&format!("/proc/{pid}")).exists());
+                    // A claim just made may not hold its pid yet.
+                    if alive || owner.trim().is_empty() {
+                        return None;
+                    }
+                    if fs::read_to_string(&path).unwrap_or_default() == owner {
+                        let _ = fs::remove_file(&path);
+                    }
+                }
+                Err(_) => return None,
+            }
+        }
+        None
+    }
+}
+
+impl Drop for Claim {
+    fn drop(&mut self) {
+        let _ = fs::remove_file(&self.0);
+    }
+}
+
 /// An X server on the first display from 120 up that is free. Tests run side
-/// by side, so the choice is made one at a time.
-fn start_xvfb(tools: &Tools, dir: &Path) -> (Child, String) {
-    static PROBE: Mutex<()> = Mutex::new(());
-    let _one_at_a_time = PROBE.lock().unwrap();
+/// by side, in this process and in others, so a number is claimed first.
+fn start_xvfb(tools: &Tools, dir: &Path) -> (Child, String, Claim) {
     for number in 120..400 {
         let socket = format!("/tmp/.X11-unix/X{number}");
+        let Some(claim) = Claim::take(number) else {
+            continue;
+        };
         if display_in_use(number) {
             continue;
         }
@@ -244,8 +293,11 @@ fn start_xvfb(tools: &Tools, dir: &Path) -> (Child, String) {
         let mut child = spawn_group(&mut command);
         let deadline = Instant::now() + Duration::from_secs(10);
         loop {
-            if UnixStream::connect(&socket).is_ok() {
-                return (child, format!(":{number}"));
+            // The socket is ours when the server that listens is the one
+            // started here (its lock file names it), not a neighbor's.
+            let lock = fs::read_to_string(format!("/tmp/.X{number}-lock")).unwrap_or_default();
+            if lock.trim() == child.id().to_string() && UnixStream::connect(&socket).is_ok() {
+                return (child, format!(":{number}"), claim);
             }
             if child.try_wait().unwrap().is_some() || Instant::now() > deadline {
                 signal_group(&child);
@@ -321,7 +373,7 @@ impl Scene {
                 fs::create_dir_all(path).unwrap();
             }
         }
-        let (xvfb, display) = start_xvfb(&tools, &dir);
+        let (xvfb, display, display_claim) = start_xvfb(&tools, &dir);
         envs.push(("PAW_BIN", paw.clone()));
         // A scene named so asks for the processor (GLX, its parts copied).
         if name.ends_with("-sw") {
@@ -418,6 +470,7 @@ impl Scene {
             tools,
             display,
             xvfb,
+            _display: display_claim,
             openbox,
             gui,
             kernel,
