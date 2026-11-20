@@ -2,9 +2,10 @@
 -- settings worth knowing about, each with what it does, and a command, a key
 -- and an event of your own. It runs at startup and again on `:reload`.
 --
--- `extensions/` beside this file holds two small extensions of your own,
+-- `extensions/` beside this file holds three small extensions of your own,
 -- loaded at startup as every folder in the configuration's `extensions` is:
--- `euclid` (a command and a key) and `clock.lua` (a view, `,C`).
+-- `euclid` (a command and a key), `clock.lua` (a view, `,C`) and `scale.tl`
+-- (a command, written in Teal).
 --
 -- To make it yours, link this directory as the configuration directory:
 --

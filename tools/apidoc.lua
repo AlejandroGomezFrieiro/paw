@@ -439,6 +439,7 @@ function M.teal()
   local function count(name, text)
     local n = 0
     for _ in text:gmatch("%f[%w_]any%f[^%w_]") do n = n + 1 end
+    for _ in text:gmatch("%f[%w_]Untyped%f[^%w_]") do n = n + 1 end
     if n > 0 then anys[name] = (anys[name] or 0) + n end
     return text
   end
@@ -489,18 +490,38 @@ function M.teal()
   kout[#kout + 1] = ""
   kout[#kout + 1] = "return api"
   kout[#kout + 1] = ""
-  local function emit(node, depth)
+  -- What is still written in Lua: `paw.Untyped`, which any use takes and
+  -- whose value is cast (`paw.cursor.track_id() as integer`). Each one is
+  -- on the allow-list until its module is ported.
+  out[#out + 1] = "   record Untyped"
+  out[#out + 1] = "      " .. count("paw.Untyped", "metamethod __call: function(Untyped, ...: any): Untyped")
+  out[#out + 1] = "      " .. count("paw.Untyped", "metamethod __index: function(Untyped, any): Untyped")
+  out[#out + 1] = "   end"
+  local function untyped(node, path, value)
+    local taken = { api = path == "paw" or nil }
+    for _, key in ipairs(node.order) do taken[key] = true end
+    for _, line in ipairs(node.lines) do taken[line:match("^([%w_]+)")] = true end
+    local keys = {}
+    for k in pairs(type(value) == "table" and value or {}) do
+      if type(k) == "string" and k:match("^%a[%w_]*$") and not KEYWORDS[k] and not taken[k] then keys[#keys + 1] = k end
+    end
+    for _, k in ipairs(keys) do
+      node.lines[#node.lines + 1] = count(path .. "." .. k, k .. ": Untyped")
+    end
+  end
+  local function emit(node, depth, path, value)
     local pad = string.rep("   ", depth)
+    untyped(node, path, value)
     table.sort(node.order)
     for _, key in ipairs(node.order) do
       out[#out + 1] = pad .. "record " .. key
-      emit(node.children[key], depth + 1)
+      emit(node.children[key], depth + 1, path .. "." .. key, value and value[key])
       out[#out + 1] = pad .. "end"
     end
     table.sort(node.lines)
     for _, line in ipairs(node.lines) do out[#out + 1] = pad .. line end
   end
-  emit(tree, 1)
+  emit(tree, 1, "paw", paw)
   out[#out + 1] = "end"
   out[#out + 1] = ""
   return table.concat(out, "\n"), table.concat(kout, "\n"), anys
