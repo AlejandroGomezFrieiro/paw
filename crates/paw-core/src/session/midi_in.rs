@@ -3,33 +3,54 @@
 use crate::events::{KernelEvent as E, Nothing};
 use super::*;
 
+/// MIDI ports, in and out, and the track the input is heard on.
+#[derive(Default)]
+pub(super) struct MidiIo {
+    /// MIDI input ports, open while a real audio device is.
+    pub inputs: Option<MidiInputs>,
+    /// Where the input goes: shared with the input thread.
+    pub sink: MidiSink,
+    /// The ports to open, by id or name, or `None` for all of them.
+    pub select: Option<Vec<String>>,
+    /// Ports of our own for other programs to send MIDI to, by name.
+    pub own: Vec<String>,
+    pub without_audio: bool,
+    /// MIDI output, open when MIDI input is, and ports of our own for other
+    /// programs to read from: session/midi_out.rs.
+    pub out: Option<paw_engine::midi_out::MidiOutputs>,
+    pub out_own: Vec<String>,
+    /// MIDI ports to list on the null backend, which opens none, so that
+    /// scripts and tests can choose among them.
+    pub test_ports: Vec<String>,
+}
+
 impl Session {
     /// Point MIDI input at the current engine, and open the ports while there
     /// is a real audio device. The null backend leaves them closed, so that
     /// scripts and tests only hear what they inject.
     pub(super) fn connect_midi(&mut self) {
-        if let Ok(mut sink) = self.midi_sink.lock() {
+        if let Ok(mut sink) = self.midi.sink.lock() {
             sink.engine = self.handle.take_midi_input();
         }
         // The `test` backend's pretend device is as silent as the null one.
         if matches!(self.stream.info.backend, BackendChoice::Null | BackendChoice::Test)
-            && !self.midi_without_audio
+            && !self.midi.without_audio
         {
-            self.midi = None;
-            self.midi_out = None;
+            self.midi.inputs = None;
+            self.midi.out = None;
             return;
         }
         self.connect_midi_out();
-        if self.midi.is_none() {
-            match MidiInputs::start(self.midi_sink.clone()) {
+        if self.midi.inputs.is_none() {
+            match MidiInputs::start(self.midi.sink.clone()) {
                 Ok(midi) => {
-                    if self.midi_select.is_some() {
-                        midi.select(self.midi_select.clone());
+                    if self.midi.select.is_some() {
+                        midi.select(self.midi.select.clone());
                     }
-                    for name in &self.midi_own {
+                    for name in &self.midi.own {
                         midi.open_port(name);
                     }
-                    self.midi = Some(midi);
+                    self.midi.inputs = Some(midi);
                 }
                 Err(err) => self.warnings.push(format!("no MIDI input: {err:#}")),
             }
@@ -37,9 +58,10 @@ impl Session {
     }
 
     pub fn midi_inputs(&self) -> Value {
-        let mut ports = self.midi.as_ref().map(|m| m.ports()).unwrap_or_default();
-        if self.midi.is_none() {
+        let mut ports = self.midi.inputs.as_ref().map(|m| m.ports()).unwrap_or_default();
+        if self.midi.inputs.is_none() {
             ports = self
+                .midi
                 .test_ports
                 .iter()
                 .enumerate()
@@ -52,7 +74,7 @@ impl Session {
                 .collect();
             // Without a sequencer the ports of our own are still listed,
             // and `midi_inject` plays the part of whoever sends to them.
-            ports.extend(self.midi_own.iter().enumerate().map(|(i, name)| {
+            ports.extend(self.midi.own.iter().enumerate().map(|(i, name)| {
                 paw_engine::midi::PortInfo {
                     id: format!("own:{i}"),
                     name: name.clone(),
@@ -76,9 +98,9 @@ impl Session {
         if name.is_empty() || name.contains('\0') {
             bail!("a MIDI port needs a name");
         }
-        if !self.midi_own.iter().any(|known| known == name) {
-            self.midi_own.push(name.to_string());
-            if let Some(midi) = &self.midi {
+        if !self.midi.own.iter().any(|known| known == name) {
+            self.midi.own.push(name.to_string());
+            if let Some(midi) = &self.midi.inputs {
                 midi.open_port(name);
             }
         }
@@ -87,11 +109,11 @@ impl Session {
 
     /// Take away a port made by `midi_open_port`. True if there was one.
     pub fn midi_close_port(&mut self, name: &str) -> bool {
-        let Some(at) = self.midi_own.iter().position(|known| known == name) else {
+        let Some(at) = self.midi.own.iter().position(|known| known == name) else {
             return false;
         };
-        self.midi_own.remove(at);
-        if let Some(midi) = &self.midi {
+        self.midi.own.remove(at);
+        if let Some(midi) = &self.midi.inputs {
             midi.close_port(name);
         }
         true
@@ -100,21 +122,21 @@ impl Session {
     /// Open only the MIDI ports matching `which` (ids or parts of names), or
     /// every port with `None`.
     pub fn midi_select(&mut self, which: Option<Vec<String>>) {
-        if let Some(midi) = &self.midi {
+        if let Some(midi) = &self.midi.inputs {
             midi.select(which.clone());
         }
-        self.midi_select = which;
+        self.midi.select = which;
     }
 
     /// Open the MIDI ports on the null backend too, from the next engine
     /// start: for trying real MIDI with no sound.
     pub fn set_midi_without_audio(&mut self, on: bool) {
-        self.midi_without_audio = on;
+        self.midi.without_audio = on;
     }
 
     /// MIDI ports for the null backend to list: see `test_ports`.
     pub fn set_test_ports(&mut self, ports: Vec<String>) {
-        self.test_ports = ports;
+        self.midi.test_ports = ports;
     }
 
     /// Deliver a message as if it came from a MIDI input port, the one
@@ -128,7 +150,7 @@ impl Session {
 
     /// Have `tap` told of everything the MIDI ports receive, on their thread.
     pub fn set_midi_tap(&mut self, tap: Box<dyn FnMut(u32, EventKind) + std::marker::Send>) {
-        if let Ok(mut sink) = self.midi_sink.lock() {
+        if let Ok(mut sink) = self.midi.sink.lock() {
             sink.tap = Some(tap);
         }
     }
@@ -197,15 +219,15 @@ impl Session {
             "count_in": t.count_in, "counting": self.counting(),
             "pre_roll": t.pre_roll, "pre_roll_seconds": t.pre_roll_seconds,
             "click_level": t.click_level, "click_accent": t.click_accent, "click_output": t.click_output,
-            "record_offset": self.record_offset,
-            "write": self.write,
-            "take": self.take.as_ref().map(|t| t.number),
+            "record_offset": self.rec.offset,
+            "write": self.writing.on,
+            "take": self.rec.take.as_ref().map(|t| t.number),
         })
     }
 
     pub fn transport_set(&mut self, key: &str, value: Value) -> Result<()> {
         if key == "write" {
-            self.write = de(key, value)?;
+            self.writing.on = de(key, value)?;
             self.emit(E::TransportChanged(Nothing {}));
             return Ok(());
         }
@@ -214,7 +236,7 @@ impl Session {
             if !ms.is_finite() {
                 bail!("the recording offset is a number of milliseconds");
             }
-            self.record_offset = ms;
+            self.rec.offset = ms;
             return Ok(());
         }
         let t = &mut self.transport;

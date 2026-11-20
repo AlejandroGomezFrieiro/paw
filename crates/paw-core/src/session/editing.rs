@@ -94,7 +94,7 @@ impl Session {
     /// Close the current undo step, if anything changed since the last one.
     pub fn checkpoint(&mut self) {
         // A trial's edits are one step, made when it ends.
-        if self.trial.is_some() {
+        if self.audition.trial.is_some() {
             return;
         }
         let sweep = std::mem::take(&mut self.sweep);

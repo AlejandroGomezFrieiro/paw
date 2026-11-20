@@ -5,7 +5,7 @@
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
@@ -13,7 +13,7 @@ use anyhow::{Context, Result, anyhow, bail};
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use paw_engine::backend::{self, BackendChoice, BackendOptions, Stream, StreamInfo};
-use paw_engine::midi::{MidiInputs, MidiSink, MidiTarget};
+use paw_engine::midi::{MidiInputs, MidiSink};
 use paw_engine::record::{self, AudioCapture, MidiCapture, Take, TakeShared};
 use paw_engine::{Engine, EngineHandle, EventKind, Msg, ParamInfo, Pool, Registry};
 use rtrb::RingBuffer;
@@ -139,6 +139,18 @@ impl Default for Transport {
             click_output: 0,
         }
     }
+}
+
+/// What records takes: the take under way, how many takes were begun, and
+/// how much earlier recordings are moved.
+#[derive(Default)]
+struct Recorder {
+    take: Option<Recording>,
+    /// Takes begun so far: the next take's number is one more.
+    takes: u32,
+    /// Milliseconds to move recordings earlier by, on top of what the audio
+    /// system reports: found by recording the metronome through a loop-back.
+    offset: f64,
 }
 
 /// A take being recorded: the writer threads filling its files, and the notes
@@ -447,27 +459,12 @@ pub struct Session {
     pub events: Vec<ModelEvent>,
     pub warnings: Vec<String>,
 
-    take: Option<Recording>,
-    takes: u32,
-    /// MIDI input ports, open while a real audio device is.
-    midi: Option<MidiInputs>,
-    midi_sink: MidiSink,
-    /// Whether moving a fader or a parameter while playing writes automation,
-    /// and what is being written.
-    write: bool,
-    latched: Vec<write::Latch>,
-    /// Milliseconds to move recordings earlier by, on top of what the audio
-    /// system reports: found by recording the metronome through a loop-back.
-    record_offset: f64,
-    /// The ports to open, by id or name, or `None` for all of them.
-    midi_select: Option<Vec<String>>,
-    /// Ports of our own for other programs to send MIDI to, by name.
-    midi_own: Vec<String>,
-    midi_without_audio: bool,
-    /// MIDI output, open when MIDI input is, and ports of our own for other
-    /// programs to read from: session/midi_out.rs.
-    midi_out: Option<paw_engine::midi_out::MidiOutputs>,
-    midi_out_own: Vec<String>,
+    /// The take being recorded: see `session/transport.rs`.
+    rec: Recorder,
+    /// MIDI ports, in and out: see `session/midi_in.rs`.
+    midi: midi_in::MidiIo,
+    /// Automation written by moving controls: see `session/write.rs`.
+    writing: write::Writing,
     /// Threads to process tracks on, or 0 for as many as the machine has cores.
     threads: usize,
     /// Devices at rest sleep through silent blocks (`paw.opt.device_sleep`).
@@ -478,9 +475,6 @@ pub struct Session {
     /// Where the devices chosen with [`audio_use`](Self::audio_use) are
     /// remembered, or `None` not to remember them.
     pub device_file: Option<PathBuf>,
-    /// MIDI ports to list on the null backend, which opens none, so that
-    /// scripts and tests can choose among them.
-    test_ports: Vec<String>,
     /// The render running on a thread of its own: session/render.rs.
     render_job: Option<render::Job>,
     /// The state each state lane last gave its device from the main
@@ -500,11 +494,8 @@ pub struct Session {
     /// [`Session::project_shelve`].
     shelf: Option<Shelf>,
     /// Edits that may yet be thrown away, and the sound file heard on its
-    /// own, with its level in dB: see `session/audition.rs`.
-    trial: Option<audition::Trial>,
-    preview: Option<audition::Previewing>,
-    preview_ids: u32,
-    preview_level: f64,
+    /// own: see `session/audition.rs`.
+    audition: audition::Audition,
 }
 
 /// An open project, with its undo history, put aside whole.
@@ -609,23 +600,13 @@ impl Session {
             screen: None,
             events: Vec::new(),
             warnings: Vec::new(),
-            take: None,
-            takes: 0,
-            midi: None,
-            midi_sink: Arc::new(Mutex::new(MidiTarget::default())),
-            record_offset: 0.0,
-            write: false,
-            latched: Vec::new(),
-            midi_select: None,
-            midi_own: Vec::new(),
-            midi_without_audio: false,
-            midi_out: None,
-            midi_out_own: Vec::new(),
+            rec: Recorder::default(),
+            midi: Default::default(),
+            writing: write::Writing::default(),
             threads: 0,
             sleep: true,
             backend: opts.clone(),
             device_file: None,
-            test_ports: Vec::new(),
             render_job: None,
             state_given: Default::default(),
             loads: Default::default(),
@@ -634,10 +615,7 @@ impl Session {
             files_watch: Default::default(),
             read_ahead_at: Instant::now(),
             shelf: None,
-            trial: None,
-            preview: None,
-            preview_ids: 0,
-            preview_level: -12.0,
+            audition: Default::default(),
         };
         session.warnings.extend(session.stream.info.warning.clone());
         session.send_pool();

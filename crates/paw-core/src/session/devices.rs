@@ -610,7 +610,7 @@ impl Session {
     /// changed by themselves. Call regularly from the main thread.
     pub fn idle(&mut self) {
         // A take whose file could not be written stops; what it has is kept.
-        if self.take.as_ref().is_some_and(|t| t.shared.failed()) {
+        if self.rec.take.as_ref().is_some_and(|t| t.shared.failed()) {
             self.stop();
         }
         self.render_poll();
