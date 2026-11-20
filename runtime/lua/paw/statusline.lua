@@ -89,6 +89,8 @@ end
 --- Add a component, as an extension does: `paw.statusline.component("pulse",
 --- function(ctx) return "♥" end)`, or with the fields of a table (`fn`,
 --- `min`, `rank`, `style`, `key`, `cond`).
+--- @type function(name: string, spec: contracts.StatusComponent): contracts.StatusComponent
+--- @type function(name: string, fn: function(ctx: contracts.StatusContext): contracts.StatusText): contracts.StatusComponent
 function M.component(name, spec)
   if type(spec) == "function" then spec = { fn = spec } end
   assert(type(name) == "string" and type(spec) == "table" and type(spec.fn) == "function", "usage: paw.statusline.component(name, function(ctx) ... end)")

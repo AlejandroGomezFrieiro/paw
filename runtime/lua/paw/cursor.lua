@@ -58,6 +58,7 @@ end
 M.master_reachable = master_reachable
 
 --- The track the cursor is on, as a `paw.Track`, or nil.
+--- @type function(): contracts.TrackHandle
 function M.track()
   local id = M.track_id()
   return id and paw.track(id) or nil

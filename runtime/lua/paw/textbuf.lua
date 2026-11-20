@@ -268,6 +268,7 @@ end
 --- `describe(ctx)` is for `K`, and `status(ctx, line)` is for the `view`
 --- component of the status line. Its keys are in key scope
 --- `textbuf.<name>`, before the keys of the text.
+--- @type function<I is contracts.TextItem, F>(name: string, spec: contracts.TextKind<I, F>): contracts.TextKind<I, F>
 function M.kind(name, spec)
   spec.name = name
   spec.pattern = spec.pattern or ("^paw://" .. name:gsub("%p", "%%%0") .. "$")

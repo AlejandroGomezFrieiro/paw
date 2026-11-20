@@ -45,6 +45,8 @@ local marks, jumps = {}, {}
 local changes = {} -- view -> positions where the project was edited, newest last
 local groups = {}   -- scope -> keys -> name of a prefix that only leads to more keys
 
+--- The mode: "n", "i", "x" (visual), "o" (after an operator) or "c".
+--- @type string
 M.mode = "n"
 M.visual = nil      -- the open selection's fixed end: { kind, row, col, view }
 M.registers = registers
@@ -464,6 +466,7 @@ local ranged   -- the region `:'<,'>` names while its command runs
 --- included when the view tells the size of the item under the cursor
 --- (`grid.extent`). A selection that did not grow covers one grid step.
 --- While a command runs with `:'<,'>`, it is the selection that the command names.
+--- @type function(): contracts.Region
 function M.selection()
   if ranged then return ranged end
   local v, g = M.visual, grid()

@@ -13,6 +13,7 @@ paw.inspect = paw.util.inspect
 --- What a user sees of an error: one line, without the list of calls.
 --- The place in the code (`paw/x.lua:12:`) moves to the end, where it does
 --- not hide what went wrong. The whole error goes to the log.
+--- @type function(err: string): string
 function paw.failure(err)
   local text = tostring(err)
   local short = text:match("^(.-)\n*stack traceback:") or text
@@ -58,9 +59,11 @@ paw.seats = require("paw.seats")
 
 --- The timers waiting, by handle: the function each runs. An extension's
 --- go when it is unloaded (paw/ext.lua).
+--- @type {integer:function()}
 paw.timers = {}
 
 --- Run `fn` once, after `ms` milliseconds (or when the current turn ends).
+--- @type function(fn: function(), ms?: number): integer
 function paw.defer(fn, ms)
   local handle
   handle = api.timer_start(ms or 0, false, function(...)
@@ -72,6 +75,7 @@ function paw.defer(fn, ms)
 end
 
 --- Run `fn` every `ms` milliseconds. Returns a handle for `paw.cancel`.
+--- @type function(ms: number, fn: function()): integer
 function paw.every(ms, fn)
   local handle = api.timer_start(ms, true, fn)
   paw.timers[handle] = fn
@@ -79,6 +83,7 @@ function paw.every(ms, fn)
 end
 
 --- Stop a timer: `handle` is what `paw.defer` or `paw.every` returned.
+--- @type function(handle: integer)
 function paw.cancel(handle)
   if handle == nil then return end
   paw.timers[handle] = nil
@@ -91,6 +96,9 @@ end
 paw.wait = api.wait
 
 paw.commands = require("paw.commands")
+-- The types of what an extension gives paw (a view, a picker, ...) for an
+-- extension in Teal: `paw.contracts.View`. An empty table here.
+paw.contracts = require("paw.contracts")
 paw.command = setmetatable({ alias = paw.commands.alias }, {
   __call = function(_, ...) return paw.commands.define(...) end,
 })
@@ -139,6 +147,7 @@ paw.plugins = require("paw.plugins")
 
 --- Descriptions of each kind of device that you can add to a track. A kind
 --- that an extension added (`paw.plugins.add_dir`) has its extension in `from`.
+--- @type function(): {types.DeviceType}
 function paw.device_types()
   local list = api.device_types()
   for _, info in ipairs(list) do info.from = paw.plugins.from[info.kind] end
@@ -366,6 +375,7 @@ end
 
 --- Send the change events for the edits made until now. The kernel does
 --- this at the end of each turn. Call `paw.flush()` to make handlers run sooner.
+--- @type function()
 local function settle()
   -- Handlers may edit the project and cause more events, so go round until
   -- it is quiet, with a limit in case two handlers keep triggering each other.
