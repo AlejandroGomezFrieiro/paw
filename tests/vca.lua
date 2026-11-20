@@ -1,4 +1,4 @@
--- VCAs (runtime/lua/paw/vca.lua): faders, mutes and solos over tracks that
+-- VCAs (runtime/lua/paw/vca.tl): faders, mutes and solos over tracks that
 -- are not routed to them, and groups whose faders move together. Loaded by
 -- tests/suite.lua with its helpers.
 local T = ...

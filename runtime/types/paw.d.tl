@@ -14,9 +14,11 @@ local type CommandsModule = require("paw.commands")
 local type ContractsModule = require("paw.contracts")
 local type EventsModule = require("paw.events")
 local type FormatsModule = require("paw.formats")
+local type GroupsModule = require("paw.groups")
 local type HarmonyReadModule = require("paw.harmony.read")
 local type HarmonyVoiceModule = require("paw.harmony.voice")
 local type HooksModule = require("paw.hooks")
+local type LanesModule = require("paw.lanes")
 local type LangModule = require("paw.lang")
 local type LimitModule = require("paw.limit")
 local type MarkdownModule = require("paw.markdown")
@@ -26,6 +28,7 @@ local type OptionModule = require("paw.options")
 local type RegexModule = require("paw.regex")
 local type SeatsModule = require("paw.seats")
 local type UtilModule = require("paw.util")
+local type VcaModule = require("paw.vca")
 local type XmlModule = require("paw.xml")
 local type ZipModule = require("paw.zip")
 
@@ -119,7 +122,7 @@ global record paw
    frontend: Partial.Frontend
    fx: Untyped
    grep: Partial.Grep
-   groups: Untyped
+   groups: GroupsModule
    health: Partial.Health
    help: Untyped
    hooks: HooksModule
@@ -131,7 +134,7 @@ global record paw
    keymap: Partial.Keymap
    keyrule: Untyped
    lane: Untyped
-   lanes: Untyped
+   lanes: LanesModule
    lang: LangModule
    layout: Partial.Layout
    layouts: Untyped
@@ -207,7 +210,7 @@ global record paw
    ui: Partial.Ui
    undo: function(): boolean
    util: UtilModule
-   vca: Untyped
+   vca: VcaModule
    version: Untyped
    wait: function(ms: number)
    win: Untyped
