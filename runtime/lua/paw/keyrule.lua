@@ -7,8 +7,9 @@ local M = {}
 --- Keys that are Vim's motions, and only ever motions in every view: the
 --- structural ones too, by Vim's and Tree-sitter's meanings (`]]` `[[`
 --- the next or previous of the same kind, `]s` `[s` a sibling, `[{` `]}`
---- up to the enclosing group and its end).
-M.motions = { "h", "j", "k", "l", "w", "b", "e", "0", "^", "$", "gg", "G", "]]", "[[", "]s", "[s", "[{", "]}" }
+--- up to the enclosing group and its end), and the arrows, as `h` `j` `k` `l`.
+M.motions = { "h", "j", "k", "l", "w", "b", "e", "0", "^", "$", "gg", "G", "]]", "[[", "]s", "[s", "[{", "]}",
+  "<Left>", "<Down>", "<Up>", "<Right>" }
 
 
 --- What the value keys change: the main value, or the second.

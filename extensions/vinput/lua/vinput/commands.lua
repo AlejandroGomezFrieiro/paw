@@ -210,8 +210,6 @@ pmap("+", adjust(1), "More; on", { role = "main+" })
 pmap("-", adjust(-1), "Less; off", { role = "main-" })
 pmap("<C-a>", adjust(1), "More by the count; on", { role = "main+" })
 pmap("<C-x>", adjust(-1), "Less by the count; off", { role = "main-" })
-pmap("<Right>", adjust(1), "More; on")
-pmap("<Left>", adjust(-1), "Less; off")
 for lhs, steps in pairs({ l = 1, h = -1, L = 10, H = -10 }) do
   paw.keymap.classic(lhs, adjust(steps), { view = "vinput", desc = steps > 0 and "More; on" or "Less; off" })
 end
