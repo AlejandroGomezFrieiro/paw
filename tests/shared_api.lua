@@ -23,6 +23,25 @@ test("files without a shell: exists, a copy of a folder, removing what paw made,
   eq(api.which("no-such-program-paw"), nil, "a program that is not there")
 end)
 
+test("a button of a painted view takes a press of the pointer; what is not on a place goes to the view's pointer", function()
+  local pressed, other = 0, 0
+  local view = { hits = paw.canvas.hit_list() }
+  function view:paint(g)
+    self.hits:clear()
+    paw.canvas.button(g:sub(10, 10, 200, 50), self.hits, 5, 5, "Press", function() pressed = pressed + 1 end)
+  end
+  function view:pointer() other = other + 1 end
+  paw.ui.view("shared-hits", view)
+  paw.canvas.paint("shared-hits", 300, 100)
+  paw.canvas.pointer("shared-hits", { kind = "down", x = 20, y = 20, button = "left" })
+  paw.canvas.pointer("shared-hits", { kind = "up", x = 20, y = 20, button = "left" })
+  eq(pressed, 1, "the button, at its place in the sub-painter")
+  paw.canvas.pointer("shared-hits", { kind = "down", x = 250, y = 80, button = "left" })
+  eq(other, 1, "elsewhere, the view's pointer")
+  eq(view.hits.list[1].label, "Press", "the button keeps its label")
+  paw.ui.views["shared-hits"] = nil
+end)
+
 test("paw.util.copy copies tables all the way down", function()
   local a = { 1, { x = { 2 } }, name = "n" }
   local b = paw.util.copy(a)

@@ -37,7 +37,7 @@ local STATE_COLOUR = {
 -- the tool, which panels show, what is being dragged, and where the
 -- buttons and fields are.
 local gui = {
-  zoom = 96, row = 22, top = 76, scroll = 0, tool = "notes", drag = nil, buttons = {}, singers = false,
+  zoom = 96, row = 22, top = 76, scroll = 0, tool = "notes", drag = nil, hits = paw.canvas.hit_list(), buttons = {}, singers = false,
   curves = true, inspector = true, popup = nil, fields = {},
   KEYS = KEYS, TOOLBAR = TOOLBAR, RULER = RULER,
 }
@@ -68,12 +68,10 @@ local inspector = require("utau.gui_inspector")(gui)
 
 --- A button: drawn, and remembered for the pointer.
 local function button(g, x, y, label, on, action, opts)
-  local w = (opts and opts.width) or (#label * 7 + 18)
-  local h = (opts and opts.height) or 22
-  g:rect(x, y, w, h, { fill = on and c.select or c.control, radius = 5 })
-  g:text(x + w / 2, y + (h - 12) / 2 - 1, label, { color = on and c.surface or (opts and opts.color) or c.text, bold = on, align = "center", width = w, size = opts and opts.size })
-  gui.buttons[#gui.buttons + 1] = { x = (opts and opts.ox or 0) + x, y = (opts and opts.oy or 0) + y, w = w, h = h, action = action, label = label }
-  return x + w + 6
+  opts = opts or {}
+  local next_x = paw.canvas.button(g, gui.hits, x, y, label, action, { on = on, color = opts.color, size = opts.size,
+    width = opts.width or (#label * 7 + 18), height = opts.height or 22 })
+  return next_x - 2
 end
 gui.button = button
 
@@ -110,7 +108,8 @@ end
 
 function view:paint(g, ctx)
   local w, h = ctx.width, ctx.height
-  gui.buttons, gui.fields = {}, {}
+  gui.hits:clear()
+  gui.buttons, gui.fields = gui.hits.list, {}
   g:rect(0, 0, w, h, { fill = c.surface })
   local clip = self:clip()
   if not clip then
@@ -534,11 +533,10 @@ function view:pointer(e)
     return
   end
   if e.kind == "down" or e.kind == "double" then
-    for _, b in ipairs(gui.buttons) do
-      if e.x >= b.x and e.x < b.x + b.w and e.y >= b.y and e.y < b.y + b.h then
-        if e.kind == "down" then b.action(e) end
-        return
-      end
+    local b = gui.hits:under(e.x, e.y)
+    if b then
+      if e.kind == "down" then b.down(e) end
+      return
     end
   end
   if (e.kind == "down" or e.kind == "double") and e.x >= geo.side_x and geo.side_w > 0 then

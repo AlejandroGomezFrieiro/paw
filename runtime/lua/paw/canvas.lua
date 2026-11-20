@@ -290,6 +290,106 @@ end
 
 M.Painter = Painter
 
+-- Buttons, and the places the pointer acts on ------------------------------------------
+--
+-- A painted view keeps the places of its last paint in a hit list,
+-- `view.hits = paw.canvas.hit_list()`, cleared at the start of `paint`.
+-- A pointer event goes to the list first, the place painted last first;
+-- what no place takes goes on to the view's `pointer`. Each button of a
+-- window does what a key of the view does, so that the terminal has the
+-- same action.
+
+local Hits = {}
+Hits.__index = Hits
+
+--- A list of places that the pointer acts on (see `view.hits`).
+function M.hit_list() return setmetatable({ list = {} }, Hits) end
+
+--- Forget the places of the paint before.
+function Hits:clear() self.list = {} end
+
+--- A place the pointer acts on: `x, y, w, h` from the corner of the
+--- painter `g`, or of the view with nil. `on` is a function of the event,
+--- for a press, or a table of `down`, `drag`, `up`, `double`, `wheel` and
+--- `right` (a press of the right button). Returns `on`.
+function Hits:add(g, x, y, w, h, on)
+  if type(on) == "function" then on = { down = on } end
+  on.x, on.y, on.w, on.h = (g and g:origin_x() or 0) + x, (g and g:origin_y() or 0) + y, w, h
+  self.list[#self.list + 1] = on
+  return on
+end
+
+--- The place under a point, the one painted last first, or nil.
+function Hits:under(x, y)
+  for i = #self.list, 1, -1 do
+    local on = self.list[i]
+    if x >= on.x and x < on.x + on.w and y >= on.y and y < on.y + on.h then return on end
+  end
+end
+
+--- Give a pointer event to the place under it, or to the place that a drag
+--- started on. True when a place took it.
+function Hits:pointer(e)
+  local kind = e.kind
+  if kind == "move" then
+    local d = self.drag
+    if d and d.drag then d.drag(e) return true end
+    return false
+  elseif kind == "up" then
+    local d = self.drag
+    self.drag = nil
+    if d and d.up then d.up(e) end
+    return d ~= nil
+  end
+  local on = self:under(e.x or 0, e.y or 0)
+  if not on then return false end
+  if kind == "down" and e.button == "right" then
+    if not on.right then return false end
+    on.right(e)
+  elseif kind == "down" then
+    if e.button and e.button ~= "left" then return false end
+    self.drag = on
+    if on.down then on.down(e) end
+  elseif kind == "double" then
+    if not on.double then return false end
+    on.double(e)
+  elseif kind == "wheel" then
+    if not on.wheel then return false end
+    on.wheel(e)
+  else
+    return false
+  end
+  return true
+end
+
+--- Give a pointer event in pixels to a painted view: to its hit list
+--- (`view.hits`) first, then to its `pointer` function.
+function M.view_pointer(view, e)
+  if view.hits and view.hits:pointer(e) then return end
+  if view.pointer then view:pointer(e) end
+end
+
+--- The width of a line of text in pixels, near enough, at `size` (12).
+function M.text_width(text, size) return api.str_width(text) * (size or 12) * 0.58 end
+
+--- A button: a rounded box with a label, painted with `g` and put in the
+--- hit list `hits` to run `action` (a function of the event, or a table as
+--- `Hits:add` takes) when pressed. `opts`: `width`, `height` (24), `fill`,
+--- `color`, `on` (lit, in `lit` or the selection's colour), `size`.
+--- Returns where the next button goes to its right, and the width.
+function M.button(g, hits, x, y, label, action, opts)
+  opts = opts or {}
+  local c = M.palette
+  local w, h = opts.width or (M.text_width(label, opts.size) + 22), opts.height or 24
+  local fill = opts.on and (opts.lit or c.select) or opts.fill or c.control
+  g:rect(x, y, w, h, { fill = fill, radius = 5 })
+  local size = opts.size or 12
+  g:text(x + w / 2, y + (h - size) / 2 - 1, label,
+    { color = opts.on and c.surface or opts.color or c.text, bold = opts.on, align = "center", width = w, size = opts.size })
+  if hits and action then hits:add(g, x, y, w, h, action).label = label end
+  return x + w + 8, w
+end
+
 -- The window in no tab that a view in a window of its own draws and acts
 -- with: the one it has, else a new one that starts from the state of the
 -- pane it leaves (the one with the keyboard, else the one it showed in
@@ -816,8 +916,8 @@ function M.pointer(name, event)
   if not view.paint and window and window.cells then
     local e = M.cell_event(window, event)
     if e and view.on_mouse then paw.limit.named("the mouse", paw.mouse.to_view, view, e) end
-  elseif view.pointer then
-    view:pointer(event)
+  else
+    M.view_pointer(view, event)
   end
   api.ui_redraw()
 end
