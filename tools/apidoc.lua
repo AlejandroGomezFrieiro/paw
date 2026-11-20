@@ -517,6 +517,8 @@ local function teal_values(mods, alias_of)
     local exported = {}
     for name in text:gmatch("\n%s+type ([%w_]+) =") do exported[name] = true end
     local function qualify(t)
+      -- The module's own types, `M.Event`, are the alias's.
+      t = t:gsub("%f[%w_.]M%.", alias .. ".")
       return (t:gsub("%f[%w_.][%a_][%w_]*%f[^%w_]", function(word)
         return exported[word] and alias .. "." .. word or word
       end))
@@ -744,6 +746,7 @@ function M.teal()
     "-- `local api = require(\"paw.api\")` in a module written in Teal.", "" }
   if read("runtime/lua/paw/types.tl") then
     kout[#kout + 1] = "local type types = require(\"paw.types\")"
+    kout[#kout + 1] = "local type kernel_events = require(\"paw.events.kernel\")"
     kout[#kout + 1] = ""
   end
   kout[#kout + 1] = "local record api"
@@ -944,6 +947,189 @@ function M.lowered(anys)
   return table.concat(out, "\n") .. "\n"
 end
 
+-- Records from Rust ---------------------------------------------------------------------
+--
+-- The data the kernel sends as it is in Rust: the events of the kernel
+-- (crates/paw-core/src/events.rs) and the properties of the roles that the
+-- window paints (crates/paw-scene/src/props.rs). Each `pub struct` of such a
+-- file becomes a Teal record, with its `///` comment; a field that holds a
+-- `Value` names its record in a `/// @type T` line.
+
+M.EVENTS_RS = "crates/paw-core/src/events.rs"
+M.EVENTS_TL = "runtime/lua/paw/events/kernel.tl"
+M.PROPS_RS = "crates/paw-scene/src/props.rs"
+M.PROPS_TL = "runtime/types/paw/role_props.d.tl"
+
+local RUST_FIELD = {
+  String = "string", PathBuf = "string", ["&'a str"] = "string", f64 = "number", f32 = "number",
+  i64 = "integer", u64 = "integer", u32 = "integer", i32 = "integer", usize = "integer", u8 = "integer", Id = "integer",
+  bool = "boolean",
+}
+
+--- The Teal type of a field's Rust type: nil for one that has none.
+local function field_teal(rust, structs)
+  rust = rust:gsub("^%s+", ""):gsub("%s+$", "")
+  local inner = rust:match("^Option<(.*)>$")
+  if inner then return field_teal(inner, structs) end
+  local vec = rust:match("^Vec<(.*)>$") or rust:match("^&'a %[(.*)%]$")
+  if vec then
+    local t = field_teal(vec, structs)
+    return t and "{" .. t .. "}"
+  end
+  -- A tuple is a list of its parts in Lua: a tuple of Teal too.
+  local tuple = rust:match("^%((.*)%)$")
+  if tuple then
+    local parts = {}
+    for i, p in ipairs(split_top(tuple)) do
+      parts[i] = field_teal(p, structs)
+      if not parts[i] then return nil end
+    end
+    return "{" .. table.concat(parts, ", ") .. "}"
+  end
+  local name = rust:match("^([%w_]+)") or rust
+  if structs[name] then return name end
+  return RUST_FIELD[rust]
+end
+
+--- The `pub struct`s of a Rust file, in order: `{ name, doc, fields }`, each
+--- field `{ name, rust, doc, type }`; and the variants of its `pub enum`s:
+--- `{ name, rust, doc, type, serde }`, by the enum's name.
+function M.rust_records(path)
+  local structs, enums, order = {}, {}, {}
+  local doc, serde, derive = {}, nil, ""
+  local current, enum
+  for _, line in ipairs(lines_of(path) or {}) do
+    local comment = line:match("^%s*///%s?(.*)$")
+    if comment then
+      doc[#doc + 1] = comment
+    elseif line:match("^%s*#%[") then
+      serde = line:match('rename%s*=%s*"([^"]+)"') or serde
+      derive = line:match("^%s*#%[derive%((.*)%)%]") or derive
+    else
+      local name, rest = line:match("^pub struct ([%w_]+)[^{]*{(.*)$")
+      local ename = line:match("^pub enum ([%w_]+)")
+      if name then
+        -- Only what crosses to Lua: a struct that serde writes or reads.
+        current = { name = name, doc = doc, fields = {} }
+        if derive:match("Serialize") or derive:match("Deserialize") then
+          structs[name] = current
+          order[#order + 1] = current
+        end
+        if rest:match("}") then current = nil end
+      elseif ename then
+        enum = {}
+        enums[ename] = enum
+      elseif line:match("^}") then
+        current, enum = nil, nil
+      elseif current then
+        local fname, rust = line:match("^%s+pub ([%w_]+): (.-),?%s*$")
+        if fname then current.fields[#current.fields + 1] = { name = serde or fname, rust = rust, doc = doc } end
+      elseif enum then
+        local vname, rust = line:match("^%s+([%w_]+)%((.-)%),%s*$")
+        if vname then enum[#enum + 1] = { name = vname, rust = rust, doc = doc, serde = serde } end
+      end
+      doc, serde = {}, nil
+      if not line:match("^%s*$") then derive = "" end
+    end
+  end
+  -- What a `/// @type T` line names, else the type the Rust type has.
+  local function typed(item)
+    local prose = {}
+    for _, line in ipairs(item.doc) do
+      local t = line:match("^@type%s+(.+)$")
+      if t then item.type = t else prose[#prose + 1] = line end
+    end
+    item.doc = prose
+    item.type = item.type or field_teal(item.rust, structs)
+  end
+  for _, s in ipairs(order) do
+    for _, f in ipairs(s.fields) do typed(f) end
+  end
+  for _, list in pairs(enums) do
+    for _, v in ipairs(list) do typed(v) end
+  end
+  return order, enums
+end
+
+--- The fields of a record, at `pad`, into `out`; an error for a field
+--- whose Rust type has no Teal type.
+local function record_fields(out, record, pad, path)
+  for _, f in ipairs(record.fields) do
+    for _, line in ipairs(f.doc) do out[#out + 1] = pad .. "--- " .. line end
+    if not f.type then error(path .. ": " .. record.name .. "." .. f.name .. " (" .. f.rust .. ") has no Teal type: give it a `/// @type` line") end
+    out[#out + 1] = pad .. (KEYWORDS[f.name] and '["' .. f.name .. '"]' or f.name) .. ": " .. f.type
+  end
+end
+
+--- The text of runtime/lua/paw/events/kernel.tl: the payload of each event
+--- of the kernel as a record, and a descriptor for each event.
+function M.kernel_events()
+  local structs, enums = M.rust_records(M.EVENTS_RS)
+  local events = enums.KernelEvent or {}
+  local out = { "-- " .. HEADER, "-- Made from " .. M.EVENTS_RS .. ": the events of the kernel, each a descriptor",
+    "-- with the type of its payload, for `paw.on` and `paw.emit` in Teal:", "--",
+    "--   local kernel = require(\"paw.events.kernel\")",
+    "--   paw.on(kernel.project_saved, function(p: kernel.Saved) print(p.path) end)", "",
+    "local type events = require(\"paw.events\")", "local type types = require(\"paw.types\")", "",
+    "local record kernel",
+    "   --- What every payload of the kernel may have: `restored` is true for a",
+    "   --- change that undo or redo put back, which a handler that answers",
+    "   --- edits with edits leaves alone.",
+    "   interface Payload", "      restored: boolean", "   end" }
+  for _, s in ipairs(structs) do
+    out[#out + 1] = ""
+    for _, line in ipairs(s.doc) do out[#out + 1] = "   --- " .. line end
+    out[#out + 1] = "   record " .. s.name .. " is Payload"
+    record_fields(out, s, "      ", M.EVENTS_RS)
+    out[#out + 1] = "   end"
+  end
+  out[#out + 1] = ""
+  out[#out + 1] = "   --- An event as `paw.api.events_take` gives it."
+  out[#out + 1] = "   record KernelEvent"
+  out[#out + 1] = "      name: string"
+  out[#out + 1] = "      payload: Payload"
+  out[#out + 1] = "   end"
+  out[#out + 1] = ""
+  local values = {}
+  for _, v in ipairs(events) do
+    if not v.type then error(M.EVENTS_RS .. ": " .. v.name .. " (" .. v.rust .. ") has no Teal type") end
+    local key = v.serde:gsub("%.", "_")
+    for _, line in ipairs(v.doc) do out[#out + 1] = "   --- " .. line end
+    out[#out + 1] = "   " .. key .. ": events.Event<" .. v.type .. ">"
+    values[#values + 1] = "kernel." .. key .. " = { name = \"" .. v.serde .. "\" }"
+  end
+  out[#out + 1] = "end"
+  out[#out + 1] = ""
+  for _, line in ipairs(values) do out[#out + 1] = line end
+  out[#out + 1] = ""
+  out[#out + 1] = "return kernel"
+  out[#out + 1] = ""
+  return table.concat(out, "\n")
+end
+
+--- The text of runtime/types/paw/role_props.d.tl: the props of each role
+--- that the window paints, as it reads them.
+function M.role_props()
+  local structs = M.rust_records(M.PROPS_RS)
+  local out = { "-- " .. HEADER, "-- Made from " .. M.PROPS_RS .. ": the props of each role that the",
+    "-- window paints, as it reads them (`paw.api.scene_open`'s `props`).", "",
+    "local record role_props",
+    "   --- The props of a role: each record of this file is one.",
+    "   interface Props", "   end" }
+  for _, s in ipairs(structs) do
+    out[#out + 1] = ""
+    for _, line in ipairs(s.doc) do out[#out + 1] = "   --- " .. line end
+    out[#out + 1] = "   record " .. s.name .. " is Props"
+    record_fields(out, s, "      ", M.PROPS_RS)
+    out[#out + 1] = "   end"
+  end
+  out[#out + 1] = "end"
+  out[#out + 1] = ""
+  out[#out + 1] = "return role_props"
+  out[#out + 1] = ""
+  return table.concat(out, "\n")
+end
+
 --- What is out of date: a list of the files whose text differs.
 function M.stale()
   local out = {}
@@ -956,14 +1142,17 @@ function M.stale()
   if read(M.TEAL_PARTIAL) ~= partial then out[#out + 1] = M.TEAL_PARTIAL end
   if read(M.TEAL_OPTS) ~= opts then out[#out + 1] = M.TEAL_OPTS end
   if read(M.ANY) ~= M.lowered(anys) then out[#out + 1] = M.ANY end
+  if read(M.EVENTS_TL) ~= M.kernel_events() then out[#out + 1] = M.EVENTS_TL end
+  if read(M.PROPS_TL) ~= M.role_props() then out[#out + 1] = M.PROPS_TL end
   return out
 end
 
 function M.write()
-  os.execute("mkdir -p runtime/types/paw")
+  os.execute("mkdir -p runtime/types/paw runtime/lua/paw/events")
   local teal, kernel, anys, untyped, partial, opts = M.teal()
   for path, text in pairs({ [M.META] = M.meta(), [M.PAGE] = M.page(), [M.TEAL] = teal, [M.TEAL_API] = kernel,
-    [M.TEAL_UNTYPED] = untyped, [M.TEAL_PARTIAL] = partial, [M.TEAL_OPTS] = opts, [M.ANY] = M.lowered(anys) }) do
+    [M.TEAL_UNTYPED] = untyped, [M.TEAL_PARTIAL] = partial, [M.TEAL_OPTS] = opts, [M.ANY] = M.lowered(anys),
+    [M.EVENTS_TL] = M.kernel_events(), [M.PROPS_TL] = M.role_props() }) do
     local f = assert(io.open(path, "w"))
     f:write(text)
     f:close()
@@ -982,6 +1171,7 @@ if mode == "check" then
   api.quit((#gaps == 0 and #stale == 0 and #loose == 0) and 0 or 1)
 else
   M.write()
-  print("wrote " .. table.concat({ M.META, M.PAGE, M.TEAL, M.TEAL_API, M.TEAL_UNTYPED, M.TEAL_PARTIAL, M.TEAL_OPTS, M.ANY }, ", "))
+  print("wrote " .. table.concat({ M.META, M.PAGE, M.TEAL, M.TEAL_API, M.TEAL_UNTYPED, M.TEAL_PARTIAL, M.TEAL_OPTS,
+    M.EVENTS_TL, M.PROPS_TL, M.ANY }, ", "))
   api.quit(0)
 end

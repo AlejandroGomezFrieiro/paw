@@ -48,7 +48,7 @@ end
 --- The device kinds of the ARA plugins that paw knows.
 function M.kinds()
   local out = {}
-  for _, t in ipairs(api.device_find({ format = "clap", all = true }) or {}) do
+  for _, t in ipairs(api.device_find_all({ format = "clap" }) or {}) do
     if M.is_ara_kind(t.kind, t) then out[#out + 1] = t end
   end
   table.sort(out, function(a, b) return a.name:lower() < b.name:lower() end)

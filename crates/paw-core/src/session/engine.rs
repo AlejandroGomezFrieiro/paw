@@ -1,5 +1,6 @@
 //! The engine and the audio device: starting, options and statistics.
 
+use crate::events::{KernelEvent as E};
 use super::*;
 
 impl Session {
@@ -304,8 +305,8 @@ impl Session {
         if was_playing {
             self.play();
         }
-        self.events
-            .push(("engine.started".into(), self.engine_info()));
+        let info = self.engine_info();
+        self.emit(E::EngineStarted(info));
         Ok(())
     }
 }

@@ -9,6 +9,7 @@
 //! missing files turned up. What is still missing stays in the project,
 //! offline and silent, under the path it was saved with.
 
+use crate::events::{KernelEvent as E, MediaMissing};
 use std::collections::{BTreeSet, HashMap};
 use std::ffi::OsString;
 use std::path::{Component, Path, PathBuf};
@@ -428,10 +429,8 @@ impl Session {
             ));
         }
         if !found.missing.is_empty() || !found.moved.is_empty() {
-            self.events.push((
-                "media.missing".into(),
-                json!({ "files": found.missing, "found": found.moved.len() }),
-            ));
+            let missing = MediaMissing { files: found.missing.clone(), found: found.moved.len() };
+            self.emit(E::MediaMissing(missing));
         }
     }
 

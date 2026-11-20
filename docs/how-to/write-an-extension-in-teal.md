@@ -82,17 +82,43 @@ local function fill(opts: FillOptions)
 end
 ```
 
-**Event payloads.** Write a record for the payload of the event. The
-handler takes it with that type:
+**Events.** In Teal, `paw.on` takes the descriptor of an event: its name
+and the record of its payload. `paw.events.kernel` has a descriptor for
+each event of the kernel, and a record for each payload. Give the handler
+the record of the payload. The checker finds a handler that takes a
+different record:
 
 ```lua
-local record Saved
-  path: string
-end
+local kernel = require("paw.events.kernel")
 
-paw.on("project.saved", function(payload: Saved)
+paw.on(kernel.project_saved, function(payload: kernel.Saved)
   paw.notify("saved " .. payload.path)
 end)
+```
+
+For an event of your extension, write a record for its payload and make
+its descriptor with `paw.events.event`. `paw.emit` takes the descriptor
+or the name:
+
+```lua
+local record Filled
+  steps: integer
+end
+
+local filled: paw.events.Event<Filled> = paw.events.event("fill.done")
+paw.emit(filled, { steps = 16 })
+```
+
+For a family of events (`track.*`), use `paw.events.pattern("track.*")`.
+Its handler gets a payload with no fields: cast the payload to read it.
+
+**The kernel's setters.** `paw.api.track_set` and the other setters
+(`clip_set`, `device_set`, `lane_set`, `project_set`, `transport_set`)
+take a table of the fields to change, with the record of the object.
+The key form, `paw.api.track_set(id, "output", nil)`, only clears a field:
+
+```lua
+paw.api.track_set(id, { name = "Bass", volume = -6 })
 ```
 
 **`meta`.** The data that an extension keeps in `meta` is its own. Write a

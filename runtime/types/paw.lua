@@ -364,13 +364,13 @@ function paw.device(id) end
 --- that an extension added (`paw.plugins.add_dir`) has its extension in `from`.
 function paw.device_types() end
 
---- Call each handler for `name`. paw reports a handler that fails, and goes
+--- Call each handler for `event` (a name, or a descriptor). paw reports a handler that fails, and goes
 --- to the next. Returns true, or false and the reason when a handler
 --- returned `false, reason`. So a handler refuses the request of an event
 --- (`edit.before`, `project.saving`, `key.pre`).
----@param name any
+---@param event any
 ---@param payload any
-function paw.emit(name, payload) end
+function paw.emit(event, payload) end
 
 --- Run `fn` every `ms` milliseconds. Returns a handle for `paw.cancel`.
 ---@param ms any
@@ -420,16 +420,17 @@ function paw.notify(text, level) end
 ---@param id any
 function paw.off(id) end
 
---- Listen for an event. Returns a handle for `paw.off`.
----@param pattern any
+--- Listen for an event: in Lua its name or a pattern as text, in Teal its
+--- descriptor (`paw.events.event`). Returns a handle for `paw.off`.
+---@param event any
 ---@param fn any
 ---@param opts any
-function paw.on(pattern, fn, opts) end
+function paw.on(event, fn, opts) end
 
 --- Listen for an event once: the handler is removed after its first call.
----@param pattern any
+---@param event any
 ---@param fn any
-function paw.once(pattern, fn) end
+function paw.once(event, fn) end
 
 --- Open what a path names: a folder that is no project as a list of its
 --- files, a sound file as a new track, anything else as a project, with
@@ -2433,6 +2434,12 @@ function paw.draw.waveform(peaks, rows) end
 
 paw.events.emit = paw.emit
 
+--- The descriptor of an event whose payload is a `P`: Teal checks the
+--- handlers that `paw.on` is given for it, and what `paw.emit` sends.
+---   local changed: paw.events.Event<OptionChanged> = paw.events.event("option.changed")
+---@param name any
+function paw.events.event(name) end
+
 --- Every handler, by its handle: `{ pattern, fn }`.
 function paw.events.handlers() end
 
@@ -2446,6 +2453,11 @@ paw.events.off = paw.off
 paw.events.on = paw.on
 
 paw.events.once = paw.once
+
+--- The descriptor of a pattern of events (`track.*`, `*`): its handlers
+--- read nothing of the payload without a cast.
+---@param pattern any
+function paw.events.pattern(pattern) end
 
 --- The address of an item, for the quickfix list and for going to it.
 ---@param item any
@@ -8030,8 +8042,11 @@ function paw.api.clip_remove(id) end
 ---@param id integer
 function paw.api.clip_reverse(id) end
 
+--- Change a clip: a table of the entries to change, as `clip_get`
+--- gives them, or one `key` and its value. Only the key form clears
+--- an entry (`nil`).
 ---@param id integer
----@param key string
+---@param key any
 ---@param value any
 function paw.api.clip_set(id, key, value) end
 
@@ -8119,11 +8134,16 @@ function paw.api.device_editor(id, open) end
 --- the plugin's own `id` (a CLAP id, a VST3 class id in either case,
 --- an LV2 URI), else by `name` with the `vendor` (a kind without a
 --- vendor answers any), else by `name` in any case; `format` ("clap",
---- "vst3", "lv2", "builtin") keeps to one format. With `all = true`,
---- the list of all that answer the first test that finds one. The
---- list of all kinds is not made, so it is quick with many plugins.
+--- "vst3", "lv2", "builtin") keeps to one format. The list of all
+--- kinds is not made, so it is quick with many plugins.
+--- `device_find_all` gives all that answer.
 ---@param query any
 function paw.api.device_find(query) end
+
+--- Each kind of device installed that answers `query` (see
+--- `device_find`): all that answer the first test that finds one.
+---@param query any
+function paw.api.device_find_all(query) end
 
 ---@param id integer
 function paw.api.device_get(id) end
@@ -8181,8 +8201,11 @@ function paw.api.device_remove(id) end
 ---@param id integer
 function paw.api.device_restart(id) end
 
+--- Change a device: a table of the entries to change, as `device_get`
+--- gives them, or one `key` and its value. Only the key form clears
+--- an entry (`nil`).
 ---@param id integer
----@param key string
+---@param key any
 ---@param value any
 function paw.api.device_set(id, key, value) end
 
@@ -8427,8 +8450,11 @@ function paw.api.lane_points(id) end
 ---@param id integer
 function paw.api.lane_remove(id) end
 
+--- Change a lane: a table of the entries to change, as `lane_get`
+--- gives them, or one `key` and its value. Only the key form clears
+--- an entry (`nil`).
 ---@param id integer
----@param key string
+---@param key any
 ---@param value any
 function paw.api.lane_set(id, key, value) end
 
@@ -8767,7 +8793,10 @@ function paw.api.project_screen() end
 ---@param value any
 function paw.api.project_screen_set(value) end
 
----@param key string
+--- Change the project: a table of the entries to change, as
+--- `project_get` gives them (`{ name = "Song", tempo = 96 }`), or one
+--- `key` and its value. Only the key form clears an entry (`nil`).
+---@param key any
 ---@param value any
 function paw.api.project_set(key, value) end
 
@@ -9139,8 +9168,12 @@ function paw.api.track_move(id, index) end
 ---@param id integer
 function paw.api.track_remove(id) end
 
+--- Change a track: a table of the entries to change, as `track_get`
+--- gives them (`{ name = "Bass", volume = -6 }`), or one `key` and its
+--- value. Only the key form clears an entry (`track_set(id, "output",
+--- nil)`). An entry that is as it was is no change.
 ---@param id integer
----@param key string
+---@param key any
 ---@param value any
 function paw.api.track_set(id, key, value) end
 
@@ -9154,7 +9187,10 @@ function paw.api.transport_record() end
 ---@param beats number
 function paw.api.transport_seek(beats) end
 
----@param key string
+--- Change the transport: a table of the entries to change, as
+--- `transport_get` gives them (`{ loop_enabled = true }`), or one `key` and
+--- its value. Only the key form clears an entry (`nil`).
+---@param key any
 ---@param value any
 function paw.api.transport_set(key, value) end
 

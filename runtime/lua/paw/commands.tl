@@ -445,7 +445,7 @@ M.completers = {
   end,
   tracks = function(): {Item}
     local out: {Item} = {}
-    for _, id in ipairs(api.track_list()) do out[#out + 1] = item(api.track_get(id, "name") as string, "track") end
+    for _, id in ipairs(api.track_list()) do out[#out + 1] = item(api.track_get(id).name, "track") end
     out[#out + 1] = item("master", "the master track")
     return out
   end,

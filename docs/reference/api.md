@@ -31,7 +31,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.defer(fn, ms)`: Run `fn` once, after `ms` milliseconds (or when the current turn ends).
 - `paw.device(id)`: The device, clip or automation lane of an id, as an object.
 - `paw.device_types()`: Descriptions of each kind of device that you can add to a track. A kind that an extension added (`paw.plugins.add_dir`) has its extension in `from`.
-- `paw.emit(name, payload)`: Call each handler for `name`. paw reports a handler that fails, and goes to the next. Returns true, or false and the reason when a handler returned `false, reason`. So a handler refuses the request of an event (`edit.before`, `project.saving`, `key.pre`).
+- `paw.emit(event, payload)`: Call each handler for `event` (a name, or a descriptor). paw reports a handler that fails, and goes to the next. Returns true, or false and the reason when a handler returned `false, reason`. So a handler refuses the request of an event (`edit.before`, `project.saving`, `key.pre`).
 - `paw.every(ms, fn)`: Run `fn` every `ms` milliseconds. Returns a handle for `paw.cancel`.
 - `paw.failure(err)`: What a user sees of an error: one line, without the list of calls. The place in the code (`paw/x.lua:12:`) moves to the end, where it does not hide what went wrong. The whole error goes to the log.
 - `paw.flush()`: Send the change events for the edits made until now. The kernel does this at the end of each turn. Call `paw.flush()` to make handlers run sooner.
@@ -42,8 +42,8 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.lane(id)`: The automation lane of an id, as a `paw.Lane`.
 - `paw.notify(text, level)`: Show a message. `level` is "info" (default), "warn" or "error".
 - `paw.off(id)`: Stop a listener: `id` is the value that `paw.on` or `paw.once` returned.
-- `paw.on(pattern, fn, opts)`: Listen for an event. Returns a handle for `paw.off`.
-- `paw.once(pattern, fn)`: Listen for an event once: the handler is removed after its first call.
+- `paw.on(event, fn, opts)`: Listen for an event: in Lua its name or a pattern as text, in Teal its descriptor (`paw.events.event`). Returns a handle for `paw.off`.
+- `paw.once(event, fn)`: Listen for an event once: the handler is removed after its first call.
 - `paw.open(path, opts)`: Open what a path names: a folder that is no project as a list of its files, a sound file as a new track, anything else as a project, with plugins offline as `opts` says (see `paw.loading.open`).
 - `paw.open_chain(path)`: Open a chain file (a `devices.json`) alone, as a new project with no file: one track with its devices, and the device panel on it. `:w` writes the chain back to its file. Returns the track.
 - `paw.redo`: the same as `paw.api.redo`.
@@ -595,11 +595,17 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.events
 
 - `paw.events.emit`: the same as `paw.emit`.
+- `paw.events.event(name)`: The descriptor of an event whose payload is a `P`: Teal checks the handlers that `paw.on` is given for it, and what `paw.emit` sends.
+
+  ```lua
+  local changed: paw.events.Event<OptionChanged> = paw.events.event("option.changed")
+  ```
 - `paw.events.handlers()`: Every handler, by its handle: `{ pattern, fn }`.
 - `paw.events.listened(name)`: True if a handler listens for `name` by its name or its family (not `*`). Use it for events that are expensive to make.
 - `paw.events.off`: the same as `paw.off`.
 - `paw.events.on`: the same as `paw.on`.
 - `paw.events.once`: the same as `paw.once`.
+- `paw.events.pattern(pattern)`: The descriptor of a pattern of events (`track.*`, `*`): its handlers read nothing of the payload without a cast.
 
 ## Module paw.ex
 
@@ -2067,7 +2073,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.clip_peaks(id, n)`: `n` { min, max } pairs for all of the sound that an audio clip plays.
 - `paw.api.clip_remove(id)`
 - `paw.api.clip_reverse(id)`: Audio clip operations that leave the source file alone (session/clipops.rs).
-- `paw.api.clip_set(id, key, value)`
+- `paw.api.clip_set(id, key, value)`: Change a clip: a table of the entries to change, as `clip_get` gives them, or one `key` and its value. Only the key form clears an entry (`nil`).
 - `paw.api.clip_set_controls(id, controls)`
 - `paw.api.clip_set_notes(id, notes)`
 - `paw.api.clip_source_length(id)`: Beats of sound left in an audio clip's file from where the clip starts in it.
@@ -2084,7 +2090,8 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.device_alias(old, new)`: Devices of `old`, a kind that was renamed, are made as `new`.
 - `paw.api.device_call(id, method, data)`: A request to a device that accepts data from scripts. Bytes in, bytes out.
 - `paw.api.device_editor(id, open)`: Show or hide the window of a plugin. With no second argument, toggle it.
-- `paw.api.device_find(query)`: The kind of device installed that answers `query`, `{ kind, format, id, name, vendor }` (each optional), as an entry of `device_types`; nil when none does. It looks by `kind` (an old name too), else by the plugin's own `id` (a CLAP id, a VST3 class id in either case, an LV2 URI), else by `name` with the `vendor` (a kind without a vendor answers any), else by `name` in any case; `format` ("clap", "vst3", "lv2", "builtin") keeps to one format. With `all = true`, the list of all that answer the first test that finds one. The list of all kinds is not made, so it is quick with many plugins.
+- `paw.api.device_find(query)`: The kind of device installed that answers `query`, `{ kind, format, id, name, vendor }` (each optional), as an entry of `device_types`; nil when none does. It looks by `kind` (an old name too), else by the plugin's own `id` (a CLAP id, a VST3 class id in either case, an LV2 URI), else by `name` with the `vendor` (a kind without a vendor answers any), else by `name` in any case; `format` ("clap", "vst3", "lv2", "builtin") keeps to one format. The list of all kinds is not made, so it is quick with many plugins. `device_find_all` gives all that answer.
+- `paw.api.device_find_all(query)`: Each kind of device installed that answers `query` (see `device_find`): all that answer the first test that finds one.
 - `paw.api.device_get(id)`
 - `paw.api.device_load(id, load)`: Load a preset into a device, as one undo step: `{ name =, state =, params =, factory =, call = }`. `call = { method =, data = }` is a `device_call` that changes the state of the plugin (`property.set` of an LV2 plugin). The state after it is kept.
 - `paw.api.device_move(id, track, index)`
@@ -2095,7 +2102,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.device_post(kind, topic, data)`: Data for all devices of a kind, now and in the future (also the devices of a render). nil removes the topic. Returns `{ { device, error } }` for the devices that refused it.
 - `paw.api.device_remove(id)`
 - `paw.api.device_restart(id)`: Start again a device that stopped (a plugin that crashed).
-- `paw.api.device_set(id, key, value)`
+- `paw.api.device_set(id, key, value)`: Change a device: a table of the entries to change, as `device_get` gives them, or one `key` and its value. Only the key form clears an entry (`nil`).
 - `paw.api.device_set_param(id, name, value)`: Set a parameter of a device, named by its key, the device's own id for it or its name. The value is a number, or text as the device reads it ("440 Hz", "Saw").
 - `paw.api.device_state(id)`: The state of a plugin. Give it as `state` when you add a copy of the device.
 - `paw.api.device_types()`: --- devices ---
@@ -2142,7 +2149,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.lane_list(track)`: --- automation ---
 - `paw.api.lane_points(id)`
 - `paw.api.lane_remove(id)`
-- `paw.api.lane_set(id, key, value)`
+- `paw.api.lane_set(id, key, value)`: Change a lane: a table of the entries to change, as `lane_get` gives them, or one `key` and its value. Only the key form clears an entry (`nil`).
 - `paw.api.lane_set_points(id, points)`
 - `paw.api.lane_set_shapes(id, shapes)`
 - `paw.api.lane_set_states(id, states)`: Replace the states of a state lane, as one undo step. A point that names a state no longer there names the last.
@@ -2219,7 +2226,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.project_save_files(paths)`: Save only these files of a project kept in a folder, by their path in it. Returns the paths written.
 - `paw.api.project_screen()`: The tabs and windows that the project file keeps, as plain data, or nil. They are not part of the song: setting them is not an edit, and the next save writes them.
 - `paw.api.project_screen_set(value)`
-- `paw.api.project_set(key, value)`
+- `paw.api.project_set(key, value)`: Change the project: a table of the entries to change, as `project_get` gives them (`{ name = "Song", tempo = 96 }`), or one `key` and its value. Only the key form clears an entry (`nil`).
 - `paw.api.project_shelve()`: Put the open project aside, with its undo history, and open an empty project. `project_unshelve` brings the first project back exactly as it was. For checks that need their own tracks (extensions/doctor).
 - `paw.api.project_shelved()`
 - `paw.api.project_unshelve()`
@@ -2297,12 +2304,12 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.track_meter(id)`
 - `paw.api.track_move(id, index)`
 - `paw.api.track_remove(id)`
-- `paw.api.track_set(id, key, value)`
+- `paw.api.track_set(id, key, value)`: Change a track: a table of the entries to change, as `track_get` gives them (`{ name = "Bass", volume = -6 }`), or one `key` and its value. Only the key form clears an entry (`track_set(id, "output", nil)`). An entry that is as it was is no change.
 - `paw.api.transport_get()`: --- transport ---
 - `paw.api.transport_play()`
 - `paw.api.transport_record()`
 - `paw.api.transport_seek(beats)`
-- `paw.api.transport_set(key, value)`
+- `paw.api.transport_set(key, value)`: Change the transport: a table of the entries to change, as `transport_get` gives them (`{ loop_enabled = true }`), or one `key` and its value. Only the key form clears an entry (`nil`).
 - `paw.api.transport_stop()`
 - `paw.api.trial_active()`
 - `paw.api.trial_begin()`: --- audition (session/audition.rs) --- `trial_end(false)` discards the edits made after `trial_begin`. The project is then as it was and the undo history does not change. `trial_end(true)` keeps the edits as one step.

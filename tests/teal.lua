@@ -42,6 +42,23 @@ test("teal: a format that an extension in Teal registers is checked", function()
   eq(found[1].msg, "unknown field imprt", "the misspelled side")
 end)
 
+test("teal: an event of the kernel is a descriptor: its handler gets the payload's record, and a wrong one is caught", function()
+  local file = T.scratch .. "/teal/events.tl"
+  write(file, 'local kernel = require("paw.events.kernel")\n'
+    .. 'paw.on(kernel.project_saved, function(p: kernel.Saved) print(p.path) end)\n'
+    .. 'paw.on(kernel.project_saved, function(p: kernel.TrackId) print(p.id) end)\n')
+  local found = paw.lang.check({ file })
+  eq(#found, 1, "one error")
+  eq(found[1].line, 3, "the handler that takes another payload")
+  -- Lua gives the descriptor or the name; the payload is the kernel's.
+  local path
+  local id = paw.on(require("paw.events.kernel").project_saved, function(p) path = p.path end)
+  paw.project.save(T.scratch .. "/teal/saved.json")
+  paw.flush()
+  paw.off(id)
+  eq(path and path:match("saved") ~= nil, true, "the payload of project.saved")
+end)
+
 test("teal: an extension in Teal compiles once, then comes from the cache", function()
   local entry = paw.ext.load("config/extensions/scale.tl")
   T.after(function() paw.ext.unload("scale") end)

@@ -1,5 +1,6 @@
 //! Editing the project: the edit wrapper, flushing to the engine, undo steps.
 
+use crate::events::{ClipCopied, KernelEvent as E, TrackCopied};
 use super::*;
 
 impl Session {
@@ -84,10 +85,8 @@ impl Session {
         // Whoever answers edits with edits of their own (in the same undo
         // step) leaves alone a state that was put back: it holds the answer.
         if std::mem::take(&mut self.restoring) {
-            for (_, payload) in &mut self.events[before..] {
-                if let Value::Object(map) = payload {
-                    map.insert("restored".into(), Value::Bool(true));
-                }
+            for event in &mut self.events[before..] {
+                event.restored = true;
             }
         }
     }
@@ -218,20 +217,16 @@ impl Session {
                     clip.origin = clip.source.take();
                 }
             }
-            self.events.push((
-                "track.copied".into(),
-                json!({ "track": id, "name": track.name, "origin": track.origin }),
-            ));
+            let copied = TrackCopied { track: id, name: track.name.clone(), origin: track.origin.clone() };
+            self.emit(E::TrackCopied(copied));
         }
         for id in chains {
             let Some(track) = self.project.track_mut(id) else {
                 continue;
             };
             track.chain_origin = track.chain_source.take();
-            self.events.push((
-                "chain.copied".into(),
-                json!({ "track": id, "name": track.name, "origin": track.chain_origin }),
-            ));
+            let copied = TrackCopied { track: id, name: track.name.clone(), origin: track.chain_origin.clone() };
+            self.emit(E::ChainCopied(copied));
         }
     }
 
@@ -298,10 +293,8 @@ impl Session {
                 continue;
             };
             clip.origin = clip.source.take();
-            self.events.push((
-                "clip.copied".into(),
-                json!({ "clip": id, "name": clip.name, "origin": clip.origin }),
-            ));
+            let copied = ClipCopied { clip: id, name: clip.name.clone(), origin: clip.origin.clone() };
+            self.emit(E::ClipCopied(copied));
         }
     }
 

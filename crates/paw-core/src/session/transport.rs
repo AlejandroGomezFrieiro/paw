@@ -1,5 +1,6 @@
 //! The transport: play, stop, seek, loop, count-in and recording.
 
+use crate::events::{KernelEvent as E, Nothing, Play, Position, Record};
 use super::*;
 
 impl Session {
@@ -66,10 +67,8 @@ impl Session {
         };
         self.count_sent = beats;
         self.playing = true;
-        self.events.push((
-            "transport.play".into(),
-            json!({ "position": self.position(), "count_in": beats }),
-        ));
+        let position = self.position();
+        self.emit(E::TransportPlay(Play { position, count_in: beats as f64 }));
     }
 
     /// The count-in before playing from where the playhead is: as many bars
@@ -118,15 +117,13 @@ impl Session {
             while self.handle.shared.playing() && Instant::now() < deadline {
                 std::thread::sleep(Duration::from_micros(200));
             }
-            self.events.push((
-                "transport.stop".into(),
-                json!({ "position": self.position() }),
-            ));
+            let position = self.position();
+            self.emit(E::TransportStop(Position { position }));
             // Stopping ends the take and, with it, record mode: the next
             // play is a play, not another take over the one just made.
             if self.take.is_some() {
                 self.transport.recording = false;
-                self.events.push(("transport.changed".into(), json!({})));
+                self.emit(E::TransportChanged(Nothing {}));
             }
             self.finish_take();
         }
@@ -141,8 +138,7 @@ impl Session {
         self.seeks = self.seeks.wrapping_add(1);
         self.seek_target = beats;
         self.read_ahead_from(beats);
-        self.events
-            .push(("transport.seek".into(), json!({ "position": beats })));
+        self.emit(E::TransportSeek(Position { position: beats }));
         if recording && self.playing {
             self.start_take();
         }
@@ -264,17 +260,16 @@ impl Session {
         });
         // Where the files go and how fast they grow, for a warning when
         // the disk is nearly full; and the files, for a safety copy.
-        let files: Vec<&PathBuf> = self
+        let files: Vec<PathBuf> = self
             .take
             .iter()
-            .flat_map(|t| t.audio.iter().map(|a| &a.1))
+            .flat_map(|t| t.audio.iter().map(|a| a.1.clone()))
             .collect();
-        let payload = json!({
-            "position": self.position(), "take": number, "dir": dir,
-            "bytes_per_second": channels * 4 * sample_rate as usize,
-            "free": crate::safe::free_space(&dir), "files": files,
-        });
-        self.events.push(("transport.record".into(), payload));
+        let record = Record {
+            position: self.position(), take: number, free: crate::safe::free_space(&dir), dir,
+            bytes_per_second: channels * 4 * sample_rate as usize, files,
+        };
+        self.emit(E::TransportRecord(record));
     }
 
     /// The take being recorded, as a safety copy keeps it: its files, which

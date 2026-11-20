@@ -4,6 +4,15 @@
 -- A handler name is an exact event (`track.added`), a family (`track.*`), or
 -- `*` for everything. Handlers receive `(payload, event_name)`.
 --
+-- In Teal, an event is a descriptor: its name and the type of its payload.
+-- paw.events.kernel has one for each event of the kernel; a module makes
+-- one for its own events with `paw.events.event`:
+--
+--   local kernel = require("paw.events.kernel")
+--   paw.on(kernel.project_saved, function(p: kernel.Saved) print(p.path) end)
+--
+-- Lua gives the name as text, and Teal does too for `paw.emit`.
+--
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 
 --- What an event carries: a table that this module passes on and never reads.
@@ -29,6 +38,11 @@ end
 local record M
   type Handler = Handler
   type OnOptions = OnOptions
+  type Payload = Payload
+  --- An event by its name, with the type `P` of its payload (`paw.events.event`).
+  record Event<P>
+    name: string
+  end
 end
 
 local type Named = function(string, Listener, Payload, string): boolean, string
@@ -50,8 +64,29 @@ local paw = (_G as {string:Paw}).paw
 local handlers: {string:{Handler}} = {} -- pattern -> list of { id, fn, once }
 local next_id = 0
 
---- Listen for an event. Returns a handle for `paw.off`.
-function M.on<P>(pattern: string, fn: function(P, string), opts?: OnOptions): integer
+--- The descriptor of an event whose payload is a `P`: Teal checks the
+--- handlers that `paw.on` is given for it, and what `paw.emit` sends.
+---   local changed: paw.events.Event<OptionChanged> = paw.events.event("option.changed")
+function M.event<P>(name: string): M.Event<P>
+  return { name = name }
+end
+
+--- The descriptor of a pattern of events (`track.*`, `*`): its handlers
+--- read nothing of the payload without a cast.
+function M.pattern(pattern: string): M.Event<Payload>
+  return { name = pattern }
+end
+
+-- The name of an event as Lua gives it (text) or Teal does (a descriptor).
+local function name_of<P>(event: string | M.Event<P>): string
+  if event is string then return event end
+  return event.name
+end
+
+--- Listen for an event: in Lua its name or a pattern as text, in Teal its
+--- descriptor (`paw.events.event`). Returns a handle for `paw.off`.
+function M.on<P>(event: M.Event<P>, fn: function(P, string), opts?: OnOptions): integer
+  local pattern = name_of(event as string | M.Event<P>)
   assert(pattern is string and fn is function, "usage: paw.on(event, function)")
   next_id = next_id + 1
   handlers[pattern] = handlers[pattern] or {}
@@ -60,8 +95,8 @@ function M.on<P>(pattern: string, fn: function(P, string), opts?: OnOptions): in
 end
 
 --- Listen for an event once: the handler is removed after its first call.
-function M.once<P>(pattern: string, fn: function(P, string)): integer
-  return M.on(pattern, fn, { once = true })
+function M.once<P>(event: M.Event<P>, fn: function(P, string)): integer
+  return M.on(event, fn, { once = true })
 end
 
 --- Stop a listener: `id` is the value that `paw.on` or `paw.once` returned.
@@ -105,11 +140,12 @@ local function run(list: {Handler}, name: string, payload: Payload)
   end
 end
 
---- Call each handler for `name`. paw reports a handler that fails, and goes
+--- Call each handler for `event` (a name, or a descriptor). paw reports a handler that fails, and goes
 --- to the next. Returns true, or false and the reason when a handler
 --- returned `false, reason`. So a handler refuses the request of an event
 --- (`edit.before`, `project.saving`, `key.pre`).
-function M.emit<P>(name: string, payload?: P): boolean, string
+function M.emit<P>(event: string | M.Event<P>, payload?: P): boolean, string
+  local name = name_of(event)
   local data: Payload = payload as Payload or {}
   local outer, outer_reason = refused, reason
   refused, reason = nil, nil

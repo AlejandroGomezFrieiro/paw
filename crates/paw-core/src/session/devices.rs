@@ -1,5 +1,6 @@
 //! Devices on tracks: adding, removing, parameters, states, presets and calls.
 
+use crate::events::{DeviceTrouble, Item, KernelEvent as E, ParamTouched};
 use super::*;
 
 /// What `paw.api.device_find` looks for; each part is optional.
@@ -364,10 +365,8 @@ impl Session {
         let param = self.param_info(id, name)?;
         let key = param.key.clone();
         let value = (value as f32).clamp(param.min, param.max) as f64;
-        self.events.push((
-            "param.touched".into(),
-            json!({ "device": id, "param": key, "id": param.stable_id(), "from": "host" }),
-        ));
+        let touched = ParamTouched { device: id, param: key.clone(), id: param.stable_id().to_string(), from: "host".into(), value: None };
+        self.emit(E::ParamTouched(touched));
         if self.playing
             && let Some((track, _)) = self.project.find_device(id)
             && self.auto_mode(track).writes()
@@ -544,9 +543,8 @@ impl Session {
             if let Some(synced_device) = synced_device {
                 *synced_device = (*device).clone();
             }
-            self.events
-                .push(("device.changed".into(), json!({ "id": id })));
-            self.events.push(("changed".into(), json!({})));
+            self.emit(E::DeviceChanged(Item { id, track: None }));
+            self.emit(E::changed());
         }
         Ok(())
     }
@@ -595,8 +593,7 @@ impl Session {
         self.flush();
         // Nothing was added to the project: say only that the device changed.
         self.events.truncate(before);
-        self.events
-            .push(("device.changed".into(), json!({ "id": id, "track": track })));
+        self.emit(E::DeviceChanged(Item { id, track: Some(track) }));
         if !self.live.contains_key(&id) && !self.loads.loading(id) {
             let why = self
                 .warnings
@@ -680,10 +677,8 @@ impl Session {
         for (device, param, stable, value) in moved {
             // The parameter last moved in a plugin's own window, for
             // `:param.last` and for the frontends to show.
-            self.events.push((
-                "param.touched".into(),
-                json!({ "device": device, "param": param, "id": stable, "value": value, "from": "editor" }),
-            ));
+            let touched = ParamTouched { device, param: param.clone(), id: stable, from: "editor".into(), value: Some(value) };
+            self.emit(E::ParamTouched(touched));
             if let Some((track, _)) = self.project.find_device(device) {
                 self.touch(track, Target::Param { device, param }, value, value);
             }
@@ -697,10 +692,7 @@ impl Session {
                 .registry
                 .get(kind)
                 .map_or(kind.to_string(), |f| f.info().name.clone());
-            self.events.push((
-                "device.stopped".into(),
-                json!({ "device": device, "track": track, "name": name, "reason": why }),
-            ));
+            self.emit(E::DeviceStopped(DeviceTrouble { device, track, name, reason: Some(why), loading: false }));
         }
         for device in invalid {
             let Some((track, _)) = self.project.find_device(device) else {
@@ -711,10 +703,7 @@ impl Session {
                 .registry
                 .get(kind)
                 .map_or(kind.to_string(), |f| f.info().name.clone());
-            self.events.push((
-                "device.invalid".into(),
-                json!({ "device": device, "track": track, "name": name }),
-            ));
+            self.emit(E::DeviceInvalid(DeviceTrouble { device, track, name, reason: None, loading: false }));
         }
         if latency_changed {
             // The tracks have to be lined up again.
@@ -737,12 +726,11 @@ impl Session {
                 }
             }
             let track = self.project.find_device(id).map(|(track, _)| track);
-            self.events
-                .push(("device.changed".into(), json!({ "id": id, "track": track })));
+            self.emit(E::DeviceChanged(Item { id, track }));
         }
         // Nothing here needs sending to the engine: the plugin already has it.
         self.synced = self.project.clone();
-        self.events.push(("changed".into(), json!({})));
+        self.emit(E::changed());
     }
 
     /// Show or hide a plugin's own window. Returns whether it is open afterwards.
@@ -775,9 +763,8 @@ impl Session {
             controller.close_editor();
         }
         let open = controller.editor_open();
-        self.events
-            .push(("device.changed".into(), json!({ "id": id })));
-        self.events.push(("changed".into(), json!({})));
+        self.emit(E::DeviceChanged(Item { id, track: None }));
+        self.emit(E::changed());
         Ok(open)
     }
 

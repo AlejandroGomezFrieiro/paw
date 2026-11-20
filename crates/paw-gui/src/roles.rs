@@ -8,6 +8,7 @@
 //! scene.
 
 use egui::{Align2, Color32, CornerRadius, Id, Painter, Pos2, Rect, Sense, Stroke, StrokeKind, Ui, pos2, vec2};
+use paw_scene::props::{self, *};
 use paw_scene::{Kind, Node};
 use serde_json::Value;
 
@@ -25,17 +26,9 @@ pub const KNOWN: &[&str] = &[
 /// not drawn.
 pub const OPAQUE: &[&str] = &["beats", "trackhead"];
 
-fn text(props: &Value, key: &str) -> String {
-    props[key].as_str().unwrap_or("").to_string()
-}
-
-fn number(props: &Value, key: &str) -> f32 {
-    props[key].as_f64().unwrap_or(0.0) as f32
-}
-
 /// A colour named by the palette (`tone`), else `or`.
-fn tone(props: &Value, or: Color32) -> Color32 {
-    props["tone"].as_str().and_then(|t| th().named(t)).unwrap_or(or)
+fn tone(tone: Option<&str>, or: Color32) -> Color32 {
+    tone.and_then(|t| th().named(t)).unwrap_or(or)
 }
 
 /// How far up a meter a linear level reaches, from 0 to 1 over 60 dB, as
@@ -57,7 +50,7 @@ fn font_for(rect: Rect, bold: bool) -> egui::FontId {
 /// without seeing it; said each frame, painted or not.
 pub fn name(ui: &Ui, id: Id, node: &Node, rect: Rect) {
     if let Kind::Role { props, .. } = &node.kind
-        && let Some(name) = props["label"].as_str()
+        && let Some(name) = props::parse::<RoleProps>(props).label
     {
         let response = ui.interact(rect, id, Sense::hover());
         widgets::name(&response, name);
@@ -72,7 +65,8 @@ pub fn paint(ui: &Ui, painter: &Painter, id: Id, node: &Node, rect: Rect, cell: 
     let under = ui.rect_contains_pointer(rect);
     match role.as_str() {
         "label" => {
-            let align = match props["align"].as_str() {
+            let p: LabelProps = props::parse(props);
+            let align = match p.align {
                 Some("right") => Align2::RIGHT_CENTER,
                 Some("center") => Align2::CENTER_CENTER,
                 _ => Align2::LEFT_CENTER,
@@ -85,43 +79,43 @@ pub fn paint(ui: &Ui, painter: &Painter, id: Id, node: &Node, rect: Rect, cell: 
             // In the window's monospace font, unless it asks for words
             // (`sans`) or a heading (`title`); cut to its rectangle.
             let size = (rect.height() * 0.7).clamp(8.0, T_SMALL + 1.0);
-            let font = match props["font"].as_str() {
+            let font = match p.font {
                 Some("sans") => crate::theme::sans(size + 0.5),
                 Some("title") => semi((rect.height() * 0.72).clamp(8.0, T_BASE)),
                 _ => mono_medium(size),
             };
-            let colour = tone(props, t.text_2);
+            let colour = tone(p.tone, t.text_2);
             // Words may be a little wider than the cells they stand in: up
             // to a cell more, which a view leaves free after a heading.
-            let mut said = text(props, "text").trim_end().to_string();
-            if props["capital"] == true
+            let mut said = p.text.unwrap_or("").trim_end().to_string();
+            if p.capital
                 && let Some(first) = said.chars().next()
             {
                 said = first.to_uppercase().chain(said.chars().skip(1)).collect();
             }
-            let room = rect.width() + if props["font"].is_string() { cell.0 } else { 2.0 };
+            let room = rect.width() + if p.font.is_some() { cell.0 } else { 2.0 };
             let shown = widgets::elide(ui, &said, font.clone(), room);
             let drawn = painter.text(at, align, shown, font, colour);
-            if props["strike"] == true {
+            if p.strike {
                 painter.hline(drawn.x_range(), drawn.center().y, Stroke::new(1.0, colour));
             }
         }
         "button" => {
             // A quiet one shows a face only under the pointer or when on; one
             // that opens a menu has a caret, drawn, for the terminal's `▾`.
-            let on = props["on"] == true;
-            let menu = props["menu"] == true;
-            let face = if under { t.control_hover } else if props["quiet"] == true { Color32::TRANSPARENT } else { t.control };
+            let p: ButtonProps = props::parse(props);
+            let (on, menu) = (p.on, p.menu);
+            let face = if under { t.control_hover } else if p.quiet { Color32::TRANSPARENT } else { t.control };
             let shape = rect.shrink2(vec2(1.0, 2.0));
             painter.rect_filled(shape, CornerRadius::same(4), if on { alpha(t.select, 0.85) } else { face });
-            let colour = if on { t.surface } else if props["off"] == true { t.text_3 } else { tone(props, t.text) };
+            let colour = if on { t.surface } else if p.off { t.text_3 } else { tone(p.tone, t.text) };
             let font = font_for(rect, false);
-            let whole = props["words"].as_str().map_or_else(|| text(props, "text"), String::from);
+            let whole = p.words.or(p.text).unwrap_or("").to_string();
             // An icon in place of the glyph that stands for it in cells: a
             // text of one character is that glyph alone, a longer one the
             // words after it.
             let mut shape = shape;
-            if let Some(icon) = props["icon"].as_str().and_then(icon_named) {
+            if let Some(icon) = p.icon.and_then(icon_named) {
                 let words = whole.trim().trim_start_matches(|c: char| !c.is_alphanumeric()).trim();
                 let side = (shape.height() - 4.0).clamp(8.0, 12.0);
                 if whole.trim().chars().count() <= 1 || words.is_empty() {
@@ -154,29 +148,30 @@ pub fn paint(ui: &Ui, painter: &Painter, id: Id, node: &Node, rect: Rect, cell: 
             }
         }
         "switch" => {
-            let on = props["on"] == true;
-            let lit = tone(props, t.select);
+            let p: SwitchProps = props::parse(props);
+            let on = p.on;
+            let lit = tone(p.tone, t.select);
             let side = rect.width().min(rect.height()).max(4.0);
             let shape = Rect::from_center_size(rect.center(), vec2(rect.width().max(side) - 1.0, rect.height() - 2.0));
             let face = if on { lit } else if under { t.control_hover } else { t.control };
             painter.rect_filled(shape, CornerRadius::same(3), face);
             let ink = if on { t.on_hue } else { t.text_2 };
             // An icon in place of its letter, where it names one.
-            match props["icon"].as_str().and_then(icon_named) {
+            match p.icon.and_then(icon_named) {
                 Some(icon) => {
                     let side = (shape.height() - 4.0).clamp(8.0, 12.0);
                     widgets::icon_on(painter, Rect::from_center_size(shape.center(), vec2(side, side)), icon, ink);
                 }
                 None => {
-                    let letter = text(props, "letter");
+                    let letter = p.letter.unwrap_or("");
                     painter.text(shape.center(), Align2::CENTER_CENTER, letter, semi((rect.height() * 0.6).clamp(8.0, T_SMALL)), ink);
                 }
             }
         }
-        "knob" if props["round"] == true => {
+        "knob" if props::parse::<KnobProps>(props).round => {
             // A round knob, turned from the middle; its pointer where the
             // sound sits.
-            let value = number(props, "value").clamp(-1.0, 1.0);
+            let value = (props::parse::<KnobProps>(props).value as f32).clamp(-1.0, 1.0);
             let r = (rect.height().min(rect.width()) / 2.0 - 1.0).max(3.0);
             let centre = pos2(rect.left() + r + 1.0, rect.center().y);
             painter.circle(centre, r, if under { t.control_hover } else { t.control }, Stroke::new(1.0, t.divider));
@@ -187,7 +182,7 @@ pub fn paint(ui: &Ui, painter: &Painter, id: Id, node: &Node, rect: Rect, cell: 
         "knob" => {
             // A pan: a rail across, the middle marked, a bar from the middle
             // to where the sound sits and a thumb there.
-            let value = number(props, "value").clamp(-1.0, 1.0);
+            let value = (props::parse::<KnobProps>(props).value as f32).clamp(-1.0, 1.0);
             let y = rect.center().y;
             let (left, right) = (rect.left() + 3.0, rect.right() - 3.0);
             let middle = (left + right) / 2.0;
@@ -202,7 +197,7 @@ pub fn paint(ui: &Ui, painter: &Painter, id: Id, node: &Node, rect: Rect, cell: 
         }
         "power" => {
             // A power button, lit while the device plays.
-            let on = props["on"] == true;
+            let on = props::parse::<PowerProps>(props).on;
             let shape = Rect::from_center_size(rect.center(), vec2(rect.height().max(18.0).min(rect.width()), rect.height() - 2.0));
             let face = if on { alpha(t.select, 0.85) } else if under { t.control_hover } else { t.control };
             painter.rect_filled(shape, CornerRadius::same(4), face);
@@ -213,27 +208,29 @@ pub fn paint(ui: &Ui, painter: &Painter, id: Id, node: &Node, rect: Rect, cell: 
             // A card's heading: a band across, a shade lighter than the panel;
             // tinted where the keyboard's cursor is.
             let shape = rect.shrink2(vec2(1.0, 0.5));
-            let face = if props["selected"] == true { mix(t.card, t.select, 0.72) } else if props["off"] == true { alpha(t.card, 0.6) } else { t.card };
+            let p: BandProps = props::parse(props);
+            let face = if p.selected { mix(t.card, t.select, 0.72) } else if p.off { alpha(t.card, 0.6) } else { t.card };
             painter.rect_filled(shape, CornerRadius::same(3), face);
             painter.hline(shape.x_range(), shape.top() + 0.5, Stroke::new(1.0, alpha(t.card_line, 0.8)));
         }
-        "note" => note(ui, painter, rect, props, under),
-        "keyboard" => keyboard(painter, rect, props, row),
-        "scrollbar" => scrollbar(painter, rect, props, under),
-        "fader" => fader(painter, rect, props, under, row),
+        "note" => note(ui, painter, rect, &props::parse(props), under),
+        "keyboard" => keyboard(painter, rect, &props::parse(props), row),
+        "scrollbar" => scrollbar(painter, rect, &props::parse(props), under),
+        "fader" => fader(painter, rect, &props::parse(props), under, row),
         "chip" => {
-            let colour = props["color"].as_str().and_then(hex).unwrap_or(t.control);
+            let p: ChipProps = props::parse(props);
+            let colour = p.color.and_then(hex).unwrap_or(t.control);
             painter.rect_filled(rect, CornerRadius::ZERO, colour);
             let font = font_for(rect, true);
             let mut left = rect.left() + 4.0;
-            if let Some(n) = props["number"].as_i64() {
+            if let Some(n) = p.number {
                 let number = n.to_string();
                 painter.text(pos2(left, rect.center().y), Align2::LEFT_CENTER, &number, font.clone(), alpha(t.on_hue, 0.6));
                 left += widgets::text_width(ui, &number, font.clone()) + 4.0;
             }
-            let shown = widgets::elide(ui, &text(props, "text"), font.clone(), rect.right() - 4.0 - left);
+            let shown = widgets::elide(ui, p.text.unwrap_or(""), font.clone(), rect.right() - 4.0 - left);
             painter.text(pos2((left + rect.right() - 4.0) / 2.0, rect.center().y), Align2::CENTER_CENTER, shown, font, t.on_hue);
-            if props["selected"] == true {
+            if p.selected {
                 painter.rect_stroke(rect, CornerRadius::ZERO, Stroke::new(1.0, Color32::WHITE), StrokeKind::Inside);
             }
         }
@@ -253,13 +250,14 @@ pub fn paint_live(painter: &Painter, node: &Node, rect: Rect, cell: (f32, f32), 
     let t = th();
     let bind = node.bind.as_deref();
     match role.as_str() {
-        "param" => param(painter, rect, props, bind, live, cell, under),
-        "playhead" => playhead(painter, rect, props, bind, live, cell),
-        "meter" => meter(painter, rect, props, bind, live),
+        "param" => param(painter, rect, &props::parse(props), bind, live, cell, under),
+        "playhead" => playhead(painter, rect, &props::parse(props), bind, live, cell),
+        "meter" => meter(painter, rect, &props::parse(props), bind, live),
         "peak" => {
             // The loudest of late in a well, which turns red with the clip
             // light.
-            let (hold, clipped) = held(props, bind, live);
+            let p: MeterProps = props::parse(props);
+            let (hold, clipped) = held(p.hold, p.clipped, bind, live);
             let db = 20.0 * hold.max(1e-6).log10();
             let said = crate::model::decibels(db);
             let well = rect.shrink2(vec2(0.0, 1.0));
@@ -268,8 +266,8 @@ pub fn paint_live(painter: &Painter, node: &Node, rect: Rect, cell: (f32, f32), 
             let size = (rect.height() * 0.7).clamp(8.0, T_SMALL + 1.0);
             painter.text(well.right_center() - vec2(3.0, 0.0), Align2::RIGHT_CENTER, said, mono_medium(size), colour);
         }
-        "hmeter" => crate::timeline::hmeter(painter, props, bind, live, rect, under),
-        "recording" => crate::timeline::recording(painter, props, bind, live, rect, cell),
+        "hmeter" => crate::timeline::hmeter(painter, &props::parse(props), bind, live, rect, under),
+        "recording" => crate::timeline::recording(painter, &props::parse(props), bind, live, rect, cell),
         _ => return false,
     }
     true
@@ -279,20 +277,20 @@ pub fn paint_live(painter: &Painter, node: &Node, rect: Rect, cell: (f32, f32), 
 /// it is played; light with a white edge when chosen, outlined where the
 /// keyboard's cursor is; one being drawn see-through with a bright edge.
 /// Its name inside when there is room.
-fn note(ui: &Ui, painter: &Painter, rect: Rect, props: &Value, under: bool) {
+fn note(ui: &Ui, painter: &Painter, rect: Rect, p: &NoteProps, under: bool) {
     let t = th();
-    let colour = props["color"].as_str().and_then(hex).unwrap_or(t.select);
-    let velocity = (number(props, "velocity") / 127.0).clamp(0.0, 1.0);
+    let colour = p.color.and_then(hex).unwrap_or(t.select);
+    let velocity = (p.velocity as f32 / 127.0).clamp(0.0, 1.0);
     // A row's height less a pixel above and below, a pixel short of where
     // the next note starts, never thinner than a mark.
     let shape = Rect::from_min_max(rect.min + vec2(0.0, 1.0), rect.max - vec2(1.0, 1.0));
     let shape = if shape.width() < 4.0 { Rect::from_min_size(shape.min, vec2(4.0, shape.height())) } else { shape };
     let dark = Color32::from_rgb(0x12, 0x13, 0x16);
-    let (face, edge, ink) = if props["ghost"] == true {
+    let (face, edge, ink) = if p.ghost {
         (alpha(colour, 0.45), Stroke::new(1.0, Color32::WHITE), Color32::WHITE)
-    } else if props["pending"] == true {
+    } else if p.pending {
         (alpha(colour, 0.35), Stroke::new(1.0, colour), t.text)
-    } else if props["selected"] == true {
+    } else if p.selected {
         (mix(colour, Color32::WHITE, 0.7), Stroke::new(1.0, Color32::WHITE), dark)
     } else if under {
         (mix(colour, Color32::WHITE, 0.85), Stroke::new(1.0, Color32::from_black_alpha(0x60)), dark)
@@ -301,13 +299,13 @@ fn note(ui: &Ui, painter: &Painter, rect: Rect, props: &Value, under: bool) {
         (mix(colour, t.surface, 0.45 + 0.55 * velocity), Stroke::new(1.0, Color32::from_black_alpha(0x60)), dark)
     };
     painter.rect(shape, CornerRadius::same(2), face, edge, StrokeKind::Inside);
-    if props["cursor"] == true {
+    if p.cursor {
         painter.rect_stroke(shape.expand(1.0), CornerRadius::same(3), Stroke::new(1.5, t.play), StrokeKind::Outside);
     }
     // Its name inside, when the name fits.
-    let label = text(props, "label");
+    let label = p.label.unwrap_or("");
     let font = semi((rect.height() * 0.62).clamp(8.0, T_SMALL));
-    if !label.is_empty() && widgets::text_width(ui, &label, font.clone()) + 6.0 <= shape.width() {
+    if !label.is_empty() && widgets::text_width(ui, label, font.clone()) + 6.0 <= shape.width() {
         painter.with_clip_rect(shape.intersect(painter.clip_rect())).text(pos2(shape.left() + 3.0, shape.center().y), Align2::LEFT_CENTER, label, font, ink);
     }
 }
@@ -326,16 +324,12 @@ fn is_black(pitch: i64) -> bool {
 /// `top` down: white keys and black ones, a line where E meets F and B
 /// meets C, each C named; the cursor's key lit and named, the keys sounding
 /// at the cursor dotted, what the instrument or a module calls a key on it.
-fn keyboard(painter: &Painter, rect: Rect, props: &Value, row: f32) {
+fn keyboard(painter: &Painter, rect: Rect, p: &KeyboardProps, row: f32) {
     let t = th();
     painter.rect_filled(rect, CornerRadius::ZERO, t.key_white);
-    let top = props["top"].as_i64().unwrap_or(127);
-    let cursor = props["cursor"].as_i64().unwrap_or(-1);
-    let named = |list: &str| -> Vec<(i64, String)> {
-        props[list].as_array().map(|l| l.iter().filter_map(|e| Some((e[0].as_i64()?, e[1].as_str()?.to_string()))).collect()).unwrap_or_default()
-    };
-    let (names, labels) = (named("names"), named("labels"));
-    let sounding: Vec<i64> = props["sounding"].as_array().map(|l| l.iter().filter_map(Value::as_i64).collect()).unwrap_or_default();
+    let top = p.top.unwrap_or(127);
+    let cursor = p.cursor.unwrap_or(-1);
+    let (names, labels, sounding) = (&p.names, &p.labels, &p.sounding);
     let rows = (rect.height() / row.max(1.0)).round() as i64;
     let size = (row * 0.62).clamp(8.0, T_SMALL);
     for r in 0..rows {
@@ -351,7 +345,7 @@ fn keyboard(painter: &Painter, rect: Rect, props: &Value, row: f32) {
             painter.hline(key.x_range(), key.center().y, Stroke::new(1.0, t.key_line));
             painter.rect_filled(Rect::from_min_size(key.min, vec2(rect.width() * 0.6, row)), CornerRadius::ZERO, t.key_black);
         }
-        let said = names.iter().chain(&labels).find(|(p, _)| *p == pitch).map(|(_, s)| s.clone());
+        let said = names.iter().chain(labels).find(|k| k.pitch == pitch).map(|k| k.name.to_string());
         if pitch == cursor {
             painter.rect_filled(key, CornerRadius::ZERO, t.play);
             painter.text(pos2(key.left() + 4.0, key.center().y), Align2::LEFT_CENTER, said.unwrap_or_else(|| pitch_name(pitch)), semi(size), t.on_hue);
@@ -372,19 +366,19 @@ fn keyboard(painter: &Painter, rect: Rect, props: &Value, row: f32) {
 
 /// The playhead where the live values put it: a line down the grid on the
 /// song's beat and a cap on the ruler, its first row.
-fn playhead(painter: &Painter, rect: Rect, props: &Value, bind: Option<&str>, live: &Value, (cw, ch): (f32, f32)) {
+fn playhead(painter: &Painter, rect: Rect, p: &PlayheadProps, bind: Option<&str>, live: &Value, (cw, ch): (f32, f32)) {
     let t = th();
     let at = match bind {
-        Some("position") => live["position"].as_f64().or_else(|| props["at"].as_f64()),
-        _ => props["at"].as_f64(),
+        Some("position") => live["position"].as_f64().or(p.at),
+        _ => p.at,
     };
     let Some(at) = at else { return };
     // Along pieces of time (notation's systems, spaced by their notes):
     // `[from, to, x0, x1, top, bottom]` each, in points from the corner.
-    if let Some(pieces) = props["segments"].as_array() {
+    if let Some(pieces) = &p.segments {
         let last = pieces.len().saturating_sub(1);
         for (i, piece) in pieces.iter().enumerate() {
-            let n = |k: usize| piece[k].as_f64().unwrap_or(0.0);
+            let n = |k: usize| piece.get(k).copied().unwrap_or(0.0);
             let (from, to) = (n(0), n(1));
             if at >= from && (at < to || (i == last && at <= to)) {
                 let x = rect.left() + (n(2) + (n(3) - n(2)) * (at - from) / (to - from).max(1e-9)) as f32;
@@ -396,11 +390,11 @@ fn playhead(painter: &Painter, rect: Rect, props: &Value, bind: Option<&str>, li
         }
         return;
     }
-    let (lo, hi) = (props["lo"].as_f64().unwrap_or(f64::MIN), props["hi"].as_f64().unwrap_or(f64::MAX));
+    let (lo, hi) = (p.lo.unwrap_or(f64::MIN), p.hi.unwrap_or(f64::MAX));
     if at < lo || at > hi {
         return;
     }
-    let x = rect.left() + ((at - props["from"].as_f64().unwrap_or(0.0)) * props["per"].as_f64().unwrap_or(1.0)) as f32 * cw;
+    let x = rect.left() + ((at - p.from) * p.per.unwrap_or(1.0)) as f32 * cw;
     if x < rect.left() || x > rect.right() {
         return;
     }
@@ -411,11 +405,11 @@ fn playhead(painter: &Painter, rect: Rect, props: &Value, bind: Option<&str>, li
 
 /// A thin bar along a side of what scrolls, its thumb over what shows;
 /// brighter under the pointer.
-fn scrollbar(painter: &Painter, rect: Rect, props: &Value, under: bool) {
-    let total = number(props, "total").max(number(props, "span")).max(1e-6);
-    let (from, span) = (number(props, "from") / total, number(props, "span") / total);
+fn scrollbar(painter: &Painter, rect: Rect, p: &ScrollbarProps, under: bool) {
+    let total = (p.total as f32).max(p.span as f32).max(1e-6);
+    let (from, span) = (p.from as f32 / total, p.span as f32 / total);
     let face = Color32::from_white_alpha(if under { 0x50 } else { 0x24 });
-    let thumb = if props["axis"] == "x" {
+    let thumb = if p.axis == Some("x") {
         let w = (rect.width() * span).max(24.0).min(rect.width());
         let x = (rect.left() + rect.width() * from).min(rect.right() - w);
         Rect::from_min_size(pos2(x, rect.bottom() - 6.0), vec2(w, 4.0))
@@ -429,7 +423,7 @@ fn scrollbar(painter: &Painter, rect: Rect, props: &Value, under: bool) {
 
 /// A fader: a rail down the middle, 0 dB marked, a cap with a line across
 /// it where the level is, at the place the terminal's cap is for it.
-fn fader(painter: &Painter, rect: Rect, props: &Value, under: bool, row: f32) {
+fn fader(painter: &Painter, rect: Rect, p: &FaderProps, under: bool, row: f32) {
     let t = th();
     let rows = (rect.height() / row.max(1.0)).round().max(1.0);
     let row_h = rect.height() / rows;
@@ -437,13 +431,13 @@ fn fader(painter: &Painter, rect: Rect, props: &Value, under: bool, row: f32) {
     let y_of = |f: f32| rect.bottom() - row_h * (0.5 + f.clamp(0.0, 1.0) * (rows - 1.0));
     let x = rect.center().x;
     painter.vline(x, (rect.top() + row_h * 0.5)..=(rect.bottom() - row_h * 0.5), Stroke::new(3.0, t.well));
-    if props.get("zero").is_some_and(Value::is_number) {
-        let y = y_of(number(props, "zero"));
+    if let Some(zero) = p.zero {
+        let y = y_of(zero as f32);
         painter.hline((rect.left() + 2.0)..=(rect.right() - 2.0), y, Stroke::new(1.0, t.text_3));
     }
-    let y = y_of(number(props, "at"));
+    let y = y_of(p.at as f32);
     let cap = Rect::from_center_size(pos2(x, y), vec2(rect.width() - 2.0, (row_h * 0.9).clamp(8.0, 16.0)));
-    let face = if props["selected"] == true || under { t.bright } else { t.thumb };
+    let face = if p.selected || under { t.bright } else { t.thumb };
     painter.rect_filled(cap, CornerRadius::same(2), face);
     painter.hline((cap.left() + 2.0)..=(cap.right() - 2.0), y, Stroke::new(1.0, t.surface));
 }
@@ -472,21 +466,23 @@ fn icon_named(name: &str) -> Option<crate::icons::Icon> {
 /// choice of one that has a few, and its value at the right. Bound to a
 /// parameter a lane moves (`param:<device>:<key>`), where it sits and what
 /// it reads come from the live values.
-fn param(painter: &Painter, rect: Rect, props: &Value, bind: Option<&str>, live: &Value, (cw, _): (f32, f32), under: bool) {
+fn param(painter: &Painter, rect: Rect, p: &ParamProps, bind: Option<&str>, live: &Value, (cw, _): (f32, f32), under: bool) {
     let t = th();
     let moved = bind.map(|b| &live["params"][b]).filter(|v| v.is_object());
-    let from = moved.unwrap_or(props);
-    let fraction = from["fraction"].as_f64().unwrap_or(0.0).clamp(0.0, 1.0) as f32;
-    let said = from["text"].as_str().unwrap_or("");
-    let dim = props["dim"] == true;
-    let bar = (number(props, "bar") * cw).min(rect.width());
+    let (fraction, said) = match moved {
+        Some(m) => (m["fraction"].as_f64().unwrap_or(0.0), m["text"].as_str().unwrap_or("")),
+        None => (p.fraction, p.text.unwrap_or("")),
+    };
+    let fraction = fraction.clamp(0.0, 1.0) as f32;
+    let dim = p.dim;
+    let bar = (p.bar as f32 * cw).min(rect.width());
     let rail = Rect::from_min_size(pos2(rect.left() + 4.0, rect.center().y - 1.5), vec2((bar - 10.0).max(4.0), 3.0));
     painter.rect_filled(rail, CornerRadius::same(1), t.well);
     let at = rail.left() + rail.width() * fraction;
-    let (x0, x1) = if props["centred"] == true { (rail.center().x.min(at), rail.center().x.max(at)) } else { (rail.left(), at) };
+    let (x0, x1) = if p.centred { (rail.center().x.min(at), rail.center().x.max(at)) } else { (rail.left(), at) };
     let lit = if moved.is_some() { t.play } else if under { t.text_2 } else { t.select };
     painter.rect_filled(Rect::from_x_y_ranges(x0..=x1, rail.y_range()), CornerRadius::same(1), alpha(lit, if dim { 0.4 } else { 0.9 }));
-    let steps = props["steps"].as_u64().unwrap_or(0);
+    let steps = p.steps;
     if (2..=12).contains(&steps) {
         for i in 0..steps {
             let x = rail.left() + rail.width() * i as f32 / (steps - 1) as f32;
@@ -507,10 +503,10 @@ fn bound_track(bind: Option<&str>) -> Option<&str> {
 
 /// The loudest of late and whether the clip light is lit: the live values
 /// when the node is bound to a track's meter, else those it was drawn with.
-fn held(props: &Value, bind: Option<&str>, live: &Value) -> (f32, bool) {
+fn held(hold: f64, clipped: bool, bind: Option<&str>, live: &Value) -> (f32, bool) {
     match bound_track(bind) {
         Some(track) => (live["peaks"][track].as_f64().unwrap_or(0.0) as f32, live["clips"][track] == true),
-        None => (number(props, "hold"), props["clipped"] == true),
+        None => (hold as f32, clipped),
     }
 }
 
@@ -518,11 +514,13 @@ fn held(props: &Value, bind: Option<&str>, live: &Value) -> (f32, bool) {
 /// by where they reach, with the loudest of late a line and the clip light
 /// on top: the live values when the meter is bound to a track's, else
 /// those it was drawn with.
-fn meter(painter: &Painter, rect: Rect, props: &Value, bind: Option<&str>, live: &Value) {
+fn meter(painter: &Painter, rect: Rect, p: &MeterProps, bind: Option<&str>, live: &Value) {
     let t = th();
-    let bound = bound_track(bind).map(|track| &live["meters"][track]).filter(|v| v.is_array());
-    let levels = bound.unwrap_or(&props["levels"]);
-    let mut levels: Vec<f32> = levels.as_array().map(|l| l.iter().map(|v| v.as_f64().unwrap_or(0.0) as f32).collect()).unwrap_or_default();
+    let bound = bound_track(bind).and_then(|track| live["meters"][track].as_array());
+    let mut levels: Vec<f32> = match bound {
+        Some(l) => l.iter().map(|v| v.as_f64().unwrap_or(0.0) as f32).collect(),
+        None => p.levels.iter().map(|v| *v as f32).collect(),
+    };
     if levels.is_empty() {
         // Bound, before the first live values: both sides, silent.
         levels = vec![0.0; 2];
@@ -530,7 +528,7 @@ fn meter(painter: &Painter, rect: Rect, props: &Value, bind: Option<&str>, live:
     let n = levels.len().max(1) as f32;
     let gap = 1.0;
     let w = ((rect.width() - gap * (n - 1.0)) / n).max(1.0);
-    let (hold, clipped) = held(props, bind, live);
+    let (hold, clipped) = held(p.hold, p.clipped, bind, live);
     // The clip light across the top, over a few points of its own.
     let light = Rect::from_min_size(rect.min, vec2(rect.width(), 4.0));
     painter.rect_filled(light, CornerRadius::same(1), if clipped { t.meter_clip } else { t.meter_well });

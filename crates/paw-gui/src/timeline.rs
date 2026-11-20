@@ -14,6 +14,7 @@ use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 
 use egui::{Align2, Color32, CornerRadius, Painter, Rect, Shape, Stroke, StrokeKind, TextureHandle, Ui, pos2, vec2};
+use paw_scene::props::{self, *};
 use paw_scene::{Kind, Node};
 use serde_json::{Value, json};
 
@@ -54,26 +55,14 @@ thread_local! {
     static PICTURES: RefCell<Pictures> = RefCell::new(Pictures::default());
 }
 
-fn text(props: &Value, key: &str) -> String {
-    props[key].as_str().unwrap_or("").to_string()
-}
-
-fn num(props: &Value, key: &str) -> f32 {
-    props[key].as_f64().unwrap_or(0.0) as f32
-}
-
-fn beats(props: &Value, key: &str) -> Vec<f32> {
-    props[key].as_array().map(|l| l.iter().filter_map(|v| v.as_f64().map(|v| v as f32)).collect()).unwrap_or_default()
-}
-
 /// Paint a role of the arrange view over `rect` (points), a cell being
 /// `cell` points; false for one of other views.
 pub fn paint(ui: &Ui, painter: &Painter, role: &str, props: &Value, rect: Rect, cell: (f32, f32)) -> bool {
     match role {
-        "clip" => clip(ui, painter, props, rect, cell),
-        "beats" => ground(painter, props, rect, cell),
-        "curve" => curve(painter, props, rect, cell),
-        "trackhead" => trackhead(ui, painter, props, rect),
+        "clip" => clip(ui, painter, &props::parse(props), rect, cell),
+        "beats" => ground(painter, &props::parse(props), rect, cell),
+        "curve" => curve(painter, &props::parse(props), rect, cell),
+        "trackhead" => trackhead(ui, painter, &props::parse(props), rect),
         _ => return false,
     }
     true
@@ -84,28 +73,26 @@ pub fn paint(ui: &Ui, painter: &Painter, role: &str, props: &Value, rect: Rect, 
 /// fades and their handles, the gain line while it is dragged, warp
 /// markers and the notches of a loop; outlined when chosen or under the
 /// pointer. One being dragged is a see-through copy where it will land.
-fn clip(ui: &Ui, painter: &Painter, props: &Value, rect: Rect, (cw, ch): (f32, f32)) {
+fn clip(ui: &Ui, painter: &Painter, p: &ClipProps, rect: Rect, (cw, ch): (f32, f32)) {
     let t = th();
-    let colour = props["color"].as_str().and_then(crate::theme::hex).unwrap_or(t.select);
+    let colour = p.color.and_then(crate::theme::hex).unwrap_or(t.select);
     // A pixel short of where the next clip starts, a pixel off the row's
     // top and bottom, never thinner than a mark.
     let shape = Rect::from_min_max(rect.min + vec2(0.0, 1.0), pos2(rect.right().max(rect.left() + 6.0) - 1.0, rect.bottom() - 2.0));
     let seen = painter.clip_rect();
     let under = ui.rect_contains_pointer(shape.intersect(seen));
     let font = semi(T_SMALL);
-    if props["ghost"] == true {
+    if p.ghost {
         painter.rect(shape, CornerRadius::same(2), alpha(colour, 0.35), Stroke::new(1.0, Color32::WHITE), StrokeKind::Inside);
         let x = shape.left().max(seen.left()) + 5.0;
-        let shown = widgets::elide(ui, &text(props, "name"), font.clone(), shape.right() - x - 3.0);
+        let shown = widgets::elide(ui, p.name.unwrap_or(""), font.clone(), shape.right() - x - 3.0);
         painter.text(pos2(x, shape.top() + ch / 2.0), Align2::LEFT_CENTER, shown, font, Color32::WHITE);
         return;
     }
-    if props["take"].is_number() {
-        return take(ui, painter, props, shape, colour, cw);
+    if p.take.is_some() {
+        return take(ui, painter, p, shape, colour, cw);
     }
-    let muted = props["muted"] == true;
-    let current = props["current"] == true;
-    let midi = props["midi"] == true;
+    let (muted, current, midi) = (p.muted, p.current, p.midi);
     let face = if muted { t.panel } else { mix(colour, t.lane, if current { 0.40 } else { 0.26 }) };
     painter.rect_filled(shape, CornerRadius::same(2), face);
     // The bar along the top, a row high where the clip has a body under it.
@@ -114,16 +101,15 @@ fn clip(ui: &Ui, painter: &Painter, props: &Value, rect: Rect, (cw, ch): (f32, f
     let bar_face = if muted { t.text_off } else if current { mix(colour, Color32::WHITE, 0.80) } else { colour };
     painter.rect_filled(bar, CornerRadius { nw: 2, ne: 2, sw: 0, se: 0 }, bar_face);
     let x = shape.left().max(seen.left()) + 5.0;
-    let name = text(props, "label");
-    let shown = widgets::elide(ui, &name, font.clone(), shape.right() - x - 3.0);
+    let shown = widgets::elide(ui, p.label.unwrap_or(""), font.clone(), shape.right() - x - 3.0);
     painter.text(pos2(x, bar.center().y), Align2::LEFT_CENTER, shown, font, if muted { t.text_3 } else { t.on_hue });
     // Its notes or its waveform, white on clear, tinted.
     let body = Rect::from_min_max(pos2(shape.left(), bar.bottom() + 2.0), pos2(shape.right(), shape.bottom() - 2.0));
-    let per = num(props, "per") * cw;
-    let length = num(props, "length");
+    let per = p.per as f32 * cw;
+    let length = p.length as f32;
     if body.height() > 3.0 {
         let full = Rect::from_min_size(body.min, vec2((length * per).max(1.0), body.height()));
-        if let Some(texture) = picture(props, midi, length, full.width()) {
+        if let Some(texture) = picture(p, midi, length, full.width()) {
             let ink = if muted { t.text_3 } else { mix(colour, Color32::WHITE, 0.8) };
             let shown = full.intersect(body).intersect(seen);
             if shown.width() > 0.0 {
@@ -135,7 +121,7 @@ fn clip(ui: &Ui, painter: &Painter, props: &Value, rect: Rect, (cw, ch): (f32, f
     let at = |beat: f32| shape.left() + beat * per;
     if !midi {
         // The fades: the part above each line is faded away.
-        let (fade_in, fade_out) = (at(num(props, "fade_in")).clamp(shape.left(), shape.right()), (shape.right() - num(props, "fade_out") * per).clamp(shape.left(), shape.right()));
+        let (fade_in, fade_out) = (at(p.fade_in as f32).clamp(shape.left(), shape.right()), (shape.right() - p.fade_out as f32 * per).clamp(shape.left(), shape.right()));
         let shade = alpha(t.surface, 0.55);
         if fade_in > shape.left() + 0.5 {
             painter.add(Shape::convex_polygon(vec![shape.left_top(), pos2(fade_in, shape.top()), shape.left_bottom()], shade, Stroke::new(1.0, t.text)));
@@ -145,8 +131,8 @@ fn clip(ui: &Ui, painter: &Painter, props: &Value, rect: Rect, (cw, ch): (f32, f
         }
         // The gain line, while it is dragged: as high in the body as the
         // clip plays, 0 dB half way up, +6 dB at the top.
-        if props["gain_line"] == true {
-            let y = body.top() + (1.0 - (10f32.powf(num(props, "gain") / 20.0) / 2.0).clamp(0.0, 1.0)) * body.height();
+        if p.gain_line {
+            let y = body.top() + (1.0 - (10f32.powf(p.gain as f32 / 20.0) / 2.0).clamp(0.0, 1.0)) * body.height();
             painter.hline(shape.x_range(), y, Stroke::new(1.0, t.select));
         }
         // The handles at the top corners, shown under the pointer.
@@ -159,21 +145,21 @@ fn clip(ui: &Ui, painter: &Painter, props: &Value, rect: Rect, (cw, ch): (f32, f
             }
         }
         // Warp markers: a line down the clip and a handle on its bar.
-        for beat in beats(props, "warps") {
-            let x = at(beat);
+        for &beat in &p.warps {
+            let x = at(beat as f32);
             painter.vline(x.round() + 0.5, shape.y_range(), Stroke::new(1.0, alpha(t.yellow, 0.8)));
             painter.add(Shape::convex_polygon(vec![pos2(x - 4.5, shape.top()), pos2(x + 4.5, shape.top()), pos2(x, shape.top() + 7.0)], t.yellow, Stroke::NONE));
         }
     }
     // Where each repeat of a looped clip begins.
-    for beat in beats(props, "repeats") {
-        let x = at(beat).round() + 0.5;
+    for &beat in &p.repeats {
+        let x = at(beat as f32).round() + 0.5;
         if x > shape.left() + 1.0 && x < shape.right() - 1.0 {
             painter.add(Shape::dashed_line(&[pos2(x, body.top()), pos2(x, body.bottom())], Stroke::new(1.0, alpha(Color32::WHITE, 0.5)), 2.0, 2.0));
         }
     }
     // Chosen, under the cursor or under the pointer: an outline.
-    let chosen = props["chosen"] == true;
+    let chosen = p.chosen;
     if current || chosen || under {
         let line = if current || chosen { Color32::WHITE } else { Color32::from_white_alpha(0x40) };
         painter.rect_stroke(shape, CornerRadius::same(2), Stroke::new(1.0, line), StrokeKind::Inside);
@@ -192,14 +178,14 @@ fn clip(ui: &Ui, painter: &Painter, props: &Value, rect: Rect, (cw, ch): (f32, f
 /// A take of a clip in a take lane: its notes or its waveform over the
 /// whole of it, lit in the track's colour where it is the take that plays,
 /// faint where not; its name at its top left.
-fn take(ui: &Ui, painter: &Painter, props: &Value, shape: Rect, colour: Color32, cw: f32) {
+fn take(ui: &Ui, painter: &Painter, p: &ClipProps, shape: Rect, colour: Color32, cw: f32) {
     let t = th();
-    let active = props["active"] == true;
+    let active = p.active;
     let seen = painter.clip_rect();
     painter.rect_filled(shape, CornerRadius::same(2), if active { mix(colour, t.lane, 0.38) } else { t.lane_alt });
-    let length = num(props, "length");
-    let full = Rect::from_min_size(shape.min, vec2((length * num(props, "per") * cw).max(1.0), shape.height()));
-    if let Some(texture) = picture(props, props["midi"] == true, length, full.width()) {
+    let length = p.length as f32;
+    let full = Rect::from_min_size(shape.min, vec2((length * p.per as f32 * cw).max(1.0), shape.height()));
+    if let Some(texture) = picture(p, p.midi, length, full.width()) {
         let ink = if active { mix(colour, Color32::WHITE, 0.8) } else { alpha(t.text_3, 0.7) };
         let shown = full.intersect(shape).intersect(seen);
         if shown.width() > 0.0 {
@@ -209,7 +195,7 @@ fn take(ui: &Ui, painter: &Painter, props: &Value, shape: Rect, colour: Color32,
     }
     let x = shape.left().max(seen.left()) + 4.0;
     let font = if active { semi(T_SMALL) } else { crate::theme::sans(T_SMALL) };
-    let shown = widgets::elide(ui, &text(props, "name"), font.clone(), shape.right() - x - 3.0);
+    let shown = widgets::elide(ui, p.name.unwrap_or(""), font.clone(), shape.right() - x - 3.0);
     painter.text(pos2(x, shape.top() + 1.0), Align2::LEFT_TOP, shown, font, if active { t.text } else { t.text_3 });
     if active {
         painter.rect_stroke(shape, CornerRadius::same(2), Stroke::new(1.0, alpha(colour, 0.8)), StrokeKind::Inside);
@@ -219,10 +205,10 @@ fn take(ui: &Ui, painter: &Painter, props: &Value, shape: Rect, colour: Color32,
 /// A track's header: the panel, lighter for the cursor's track, a stripe
 /// of the track's colour down its left, a line under it, lit under the
 /// pointer, where a drag makes the track taller or shorter.
-fn trackhead(ui: &Ui, painter: &Painter, props: &Value, rect: Rect) {
+fn trackhead(ui: &Ui, painter: &Painter, p: &TrackheadProps, rect: Rect) {
     let t = th();
-    painter.rect_filled(rect, CornerRadius::ZERO, if props["selected"] == true { t.panel_sel } else { t.panel });
-    let colour = props["color"].as_str().and_then(crate::theme::hex).unwrap_or(t.text_3);
+    painter.rect_filled(rect, CornerRadius::ZERO, if p.selected { t.panel_sel } else { t.panel });
+    let colour = p.color.and_then(crate::theme::hex).unwrap_or(t.text_3);
     painter.rect_filled(Rect::from_min_size(rect.min, vec2(4.0, rect.height())), CornerRadius::ZERO, colour);
     let edge = Rect::from_min_max(pos2(rect.left(), rect.bottom() - 5.0), rect.max);
     let lit = ui.rect_contains_pointer(edge);
@@ -231,18 +217,18 @@ fn trackhead(ui: &Ui, painter: &Painter, props: &Value, rect: Rect) {
 
 /// A take being recorded: a red box from where it began to the playhead,
 /// as far as the punch-out, growing with the live values.
-pub fn recording(painter: &Painter, props: &Value, bind: Option<&str>, live: &Value, rect: Rect, (cw, _): (f32, f32)) {
+pub fn recording(painter: &Painter, p: &RecordingProps, bind: Option<&str>, live: &Value, rect: Rect, (cw, _): (f32, f32)) {
     let t = th();
-    let start = num(props, "start");
+    let start = p.start as f32;
     let at = match bind {
-        Some("position") => live["position"].as_f64().map_or(num(props, "at"), |v| v as f32),
-        _ => num(props, "at"),
+        Some("position") => live["position"].as_f64().map_or(p.at as f32, |v| v as f32),
+        _ => p.at as f32,
     };
-    let stop = props["to"].as_f64().map_or(at, |to| at.min(to as f32));
+    let stop = p.to.map_or(at, |to| at.min(to as f32));
     if stop <= start {
         return;
     }
-    let right = rect.left() + (stop - start) * num(props, "per") * cw;
+    let right = rect.left() + (stop - start) * p.per as f32 * cw;
     let shape = Rect::from_min_max(rect.min + vec2(0.0, 1.0), pos2(right.max(rect.left() + 2.0), rect.bottom() - 2.0));
     painter.rect(shape, CornerRadius::same(2), alpha(t.rec, 0.3), Stroke::new(1.0, t.rec), StrokeKind::Inside);
 }
@@ -254,15 +240,16 @@ pub fn recording(painter: &Painter, props: &Value, bind: Option<&str>, live: &Va
 /// this frame (its shapes were kept from an earlier one): it is kept.
 pub fn keep_picture(node: &Node) {
     if let Kind::Role { props, .. } = &node.kind
-        && let (Some(id), Some(_)) = (props["id"].as_i64(), props["content"].as_str())
+        && let clip = props::parse::<ClipProps>(props)
+        && let (Some(id), Some(_)) = (clip.id, clip.content)
     {
-        PICTURES.with(|p| p.borrow_mut().painted.insert((id, props["take"].as_i64().unwrap_or(0))));
+        PICTURES.with(|p| p.borrow_mut().painted.insert((id, clip.take.unwrap_or(0))));
     }
 }
 
-fn picture(props: &Value, midi: bool, length: f32, width: f32) -> Option<TextureHandle> {
-    let of = (props["id"].as_i64()?, props["take"].as_i64().unwrap_or(0));
-    let key = props["content"].as_str()?;
+fn picture(props: &ClipProps, midi: bool, length: f32, width: f32) -> Option<TextureHandle> {
+    let of = (props.id?, props.take.unwrap_or(0));
+    let key = props.content?;
     let points = wave_points(width);
     let key = if midi { key.to_string() } else { format!("{key}@{points}") };
     PICTURES.with(|p| {
@@ -273,7 +260,7 @@ fn picture(props: &Value, midi: bool, length: f32, width: f32) -> Option<Texture
             return made.and_then(|(_, t)| t);
         }
         if !p.wanted.iter().any(|w| w.of == of) {
-            let notches = beats(props, "repeats").iter().map(|b| b / length.max(1e-6)).collect();
+            let notches = props.repeats.iter().map(|b| *b as f32 / length.max(1e-6)).collect();
             p.wanted.push(Want { of, key, midi, length, points, notches });
         }
         made.and_then(|(_, t)| t)
@@ -284,33 +271,29 @@ fn picture(props: &Value, midi: bool, length: f32, width: f32) -> Option<Texture
 /// and tinted for the cursor's track, a take lane, an automation lane;
 /// the loop shaded over it; a line on each bar, and on each beat where
 /// the view draws them, where it is.
-fn ground(painter: &Painter, props: &Value, rect: Rect, (cw, _): (f32, f32)) {
+fn ground(painter: &Painter, p: &BeatsProps, rect: Rect, (cw, _): (f32, f32)) {
     let t = th();
-    let face = match props["tone"].as_str() {
+    let face = match p.tone {
         Some("take") => alpha(t.panel, 0.55),
         Some("auto") => alpha(t.panel, 0.7),
-        _ if props["selected"] == true => Color32::from_rgb(0x24, 0x26, 0x2b),
-        _ if props["index"].as_i64().unwrap_or(0) % 2 == 0 => t.lane_alt,
+        _ if p.selected => Color32::from_rgb(0x24, 0x26, 0x2b),
+        _ if p.index % 2 == 0 => t.lane_alt,
         _ => t.lane,
     };
     painter.rect_filled(rect, CornerRadius::ZERO, face);
-    let (from, per) = (num(props, "from"), num(props, "per") * cw);
+    let (from, per) = (p.from as f32, p.per as f32 * cw);
     let x = |beat: f32| rect.left() + (beat - from) * per;
-    if let Some(range) = props["loop"].as_array()
-        && let [a, b] = range.as_slice()
-    {
-        let (a, b) = (x(a.as_f64().unwrap_or(0.0) as f32).max(rect.left()), x(b.as_f64().unwrap_or(0.0) as f32).min(rect.right()));
+    if let Some((a, b)) = p.looped {
+        let (a, b) = (x(a as f32).max(rect.left()), x(b as f32).min(rect.right()));
         if b > a {
             painter.rect_filled(Rect::from_x_y_ranges(a..=b, rect.y_range()), CornerRadius::ZERO, Color32::from_rgba_unmultiplied(0xfe, 0xc1, 0x3a, 0x10));
         }
     }
-    let beats = props["beats"] == true;
-    for line in rows(&props["lines"]) {
-        let bar = line[1] == true;
-        if !bar && !beats {
+    for &(beat, bar) in &p.lines {
+        if !bar && !p.beats {
             continue;
         }
-        let at = x(number(&line[0])).round() + 0.5;
+        let at = x(beat as f32).round() + 0.5;
         painter.vline(at, rect.y_range(), Stroke::new(1.0, if bar { t.line_bar } else { t.line_beat }));
     }
     painter.hline(rect.x_range(), rect.bottom() - 0.5, Stroke::new(1.0, t.divider));
@@ -319,19 +302,19 @@ fn ground(painter: &Painter, props: &Value, rect: Rect, (cw, _): (f32, f32)) {
 /// A curve over a stretch of time: a line through its values, one each
 /// half column, broken where there is none, in its track's colour, grey
 /// when it is off; a dot on each of its points.
-fn curve(painter: &Painter, props: &Value, rect: Rect, (cw, _): (f32, f32)) {
+fn curve(painter: &Painter, p: &CurveProps, rect: Rect, (cw, _): (f32, f32)) {
     let t = th();
-    let colour = if props["enabled"] == false {
+    let colour = if p.enabled == Some(false) {
         t.text_3
     } else {
-        props["color"].as_str().and_then(crate::theme::hex).map_or(t.yellow, |c| mix(c, Color32::WHITE, 0.7))
+        p.color.and_then(crate::theme::hex).map_or(t.yellow, |c| mix(c, Color32::WHITE, 0.7))
     };
     let y = |v: f32| rect.top() + 2.0 + (1.0 - v.clamp(0.0, 1.0)) * (rect.height() - 4.0);
     let stroke = Stroke::new(1.5, colour);
     let mut line = Vec::new();
-    for (i, v) in rows(&props["values"]).iter().enumerate() {
-        match v.as_f64() {
-            Some(v) => line.push(pos2(rect.left() + (i as f32 + 0.5) / 2.0 * cw, y(v as f32))),
+    for (i, v) in p.values.iter().enumerate() {
+        match v {
+            Some(v) => line.push(pos2(rect.left() + (i as f32 + 0.5) / 2.0 * cw, y(*v as f32))),
             None => {
                 if line.len() > 1 {
                     painter.add(Shape::line(std::mem::take(&mut line), stroke));
@@ -343,11 +326,11 @@ fn curve(painter: &Painter, props: &Value, rect: Rect, (cw, _): (f32, f32)) {
     if line.len() > 1 {
         painter.add(Shape::line(line, stroke));
     }
-    let (from, per) = (num(props, "from"), num(props, "per") * cw);
-    for point in rows(&props["points"]) {
-        let x = rect.left() + (number(&point[0]) - from) * per;
+    let (from, per) = (p.from as f32, p.per as f32 * cw);
+    for &(beat, value) in &p.points {
+        let x = rect.left() + (beat as f32 - from) * per;
         if rect.x_range().contains(x) {
-            painter.circle_filled(pos2(x, y(number(&point[1]))), 3.0, t.text);
+            painter.circle_filled(pos2(x, y(value as f32)), 3.0, t.text);
         }
     }
 }
@@ -355,13 +338,15 @@ fn curve(painter: &Painter, props: &Value, rect: Rect, (cw, _): (f32, f32)) {
 /// A level across a row: a well lit from the left in the meter colours by
 /// how far it reaches on the fader's scale, both sides a half each, the
 /// loudest of late a line; with `at`, a fader's cap where the volume stands.
-pub fn hmeter(painter: &Painter, props: &Value, bind: Option<&str>, live: &Value, rect: Rect, under: bool) {
+pub fn hmeter(painter: &Painter, p: &HmeterProps, bind: Option<&str>, live: &Value, rect: Rect, under: bool) {
     let t = th();
     let track = bind.and_then(|b| b.strip_prefix("meter:"));
-    let levels = track.map(|id| &live["meters"][id]).filter(|v| v.is_array()).unwrap_or(&props["levels"]);
-    let levels: Vec<f32> = rows(levels).iter().map(number).collect();
-    let hold = track.and_then(|id| live["peaks"][id].as_f64()).map_or(num(props, "hold"), |v| v as f32);
-    let clipped = track.map_or(props["clipped"] == true, |id| live["clips"][id] == true);
+    let levels: Vec<f32> = match track.map(|id| &live["meters"][id]).filter(|v| v.is_array()) {
+        Some(bound) => rows(bound).iter().map(number).collect(),
+        None => p.levels.iter().map(|v| *v as f32).collect(),
+    };
+    let hold = track.and_then(|id| live["peaks"][id].as_f64()).map_or(p.hold as f32, |v| v as f32);
+    let clipped = track.map_or(p.clipped, |id| live["clips"][id] == true);
     // The clip light at its right end, lit once a level reached full scale.
     let light = Rect::from_min_max(pos2(rect.right() - 5.0, rect.center().y - 4.0), pos2(rect.right() - 1.0, rect.center().y + 4.0));
     painter.rect_filled(light, CornerRadius::same(1), if clipped { t.meter_clip } else { t.meter_well });
@@ -393,8 +378,8 @@ pub fn hmeter(painter: &Painter, props: &Value, bind: Option<&str>, live: &Value
         let x = well.left() + well.width() * reach(hold);
         painter.vline(x, well.y_range(), Stroke::new(1.0, if hold >= 1.0 { t.meter_clip } else { t.text_2 }));
     }
-    if props.get("at").is_some_and(Value::is_number) {
-        let x = well.left() + well.width() * num(props, "at").clamp(0.0, 1.0);
+    if let Some(at) = p.at {
+        let x = well.left() + well.width() * (at as f32).clamp(0.0, 1.0);
         let cap = Rect::from_center_size(pos2(x, rect.center().y), vec2(5.0, (rect.height() - 2.0).max(6.0)));
         painter.rect_filled(cap, CornerRadius::same(1), if under { t.bright } else { t.thumb });
     }

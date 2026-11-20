@@ -1,5 +1,6 @@
 //! MIDI input: ports, the track that hears them and live notes.
 
+use crate::events::{KernelEvent as E, Nothing};
 use super::*;
 
 impl Session {
@@ -169,7 +170,7 @@ impl Session {
         if let Some(name) = name {
             payload["port"] = json!(name);
         }
-        self.events.push(("midi.in".into(), payload));
+        self.emit(E::MidiIn(payload));
     }
 
     pub fn playing(&self) -> bool {
@@ -204,7 +205,7 @@ impl Session {
     pub fn transport_set(&mut self, key: &str, value: Value) -> Result<()> {
         if key == "write" {
             self.write = de(key, value)?;
-            self.events.push(("transport.changed".into(), json!({})));
+            self.emit(E::TransportChanged(Nothing {}));
             return Ok(());
         }
         if key == "record_offset" {
@@ -272,7 +273,7 @@ impl Session {
             }
         }
         self.send_transport();
-        self.events.push(("transport.changed".into(), json!({})));
+        self.emit(E::TransportChanged(Nothing {}));
         Ok(())
     }
 

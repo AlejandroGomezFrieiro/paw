@@ -60,8 +60,8 @@ test("paw.api.device_find finds a kind of device by its kind, its format, or its
   eq(api.device_find({ name = synth.name:upper() }).kind, "synth", "by name in any case")
   eq(api.device_find({ kind = "synth", format = "clap" }), nil, "not in another format")
   eq(api.device_find({ name = "no such device" }), nil, "nothing")
-  local builtin = api.device_find({ format = "builtin", all = true })
-  eq(#builtin > 1 and builtin[1].format, "builtin", "a list with all = true")
+  local builtin = api.device_find_all({ format = "builtin" })
+  eq(#builtin > 1 and builtin[1].format, "builtin", "device_find_all: a list")
 end)
 
 test("paw.xml reads a DOCTYPE, comments, CDATA, references and quotes with > in them, and writes back what did not change byte for byte", function()

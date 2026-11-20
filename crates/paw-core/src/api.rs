@@ -20,6 +20,7 @@ use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 use unicode_width::UnicodeWidthStr;
 
+use crate::events::ModelEvent;
 use crate::grid::{self, Caps, Color, Grid, Highlight, Highlights, Rect, Style};
 use crate::io::Io;
 use crate::model::{ClipContent, Control, Id, Note, NoteAttr};
@@ -121,7 +122,7 @@ impl Shared {
         let arrived = self.io.borrow_mut().arrived();
         let mut session = self.session.borrow_mut();
         for id in arrived {
-            session.events.push(("proc.output".into(), json!({ "id": id })));
+            session.emit(crate::events::KernelEvent::ProcOutput(crate::events::ProcOutput { id }));
         }
     }
 
@@ -292,6 +293,20 @@ fn notes_from_lua(lua: &Lua, value: LuaValue) -> mlua::Result<Vec<Note>> {
     match direct(&value) {
         Some(notes) => Ok(notes),
         None => from_lua(lua, value),
+    }
+}
+
+/// What a setter (`track_set`, `clip_set` ...) is given: one `key` and its
+/// `value`, or a table of changes by key (a patch), in the order of their
+/// names. A patch cannot clear a field: a table has no entry for nil.
+fn changes(lua: &Lua, key: LuaValue, value: LuaValue) -> mlua::Result<Vec<(String, LuaValue)>> {
+    match key {
+        LuaValue::Table(patch) => {
+            let mut out = patch.pairs::<String, LuaValue>().collect::<mlua::Result<Vec<_>>>()?;
+            out.sort_by(|a, b| a.0.cmp(&b.0));
+            Ok(out)
+        }
+        key => Ok(vec![(from_lua::<String>(lua, key)?, value)]),
     }
 }
 
@@ -657,7 +672,6 @@ pub fn install(lua: &Lua, shared: &Rc<Shared>) -> mlua::Result<()> {
         // this is quicker (`edits`, which goes up with each change, is asked
         // for on each key and each edit).
         // @type function(): types.Project
-        // @type function(key: string): any
         fn project_get(lua, sh, key => Option<String>) {
             let session = sh.session.borrow();
             match key {
@@ -665,9 +679,17 @@ pub fn install(lua: &Lua, shared: &Rc<Shared>) -> mlua::Result<()> {
                 None => to_lua(lua, &session.project_view()),
             }
         }
-        // @return nil
-        fn project_set(lua, sh, (key, value) => (String, LuaValue)) {
-            sh.session.borrow_mut().project_set(&key, from_lua(lua, value)?).lua()
+        // Change the project: a table of the entries to change, as
+        // `project_get` gives them (`{ name = "Song", tempo = 96 }`), or one
+        // `key` and its value. Only the key form clears an entry (`nil`).
+        // @type function(patch: types.Project)
+        // @type function(key: string, value: nil)
+        fn project_set(lua, sh, (key, value) => (LuaValue, LuaValue)) {
+            let mut session = sh.session.borrow_mut();
+            for (key, value) in changes(lua, key, value)? {
+                session.project_set(&key, from_lua(lua, value)?).lua()?;
+            }
+            Ok(())
         }
         // Put the open project aside, with its undo history, and open an empty
         // project. `project_unshelve` brings the first project back exactly as it
@@ -818,7 +840,6 @@ pub fn install(lua: &Lua, shared: &Rc<Shared>) -> mlua::Result<()> {
         // A track as a table. With `key`, only that entry of the table: this
         // is quicker, because the table lists each clip of the track.
         // @type function(id: integer): types.Track
-        // @type function(id: integer, key: string): any
         fn track_get(lua, sh, (id, key) => (Id, Option<String>)) {
             let session = sh.session.borrow();
             match key {
@@ -835,14 +856,23 @@ pub fn install(lua: &Lua, shared: &Rc<Shared>) -> mlua::Result<()> {
         fn track_move(_, sh, (id, index) => (Id, usize)) {
             sh.session.borrow_mut().track_move(id, index.saturating_sub(1)).lua()
         }
-        // @return nil
-        fn track_set(lua, sh, (id, key, value) => (Id, String, LuaValue)) {
-            let value: Value = match key.as_str() {
-                // Read as a map first: its `by_type` is keyed by numbers.
-                "attr_map" => attr_map_from_lua(lua, value)?,
-                _ => from_lua(lua, value)?,
-            };
-            sh.session.borrow_mut().track_set(id, &key, value).lua()
+        // Change a track: a table of the entries to change, as `track_get`
+        // gives them (`{ name = "Bass", volume = -6 }`), or one `key` and its
+        // value. Only the key form clears an entry (`track_set(id, "output",
+        // nil)`). An entry that is as it was is no change.
+        // @type function(id: integer, patch: types.Track)
+        // @type function(id: integer, key: string, value: nil)
+        fn track_set(lua, sh, (id, key, value) => (Id, LuaValue, LuaValue)) {
+            let mut session = sh.session.borrow_mut();
+            for (key, value) in changes(lua, key, value)? {
+                let value: Value = match key.as_str() {
+                    // Read as a map first: its `by_type` is keyed by numbers.
+                    "attr_map" => attr_map_from_lua(lua, value)?,
+                    _ => from_lua(lua, value)?,
+                };
+                session.track_set(id, &key, value).lua()?;
+            }
+            Ok(())
         }
         // @return number, number
         fn track_meter(_, sh, id => Id) { Ok(sh.session.borrow().meter(id)) }
@@ -864,19 +894,28 @@ pub fn install(lua: &Lua, shared: &Rc<Shared>) -> mlua::Result<()> {
         // the plugin's own `id` (a CLAP id, a VST3 class id in either case,
         // an LV2 URI), else by `name` with the `vendor` (a kind without a
         // vendor answers any), else by `name` in any case; `format` ("clap",
-        // "vst3", "lv2", "builtin") keeps to one format. With `all = true`,
-        // the list of all that answer the first test that finds one. The
-        // list of all kinds is not made, so it is quick with many plugins.
+        // "vst3", "lv2", "builtin") keeps to one format. The list of all
+        // kinds is not made, so it is quick with many plugins.
+        // `device_find_all` gives all that answer.
         // @param query types.DeviceQuery
-        // @return any
+        // @return types.DeviceType
         fn device_find(lua, sh, query => LuaValue) {
             let q: crate::session::DeviceQuery = from_lua(lua, query)?;
             let found = sh.session.borrow().device_find(&q);
+            // `all = true` is the older way to ask for `device_find_all`.
             if q.all {
                 to_lua(lua, &found)
             } else {
                 found.into_iter().next().map_or(Ok(LuaValue::Nil), |v| to_lua(lua, &v))
             }
+        }
+        // Each kind of device installed that answers `query` (see
+        // `device_find`): all that answer the first test that finds one.
+        // @param query types.DeviceQuery
+        // @return {types.DeviceType}
+        fn device_find_all(lua, sh, query => LuaValue) {
+            let q: crate::session::DeviceQuery = from_lua(lua, query)?;
+            to_lua(lua, &sh.session.borrow().device_find(&q))
         }
         // @return types.Device
         fn device_get(lua, sh, id => Id) {
@@ -898,9 +937,17 @@ pub fn install(lua: &Lua, shared: &Rc<Shared>) -> mlua::Result<()> {
         fn device_move(_, sh, (id, track, index) => (Id, Id, usize)) {
             sh.session.borrow_mut().device_move(id, track, index.saturating_sub(1)).lua()
         }
-        // @return nil
-        fn device_set(lua, sh, (id, key, value) => (Id, String, LuaValue)) {
-            sh.session.borrow_mut().device_set(id, &key, from_lua(lua, value)?).lua()
+        // Change a device: a table of the entries to change, as `device_get`
+        // gives them, or one `key` and its value. Only the key form clears
+        // an entry (`nil`).
+        // @type function(id: integer, patch: types.Device)
+        // @type function(id: integer, key: string, value: nil)
+        fn device_set(lua, sh, (id, key, value) => (Id, LuaValue, LuaValue)) {
+            let mut session = sh.session.borrow_mut();
+            for (key, value) in changes(lua, key, value)? {
+                session.device_set(id, &key, from_lua(lua, value)?).lua()?;
+            }
+            Ok(())
         }
         // Set a parameter of a device, named by its key, the device's own id for
         // it or its name. The value is a number, or text as the device reads it
@@ -1199,9 +1246,17 @@ pub fn install(lua: &Lua, shared: &Rc<Shared>) -> mlua::Result<()> {
         // What each track plays and has in its queue, in the last report of the engine.
         // @return {types.CueState}
         fn cue_state(lua, sh, () => ()) { to_lua(lua, &sh.session.borrow().cue_state()) }
-        // @return nil
-        fn clip_set(lua, sh, (id, key, value) => (Id, String, LuaValue)) {
-            sh.session.borrow_mut().clip_set(id, &key, from_lua(lua, value)?).lua()
+        // Change a clip: a table of the entries to change, as `clip_get`
+        // gives them, or one `key` and its value. Only the key form clears
+        // an entry (`nil`).
+        // @type function(id: integer, patch: types.Clip)
+        // @type function(id: integer, key: string, value: nil)
+        fn clip_set(lua, sh, (id, key, value) => (Id, LuaValue, LuaValue)) {
+            let mut session = sh.session.borrow_mut();
+            for (key, value) in changes(lua, key, value)? {
+                session.clip_set(id, &key, from_lua(lua, value)?).lua()?;
+            }
+            Ok(())
         }
         // `n` { min, max } pairs for all of the sound that an audio clip plays.
         // @return {types.Peak}
@@ -1317,9 +1372,17 @@ pub fn install(lua: &Lua, shared: &Rc<Shared>) -> mlua::Result<()> {
         }
         // @return nil
         fn lane_remove(_, sh, id => Id) { sh.session.borrow_mut().lane_remove(id).lua() }
-        // @return nil
-        fn lane_set(lua, sh, (id, key, value) => (Id, String, LuaValue)) {
-            sh.session.borrow_mut().lane_set(id, &key, from_lua(lua, value)?).lua()
+        // Change a lane: a table of the entries to change, as `lane_get`
+        // gives them, or one `key` and its value. Only the key form clears
+        // an entry (`nil`).
+        // @type function(id: integer, patch: types.Lane)
+        // @type function(id: integer, key: string, value: nil)
+        fn lane_set(lua, sh, (id, key, value) => (Id, LuaValue, LuaValue)) {
+            let mut session = sh.session.borrow_mut();
+            for (key, value) in changes(lua, key, value)? {
+                session.lane_set(id, &key, from_lua(lua, value)?).lua()?;
+            }
+            Ok(())
         }
         // @return {types.LanePoint}
         fn lane_points(lua, sh, id => Id) { to_lua(lua, &sh.session.borrow().lane_points(id).lua()?) }
@@ -1377,9 +1440,17 @@ pub fn install(lua: &Lua, shared: &Rc<Shared>) -> mlua::Result<()> {
         // --- transport ---
         // @return types.Transport
         fn transport_get(lua, sh, () => ()) { to_lua(lua, &sh.session.borrow().transport_view()) }
-        // @return nil
-        fn transport_set(lua, sh, (key, value) => (String, LuaValue)) {
-            sh.session.borrow_mut().transport_set(&key, from_lua(lua, value)?).lua()
+        // Change the transport: a table of the entries to change, as
+        // `transport_get` gives them (`{ loop_enabled = true }`), or one `key` and
+        // its value. Only the key form clears an entry (`nil`).
+        // @type function(patch: types.Transport)
+        // @type function(key: string, value: nil)
+        fn transport_set(lua, sh, (key, value) => (LuaValue, LuaValue)) {
+            let mut session = sh.session.borrow_mut();
+            for (key, value) in changes(lua, key, value)? {
+                session.transport_set(&key, from_lua(lua, value)?).lua()?;
+            }
+            Ok(())
         }
         // @return nil
         fn transport_play(_, sh, () => ()) {
@@ -2273,7 +2344,7 @@ pub fn install(lua: &Lua, shared: &Rc<Shared>) -> mlua::Result<()> {
 
         // @return {string}
         fn log_get(_, sh, () => ()) { Ok(sh.log.borrow().iter().cloned().collect::<Vec<_>>()) }
-        // @return {types.KernelEvent}
+        // @return {kernel_events.KernelEvent}
         fn events_take(lua, sh, () => ()) {
             // Push pending edits to the engine and hand back the change events.
             let events = {
@@ -2283,11 +2354,16 @@ pub fn install(lua: &Lua, shared: &Rc<Shared>) -> mlua::Result<()> {
                 session.read_ahead();
                 std::mem::take(&mut session.events)
             };
-            let list = lua.create_table()?;
-            for (name, payload) in events {
-                let event = lua.create_table()?;
-                event.set("name", name)?;
-                event.set("payload", to_lua(lua, &payload)?)?;
+            let list = lua.create_table_with_capacity(events.len(), 0)?;
+            for ModelEvent { event, restored } in events {
+                // `{ name, payload }`, as `KernelEvent` is tagged.
+                let event = to_lua(lua, &event)?;
+                if restored
+                    && let LuaValue::Table(event) = &event
+                    && let LuaValue::Table(payload) = event.get("payload")?
+                {
+                    payload.set("restored", true)?;
+                }
                 list.push(event)?;
             }
             Ok(list)

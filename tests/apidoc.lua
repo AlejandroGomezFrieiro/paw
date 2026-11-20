@@ -54,7 +54,7 @@ test("apidoc: the Teal types of the kernel come from every file that adds to paw
   local _, kernel, anys = apidoc.teal()
   local has = function(line) return kernel:find("   " .. line .. "\n", 1, true) ~= nil end
   eq(has("tempo_lines: function(from: number, to: number, limit?: integer): {types.TempoLine}"), true, "a function of tempo_api.rs")
-  eq(has("track_get: function(id: integer): types.Track") and has("track_get: function(id: integer, key: string): any"), true,
+  eq(has("track_set: function(id: integer, patch: types.Track)") and has("track_set: function(id: integer, key: string, value: nil)"), true,
     "each form of a function, from its `@type` lines")
   eq(anys["types.Meta"], 1, "an any of types.tl counts")
 end)

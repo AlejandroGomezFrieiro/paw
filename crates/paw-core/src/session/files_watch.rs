@@ -10,6 +10,7 @@
 //! the `files.changed` event, which the Lua runtime acts on
 //! (`paw.opt.on_external_change`).
 
+use crate::events::{FilesChanged, KernelEvent as E};
 use std::collections::{BTreeSet, HashMap};
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
@@ -17,7 +18,6 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, bail};
-use serde_json::{Value, json};
 
 use super::folder::{self, PROJECT_FILE};
 use crate::model::{ClipContent, Project, Track};
@@ -342,18 +342,11 @@ impl super::Session {
     pub(super) fn poll_file_changes(&mut self) {
         if let Some(paths) = self.files_watch.poll() {
             let root = self.files_watch.root.clone();
-            let names: Vec<Value> = paths
+            let names: Vec<PathBuf> = paths
                 .iter()
-                .map(|p| {
-                    json!(
-                        root.as_ref()
-                            .and_then(|r| p.strip_prefix(r).ok())
-                            .unwrap_or(p)
-                    )
-                })
+                .map(|p| root.as_ref().and_then(|r| p.strip_prefix(r).ok()).unwrap_or(p).to_path_buf())
                 .collect();
-            self.events
-                .push(("files.changed".into(), json!({ "paths": names })));
+            self.emit(E::FilesChanged(FilesChanged { paths: names }));
         }
     }
 
