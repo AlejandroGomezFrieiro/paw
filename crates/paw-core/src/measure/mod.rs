@@ -279,6 +279,8 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
     let next = Rc::new(std::cell::Cell::new(0u64));
 
     let (sh, js) = (shared.clone(), jobs.clone());
+    // @param opts? types.MeasureOptions
+    // @return integer
     api.set(
         "measure_start",
         lua.create_function(move |lua, opts: LuaValue| {
@@ -296,6 +298,7 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
     )?;
 
     let js = jobs.clone();
+    // @return types.MeasureStatus
     api.set(
         "measure_poll",
         lua.create_function(move |lua, id: u64| {
@@ -324,6 +327,7 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
     )?;
 
     let js = jobs.clone();
+    // @return nil
     api.set(
         "measure_cancel",
         lua.create_function(move |_, id: u64| {
@@ -334,6 +338,8 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
     )?;
 
     let sh = shared.clone();
+    // @param opts? types.MeasureOptions
+    // @return types.Measurement
     api.set(
         "measure",
         lua.create_function(move |lua, opts: LuaValue| {

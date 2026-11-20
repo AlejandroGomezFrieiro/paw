@@ -30,6 +30,7 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
     // of the same name in a directory of a lower `rank` (0 by default).
     // Returns `{ added, changed, errors }`: kinds, kinds, and
     // `{ kind, path, error }` for scripts that did not load.
+    // @return types.LuaDeviceScan
     let sh = shared.clone();
     api.set(
         "lua_devices_add",
@@ -39,9 +40,10 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
             scanned(lua, found)
         })?,
     )?;
-    // Look in `dir` no more: its scripts' kinds are made by a script of the
-    // same name elsewhere from now on, or not at all. Returns the kinds of
+    // Look in `dir` no more: a script of the same name elsewhere makes its
+    // scripts' kinds from now on, or nothing does. Returns the kinds of
     // the scripts that were there.
+    // @return {string}
     let sh = shared.clone();
     api.set(
         "lua_devices_remove",
@@ -53,6 +55,7 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
     // Look at every script again, loading those that changed. Same answer
     // as `lua_devices_add`; `changed` are the kinds whose devices are now
     // behind their file.
+    // @return types.LuaDeviceScan
     let sh = shared.clone();
     api.set(
         "lua_devices_rescan",
@@ -64,6 +67,7 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
     // Every script found: `{ kind, path, name, category, error, active }`,
     // `active` false for one hidden by a script of the same name in a
     // directory of a higher rank.
+    // @return {types.LuaDeviceScript}
     api.set(
         "lua_devices",
         lua.create_function(|lua, ()| {

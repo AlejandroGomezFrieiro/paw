@@ -8234,21 +8234,27 @@ function paw.api.env() end
 
 function paw.api.events_take() end
 
----@type fun(...): any
-paw.api.fs_copy = nil
+--- Copy a file, or a directory with all it holds, to where there is nothing.
+---@param from string
+---@param to string
+function paw.api.fs_copy(from, to) end
 
----@type fun(...): any
-paw.api.fs_create = nil
+--- Make an empty file where there is none.
+---@param path string
+function paw.api.fs_create(path) end
 
 --- True when a file or directory is there (a link that leads nowhere is not).
 ---@param path string
 function paw.api.fs_exists(path) end
 
----@type fun(...): any
-paw.api.fs_mkdir = nil
+--- Make a directory and the ones above it that are missing.
+---@param path string
+function paw.api.fs_mkdir(path) end
 
----@type fun(...): any
-paw.api.fs_move = nil
+--- Move a file or directory; it is refused where `to` is there already.
+---@param from string
+---@param to string
+function paw.api.fs_move(from, to) end
 
 --- Remove a file, or a directory with all it holds: only for what paw
 --- or an extension made for itself, a cache or a temporary folder.
@@ -8257,19 +8263,26 @@ paw.api.fs_move = nil
 ---@param path string
 function paw.api.fs_remove(path) end
 
----@type fun(...): any
-paw.api.fs_sound = nil
+--- The format a sound file's header says: `{ rate, channels, seconds }`
+--- (`seconds` nil when the header does not say); an error for a file
+--- that is not one.
+---@param path string
+function paw.api.fs_sound(path) end
 
 --- The space of the disk that holds a path: `{ free, total }` in
 --- bytes (free: what a program that is not root can use).
 ---@param path string
 function paw.api.fs_space(path) end
 
----@type fun(...): any
-paw.api.fs_stat = nil
+--- `{ kind = "file" | "dir" | "link", dir, size, mtime }`, or nil when
+--- nothing is there. A link is looked at, not followed, for its kind,
+--- and `dir` is true if it leads to a directory.
+---@param path string
+function paw.api.fs_stat(path) end
 
----@type fun(...): any
-paw.api.fs_trash = nil
+--- Put a file or directory in the freedesktop trash; returns where it is.
+---@param path string
+function paw.api.fs_trash(path) end
 
 --- Restyle the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, and
 --- overwrite its characters when `fill` is given.
@@ -8459,29 +8472,41 @@ function paw.api.log(line) end
 
 function paw.api.log_get() end
 
----@type fun(...): any
-paw.api.lua_devices = nil
+--- Every script found: `{ kind, path, name, category, error, active }`,
+--- `active` false for one hidden by a script of the same name in a
+--- directory of a higher rank.
+function paw.api.lua_devices() end
 
----@type fun(...): any
-paw.api.lua_devices_add = nil
+--- Look for devices in `dir` from now on; a script there wins over one
+--- of the same name in a directory of a lower `rank` (0 by default).
+--- Returns `{ added, changed, errors }`: kinds, kinds, and
+--- `{ kind, path, error }` for scripts that did not load.
+---@param dir string
+---@param rank integer?
+function paw.api.lua_devices_add(dir, rank) end
 
----@type fun(...): any
-paw.api.lua_devices_remove = nil
+--- Look in `dir` no more: a script of the same name elsewhere makes its
+--- scripts' kinds from now on, or nothing does. Returns the kinds of
+--- the scripts that were there.
+---@param dir string
+function paw.api.lua_devices_remove(dir) end
 
----@type fun(...): any
-paw.api.lua_devices_rescan = nil
+--- Look at every script again, loading those that changed. Same answer
+--- as `lua_devices_add`; `changed` are the kinds whose devices are now
+--- behind their file.
+function paw.api.lua_devices_rescan() end
 
----@type fun(...): any
-paw.api.measure = nil
+---@param opts any
+function paw.api.measure(opts) end
 
----@type fun(...): any
-paw.api.measure_cancel = nil
+---@param id integer
+function paw.api.measure_cancel(id) end
 
----@type fun(...): any
-paw.api.measure_poll = nil
+---@param id integer
+function paw.api.measure_poll(id) end
 
----@type fun(...): any
-paw.api.measure_start = nil
+---@param opts any
+function paw.api.measure_start(opts) end
 
 ---@param file string
 function paw.api.media_adopt(file) end
@@ -8794,44 +8819,90 @@ function paw.api.rpc_push(client, event, payload) end
 
 function paw.api.rpc_version() end
 
----@type fun(...): any
-paw.api.scene_begin = nil
+--- Start a scene `w` by `h` units big, for `scene_draw` and
+--- `scene_picture` to put nodes in.
+---@param w number
+---@param h number
+function paw.api.scene_begin(w, h) end
 
----@type fun(...): any
-paw.api.scene_blob = nil
+--- A drawing that `client` got from paw, by its content key.
+---@param client integer
+---@param key string
+function paw.api.scene_blob(client, key) end
 
----@type fun(...): any
-paw.api.scene_cells = nil
+--- What `client` has of the window `id`, lowered to cells: as
+--- `ui_view_snapshot` gives a view, rows of runs of one style.
+---@param client integer
+---@param id string
+function paw.api.scene_cells(client, id) end
 
----@type fun(...): any
-paw.api.scene_close = nil
+function paw.api.scene_close() end
 
----@type fun(...): any
-paw.api.scene_draw = nil
+--- Draw a view by itself, `cols` by `rows` cells, as a window shows it:
+--- its writes are the scene's runs and fills, its cursor and its theme's
+--- colors the scene's.
+---@param name string
+---@param cols integer
+---@param rows integer
+function paw.api.scene_draw(name, cols, rows) end
 
----@type fun(...): any
-paw.api.scene_end = nil
+--- The scene made, kept as what `client` has of the window `id`: the
+--- patch (JSON) that brings what it had up to it, pushed to it as a
+--- `scene.patch` event (unless it is 0, the instance's own); nil when
+--- nothing changed. A second result false: the connection is gone.
+---@param client integer
+---@param id string
+function paw.api.scene_end(client, id) end
 
----@type fun(...): any
-paw.api.scene_forget = nil
+--- Forget what `client` was sent of the window `id`, or of all of them:
+--- its next scene of one is sent whole.
+---@param client integer
+---@param id string?
+function paw.api.scene_forget(client, id) end
 
----@type fun(...): any
-paw.api.scene_hit = nil
+--- What is under the point `x, y` (units) of what `client` has of the
+--- window `id`: `{ key, hit, at = { x, y }, rect = { x, y, w, h } }`
+--- (see `paw_scene::Scene::hit`), or nil.
+---@param client integer
+---@param id string
+---@param x number
+---@param y number
+function paw.api.scene_hit(client, id, x, y) end
 
----@type fun(...): any
-paw.api.scene_open = nil
+--- While a view is drawn for a scene: a node over a rectangle of it, in
+--- units of the scene, that what is written until `scene_close` goes
+--- into. `opts`: `role` (a group without), `props`, `hit` (a press on
+--- it is on that), `bind` (`meter:4`), `key` (its name; the role and
+--- where it is without), `clip` (the part that shows). With `plane`
+--- (`{ x = axis, y = axis }`, each `{ domain, from, per }`, see
+--- `paw_scene::Axis`) it is a plane, whose kids are placed in its domain;
+--- with `into` (the key a plane was made with) it goes into that plane,
+--- `rect` in the plane's domain. False when paw draws no scene now, or
+--- there is no such plane, with nothing to close.
+---@param rect any
+---@param opts any
+function paw.api.scene_open(rect, opts) end
 
----@type fun(...): any
-paw.api.scene_picture = nil
+--- A drawing (`paw.canvas` operations) over a rectangle of the scene:
+--- `opts` `ops`, `px` (`{ w, h }` it was drawn at), `under` (the cells
+--- drawn there go over it), `clip` (the part that shows).
+---@param rect any
+---@param opts any
+function paw.api.scene_picture(rect, opts) end
 
----@type fun(...): any
-paw.api.scene_roles = nil
+--- The roles `client` draws itself: in what it is sent from now on,
+--- such a role goes without the cells that draw it for a terminal.
+---@param client integer
+---@param roles string[]
+function paw.api.scene_roles(client, roles) end
 
----@type fun(...): any
-paw.api.signature_remove = nil
+---@param beat number
+function paw.api.signature_remove(beat) end
 
----@type fun(...): any
-paw.api.signature_set = nil
+---@param beat number
+---@param num integer
+---@param den integer
+function paw.api.signature_set(beat, num, den) end
 
 ---@param ms number
 function paw.api.sleep(ms) end
@@ -8902,29 +8973,32 @@ function paw.api.state_set(key, value) end
 ---@param text any
 function paw.api.str_width(text) end
 
----@type fun(...): any
-paw.api.tempo_at = nil
+---@param beat number
+function paw.api.tempo_at(beat) end
 
----@type fun(...): any
-paw.api.tempo_bar_length = nil
+---@param beat number
+function paw.api.tempo_bar_length(beat) end
 
----@type fun(...): any
-paw.api.tempo_bar_of = nil
+--- Bars count from 0 here; `paw.tempo` and `paw.time` count from 1.
+---@param beat number
+function paw.api.tempo_bar_of(beat) end
 
----@type fun(...): any
-paw.api.tempo_bar_signature = nil
+---@param bar integer
+function paw.api.tempo_bar_signature(bar) end
 
----@type fun(...): any
-paw.api.tempo_bar_start = nil
+---@param bar integer
+function paw.api.tempo_bar_start(bar) end
 
----@type fun(...): any
-paw.api.tempo_bbt = nil
+---@param beat number
+function paw.api.tempo_bbt(beat) end
 
----@type fun(...): any
-paw.api.tempo_beat = nil
+---@param seconds number
+function paw.api.tempo_beat(seconds) end
 
----@type fun(...): any
-paw.api.tempo_from_bbt = nil
+---@param bar integer
+---@param beat integer
+---@param fraction number?
+function paw.api.tempo_from_bbt(bar, beat, fraction) end
 
 --- A tempo map from points placed in seconds, as other programs keep
 --- them: `tempos` is `{ { seconds, bpm, ramp } }`, `signatures` is
@@ -8937,29 +9011,37 @@ paw.api.tempo_from_bbt = nil
 ---@param signatures table?
 function paw.api.tempo_from_seconds(tempos, signatures) end
 
----@type fun(...): any
-paw.api.tempo_is_bar_line = nil
+---@param beat number
+function paw.api.tempo_is_bar_line(beat) end
 
----@type fun(...): any
-paw.api.tempo_lines = nil
+--- The bar and beat lines from one beat to another: { beat, bar, index }
+--- each, `index` 0 on a bar line. At most `limit` of them (default 10000).
+---@param from number
+---@param to number
+---@param limit integer?
+function paw.api.tempo_lines(from, to, limit) end
 
----@type fun(...): any
-paw.api.tempo_points = nil
+--- Every point: `{ tempos = { { beat, bpm, ramp } }, signatures = { { beat, num, den, bar } } }`.
+function paw.api.tempo_points() end
 
----@type fun(...): any
-paw.api.tempo_remove = nil
+---@param beat number
+function paw.api.tempo_remove(beat) end
 
----@type fun(...): any
-paw.api.tempo_seconds = nil
+---@param beat number
+function paw.api.tempo_seconds(beat) end
 
----@type fun(...): any
-paw.api.tempo_set = nil
+---@param beat number
+---@param bpm number
+---@param ramp boolean?
+function paw.api.tempo_set(beat, bpm, ramp) end
 
----@type fun(...): any
-paw.api.tempo_set_points = nil
+--- Replace the whole map: `tempo_set_points({ { beat, bpm, ramp } }, { { beat, num, den } })`.
+---@param tempos any
+---@param sigs any
+function paw.api.tempo_set_points(tempos, sigs) end
 
----@type fun(...): any
-paw.api.tempo_signature = nil
+---@param beat number
+function paw.api.tempo_signature(beat) end
 
 --- Add devices that fail on purpose (`test.panic`, `test.nan`). Tests use
 --- them to see what a bad device does to the other devices.

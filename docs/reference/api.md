@@ -2107,16 +2107,16 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.engine_set_threads(threads)`: The number of threads that process tracks, with the audio thread. 0 lets paw select the number. `engine_get().threads` gives the number in use.
 - `paw.api.env()`
 - `paw.api.events_take()`
-- `paw.api.fs_copy(...)`
-- `paw.api.fs_create(...)`
+- `paw.api.fs_copy(from, to)`: Copy a file, or a directory with all it holds, to where there is nothing.
+- `paw.api.fs_create(path)`: Make an empty file where there is none.
 - `paw.api.fs_exists(path)`: True when a file or directory is there (a link that leads nowhere is not).
-- `paw.api.fs_mkdir(...)`
-- `paw.api.fs_move(...)`
+- `paw.api.fs_mkdir(path)`: Make a directory and the ones above it that are missing.
+- `paw.api.fs_move(from, to)`: Move a file or directory; it is refused where `to` is there already.
 - `paw.api.fs_remove(path)`: Remove a file, or a directory with all it holds: only for what paw or an extension made for itself, a cache or a temporary folder. The files of the user go to the trash (`fs_trash`) instead. Nothing there is no error.
-- `paw.api.fs_sound(...)`
+- `paw.api.fs_sound(path)`: The format a sound file's header says: `{ rate, channels, seconds }` (`seconds` nil when the header does not say); an error for a file that is not one.
 - `paw.api.fs_space(path)`: The space of the disk that holds a path: `{ free, total }` in bytes (free: what a program that is not root can use).
-- `paw.api.fs_stat(...)`
-- `paw.api.fs_trash(...)`
+- `paw.api.fs_stat(path)`: `{ kind = "file" | "dir" | "link", dir, size, mtime }`, or nil when nothing is there. A link is looked at, not followed, for its kind, and `dir` is true if it leads to a directory.
+- `paw.api.fs_trash(path)`: Put a file or directory in the freedesktop trash; returns where it is.
 - `paw.api.grid_fill(x, y, w, h, fill, style, cx, cy, cw, ch)`: Restyle the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, and overwrite its characters when `fill` is given.
 - `paw.api.grid_live_begin(x, y, w, h, cx, cy, cw, ch)`: A live part of the screen is drawn over the cells `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`: what is under them is kept, to draw it again by itself (`paw.ui.render_live`). Returns its number for `grid_live_end`, or nil when no part of it is on the screen.
 - `paw.api.grid_live_end(index)`
@@ -2151,14 +2151,14 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.load_apart(on)`: Make plugins apart from the main loop (true), or wait for each as it is added (false, what scripts start with). Returns what it was.
 - `paw.api.log(line)`
 - `paw.api.log_get()`
-- `paw.api.lua_devices(...)`
-- `paw.api.lua_devices_add(...)`
-- `paw.api.lua_devices_remove(...)`
-- `paw.api.lua_devices_rescan(...)`
-- `paw.api.measure(...)`
-- `paw.api.measure_cancel(...)`
-- `paw.api.measure_poll(...)`
-- `paw.api.measure_start(...)`
+- `paw.api.lua_devices()`: Every script found: `{ kind, path, name, category, error, active }`, `active` false for one hidden by a script of the same name in a directory of a higher rank.
+- `paw.api.lua_devices_add(dir, rank)`: Look for devices in `dir` from now on; a script there wins over one of the same name in a directory of a lower `rank` (0 by default). Returns `{ added, changed, errors }`: kinds, kinds, and `{ kind, path, error }` for scripts that did not load.
+- `paw.api.lua_devices_remove(dir)`: Look in `dir` no more: a script of the same name elsewhere makes its scripts' kinds from now on, or nothing does. Returns the kinds of the scripts that were there.
+- `paw.api.lua_devices_rescan()`: Look at every script again, loading those that changed. Same answer as `lua_devices_add`; `changed` are the kinds whose devices are now behind their file.
+- `paw.api.measure(opts)`
+- `paw.api.measure_cancel(id)`
+- `paw.api.measure_poll(id)`
+- `paw.api.measure_start(opts)`
 - `paw.api.media_adopt(file)`
 - `paw.api.media_collect()`
 - `paw.api.media_dir()`: Where new recordings and bounces go: `media` beside the project file, or the user's data directory before the project has one.
@@ -2233,19 +2233,19 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.rpc_clients()`
 - `paw.api.rpc_push(client, event, payload)`: Connections on the control socket (crates/paw-core/src/rpc.rs). Push an event to one (false when it closed), list them, and tell the terminal of the input that paw handles now (0 for the terminal of paw). Also release the terminal of a connection.
 - `paw.api.rpc_version()`
-- `paw.api.scene_begin(...)`
-- `paw.api.scene_blob(...)`
-- `paw.api.scene_cells(...)`
-- `paw.api.scene_close(...)`
-- `paw.api.scene_draw(...)`
-- `paw.api.scene_end(...)`
-- `paw.api.scene_forget(...)`
-- `paw.api.scene_hit(...)`
-- `paw.api.scene_open(...)`
-- `paw.api.scene_picture(...)`
-- `paw.api.scene_roles(...)`
-- `paw.api.signature_remove(...)`
-- `paw.api.signature_set(...)`
+- `paw.api.scene_begin(w, h)`: Start a scene `w` by `h` units big, for `scene_draw` and `scene_picture` to put nodes in.
+- `paw.api.scene_blob(client, key)`: A drawing that `client` got from paw, by its content key.
+- `paw.api.scene_cells(client, id)`: What `client` has of the window `id`, lowered to cells: as `ui_view_snapshot` gives a view, rows of runs of one style.
+- `paw.api.scene_close()`
+- `paw.api.scene_draw(name, cols, rows)`: Draw a view by itself, `cols` by `rows` cells, as a window shows it: its writes are the scene's runs and fills, its cursor and its theme's colors the scene's.
+- `paw.api.scene_end(client, id)`: The scene made, kept as what `client` has of the window `id`: the patch (JSON) that brings what it had up to it, pushed to it as a `scene.patch` event (unless it is 0, the instance's own); nil when nothing changed. A second result false: the connection is gone.
+- `paw.api.scene_forget(client, id)`: Forget what `client` was sent of the window `id`, or of all of them: its next scene of one is sent whole.
+- `paw.api.scene_hit(client, id, x, y)`: What is under the point `x, y` (units) of what `client` has of the window `id`: `{ key, hit, at = { x, y }, rect = { x, y, w, h } }` (see `paw_scene::Scene::hit`), or nil.
+- `paw.api.scene_open(rect, opts)`: While a view is drawn for a scene: a node over a rectangle of it, in units of the scene, that what is written until `scene_close` goes into. `opts`: `role` (a group without), `props`, `hit` (a press on it is on that), `bind` (`meter:4`), `key` (its name; the role and where it is without), `clip` (the part that shows). With `plane` (`{ x = axis, y = axis }`, each `{ domain, from, per }`, see `paw_scene::Axis`) it is a plane, whose kids are placed in its domain; with `into` (the key a plane was made with) it goes into that plane, `rect` in the plane's domain. False when paw draws no scene now, or there is no such plane, with nothing to close.
+- `paw.api.scene_picture(rect, opts)`: A drawing (`paw.canvas` operations) over a rectangle of the scene: `opts` `ops`, `px` (`{ w, h }` it was drawn at), `under` (the cells drawn there go over it), `clip` (the part that shows).
+- `paw.api.scene_roles(client, roles)`: The roles `client` draws itself: in what it is sent from now on, such a role goes without the cells that draw it for a terminal.
+- `paw.api.signature_remove(beat)`
+- `paw.api.signature_set(beat, num, den)`
 - `paw.api.sleep(ms)`
 - `paw.api.smufl(font)`: A music font's SMuFL metadata (`Leland`, the default, `Bravura` or `Petaluma`): `engravingDefaults`, `glyphBBoxes`, `glyphsWithAnchors` and `glyphs` (every glyph name with its code point). Nil for a font there is none of.
 - `paw.api.smufl_outline(font, codepoint)`: A music font's glyph as path commands in staff spaces from its origin, y down (`{ "M", x, y, "C", ... }`), for a frontend that cannot draw the font. Nil for a glyph or font there is none of.
@@ -2260,23 +2260,23 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.state_get(key)`
 - `paw.api.state_set(key, value)`
 - `paw.api.str_width(text)`
-- `paw.api.tempo_at(...)`
-- `paw.api.tempo_bar_length(...)`
-- `paw.api.tempo_bar_of(...)`
-- `paw.api.tempo_bar_signature(...)`
-- `paw.api.tempo_bar_start(...)`
-- `paw.api.tempo_bbt(...)`
-- `paw.api.tempo_beat(...)`
-- `paw.api.tempo_from_bbt(...)`
+- `paw.api.tempo_at(beat)`
+- `paw.api.tempo_bar_length(beat)`
+- `paw.api.tempo_bar_of(beat)`: Bars count from 0 here; `paw.tempo` and `paw.time` count from 1.
+- `paw.api.tempo_bar_signature(bar)`
+- `paw.api.tempo_bar_start(bar)`
+- `paw.api.tempo_bbt(beat)`
+- `paw.api.tempo_beat(seconds)`
+- `paw.api.tempo_from_bbt(bar, beat, fraction)`
 - `paw.api.tempo_from_seconds(tempos, signatures)`: A tempo map from points placed in seconds, as other programs keep them: `tempos` is `{ { seconds, bpm, ramp } }`, `signatures` is `{ { seconds, num, den } }`. Each point's beat follows from the stretch before it, held, or ramped linearly in time. Returns `{ tempos, signatures, beat, seconds }`: the points in beats, as `tempo_set_points` takes them, and two functions that convert with this map, `beat(seconds)` and `seconds(beat)`.
-- `paw.api.tempo_is_bar_line(...)`
-- `paw.api.tempo_lines(...)`
-- `paw.api.tempo_points(...)`
-- `paw.api.tempo_remove(...)`
-- `paw.api.tempo_seconds(...)`
-- `paw.api.tempo_set(...)`
-- `paw.api.tempo_set_points(...)`
-- `paw.api.tempo_signature(...)`
+- `paw.api.tempo_is_bar_line(beat)`
+- `paw.api.tempo_lines(from, to, limit)`: The bar and beat lines from one beat to another: { beat, bar, index } each, `index` 0 on a bar line. At most `limit` of them (default 10000).
+- `paw.api.tempo_points()`: Every point: `{ tempos = { { beat, bpm, ramp } }, signatures = { { beat, num, den, bar } } }`.
+- `paw.api.tempo_remove(beat)`
+- `paw.api.tempo_seconds(beat)`
+- `paw.api.tempo_set(beat, bpm, ramp)`
+- `paw.api.tempo_set_points(tempos, sigs)`: Replace the whole map: `tempo_set_points({ { beat, bpm, ramp } }, { { beat, num, den } })`.
+- `paw.api.tempo_signature(beat)`
 - `paw.api.test_devices()`: Add devices that fail on purpose (`test.panic`, `test.nan`). Tests use them to see what a bad device does to the other devices.
 - `paw.api.test_panic(why)`: Panic, as a bug in the program does. Tests use it to see what paw keeps.
 - `paw.api.timer_start(ms, repeat, func)`: --- timers ---

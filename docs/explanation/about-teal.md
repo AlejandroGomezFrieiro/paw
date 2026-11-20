@@ -43,10 +43,15 @@ paw can load each of these through the same registry of languages
   check the types.
 - **The functions in Rust.** `runtime/types/paw/api.d.tl` declares
   `paw.api`, the functions of the kernel. `tools/apidoc.lua` makes it from
-  the comments of `crates/paw-core/src/api.rs`: the Rust type of each
-  parameter, a `// @param name T` line, and a `// @return T` line. The
+  the comments of `crates/paw-core/src/api.rs` and of the other files that
+  add to `paw.api` (`fs_api.rs`, `tempo_api.rs`, `luadev_api.rs`,
+  `scene.rs` and `measure/mod.rs`): the Rust type of each parameter, a
+  `// @param name T` line, and a `// @return T` line. A function whose
+  result follows from its arguments has a `// @type function(...)` line
+  for each form instead (`track_get(id)` and `track_get(id, key)`). The
   records of the data that crosses `paw.api` are in
-  `runtime/lua/paw/types.tl`.
+  `runtime/lua/paw/types.tl`. Each record agrees with the Rust code that
+  makes or reads the table.
 - **The global `paw`.** `runtime/types/paw.d.tl` gives `paw.api`, and each
   module of the runtime that is in Teal with the types of its own code. A
   module that is still in Lua is not described: it has the type
@@ -72,7 +77,9 @@ data of an extension in `meta` is the extension's own: it has a record of
 the extension.
 
 `runtime/types/any-allowed.txt` lists each `any` and each `paw.Untyped`
-of the declarations, by name, with the reason. `tools/apidoc.lua check`
+of the declarations, by name, with the reason. The `any` of the records in
+`types.tl` are on the list too, as `types.Record.field`: an `any` that moves
+from a function into a record is still one. `tools/apidoc.lua check`
 fails on one that is not on the list. When the comments of `api.rs` give a
 type, or a module moves to Teal, `tools/apidoc.lua` lowers the count. A
 person adds an entry only by hand, with a real reason. So the count only
@@ -103,7 +110,7 @@ work of one agent. The areas of one wave do not depend on each other.
 | Done | Music data | `music`, `bytes`, `attr`, `regex`, `harmony/read`, `harmony/voice`, `types` | 1,100 | `paw.api` |
 | Done | Core services | `util`, `events`, `options`, `limit`, `hooks`, `seats`, `commands`, `lang` | 1,700: 15 fewer `paw.Untyped` | none |
 | 1 | File formats | `xml`, `zip`, `markdown`, `formats`, `midifile` | 1,800 | none |
-| 1 | Kernel types | the `// @return` of `api.rs`, and records in `types.tl` | 270 functions | none |
+| Done | Kernel types | the `// @return` of `api.rs` and the other files that add to `paw.api`, and records in `types.tl`: 343 `any` of `paw.api` down to 20, and 5 in the records, each with its reason | 270 functions | none |
 | 2 | The project | `objects`, `cursor`, `edit`, `address`, `tempo`, `tempolane`, `markers`, `locators` | 3,400 | wave 1 |
 | 2 | Music on the project | `harmony`, `structure`, `takes`, `groups`, `vca`, `lanes`, `curves`, `audition` | 3,100 | wave 1 |
 | 3 | Queries and lists | `query`, `grep`, `qf`, `diagnostic`, `complete`, `snippet` | 3,900 | wave 2 |
