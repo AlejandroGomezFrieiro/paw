@@ -87,8 +87,10 @@ texts that Lua or a user sees.
 ## Audio
 
 paw is an audio program, so the audio crates matter most. The sources are
-the audio page of <https://arewegameyet.rs/ecosystem/audio/> and crates.io's
-download counts (checked 2026-11-20).
+the audio page of <https://arewegameyet.rs/ecosystem/audio/>, the Rust
+parts of Awesome Audio DSP (linked from <https://rust.audio/>) and
+crates.io's download counts (checked 2026-11-20). Before you add one of the
+real-time crates, read its code for the audio thread rules.
 
 | Job | Use | Not |
 |---|---|---|
@@ -100,6 +102,11 @@ download counts (checked 2026-11-20).
 | FFT | `realfft` (paw uses it) | a radix-2 FFT by hand |
 | Loudness (BS.1770, EBU R 128: integrated, short-term, range, true peak) | `ebur128` | own K-weighting and gates |
 | Lock-free queues to the audio thread | `rtrb` (paw uses it) | |
+| A test that the audio thread does not allocate | `assert_no_alloc` | an own `GlobalAlloc` in each test |
+| Denormals off on a thread | `no_denormals` | own MXCSR code |
+| Atomic `f32`/`f64` (meters, parameters) | `atomic_float` | `f32::from_bits(x.load())` by hand |
+| Real-time priority of a thread | `audio_thread_priority` | `pthread_setschedparam` by hand |
+| Hosting CLAP plugins | `clack-host` (Clack), if it covers what paw uses | raw `clap-sys` calls in `unsafe` |
 
 What paw keeps as its own, and why:
 
@@ -152,5 +159,13 @@ Found with grep at a72467cf. Each refactor part that owns the file fixes it.
   K-weighting, gates, loudness range and true peak. Compare it with
   `ebur128` on the tests in `measure/tests.rs`, and change to the crate if
   the numbers agree.
+- **Real-time tools:** the `no_alloc.rs` tests of paw-engine and the
+  sampler (own allocators), `backend.rs` `no_denormals`, the atomic `f32`
+  in `devices/dsp.rs` and `engine.rs`, and the thread priority in
+  `pool.rs` and `sandbox.rs`.
+- **CLAP host:** `paw-plugins/src/clap.rs` calls `clap-sys` directly.
+  Clack's host crate gives safe wrappers. If it is not on crates.io,
+  the Nix build must pin its Git commit. Try it on the stub plugin and
+  the plugin tests first.
 - **`rubato` 0.16** in paw-core: crates.io has 5.1. Update it with the
   sample-rate tests.
