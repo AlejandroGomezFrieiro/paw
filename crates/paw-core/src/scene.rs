@@ -10,7 +10,7 @@
 //! a patch carries only what moved. Drawings too big to send each time are
 //! sent by a content key, which the frontend asks for once (`scene_blob`).
 //!
-//! What is sent when, and to whom, is runtime/lua/paw/scene.lua's to say.
+//! What is sent when, and to whom, is runtime/lua/paw/scene.tl's to say.
 
 use std::collections::{HashMap, HashSet};
 use std::hash::{DefaultHasher, Hash, Hasher};

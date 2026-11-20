@@ -66,7 +66,9 @@ local paw = (_G as {string:Paw}).paw
   nothing requires may read the typed global `paw` directly.
 - Prefer the real module types and contracts over hand-made stand-in records;
   a stand-in is acceptable only for a module not yet ported, and goes when it is.
-- `local type X = require(...)` still runs `require` at run time.
+- `local type X = require(...)` compiles to nothing (`tl gen` shows it):
+  it names the types only, so it adds no load order. A module that needs
+  the other module's values at run time requires it as a value.
 
 ## Types: what to write
 
@@ -117,6 +119,14 @@ local paw = (_G as {string:Paw}).paw
 | `paw.Track` is a type in Teal, not a value | `getmetatable(x) == …` checks stay in Lua |
 | A one-field kernel read (`track_get(id, "meta")`) is faster but untyped | keep it through one cast of the function when it is on a hot path |
 | `commands.define` handlers must return `commands.Result` | annotate the handler's return |
+| Two modules that require each other's types get two copies of a type that do not agree ("Buf is not a Buf") | one side requires the other; the other puts its functions on it (paw/roles.tl sets `Buf.mark`) |
+| `f: function(x: A): R, y: B` in a parameter list reads `y` as a second result | a named function type (`local type Height = function(i: integer): number`) |
+| `local a, b: A, B = ...` does not type `b`; `local x: T = nil` makes `x` nil until it is set | one `local` for each; `local x: T` with no value |
+| An alias of a generic instance (`local type R = contracts.Role<P>`) is not that instance | write `contracts.Role<contracts.MarkProps>` |
+| A record field with two function types (two forms) cannot be defined in Teal | one form with a union parameter |
+| `pcall`/`xpcall` of a function with no results gives no second value | `pcall(f, x) as (boolean, string)` |
+| A field of a module record with a local alias in its type is copied as it is into paw.d.tl when another module holds the value (`paw.ui.roles`) | qualify the types of exported fields and functions (`contracts.X`) |
+| `paw.limit.named(name, fn, a, b)` with arguments of two types | a closure: `paw.limit.named(name, function(): boolean return fn(a, b) end)` |
 
 ## What stays Lua
 

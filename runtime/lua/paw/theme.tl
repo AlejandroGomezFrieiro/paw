@@ -10,7 +10,54 @@
 -- everything that belongs to a track is drawn in shades of it: its clips,
 -- its notes in the piano roll, its strip in the mixer. Those shades are made
 -- on demand by `paw.draw.hue`. The window uses the same twelve hues.
-local c = {
+--
+-- Written in Teal (paw/lang.tl): the build compiles it to Lua.
+local type types = require("paw.types")
+
+--- The colours of the theme by name, each `#rrggbb`.
+local record Palette
+  bg: string
+  bg_dark: string
+  bg_alt: string
+  bg_hl: string
+  sel: string
+  raise: string
+  cursor_line: string
+  line: string
+  line_beat: string
+  line_hi: string
+  faint: string
+  dim: string
+  fg: string
+  bright: string
+  accent: string
+  normal: string
+  insert: string
+  visual: string
+  mute: string
+  solo: string
+  red: string
+  monitor: string
+  automation: string
+  loop_ruler: string
+  loop_lane: string
+  punch_ruler: string
+  meter_low: string
+  meter_mid: string
+  meter_high: string
+  playhead_clip: string
+  cyan: string
+  blue: string
+  green: string
+  yellow: string
+  orange: string
+  magenta: string
+end
+
+--- Highlight groups by name: what `paw.ui.theme` takes.
+local type Groups = {string:types.CellStyle}
+
+local c: Palette = {
   bg = "#101216",        -- the screen
   bg_dark = "#0c0d10",   -- outside a clip, black keys' rows, automation
   bg_alt = "#16191f",    -- chrome: headers, the ruler, title bars, status and key lines
@@ -51,14 +98,15 @@ local c = {
 }
 
 -- One per track, in turn: the same twelve as the window's.
-local hues = {
+local hues: {string} = {
   "#e0605a", "#e58a45", "#d9ab3a", "#a9c04a", "#5fb56a", "#45b3a3",
   "#4aa3df", "#6d8ff0", "#9a7ff0", "#c773d6", "#e06b9a", "#b39c7d",
 }
 -- Their names, for `:track.color`.
-local hue_names = { "coral", "orange", "gold", "lime", "green", "teal", "sky", "blue", "violet", "purple", "pink", "sand" }
+local hue_names: {string} = { "coral", "orange", "gold", "lime", "green", "teal", "sky", "blue", "violet", "purple", "pink", "sand" }
 
-local function build()
+--- The highlight groups made from the palette as it is now.
+local function build(): Groups
   local alt = c.bg_alt
   return {
     Normal = { fg = c.fg, bg = c.bg },
@@ -292,4 +340,19 @@ local function build()
   }
 end
 
-return { palette = c, hues = hues, hue_names = hue_names, build = build, groups = build() }
+local record M
+  type Palette = Palette
+  type Groups = Groups
+  --- The colours by name: change one, then `paw.ui.theme(theme.build())`.
+  palette: Palette
+  --- A colour for each track in turn, and the names of those colours.
+  hues: {string}
+  hue_names: {string}
+  build: function(): Groups
+  --- The groups of the palette as paw starts.
+  groups: Groups
+end
+
+M.palette, M.hues, M.hue_names, M.build = c, hues, hue_names, build
+M.groups = build()
+return M

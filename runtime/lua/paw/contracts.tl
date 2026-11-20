@@ -3,7 +3,7 @@
 -- track, a role, a picker, a status line component, a query field, a
 -- source of grep, a health check and a manifest. Each record has the
 -- fields that the runtime reads (paw/ui.lua, paw/layout.lua, paw/keymap.lua,
--- paw/mouse.lua, paw/scene.lua, paw/canvas.lua, paw/statusline.lua and the
+-- paw/mouse.lua, paw/scene.tl, paw/canvas.tl, paw/statusline.tl and the
 -- other readers), with the types that they read.
 --
 -- Types only: the module is an empty table at run time. It requires only
@@ -46,7 +46,7 @@ local record contracts
    --- A press, a move or the wheel on it goes to the view's gesture for its
    --- kind. Without one, `keys` are typed, or `cmd` runs as an Ex command.
    --- `hint` is what the status line says of it under the pointer.
-   interface HitAction
+   interface HitAction is types.Hit
       kind: string
       keys: string
       cmd: string
@@ -71,12 +71,9 @@ local record contracts
    end
 
    --- One axis of a plane: values of `domain` (`beat`, `pitch`), `from`
-   --- at the edge of the area, `per` cells for one unit.
-   record Axis
-      domain: string
-      from: number
-      per: number
-   end
+   --- at the edge of the area, `per` cells for one unit. It goes to the
+   --- scene as it is (`types.SceneAxis`).
+   type Axis = types.SceneAxis
 
    --- What `buf:plane` takes.
    record PlaneOptions
@@ -87,9 +84,13 @@ local record contracts
    end
 
    --- An area that places marks by the values of its domains (beats,
-   --- pitches), not by cells.
+   --- pitches), not by cells: `mark` a role, `hit` a hit region over a
+   --- rectangle of the domain, and `cells` where a terminal shows it
+   --- (x, y, w, h in cells).
    interface Plane
       mark: function(self: Plane, role: string, x: number, y: number, w: number, h: number, props?: MarkProps): Buf
+      hit: function(self: Plane, x: number, y: number, w: number, h: number, action: HitAction)
+      cells: function(self: Plane, x: number, y: number, w: number, h: number): integer, integer, integer, integer
    end
 
    --- The size of a strip of pixels (`buf:strip`): `w` and `h`, the cell
@@ -104,7 +105,7 @@ local record contracts
       cell: Cell
       fg: string
       bg: string
-      view: {number}
+      view: types.Rect
    end
 
    --- What `buf:strip` takes: `draw(g, px)` paints the strip, `key` names
@@ -116,7 +117,7 @@ local record contracts
    end
 
    --- A buffer of cells: a rectangle of the screen that a view draws in
-   --- (paw/buf.lua). Coordinates count cells from 0 at its corner.
+   --- (paw/buf.tl). Coordinates count cells from 0 at its corner.
    interface Buf
       x: integer
       y: integer
@@ -154,7 +155,7 @@ local record contracts
       align: string
    end
 
-   --- A painter of paw/canvas.lua: what a view's `paint` draws with.
+   --- A painter of paw/canvas.tl: what a view's `paint` draws with.
    interface Painter
       x: number
       y: number
@@ -174,9 +175,22 @@ local record contracts
       contains: function(self: Painter, x: number, y: number): boolean
    end
 
+   --- A role that a painted view marks over its picture (`ctx.marks`), in
+   --- pixels: a window paints it and moves it by the live values (the
+   --- playhead), with no new picture.
+   record PaintMark
+      role: string
+      x: number
+      y: number
+      w: number
+      h: number
+      props: MarkProps
+   end
+
    --- What a painted view's `paint` gets besides the painter: its size in
    --- pixels, whether it has the keyboard, and, in a terminal that shows
-   --- images, the cell in pixels and the terminal's colors.
+   --- images, the cell in pixels and the terminal's colors. In a scene,
+   --- `marks` takes the roles it marks over its picture.
    record PaintContext
       width: number
       height: number
@@ -185,6 +199,7 @@ local record contracts
       cell: StripPixels.Cell
       fg: string
       bg: string
+      marks: {PaintMark}
    end
 
    -- The pointer ------------------------------------------------------------------
@@ -194,7 +209,7 @@ local record contracts
    --- `scroll_down`, `scroll_left` or `scroll_right`. `x` and `y` are in
    --- the view's cells (fractions in a window, which says so with
    --- `fine`). `mods` holds `C`, `A` and `S`. On a hit region, `hit` is its
-   --- action and `rect` the region.
+   --- action and `rect` the region; in a plane, `at` is where in its domain.
    record MouseEvent
       kind: string
       button: string
@@ -210,6 +225,7 @@ local record contracts
       win: integer
       hit: HitAction
       rect: types.Rect
+      at: types.Point
       dx: number
       dy: number
       moved: boolean
@@ -230,7 +246,7 @@ local record contracts
    end
 
    --- One place of a hit list (`Hits:add`): what each part of a gesture
-   --- does there.
+   --- does there. `label` is a button's (`paw.canvas.button`).
    record HitPlace
       down: function(e: PointerEvent)
       drag: function(e: PointerEvent)
@@ -242,6 +258,7 @@ local record contracts
       y: number
       w: number
       h: number
+      label: string
    end
 
    --- The places a painted view acts on (`paw.canvas.hit_list()`).
@@ -599,19 +616,97 @@ local record contracts
 
    -- The status line --------------------------------------------------------------
 
+   --- The characters views draw with, by what they are for
+   --- (`paw.draw.g`): plain ASCII ones while `paw.opt.ascii` is on.
+   record Glyphs
+      rule: string
+      bar: string
+      beat: string
+      step: string
+      tick: string
+      cap: string
+      playhead: string
+      loop_in: string
+      loop_out: string
+      clip_start: string
+      punch_in: string
+      punch_out: string
+      meter_full: string
+      meter_half: string
+      meter_off: string
+      peak: string
+      upper: string
+      lower: string
+      full: string
+      slider_on: string
+      knob: string
+      slider_off: string
+      pan_rail: string
+      pan_mark: string
+      fader: string
+      fader_rail: string
+      zero: string
+      point: string
+      open: string
+      closed: string
+      stripe: string
+      stripe_sel: string
+      send: string
+      out: string
+      chain: string
+      sep: string
+      dot: string
+      play: string
+      stop: string
+      rec: string
+      modified: string
+      bypass: string
+      on: string
+      ellipsis: string
+      cursor: string
+      warn: string
+      error: string
+      hairline: string
+      strip_sep: string
+      tl: string
+      tr: string
+      bl: string
+      br: string
+      h: string
+      v: string
+      mark: string
+      move_up: string
+      move_down: string
+      remove: string
+      editor: string
+      --- A cell filled from the bottom, one eighth to eight.
+      eighths: {string}
+   end
+
    --- What a status line component gets: the width of the screen, the
    --- bar (`status`, `winbar`, `inactive_winbar`, `tabline`), the mode,
-   --- the focused view, the glyphs, and the transport, the project and the
-   --- engine (read when asked for).
+   --- the focused view (and on a window's bar whether it has the keys),
+   --- the glyphs, the theme, and the transport, the project and the engine
+   --- (read when asked for).
    record StatusContext
       width: integer
       which: string
       mode: string
       view: string
+      focused: boolean
       active: boolean
-      g: {string:string | {string}}
+      g: Glyphs
+      --- The highlight group of the mode pill by mode, of each section by
+      --- its letter, and of the separators.
       record Theme
          mode: {string:string}
+         a: string
+         b: string
+         c: string
+         x: string
+         y: string
+         z: string
+         sep: string
       end
       theme: Theme
       transport: types.Transport
@@ -625,7 +720,7 @@ local record contracts
    --- A status line component (`paw.statusline.component`). `min` is the
    --- narrowest screen it shows on, `rank` how late it goes when the line
    --- is too long (0 never). With `key(ctx)`, it runs again only when that
-   --- changes.
+   --- changes. With `shrink`, its text is cut before any component goes.
    record StatusComponent
       name: string
       fn: function(ctx?: StatusContext): StatusText
@@ -636,7 +731,7 @@ local record contracts
       cond: function(ctx?: StatusContext): boolean
       fmt: function(text: string): string
       pill: boolean
-      shrink: string
+      shrink: boolean
    end
 
    -- Pickers ----------------------------------------------------------------------

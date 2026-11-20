@@ -175,7 +175,7 @@ local function shown_value(p, value, lane)
   return range ~= 0 and paw.params.fraction(p, value) or 0, paw.frontend.format_value(p, value)
 end
 
---- What the live values carry for the parameters drawn bound (paw/scene.lua):
+--- What the live values carry for the parameters drawn bound (paw/scene.tl):
 --- `params[bind]` is `{ fraction, text }`.
 function view.live_values()
   local out = {}

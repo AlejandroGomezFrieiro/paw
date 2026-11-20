@@ -1,6 +1,6 @@
 -- The status line: what `paw.statusline` builds from its sections (the
 -- mode first, the project's name on the right, a segment dropped when the
--- screen is too narrow for it). See paw/statusline.lua for how to change it.
+-- screen is too narrow for it). See paw/statusline.tl for how to change it.
 -- All of it is a live part of the screen (paw/ui.lua): its clock moves as
 -- the song plays, and it is drawn again by itself.
 local view = { focusable = false, live_part = true }

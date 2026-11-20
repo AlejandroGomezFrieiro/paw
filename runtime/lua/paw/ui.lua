@@ -950,7 +950,7 @@ function M.render_scene(name, w, h, cell, win)
     end
     return
   end
-  -- The roles it marks are nodes of the scene (paw/roles.lua).
+  -- The roles it marks are nodes of the scene (paw/roles.tl).
   M.view_win, M.pictures, M.scene_drawing = win, {}, true
   local ok, err = pcall(api.scene_draw, name, math.floor(w), math.floor(h))
   local pictures = M.pictures
@@ -1072,7 +1072,7 @@ local function route(event)
     x = event.x - target.x, y = event.y - target.y, view_x = target.x, view_y = target.y, w = target.w, h = target.h,
     win = target.win,
   })
-  -- A hit region the view marked has it first (paw/roles.lua).
+  -- A hit region the view marked has it first (paw/roles.tl).
   if paw.roles.pointer(view, target.name, e) then return end
   if view.on_mouse then view:on_mouse(e) end
   -- A press on a window's top row that the window did not hold drags the

@@ -1,5 +1,5 @@
 -- The doctor in a graphical frontend: the same page painted in pixels, with
--- buttons for what the keys do (see runtime/lua/paw/canvas.lua).
+-- buttons for what the keys do (see runtime/lua/paw/canvas.tl).
 local api = paw.api
 local util = paw.util
 local doctor = require("doctor")

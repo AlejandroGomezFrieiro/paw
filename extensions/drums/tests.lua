@@ -322,8 +322,8 @@ end)
 
 -- The pointer ----------------------------------------------------------------------
 -- The grid is one view for both frontends: a window is sent its scene
--- (paw/scene.lua) and a press there goes through the grid's hit regions in
--- fractions of a cell (paw/roles.lua), as one in the terminal goes in cells.
+-- (paw/scene.tl) and a press there goes through the grid's hit regions in
+-- fractions of a cell (paw/roles.tl), as one in the terminal goes in cells.
 
 local CELL = { w = 8, h = 16 }
 local held = {}

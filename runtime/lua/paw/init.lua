@@ -116,7 +116,7 @@ paw.buftype, paw.layouts = paw.layout.buftype, paw.layout.layouts
 paw.draw = require("paw.draw")
 paw.ui.keybar = require("paw.keybar")
 paw.mouse = require("paw.mouse")
--- Roles views mark on their buffers, and the widgets among them (paw/roles.lua).
+-- Roles views mark on their buffers, and the widgets among them (paw/roles.tl).
 paw.roles = require("paw.roles")
 paw.ui.role, paw.ui.roles = paw.roles.define, paw.roles.registry
 require("paw.roles.widgets")
@@ -298,7 +298,7 @@ function K.startup()
   paw.recent = require("paw.recent")
   paw.learn = require("paw.learn")
   paw.remote = require("paw.remote")
-  -- What graphical frontends are sent of the views they show (paw/scene.lua).
+  -- What graphical frontends are sent of the views they show (paw/scene.tl).
   paw.scene = require("paw.scene")
   paw.autosave = require("paw.autosave")
   paw.loading = require("paw.loading")

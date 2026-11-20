@@ -505,6 +505,16 @@ function M.teal_modules()
       seen[mod.module] = true
     end
   end
+  -- A module in Teal that is a value of a module in Lua (`paw.ui.Buf`, the
+  -- module paw.buf, of paw/ui.lua) is no field of the record of `paw`, which
+  -- types that module as partial.d.tl does: it is left out until its parent
+  -- is in Teal too.
+  local teal_name = {}
+  for _, mod in ipairs(out) do teal_name[mod.name] = true end
+  for i = #out, 1, -1 do
+    local parent = out[i].name:match("^(.+)%.[^.]+$")
+    if parent and parent ~= "paw" and not teal_name[parent] then table.remove(out, i) end
+  end
   -- The values of `paw`, to find the hidden modules that give some.
   local of_paw = {}
   for _, v in pairs(paw) do of_paw[v] = true end
@@ -629,6 +639,29 @@ local function record_name(name)
   return (name:gsub("^paw%.", ""):gsub("[._](%l)", string.upper):gsub("^%l", string.upper))
 end
 
+--- Whether a type in the source of a module in Teal can be written in
+--- partial.d.tl, which names only `types.X`, `contracts.X` and the type's
+--- own generic parameters: not a type of the module's own, nor of another
+--- module in Teal (which requires partial.d.tl).
+local function partial_safe(t)
+  if type(t) ~= "string" then return false end
+  local params = {}
+  for list in t:gmatch("<([^>]*)>") do
+    for name in list:gmatch("([%a_][%w_]*)%s+is") do params[name] = true end
+    for name in list:gmatch("^%s*([%a_][%w_]*)%s*$") do params[name] = true end
+    for name in list:gmatch("([%a_][%w_]*)%s*,") do params[name] = true end
+  end
+  for word in t:gmatch("%f[%w_.][%a_][%w_.]*") do
+    local head = word:match("^([%a_][%w_]*)%.")
+    if head then
+      if head ~= "types" and head ~= "contracts" then return false end
+    elseif word:match("^%u") and not params[word] then
+      return false
+    end
+  end
+  return true
+end
+
 --- `function<T>(a: A): R` as a metamethod of `self`: `function<T>(self, a: A): R`.
 local function with_self(form, self)
   local generics, rest = form:match("^function(<[^>]*>)%((.*)$")
@@ -643,7 +676,7 @@ end
 --- of a call of the module); `forms[fn]` are the forms of each typed
 --- function, by the function, so that another name of it has its type;
 --- `top[key]` the types of the typed values and functions of `paw` itself.
-local function lua_types(teal_mods)
+local function lua_types(teal_mods, teal_typed)
   local is_teal = {}
   for _, mod in ipairs(teal_mods) do is_teal[mod.name] = true end
   local out = { records = {}, forms = {}, top = {} }
@@ -665,11 +698,16 @@ local function lua_types(teal_mods)
       local v = t[k]
       if type(v) == "function" then
         local forms, c = lua_forms(v, k)
+        -- A function of a module in Teal under another name
+        -- (`paw.ui.role` is `paw.roles.define`): the type in its source.
+        if #forms == 0 and partial_safe(teal_typed[v]) then forms = { teal_typed[v] } end
         if #forms > 0 then out.forms[v] = forms end
         for _, form in ipairs(forms) do lines[#lines + 1] = { k, form } end
         call = call or c
       elseif valued[k] then
         lines[#lines + 1] = { k, valued[k] }
+      elseif type(v) == "table" and partial_safe(teal_typed[v]) and not teal_typed[v]:match("^type ") then
+        lines[#lines + 1] = { k, teal_typed[v] }
       end
     end
     return lines, call
@@ -720,7 +758,7 @@ function M.teal()
   end
   local values = teal_values(mods, alias_of)
   -- The modules in Lua, and what of them their comments type.
-  local lua = lua_types(mods)
+  local lua = lua_types(mods, values)
   local partial_of = {}
   local pout = { "-- " .. HEADER, "-- The parts of the modules of the runtime in Lua that their doc comments",
     "-- type (`@type`): a module of the runtime in Teal takes the global as",

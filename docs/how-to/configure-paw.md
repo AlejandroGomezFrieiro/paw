@@ -30,7 +30,7 @@ paw.ui.hl("Playhead", { bg = "#ff5555" })
 ```
 
 You can change each highlight group. The groups and their colors are in
-`runtime/lua/paw/theme.lua`. To change the color of one track, type
+`runtime/lua/paw/theme.tl`. To change the color of one track, type
 `:track.color teal` on the track.
 
 ## Add a command and a key
