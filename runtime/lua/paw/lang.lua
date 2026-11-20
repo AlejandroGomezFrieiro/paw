@@ -207,7 +207,7 @@ M.add("tl", {
 
 --- The Teal configuration of the source tree (tlconfig.lua): the
 --- directories with declarations and modules (`include_dir`), and the file
---- that declares the globals (`global_env_def`).
+--- that declares the global names (`global_env_def`).
 function M.tlconfig(root)
   local chunk = loadfile((root or ".") .. "/tlconfig.lua")
   local ok, config = pcall(chunk or function() return {} end)

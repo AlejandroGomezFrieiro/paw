@@ -4140,7 +4140,7 @@ function paw.lang.searchpath(name, path) end
 
 --- The Teal configuration of the source tree (tlconfig.lua): the
 --- directories with declarations and modules (`include_dir`), and the file
---- that declares the globals (`global_env_def`).
+--- that declares the global names (`global_env_def`).
 ---@param root any
 function paw.lang.tlconfig(root) end
 

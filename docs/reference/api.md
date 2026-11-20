@@ -1030,7 +1030,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.lang.loadfile(path)`: Load a file of Lua or of a registered language as a function, as `loadfile` does. Its errors and `debug.getinfo` name the file itself, so an extension written in another language owns what it registers.
 - `paw.lang.of(path)`: The extension of `path` when a registered language has it, else nil.
 - `paw.lang.searchpath(name, path)`: The file of module `name` in a registered language along `path` (by default `package.path`): each `?.lua` template with the language's extension. Nil and the files it tried when there is none.
-- `paw.lang.tlconfig(root)`: The Teal configuration of the source tree (tlconfig.lua): the directories with declarations and modules (`include_dir`), and the file that declares the globals (`global_env_def`).
+- `paw.lang.tlconfig(root)`: The Teal configuration of the source tree (tlconfig.lua): the directories with declarations and modules (`include_dir`), and the file that declares the global names (`global_env_def`).
 
 ## Module paw.layout
 
