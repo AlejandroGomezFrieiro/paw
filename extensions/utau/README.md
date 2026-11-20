@@ -140,7 +140,7 @@ A vocal track is a kind of track (`paw.track_kinds`).
 | `=`, `<leader>=` | reset that curve to its default under the note, in the full clip |
 | `(` `)` | choose the previous or next phoneme (in the phoneme row and the bottom line). When the musicops extension loads after utau, as `config/init.lua` does, `(` `)` go by phrase instead |
 | `[` `]` | that phoneme starts 5 ticks earlier or later |
-| `gr`, `gR` | type the phoneme to sing in its place. Restore it from the voicebank |
+| `grp`, `gR` | type the phoneme to sing in its place. Restore it from the voicebank |
 | `~`, `:utau.note key=value ...` | vibrato on or off. Set properties of the selected notes: `tuning`, `vibrato=on`, `length` `period` `depth` `in` `out` `shift` `drift` `vol_link`, `po` (phonemizer, `default` for the track's), `transition=default`, and any expression (`vel=120`) |
 | `Space`, `gh` | play from the cursor or stop. Hear the note under the cursor |
 | `S`, `s`, `r` | choose the singer, show the lyric sheet, render again |

@@ -112,7 +112,7 @@ emap(")", function(ctx) for _ = 1, ctx.count or 1 do editor:step_phoneme(1) end 
 emap("(", function(ctx) for _ = 1, ctx.count or 1 do editor:step_phoneme(-1) end end, "Previous phoneme")
 emap("]", function(ctx) editor:shift_phoneme(5 * (ctx.count or 1)) end, "The phoneme starts 5 ticks later", { role = "second+" })
 emap("[", function(ctx) editor:shift_phoneme(-5 * (ctx.count or 1)) end, "The phoneme starts 5 ticks earlier", { role = "second-" })
-emap("gr", function() editor:replace_phoneme() end, "Type the phoneme to sing instead")
+emap("grp", function() editor:replace_phoneme() end, "Type the phoneme to sing instead")
 emap("gR", function() editor:reset_phoneme() end, "Put the phoneme back as the voicebank has it")
 
 -- Note properties ----------------------------------------------------------------------
