@@ -10,7 +10,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 ## Module paw
 
-- `paw.add_track(opts)`
+- `paw.add_track(opts)`: A new track, last unless `opts.index` says where: `opts` as `paw.api.track_add` takes them (`name`, `volume`, `output` as a track or an id, ...).
 - `paw.bounce(track, opts)`: Render a track with its devices to audio, as one clip on a new track immediately below it, and mute the original. The new track sends its sound where the original sent it. It uses `paw.render`, so `render.before` runs. `opts.name` is the name of the new track ("<name> (bounced)" by default). `opts.tail` is the seconds rendered after its last clip (2). Returns the new track, or nil when the track has no clips.
 - `paw.buftype(name, def)`: Make a buffer type. See `docs/reference/lua-views.md`.
 
@@ -26,10 +26,10 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
   It can also have the fields that `paw.layout.powers` maps: `keymaps`, `motions`, `textobjects` and `operators`. Their functions get `ctx.win` and `ctx.buf`.
 - `paw.cancel(handle)`: Stop a timer: `handle` is what `paw.defer` or `paw.every` returned.
-- `paw.clip(id)`
+- `paw.clip(id)`: The clip of an id, as a `paw.Clip`.
 - `paw.cmd(name, args, ctx)`: Run a command. `args` is a table of arguments. `ctx` adds fields such as `count`.
 - `paw.defer(fn, ms)`: Run `fn` once, after `ms` milliseconds (or when the current turn ends).
-- `paw.device(id)`
+- `paw.device(id)`: The device, clip or automation lane of an id, as an object.
 - `paw.device_types()`: Descriptions of each kind of device that you can add to a track. A kind that an extension added (`paw.plugins.add_dir`) has its extension in `from`.
 - `paw.emit(name, payload)`: Call each handler for `name`. paw reports a handler that fails, and goes to the next. Returns true, or false and the reason when a handler returned `false, reason`. So a handler refuses the request of an event (`edit.before`, `project.saving`, `key.pre`).
 - `paw.every(ms, fn)`: Run `fn` every `ms` milliseconds. Returns a handle for `paw.cancel`.
@@ -39,7 +39,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.inspect(value, indent, seen)`: Render any value as readable Lua-like text.
 - `paw.is_audio_file(path)`: True if a path names a sound file, from its file ending.
 - `paw.is_chain_file(path)`: True if a path names a chain file of devices: a `devices.json`.
-- `paw.lane(id)`
+- `paw.lane(id)`: The automation lane of an id, as a `paw.Lane`.
 - `paw.notify(text, level)`: Show a message. `level` is "info" (default), "warn" or "error".
 - `paw.off(id)`: Stop a listener: `id` is the value that `paw.on` or `paw.once` returned.
 - `paw.on(pattern, fn, opts)`: Listen for an event. Returns a handle for `paw.off`.
@@ -52,11 +52,11 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.render_status()`: The render that runs in the background (`{ path, fraction, seconds }`), or nil.
 - `paw.render_stems(dir, opts)`: Render each track to a file of its own in `dir` (see `paw/render.lua` for `opts`).
 - `paw.render_tags(set)`: The tags of the project's rendered files: `paw.render_tags()`, `paw.render_tags({ artist = "Me" })`.
-- `paw.restore_clip(snap, track)`
-- `paw.restore_device(snap, track, index)`
+- `paw.restore_clip(snap, track)`: Add a clip from a snapshot to a track.
+- `paw.restore_device(snap, track, index)`: Add a device from a snapshot to a track, at the end of the chain or at the 1-based `index`.
 - `paw.restore_track(snap, index)`: Make a track from a snapshot, at a 1-based position in the track list.
-- `paw.track(which)`
-- `paw.tracks()`
+- `paw.track(which)`: A track by id, or by name.
+- `paw.tracks()`: Every track, in order, as `paw.Track` objects (the master is `paw.master`).
 - `paw.try(fn, ...)`: Call a function. If it fails, show the error as a message and do not raise it. Returns true and the results of the function, or false and the error. The message is the first lines of the error (`paw.failure`). The log keeps the list of calls.
 - `paw.undo`: the same as `paw.api.undo`.
 - `paw.wait`: the same as `paw.api.wait`.
@@ -64,67 +64,102 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.Clip
 
 - `paw.Clip:add_note(note)`
-- `paw.Clip:add_notes(notes)`
-- `paw.Clip:controls()`
-- `paw.Clip:duplicate(opts)`
-- `paw.Clip:edit_notes(edit)`
-- `paw.Clip:exists()`
-- `paw.Clip:get()`
-- `paw.Clip:note_at(pitch, beat)`
-- `paw.Clip:notes(range)`
-- `paw.Clip:peaks(n)`
-- `paw.Clip:remove()`
-- `paw.Clip:remove_note(index)`
+
+  ```lua
+  clip:add_note({ pitch = "E4", start = 1, length = 0.5, velocity = 90 })
+  clip:add_note({ pitch = "G4", start = 2, attr = paw.attr.m2("11.A") })   -- pizzicato
+  ```
+
+  Returns the note's place among the clip's notes.
+- `paw.Clip:add_notes(notes)`: Add several notes as one edit (as `add_note` takes each).
+- `paw.Clip:controls()`: The events of the clip that are not notes: controller moves, the pitch wheel, pressure and program changes. Each is `{ start, type, value }`, with `start` in beats from the start of the clip. `type` is "cc" (with `number`), "bend" (-1 to 1), "pressure", "registered" or "assignable" (with `bank` and `index`), or "program" (with `program` and maybe `bank`). Values go from 0 to 1 at any resolution. With `key`, a move is for the note on that key only, as in MIDI 2.0: its own bend, pressure or controller.
+- `paw.Clip:duplicate(opts)`: Copy the clip. By default the copy goes right after the original.
+- `paw.Clip:edit_notes(edit)`: Change, remove and add several notes as one edit. Every index is a note's place before the call:
+
+  ```lua
+  clip:edit_notes({ set = { { index = 3, start = 1 } }, remove = { 5, 6 }, add = { note } })
+  ```
+- `paw.Clip:exists()`: True if the clip is still in the project.
+- `paw.Clip:get()`: Everything about the clip as plain data (`paw.api.clip_get`).
+- `paw.Clip:note_at(pitch, beat)`: The note on a pitch that sounds at a beat of the clip, and its place in the notes of the clip. Nothing when there is no such note.
+- `paw.Clip:notes(range)`: The notes of a MIDI clip: a list of { pitch, start, length, velocity }. `start` is in beats from the start of the clip. A note can have `meta`, a table of extension data such as a lyric. A note can also have `attr`, the MIDI 2.0 attribute of its note-on (`{ type, data }`, see `paw.attr`).
+
+  With a range, only the notes that sound in it. The second value is then the place of each note in the whole list, for `set_note` and `remove_note`:
+
+  ```lua
+  local notes, at = clip:notes({ from = 4, to = 8, low = "C3", high = "C5" })
+  ```
+- `paw.Clip:peaks(n)`: The waveform of an audio clip: `n` { min, max, rms } entries. Each entry covers an equal part of the sound of the clip, scaled by its gain. It gives how far the wave goes each way (-1 to 1) and how loud it is there. paw keeps the result, so the code that draws can ask for it each frame.
+- `paw.Clip:remove()`: Take the clip out of its track.
+- `paw.Clip:remove_note(index)`: Remove the note at a place among the clip's notes (from 1).
 - `paw.Clip:set_controls(controls)`
-- `paw.Clip:set_note(index, fields)`
-- `paw.Clip:set_notes(notes)`
-- `paw.Clip:snapshot()`
-- `paw.Clip:track()`
+
+  ```lua
+  clip:set_controls({ { start = 0, type = "cc", number = 64, value = 1 },
+                      { start = 1, type = "bend", key = "E4", value = 0.02 } })
+  ```
+- `paw.Clip:set_note(index, fields)`: Change one note, by its place in the notes of the clip (from 1). The other notes do not change: `clip:set_note(3, { length = 2 })`. Returns the new place of the note, because notes stay in the order of their start. `attr = false` removes its attribute.
+- `paw.Clip:set_notes(notes)`: Replace every note of the clip with `notes` (as `add_note` takes each).
+- `paw.Clip:snapshot()`: The clip as plain data, for `paw.restore_clip`.
+- `paw.Clip:track()`: The track the clip is on.
 
 ## Module paw.Device
 
-- `paw.Device:automate(param)`
-- `paw.Device:automate_state()`
-- `paw.Device:capture(name)`
-- `paw.Device:close_editor()`
+- `paw.Device:automate(param)`: The lane for a parameter, made if there is none yet.
+
+  ```lua
+  synth:automate("cutoff"):add(0, 200)
+  ```
+- `paw.Device:automate_state()`: The device's state lane, made if there is none yet: a lane whose points each give the device one of the lane's states, from that point on.
+
+  ```lua
+  local lane = amp:automate_state()
+  lane:set_state(16, lane:add_state(amp:capture("crunch")))
+  ```
+- `paw.Device:capture(name)`: The device's whole state now, as a state lane takes it: `{ name, state, params }`. The plugin's saved state, and the parameters set in the project.
+- `paw.Device:close_editor()`: Close the plugin's own window.
 - `paw.Device:exists()`: True if the device is still in the project.
 - `paw.Device:get()`: Everything about the device as plain data (`paw.api.device_get`).
 - `paw.Device:info()`: The description of this device: its name, category, format, and its parameters with their ranges. A plugin's parameters are those of this instance, which is the only place they are known.
-- `paw.Device:lane(param)`
-- `paw.Device:lanes()`
-- `paw.Device:move(index, track)`
-- `paw.Device:open_editor()`
+- `paw.Device:lane(param)`: The lane for a parameter, if there is one.
+- `paw.Device:lanes()`: The automation lanes of the device's parameters, as `paw.Lane` objects.
+- `paw.Device:move(index, track)`: Move within the chain, or to another track: `device:move(1)`, `device:move(2, other)`.
+- `paw.Device:open_editor()`: Show the plugin's own window.
 - `paw.Device:remove()`: Take the device off its track.
-- `paw.Device:restart()`
+- `paw.Device:restart()`: Show the window of the plugin. `device.editor` is "open", "closed", or nil for devices that have no window. Start the device again: for a plugin that stopped (`stopped` tells why) or did not load. It returns with the last state of it in the project.
 - `paw.Device:set(name, value)`: Set one parameter, or several from a table.
 
   ```lua
   device:set("cutoff", 800)
   device:set({ cutoff = 800, resonance = 0.4 })
   ```
-- `paw.Device:set_offline(on)`
-- `paw.Device:set_output(pair, track)`
-- `paw.Device:set_sidechain(track, opts)`
-- `paw.Device:snapshot()`
-- `paw.Device:state_lane()`
+- `paw.Device:set_offline(on)`: Set the device offline, or online again. An offline device is not made (a plugin has no process), and the chain passes over it. Its state and parameters do not change.
+- `paw.Device:set_output(pair, track)`: Play the output pair `pair` of the device (2 and more: the first pair plays on its own track) into a track, or nowhere with nil. `device.outputs` is a table of pair number to track id. `device.ports.outputs` names the pairs.
+- `paw.Device:set_sidechain(track, opts)`: Listen to the sound of a different track as the side-chain of the device. With `comp:set_sidechain(kick)`, a compressor on the bass ducks under the kick. `{ pre = true }` takes the sound before the fader, pan and mute of that track. nil (or no track) removes the side-chain. `device.sidechain` is the id of the track.
+- `paw.Device:snapshot()`: The device as plain data, for `paw.restore_device`. For a plugin, the data contains its state, which holds more than its parameters.
+- `paw.Device:state_lane()`: The device's state lane, if it has one.
 - `paw.Device:track()`: The track this device is on.
-- `paw.Device:value_at(param, beat)`
+- `paw.Device:value_at(param, beat)`: The value of a parameter at a beat while the song plays. This is the value of the lane when the lane is on. If not, it is the value of the device.
 
 ## Module paw.Lane
 
-- `paw.Lane:add(beat, value)`
-- `paw.Lane:add_state(state)`
-- `paw.Lane:clear()`
-- `paw.Lane:exists()`
-- `paw.Lane:get()`
-- `paw.Lane:points()`
-- `paw.Lane:remove()`
-- `paw.Lane:set_points(points)`
-- `paw.Lane:set_state(beat, which)`
-- `paw.Lane:state_index(which)`
-- `paw.Lane:states()`
-- `paw.Lane:track()`
-- `paw.Lane:value_at(beat)`
+- `paw.Lane:add(beat, value)`: Add a point. It replaces a point at the same beat. The value is in the units of the target: dB for volume and -1 to 1 for pan. For a parameter, it is in the range of the parameter.
+- `paw.Lane:add_state(state)`: Add a state to a state lane, or replace the one of its name. Returns its index, from 0: the value of a point that gives it.
+- `paw.Lane:clear()`: Remove every point of the lane.
+- `paw.Lane:exists()`: True if the lane is still in the project.
+- `paw.Lane:get()`: Everything about the lane as plain data (`paw.api.lane_get`).
+- `paw.Lane:points()`: The points as a list of { beat, value }, sorted by beat.
+- `paw.Lane:remove()`: Take the lane away, and the automation in it.
+- `paw.Lane:set_points(points)`: Replace the points: `lane:set_points({ { 0, -60 }, { 8, 0 } })`. Points may also be written { beat = 0, value = -60 }.
+- `paw.Lane:set_state(beat, which)`: Give the device a state of a state lane from `beat` on: a point that names the state by its name or its index.
+
+  ```lua
+  lane:set_state(16, "crunch")
+  ```
+- `paw.Lane:state_index(which)`: The index of a state of a state lane, by its name or its index. Nil when the lane has no such state.
+- `paw.Lane:states()`: The states of a state lane: `{ name, state, params, call, program, bank }` each.
+- `paw.Lane:track()`: The track the lane belongs to.
+- `paw.Lane:value_at(beat)`: The value at a beat, when the lane is on and when it is off. Nil without points.
 
 ## Module paw.Track
 
@@ -2062,6 +2097,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.hl_set(name, def, full)`
 - `paw.api.inflate(data, format)`: The bytes `data` holds compressed as `format` says ("raw", "zlib" or "gzip"), and the number of bytes of `data` the compressed stream took (what follows is not part of it). Nil and the reason when they are not compressed so.
 - `paw.api.input_levels()`: The level of each input channel of the device, as linear gain, whatever takes it.
+- `paw.api.json_array(t)`: Mark a table (a new one without `t`) as a JSON array, so that `json_encode` writes it as `[]` when it is empty. Returns it.
 - `paw.api.json_decode(text)`: Nil and the reason, when the text is not JSON.
 - `paw.api.json_encode(value, pretty)`: JSON text of a value; `pretty` lays it out on lines, indented.
 - `paw.api.lane_add(track, opts)`

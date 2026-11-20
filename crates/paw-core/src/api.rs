@@ -2099,6 +2099,13 @@ pub fn install(lua: &Lua, shared: &Rc<Shared>) -> mlua::Result<()> {
         fn toml_encode(_, _sh, (value, inline) => (LuaValue, Option<bool>)) {
             crate::toml_api::encode(&value, inline.unwrap_or(false))
         }
+        // Mark a table (a new one without `t`) as a JSON array, so that
+        // `json_encode` writes it as `[]` when it is empty. Returns it.
+        fn json_array(lua, _sh, t => Option<Table>) {
+            let t = match t { Some(t) => t, None => lua.create_table()? };
+            t.set_metatable(Some(lua.array_metatable()))?;
+            Ok(t)
+        }
         // --- bytes, for the file formats extensions read and write ---
 
         // Base64 of bytes. `opts.url` uses the URL alphabet (`-_`), and

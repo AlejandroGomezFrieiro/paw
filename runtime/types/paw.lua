@@ -283,6 +283,8 @@ paw.api = {}
 ---@type string
 paw.api.version = "1.0.0"
 
+--- A new track, last unless `opts.index` says where: `opts` as `paw.api.track_add`
+--- takes them (`name`, `volume`, `output` as a track or an id, ...).
 ---@param opts any
 function paw.add_track(opts) end
 
@@ -330,6 +332,7 @@ function paw.buftype(name, def) end
 ---@param handle any
 function paw.cancel(handle) end
 
+--- The clip of an id, as a `paw.Clip`.
 ---@param id any
 function paw.clip(id) end
 
@@ -344,6 +347,7 @@ function paw.cmd(name, args, ctx) end
 ---@param ms any
 function paw.defer(fn, ms) end
 
+--- The device, clip or automation lane of an id, as an object.
 ---@param id any
 function paw.device(id) end
 
@@ -394,6 +398,7 @@ function paw.is_audio_file(path) end
 ---@param path any
 function paw.is_chain_file(path) end
 
+--- The automation lane of an id, as a `paw.Lane`.
 ---@param id any
 function paw.lane(id) end
 
@@ -455,10 +460,13 @@ function paw.render_stems(dir, opts) end
 ---@param set any
 function paw.render_tags(set) end
 
+--- Add a clip from a snapshot to a track.
 ---@param snap any
 ---@param track any
 function paw.restore_clip(snap, track) end
 
+--- Add a device from a snapshot to a track, at the end of the chain or at
+--- the 1-based `index`.
 ---@param snap any
 ---@param track any
 ---@param index any
@@ -469,9 +477,11 @@ function paw.restore_device(snap, track, index) end
 ---@param index any
 function paw.restore_track(snap, index) end
 
+--- A track by id, or by name.
 ---@param which any
 function paw.track(which) end
 
+--- Every track, in order, as `paw.Track` objects (the master is `paw.master`).
 function paw.tracks() end
 
 --- Call a function. If it fails, show the error as a message and do not
@@ -485,61 +495,113 @@ paw.undo = paw.api.undo
 
 paw.wait = paw.api.wait
 
+---   clip:add_note({ pitch = "E4", start = 1, length = 0.5, velocity = 90 })
+---   clip:add_note({ pitch = "G4", start = 2, attr = paw.attr.m2("11.A") })   -- pizzicato
+--- Returns the note's place among the clip's notes.
 ---@param note any
 function paw.Clip:add_note(note) end
 
+--- Add several notes as one edit (as `add_note` takes each).
 ---@param notes any
 function paw.Clip:add_notes(notes) end
 
+--- The events of the clip that are not notes: controller moves, the pitch
+--- wheel, pressure and program changes. Each is `{ start, type, value }`,
+--- with `start` in beats from the start of the clip. `type` is "cc" (with
+--- `number`), "bend" (-1 to 1), "pressure", "registered" or "assignable"
+--- (with `bank` and `index`), or "program" (with `program` and maybe
+--- `bank`). Values go from 0 to 1 at any resolution. With `key`, a move is
+--- for the note on that key only, as in MIDI 2.0: its own bend, pressure
+--- or controller.
 function paw.Clip:controls() end
 
+--- Copy the clip. By default the copy goes right after the original.
 ---@param opts any
 function paw.Clip:duplicate(opts) end
 
+--- Change, remove and add several notes as one edit. Every index is a
+--- note's place before the call:
+---   clip:edit_notes({ set = { { index = 3, start = 1 } }, remove = { 5, 6 }, add = { note } })
 ---@param edit any
 function paw.Clip:edit_notes(edit) end
 
+--- True if the clip is still in the project.
 function paw.Clip:exists() end
 
+--- Everything about the clip as plain data (`paw.api.clip_get`).
 function paw.Clip:get() end
 
+--- The note on a pitch that sounds at a beat of the clip, and its place in
+--- the notes of the clip. Nothing when there is no such note.
 ---@param pitch any
 ---@param beat any
 function paw.Clip:note_at(pitch, beat) end
 
+--- The notes of a MIDI clip: a list of { pitch, start, length, velocity }.
+--- `start` is in beats from the start of the clip. A note can have `meta`,
+--- a table of extension data such as a lyric. A note can also have `attr`,
+--- the MIDI 2.0 attribute of its note-on (`{ type, data }`, see `paw.attr`).
+--- 
+--- With a range, only the notes that sound in it. The second value is then
+--- the place of each note in the whole list, for `set_note` and `remove_note`:
+---   local notes, at = clip:notes({ from = 4, to = 8, low = "C3", high = "C5" })
 ---@param range any
 function paw.Clip:notes(range) end
 
+--- The waveform of an audio clip: `n` { min, max, rms } entries. Each entry
+--- covers an equal part of the sound of the clip, scaled by its gain. It
+--- gives how far the wave goes each way (-1 to 1) and how loud it is there.
+--- paw keeps the result, so the code that draws can ask for it each frame.
 ---@param n any
 function paw.Clip:peaks(n) end
 
+--- Take the clip out of its track.
 function paw.Clip:remove() end
 
+--- Remove the note at a place among the clip's notes (from 1).
 ---@param index any
 function paw.Clip:remove_note(index) end
 
+---   clip:set_controls({ { start = 0, type = "cc", number = 64, value = 1 },
+---                       { start = 1, type = "bend", key = "E4", value = 0.02 } })
 ---@param controls any
 function paw.Clip:set_controls(controls) end
 
+--- Change one note, by its place in the notes of the clip (from 1). The
+--- other notes do not change: `clip:set_note(3, { length = 2 })`. Returns
+--- the new place of the note, because notes stay in the order of their
+--- start. `attr = false` removes its attribute.
 ---@param index any
 ---@param fields any
 function paw.Clip:set_note(index, fields) end
 
+--- Replace every note of the clip with `notes` (as `add_note` takes each).
 ---@param notes any
 function paw.Clip:set_notes(notes) end
 
+--- The clip as plain data, for `paw.restore_clip`.
 function paw.Clip:snapshot() end
 
+--- The track the clip is on.
 function paw.Clip:track() end
 
+--- The lane for a parameter, made if there is none yet.
+---   synth:automate("cutoff"):add(0, 200)
 ---@param param any
 function paw.Device:automate(param) end
 
+--- The device's state lane, made if there is none yet: a lane whose points
+--- each give the device one of the lane's states, from that point on.
+---   local lane = amp:automate_state()
+---   lane:set_state(16, lane:add_state(amp:capture("crunch")))
 function paw.Device:automate_state() end
 
+--- The device's whole state now, as a state lane takes it: `{ name, state,
+--- params }`. The plugin's saved state, and the parameters set in the project.
 ---@param name any
 function paw.Device:capture(name) end
 
+--- Close the plugin's own window.
 function paw.Device:close_editor() end
 
 --- True if the device is still in the project.
@@ -553,20 +615,28 @@ function paw.Device:get() end
 --- instance, which is the only place they are known.
 function paw.Device:info() end
 
+--- The lane for a parameter, if there is one.
 ---@param param any
 function paw.Device:lane(param) end
 
+--- The automation lanes of the device's parameters, as `paw.Lane` objects.
 function paw.Device:lanes() end
 
+--- Move within the chain, or to another track: `device:move(1)`, `device:move(2, other)`.
 ---@param index any
 ---@param track any
 function paw.Device:move(index, track) end
 
+--- Show the plugin's own window.
 function paw.Device:open_editor() end
 
 --- Take the device off its track.
 function paw.Device:remove() end
 
+--- Show the window of the plugin. `device.editor` is "open", "closed", or
+--- nil for devices that have no window.
+--- Start the device again: for a plugin that stopped (`stopped` tells why)
+--- or did not load. It returns with the last state of it in the project.
 function paw.Device:restart() end
 
 --- Set one parameter, or several from a table.
@@ -576,59 +646,96 @@ function paw.Device:restart() end
 ---@param value any
 function paw.Device:set(name, value) end
 
+--- Set the device offline, or online again. An offline device is not made
+--- (a plugin has no process), and the chain passes over it. Its state and
+--- parameters do not change.
 ---@param on any
 function paw.Device:set_offline(on) end
 
+--- Play the output pair `pair` of the device (2 and more: the first pair
+--- plays on its own track) into a track, or nowhere with nil.
+--- `device.outputs` is a table of pair number to track id.
+--- `device.ports.outputs` names the pairs.
 ---@param pair any
 ---@param track any
 function paw.Device:set_output(pair, track) end
 
+--- Listen to the sound of a different track as the side-chain of the
+--- device. With `comp:set_sidechain(kick)`, a compressor on the bass ducks
+--- under the kick. `{ pre = true }` takes the sound before the fader, pan
+--- and mute of that track. nil (or no track) removes the side-chain.
+--- `device.sidechain` is the id of the track.
 ---@param track any
 ---@param opts any
 function paw.Device:set_sidechain(track, opts) end
 
+--- The device as plain data, for `paw.restore_device`. For a plugin, the
+--- data contains its state, which holds more than its parameters.
 function paw.Device:snapshot() end
 
+--- The device's state lane, if it has one.
 function paw.Device:state_lane() end
 
 --- The track this device is on.
 function paw.Device:track() end
 
+--- The value of a parameter at a beat while the song plays. This is the
+--- value of the lane when the lane is on. If not, it is the value of the device.
 ---@param param any
 ---@param beat any
 function paw.Device:value_at(param, beat) end
 
+--- Add a point. It replaces a point at the same beat. The value is in the
+--- units of the target: dB for volume and -1 to 1 for pan. For a parameter,
+--- it is in the range of the parameter.
 ---@param beat any
 ---@param value any
 function paw.Lane:add(beat, value) end
 
+--- Add a state to a state lane, or replace the one of its name. Returns
+--- its index, from 0: the value of a point that gives it.
 ---@param state any
 function paw.Lane:add_state(state) end
 
+--- Remove every point of the lane.
 function paw.Lane:clear() end
 
+--- True if the lane is still in the project.
 function paw.Lane:exists() end
 
+--- Everything about the lane as plain data (`paw.api.lane_get`).
 function paw.Lane:get() end
 
+--- The points as a list of { beat, value }, sorted by beat.
 function paw.Lane:points() end
 
+--- Take the lane away, and the automation in it.
 function paw.Lane:remove() end
 
+--- Replace the points: `lane:set_points({ { 0, -60 }, { 8, 0 } })`. Points may
+--- also be written { beat = 0, value = -60 }.
 ---@param points any
 function paw.Lane:set_points(points) end
 
+--- Give the device a state of a state lane from `beat` on: a point that
+--- names the state by its name or its index.
+---   lane:set_state(16, "crunch")
 ---@param beat any
 ---@param which any
 function paw.Lane:set_state(beat, which) end
 
+--- The index of a state of a state lane, by its name or its index. Nil
+--- when the lane has no such state.
 ---@param which any
 function paw.Lane:state_index(which) end
 
+--- The states of a state lane: `{ name, state, params, call, program, bank }` each.
 function paw.Lane:states() end
 
+--- The track the lane belongs to.
 function paw.Lane:track() end
 
+--- The value at a beat, when the lane is on and when it is off. Nil without points.
 ---@param beat any
 function paw.Lane:value_at(beat) end
 
@@ -8126,6 +8233,11 @@ function paw.api.inflate(data, format) end
 --- The level of each input channel of the device, as linear gain,
 --- whatever takes it.
 function paw.api.input_levels() end
+
+--- Mark a table (a new one without `t`) as a JSON array, so that
+--- `json_encode` writes it as `[]` when it is empty. Returns it.
+---@param t table?
+function paw.api.json_array(t) end
 
 --- Nil and the reason, when the text is not JSON.
 ---@param text any

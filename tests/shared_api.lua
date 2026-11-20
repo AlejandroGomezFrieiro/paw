@@ -31,6 +31,10 @@ test("paw.util.copy copies tables all the way down", function()
   eq(b.name, "n", "and has its values")
 end)
 
+test("a table marked as a JSON array is written as one when it is empty", function()
+  eq(api.json_encode({ list = api.json_array(), map = {} }), '{"list":[],"map":{}}', "[] and {}")
+end)
+
 test("paw.api.device_find finds a kind of device by its kind, its format, or its name in any case", function()
   local synth = api.device_find({ kind = "synth" })
   eq(synth and synth.kind, "synth", "by kind")
