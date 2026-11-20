@@ -397,7 +397,7 @@ local function findings_at_known_places()
   return hot, keys
 end
 
-test("mixdiag: ]d and [d go from finding to finding", function()
+test("mixdiag: the findings are diagnostics: ]d and [d go from one to the next", function()
   local hot, keys = findings_at_known_places()
   local placed = {}
   for _, f in ipairs(mixdiag.findings) do
@@ -435,20 +435,6 @@ test("mixdiag: ]d and [d go from finding to finding", function()
   T.keys("<C-o>")
   eq(paw.cursor.beat, 12, "<C-o> returns")
   mixdiag.clear()
-end)
-
-test("mixdiag: with no findings, ]d goes to the other diagnostics as in every view", function()
-  fresh()
-  load()
-  local t = paw.add_track({ name = "Keys" })
-  local clip = t:add_clip({ start = 8, length = 4, notes = { { pitch = 60, start = 0, length = 1 } } })
-  paw.diagnostic.set("keytest", clip.id, { { at = 1, length = 1, message = "a lint", severity = 2 } })
-  T.after(function() paw.diagnostic.reset("keytest") end)
-  paw.ui.focus("arrange")
-  paw.cursor.set_track(t)
-  paw.cursor.set_beat(0)
-  T.keys("]d")
-  near(paw.cursor.beat, 9, 1e-6, "]d goes to the clip's diagnostic")
 end)
 
 test("mixdiag: the list of findings, in a picker or in its own view", function()

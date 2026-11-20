@@ -92,15 +92,3 @@ map("<leader>xs", "mix.summary", { desc = "Loudness, true peak and range of the 
 map("<leader>xt", "mix.target", { desc = "Next delivery target" })
 map("<leader>xc", "mix.clear", { desc = "Forget the mix findings" })
 map("<leader>xq", "mix.cancel", { desc = "Stop measuring" })
--- `]d` `[d` go to the diagnostics in every view: here to the mix findings
--- while there are some with a place, else to every other diagnostic.
-local function step(dir)
-  return function(ctx)
-    for _, f in ipairs(mixdiag.findings or {}) do
-      if f.beat then return mixdiag.step(dir, ctx.count) end
-    end
-    paw.diagnostic.jump(dir, ctx.count)
-  end
-end
-map("]d", step(1), { view = "arrange", motion = true, jump = true, desc = "Next mix finding, or the next diagnostic" })
-map("[d", step(-1), { view = "arrange", motion = true, jump = true, desc = "Previous mix finding, or the previous diagnostic" })

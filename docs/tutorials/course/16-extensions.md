@@ -8,7 +8,7 @@ In this lesson, we load seven of the extensions that come with paw, and we try o
 
 Extensions give much of what paw can do. An extension is a folder of Lua in `extensions/` next to the program. It uses the same `paw` module as your `init.lua`. `:tutor.try` loads an extension for this session only. To load an extension each time, link its folder into `~/.config/paw/extensions`.
 
-The README.md of each extension tells all that it does. Each extension has its keys under its own prefix. These are `]]` `[[` and `,S` (sections), `gz` (musicops) and `,t` (pattern). They are also `,x` and `]d` `[d` (mixdiag), `,u` `g-` `g+` (undotree) and `,V` (utau).
+The README.md of each extension tells all that it does. Each extension has its keys under its own prefix. These are `]]` `[[` and `,S` (sections), `gz` (musicops) and `,t` (pattern). They are also `,x` (mixdiag), `,u` `g-` `g+` (undotree) and `,V` (utau).
 
 ## The idea
 

@@ -17,7 +17,7 @@ extension each time, link its folder into `~/.config/paw/extensions`.
 
 The README.md of each extension tells all that it does. Each extension has
 its keys under its own prefix. These are `]]` `[[` and `,S` (sections), `gz`
-(musicops) and `,t` (pattern). They are also `,x` and `]d` `[d` (mixdiag),
+(musicops) and `,t` (pattern). They are also `,x` (mixdiag),
 `,u` `g-` `g+` (undotree) and `,V` (utau).]=],
   idea = [[
 An extension adds commands, keys, text objects, operators and views with the
