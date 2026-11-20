@@ -227,6 +227,10 @@ M.register("extensions", function(h)
       for other, want in pairs(wants or {}) do needs[#needs + 1] = other .. " " .. tostring(want) end
       table.sort(needs)
       h.ok(name .. (#needs > 0 and " (requires " .. table.concat(needs, ", ") .. ")" or ""))
+      for _, o in ipairs(e.overrides or {}) do
+        h.warn(string.format("%s replaces the %s %s of %s", e.name, o.kind, o.what, o.of),
+          { "the extension loaded last wins: load them in the other order, or map it again in init.lua" })
+      end
     else
       h.error(name .. ": " .. tostring(e.error):match("^[^\n]*"), { ":messages has the whole error", ":ext.load " .. e.name .. " tries again once it is fixed" })
     end

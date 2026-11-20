@@ -133,6 +133,10 @@ In the piano roll and the vocal editor:
 | `ah` | the chord and each note that starts while it sounds |
 | `)` `(` | motions: the start of the next phrase. The start of this phrase, or of the previous phrase. With a count, that many |
 
+In the vocal editor, the utau extension maps `(` and `)` to the phonemes.
+The extension that loads last has them (`:checkhealth extensions` says
+which). `config/init.lua` loads utau first, so they move by phrase.
+
 `dip` deletes a phrase. `yap` yanks it with the rest after it. `vih`
 selects the chord, and `gzsih` strums it. `d)` deletes to the next phrase.
 

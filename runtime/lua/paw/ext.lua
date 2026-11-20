@@ -298,6 +298,13 @@ local function claim(entry, before)
       local id = reg.kind .. "\0" .. tostring(key)
       local holder = claimed[id]
       if holder and holder.value == now[key] and holder.name ~= entry.name then return end
+      -- Another extension's entry replaced: the one loaded last wins, which
+      -- `:checkhealth extensions` says.
+      if holder and holder.name ~= entry.name and holder.value == old and old ~= nil then
+        entry.overrides = entry.overrides or {}
+        local what = reg.label and reg.label(key, now[key] or old) or tostring(key)
+        entry.overrides[#entry.overrides + 1] = { kind = reg.title, what = what, of = holder.name }
+      end
       claimed[id] = { name = entry.name, value = now[key] }
       list[#list + 1] = { key = key, value = now[key], old = old }
     end

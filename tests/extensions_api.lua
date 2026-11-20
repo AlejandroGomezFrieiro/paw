@@ -309,3 +309,23 @@ paw.luadev.watch()
   for _ in pairs(paw.timers) do after = after + 1 end
   eq(after, timers, "the core's watch, started again while it loaded, is not taken away")
 end)
+
+test("an extension that maps a key another one mapped wins, and checkhealth says so", function()
+  write(dir("first") .. "/init.lua", 'paw.keymap.set("<F9>", function() _G.extapi_key = "first" end, { view = "arrange", desc = "First" })')
+  write(dir("second") .. "/init.lua", 'paw.keymap.set("<F9>", function() _G.extapi_key = "second" end, { view = "arrange", desc = "Second" })')
+  paw.ext.load(dir("first"))
+  paw.ext.load(dir("second"))
+  T.after(function()
+    paw.ext.unload("second")
+    paw.ext.unload("first")
+    _G.extapi_key = nil
+  end)
+  paw.ui.focus("arrange")
+  paw.keymap.feed("<F9>")
+  eq(_G.extapi_key, "second", "the one loaded last")
+  local said
+  for _, item in ipairs(paw.health.run("extensions").items) do
+    if item.text:find("second replaces the keys", 1, true) and item.text:find("of first", 1, true) then said = item end
+  end
+  eq(said and said.level, "warn", "checkhealth extensions warns of it")
+end)
