@@ -106,7 +106,7 @@ pub const INSTRUMENTS: &[(&str, &str)] = &[
 ];
 
 /// Writes the samples and the instruments into `dir`.
-pub fn write(dir: &Path) -> std::io::Result<()> {
+pub fn write(dir: &Path) -> hound::Result<()> {
     std::fs::create_dir_all(dir)?;
     let wav = |name: &str, data: Vec<f32>, key: Option<u8>, l: Option<(u32, u32)>| {
         write_wav(&dir.join(name), RATE, 1, &data, key, l)

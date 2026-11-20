@@ -154,8 +154,7 @@ Found with grep at a72467cf. Each refactor part that owns the file fixes it.
 
 - **Command lines:** `paw-tui/src/main.rs` (`parse_args`, `doctor_args`,
   the subcommands `doctor`, `clip`, `ctl`, `attach`, `plugin-host`,
-  `plugin-scan`), `paw-gui/src/main.rs`, `paw-mcp/src/main.rs`,
-  `extensions/sampler/native/src/bin/paw-sampler.rs`. Use clap with derive
+  `plugin-scan`), `paw-gui/src/main.rs`, `paw-mcp/src/main.rs`. Use clap with derive
   and subcommands. Keep every flag, its short form and its meaning, and keep
   `docs/reference` in step.
 - **I/O that waits, on threads:** `paw-core/src/rpc.rs` (a thread for each
@@ -187,7 +186,7 @@ Found with grep at a72467cf. Each refactor part that owns the file fixes it.
   paw-gui, paw-tui tests.
 - **WAV writers:** `paw-engine/src/record.rs` (a take, header kept valid
   as it grows: `hound`'s `WavWriter::flush` does this),
-  `paw-listen/src/lib.rs`, and the sampler's `audio.rs` (reads and writes).
+  and `paw-listen/src/lib.rs`. (The sampler's `audio.rs` is on `hound` now.)
 - **FFT:** three radix-2 transforms by hand: `paw-core/src/measure/analysis.rs`,
   `paw-mcp/src/audio.rs`, `paw-engine/src/devices/dsp.rs`. Use `realfft`.
   The one in `dsp.rs` stays only if a device calls it on the audio thread.
@@ -195,8 +194,8 @@ Found with grep at a72467cf. Each refactor part that owns the file fixes it.
   K-weighting, gates, loudness range and true peak. Compare it with
   `ebur128` on the tests in `measure/tests.rs`, and change to the crate if
   the numbers agree.
-- **Real-time tools:** the `no_alloc.rs` tests of paw-engine and the
-  sampler (own allocators), `backend.rs` `no_denormals`, the atomic `f32`
+- **Real-time tools:** the `no_alloc.rs` test of paw-engine (own allocator;
+  the sampler's uses `assert_no_alloc`), `backend.rs` `no_denormals`, the atomic `f32`
   in `devices/dsp.rs` and `engine.rs`, and the thread priority in
   `pool.rs` and `sandbox.rs`.
 - **CLAP host:** `paw-plugins/src/clap.rs` calls `clap-sys` directly.

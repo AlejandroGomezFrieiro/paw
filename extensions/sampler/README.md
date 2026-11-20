@@ -242,7 +242,7 @@ it.
     layers, a FLAC sample and polyphony
   - the plugin through its CLAP entry, with MIDI 2.0 note-ons that carry
     attributes
-  - a counting allocator over all that the audio thread does
+  - `assert_no_alloc` around all that the audio thread does: it counts each allocation and free
 - `native/test.sh` builds the plugin and runs the tests of the extension in
   paw (`tests.lua`) with the plugin on the plugin path. The suite alone
   runs the tests that need no plugin.

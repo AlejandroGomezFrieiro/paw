@@ -9,6 +9,7 @@
 
 use crate::audio::Store;
 use crate::engine::{Attr, Engine, Program};
+use crate::error::FormatError;
 use crate::{describe, formats, params};
 use clap_sys::events::*;
 use clap_sys::ext::audio_ports::*;
@@ -56,6 +57,7 @@ pub struct paw_plugin_call {
 }
 
 struct Features([*const c_char; 4]);
+// SAFETY: the pointers are to `'static` C string literals and are never written.
 unsafe impl Sync for Features {}
 
 static FEATURES: Features = Features([
@@ -103,20 +105,36 @@ struct Plugin {
     retired: [Slot; 8],
 }
 
+// SAFETY: the host calls into one plugin from the main thread and the audio thread only. Each of
+// the `UnsafeCell`s has one of them as its user, `values` and the slots are atomic, and `host` is
+// only read.
 unsafe impl Sync for Plugin {}
 
+/// The plugin behind the host's `clap_plugin`.
+///
+/// # Safety
+///
+/// `plugin` must be the pointer that `factory_create` returned, and the
+/// plugin must not be destroyed while the result is in use.
 unsafe fn this<'a>(plugin: *const clap_plugin) -> &'a Plugin {
+    // SAFETY: the host passes the `clap_plugin` that `factory_create` returned, and its
+    // `plugin_data` points at the boxed `Plugin` until `destroy`.
     unsafe { &*((*plugin).plugin_data as *const Plugin) }
 }
 
 impl Plugin {
     #[allow(clippy::mut_from_ref)]
     fn main(&self) -> &mut Main {
+        // SAFETY: `Main` is used by the main thread only, one call at a time, as CLAP requires of
+        // every function that is not `process`.
         unsafe { &mut *self.main.get() }
     }
 
     #[allow(clippy::mut_from_ref)]
     fn engine(&self) -> &mut Option<Engine> {
+        // SAFETY: the engine is made and dropped by `activate` and `deactivate` on the main thread
+        // while the plugin does not process, and used by `process` and `reset` on the audio thread
+        // otherwise: CLAP never runs them together.
         unsafe { &mut *self.engine.get() }
     }
 
@@ -133,7 +151,12 @@ impl Plugin {
         (0..self.values.len()).map(|i| self.value(i)).collect()
     }
 
+    /// # Safety
+    ///
+    /// `T` must be the table that the host gives for `id`.
     unsafe fn host_extension<T>(&self, id: &CStr) -> Option<&T> {
+        // SAFETY: the host's `get_extension` returns null or a pointer to a table that stays valid
+        // as long as the host does.
         unsafe {
             let get = (*self.host).get_extension?;
             (get(self.host, id.as_ptr()) as *const T).as_ref()
@@ -141,13 +164,13 @@ impl Plugin {
     }
 
     /// Reads an instrument and makes it the one played.
-    fn load(&self, path: &str) -> Result<(), String> {
+    fn load(&self, path: &str) -> Result<(), FormatError> {
         let main = self.main();
         main.path = path.to_string();
         let instrument = match formats::read(Path::new(path)) {
             Ok(i) => i,
             Err(e) => {
-                main.error = Some(e.clone());
+                main.error = Some(e.to_string());
                 return Err(e);
             }
         };
@@ -165,6 +188,7 @@ impl Plugin {
         main.names = names;
         main.program = Some(program.clone());
         self.hand_over(Some(program));
+        // SAFETY: called on the main thread, where the host's `changed` callback is allowed.
         unsafe {
             if let Some(h) = self.host_extension::<clap_host_note_name>(CLAP_EXT_NOTE_NAME)
                 && let Some(changed) = h.changed
@@ -184,6 +208,8 @@ impl Plugin {
         let old = self.incoming.swap(new, AcqRel);
         if !old.is_null() {
             // Never taken: the audio thread has not seen it.
+            // SAFETY: `old` came from `Box::into_raw` and the swap took it out of its slot, so
+            // nothing else owns it. The audio thread has never seen it.
             drop(unsafe { Box::from_raw(old) });
         }
     }
@@ -193,6 +219,8 @@ impl Plugin {
         for slot in &self.retired {
             let p = slot.swap(null_mut(), AcqRel);
             if !p.is_null() {
+                // SAFETY: the audio thread put the pointer there from `Box::into_raw`, and the swap
+                // took it out of the slot, so nothing else owns it.
                 drop(unsafe { Box::from_raw(p) });
             }
         }
@@ -206,6 +234,8 @@ unsafe extern "C" fn init(_: *const clap_plugin) -> bool {
 }
 
 unsafe extern "C" fn destroy(plugin: *const clap_plugin) {
+    // SAFETY: `plugin_data` is the `Box::into_raw` of `factory_create`, and CLAP calls `destroy`
+    // once, with no other call running.
     unsafe {
         let p = (*plugin).plugin_data as *mut Plugin;
         let p = Box::from_raw(p);
@@ -218,6 +248,8 @@ unsafe extern "C" fn destroy(plugin: *const clap_plugin) {
 }
 
 unsafe extern "C" fn activate(plugin: *const clap_plugin, sample_rate: f64, _: u32, _: u32) -> bool {
+    // SAFETY: the host passes the `clap_plugin` that `factory_create` returned, and its
+    // `plugin_data` points at the boxed `Plugin` until `destroy`.
     let p = unsafe { this(plugin) };
     let mut engine = Engine::new(sample_rate);
     engine.settings = params::settings(&p.values());
@@ -225,6 +257,8 @@ unsafe extern "C" fn activate(plugin: *const clap_plugin, sample_rate: f64, _: u
     *p.engine() = Some(engine);
     let incoming = p.incoming.swap(null_mut(), AcqRel);
     if !incoming.is_null() {
+        // SAFETY: the pointer came from `Box::into_raw` and the swap took it out of its slot, so
+        // nothing else owns it.
         drop(unsafe { Box::from_raw(incoming) });
     }
     p.main().active = true;
@@ -232,11 +266,15 @@ unsafe extern "C" fn activate(plugin: *const clap_plugin, sample_rate: f64, _: u
 }
 
 unsafe extern "C" fn deactivate(plugin: *const clap_plugin) {
+    // SAFETY: the host passes the `clap_plugin` that `factory_create` returned, and its
+    // `plugin_data` points at the boxed `Plugin` until `destroy`.
     let p = unsafe { this(plugin) };
     p.main().active = false;
     *p.engine() = None;
     let incoming = p.incoming.swap(null_mut(), AcqRel);
     if !incoming.is_null() {
+        // SAFETY: the pointer came from `Box::into_raw` and the swap took it out of its slot, so
+        // nothing else owns it.
         drop(unsafe { Box::from_raw(incoming) });
     }
     p.collect();
@@ -249,12 +287,17 @@ unsafe extern "C" fn start_processing(_: *const clap_plugin) -> bool {
 unsafe extern "C" fn stop_processing(_: *const clap_plugin) {}
 
 unsafe extern "C" fn reset(plugin: *const clap_plugin) {
+    // SAFETY: the host passes the `clap_plugin` that `factory_create` returned, and its
+    // `plugin_data` points at the boxed `Plugin` until `destroy`.
     if let Some(e) = unsafe { this(plugin) }.engine() {
         e.reset();
     }
 }
 
 unsafe extern "C" fn process(plugin: *const clap_plugin, process: *const clap_process) -> clap_process_status {
+    // SAFETY: every pointer is the host's for this call: `process`, its events and its buffers.
+    // `data32` holds `channel_count` channels of `frames_count` floats, and `incoming` is a pointer
+    // that the swap made ours.
     unsafe {
         let p = this(plugin);
         let Some(engine) = p.engine() else { return CLAP_PROCESS_ERROR };
@@ -315,7 +358,14 @@ unsafe extern "C" fn process(plugin: *const clap_plugin, process: *const clap_pr
 }
 
 /// One event from the host.
+///
+/// # Safety
+///
+/// `header` must point to a whole event of the core space, of the type and
+/// size that its header says.
 unsafe fn handle(p: &Plugin, engine: &mut Engine, header: *const clap_event_header) {
+    // SAFETY: the host's event is of the size that its `type_` says, in the core space (`process`
+    // checked the space).
     unsafe {
         match (*header).type_ {
             CLAP_EVENT_NOTE_ON => {
@@ -383,10 +433,13 @@ pub fn midi2(engine: &mut Engine, w0: u32, w1: u32) {
 }
 
 unsafe extern "C" fn on_main_thread(plugin: *const clap_plugin) {
+    // SAFETY: the host passes the `clap_plugin` that `factory_create` returned, and its
+    // `plugin_data` points at the boxed `Plugin` until `destroy`.
     unsafe { this(plugin) }.collect();
 }
 
 unsafe extern "C" fn get_extension(_: *const clap_plugin, id: *const c_char) -> *const c_void {
+    // SAFETY: CLAP gives a NUL-terminated string that stays valid for this call.
     let id = unsafe { CStr::from_ptr(id) };
     if id == CLAP_EXT_AUDIO_PORTS {
         &AUDIO_PORTS as *const _ as *const c_void
@@ -422,6 +475,7 @@ unsafe extern "C" fn audio_ports_get(_: *const clap_plugin, index: u32, is_input
     if is_input || index != 0 {
         return false;
     }
+    // SAFETY: the host passes a `clap_audio_port_info` to fill.
     unsafe {
         let info = &mut *info;
         info.id = 0;
@@ -447,6 +501,7 @@ unsafe extern "C" fn note_ports_get(_: *const clap_plugin, index: u32, is_input:
     if !is_input || index != 0 {
         return false;
     }
+    // SAFETY: the host passes a `clap_note_port_info` to fill.
     unsafe {
         let info = &mut *info;
         info.id = 0;
@@ -485,6 +540,7 @@ unsafe extern "C" fn params_count(_: *const clap_plugin) -> u32 {
 
 unsafe extern "C" fn params_get_info(_: *const clap_plugin, index: u32, info: *mut clap_param_info) -> bool {
     let Some(p) = params::PARAMS.get(index as usize) else { return false };
+    // SAFETY: the host passes a `clap_param_info` to fill.
     unsafe {
         let info = &mut *info;
         info.id = p.id;
@@ -501,6 +557,7 @@ unsafe extern "C" fn params_get_info(_: *const clap_plugin, index: u32, info: *m
 
 unsafe extern "C" fn params_get_value(plugin: *const clap_plugin, id: clap_id, out: *mut f64) -> bool {
     let Some((i, _)) = params::by_id(id) else { return false };
+    // SAFETY: the host passes a place for one `f64`.
     unsafe { *out = this(plugin).value(i) };
     true
 }
@@ -510,6 +567,7 @@ unsafe extern "C" fn params_value_to_text(_: *const clap_plugin, id: clap_id, va
     if capacity == 0 {
         return false;
     }
+    // SAFETY: the host passes a buffer of `capacity` characters (not zero, checked above).
     let out = unsafe { std::slice::from_raw_parts_mut(out, capacity as usize) };
     write_name(out, &params::to_text(p, value));
     true
@@ -517,9 +575,11 @@ unsafe extern "C" fn params_value_to_text(_: *const clap_plugin, id: clap_id, va
 
 unsafe extern "C" fn params_text_to_value(_: *const clap_plugin, id: clap_id, text: *const c_char, out: *mut f64) -> bool {
     let Some((_, p)) = params::by_id(id) else { return false };
+    // SAFETY: CLAP gives a NUL-terminated string that stays valid for this call.
     let text = unsafe { CStr::from_ptr(text) }.to_string_lossy();
     match params::from_text(p, &text) {
         Some(v) => {
+            // SAFETY: the host passes a place for one `f64`.
             unsafe { *out = v };
             true
         }
@@ -528,6 +588,8 @@ unsafe extern "C" fn params_text_to_value(_: *const clap_plugin, id: clap_id, te
 }
 
 unsafe extern "C" fn params_flush(plugin: *const clap_plugin, events: *const clap_input_events, _: *const clap_output_events) {
+    // SAFETY: the host's input events are valid for this call, and `get` gives a header for each
+    // index below `size`.
     unsafe {
         let p = this(plugin);
         let events = &*events;
@@ -551,6 +613,8 @@ static STATE: clap_plugin_state = clap_plugin_state { save: Some(state_save), lo
 
 /// The state is small JSON: the instrument's path and the parameters.
 unsafe extern "C" fn state_save(plugin: *const clap_plugin, stream: *const clap_ostream) -> bool {
+    // SAFETY: the host passes the `clap_plugin` that `factory_create` returned, and its
+    // `plugin_data` points at the boxed `Plugin` until `destroy`.
     let p = unsafe { this(plugin) };
     let mut values = serde_json::Map::new();
     for (i, param) in params::PARAMS.iter().enumerate() {
@@ -559,6 +623,7 @@ unsafe extern "C" fn state_save(plugin: *const clap_plugin, stream: *const clap_
     let state = serde_json::json!({ "version": 1, "instrument": p.main().path, "params": values });
     let bytes = state.to_string().into_bytes();
     let mut done = 0;
+    // SAFETY: the host's stream and its `write` are valid for this call.
     unsafe {
         let Some(write) = (*stream).write else { return false };
         while done < bytes.len() {
@@ -573,8 +638,12 @@ unsafe extern "C" fn state_save(plugin: *const clap_plugin, stream: *const clap_
 }
 
 unsafe extern "C" fn state_load(plugin: *const clap_plugin, stream: *const clap_istream) -> bool {
+    // SAFETY: the host passes the `clap_plugin` that `factory_create` returned, and its
+    // `plugin_data` points at the boxed `Plugin` until `destroy`.
     let p = unsafe { this(plugin) };
     let mut bytes = Vec::new();
+    // SAFETY: the host's stream and its `read` are valid for this call, and `read` fills at most
+    // the buffer's length.
     unsafe {
         let Some(read) = (*stream).read else { return false };
         let mut buffer = [0u8; 4096];
@@ -609,12 +678,18 @@ unsafe extern "C" fn state_load(plugin: *const clap_plugin, stream: *const clap_
 static PRESET_LOAD: clap_plugin_preset_load = clap_plugin_preset_load { from_location: Some(preset_from_location) };
 
 unsafe extern "C" fn preset_from_location(plugin: *const clap_plugin, kind: u32, location: *const c_char, _key: *const c_char) -> bool {
+    // SAFETY: the host passes the `clap_plugin` that `factory_create` returned, and its
+    // `plugin_data` points at the boxed `Plugin` until `destroy`.
     let p = unsafe { this(plugin) };
     if kind != CLAP_PRESET_DISCOVERY_LOCATION_FILE || location.is_null() {
         return false;
     }
+    // SAFETY: CLAP gives a NUL-terminated string that stays valid for this call. A null `location`
+    // returned above.
     let path = unsafe { CStr::from_ptr(location) }.to_string_lossy().into_owned();
     let result = p.load(&path);
+    // SAFETY: the host and its extensions are valid for this call, and `location` is passed back as
+    // it came.
     unsafe {
         if let Some(h) = p.host_extension::<clap_host_preset_load>(CLAP_EXT_PRESET_LOAD) {
             match &result {
@@ -625,7 +700,7 @@ unsafe extern "C" fn preset_from_location(plugin: *const clap_plugin, kind: u32,
                 }
                 Err(e) => {
                     if let Some(on_error) = h.on_error {
-                        let msg = std::ffi::CString::new(e.replace('\0', " ")).unwrap_or_default();
+                        let msg = std::ffi::CString::new(e.to_string().replace('\0', " ")).unwrap_or_default();
                         on_error(p.host, kind, location, null(), 0, msg.as_ptr());
                     }
                 }
@@ -645,12 +720,17 @@ unsafe extern "C" fn preset_from_location(plugin: *const clap_plugin, kind: u32,
 static NOTE_NAME: clap_plugin_note_name = clap_plugin_note_name { count: Some(note_name_count), get: Some(note_name_get) };
 
 unsafe extern "C" fn note_name_count(plugin: *const clap_plugin) -> u32 {
+    // SAFETY: the host passes the `clap_plugin` that `factory_create` returned, and its
+    // `plugin_data` points at the boxed `Plugin` until `destroy`.
     unsafe { this(plugin) }.main().names.len() as u32
 }
 
 unsafe extern "C" fn note_name_get(plugin: *const clap_plugin, index: u32, out: *mut clap_note_name) -> bool {
+    // SAFETY: the host passes the `clap_plugin` that `factory_create` returned, and its
+    // `plugin_data` points at the boxed `Plugin` until `destroy`.
     let p = unsafe { this(plugin) };
     let Some((key, name)) = p.main().names.get(index as usize) else { return false };
+    // SAFETY: the host passes a `clap_note_name` to fill.
     unsafe {
         let out = &mut *out;
         write_name(&mut out.name, name);
@@ -673,7 +753,10 @@ unsafe extern "C" fn call(
     out: *mut c_void,
     write: Option<unsafe extern "C" fn(out: *mut c_void, data: *const u8, size: usize)>,
 ) -> bool {
+    // SAFETY: the host passes the `clap_plugin` that `factory_create` returned, and its
+    // `plugin_data` points at the boxed `Plugin` until `destroy`.
     let p = unsafe { this(plugin) };
+    // SAFETY: CLAP gives a NUL-terminated string that stays valid for this call.
     let method = unsafe { CStr::from_ptr(method) }.to_string_lossy();
     let (ok, answer) = match method.as_ref() {
         "describe" => {
@@ -683,6 +766,7 @@ unsafe extern "C" fn call(
         _ => (false, format!("the sampler has no method `{method}`")),
     };
     if let Some(write) = write {
+        // SAFETY: `write` is the host's, and `answer` lives past the call.
         unsafe { write(out, answer.as_ptr(), answer.len()) };
     }
     ok
@@ -705,6 +789,8 @@ unsafe extern "C" fn factory_descriptor(_: *const clap_plugin_factory, index: u3
 }
 
 unsafe extern "C" fn factory_create(_: *const clap_plugin_factory, host: *const clap_host, id: *const c_char) -> *const clap_plugin {
+    // SAFETY: CLAP gives a NUL-terminated string that stays valid for this call. A null `id`
+    // returned above.
     if id.is_null() || unsafe { CStr::from_ptr(id) } != PLUGIN_ID {
         return null();
     }
@@ -738,6 +824,7 @@ unsafe extern "C" fn factory_create(_: *const clap_plugin_factory, host: *const 
         retired: Default::default(),
     });
     let plugin = Box::into_raw(plugin);
+    // SAFETY: `plugin` is the box just made, and nothing else holds it yet.
     unsafe {
         (*plugin).clap.plugin_data = plugin as *mut c_void;
         ptr::addr_of!((*plugin).clap)
@@ -751,6 +838,8 @@ unsafe extern "C" fn entry_init(_: *const c_char) -> bool {
 unsafe extern "C" fn entry_deinit() {}
 
 unsafe extern "C" fn entry_get_factory(id: *const c_char) -> *const c_void {
+    // SAFETY: CLAP gives a NUL-terminated string that stays valid for this call. A null `id` is
+    // checked first.
     if !id.is_null() && unsafe { CStr::from_ptr(id) } == CLAP_PLUGIN_FACTORY_ID {
         &FACTORY as *const _ as *const c_void
     } else {
@@ -758,6 +847,8 @@ unsafe extern "C" fn entry_get_factory(id: *const c_char) -> *const c_void {
     }
 }
 
+// SAFETY: `clap_entry` is the symbol that CLAP hosts look up by name, and
+// nothing else in the library has it.
 #[unsafe(no_mangle)]
 #[allow(non_upper_case_globals)]
 pub static clap_entry: clap_sys::entry::clap_plugin_entry = clap_sys::entry::clap_plugin_entry {
