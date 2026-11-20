@@ -10,7 +10,7 @@ use std::process::ExitCode;
 use anyhow::{Context, Result, bail};
 use paw_core::{Kernel, KernelOpts, rpc};
 use paw_engine::Registry;
-use paw_engine::backend::BackendOptions;
+use paw_engine::backend::{BackendChoice, BackendOptions};
 use serde_json::Value;
 
 const HELP: &str = "\
@@ -594,10 +594,11 @@ fn run() -> Result<i32> {
     let display_note = paw_plugins::repair_display_env();
 
     // A script only makes sound if it asks for a device.
-    let backend = args
-        .audio
-        .clone()
-        .unwrap_or_else(|| if scripted && !args.doctor { "null" } else { "auto" }.into());
+    let backend = match args.audio.as_deref() {
+        Some(word) => BackendChoice::from(word),
+        None if scripted && !args.doctor => BackendChoice::Null,
+        None => BackendChoice::Auto,
+    };
     let mut registry = Registry::with_builtins();
     // Devices written in Lua always run in helpers: Lua must not run on
     // the audio thread.

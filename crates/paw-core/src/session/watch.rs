@@ -14,7 +14,7 @@ use std::collections::BTreeSet;
 use std::time::{Duration, Instant};
 
 use anyhow::Result;
-use paw_engine::backend::{self, BackendOptions, find_device};
+use paw_engine::backend::{self, BackendChoice, BackendOptions, find_device};
 use serde_json::{Value, json};
 
 use super::Session;
@@ -64,7 +64,7 @@ impl Session {
         }
         self.watch.last_look = Instant::now();
         // Another device was opened meanwhile: nothing to wait for.
-        if self.watch.gone.is_some() && self.stream.info.backend != "null" {
+        if self.watch.gone.is_some() && self.stream.info.backend != BackendChoice::Null {
             self.watch.gone = None;
         }
         if self.watch.gone.is_none()
@@ -85,7 +85,7 @@ impl Session {
 
     /// Whether [`watch_devices`](Self::watch_devices) has anything to watch.
     pub(super) fn watching(&self) -> bool {
-        self.stream.info.backend != "null"
+        self.stream.info.backend != BackendChoice::Null
             || self.watch.gone.is_some()
             || self.midi.is_some()
             || !self.test_ports.is_empty()
@@ -113,7 +113,7 @@ impl Session {
             wanted.input_device = Some(info.input_device_id.clone());
         }
         let null = BackendOptions {
-            backend: "null".into(),
+            backend: BackendChoice::Null,
             sample_rate: Some(info.sample_rate),
             buffer_size: wanted.buffer_size,
             input: false,
@@ -139,7 +139,7 @@ impl Session {
         let Ok(list) = backend::list_devices(wanted) else {
             return false;
         };
-        if list.backend == "null" && wanted.backend != "null" {
+        if list.backend == BackendChoice::Null && wanted.backend != BackendChoice::Null {
             return false;
         }
         match wanted.output_device.as_deref() {
@@ -160,7 +160,10 @@ impl Session {
         }
         let (wanted, name) = (gone.wanted.clone(), gone.name.clone());
         match self.engine_restart(&wanted) {
-            Ok(()) if self.stream.info.backend != "null" || wanted.backend == "null" => {
+            Ok(())
+                if self.stream.info.backend != BackendChoice::Null
+                    || wanted.backend == BackendChoice::Null =>
+            {
                 self.watch.gone = None;
                 let engine = self.engine_info();
                 self.emit(E::AudioRestored(AudioRestored { device: name, engine }));
@@ -170,13 +173,13 @@ impl Session {
                 // Not as it was: go on without sound, and keep looking.
                 let rate = self.stream.info.sample_rate;
                 let null = BackendOptions {
-                    backend: "null".into(),
+                    backend: BackendChoice::Null,
                     sample_rate: Some(rate),
                     buffer_size: wanted.buffer_size,
                     input: false,
                     ..BackendOptions::default()
                 };
-                if self.stream.info.backend != "null" || outcome.is_err() {
+                if self.stream.info.backend != BackendChoice::Null || outcome.is_err() {
                     let _ = self.engine_restart(&null);
                 }
                 self.backend = wanted;
