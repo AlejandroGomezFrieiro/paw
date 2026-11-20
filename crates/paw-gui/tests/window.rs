@@ -226,6 +226,17 @@ fn display_in_use(number: u32) -> bool {
     running || UnixStream::connect(format!("/tmp/.X11-unix/X{number}")).is_ok()
 }
 
+/// openbox's own configuration with a rule that takes the frame off every
+/// window (its keys, Alt-F4 among them, stay).
+fn undecorated_openbox_config(openbox: &Path) -> Option<String> {
+    let binary = fs::canonicalize(openbox).ok()?;
+    let rc = binary.parent()?.parent()?.join("etc/xdg/openbox/rc.xml");
+    let text = fs::read_to_string(rc).ok()?;
+    let rule = "<applications><application class=\"*\"><decor>no</decor></application>";
+    text.contains("<applications>")
+        .then(|| text.replacen("<applications>", rule, 1))
+}
+
 /// A display number that one test process holds. The X server's own lock
 /// file appears only after it started, so two test processes (two checkouts
 /// testing at once) that probe at the same moment would both take the same
@@ -380,12 +391,65 @@ impl Scene {
             envs.push(("PAW_GUI_RENDERER", "software".into()));
         }
 
-        let mut command = Command::new(&tools.openbox);
-        command
-            .env("DISPLAY", &display)
-            .stdout(Stdio::null())
-            .stderr(Stdio::null());
-        let openbox = spawn_group(&mut command);
+        // The server listens before it answers: on a busy machine it compiles
+        // its keymap for seconds, and a client that connects then (openbox
+        // does, once) is refused and ends. The window manager starts when
+        // the server answers, and again if it ended all the same; the window
+        // opens when it is the window manager. A window that opens before has
+        // no focus and no Alt-F4 (see `take_focus`).
+        let xdotool_ok = |args: &[&str]| {
+            Command::new(&tools.xdotool)
+                .args(args)
+                .env("DISPLAY", &display)
+                .output()
+                .is_ok_and(|o| o.status.success())
+        };
+        let deadline = Instant::now() + Duration::from_secs(60);
+        while !xdotool_ok(&["getdisplaygeometry"]) {
+            assert!(Instant::now() < deadline, "the X server never answered");
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        let rc = undecorated_openbox_config(&tools.openbox).map(|rc| {
+            let file = dir.join("openbox-rc.xml");
+            fs::write(&file, rc).unwrap();
+            file
+        });
+        let mut openbox = None;
+        for _ in 0..5 {
+            let wm_log = fs::File::create(dir.join("openbox.out")).unwrap();
+            let mut command = Command::new(&tools.openbox);
+            command
+                .env("DISPLAY", &display)
+                .stdout(wm_log.try_clone().unwrap())
+                .stderr(wm_log);
+            // No frames: the window's content is where the window is (the
+            // pointer's places count on it).
+            if let Some(file) = &rc {
+                command.arg("--config-file").arg(file);
+            }
+            let mut child = spawn_group(&mut command);
+            let deadline = Instant::now() + Duration::from_secs(20);
+            let mut ready = false;
+            while child.try_wait().unwrap().is_none() && Instant::now() < deadline {
+                if xdotool_ok(&["get_desktop"]) {
+                    ready = true;
+                    break;
+                }
+                std::thread::sleep(Duration::from_millis(50));
+            }
+            if ready {
+                openbox = Some(child);
+                break;
+            }
+            signal_group(&child);
+            let _ = child.wait();
+        }
+        let openbox = openbox.unwrap_or_else(|| {
+            panic!(
+                "openbox never took the screen: {}",
+                fs::read_to_string(dir.join("openbox.out")).unwrap_or_default()
+            )
+        });
 
         let out = fs::File::create(dir.join("window.out")).unwrap();
         let run = envs
@@ -511,6 +575,7 @@ impl Scene {
         };
         // At the corner of the screen, so that nothing is partly off it.
         self.xdotool(&["windowmove", &id, "0", "0"]);
+        self.take_focus(&id);
         std::thread::sleep(Duration::from_millis(500));
         let geometry = self.xdotool(&["getwindowgeometry", "--shell", &id]);
         let value = |key: &str| -> i32 {
@@ -524,6 +589,28 @@ impl Scene {
         self.size = (value("WIDTH"), value("HEIGHT"));
         // The first state has to arrive and be drawn.
         std::thread::sleep(Duration::from_millis(700));
+    }
+
+    /// Wait until the window has the input focus of the X server, and give it
+    /// when nobody does. openbox gives the focus to a window that it sees
+    /// map; on a busy machine it may start after the window has mapped, and
+    /// then nothing gives the focus (the server's focus stays on no window,
+    /// `xdotool getwindowfocus` fails): every key sent after that goes to no
+    /// window, and the first click is the first thing that gives the focus.
+    fn take_focus(&self, id: &str) {
+        let deadline = Instant::now() + Duration::from_secs(20);
+        loop {
+            if self.xdotool(&["getwindowfocus"]).trim() == id {
+                return;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "{}: the window never got the input focus",
+                self.name
+            );
+            self.xdotool(&["windowfocus", id]);
+            std::thread::sleep(Duration::from_millis(100));
+        }
     }
 
     fn env_path(&self, key: &str) -> &Path {
