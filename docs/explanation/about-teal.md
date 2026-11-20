@@ -8,7 +8,7 @@ also gives the plan to move the Lua of paw to Teal.
 ## Why a language with types
 
 The runtime of paw has about 60,000 lines of Lua, and the extensions have
-about 30,000 more. In Lua, a wrong field name or a value of the wrong kind
+about 60,000 more. In Lua, a wrong field name or a value of the wrong kind
 shows only when that line runs. A checker finds these errors in all of the
 code, at one time. An editor also completes the names of fields and
 functions, because it knows the type of each value.
@@ -137,7 +137,7 @@ work of one agent. The areas of one wave do not depend on each other.
 | 4 | Editors | `ex`, `textbuf`, `pick` and `pick/`, `help`, `lsp/` | 9,000 | wave 3 |
 | 4 | The frontend | `frontend`, `remote`, `render`, `media` | 3,800 | wave 3 |
 | 5 | Keys and views | `keymap`, `keyrule`, `keybar`, `defaults/`, `views/`, `roles/` | 15,000 | wave 4, and the work on the keys that runs now |
-| 5 | Extensions | one agent for each: `notation` (20,000), `utau` (8,000), `plugstate` (5,700), `interop` (4,000), the others (under 3,200 each) | 30,000 | the modules of paw that each uses |
+| 5 | Extensions | one agent for each: `notation` (20,000), `utau` (8,000), `plugstate` (5,700), `interop` (4,000), the others (under 3,200 each) | 60,000 | the modules of paw that each uses |
 
 The spike moved 1,100 lines in a part of a day, with the checker. An area
 of wave 1 or 2 is about one day of work for one agent. An area of wave 4
