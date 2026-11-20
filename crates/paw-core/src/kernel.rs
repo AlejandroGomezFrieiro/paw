@@ -667,7 +667,13 @@ fn install_loader(lua: &Lua, env: &Env) -> mlua::Result<()> {
     let loadstring: Function = lua.globals().get("loadstring")?;
     let embedded = lua.create_function(move |lua, name: String| {
         let path = name.replace('.', "/");
-        for candidate in [format!("{path}.lua"), format!("{path}/init.lua")] {
+        let candidates = [
+            format!("{path}.lua"),
+            format!("{path}/init.lua"),
+            format!("{path}.tl"),
+            format!("{path}/init.tl"),
+        ];
+        for candidate in candidates {
             // The module compiled when the program was built (build.rs): it
             // loads many times quicker than its source is parsed.
             if let Ok(i) = bytecode::BYTECODE.binary_search_by_key(&candidate.as_str(), |(p, _)| p) {
@@ -675,6 +681,16 @@ fn install_loader(lua: &Lua, env: &Env) -> mlua::Result<()> {
                 if let Ok(LuaValue::Function(chunk)) = loadstring.call::<LuaValue>(code) {
                     return Ok(LuaValue::Function(chunk));
                 }
+            }
+            // A Teal module: the Lua the build made of it.
+            if candidate.ends_with(".tl") {
+                if let Ok(i) = bytecode::TEAL.binary_search_by_key(&candidate.as_str(), |(p, _)| p) {
+                    let chunk = lua
+                        .load(bytecode::TEAL[i].1)
+                        .set_name(format!("@runtime/lua/{candidate}"));
+                    return Ok(LuaValue::Function(chunk.into_function()?));
+                }
+                continue;
             }
             if let Some(file) = RUNTIME.get_file(&candidate) {
                 let chunk = lua
@@ -713,7 +729,7 @@ mod tests {
     fn the_runtime_is_built_in_as_bytecode() {
         fn walk(dir: &Dir<'_>, out: &mut Vec<String>) {
             for file in dir.files() {
-                if file.path().extension().is_some_and(|e| e == "lua") {
+                if file.path().extension().is_some_and(|e| e == "lua" || e == "tl") {
                     out.push(file.path().to_string_lossy().into_owned());
                 }
             }
@@ -726,6 +742,9 @@ mod tests {
         sources.sort();
         let compiled: Vec<&str> = bytecode::BYTECODE.iter().map(|(p, _)| *p).collect();
         assert_eq!(compiled, sources);
+        let teal: Vec<&str> = bytecode::TEAL.iter().map(|(p, _)| *p).collect();
+        let tl_sources: Vec<&str> = sources.iter().map(String::as_str).filter(|p| p.ends_with(".tl")).collect();
+        assert_eq!(teal, tl_sources, "every Teal module is in the program as Lua");
         let lua = Lua::new();
         let loadstring: Function = lua.globals().get("loadstring").unwrap();
         for (path, code) in bytecode::BYTECODE {

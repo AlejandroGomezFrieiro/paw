@@ -17,7 +17,64 @@
 -- correlated with Krumhansl and Kessler's major and minor profiles for all
 -- twelve tonics; a key holds over bars unless another fits better by more
 -- than a modulation costs.
-local M = {}
+--
+-- Written in Teal (paw/lang.lua): the build compiles it to Lua.
+
+--- A chord quality: steps above the root, its names, and what it costs.
+local record Quality
+  name: string
+  steps: {integer}
+  suffix: string
+  roman: string
+  minor: boolean
+  cost: number
+end
+
+--- A note in project beats.
+local record Note
+  pitch: integer
+  start: number
+  length: number
+  velocity: number
+end
+
+--- A chord that `chords` reads: pitch classes 0..11.
+local record Chord
+  at: number
+  length: number
+  root: integer
+  quality: string
+  bass: integer
+  tones: {integer}
+end
+
+--- A key that `keys` reads.
+local record Key
+  at: number
+  length: number
+  tonic: integer
+  mode: string
+end
+
+--- The options of `chords`.
+local record ChordOptions
+  step: number
+  from: number
+  to: number
+  bar: number
+end
+
+-- Weights of the twelve pitch classes, by pitch class.
+local type Weights = {integer:number}
+
+local record M
+  qualities: {Quality}
+  by_quality: {string:Quality}
+  MAJOR: {number}
+  MINOR: {number}
+  fit: function(w: Weights, bass: integer, total: number, root: integer, q: Quality): number
+  correlate: function(h: Weights, profile: {number}, tonic: integer): number
+end
 
 -- Qualities: steps above the root. `cost` is what it takes to prefer it to a
 -- plainer chord with fewer tones; `minor` makes its Roman numeral lower case.
@@ -57,10 +114,16 @@ local NONE = -0.5      -- "no chord" where something sounds
 --- Weights of the twelve pitch classes between `from` and `to`, the bass's
 --- pitch class, and the total. `notes` sorted by start; those before
 --- `first` have ended before `from`.
-local function weigh(notes, from, to, first)
-  local w, total = {}, 0
+local function weigh(notes: {Note}, from: number, to: number, first?: integer): Weights, integer, number
+  local w: Weights = {}
+  local total: number = 0
   for pc = 0, 11 do w[pc] = 0 end
-  local lows = {}   -- the lowest pitch sounding over each piece of the window
+  local record Low
+    a: number
+    b: number
+    pitch: integer
+  end
+  local lows: {Low} = {}   -- the lowest pitch sounding over each piece of the window
   for i = first or 1, #notes do
     local n = notes[i]
     if n.start >= to then break end
@@ -75,27 +138,29 @@ local function weigh(notes, from, to, first)
   end
   if total == 0 then return w, nil, 0 end
   -- The bass: of the lowest pitches over time, the class that lasts longest.
-  local cuts = { from, to }
+  local cuts: {number} = { from, to }
   for _, l in ipairs(lows) do cuts[#cuts + 1] = l.a cuts[#cuts + 1] = l.b end
   table.sort(cuts)
-  local held = {}
+  local held: Weights = {}
   for i = 1, #cuts - 1 do
     local a, b = cuts[i], cuts[i + 1]
     if b - a > 1e-9 then
-      local low
+      local low: integer
       for _, l in ipairs(lows) do
         if l.a <= a + 1e-9 and l.b >= b - 1e-9 and (not low or l.pitch < low) then low = l.pitch end
       end
       if low then held[low % 12] = (held[low % 12] or 0) + (b - a) end
     end
   end
-  local bass, most = nil, 0
+  local bass: integer
+  local most: number = 0
   for pc, d in pairs(held) do
     if d > most or (d == most and bass and pc < bass) then bass, most = pc, d end
   end
   -- An arpeggio's bass sounds a moment and leaves the others to it: the
   -- lowest pitch of all is the bass when it sounds an eighth of the time.
-  local lowest, lasts = nil, 0
+  local lowest: integer
+  local lasts: number = 0
   for _, l in ipairs(lows) do
     if not lowest or l.pitch < lowest then lowest, lasts = l.pitch, 0 end
     if l.pitch == lowest then lasts = lasts + (l.b - l.a) end
@@ -109,7 +174,7 @@ local function weigh(notes, from, to, first)
 end
 
 --- How many pitch classes weigh something (a twentieth of the total) in `w`.
-local function classes(w, total)
+local function classes(w: Weights, total: number): integer
   local n = 0
   for pc = 0, 11 do
     if w[pc] > 0.05 * total then n = n + 1 end
@@ -118,8 +183,9 @@ local function classes(w, total)
 end
 
 --- How well the chord `root` `quality` fits weights `w` with `bass` and `total`.
-local function fit(w, bass, total, root, q)
-  local inside, member = 0, {}
+local function fit(w: Weights, bass: integer, total: number, root: integer, q: Quality): number
+  local inside: number = 0
+  local member: {integer:integer} = {}
   for _, s in ipairs(q.steps) do
     local pc = (root + s) % 12
     member[pc] = s
@@ -142,12 +208,12 @@ M.fit = fit
 --- Chords over notes in project beats, from `from` to `to` (the notes'
 --- span when nil), in windows of `step` beats (0.5). Each chord:
 --- `{ at, length, root, quality, bass, tones }` with pitch classes 0..11.
-function M.chords(notes, opts)
+function M.chords(notes: {Note}, opts?: ChordOptions): {Chord}
   opts = opts or {}
   local step = opts.step or 0.5
-  local sorted = {}
+  local sorted: {Note} = {}
   for i, n in ipairs(notes) do sorted[i] = n end
-  table.sort(sorted, function(a, b) return a.start < b.start end)
+  table.sort(sorted, function(a: Note, b: Note): boolean return a.start < b.start end)
   if #sorted == 0 then return {} end
   local first, last = math.huge, -math.huge
   for _, n in ipairs(sorted) do
@@ -157,14 +223,27 @@ function M.chords(notes, opts)
   local to = math.min(opts.to or last, last)
   if to <= from then return {} end
 
-  local labels = {}
+  local record Label
+    root: integer
+    q: Quality
+  end
+  local record Window
+    at: number
+    length: number
+    w: Weights
+    bass: integer
+    total: number
+  end
+  local labels: {Label} = {}
   for root = 0, 11 do
     for _, q in ipairs(M.qualities) do labels[#labels + 1] = { root = root, q = q } end
   end
   local NL = #labels + 1   -- the last is "no chord"
-  local windows, prev, back = {}, nil, {}
-  local quiet = 0          -- beats since something last sounded
-  local longest = 0
+  local windows: {Window} = {}
+  local prev: {number}
+  local back: {{integer}} = {}
+  local quiet: number = 0  -- beats since something last sounded
+  local longest: number = 0
   for _, n in ipairs(sorted) do longest = math.max(longest, n.length) end
   local i, lo = 0, 1
   local at = from
@@ -174,7 +253,7 @@ function M.chords(notes, opts)
     while lo <= #sorted and sorted[lo].start + longest < at do lo = lo + 1 end
     local w, bass, total = weigh(sorted, at, at + len, lo)
     windows[i] = { at = at, length = len, w = w, bass = bass, total = total }
-    local scores = {}
+    local scores: {number} = {}
     -- One pitch alone is no chord: it is weighed with the rest of its beat
     -- (an arpeggio's notes come one at a time), and if the beat has no
     -- other either (a melody alone) it says nothing, and the chord before
@@ -199,7 +278,8 @@ function M.chords(notes, opts)
       for l = 1, NL - 1 do scores[l] = gap and -math.huge or 0 end
       scores[NL] = 1e-6
     end
-    local cur, from_l = {}, {}
+    local cur: {number} = {}
+    local from_l: {integer} = {}
     if not prev then
       for l = 1, NL do cur[l], from_l[l] = scores[l], l end
     else
@@ -223,7 +303,8 @@ function M.chords(notes, opts)
   end
 
   -- Walk back from the best end.
-  local path, best, best_l = {}, -math.huge, NL
+  local path: {integer} = {}
+  local best, best_l = -math.huge, NL
   for l = 1, NL do
     if prev[l] > best then best, best_l = prev[l], l end
   end
@@ -234,7 +315,7 @@ function M.chords(notes, opts)
 
   -- Runs of one label are chords. A chord holds over a rest up to the next
   -- chord; with nothing after it, it ends where the last of its notes does.
-  local out = {}
+  local out: {Chord} = {}
   local k = 1
   while k <= #windows do
     local l, j = path[k], k
@@ -252,7 +333,7 @@ function M.chords(notes, opts)
       if b > a then
         -- The bass over the whole chord, weighed again.
         local _, bass = weigh(sorted, a, b)
-        local tones = {}
+        local tones: {integer} = {}
         for t, s in ipairs(label.q.steps) do tones[t] = (label.root + s) % 12 end
         out[#out + 1] = { at = a, length = b - a, root = label.root, quality = label.q.name, bass = bass or label.root, tones = tones }
       end
@@ -270,21 +351,21 @@ M.MINOR = { 6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.
 local MODULATION = 1     -- what a change of key costs, in correlation: a few bars' worth
 local OUTSIDE = 1.5      -- what a bar loses for the share of it outside the key's scale
 local LEAN = 0.3         -- how much each bar leans to the song's overall key
-local NEAR = { [-2] = 0.25, [-1] = 0.5, [1] = 0.5, [2] = 0.25 }   -- neighbouring bars, heard with each
+local NEAR: {integer:number} = { [-2] = 0.25, [-1] = 0.5, [1] = 0.5, [2] = 0.25 }   -- neighbouring bars, heard with each
 -- The pitch classes of a major key, and of a minor one with its raised
 -- sixth and seventh (melodic and harmonic minor are still the key).
-local SCALE = {
+local SCALE: {string:{integer:boolean}} = {
   major = { [0] = true, [2] = true, [4] = true, [5] = true, [7] = true, [9] = true, [11] = true },
   minor = { [0] = true, [2] = true, [3] = true, [5] = true, [7] = true, [8] = true, [9] = true, [10] = true, [11] = true },
 }
 
 --- How well a histogram of pitch classes fits a key's profile from `tonic`,
 --- from -1 to 1 (Pearson's correlation).
-local function correlate(h, profile, tonic)
-  local hm, pm = 0, 0
+local function correlate(h: Weights, profile: {number}, tonic: integer): number
+  local hm, pm: number, number = 0, 0
   for pc = 0, 11 do hm, pm = hm + h[pc], pm + profile[pc + 1] end
   hm, pm = hm / 12, pm / 12
-  local num, dh, dp = 0, 0, 0
+  local num, dh, dp: number, number, number = 0, 0, 0
   for pc = 0, 11 do
     local x, y = h[pc] - hm, profile[(pc - tonic) % 12 + 1] - pm
     num, dh, dp = num + x * y, dh + x * x, dp + y * y
@@ -299,15 +380,15 @@ M.correlate = correlate
 --- gives them) are given, their roots and basses count two times. The
 --- harmony tells more about the tonic than the notes of a melody. Each key
 --- is `{ at, length, tonic, mode }`, with mode "major" or "minor".
-function M.keys(notes, bars, chords)
+function M.keys(notes: {Note}, bars: {number}, chords?: {Chord}): {Key}
   local n = #bars - 1
   if n < 1 then return {} end
-  local hist = {}
+  local hist: {integer:Weights} = {}
   for b = 1, n do
     hist[b] = {}
     for pc = 0, 11 do hist[b][pc] = 0 end
   end
-  local function add(pc, s, e, weight)
+  local function add(pc: integer, s: number, e: number, weight: number)
     for b = 1, n do
       local a, z = math.max(s, bars[b]), math.min(e, bars[b + 1])
       if z > a then hist[b][pc] = hist[b][pc] + (z - a) * weight end
@@ -318,23 +399,32 @@ function M.keys(notes, bars, chords)
     add(c.root, c.at, c.at + c.length, 1)
     add(c.bass or c.root, c.at, c.at + c.length, 0.5)
   end
-  local candidates = {}
+  local record Candidate
+    tonic: integer
+    mode: string
+    profile: {number}
+    scale: {integer:boolean}
+  end
+  local candidates: {Candidate} = {}
   for tonic = 0, 11 do
     candidates[#candidates + 1] = { tonic = tonic, mode = "major", profile = M.MAJOR, scale = SCALE.major }
     candidates[#candidates + 1] = { tonic = tonic, mode = "minor", profile = M.MINOR, scale = SCALE.minor }
   end
   -- The song as a whole leans each bar towards its overall key, so that a
   -- few bars that fit another key equally well are not a modulation.
-  local whole = {}
+  local whole: Weights = {}
   for pc = 0, 11 do
     whole[pc] = 0
     for b = 1, n do whole[pc] = whole[pc] + hist[b][pc] end
   end
-  local lean = {}
+  local lean: {number} = {}
   for c, cand in ipairs(candidates) do lean[c] = LEAN * correlate(whole, cand.profile, cand.tonic) end
-  local prev, back, sounding = nil, {}, {}
+  local prev: {number}
+  local back: {{integer}} = {}
+  local sounding: {boolean} = {}
   for b = 1, n do
-    local h, sum = {}, 0
+    local h: Weights = {}
+    local sum: number = 0
     for pc = 0, 11 do
       h[pc] = hist[b][pc]
       for d, weight in pairs(NEAR) do
@@ -343,20 +433,21 @@ function M.keys(notes, bars, chords)
       sum = sum + hist[b][pc]
     end
     sounding[b] = sum > 0
-    local cur, from = {}, {}
+    local cur: {number} = {}
+    local from: {integer} = {}
     local best, best_c = -math.huge, 1
     if prev then
       for c = 1, #candidates do
         if prev[c] > best then best, best_c = prev[c], c end
       end
     end
-    local total = 0
+    local total: number = 0
     for pc = 0, 11 do total = total + h[pc] end
     for c, cand in ipairs(candidates) do
-      local score = 0
+      local score: number = 0
       if sum > 0 then
         -- How well the profile fits, less what sounds outside the scale.
-        local outside = 0
+        local outside: number = 0
         for pc = 0, 11 do
           if not cand.scale[(pc - cand.tonic) % 12] then outside = outside + h[pc] end
         end
@@ -372,7 +463,8 @@ function M.keys(notes, bars, chords)
     end
     back[b], prev = from, cur
   end
-  local path, best, best_c = {}, -math.huge, 1
+  local path: {integer} = {}
+  local best, best_c = -math.huge, 1
   for c = 1, #candidates do
     if prev[c] > best then best, best_c = prev[c], c end
   end
@@ -380,7 +472,7 @@ function M.keys(notes, bars, chords)
     path[b] = best_c
     best_c = back[b][best_c]
   end
-  local out = {}
+  local out: {Key} = {}
   for b = 1, n do
     if sounding[b] then
       local cand = candidates[path[b]]

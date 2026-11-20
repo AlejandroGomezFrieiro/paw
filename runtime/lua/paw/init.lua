@@ -191,6 +191,8 @@ end
 paw.undo, paw.redo = api.undo, api.redo
 paw.cursor = require("paw.cursor")
 paw.edit = require("paw.edit")
+-- Files in languages that compile to Lua (Teal, ...): paw/lang.lua.
+paw.lang = require("paw.lang")
 paw.ext = require("paw.ext")
 paw.vca = require("paw.vca")
 paw.groups = require("paw.groups")
@@ -305,11 +307,10 @@ function K.startup()
   if not env.clean then
     paw.luadev.add_dir(env.config_dir .. "/devices", paw.luadev.RANK_CONFIG)
     paw.ext.load_dir(env.config_dir .. "/extensions")
-    local init = env.config_dir .. "/init.lua"
-    local file = io.open(init, "r")
-    if file then
-      file:close()
-      local chunk, err = loadfile(init)
+    -- init.lua, or init.tl (or another language's) when there is no init.lua.
+    local init = paw.lang.find(env.config_dir .. "/init")
+    if init then
+      local chunk, err = paw.lang.loadfile(init)
       if chunk then paw.try(paw.limit.untrusted(chunk)) else paw.notify(err, "error") end
     end
     paw.snippet.load_dir(env.config_dir .. "/snippets", "config")

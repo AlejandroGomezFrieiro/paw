@@ -5,6 +5,10 @@
 --   extensions/euclid/lua/...       on the `require` path
 --   extensions/scratch.lua          a one-file extension, run at startup
 --
+-- Any of these files may be in a language that compiles to Lua (paw/lang.lua):
+-- `init.tl`, `lua/euclid/rhythm.tl` and `scratch.tl` are Teal, which paw
+-- compiles as it loads them. An extension may mix the languages.
+--
 --   extensions/euclid/devices/*.lua devices written in Lua (see paw.luadev)
 --
 -- An extension is ordinary Lua using the same `paw` module as the user's
@@ -24,6 +28,19 @@
 --   }
 local api = paw.api
 local M = { loaded = {} }
+
+--- Whether `path` is a one-file extension: a file of Lua, or of a language
+--- that compiles to Lua.
+local function one_file(path)
+  return path:match("%.lua$") ~= nil or paw.lang.of(path) ~= nil
+end
+
+--- The name of an extension at `path`: its directory's or file's, without
+--- the extension of the file.
+local function name_of(path)
+  local base = path:match("([^/]+)$")
+  return one_file(base) and base:gsub("%.[%w_]+$", "") or base
+end
 
 local function exists(path)
   local file = io.open(path, "r")
@@ -246,6 +263,7 @@ M.registries = {
       local view, part, name = key:match("^(%S+) (%S+) (.*)$")
       paw.ui.layer(view, part, name, value and value.order, value and value.paint)
     end },
+  keyed("languages", "languages", function() return paw.lang and paw.lang.compilers end),
   keyed("health", "health checks", function() return paw.health and paw.health.checks end),
   { kind = "hooks", title = "hooks", snapshot = function()
       local out = {}
@@ -380,7 +398,7 @@ end
 --- extension has none. Returns the table (with `name` filled in), or nil
 --- and what is wrong with it.
 function M.manifest(path, name)
-  if path:match("%.lua$") then return { name = name } end
+  if one_file(path) then return { name = name } end
   local file = path .. "/manifest.lua"
   if not exists(file) then return { name = name } end
   local chunk, err = loadfile(file)
@@ -421,7 +439,7 @@ local function require_all(entry)
       if not other then
         -- Beside it first, then among those that come with the program.
         local sibling = entry.path:match("^(.*)/[^/]+$")
-        if sibling and exists(sibling .. "/" .. name .. "/init.lua") then
+        if sibling and paw.lang.find(sibling .. "/" .. name .. "/init") then
           other = M.load(sibling .. "/" .. name)
         else
           other = M.load_bundled(name)
@@ -440,11 +458,12 @@ end
 
 -- Loading and unloading ------------------------------------------------------------
 
---- Load one extension from a directory or a `.lua` file. One the program
+--- Load one extension from a directory or a file (`.lua`, or `.tl` or the
+--- extension of another language of `paw.lang`). One the program
 --- was built with is not loaded again from elsewhere: the configuration
 --- that names the source tree's copy gets the packaged one.
 function M.load(path)
-  local name = path:match("([^/]+)$"):gsub("%.lua$", "")
+  local name = name_of(path)
   local known = M.loaded[name]
   if known and known.packaged then return known end
   local entry = { name = name, path = path, ok = true }
@@ -462,7 +481,7 @@ function M.load(path)
   local outer = M.current
   M.current = entry
   local init = path
-  if not path:match("%.lua$") then
+  if not one_file(path) then
     entry.lua_path = path .. "/lua/?.lua;" .. path .. "/lua/?/init.lua;"
     package.path = entry.lua_path .. package.path
     for _, item in ipairs(api.read_dir(path)) do
@@ -471,8 +490,8 @@ function M.load(path)
         entry.devices = path .. "/devices"
       end
     end
-    init = path .. "/init.lua"
-    if not exists(init) then
+    init = paw.lang.find(path .. "/init")
+    if not init then
       paw.snippet.load_dir(path .. "/snippets", "extension")
       claim(entry, before)
       M.current = outer
@@ -481,7 +500,7 @@ function M.load(path)
     end
   end
   local chunk
-  chunk, err = loadfile(init)
+  chunk, err = paw.lang.loadfile(init)
   if chunk then
     -- Kept out of the compiler, so that the time limit can stop its loops.
     paw.limit.untrusted(chunk)
@@ -490,7 +509,7 @@ function M.load(path)
     entry.ok = false
   end
   -- Its snippets, one file per set; the user's own of the same name win.
-  if entry.ok and not path:match("%.lua$") then paw.snippet.load_dir(path .. "/snippets", "extension") end
+  if entry.ok and not one_file(path) then paw.snippet.load_dir(path .. "/snippets", "extension") end
   claim(entry, before)
   M.current = outer
   if not entry.ok then
@@ -578,6 +597,7 @@ function M.unload(name, opts)
     local prefix = entry.path .. "/lua/"
     for module, _ in pairs(package.loaded) do
       local file = package.searchpath and package.searchpath(module, entry.lua_path)
+        or paw.lang.searchpath(module, entry.lua_path)
       if file and file:sub(1, #prefix) == prefix then package.loaded[module] = nil end
     end
     local from, to = package.path:find(entry.lua_path, 1, true)
@@ -604,8 +624,8 @@ function M.load_dir(dir)
   for _, item in ipairs(api.read_dir(dir)) do
     local path = dir .. "/" .. item.name
     -- One loaded already, as another's requirement, is not loaded twice.
-    local known = M.loaded[(item.name:gsub("%.lua$", ""))]
-    if (item.is_dir or item.name:match("%.lua$")) and not (known and known.path == path) then M.load(path) end
+    local known = M.loaded[name_of(path)]
+    if (item.is_dir or one_file(item.name)) and not (known and known.path == path) then M.load(path) end
   end
 end
 
