@@ -1,6 +1,6 @@
 -- Tests of the grammar for music: text objects over the score, operators
 -- that change what is written, motions by what is written, the entry
--- modes, and Ex over a score clip. Loaded by tests.lua.
+-- modes, and Ex over a score clip. Loaded by tests/suite.lua.
 local T = ...
 local test, eq, fresh = T.test, T.eq, T.fresh
 local paw = require("paw")

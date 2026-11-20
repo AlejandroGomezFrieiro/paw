@@ -1,7 +1,7 @@
 -- Tests of MusicXML in and out: hand-written files as MuseScore, Dorico,
 -- Sibelius and Finale write them, read into scores, written out and read
 -- back to the same score; `:open` and `:import` of them; what the score
--- then plays. Loaded by tests.lua.
+-- then plays. Loaded by tests/suite.lua.
 local T = ...
 local test, eq, fresh = T.test, T.eq, T.fresh
 local paw = require("paw")

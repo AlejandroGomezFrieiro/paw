@@ -980,7 +980,7 @@ open), and the motions `staff`, `unit`, `sibling` and `edge`.
 
 **MusicXML in.** paw reads `.musicxml`, `.xml` and `.mxl` (compressed)
 files, as MuseScore, Dorico, Sibelius and Finale write them, partwise or
-timewise (`notation.musicxml`, with its own small XML reader and unzip). A
+timewise (`notation.musicxml`, with its own small XML reader, and `paw.zip`). A
 part becomes a track with one MIDI clip, and the track keeps the clef or
 grand staff of the part. paw reads the file into a score, and writes the
 score into the clip as notation writes it (see

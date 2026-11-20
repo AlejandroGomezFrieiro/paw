@@ -4,8 +4,8 @@
 -- to the network: the mock of tests_tone3000.lua answers, with the fields
 -- and errors of TONE3000's API reference (https://www.tone3000.com/api,
 -- "Device Authorization" and "Refresh Token"). The first test takes the
--- steps of docs/how-to/sign-in-to-tone3000.md with the keys. extensions/
--- plugstate/tests.lua loads this file after tests_tone3000.lua.
+-- steps of docs/how-to/sign-in-to-tone3000.md with the keys. The runner
+-- loads this file after tests_tone3000.lua (names in order), which sets T.t3k.
 local T = ...
 local test, eq = T.test, T.eq
 local api = paw.api

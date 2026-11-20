@@ -1,4 +1,4 @@
--- How long notation takes on a big clip. Loaded by tests.lua.
+-- How long notation takes on a big clip. Loaded by tests/suite.lua.
 local T = ...
 local test, eq, fresh = T.test, T.eq, T.fresh
 local paw = require("paw")

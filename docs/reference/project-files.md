@@ -254,5 +254,5 @@ The shelf is for tools that need their own tracks without a change to the
 work of the person. The [doctor](../../extensions/doctor) extension uses
 it.
 
-The suite runs `tests/*.lua` and `extensions/*/tests.lua`, and gives each
+The suite runs `tests/*.lua` and `extensions/*/tests*.lua`, and gives each
 the helpers of the suite.

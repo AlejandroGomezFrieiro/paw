@@ -71,7 +71,7 @@ test("notation: chromatic notes lean the way the key does", function()
   eq(names(4), "C#4 D#4 F#4 G#4 A#4", "in E major")
   eq(model.fifths_of("A", "minor"), 0, "A minor has no sharps")
   eq(model.fifths_of("Bb", "major"), -2, "B flat major two flats")
-  eq(model.fifths_of("C#", "major"), -5, "C sharp major as musicops stores D flat: five flats")
+  eq(model.fifths_of("C#", "major"), -5, "C sharp major as D flat: five flats")
   eq(model.fifths_of("G", "dorian"), -1, "G dorian one flat")
 end)
 

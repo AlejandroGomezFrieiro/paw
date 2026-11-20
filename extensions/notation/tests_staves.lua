@@ -2,7 +2,7 @@
 -- staves, every edit going to the staff under the cursor as an ordinary
 -- MIDI edit of its clip, selections and operators over several staves in
 -- one undo step, Ex over staves, scores of a group or a selection, and
--- the pages to check, read only. Driven with real keys. Loaded by tests.lua.
+-- the pages to check, read only. Driven with real keys. Loaded by tests/suite.lua.
 local T = ...
 local test, eq, fresh = T.test, T.eq, T.fresh
 local paw = require("paw")

@@ -1,5 +1,5 @@
 -- Tests of the popovers: a prompt at the caret for what is not a note,
--- previewed as a trial, written as one undo step. Loaded by tests.lua.
+-- previewed as a trial, written as one undo step. Loaded by tests/suite.lua.
 local T = ...
 local test, eq, fresh = T.test, T.eq, T.fresh
 local paw = require("paw")

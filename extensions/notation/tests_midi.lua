@@ -1,5 +1,5 @@
 -- Notation is a view of the clip's MIDI: tests of what is kept where, and
--- of what a notation edit writes. Loaded by tests.lua.
+-- of what a notation edit writes. Loaded by tests/suite.lua.
 local T = ...
 local test, eq, fresh = T.test, T.eq, T.fresh
 local paw = require("paw")

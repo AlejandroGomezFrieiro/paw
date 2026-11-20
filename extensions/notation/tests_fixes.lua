@@ -1,6 +1,6 @@
 -- Tests of what the extensions' review turned up in notation: a clip undone
 -- out of existence under the view, entry at the top of the MIDI range.
--- Loaded by tests.lua.
+-- Loaded by tests/suite.lua.
 local T = ...
 local test, eq, fresh = T.test, T.eq, T.fresh
 local paw = require("paw")

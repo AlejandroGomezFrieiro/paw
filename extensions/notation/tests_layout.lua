@@ -1,6 +1,6 @@
 -- Tests of the engraved page's layout: skylines and what is placed against
 -- them, balanced system breaks and the breaks a score keeps, slurs, the
--- page view and its export. Loaded by tests.lua.
+-- page view and its export. Loaded by tests/suite.lua.
 local T = ...
 local test, eq, fresh = T.test, T.eq, T.fresh
 local paw = require("paw")
