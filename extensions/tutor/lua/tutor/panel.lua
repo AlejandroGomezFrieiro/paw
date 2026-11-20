@@ -11,13 +11,21 @@ paw.ui.hl("TutorText", { fg = "#c0caf5" })
 paw.ui.hl("TutorHint", { fg = "#e0af68" })
 paw.ui.hl("TutorDim", { fg = "#565f89" })
 
---- Write keys the way the learner's leader reads: `,hh` becomes `\hh` when
---- the leader is a backslash.
+--- Write keys the way the learner's leaders read: the lessons write the
+--- default `,` and `\`, so `,hh` becomes `<space>hh` when the leader is a
+--- space, and `\Sa` follows the local leader the same way.
 function M.keys(text)
-  local leader = paw.opt.leader
-  if leader == "," then return text end
+  local leader, localleader = paw.opt.leader, paw.opt.localleader
+  if leader == "," and localleader == "\\" then return text end
   return (text:gsub("`([^`]*)`", function(code)
-    if code:sub(1, 1) == "," and #code > 1 then code = leader .. code:sub(2) end
+    if #code > 1 then
+      local first = code:sub(1, 1)
+      if first == "," then
+        code = leader .. code:sub(2)
+      elseif first == "\\" then
+        code = localleader .. code:sub(2)
+      end
+    end
     return "`" .. code .. "`"
   end))
 end

@@ -826,7 +826,7 @@ function view:menu_items(on_note, at)
       add(kind:sub(1, 1):upper() .. kind:sub(2), nil, function() view.marks.toggle_art(kind, self:chord_indices()) end)
     end
     add("Into the other voice", "gV", function() self:toggle_voice() end)
-    add("Triplets on this beat", "\\3", function() self:toggle_tuplet() end)
+    add("Triplets on this beat", paw.keymap.human("<localleader>3"), function() self:toggle_tuplet() end)
   else
     add("Enter a " .. model.NAMES[self.value] .. " here", "Enter", function() if at and at.beat then self:enter_at(at) end end)
     add("Rest here", "r", function() if at and at.beat then self:rest(at.beat, self:entry_length(), at.staff) end end)
