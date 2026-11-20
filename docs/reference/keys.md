@@ -327,7 +327,7 @@ text as in Vim. Nothing changes in the project until `:w`.
 | `:e` | with `!` (`:e!`), throw the changes away and read again; `:w!` applies over changes made elsewhere since |
 | `:sort` | sort the lines (`!` reversed, `n` by number); over ranges of lines too: `:%s/a/b/g`, `:2,4d`, `:m 0` |
 | `<CR>` `-` | a track's devices, a device in the panel, go to a marker; back up to the tracks |
-| `gw` | the buffer in a window of its own, in the graphical frontend |
+| `<C-w>f` | the buffer in a window of its own, in the graphical frontend (as in a curve) |
 
 
 ## Files (`:e folder`)
