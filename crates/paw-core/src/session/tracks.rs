@@ -143,143 +143,220 @@ impl Session {
         if holds(&self.track_view(id), key, &value) {
             return Ok(());
         }
-        if let (true, Some(track), Some(to)) = (
-            matches!(key, "volume" | "pan"),
-            self.project.track(id),
-            value.as_f64(),
-        ) {
-            let (target, before) = match key {
-                "volume" => (Target::Volume, track.volume),
+        // An unknown key fails inside the edit, after a missing track does.
+        let field = key.parse::<TrackField>();
+        let moved = matches!(field, Ok(TrackField::Volume | TrackField::Pan));
+        if let (true, Some(track), Some(to)) = (moved, self.project.track(id), value.as_f64()) {
+            let (target, before) = match field {
+                Ok(TrackField::Volume) => (Target::Volume, track.volume),
                 _ => (Target::Pan, track.pan),
             };
             self.touch(id, target, before, to);
         }
-        let moved = matches!(key, "volume" | "pan").then(|| format!("track {id} {key}"));
         self.edit(|p| {
             if p.track(id).is_none() {
                 bail!("no track {id}");
             }
-            match key {
-                "output" => {
-                    let output: Option<Id> = de(key, value)?;
-                    let output = output.filter(|o| *o != MASTER_ID);
-                    if id == MASTER_ID {
-                        bail!("the master track has no output");
-                    }
-                    if let Some(to) = output {
-                        if p.track(to).is_none() {
-                            bail!("no track {to} to output to");
-                        }
-                        if p.would_cycle(id, to) {
-                            bail!("routing track {id} into track {to} would make a loop");
-                        }
-                    }
-                    p.track_mut(id).unwrap().output = output;
-                }
-                "sends" => {
-                    let mut sends: Vec<Send> = de(key, value)?;
-                    for send in &mut sends {
-                        send.level = send.level.clamp(-120.0, 24.0);
-                    }
-                    for send in &sends {
-                        if id == MASTER_ID || p.track(send.target).is_none() {
-                            bail!("cannot send from track {id} to track {}", send.target);
-                        }
-                        if p.would_cycle(id, send.target) {
-                            bail!(
-                                "sending track {id} to track {} would make a loop",
-                                send.target
-                            );
-                        }
-                    }
-                    p.track_mut(id).unwrap().sends = sends;
-                }
-                "input" => {
-                    if id == MASTER_ID {
-                        bail!("the master track has no input");
-                    }
-                    let input = match value {
-                        Value::Null => None,
-                        Value::Number(n) => Some(n.to_string()),
-                        Value::String(s) if s.is_empty() || s == "none" => None,
-                        Value::String(s) => Some(s),
-                        _ => bail!("an input is a channel like \"1\" or a pair like \"1/2\""),
-                    };
-                    let input = match input {
-                        None => None,
-                        Some(spec) => match parse_input(&spec) {
-                            Some((first, 1)) => Some(format!("{}", first + 1)),
-                            Some((first, _)) => Some(format!("{}/{}", first + 1, first + 2)),
-                            None => bail!(
-                                "bad input `{spec}`: give a channel like \"1\" or a pair like \"1/2\""
-                            ),
-                        },
-                    };
-                    p.track_mut(id).unwrap().input = input;
-                }
-                "midi_input" => {
-                    if id == MASTER_ID {
-                        bail!("the master track has no input");
-                    }
-                    let midi = match value {
-                        Value::Null => None,
-                        Value::String(s) if s == "all" || s.is_empty() => None,
-                        Value::String(s) => Some(MidiInput {
-                            port: Some(s),
-                            channel: None,
-                        }),
-                        // An empty Lua table arrives as an empty list.
-                        Value::Array(a) if a.is_empty() => None,
-                        value => {
-                            let mut midi: MidiInput = de(key, value)?;
-                            if midi.channel.is_some_and(|ch| !(1..=16).contains(&ch)) {
-                                bail!("a MIDI channel is from 1 to 16");
-                            }
-                            if midi.port.as_deref().is_some_and(|p| p.is_empty() || p == "all") {
-                                midi.port = None;
-                            }
-                            (midi != MidiInput::default()).then_some(midi)
-                        }
-                    };
-                    p.track_mut(id).unwrap().midi_input = midi;
-                }
-                "midi_output" => {
-                    let out = midi_out::parse(value)?;
-                    p.track_mut(id).unwrap().midi_output = out;
-                }
-                "attr_map" => p.track_mut(id).unwrap().attr_map = crate::attr_map::parse(value)?,
-                _ => {
-                    let t = p.track_mut(id).unwrap();
-                    match key {
-                        "name" => t.name = de(key, value)?,
-                        "volume" => t.volume = de::<f64>(key, value)?.clamp(-120.0, 24.0),
-                        "pan" => t.pan = de::<f64>(key, value)?.clamp(-1.0, 1.0),
-                        "mute" => t.mute = de(key, value)?,
-                        "solo" => t.solo = de(key, value)?,
-                        "armed" | "monitor" if id == MASTER_ID && de::<bool>(key, value.clone())? => {
-                            bail!("the master track records nothing: arm a track")
-                        }
-                        "armed" => t.armed = de(key, value)?,
-                        "monitor" => t.monitor = de(key, value)?,
-                        "color" => t.color = de(key, value)?,
-                        "meta" => t.meta = de_meta(key, value)?,
-                        "automation" => t.automation = de(key, value)?,
-                        // A share of the zoom's height, a quarter to eight
-                        // times; 1 or nothing is that height.
-                        "height" => {
-                            t.height = de::<Option<f64>>(key, value)?
-                                .filter(|h| h.is_finite() && (h - 1.0).abs() > 1e-9)
-                                .map(|h| h.clamp(0.25, 8.0))
-                        }
-                        _ => bail!("tracks have no settable field `{key}`"),
-                    }
-                }
-            }
-            Ok(())
+            field?.set(p, id, key, value)
         })?;
-        if let Some(name) = moved {
-            self.swept(name);
+        if moved {
+            self.swept(format!("track {id} {key}"));
         }
         Ok(())
     }
+}
+
+/// A field of a track that [`Session::track_set`] changes: the key that Lua
+/// gives, parsed once.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum TrackField {
+    Name,
+    Volume,
+    Pan,
+    Mute,
+    Solo,
+    Armed,
+    Monitor,
+    Color,
+    Meta,
+    Automation,
+    Height,
+    Output,
+    Sends,
+    Input,
+    MidiInput,
+    MidiOutput,
+    AttrMap,
+}
+
+impl TrackField {
+    /// Set this field of track `id`, which is in `p`. `key` is the field's
+    /// key in Lua, for the error texts.
+    fn set(self, p: &mut Project, id: Id, key: &str, value: Value) -> Result<()> {
+        match self {
+            // Routing looks at the other tracks before it changes this one.
+            Self::Output => {
+                let output = checked_output(p, id, de(key, value)?)?;
+                track_in(p, id)?.output = output;
+            }
+            Self::Sends => {
+                let sends = checked_sends(p, id, de(key, value)?)?;
+                track_in(p, id)?.sends = sends;
+            }
+            own => own.set_own(track_in(p, id)?, id, key, value)?,
+        }
+        Ok(())
+    }
+
+    /// Set a field that only the track's own state decides.
+    fn set_own(self, t: &mut Track, id: Id, key: &str, value: Value) -> Result<()> {
+        match self {
+            Self::Name => t.name = de(key, value)?,
+            Self::Volume => t.volume = de::<f64>(key, value)?.clamp(-120.0, 24.0),
+            Self::Pan => t.pan = de::<f64>(key, value)?.clamp(-1.0, 1.0),
+            Self::Mute => t.mute = de(key, value)?,
+            Self::Solo => t.solo = de(key, value)?,
+            Self::Armed | Self::Monitor => {
+                let on: bool = de(key, value)?;
+                if on && id == MASTER_ID {
+                    bail!("the master track records nothing: arm a track");
+                }
+                if self == Self::Armed {
+                    t.armed = on;
+                } else {
+                    t.monitor = on;
+                }
+            }
+            Self::Color => t.color = de(key, value)?,
+            Self::Meta => t.meta = de_meta(key, value)?,
+            Self::Automation => t.automation = de(key, value)?,
+            // A share of the zoom's height, a quarter to eight times; 1 or
+            // nothing is that height.
+            Self::Height => {
+                t.height = de::<Option<f64>>(key, value)?
+                    .filter(|h| h.is_finite() && (h - 1.0).abs() > 1e-9)
+                    .map(|h| h.clamp(0.25, 8.0));
+            }
+            Self::Input => {
+                if id == MASTER_ID {
+                    bail!("the master track has no input");
+                }
+                t.input = input_of(value)?;
+            }
+            Self::MidiInput => {
+                if id == MASTER_ID {
+                    bail!("the master track has no input");
+                }
+                t.midi_input = midi_input_of(value)?;
+            }
+            Self::MidiOutput => t.midi_output = midi_out::parse(value)?,
+            Self::AttrMap => t.attr_map = crate::attr_map::parse(value)?,
+            Self::Output | Self::Sends => unreachable!("`set` sets the routing"),
+        }
+        Ok(())
+    }
+}
+
+impl std::str::FromStr for TrackField {
+    type Err = anyhow::Error;
+
+    fn from_str(key: &str) -> Result<Self> {
+        Ok(match key {
+            "name" => Self::Name,
+            "volume" => Self::Volume,
+            "pan" => Self::Pan,
+            "mute" => Self::Mute,
+            "solo" => Self::Solo,
+            "armed" => Self::Armed,
+            "monitor" => Self::Monitor,
+            "color" => Self::Color,
+            "meta" => Self::Meta,
+            "automation" => Self::Automation,
+            "height" => Self::Height,
+            "output" => Self::Output,
+            "sends" => Self::Sends,
+            "input" => Self::Input,
+            "midi_input" => Self::MidiInput,
+            "midi_output" => Self::MidiOutput,
+            "attr_map" => Self::AttrMap,
+            _ => bail!("tracks have no settable field `{key}`"),
+        })
+    }
+}
+
+fn track_in(p: &mut Project, id: Id) -> Result<&mut Track> {
+    p.track_mut(id).with_context(|| format!("no track {id}"))
+}
+
+/// Where track `id` may output to: `None` is the master.
+fn checked_output(p: &Project, id: Id, output: Option<Id>) -> Result<Option<Id>> {
+    let output = output.filter(|o| *o != MASTER_ID);
+    if id == MASTER_ID {
+        bail!("the master track has no output");
+    }
+    if let Some(to) = output {
+        if p.track(to).is_none() {
+            bail!("no track {to} to output to");
+        }
+        if p.would_cycle(id, to) {
+            bail!("routing track {id} into track {to} would make a loop");
+        }
+    }
+    Ok(output)
+}
+
+/// The sends that track `id` may have, their levels clamped.
+fn checked_sends(p: &Project, id: Id, mut sends: Vec<Send>) -> Result<Vec<Send>> {
+    for send in &mut sends {
+        send.level = send.level.clamp(-120.0, 24.0);
+    }
+    for send in &sends {
+        if id == MASTER_ID || p.track(send.target).is_none() {
+            bail!("cannot send from track {id} to track {}", send.target);
+        }
+        if p.would_cycle(id, send.target) {
+            bail!("sending track {id} to track {} would make a loop", send.target);
+        }
+    }
+    Ok(sends)
+}
+
+/// An audio input from Lua: a channel like "1", a pair like "1/2", or none.
+fn input_of(value: Value) -> Result<Option<String>> {
+    let spec = match value {
+        Value::Null => return Ok(None),
+        Value::Number(n) => n.to_string(),
+        Value::String(s) if s.is_empty() || s == "none" => return Ok(None),
+        Value::String(s) => s,
+        _ => bail!("an input is a channel like \"1\" or a pair like \"1/2\""),
+    };
+    Ok(Some(match parse_input(&spec) {
+        Some((first, 1)) => format!("{}", first + 1),
+        Some((first, _)) => format!("{}/{}", first + 1, first + 2),
+        None => bail!("bad input `{spec}`: give a channel like \"1\" or a pair like \"1/2\""),
+    }))
+}
+
+/// A MIDI input from Lua: a port's name, a `{port, channel}` table, or all.
+fn midi_input_of(value: Value) -> Result<Option<MidiInput>> {
+    Ok(match value {
+        Value::Null => None,
+        Value::String(s) if s == "all" || s.is_empty() => None,
+        Value::String(s) => Some(MidiInput {
+            port: Some(s),
+            channel: None,
+        }),
+        // An empty Lua table arrives as an empty list.
+        Value::Array(a) if a.is_empty() => None,
+        value => {
+            let mut midi: MidiInput = de("midi_input", value)?;
+            if midi.channel.is_some_and(|ch| !(1..=16).contains(&ch)) {
+                bail!("a MIDI channel is from 1 to 16");
+            }
+            if midi.port.as_deref().is_some_and(|p| p.is_empty() || p == "all") {
+                midi.port = None;
+            }
+            (midi != MidiInput::default()).then_some(midi)
+        }
+    })
 }

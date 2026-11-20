@@ -38,10 +38,11 @@ impl Session {
         if holds(&Ok(self.project_view()), key, &value) {
             return Ok(());
         }
+        let field: ProjectField = key.parse()?;
         self.edit(|p| {
-            match key {
-                "name" => p.name = de(key, value)?,
-                "tempo" => {
+            match field {
+                ProjectField::Name => p.name = de(key, value)?,
+                ProjectField::Tempo => {
                     let tempo: f64 = de(key, value)?;
                     if !(1.0..=999.0).contains(&tempo) {
                         bail!("tempo must be between 1 and 999");
@@ -50,13 +51,13 @@ impl Session {
                     map.set_first_tempo(tempo);
                     p.retime(map);
                 }
-                "sig_num" | "sig_den" => {
+                ProjectField::SigNum | ProjectField::SigDen => {
                     let n = de::<u32>(key, value)?.clamp(1, 64);
                     // A beat is a whole note halved some times: 3/3 has no note to count.
-                    if key == "sig_den" && !n.is_power_of_two() {
+                    if field == ProjectField::SigDen && !n.is_power_of_two() {
                         bail!("a time signature's lower number is 1, 2, 4, 8, 16, 32 or 64, not {n}");
                     }
-                    let (num, den) = if key == "sig_num" {
+                    let (num, den) = if field == ProjectField::SigNum {
                         (n, p.sig_den)
                     } else {
                         (p.sig_num, n)
@@ -65,9 +66,8 @@ impl Session {
                     map.set_first_signature(num, den);
                     p.set_tempo_map(map);
                 }
-                "key" => p.key = de(key, value)?,
-                "meta" => p.meta = de_meta(key, value)?,
-                _ => bail!("project has no settable field `{key}`"),
+                ProjectField::Key => p.key = de(key, value)?,
+                ProjectField::Meta => p.meta = de_meta(key, value)?,
             }
             Ok(())
         })
@@ -372,5 +372,33 @@ impl Session {
         let saved = Saved { path: path.clone(), written: None, unused: None, moved: None };
         self.emit(E::ProjectSaved(saved));
         Ok(path)
+    }
+}
+
+/// A field of the project that [`Session::project_set`] changes: the key
+/// that Lua gives, parsed once.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ProjectField {
+    Name,
+    Tempo,
+    SigNum,
+    SigDen,
+    Key,
+    Meta,
+}
+
+impl std::str::FromStr for ProjectField {
+    type Err = anyhow::Error;
+
+    fn from_str(key: &str) -> Result<Self> {
+        Ok(match key {
+            "name" => Self::Name,
+            "tempo" => Self::Tempo,
+            "sig_num" => Self::SigNum,
+            "sig_den" => Self::SigDen,
+            "key" => Self::Key,
+            "meta" => Self::Meta,
+            _ => bail!("project has no settable field `{key}`"),
+        })
     }
 }

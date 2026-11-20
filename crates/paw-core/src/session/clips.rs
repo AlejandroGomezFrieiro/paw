@@ -249,22 +249,32 @@ impl Session {
     }
 
     pub fn clip_set(&mut self, id: Id, key: &str, value: Value) -> Result<()> {
-        let plain = matches!(key, "start" | "length" | "name" | "muted");
-        let held = match self.project.find_clip(id) {
-            Some((track, index)) if plain => {
-                let c = &self.project.track(track).unwrap().clips[index];
+        // `None` for a field of a playing clip (`clip_set_playing`) or none.
+        let field = ClipField::parse(key);
+        let plain = matches!(
+            field,
+            Some(ClipField::Start | ClipField::Length | ClipField::Name | ClipField::Muted)
+        );
+        let quick = plain
+            .then(|| {
+                let (track, index) = self.project.find_clip(id)?;
+                self.project.track(track)?.clips.get(index)
+            })
+            .flatten();
+        let held = match quick {
+            Some(c) => {
                 let view = json!({ "start": c.start, "length": c.length, "name": c.name, "muted": c.muted });
                 holds(&Ok(view), key, &value)
             }
-            _ => holds(&self.clip_view(id), key, &value),
+            None => holds(&self.clip_view(id), key, &value),
         };
         if held {
             return Ok(());
         }
         // Another file for an audio clip (another take) has to be one that
         // can be read, before the clip is changed.
-        let new_file = match (key, value.as_str()) {
-            ("file", Some(path)) => {
+        let new_file = match (field, value.as_str()) {
+            (Some(ClipField::File), Some(path)) => {
                 let path = PathBuf::from(path);
                 let path = std::path::absolute(&path).unwrap_or(path);
                 self.audio.load(&path)?;
@@ -278,54 +288,42 @@ impl Session {
         self.edit(|p| {
             // A clip off the timeline has no `start` there.
             let cue = p.find_cue_clip(id).is_some();
-            if cue && key == "start" {
-                bail!("a clip off the timeline starts at 0");
-            }
-            if cue && key == "track" {
-                cues::move_cue(p, id, de(key, value)?)?;
-                return Ok(());
-            }
-            if key == "track" {
-                let (from, index) = p.find_clip(id).with_context(|| format!("no clip {id}"))?;
-                let to: Id = de(key, value)?;
-                if to == MASTER_ID {
-                    bail!("the master track has no clips: put them on a track");
+            match field {
+                Some(ClipField::Start) if cue => bail!("a clip off the timeline starts at 0"),
+                Some(ClipField::Track) if cue => {
+                    cues::move_cue(p, id, de(key, value)?)?;
+                    return Ok(());
                 }
-                if p.track(to).is_none() {
-                    bail!("no track {to}");
-                }
-                let clip = p.track_mut(from).unwrap().clips.remove(index);
-                let clips = &mut p.track_mut(to).unwrap().clips;
-                clips.push(clip);
-                let at = clips.len() - 1;
-                p.found_clip(id, to, at);
-                return Ok(());
+                Some(ClipField::Track) => return move_clip(p, id, value),
+                _ => {}
             }
             let c = p.clip_mut(id).with_context(|| format!("no clip {id}"))?;
-            match (key, &mut c.content) {
-                ("name", _) => c.name = de(key, value)?,
-                ("start", _) => c.start = de::<f64>(key, value)?.max(0.0),
-                ("length", _) => {
+            match (field, &mut c.content) {
+                (Some(ClipField::Name), _) => c.name = de(key, value)?,
+                (Some(ClipField::Start), _) => c.start = de::<f64>(key, value)?.max(0.0),
+                (Some(ClipField::Length), _) => {
                     let length: f64 = de(key, value)?;
                     if !length.is_finite() || length <= 0.0 {
                         bail!("clip length must be above 0");
                     }
                     c.length = length;
                 }
-                ("muted", _) => c.muted = de(key, value)?,
-                ("meta", _) => c.meta = de_meta(key, value)?,
-                ("file", ClipContent::Audio { file, .. }) => {
-                    *file = new_file.context("an audio clip's file is a path")?
+                (Some(ClipField::Muted), _) => c.muted = de(key, value)?,
+                (Some(ClipField::Meta), _) => c.meta = de_meta(key, value)?,
+                (Some(ClipField::File), ClipContent::Audio { file, .. }) => {
+                    *file = new_file.context("an audio clip's file is a path")?;
                 }
-                ("offset", ClipContent::Audio { offset, .. }) => {
-                    *offset = de::<f64>(key, value)?.max(0.0)
+                (Some(ClipField::Offset), ClipContent::Audio { offset, .. }) => {
+                    *offset = de::<f64>(key, value)?.max(0.0);
                 }
-                ("gain", ClipContent::Audio { gain, .. }) => {
-                    *gain = de::<f64>(key, value)?.clamp(-120.0, 24.0)
+                (Some(ClipField::Gain), ClipContent::Audio { gain, .. }) => {
+                    *gain = de::<f64>(key, value)?.clamp(-120.0, 24.0);
                 }
-                ("fade_in", ClipContent::Audio { .. }) => c.fade_in = check_fade(de(key, value)?)?,
-                ("fade_out", ClipContent::Audio { .. }) => {
-                    c.fade_out = check_fade(de(key, value)?)?
+                (Some(ClipField::FadeIn), ClipContent::Audio { .. }) => {
+                    c.fade_in = check_fade(de(key, value)?)?;
+                }
+                (Some(ClipField::FadeOut), ClipContent::Audio { .. }) => {
+                    c.fade_out = check_fade(de(key, value)?)?;
                 }
                 _ => bail!("{} clips have no settable field `{key}`", c.content.kind()),
             }
@@ -397,4 +395,63 @@ impl Session {
             }
         })
     }
+}
+
+/// A field that [`Session::clip_set`] changes: the key that Lua gives,
+/// parsed once. Which fields a clip has depends on its kind, so an unknown
+/// key fails where the clip is known.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ClipField {
+    Name,
+    Start,
+    Length,
+    Muted,
+    Meta,
+    Track,
+    File,
+    Offset,
+    Gain,
+    FadeIn,
+    FadeOut,
+}
+
+impl ClipField {
+    fn parse(key: &str) -> Option<Self> {
+        Some(match key {
+            "name" => Self::Name,
+            "start" => Self::Start,
+            "length" => Self::Length,
+            "muted" => Self::Muted,
+            "meta" => Self::Meta,
+            "track" => Self::Track,
+            "file" => Self::File,
+            "offset" => Self::Offset,
+            "gain" => Self::Gain,
+            "fade_in" => Self::FadeIn,
+            "fade_out" => Self::FadeOut,
+            _ => return None,
+        })
+    }
+}
+
+/// Move clip `id`, on the timeline, to the end of the track that `value` names.
+fn move_clip(p: &mut Project, id: Id, value: Value) -> Result<()> {
+    let (from, index) = p.find_clip(id).with_context(|| format!("no clip {id}"))?;
+    let to: Id = de("track", value)?;
+    if to == MASTER_ID {
+        bail!("the master track has no clips: put them on a track");
+    }
+    if p.track(to).is_none() {
+        bail!("no track {to}");
+    }
+    let clip = p
+        .track_mut(from)
+        .context("the clip's track was found")?
+        .clips
+        .remove(index);
+    let clips = &mut p.track_mut(to).context("the track was found")?.clips;
+    clips.push(clip);
+    let at = clips.len() - 1;
+    p.found_clip(id, to, at);
+    Ok(())
 }
