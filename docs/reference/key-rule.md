@@ -18,9 +18,9 @@ For the reasons of the rule, see [About the key rule](../explanation/about-the-k
 
 | Keys | Meaning in every view |
 | --- | --- |
-| `h` `j` `k` `l` `w` `b` `e` `0` `^` `$` `gg` `G`, with counts | Motions only. They work after an operator and in visual mode. `h` `l` go along the columns of the view, `j` `k` along its rows. In the mixer, `h` `l` go from strip to strip, and `j` `k` along the rows of a strip. In the device panel, `j` `k` go over the devices and their parameters, `w` `b` from device to device, and `e` to the last parameter of a device. |
+| `h` `j` `k` `l` and the arrows, `w` `b` `e` `0` `^` `$` `gg` `G`, with counts | Motions only. They work after an operator and in visual mode. `h` `l` go along the columns of the view, `j` `k` along its rows. In the mixer, `h` `l` go from strip to strip, and `j` `k` along the rows of a strip. In the device panel, `j` `k` go over the devices and their parameters, `w` `b` from device to device, and `e` to the last parameter of a device. |
 | `+` `-`, `Ctrl-a` `Ctrl-x` | The main value of what is under the cursor, up and down. A count first gives how much: `6 Ctrl-x` is 6 dB down on a fader, six semitones down on a note. On a selection, the value of all of it. |
-| `]` `[` | The second value, up and down. They act at once, also when you press them fast: `]]` is two steps. A key that comes soon after and makes a longer mapping (`]g`, `]q`) takes back the step and does its own action. |
+| `]` `[` | The second value, up and down. They act at once, also when you press them fast: `]]` is two steps, unless the view has `]]` as a motion (the sections of the arrange view, the staffs of a score). A key that comes soon after and makes a longer mapping (`]g`, `]q`) takes back the step and does its own action. |
 | `>` `<` | The time operators: later and earlier (`>>`, `>ic`, `3>` on a selection). Never pan. |
 | `K` | Describes what is under the cursor. `gK` gives what the diagnostics and language servers say about it. |
 | `ge` | The plugin window of what is under the cursor (an insert in the mixer, a device in the panel), else of the track. |
@@ -33,7 +33,7 @@ For the reasons of the rule, see [About the key rule](../explanation/about-the-k
 | `A` | Automate the main value: a point at the cursor on the volume of the track, the parameter, the lane. |
 | `c` | Change what is under the cursor: an operator over clips and notes. On a lane point or a parameter, type its value. On a device, choose a preset. |
 | `~` | Switch a property of what is under the cursor: the mute of a clip, the shape of a part of a curve, the vibrato of a note. |
-| `]x` `[x` | The next and the previous item of a list: `]d` diagnostics, `]t` takes, `]p` presets, `]c` curves (vocal editor), `]'` markers. `]g` `[g` change the grid. |
+| `]x` `[x` | The next and the previous item of a list: `]d` diagnostics, `]t` takes, `]p` presets (phonemes in the vocal editor), `]c` curves (vocal editor), `]'` markers. `]g` `[g` change the grid. |
 | `Ctrl-d` `Ctrl-u` | A big step along `j` `k`: four tracks, an octave (piano roll, score, vocal editor), ten steps of a curve. |
 
 ## The main and the second value
@@ -63,11 +63,18 @@ A key of one view must not use a key of the global leader.
 `:lua =paw.keyrule.broken()` lists the keys that do. `:map` and the key
 hints show both leaders as you type them.
 
-Some views also have keys of their own after the leader, on keys that no
-global mapping uses. The arrange view has the most: the automation
-(`,a`), groups and VCAs (`,g` `,v`), sends and outputs (`,s` `,o`), and
-the keys of extensions (`,S` sections, `,t` patterns, `,k` drums). The
-device panel saves presets with `,w` `,W`.
+The keys of an extension for one view are on the local leader. In the
+arrange view: `\S` sections, `\T` templates, `\t` patterns, `\k` drums,
+`\V` vocal tracks, `\i` virtual inputs and `\n` notation. The keys of an
+extension after the leader work from every view (`,u`, `,x`, `,l`).
+`:lua =paw.keyrule.broken()` lists a key of an extension for one view
+that is on the leader.
+
+The core keeps some keys of its own views after the leader, on keys that
+no global mapping uses. In the arrange view, these are the automation
+(`,a`), groups and VCAs (`,g` `,v`), sends and outputs (`,s` `,o`) and
+fades (`,cf`). In the device panel, they are the presets (`,w` `,W`).
+`,ca` gives the fixes and actions in each view.
 
 ## The classic keys
 

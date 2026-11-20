@@ -38,11 +38,11 @@ paw.ext.load("extensions/notation")   -- or put it in ~/.config/paw/extensions
 
 ### How to open a clip as notation
 
-- In the arrange view or the piano roll, press `,n`, or type `:notation`.
+- In the arrange view or the piano roll, press `\n`, or type `:notation`.
 - In the graphical window, choose "Open as notation" in the menu of a MIDI
   clip.
 
-To return to the arrange view, press `,n` again. To close the view, type
+To return to the arrange view, press `\n` again. To close the view, type
 `:q`.
 
 ### How to enter notes

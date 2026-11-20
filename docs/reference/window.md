@@ -752,7 +752,7 @@ the list of commands is as wide as the window. `Ctrl-z`, `Ctrl-y`, `Ctrl-s`
 and `Delete` do what they do in the terminal. When the piano roll or the
 mixer opens, it gets the keyboard.
 
-`:help` opens the manual in a pane, split as in the terminal. `gw` or
+`:help` opens the manual in a pane, split as in the terminal. `Ctrl-w f` or
 `:textbuf.window` moves it into a window of its own. The keys are the keys
 of help in [Help](help.md).
 
@@ -816,7 +816,7 @@ their rows from `paw.groups.rows()`.
 A view can move into a window of its own:
 
 - `:view.window undotree`. Without a name, the focused view, or the page over the other views.
-- `Ctrl-w f` in a curve, `gw` in a text buffer.
+- `Ctrl-w f` in a curve and in a text buffer.
 - The button on the title of a pane drawn from its scene.
 - "Open in a window" on a page over the window.
 

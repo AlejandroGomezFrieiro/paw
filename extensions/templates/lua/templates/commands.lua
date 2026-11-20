@@ -131,10 +131,10 @@ command("templates", function()
   paw.notify(table.concat(lines, "\n"))
 end, { desc = "List the templates" })
 
-paw.keymap.group("<leader>T", "templates", { view = "arrange" })
-paw.keymap.set("<leader>Tl", "template.load", { view = "arrange", desc = "Make a track, group or chain from a template" })
-paw.keymap.set("<leader>Ts", "template.save", { view = "arrange", desc = "Save the track or group as a template" })
-paw.keymap.set("<leader>Tf", "template.fx", { view = "arrange", desc = "Save the track's devices as a chain" })
+paw.keymap.group("<localleader>T", "templates", { view = "arrange" })
+paw.keymap.set("<localleader>Tl", "template.load", { view = "arrange", desc = "Make a track, group or chain from a template" })
+paw.keymap.set("<localleader>Ts", "template.save", { view = "arrange", desc = "Save the track or group as a template" })
+paw.keymap.set("<localleader>Tf", "template.fx", { view = "arrange", desc = "Save the track's devices as a chain" })
 
 -- In the window's menus.
 table.insert(paw.frontend.menus.timeline, { label = "From a template…", command = "template.load" })

@@ -243,7 +243,7 @@ See [Snippets](snippets.md) and [Completion](completion.md).
 | --- | --- |
 | `<Space>` | play, stop |
 | `<S-CR>` | play from the cursor |
-| `gs` `gp` | playhead to the start, to the cursor |
+| `gs` `gp` | playhead to the start, to the cursor. `g0` is the playhead to the start too, also in the views where `gs` does another thing (curve editor, drum grid, score) |
 | `gL` `gm` | loop on and off, metronome |
 | `gM` | count a bar in before recording, or not |
 | `,b` | tap the tempo (the beat): press it on each beat, four times or more |
@@ -268,7 +268,8 @@ See [Snippets](snippets.md) and [Completion](completion.md).
 | `:vimgrep /pizz/` | every text in the project that matches, in the quickfix list |
 | `:select clip[name~=pizz] > note[pitch>=C5]` | choose what a query finds; `:query` lists it |
 | `]c` `[c` | next, previous clip of the same kind on the track (R: `]n` `[n`, note of the same pitch) |
-| `]s` `[s` | next, previous track in the group (in a score, instrument in the group). With the sections extension, the next and previous section in A |
+| `]s` `[s` | next, previous track in the group (in a score, instrument in the group) |
+| `]]` `[[` | with the sections extension, the next and previous section in A (in a score, the next and previous instrument) |
 | `[{` `]}` | up to the group the track is in; its last track (in a score, the group's first and last instrument); `[u` is `[{` too |
 | `]u` | down into the group: its first track |
 | `ig` `ag` | the group's tracks; with the group track |
@@ -326,7 +327,7 @@ text as in Vim. Nothing changes in the project until `:w`.
 | `:e` | with `!` (`:e!`), throw the changes away and read again; `:w!` applies over changes made elsewhere since |
 | `:sort` | sort the lines (`!` reversed, `n` by number); over ranges of lines too: `:%s/a/b/g`, `:2,4d`, `:m 0` |
 | `<CR>` `-` | a track's devices, a device in the panel, go to a marker; back up to the tracks |
-| `gw` | the buffer in a window of its own, in the graphical frontend |
+| `<C-w>f` | the buffer in a window of its own, in the graphical frontend (as in a curve) |
 
 
 ## Files (`:e folder`)

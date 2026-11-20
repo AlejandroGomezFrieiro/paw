@@ -770,8 +770,16 @@ function W.tuplet(ctx)
     api.ui_redraw()
     return paw.notify(tp and ("entering " .. tp.actual .. ":" .. tp.normal) or "entering plain values")
   end
-  if not tp then return paw.notify("a tuplet is taken away by writing its notes again: select them and `notation.tuplet 2:2`", "warn") end
   local a, b, ranged = span(ctx)
+  if not tp then
+    -- On a beat that is a tuplet: plain values again.
+    local ev = not ranged and view:event_at(view.beat, view.step)
+    if ev and ev.tuplet then
+      if view:toggle_tuplet() == false then paw.notify("plain values") end
+      return
+    end
+    return paw.notify("a tuplet is taken away by writing its notes again: select them and `notation.tuplet 2:2`", "warn")
+  end
   if not ranged then
     -- The beat under the cursor.
     local m = view:measure_at(view.beat)

@@ -48,7 +48,7 @@ local function errors(from)
   return out
 end
 
-local LEAVE = { ZZ = true, ["<leader>n"] = true, gT = true }
+local LEAVE = { ZZ = true, ["<localleader>n"] = true, zS = true }
 
 test("notation: every key of the view says the clip is gone when an undo took it, and a redo brings it back", function()
   fresh()

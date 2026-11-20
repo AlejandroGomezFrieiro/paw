@@ -128,7 +128,7 @@ draw no curve, to keep the notes clear.
 | `w` `b` | Go to the next and the previous point. |
 | `A` | Adds a point at the cursor, at the value of the curve. |
 | `+` `-` | Raise and lower the point under the cursor: a dB, 5% of pan, or 1/100 of the range of a parameter. `Ctrl-a` `Ctrl-x` by the count. |
-| `c`, `=` | Types the value of the point. |
+| `c` | Types the value of the point. |
 | `x` | Removes the point. |
 | `gc`, `,at` | Bypasses the lane. |
 | `,ax` | Clears the lane. |

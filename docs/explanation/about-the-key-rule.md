@@ -42,6 +42,14 @@ meaning:
 - The system breaks of the score are `zs` (a system starts here) and `zj` (join the bar to the system before), next to `zg` and `zp`, which also set the layout of the page. `gS` keeps its meaning of the session view and the panel.
 - `a` appends. It already added a device on a track and notes after a note. It does the same in the mixer and the panel.
 - `A` already added a point of automation at the cursor in every view that had it.
+- `=` is only an operator: it snaps in the arrange view and the piano roll, it plays the score as written, and it puts a curve back in the vocal editor (`=in`, `==`). `c` types a value, and `x` puts a setting back to its default.
+- `gs` stays the playhead to the start, and keeps its own meaning in the curve editor, the drum grid and the score. `g0` is the playhead to the start in every view.
+- `R` records. A plugin starts again with `gR` in the device panel, and the virtual inputs look for ports with `gR`.
+- The score gives `gv` (select again), `gt` and `gT` (tabs) back to their meanings in every view. The other voice is `gV`, every track as a score is `zS`, and triplets come from the tuplet popover `\3`. The drum grid makes triplet steps with `\3` too: one key for triplets.
+- The session view makes a clip with `o` (open a line in Vim), switches the launch mode with `~` and legato with `g~`, so `n`, `m` and `gl` keep their meanings.
+- `]]` `[[` go between sections, as between the sections of a text in Vim. `]s` `[s` stay the tracks of a group. `]p` `[p` go through the phonemes of the vocal editor, so `(` `)` stay the phrase motions.
+- A view in a window of its own is `Ctrl-w f`, for a curve and for a text buffer.
+- The keys of an extension for one view are on the local leader (`\S` sections, `\k` drums). The keys after the leader work from every view.
 
 ## Escape never leaves
 

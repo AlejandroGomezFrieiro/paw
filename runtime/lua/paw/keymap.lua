@@ -949,7 +949,10 @@ handle = function(key)
     eager = nil
     stop_timer()
     local exact, longer
-    if key ~= first.key then exact, longer = lookup(first.key .. key) end
+    -- The same key again is a second step (`]]` pans twice), unless the
+    -- view maps the pair itself (`]]` to the next section).
+    exact, longer = lookup(first.key .. key)
+    if key == first.key and not exact then exact, longer = nil, nil end
     if exact or longer then
       if first.after ~= first.before and api.project_get("edits") == first.after then paw.undo() end
       if track.keys then track.edits = api.project_get("edits") end

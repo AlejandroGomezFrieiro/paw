@@ -183,7 +183,7 @@ end, { desc = "What every virtual input is doing" })
 
 -- Keys ------------------------------------------------------------------------------
 
-map("<leader>i", "vinput", { view = "arrange", desc = "Virtual inputs (guitar to MIDI)" })
+map("<localleader>i", "vinput", { view = "arrange", desc = "Virtual inputs (guitar to MIDI)" })
 
 local function pmap(lhs, rhs, desc, opts) map(lhs, rhs, paw.util.merge({ view = "vinput", desc = desc }, opts)) end
 local function move(by) return function(ctx)
@@ -210,13 +210,11 @@ pmap("+", adjust(1), "More; on", { role = "main+" })
 pmap("-", adjust(-1), "Less; off", { role = "main-" })
 pmap("<C-a>", adjust(1), "More by the count; on", { role = "main+" })
 pmap("<C-x>", adjust(-1), "Less by the count; off", { role = "main-" })
-pmap("<Right>", adjust(1), "More; on")
-pmap("<Left>", adjust(-1), "Less; off")
 for lhs, steps in pairs({ l = 1, h = -1, L = 10, H = -10 }) do
   paw.keymap.classic(lhs, adjust(steps), { view = "vinput", desc = steps > 0 and "More; on" or "Less; off" })
 end
 pmap("<CR>", function() M.activate((panel:current())) end, "Change this: on or off, choose, type")
-pmap("=", function()
+pmap("x", function()
   local row = panel:current()
   if row and row.setting then vinput.set(row.input.name, row.setting.key, row.setting.default) end
 end, "Back to the setting's usual value")
@@ -227,14 +225,14 @@ end, "The input on or off")
 pmap("a", "vinput.add", "A new input")
 pmap("D", "vinput.remove", "Take the input away")
 pmap("r", "vinput.restart", "Start the tracker again")
-pmap("R", function()
+pmap("gR", function()
   local row = panel:current()
   run.sources(row and row.input.kind or "gdi2m", true)
   paw.notify("looking for audio ports")
 end, "Look for audio ports again")
 pmap("s", "vinput.source", "Choose the source")
 pmap("t", "vinput.track", "A track that takes the input")
-pmap("g", "vinput.gain", "Take the gain the tracker asked for")
+pmap("ga", "vinput.gain", "Take the gain the tracker asked for")
 -- Escape stays, as in every view; `<C-w>p` goes back to the window before.
 pmap("<Esc>", function() paw.keymap.escape_hint() end, "Stay in the panel (Ctrl-w p leaves)", { repeatable = false })
 paw.keymap.classic("<Esc>", function() paw.layout.back() end, { view = "vinput", desc = "Back to the window before" })
@@ -242,7 +240,7 @@ paw.keymap.classic("<Esc>", function() paw.layout.back() end, { view = "vinput",
 if paw.ui.keybar then
   paw.ui.keybar.set("vinput", "n", {
     { "<CR>", "change" }, { "-", "less" }, { "+", "more" }, { "o", "on/off" }, { "s", "source" }, { "a", "add" },
-    { "t", "track" }, { "g", "take gain" }, { "r", "restart" }, { "D", "remove" }, { "<C-w>p", "back" },
+    { "t", "track" }, { "ga", "take gain" }, { "r", "restart" }, { "D", "remove" }, { "<C-w>p", "back" },
   })
 end
 

@@ -228,8 +228,10 @@ test("utau: a vocal track is a kind of track: made, shown, described and opened 
   T.fresh()
   load()
   paw.ui.focus("arrange")
-  local track = paw.cmd("track.add", { "vocal", ask = false })
-  eq(paw.track_kinds.of(track.id), "vocal", "track.add vocal makes a vocal track")
+  T.keys("<localleader>Vt")
+  while paw.ui.float do paw.ui.close() end
+  local track = paw.tracks()[#paw.tracks()]
+  eq(paw.track_kinds.of(track.id), "vocal", "the key makes a vocal track")
   eq(utau.device_of(track.id) ~= nil, true, "with the singing device")
   utau.configure(track.id, { singer = "Someone" })
   eq(paw.track_kinds.describe(track.id), "Vocal track · Someone", "described with its singer")
@@ -451,6 +453,21 @@ end)
 -- Curves that follow their clip ------------------------------------------------
 
 local UNDER = { 4, 5, 6, 7, 7.9 }
+
+test("utau: = puts the curve back over what it covers", function()
+  local track, clip = sung()
+  local editor = require("utau.editor").editor
+  editor:edit(clip.id)
+  paw.ui.focus("utau")
+  editor.curve, editor.beat, editor.pitch = "dyn", 1, 62
+  T.keys("=in")
+  paw.flush()
+  eq(curves(track, { 4, 5, 7 }), "4:-50/0 5:0/100 7:5/-100", "=in under the note at the cursor, that curve only")
+  T.keys("==")
+  paw.flush()
+  eq(curves(track, { 4, 7 }), "4:0/0 7:0/-100", "== in the whole clip")
+  paw.ui.hide("utau")
+end)
 
 test("utau: curves move with their clip, and undo puts both back", function()
   local track, clip = sung()

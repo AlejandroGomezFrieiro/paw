@@ -222,6 +222,16 @@ M.register("extensions", function(h)
         h.warn(string.format("%s replaces the %s %s of %s", e.name, o.kind, o.what, o.of),
           { "the extension loaded last wins: load them in the other order, or map it again in init.lua" })
       end
+      -- A key of the core given another meaning. A wrap that keeps what the
+      -- key does (and so its description) is not.
+      for _, item in ipairs(e.owned and e.owned.keys or {}) do
+        local old, new = item.old, item.value
+        if old and new and not old.ext and old.desc ~= new.desc then
+          h.warn(string.format("%s replaces the key %s of the core: “%s” becomes “%s”", e.name,
+            new.lhs .. " (" .. new.mode .. (new.scope ~= "global" and ", " .. new.scope or "") .. ")", tostring(old.desc), tostring(new.desc)),
+            { "a key means the same in every view: give the extension's action a key of its own" })
+        end
+      end
     else
       h.error(name .. ": " .. tostring(e.error):match("^[^\n]*"), { ":messages has the whole error", ":ext.load " .. e.name .. " tries again once it is fixed" })
     end

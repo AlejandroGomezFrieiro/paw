@@ -8,14 +8,14 @@ levels, a string section with all its instruments, a mastering chain.
 paw.ext.load("/path/to/paw/extensions/templates")   -- or link it into ~/.config/paw/extensions
 ```
 
-![The keys track saved with ,Ts as a template, then made again below another track with ,Tl and a part of its name, and its devices shown with ,d](images/tui-templates.gif)
+![The keys track saved with \Ts as a template, then made again below another track with \Tl and a part of its name, and its devices shown with ,d](images/tui-templates.gif)
 
 ## Try it
 
 1. Type `:ext.load templates`.
-2. Put the cursor on a track with devices, and press `,Ts`. Type `Keys`
+2. Put the cursor on a track with devices, and press `\Ts`. Type `Keys`
    and press Enter. The message says that the template is saved.
-3. Move the cursor to another track, and press `,Tl`.
+3. Move the cursor to another track, and press `\Tl`.
 4. Type `ke` and press Enter. A copy of the track appears below the
    cursor track.
 5. Press `,d`. The devices of the new track are the devices of the saved
@@ -26,7 +26,7 @@ paw.ext.load("/path/to/paw/extensions/templates")   -- or link it into ~/.config
 ### How to save a track or a group
 
 1. Put the cursor on the track, or on the track of a group.
-2. Press `,Ts`, type a name and press Enter.
+2. Press `\Ts`, type a name and press Enter.
 
 If a template has the same name, paw asks first. To keep the clips of the
 track too, call `templates.save_track(track, name, { clips = true })`.
@@ -34,12 +34,12 @@ track too, call `templates.save_track(track, name, { clips = true })`.
 ### How to save the devices of a track as a chain
 
 1. Put the cursor on the track.
-2. Press `,Tf`, type a name and press Enter.
+2. Press `\Tf`, type a name and press Enter.
 
 ### How to make a template again
 
 1. Put the cursor on a track.
-2. Press `,Tl`. Type a part of the name, or choose from the list.
+2. Press `\Tl`. Type a part of the name, or choose from the list.
 
 A track or a group appears below the cursor track. A chain goes at the end
 of the devices of the cursor track.
@@ -54,9 +54,9 @@ of the devices of the cursor track.
 
 | Keys | Command | Effect |
 | --- | --- | --- |
-| `,Ts` | `template.save [name]` | saves the cursor track. On a group, saves the group with all its tracks |
-| `,Tf` | `template.fx [name]` | saves the devices of the track as a chain |
-| `,Tl` | `template.load [name]` | makes a template again: a track or a group below the cursor track, a chain at the end of the devices of the cursor track. A part of the name is enough. Without a name, you choose from a list |
+| `\Ts` | `template.save [name]` | saves the cursor track. On a group, saves the group with all its tracks |
+| `\Tf` | `template.fx [name]` | saves the devices of the track as a chain |
+| `\Tl` | `template.load [name]` | makes a template again: a track or a group below the cursor track, a chain at the end of the devices of the cursor track. A part of the name is enough. Without a name, you choose from a list |
 | | `template.delete [name]` | deletes a template |
 | | `templates` | lists the templates |
 
