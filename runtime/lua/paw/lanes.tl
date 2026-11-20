@@ -43,9 +43,15 @@ end
 local record Groups
   rows: function(): {integer}
 end
+--- paw/frontend.tl, as far as this module calls it: the frontend names
+--- the types of this module, and two modules cannot name each other's types.
+local record Frontend
+  format_value: function(param: types.ParamInfo, value: number): string
+end
 local record Paw is partial.Paw
   draw: Draw
   groups: Groups
+  frontend: Frontend
 end
 local paw = (_G as {string:Paw}).paw
 
@@ -182,7 +188,7 @@ function M.format(lane: LaneRef, value: number): string
     return (l.states or {})[index + 1] or "-"
   end
   local p = param_of(l)
-  return p and paw.frontend.format_value(p, value) as string or string.format("%g", value)
+  return p and paw.frontend.format_value(p, value) or string.format("%g", value)
 end
 
 --- How far `+` and `-` move a point: a dB, 5% of pan, one choice, or a

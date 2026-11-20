@@ -260,7 +260,9 @@ local record Mouse
   wheel: function(e: contracts.MouseEvent): integer
 end
 
---- paw/frontend.lua's actions, as far as this module adds one.
+--- paw/frontend.tl's actions, as far as this module adds one: the frontend
+--- names the types of paw.statusline, which names this module's, so this
+--- module cannot name the frontend's.
 local record Frontend
   act: {string:function(name: string, window: boolean): Window, string}
 end
@@ -273,6 +275,7 @@ local record Paw is partial.Paw
   seats: SeatsModule
   canvas: CanvasModule
   mouse: Mouse
+  frontend: Frontend
   state: PawState
   undo: function(): boolean
 end
@@ -2690,6 +2693,6 @@ commands.define("textbuf.window", function(): contracts.CommandResult
 end, { desc = "Show this text buffer in a window of its own, in the graphical frontend" })
 
 -- The frontends' menus.
-(paw.frontend as Frontend).act.open_textbuf = function(name: string, window: boolean): Window, string return M.open(name, { window = window }) end
+paw.frontend.act.open_textbuf = function(name: string, window: boolean): Window, string return M.open(name, { window = window }) end
 
 return M

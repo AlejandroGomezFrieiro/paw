@@ -19,11 +19,6 @@ local record partial
       here: function(): string
       metamethod __index: function(Files, string): Untyped
    end
-   record Frontend
-      chosen_clips: function(): {integer}
-      chosen_refs: function(): {{integer}}
-      metamethod __index: function(Frontend, string): Untyped
-   end
    record Health
       register: function(name: string, fn: contracts.HealthCheck, opts?: contracts.HealthOptions)
       metamethod __index: function(Health, string): Untyped
@@ -74,13 +69,14 @@ local record partial
       failure: function(err: string): string
       files: Files
       flush: function()
-      frontend: Frontend
       health: Health
       keymap: Keymap
       layout: Layout
       notify: function(text: string, level?: string)
       off: function(id: integer)
       pick: Pick
+      render_cancel: function(): boolean
+      render_tags: function(set?: types.RenderTags): types.RenderTags
       timers: {integer:function()}
       track_kinds: TrackKinds
       ui: Ui

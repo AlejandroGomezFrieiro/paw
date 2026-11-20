@@ -106,7 +106,7 @@ local record Param is Thing
   device: integer
 end
 
---- The options of a render (paw/render.lua), which this module keeps.
+--- The options of a render (paw/render.tl), which this module keeps.
 local record RenderValue
 end
 local type RenderOptions = {string: RenderValue}

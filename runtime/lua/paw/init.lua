@@ -157,24 +157,6 @@ function paw.device_types()
   return list
 end
 
---- Render the project to a file, and render stems. See `paw/render.lua`
---- for the options. `paw.render_status()` and `paw.render_cancel()` control
---- a render that runs in the background. `paw.render_ranges` contains the
---- named ranges that a render can use.
-function paw.render(path, opts) return require("paw.render").render(path, opts) end
---- Render each track to a file of its own in `dir` (see `paw/render.lua` for `opts`).
-function paw.render_stems(dir, opts) return require("paw.render").stems(dir, opts) end
---- The tags of the project's rendered files: `paw.render_tags()`, `paw.render_tags({ artist = "Me" })`.
-function paw.render_tags(set) return require("paw.render").tags(set) end
---- The render that runs in the background (`{ path, fraction, seconds }`), or nil.
-function paw.render_status() return require("paw.render").status() end
---- Stop the render that runs in the background.
-function paw.render_cancel() return require("paw.render").cancel() end
-paw.render_ranges = setmetatable({}, {
-  __index = function(_, k) return require("paw.render").ranges[k] end,
-  __newindex = function(_, k, v) require("paw.render").ranges[k] = v end,
-})
-
 --- Render a track with its devices to audio, as one clip on a new track
 --- immediately below it, and mute the original. The new track sends its
 --- sound where the original sent it. It uses `paw.render`, so
@@ -288,7 +270,12 @@ function K.startup()
   paw.routes.setup()
   paw.media = require("paw.media")
   paw.external = require("paw.external")
-  require("paw.render")
+  -- Rendering: `paw.render(path, opts)` renders the project to a file, and
+  -- the module has stems, the tags and the render that runs in the
+  -- background (paw/render.tl). The other names are older.
+  paw.render = require("paw.render")
+  paw.render_stems, paw.render_tags, paw.render_ranges = paw.render.stems, paw.render.tags, paw.render.ranges
+  paw.render_status, paw.render_cancel = paw.render.status, paw.render.cancel
   -- Freezing tracks, and tabs narrowed to a group.
   paw.freeze = require("paw.freeze")
   paw.scope = require("paw.scope")
