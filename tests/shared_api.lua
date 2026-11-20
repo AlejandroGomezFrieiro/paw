@@ -40,3 +40,22 @@ test("paw.api.device_find finds a kind of device by its kind, its format, or its
   local builtin = api.device_find({ format = "builtin", all = true })
   eq(#builtin > 1 and builtin[1].format, "builtin", "a list with all = true")
 end)
+
+test("paw.toml reads TOML with its keys in order, says the line of an error, and writes a table back", function()
+  local t = assert(paw.toml.decode([==[
+# a comment
+b = "x\ty"   # after a value
+a = 1
+[t.u]
+c = [1, 2,
+  3, ]
+d = { f = true, e = 'lit' }
+[[arr]]
+x = 2.5
+]==]))
+  eq(paw.json.encode(t), '{"a":1,"arr":[{"x":2.5}],"b":"x\\ty","t":{"u":{"c":[1,2,3],"d":{"e":"lit","f":true}}}}', "the table")
+  eq(table.concat(getmetatable(t).__keys, ","), "b,a,t,arr", "keys in the order written")
+  eq(select(2, paw.toml.decode("a = 1\na = 2")):match("^line 2: ") ~= nil, true, "the line of an error")
+  eq(paw.toml.encode({ m2 = "11.0", out = "ks=D1" }, true), '{ m2 = "11.0", out = "ks=D1" }', "a value on one line")
+  eq(paw.json.encode(paw.toml.decode(paw.toml.encode(t))), paw.json.encode(t), "a document written reads back the same")
+end)

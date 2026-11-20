@@ -219,6 +219,10 @@ paw.json = { encode = api.json_encode, decode = api.json_decode }
 -- deflate/inflate (raw, zlib, gzip) and crc32.
 paw.bytes = require("paw.bytes")
 paw.zip = require("paw.zip")
+-- XML (paw/xml.lua) and TOML, read and written by the core: a TOML table
+-- keeps the order of its keys in `getmetatable(t).__keys`.
+paw.xml = require("paw.xml")
+paw.toml = { encode = api.toml_encode, decode = api.toml_decode }
 
 -- Values kept by the kernel, so they survive `:reload`.
 paw.state = setmetatable({}, {
