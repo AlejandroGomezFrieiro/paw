@@ -95,7 +95,7 @@ paw.command = setmetatable({ alias = paw.commands.alias }, {
 paw.cmd = paw.commands.run
 
 paw.music = require("paw.music")
--- A note's MIDI 2.0 attribute and the articulations in it (paw/attr.lua).
+-- A note's MIDI 2.0 attribute and the articulations in it (paw/attr.tl).
 paw.attr = require("paw.attr")
 paw.params = require("paw.params")
 paw.ui = require("paw.ui")
@@ -191,6 +191,8 @@ end
 paw.undo, paw.redo = api.undo, api.redo
 paw.cursor = require("paw.cursor")
 paw.edit = require("paw.edit")
+-- Files in languages that compile to Lua (Teal, ...): paw/lang.lua.
+paw.lang = require("paw.lang")
 paw.ext = require("paw.ext")
 paw.vca = require("paw.vca")
 paw.groups = require("paw.groups")
@@ -214,7 +216,7 @@ require("paw.window_menus")
 -- JSON, for what extensions keep in files: `paw.json.encode(value, pretty)`
 -- gives text, `paw.json.decode(text)` the value, or nil and the reason.
 paw.json = { encode = api.json_encode, decode = api.json_decode }
--- Binary formats: base64 and little-endian numbers (paw/bytes.lua), ZIP
+-- Binary formats: base64 and little-endian numbers (paw/bytes.tl), ZIP
 -- archives (paw/zip.lua); under them, paw.api's base64_encode/decode,
 -- deflate/inflate (raw, zlib, gzip) and crc32.
 paw.bytes = require("paw.bytes")
@@ -312,11 +314,10 @@ function K.startup()
   if not env.clean then
     paw.luadev.add_dir(env.config_dir .. "/devices", paw.luadev.RANK_CONFIG)
     paw.ext.load_dir(env.config_dir .. "/extensions")
-    local init = env.config_dir .. "/init.lua"
-    local file = io.open(init, "r")
-    if file then
-      file:close()
-      local chunk, err = loadfile(init)
+    -- init.lua, or init.tl (or another language's) when there is no init.lua.
+    local init = paw.lang.find(env.config_dir .. "/init")
+    if init then
+      local chunk, err = paw.lang.loadfile(init)
       if chunk then paw.try(paw.limit.untrusted(chunk)) else paw.notify(err, "error") end
     end
     paw.snippet.load_dir(env.config_dir .. "/snippets", "config")

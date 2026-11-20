@@ -41,6 +41,7 @@ below link the main ones.
 - [How to configure paw](how-to/configure-paw.md): `init.lua`, options, colors, commands, keys, events
 - [How to change the status line](how-to/change-the-status-line.md): sections and components in `init.lua`
 - [How to load an extension](how-to/load-an-extension.md): a bundled extension, your own, or one from Nix
+- [How to write an extension in Teal](how-to/write-an-extension-in-teal.md): Lua with types, checked before it runs, and other languages
 - [How to check all the hardware](../extensions/doctor/README.md#how-to-check-all-the-hardware): the doctor's guided check and its report
 
 ### Tracks and instruments
@@ -275,3 +276,4 @@ below link the main ones.
 - [About language servers](explanation/about-language-servers.md): the four layers, addresses with ids, subjects, LSP
 - [About project files](explanation/about-project-files.md): why a project is a folder of files, MIDI clip files, `unused`, safety copies
 - [About the Nix build](explanation/about-the-nix-build.md): two layers, and why crane
+- [About Teal in paw](explanation/about-teal.md): why the code of paw moves to Teal, how Teal and Lua work together, and the plan

@@ -633,7 +633,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.ext.bundled_dir()`: The directory of the extensions that come with paw: `$PAW_HOME/extensions`, or `extensions` under the current directory in a source tree. Nil when there is no such directory.
 - `paw.ext.caller()`: The loaded extension whose code called the function this is called from, or nil for the core's or the user's.
 - `paw.ext.list()`: Loaded extensions, sorted by name.
-- `paw.ext.load(path)`: Load one extension from a directory or a `.lua` file. One the program was built with is not loaded again from elsewhere: the configuration that names the source tree's copy gets the packaged one.
+- `paw.ext.load(path)`: Load one extension from a directory or a file (`.lua`, or `.tl` or the extension of another language of `paw.lang`). One the program was built with is not loaded again from elsewhere: the configuration that names the source tree's copy gets the packaged one.
 - `paw.ext.load_bundled(name)`: Load a bundled extension by name. A name that is loaded does not change. Returns the entry, or nil and the problem.
 - `paw.ext.load_dir(dir)`: Load everything in a directory of extensions.
 - `paw.ext.load_packaged(dirs)`: Load the extensions the program was built with: `dirs` is a list of their directories separated by `:` (`$PAW_EXTENSIONS`, which the flake's `paw.withExtensions` sets).
@@ -1014,6 +1014,23 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.lanes.step(lane)`: How far `+` and `-` move a point: a dB, 5% of pan, one choice, or a hundredth of the parameter's range.
 - `paw.lanes.toggle(track)`: Show the automation lanes of a track, or hide them. Returns true if they show.
 - `paw.lanes.value_at(lane, beat)`: What a lane's target is at a beat: the curve's value, or with no points yet the target's own value.
+
+## Module paw.lang
+
+- `paw.lang.add(ext, spec)`: Add a language whose files end in `.<ext>`. `spec.compile(source, path)` returns the Lua for the text of a file, or nil and an error. Or `spec.command` is a shell command that writes the Lua to its output, with `%s` for the file. `spec.name` names the language in errors, and `spec.version` goes into the cache's key: change it when the compiler changes what it makes.
+
+  ```lua
+  paw.lang.add("fnl", { name = "fennel", command = "fennel --compile %s", version = "1.5" })
+  ```
+- `paw.lang.cache_dir()`: The directory the compiled Lua is kept in: `$XDG_CACHE_HOME/paw/lang`.
+- `paw.lang.check(files, opts)`: Check the types of `.tl` files, as `tl check` does with the source tree's tlconfig.lua. `opts.include` adds directories to look for modules in. Returns a list of `{ file, line, col, msg, kind }`, kind "error" or "warning", sorted by file and line: empty when all is well.
+- `paw.lang.compile(path, source)`: The Lua of a file in a registered language, compiled or from the cache. `source` is the file's text when it is read already. Returns the Lua, or nil and an error that names the file.
+- `paw.lang.extensions()`: The extensions a source file may have: "lua" first, then each registered one, sorted.
+- `paw.lang.find(base)`: The first file that is there of `base` with each extension of `paw.lang.extensions()`: `find("init")` gives init.lua, or init.tl when there is no init.lua. Nil when there is none.
+- `paw.lang.loadfile(path)`: Load a file of Lua or of a registered language as a function, as `loadfile` does. Its errors and `debug.getinfo` name the file itself, so an extension written in another language owns what it registers.
+- `paw.lang.of(path)`: The extension of `path` when a registered language has it, else nil.
+- `paw.lang.searchpath(name, path)`: The file of module `name` in a registered language along `path` (by default `package.path`): each `?.lua` template with the language's extension. Nil and the files it tried when there is none.
+- `paw.lang.tlconfig(root)`: The Teal configuration of the source tree (tlconfig.lua): the directories with declarations and modules (`include_dir`), and the file that declares the globals (`global_env_def`).
 
 ## Module paw.layout
 

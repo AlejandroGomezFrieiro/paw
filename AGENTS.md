@@ -7,9 +7,9 @@ you change anything. The rules here are not optional.
 
 paw is a personal audio workstation for Linux. A small Rust kernel plays
 the sound, keeps the project and hosts plugins. Everything that the user
-touches is Lua over one API, `paw`. The model is Neovim: a small core, a
-modal grammar of keys, Ex commands, and a configuration that can change
-everything.
+touches is Lua over one API, `paw`, and new code is Teal, Lua with
+types. The model is Neovim: a small core, a modal grammar of keys, Ex
+commands, and a configuration that can change everything.
 
 ## The philosophy
 
@@ -35,6 +35,11 @@ everything.
    undo step. Each action says what it did. Each failure gives a clear
    message, not a stack trace.
 7. **Fast keys.** A key stays well under 100 ms on a large project.
+8. **New code is written in Teal.** Teal is Lua with types. A new module
+   of the runtime is a `.tl` file, and so is a new extension. A Lua file
+   that changes much moves to Teal. Lua stays only with a written reason,
+   for example the FFI code of `dsp.lua`. Write no `any` where a value has
+   a shape. See [About Teal in paw](docs/explanation/about-teal.md).
 
 To write an extension, use the skill in
 [.claude/skills/paw-extension](.claude/skills/paw-extension/SKILL.md).
@@ -89,6 +94,7 @@ nix develop -c tests/tools/suite.sh            # the Lua tests
 nix develop -c tests/tools/suite.sh only <words>
 nix develop -c cargo test --release -p <crate> # the Rust tests of a crate
 nix develop -c target/release/paw --clean --no-plugins -l tools/apidoc.lua check
+nix develop -c tools/tlcheck.sh                 # tl check on each .tl file (the suite does it too)
 nix develop -c tools/vale.sh                   # the docs
 nix flake check                                # all of the checks
 ```

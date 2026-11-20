@@ -14,14 +14,17 @@ give the rules for a change.
 | `crates/` | The Rust crates. The next section lists them. |
 | `runtime/lua/paw/` | The Lua runtime: the views, the keys, the commands and the `paw` module. The build puts it into the binary. `--runtime <dir>` loads it from the disk. |
 | `runtime/lua/paw/defaults/` | The built-in keys, commands and views. They use the same `paw` module as a configuration. |
-| `runtime/types/` | `paw.lua`, the type definitions of the `paw` module for LuaLS. `tools/apidoc.lua` makes it. |
+| `runtime/lua/paw/*.tl` | The modules of the runtime written in Teal. The build compiles them to Lua. `types.tl` holds the records of the data that crosses `paw.api`. |
+| `runtime/lua/tl.lua` | The compiler of Teal, version 0.24.8 (MIT license, `tl.LICENSE`). |
+| `runtime/types/` | `paw.lua`, the type definitions of the `paw` module for LuaLS. `paw.d.tl` and `paw/api.d.tl`, the declarations of `paw` and `paw.api` for Teal. `any-allowed.txt`, each `any` that they can have, with the reason. `tools/apidoc.lua` makes them. |
+| `tlconfig.lua` | The configuration of Teal for `tl check` and editors. |
 | `extensions/` | The bundled extensions. Each folder has a `README.md`, a `manifest.lua`, an `init.lua`, its Lua in `lua/` and its tests in `tests*.lua`. Some also have `doc/`, `images/`, `native/` and `nix/`. |
 | `config/` | The example configuration: an `init.lua` that loads the bundled extensions, and two small extensions in `config/extensions/`. |
 | `examples/` | The demo song (`examples/demo-song.lua`) and the files of the tutorial [Make music with paw](../tutorials/make-music/README.md). |
 | `docs/` | The manual. [docs/README.md](../README.md) lists the pages. `docs/images/` holds the pictures, and `docs/images/make/` the scripts that record them again. |
 | `tests/` | The Lua suite: the runner `tests/suite.lua`, the tests of the core in `tests/<area>.lua`, the guides' tests in `tests/guides*.lua`, and files for the tests in `tests/fixtures/`. |
 | `tests/tools/` | The scripts that run the tests: `suite.sh` (the Lua suite), `gui.sh`, `live.sh`, `loaded.sh`. |
-| `tools/` | `apidoc.lua` (the API reference and the types), `vale.sh` (Vale on the docs), `vale-hook.sh`, `ste-check.lua`, `sweep.sh` (frees the disk that old builds use). |
+| `tools/` | `apidoc.lua` (the API reference and the types), `tlcheck.sh` (`tl check` on each Teal file), `vale.sh` (Vale on the docs), `vale-hook.sh`, `ste-check.lua`, `sweep.sh` (frees the disk that old builds use). |
 | `bench/` | The benchmarks and the stress tests. See [bench/README.md](../../bench/README.md). |
 | `.vale/` | The project's Vale styles (STE) and its vocabulary. `.vale.ini` configures Vale. |
 | `.claude/skills/` | The instructions for agents: write an extension, write the docs, prune the tests. |
@@ -53,7 +56,7 @@ Do not edit these files. Make them again from their source.
 
 | File | Source | Command |
 | --- | --- | --- |
-| `docs/reference/api.md`, `runtime/types/paw.lua` | the doc comments of the `paw` modules and of `crates/paw-core/src/api.rs` | `paw --clean --no-plugins -l tools/apidoc.lua` |
+| `docs/reference/api.md`, `runtime/types/paw.lua`, `runtime/types/paw.d.tl`, `runtime/types/paw/api.d.tl` | the doc comments of the `paw` modules and of `crates/paw-core/src/api.rs` | `paw --clean --no-plugins -l tools/apidoc.lua` |
 | `docs/tutorials/course/*.md` | the tutor's lessons in `extensions/tutor/lua/tutor/lessons/` | `paw --clean --no-plugins -l extensions/tutor/make-docs.lua` |
 | `docs/images/*.gif`, `docs/images/*.png` | a recording of paw | `docs/images/make/make.sh` |
 

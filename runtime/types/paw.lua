@@ -134,6 +134,9 @@ paw.keyrule = {}
 ---@class paw.lanes
 paw.lanes = {}
 
+---@class paw.lang
+paw.lang = {}
+
 ---@class paw.layout
 paw.layout = {}
 
@@ -2576,7 +2579,8 @@ function paw.ext.caller() end
 --- Loaded extensions, sorted by name.
 function paw.ext.list() end
 
---- Load one extension from a directory or a `.lua` file. One the program
+--- Load one extension from a directory or a file (`.lua`, or `.tl` or the
+--- extension of another language of `paw.lang`). One the program
 --- was built with is not loaded again from elsewhere: the configuration
 --- that names the source tree's copy gets the packaged one.
 ---@param path any
@@ -4077,6 +4081,68 @@ function paw.lanes.toggle(track) end
 ---@param lane any
 ---@param beat any
 function paw.lanes.value_at(lane, beat) end
+
+--- Add a language whose files end in `.<ext>`. `spec.compile(source, path)`
+--- returns the Lua for the text of a file, or nil and an error. Or
+--- `spec.command` is a shell command that writes the Lua to its output,
+--- with `%s` for the file. `spec.name` names the language in errors, and
+--- `spec.version` goes into the cache's key: change it when the compiler
+--- changes what it makes.
+---   paw.lang.add("fnl", { name = "fennel", command = "fennel --compile %s", version = "1.5" })
+---@param ext any
+---@param spec any
+function paw.lang.add(ext, spec) end
+
+--- The directory the compiled Lua is kept in: `$XDG_CACHE_HOME/paw/lang`.
+function paw.lang.cache_dir() end
+
+--- Check the types of `.tl` files, as `tl check` does with the source
+--- tree's tlconfig.lua. `opts.include` adds directories to look for
+--- modules in. Returns a list of `{ file, line, col, msg, kind }`, kind
+--- "error" or "warning", sorted by file and line: empty when all is well.
+---@param files any
+---@param opts any
+function paw.lang.check(files, opts) end
+
+--- The Lua of a file in a registered language, compiled or from the cache.
+--- `source` is the file's text when it is read already. Returns the Lua,
+--- or nil and an error that names the file.
+---@param path any
+---@param source any
+function paw.lang.compile(path, source) end
+
+--- The extensions a source file may have: "lua" first, then each
+--- registered one, sorted.
+function paw.lang.extensions() end
+
+--- The first file that is there of `base` with each extension of
+--- `paw.lang.extensions()`: `find("init")` gives init.lua, or init.tl when
+--- there is no init.lua. Nil when there is none.
+---@param base any
+function paw.lang.find(base) end
+
+--- Load a file of Lua or of a registered language as a function, as
+--- `loadfile` does. Its errors and `debug.getinfo` name the file itself, so
+--- an extension written in another language owns what it registers.
+---@param path any
+function paw.lang.loadfile(path) end
+
+--- The extension of `path` when a registered language has it, else nil.
+---@param path any
+function paw.lang.of(path) end
+
+--- The file of module `name` in a registered language along `path` (by
+--- default `package.path`): each `?.lua` template with the language's
+--- extension. Nil and the files it tried when there is none.
+---@param name any
+---@param path any
+function paw.lang.searchpath(name, path) end
+
+--- The Teal configuration of the source tree (tlconfig.lua): the
+--- directories with declarations and modules (`include_dir`), and the file
+--- that declares the globals (`global_env_def`).
+---@param root any
+function paw.lang.tlconfig(root) end
 
 --- True if a window of this number is in a tab of the seat, or is a
 --- window in no tab (`M.loose`) that is still in use.

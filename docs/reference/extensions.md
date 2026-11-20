@@ -51,7 +51,20 @@ extensions/euclid/devices/      devices written in Lua
 extensions/euclid/README.md     its page of :help
 extensions/euclid/doc/*.md      more pages of :help
 extensions/clock.lua            an extension in one file
+extensions/scale.tl             an extension in one file, in Teal
 ```
+
+Each Lua file can also be a file of Teal (`init.tl`, `lua/euclid/rhythm.tl`,
+`scale.tl`) or of another language that `paw.lang.add` registers. paw
+compiles it when it loads it, and keeps the Lua in `~/.cache/paw/lang`.
+`manifest.lua` stays Lua. See
+[How to write an extension in Teal](../how-to/write-an-extension-in-teal.md).
+
+| Name | Effect |
+| --- | --- |
+| `paw.lang.add(ext, spec)` | registers a language whose files end in `.ext`: `spec.compile(source, path)` or `spec.command` (`"fennel --compile %s"`) makes the Lua |
+| `paw.lang.loadfile(path)` | loads a file of Lua or of a registered language |
+| `paw.lang.check(files)` | checks the types of `.tl` files, with `tlconfig.lua`, and returns the errors |
 
 Files in `~/.config/paw/lua/` replace the built-in modules with the same
 name. So any part of the runtime can be replaced.
@@ -60,7 +73,7 @@ name. So any part of the runtime can be replaced.
 
 | Name | Effect |
 | --- | --- |
-| `paw.ext.load(path)` | loads an extension from a directory or a `.lua` file |
+| `paw.ext.load(path)` | loads an extension from a directory, a `.lua` file or a `.tl` file |
 | `paw.ext.load_bundled(name)` | loads a bundled extension by name |
 | `:ext.load name` | loads a bundled extension now. Tab completes the names |
 | `:extensions` | lists the extensions that loaded, with the version, what each registered, and the error of each extension that failed |

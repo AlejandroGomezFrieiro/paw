@@ -1007,3 +1007,18 @@ test("guide: write an importer or exporter", function()
   keys(':lua paw.formats.unregister("notes")<CR>')
   eq(paw.formats.get("notes"), nil, "and it goes")
 end)
+
+test("guide: write an extension in Teal", function()
+  start()
+  local dir = T.scratch .. "/howto-teal"
+  api.fs_mkdir(dir)
+  -- The guide's extension, as it is on the page.
+  local page = T.read_file("docs/how-to/write-an-extension-in-teal.md")
+  local code = page:match("```lua\n   (local record Args.-)   ```"):gsub("\n   ", "\n")
+  T.write_file(dir .. "/scale.tl", code)
+  eq(#paw.lang.check({ dir .. "/scale.tl" }), 0, "its types are correct")
+  keys(':lua paw.ext.load("' .. dir .. '/scale.tl")<CR>')
+  T.after(function() paw.ext.unload("scale") end)
+  keys(":scale.notes C4 dorian<CR>")
+  eq(paw.ui.message and paw.ui.message.text, "C4 D4 D#4 F4 G4 A4 A#4 C5", "the command says the notes")
+end)
