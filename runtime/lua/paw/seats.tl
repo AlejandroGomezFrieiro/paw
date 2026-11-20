@@ -24,48 +24,92 @@
 --
 -- The last function gives what a new seat starts with; it is passed seat
 -- 0's state, to start from a copy of some of it.
-local api = paw.api
-local M = { current = 0 }
+--
+-- Written in Teal (paw/lang.tl): the build compiles it to Lua. `keep` and
+-- `within` take values of one type: a module in Teal that keeps more puts
+-- them in a record.
+local api = require("paw.api")
 
-local keeps = {}   -- { name, get, set, fresh }, in the order kept
-local seats = {}   -- seat -> { values = name -> packed state, why = { reason = true } }
+--- A value this module keeps for a seat and never reads.
+local record Value
+end
 
-local function pack(...) return { n = select("#", ...), ... } end
+--- Values as `pack` keeps them: with their count, nils included.
+local record Packed
+  {Value}
+  n: integer
+end
+
+--- State that each seat has its own of.
+local record Keep
+  name: string
+  get: function(): Value...
+  set: function(...: Value)
+  fresh: function(...: Value): Value...
+end
+
+--- Why a seat is open: `terminal`, `window`, `instance`.
+local record Seat
+  values: {string:Packed}
+  why: {string:boolean}
+end
+
+-- Lua 5.1's function that Teal's library leaves out.
+local record Lua51
+  unpack: function<T>({T}, ? integer, ? integer): T...
+end
+local unpack = (_G as Lua51).unpack
+
+local record M
+  current: integer
+  copy: function<T>(T): T
+end
+M.current = 0
+
+local keeps: {Keep} = {}   -- { name, get, set, fresh }, in the order kept
+local seats: {integer:Seat} = {}   -- seat -> { values = name -> packed state, why = { reason = true } }
+
+local function pack(...: Value): Packed
+  local out: Packed = { ... }
+  out.n = select("#", ...)
+  return out
+end
 
 --- Name some state that each seat has its own of. See the top of the file.
-function M.keep(name, get, set, fresh)
+function M.keep<T>(name: string, get: function(): (T...), set: function(T...), fresh: function(T...): (T...))
   -- What the module holds now is the current seat's; every other seat
   -- starts afresh when its turn comes.
-  keeps[#keeps + 1] = { name = name, get = get, set = set, fresh = fresh }
+  keeps[#keeps + 1] = { name = name, get = get as function(): Value..., set = set as function(...: Value),
+    fresh = fresh as function(...: Value): Value... }
 end
 
 --- Keep fields of a table (a view's scroll, say) for each seat: `keys`
 --- names them, `start` gives what a new seat starts with (nil if absent).
 ---   paw.seats.fields("mixer", view, { "scroll", "geometry" }, { scroll = 0 })
-function M.fields(name, tbl, keys, start)
+function M.fields<V>(name: string, tbl: {string:V}, keys: {string}, start?: {string:V})
   M.keep(name,
-    function()
-      local out = {}
+    function(): V...
+      local out: {V} = {}
       for i, key in ipairs(keys) do out[i] = tbl[key] end
       return unpack(out, 1, #keys)
     end,
-    function(...)
-      local values = { ... }
+    function(...: V)
+      local values: {V} = { ... }
       for i, key in ipairs(keys) do tbl[key] = values[i] end
     end,
-    function()
-      local out = {}
+    function(): V...
+      local out: {V} = {}
       for i, key in ipairs(keys) do out[i] = M.copy((start or {})[key]) end
       return unpack(out, 1, #keys)
     end)
 end
 
-local function stow(id)
+local function stow(id: integer)
   local values = seats[id].values
   for _, k in ipairs(keeps) do values[k.name] = pack(k.get()) end
 end
 
-local function restore(id)
+local function restore(id: integer)
   local values, zero = seats[id].values, seats[0].values
   for _, k in ipairs(keeps) do
     local packed = values[k.name]
@@ -82,7 +126,7 @@ seats[0] = { values = {}, why = { instance = true } }
 
 --- Make `id`'s seat the current one: an open seat, else the instance's.
 --- Returns the seat entered.
-function M.enter(id)
+function M.enter(id: integer): integer
   if not seats[id] then id = 0 end
   if id == M.current then return id end
   stow(M.current)
@@ -95,13 +139,13 @@ end
 
 --- Run `fn` in seat `id` (in the seat of the instance, if that seat closed),
 --- then return to the current seat.
-function M.within(id, fn, ...)
+function M.within<A, R>(id: integer, fn: function(A...): (R...), ...: A): R...
   local before = M.current
   M.enter(id)
-  local result = pack(pcall(fn, ...))
+  local result = pack((pcall as function(function(A...): (R...), A...): Value...)(fn, ...))
   M.enter(before)
   if not result[1] then error(result[2], 0) end
-  return unpack(result, 2, result.n)
+  return (unpack as function(Packed, integer, integer): R...)(result, 2, result.n)
 end
 
 --- A deep copy of a value. A new seat starts from the values of seat 0 with
@@ -109,13 +153,13 @@ end
 M.copy = require("paw.util").copy
 
 --- True if `id` has its own seat.
-function M.has(id)
+function M.has(id: integer): boolean
   return id ~= 0 and seats[id] ~= nil
 end
 
 --- The seats there are, the instance's first.
-function M.list()
-  local out = {}
+function M.list(): {integer}
+  local out: {integer} = {}
   for id in pairs(seats) do out[#out + 1] = id end
   table.sort(out)
   return out
@@ -125,7 +169,7 @@ end
 --- next: "window" for the graphical window, "terminal" for a terminal
 --- (the instance's own, or one attached with `paw attach`). The seat of
 --- the instance with no terminal is the window that started it.
-function M.kind(id)
+function M.kind(id?: integer): string
   id = id or M.current
   local seat = seats[id]
   if id ~= 0 and seat then
@@ -137,7 +181,7 @@ end
 
 --- Give connection `id` its own seat, for a reason (`terminal`, `window`).
 --- The seat stays while a reason stays.
-function M.open(id, why)
+function M.open(id: integer, why: string)
   if id == 0 then return end
   local seat = seats[id]
   if not seat then
@@ -150,13 +194,13 @@ end
 
 --- Let go of a reason for `id`'s seat (or of all of them, with none): the
 --- seat closes with its last one.
-function M.close(id, why)
+function M.close(id: integer, why?: string)
   local seat = seats[id]
   if id == 0 or not seat then return end
   if why then seat.why[why] = nil else seat.why = {} end
   if next(seat.why) then return end
   -- Whatever was half done there ends with it.
-  M.within(id, paw.emit, "seat.closing", { seat = id })
+  M.within(id, function() paw.emit("seat.closing", { seat = id }) end)
   seats[id] = nil
   if M.current == id then
     restore(0)
@@ -168,14 +212,13 @@ end
 -- A timer runs in the seat that started it: a key that waits for the next
 -- (`timeoutlen`), a message to clear, a deferred redraw.
 local start = api.timer_start
-api.timer_start = function(ms, ...)
-  local args = pack(...)
-  local fn = args[args.n]
+api.timer_start = function(ms: number, repeat_: boolean, fn: function(...: Value): Value...): integer
   local seat = M.current
-  if seat ~= 0 and type(fn) == "function" then
-    args[args.n] = function(...) return M.within(seat, fn, ...) end
+  if seat ~= 0 and fn is function then
+    local inner = fn
+    fn = function(...: Value): Value... return M.within(seat, inner, ...) end
   end
-  return start(ms, unpack(args, 1, args.n))
+  return start(ms, repeat_, fn)
 end
 
 return M

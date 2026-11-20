@@ -10,23 +10,91 @@
 --       if c.name == "track.removed" then return false, "tracks stay" end
 --     end
 --   end)
-local api = paw.api
+--
+-- Written in Teal (paw/lang.tl): the build compiles it to Lua.
+local api = require("paw.api")
 local events = require("paw.events")
-local M = {}
+
+--- The payload of a change event, as far as this module reads it.
+local interface Change
+  restored: boolean
+end
+
+--- One change of an edit: the event's name and its payload.
+local record Edit
+  name: string
+  payload: Change
+end
+
+--- A region of a view that visual mode selects (paw/keymap.lua).
+local interface Region
+  view: string
+  kind: string
+  r0: number
+  r1: number
+  c0: number
+  c1: number
+end
+
+--- What is selected now: the payload of `selection.changed`.
+local record Selection
+  view: string
+  kind: string
+  region: Region
+  clips: {integer}
+  notes: {{integer}}
+end
+
+--- A pane of the screen (paw/ui.lua), as far as this module reads it.
+local interface Pane
+  name: string
+end
+
+--- A state of the undo tree.
+local record UndoState
+  id: integer
+  label: string
+end
+
+local record UndoTree
+  states: {UndoState}
+end
+
+--- The payload of `undo` and `redo`.
+local record Move
+  from: integer
+  to: integer
+  how: string
+  label: string
+end
+
+--- A value this module passes on and never reads.
+local record Value
+end
+
+local type KernelFn = function(...: Value): Value
+
+local record M
+  type Change = Change
+  type Edit = Edit
+  type Region = Region
+  type Selection = Selection
+  type Move = Move
+end
 
 -- The events that say the project was edited, and so make up an edit.
-local EDITS = {}
+local EDITS: {string:boolean} = {}
 for _, name in ipairs({ "project.changed", "track.added", "track.changed", "track.removed", "track.moved",
   "device.added", "device.changed", "device.removed", "clip.added", "clip.changed", "clip.removed",
   "lane.added", "lane.changed", "lane.removed", "cue.changed" }) do
   EDITS[name] = true
 end
 
-local changes = {}  -- what this turn has edited so far: { name, payload }
+local changes: {Edit} = {}  -- what this turn has edited so far: { name, payload }
 
 --- Count an event of this turn as a part of the edit of the turn. Undo,
 --- redo and the open of a project are not edits (`restored`).
-function M.note(name, payload)
+function M.note(name: string, payload: Change)
   if EDITS[name] and not payload.restored then changes[#changes + 1] = { name = name, payload = payload } end
 end
 
@@ -36,7 +104,7 @@ end
 --- about to become an undo step. `edit.before` may refuse them, which puts
 --- the project back as the turn found it; handlers that answer with edits
 --- of their own join the step. `edit.after` hears of the step made.
-local function finish_edit()
+local function finish_edit(): boolean
   local list = changes
   changes = {}
   if #list == 0 or not (events.listened("edit.before") or events.listened("edit.after")) then return false end
@@ -54,7 +122,7 @@ local function finish_edit()
   for _, c in ipairs(changes) do list[#list + 1] = c end
   changes = {}
   api.undo_checkpoint()
-  events.emit("edit.after", { changes = list, state = api.undo_current() })
+  events.emit("edit.after", { changes = list, state = api.undo_current() as integer })
   -- Edits made in answer to it are an edit of their own.
   paw.flush()
   return #changes > 0
@@ -65,9 +133,10 @@ end
 -- Both are compared at the end of each turn, and only while something
 -- listens for them by name or family: working them out costs a little.
 
-local last_selection, last_views = "", nil
+local last_selection: string = ""
+local last_views: {string:boolean} = nil
 
-local function region_key(r)
+local function region_key(r: Region): string
   if not r then return "" end
   return string.format("%s %s %s %s %s %s", tostring(r.view), r.kind, r.r0, r.r1, r.c0, r.c1)
 end
@@ -75,14 +144,14 @@ end
 --- The current selection: the visual selection of the focused view and the
 --- clips selected with the pointer. Also the selected notes of the clips that
 --- the piano roll edits.
-function M.selection()
-  local region = paw.keymap.selection()
-  local clips = paw.frontend.chosen_clips()
+function M.selection(): Selection
+  local region = paw.keymap.selection() as Region
+  local clips = paw.frontend.chosen_clips() as {integer}
   -- The roll's clip may be gone (undone, or a new project): no notes then.
-  local ok, notes = pcall(paw.frontend.chosen_refs)
-  if not ok then notes = {} end
+  local ok, got = pcall(paw.frontend.chosen_refs as function(): {{integer}})
+  local notes: {{integer}} = ok and got or {}
   local kind = region and "region" or #clips > 0 and "clips" or #notes > 0 and "notes" or nil
-  return { view = paw.ui.focused, kind = kind, region = region, clips = clips, notes = notes }
+  return { view = paw.ui.focused as string, kind = kind, region = region, clips = clips, notes = notes }
 end
 
 local function selection_changes()
@@ -97,12 +166,13 @@ local function selection_changes()
 end
 
 --- The names of the views on screen.
-function M.views_shown()
-  local out = {}
-  for _, rect in ipairs(paw.ui.arrange()) do
+function M.views_shown(): {string:boolean}
+  local out: {string:boolean} = {}
+  for _, rect in ipairs(paw.ui.arrange() as {Pane}) do
     if rect.name then out[rect.name] = true end
   end
-  if paw.ui.float then out[paw.ui.float.name] = true end
+  local float = paw.ui.float as Pane
+  if float then out[float.name] = true end
   return out
 end
 
@@ -137,9 +207,9 @@ end
 
 --- Before a key is dispatched: `key.pre` sees it first. False when a
 --- handler took it, and the keymap is not to have it.
-function M.key(key)
+function M.key(key: string): boolean
   if not events.listened("key.pre") then return true end
-  local ok = events.emit("key.pre", { key = key, mode = paw.keymap.mode, view = paw.ui.focused })
+  local ok = events.emit("key.pre", { key = key, mode = paw.keymap.mode as string, view = paw.ui.focused as string })
   return ok ~= false
 end
 
@@ -149,38 +219,40 @@ end
 -- keys, commands, frontends over the socket), so that each move in the
 -- undo tree and each save is heard of.
 
-local function label_of(id)
-  for _, state in ipairs(api.undo_tree().states) do
+local function label_of(id: integer): string
+  for _, state in ipairs((api.undo_tree() as UndoTree).states) do
     if state.id == id then return state.label end
   end
 end
 
-local function moving(fn, how)
-  return function(...)
+local function moving(fn: KernelFn, how: string): KernelFn
+  return function(...: Value): Value
     -- A step still open is closed first, so that `from` is the state it made.
     api.undo_checkpoint()
-    local from = api.undo_current()
+    local from = api.undo_current() as integer
     local result = fn(...)
-    local to = api.undo_current()
+    local to = api.undo_current() as integer
     if to ~= from then
       local name = how == "undo" and "undo" or how == "redo" and "redo" or (to < from and "undo" or "redo")
       if events.listened(name) then
-        events.emit(name, { from = from, to = to, how = how, label = label_of(name == "undo" and from or to) })
+        local move: Move = { from = from, to = to, how = how, label = label_of(name == "undo" and from or to) }
+        events.emit(name, move)
       end
     end
     return result
   end
 end
 
+local kernel = api as {string:KernelFn}
 for name, how in pairs({ undo = "undo", redo = "redo", undo_goto = "goto", undo_step = "step", undo_travel = "travel" }) do
-  api[name] = moving(api[name], how)
+  kernel[name] = moving(kernel[name], how)
 end
 
-local save = api.project_save
+local save = api.project_save as function(string): Value...
 --- `project.saving` before a project is written, which may refuse it;
 --- `project.saved` comes after, as a change event.
-function api.project_save(path)
-  local ok, why = events.emit("project.saving", { path = path or api.project_get("path") })
+api.project_save = function(path?: string): Value...
+  local ok, why = events.emit("project.saving", { path = path or api.project_get("path") as string })
   if ok == false then error("not saved: " .. tostring(why or "an extension refused"), 2) end
   return save(path)
 end
