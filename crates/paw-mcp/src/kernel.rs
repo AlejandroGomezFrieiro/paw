@@ -4,15 +4,23 @@
 //! The connection is made when it is first needed and made again after the
 //! kernel goes away, so a kernel can be restarted under a running server.
 //! With `--spawn` the server starts a kernel of its own and stops it on exit.
+//!
+//! The socket and the kernel's process are tokio's, on the server's runtime.
+//! The tools run on threads of their own (they also measure audio, which is
+//! work for the processor) and wait here for each answer: [`Kernel`] is a
+//! blocking front to the runtime.
 
-use std::io::{BufRead, BufReader, Write};
-use std::os::unix::net::UnixStream;
-use std::os::unix::process::CommandExt;
+use std::os::fd::AsFd;
 use std::path::PathBuf;
-use std::process::{Child, Command, Stdio};
+use std::process::Stdio;
 use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::net::UnixStream;
+use tokio::net::unix::{OwnedReadHalf, OwnedWriteHalf};
+use tokio::process::{Child, Command};
+use tokio::runtime::Handle;
 
 /// Why a call did not produce a result.
 #[derive(Debug)]
@@ -37,10 +45,18 @@ pub struct SpawnOpts {
     pub args: Vec<String>,
 }
 
+/// An open connection: answers come in on one half, calls go out on the other.
+struct Conn {
+    reader: BufReader<OwnedReadHalf>,
+    writer: OwnedWriteHalf,
+}
+
 pub struct Kernel {
     pub socket: PathBuf,
     timeout: Duration,
-    conn: Option<(BufReader<UnixStream>, UnixStream)>,
+    /// The runtime the socket and the kernel's process live on.
+    runtime: Handle,
+    conn: Option<Conn>,
     spawn: Option<SpawnOpts>,
     child: Option<Child>,
     next_id: u64,
@@ -71,10 +87,11 @@ pub fn default_binary() -> PathBuf {
 }
 
 impl Kernel {
-    pub fn attach(socket: PathBuf, timeout: Duration) -> Self {
+    pub fn attach(socket: PathBuf, timeout: Duration, runtime: Handle) -> Self {
         Self {
             socket,
             timeout,
+            runtime,
             conn: None,
             spawn: None,
             child: None,
@@ -83,7 +100,7 @@ impl Kernel {
         }
     }
 
-    pub fn spawned(opts: SpawnOpts, timeout: Duration) -> Self {
+    pub fn spawned(opts: SpawnOpts, timeout: Duration, runtime: Handle) -> Self {
         let name = format!("paw-mcp-{}.sock", std::process::id());
         let socket = [
             std::env::var_os("XDG_RUNTIME_DIR").map(PathBuf::from),
@@ -96,7 +113,7 @@ impl Kernel {
         // A Unix socket's path must fit in 108 bytes.
         .find(|path| path.as_os_str().len() < 100)
         .unwrap_or_else(|| PathBuf::from("/tmp").join(&name));
-        let mut kernel = Self::attach(socket, timeout);
+        let mut kernel = Self::attach(socket, timeout, runtime);
         kernel.spawn = Some(opts);
         kernel
     }
@@ -107,6 +124,10 @@ impl Kernel {
 
     /// Start the kernel of a `--spawn` server, if it is not running.
     pub fn start(&mut self) -> Result<(), CallError> {
+        self.runtime.clone().block_on(self.start_async())
+    }
+
+    async fn start_async(&mut self) -> Result<(), CallError> {
         let Some(opts) = &self.spawn else {
             return Ok(());
         };
@@ -135,11 +156,11 @@ impl Kernel {
         }
         // Whatever the kernel prints must not reach stdout, which is the
         // protocol's: send it to stderr.
-        match std::io::stderr().lock().try_clone_stdio() {
-            Some(err) => command.stdout(err),
-            None => command.stdout(Stdio::null()),
-        };
+        let stderr = std::io::stderr().as_fd().try_clone_to_owned();
+        command.stdout(stderr.map_or_else(|_| Stdio::null(), Stdio::from));
         // If this server dies without saying goodbye, the kernel goes too.
+        // SAFETY: the closure runs in the child between fork and exec, and
+        // only calls prctl, which is async-signal-safe.
         unsafe {
             command.pre_exec(|| {
                 libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGTERM);
@@ -155,7 +176,7 @@ impl Kernel {
         // The first start can take a while: it looks through every installed plugin.
         let deadline = Instant::now() + Duration::from_secs(120);
         loop {
-            if let Ok(stream) = UnixStream::connect(&self.socket) {
+            if let Ok(stream) = UnixStream::connect(&self.socket).await {
                 self.set_conn(stream)?;
                 break;
             }
@@ -165,25 +186,20 @@ impl Kernel {
                 )));
             }
             if Instant::now() > deadline {
-                let _ = child.kill();
-                let _ = child.wait();
+                let _ = child.kill().await;
                 return Err(CallError::Unavailable(
                     "the kernel did not open its socket within 120 s".into(),
                 ));
             }
-            std::thread::sleep(Duration::from_millis(20));
+            tokio::time::sleep(Duration::from_millis(20)).await;
         }
         self.child = Some(child);
         Ok(())
     }
 
     fn set_conn(&mut self, stream: UnixStream) -> Result<(), CallError> {
-        let unavailable = |err: std::io::Error| CallError::Unavailable(err.to_string());
-        stream
-            .set_read_timeout(Some(self.timeout))
-            .map_err(unavailable)?;
-        let reader = BufReader::new(stream.try_clone().map_err(unavailable)?);
-        self.conn = Some((reader, stream));
+        let (reader, writer) = stream.into_split();
+        self.conn = Some(Conn { reader: BufReader::new(reader), writer });
         Ok(())
     }
 
@@ -207,10 +223,13 @@ impl Kernel {
         ))
     }
 
-    /// Whether the open connection's peer has hung up.
+    /// Whether the open connection's peer has hung up: a look at the socket
+    /// that takes nothing from it and does not wait.
     fn stale(stream: &UnixStream) -> bool {
         use std::os::fd::AsRawFd;
         let mut byte = 0u8;
+        // SAFETY: `byte` is a valid buffer of one byte for the whole call, and
+        // the descriptor is open as long as `stream` is borrowed.
         let n = unsafe {
             libc::recv(
                 stream.as_raw_fd(),
@@ -226,49 +245,45 @@ impl Kernel {
         }
     }
 
-    fn connect(&mut self) -> Result<(), CallError> {
-        if let Some((_, stream)) = &self.conn
-            && !Self::stale(stream)
+    async fn connect(&mut self) -> Result<(), CallError> {
+        if let Some(conn) = &self.conn
+            && !Self::stale(conn.reader.get_ref().as_ref())
         {
             return Ok(());
         }
         self.conn = None;
         if self.spawn.is_some() {
-            self.start()?;
+            self.start_async().await?;
             if self.conn.is_some() {
                 return Ok(());
             }
         }
-        let stream = UnixStream::connect(&self.socket).map_err(|err| self.unavailable(err))?;
+        let stream = UnixStream::connect(&self.socket)
+            .await
+            .map_err(|err| self.unavailable(err))?;
         self.set_conn(stream)
     }
 
     /// Call a method on the kernel and wait for its answer.
     pub fn call(&mut self, method: &str, params: Value) -> Result<Value, CallError> {
-        self.connect()?;
+        self.runtime.clone().block_on(self.call_async(method, params))
+    }
+
+    async fn call_async(&mut self, method: &str, params: Value) -> Result<Value, CallError> {
+        self.connect().await?;
         let id = self.next_id;
         self.next_id += 1;
-        let line = json!({ "id": id, "method": method, "params": params }).to_string();
-        let (reader, writer) = self.conn.as_mut().unwrap();
-        if let Err(err) = writeln!(writer, "{line}") {
+        let mut line = json!({ "id": id, "method": method, "params": params }).to_string();
+        line.push('\n');
+        let conn = self.conn.as_mut().expect("connect() leaves a connection");
+        if let Err(err) = conn.writer.write_all(line.as_bytes()).await {
             self.conn = None;
             return Err(self.unavailable(err));
         }
         let mut answer = String::new();
-        match reader.read_line(&mut answer) {
-            Ok(0) => {
-                self.conn = None;
-                return Err(self.unavailable(
-                    "the kernel went away during the call (it may have crashed, or quit)",
-                ));
-            }
-            Ok(_) => {}
-            Err(err)
-                if matches!(
-                    err.kind(),
-                    std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
-                ) =>
-            {
+        let read = tokio::time::timeout(self.timeout, conn.reader.read_line(&mut answer)).await;
+        match read {
+            Err(_elapsed) => {
                 // The answer may still come, and would then be read as the
                 // answer to the next call: start afresh.
                 self.conn = None;
@@ -277,7 +292,14 @@ impl Kernel {
                     self.timeout.as_secs()
                 )));
             }
-            Err(err) => {
+            Ok(Ok(0)) => {
+                self.conn = None;
+                return Err(self.unavailable(
+                    "the kernel went away during the call (it may have crashed, or quit)",
+                ));
+            }
+            Ok(Ok(_)) => {}
+            Ok(Err(err)) => {
                 self.conn = None;
                 return Err(self.unavailable(err));
             }
@@ -300,23 +322,22 @@ impl Kernel {
 
     /// Stop a kernel this server started: ask it to quit, then insist.
     pub fn shutdown(&mut self) {
+        if self.child.is_some() {
+            self.runtime.clone().block_on(self.shutdown_async());
+        }
+    }
+
+    async fn shutdown_async(&mut self) {
         let Some(mut child) = self.child.take() else {
             return;
         };
         if self.conn.is_some() {
-            let _ = self.call("quit", json!([0]));
+            let _ = self.call_async("quit", json!([0])).await;
         }
         self.conn = None;
-        let deadline = Instant::now() + Duration::from_secs(5);
-        while Instant::now() < deadline {
-            if let Ok(Some(_)) = child.try_wait() {
-                let _ = std::fs::remove_file(&self.socket);
-                return;
-            }
-            std::thread::sleep(Duration::from_millis(20));
+        if tokio::time::timeout(Duration::from_secs(5), child.wait()).await.is_err() {
+            let _ = child.kill().await;
         }
-        let _ = child.kill();
-        let _ = child.wait();
         let _ = std::fs::remove_file(&self.socket);
     }
 }
@@ -333,15 +354,4 @@ pub fn clean_error(error: &str) -> String {
     let text = text.trim();
     let text = text.strip_prefix("runtime error: ").unwrap_or(text);
     text.to_string()
-}
-
-trait CloneStdio {
-    fn try_clone_stdio(&self) -> Option<Stdio>;
-}
-
-impl CloneStdio for std::io::StderrLock<'_> {
-    fn try_clone_stdio(&self) -> Option<Stdio> {
-        use std::os::fd::AsFd;
-        self.as_fd().try_clone_to_owned().ok().map(Stdio::from)
-    }
 }

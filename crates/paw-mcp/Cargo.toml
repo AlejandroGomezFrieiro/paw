@@ -15,3 +15,10 @@ serde_json.workspace = true
 hound = "3.5"
 libc = "0.2"
 include_dir = "0.7"
+serde.workspace = true
+# The command line.
+clap.workspace = true
+# The MCP protocol: the official Rust SDK, its server and stdio transport.
+rmcp = { version = "3.11", default-features = false, features = ["server", "transport-io"] }
+# rmcp's runtime, which also carries the kernel's socket and process.
+tokio = { workspace = true, features = ["rt-multi-thread", "net", "io-util", "io-std", "process", "time"] }
