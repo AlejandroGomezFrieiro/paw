@@ -13,14 +13,15 @@ made by the scenes in its `images/make` (`docs/images/make/make.sh <name>`).
 
 | Extension | What it adds |
 | --- | --- |
+| [`ara`](../../extensions/ara/README.md) | ARA plugins on audio tracks: the plugin reads whole clips (Melodyne, audio to MIDI), and its edits stay in the project |
 | [`articulations`](../../extensions/articulations/README.md) | the articulation of each note as its MIDI 2.0 attribute, with names for each instrument from `.art.toml` maps, and keyswitches for MIDI 1.0 instruments. Maps from SFZ, Decent Sampler, folders and Reaticulate banks, and maps of plugins (MODO BASS 2, SINE Player) that bind themselves |
 | [`continue`](../../extensions/continue/README.md) | a small completion source: how the phrase before the cursor in the piano roll can continue |
 | [`doctor`](../../extensions/doctor/README.md) | a guided check of the hardware (audio, MIDI, recording, plugins), with a written report, also from the shell |
-| [`interop`](../../extensions/interop/README.md) | opens and writes REAPER projects and DAWproject files (Bitwig Studio, Studio One, Cubase) with `:e`, `:import` and `:export`; the example of how to add a format of files |
 | [`drums`](../../extensions/drums/README.md) | drum tracks in one step, and a grid of the pieces of the kit by name |
+| [`interop`](../../extensions/interop/README.md) | opens and writes REAPER projects and DAWproject files (Bitwig Studio, Studio One, Cubase) with `:e`, `:import` and `:export`; the example of how to add a format of files |
+| [`launcher`](../../extensions/launcher/README.md) | the clip launcher: slots and scenes in the session view, launched on the beat while the song plays, and a capture of the performance into the timeline |
 | [`luafx`](../../extensions/luafx/README.md) | devices written in Lua, to use and to copy |
 | [`midilsp`](../../extensions/midilsp/README.md) | MIDI LSP, the language server for music, in `paw.lsp`: diagnostics of voice leading with fixes, the chords it hears, suggestions |
-| [`launcher`](../../extensions/launcher/README.md) | the clip launcher: slots and scenes in the session view, launched on the beat while the song plays, and a capture of the performance into the timeline |
 | [`mixdiag`](../../extensions/mixdiag/README.md) | measurements of the mix (LUFS, true peak, phase), as findings to jump to |
 | [`musicops`](../../extensions/musicops/README.md) | musical operators: humanize, strum, arpeggiate, scales |
 | [`notation`](../../extensions/notation/README.md) | a MIDI clip as staff notation, in the terminal and in the graphical window |
