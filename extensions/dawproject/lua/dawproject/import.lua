@@ -613,12 +613,17 @@ local function tempo_map(root, arr, ctx)
   local sigs = { { beat = 0, num = num(sig and sig.attr.numerator, 4), den = num(sig and sig.attr.denominator, 4) } }
   local ta = arr and arr:child("TempoAutomation")
   if ta then
-    local unit = ta.attr.timeUnit or "beats"
-    if unit == "seconds" then ctx.report:add("Tempo", "tempo points in seconds were read as beats") end
+    -- Points in seconds are placed in beats by the core, each from the
+    -- stretch before it.
+    local seconds = ta.attr.timeUnit == "seconds"
     local list = {}
     for _, pt in ipairs(ta:all("RealPoint")) do
-      list[#list + 1] = { beat = num(pt.attr.time, 0), bpm = math.max(1, math.min(999, num(pt.attr.value, bpm))),
-        ramp = pt.attr.interpolation == "linear" }
+      list[#list + 1] = { [seconds and "seconds" or "beat"] = num(pt.attr.time, 0),
+        bpm = math.max(1, math.min(999, num(pt.attr.value, bpm))), ramp = pt.attr.interpolation == "linear" }
+    end
+    if seconds and #list > 0 then
+      table.insert(list, 1, { seconds = 0, bpm = bpm, ramp = false })
+      list = api.tempo_from_seconds(list).tempos
     end
     table.sort(list, function(x, y) return x.beat < y.beat end)
     if #list > 0 then

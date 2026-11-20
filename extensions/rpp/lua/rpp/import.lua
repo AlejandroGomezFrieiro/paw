@@ -495,37 +495,29 @@ end
 
 --- The file's tempo map, in beats: { tempos = { { beat, bpm, ramp } },
 --- signatures = { { beat, num, den } } }. Points are in seconds in the
---- file; each one's beat follows from the stretch before it, held or
---- ramped linearly in time (REAPER's shapes 1 and 0).
+--- file; the core places each one's beat from the stretch before it, held
+--- or ramped linearly in time (REAPER's shapes 1 and 0).
 local function tempo_map(project, ctx)
   local tempo_line = project:child("TEMPO")
-  local bpm = math.max(1, math.min(999, tempo_line and tempo_line:argn(1) or 120))
+  local bpm = tempo_line and tempo_line:argn(1) or 120
   local num, den = tempo_line and tempo_line:argn(2) or 4, tempo_line and tempo_line:argn(3) or 4
-  local tempos = { { beat = 0, bpm = bpm, ramp = false } }
-  local sigs = { { beat = 0, num = math.floor(num), den = math.floor(den) } }
+  local tempos = { { seconds = 0, bpm = bpm, ramp = false } }
+  local sigs = { { seconds = 0, num = math.floor(num), den = math.floor(den) } }
   local env = project:child("TEMPOENVEX")
   local shapes = 0
-  local last_t = 0
   for _, pt in ipairs(env and env:all("PT") or {}) do
     local t, v, shape, sig = math.max(0, pt:argn(1) or 0), pt:argn(2), pt:argn(3) or 1, pt:argn(4)
-    local prev = tempos[#tempos]
-    local beat = prev.beat + (t - last_t) * (prev.ramp and (prev.bpm + (v or prev.bpm)) / 120 or prev.bpm / 60)
-    if t <= 1e-9 then beat = 0 end
     if shape ~= 0 and shape ~= 1 then shapes = shapes + 1 end
-    local point = { beat = beat, bpm = math.max(1, math.min(999, v or prev.bpm)), ramp = shape == 0 }
-    if beat <= 1e-9 then tempos[1] = point else tempos[#tempos + 1] = point end
+    tempos[#tempos + 1] = { seconds = t, bpm = v or tempos[#tempos].bpm, ramp = shape == 0 }
     if sig and sig > 0 then
-      local s = { beat = beat, num = math.floor(sig % 65536), den = math.floor(sig / 65536) }
-      if s.num >= 1 and s.num <= 64 and s.den >= 1 and s.den <= 64 then
-        if beat <= 1e-9 then sigs[1] = s else sigs[#sigs + 1] = s end
-      end
+      local s = { seconds = t, num = math.floor(sig % 65536), den = math.floor(sig / 65536) }
+      if s.num >= 1 and s.num <= 64 and s.den >= 1 and s.den <= 64 then sigs[#sigs + 1] = s end
     end
-    last_t = t
   end
   if shapes > 0 then
     ctx.report:count("Tempo curve shapes (made straight ramps)", "tempo", shapes)
   end
-  return { tempos = tempos, signatures = sigs }
+  return api.tempo_from_seconds(tempos, sigs)
 end
 
 --- REAPER's colour of a track, marker or region (a native colour, which

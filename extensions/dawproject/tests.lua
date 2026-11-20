@@ -75,6 +75,19 @@ end
 
 -- The pieces ---------------------------------------------------------------------------
 
+test("dawproject: tempo points in seconds are placed in beats", function()
+  local d = load()
+  local path = scratch_dir() .. "/seconds.dawproject"
+  T.write_file(path, paw.zip.write({ { name = "project.xml", data = [[<?xml version="1.0"?>
+<Project version="1.0"><Transport><Tempo value="120"/></Transport><Arrangement>
+<TempoAutomation timeUnit="seconds"><RealPoint time="2" value="60" interpolation="hold"/></TempoAutomation>
+</Arrangement></Project>]] } }))
+  d.import(path)
+  local points = paw.tempo.points()
+  eq(#points, 2, "a tempo change")
+  near(points[2].beat, 4, 1e-9, "2 s at 120 BPM is beat 4")
+end)
+
 test("dawproject: XML reads and writes back", function()
   local d = load()
   local root = d.xml.parse([==[<?xml version="1.0"?>

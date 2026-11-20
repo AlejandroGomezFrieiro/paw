@@ -85,7 +85,7 @@ files in seconds.
 
 | | DAWproject → paw | paw → DAWproject |
 | --- | --- | --- |
-| Tempo, time signature | The tempo and time signature of the transport, and the tempo and time signature automation. A linear tempo point becomes a ramp. When merged into an open project, the project keeps its own map | The same |
+| Tempo, time signature | The tempo and time signature of the transport, and the tempo and time signature automation (tempo points in beats or in seconds). A linear tempo point becomes a ramp. When merged into an open project, the project keeps its own map | The same |
 | Tracks | Name, color, volume, pan, mute, solo. A track in a track goes into it (a folder). A channel with a destination plays into that track | The same. A track that goes into the track above it (or into a folder that it is in) is written inside that track |
 | Sends | Level, before or after the fader | The same |
 | Master | Volume, pan, mute, devices, automation | The same |
