@@ -10,7 +10,7 @@
 --
 -- Columns are counted in characters from 0, as the text buffers count them.
 --
--- Written in Teal (paw/lang.lua): the build compiles it to Lua.
+-- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 
 local record M
   --- A piece of a line's text with one look: its style (a highlight

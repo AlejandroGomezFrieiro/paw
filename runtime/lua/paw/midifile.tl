@@ -26,7 +26,7 @@
 -- The reader and the writer (`parse`, `encode`) need nothing of the
 -- program, so extensions read MIDI files with them too (extensions/interop).
 --
--- Written in Teal (paw/lang.lua): the build compiles it to Lua.
+-- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local type types = require("paw.types")
 local type Attr = types.NoteAttr
 local api = require("paw.api")

@@ -26,7 +26,7 @@
 -- An extension in Teal gives its format the type `paw.formats.Format`, so
 -- the checker checks its fields.
 --
--- Written in Teal (paw/lang.lua): the build compiles it to Lua.
+-- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 
 local type Untyped = require("paw.untyped")
 

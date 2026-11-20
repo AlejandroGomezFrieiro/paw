@@ -8,7 +8,7 @@
 --   el:add("Note", { time = 0 })
 --   paw.xml.encode(root, { declaration = true, indent = "  " })
 --
--- Written in Teal (paw/lang.lua): the build compiles it to Lua.
+-- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
 local type types = require("paw.types")
 

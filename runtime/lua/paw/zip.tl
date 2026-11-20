@@ -7,7 +7,7 @@
 -- Reading takes entries stored or compressed with deflate. Writing stores
 -- them as they are (method 0), which every reader of ZIP files takes.
 --
--- Written in Teal (paw/lang.lua): the build compiles it to Lua.
+-- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
 local bytes = require("paw.bytes")
 
