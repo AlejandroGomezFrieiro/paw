@@ -108,8 +108,10 @@ keymap.classic("gC", next_curve(-1), { view = "utau", desc = "Show the previous 
 
 -- Phonemes ---------------------------------------------------------------------------
 
-emap(")", function(ctx) for _ = 1, ctx.count or 1 do editor:step_phoneme(1) end end, "Next phoneme")
-emap("(", function(ctx) for _ = 1, ctx.count or 1 do editor:step_phoneme(-1) end end, "Previous phoneme")
+-- `]p` `[p` go through the phonemes, as they go through presets in the device
+-- panel: `(` `)` stay the phrase motions of musicops.
+emap("]p", function(ctx) for _ = 1, ctx.count or 1 do editor:step_phoneme(1) end end, "Next phoneme")
+emap("[p", function(ctx) for _ = 1, ctx.count or 1 do editor:step_phoneme(-1) end end, "Previous phoneme")
 emap("]", function(ctx) editor:shift_phoneme(5 * (ctx.count or 1)) end, "The phoneme starts 5 ticks later", { role = "second+" })
 emap("[", function(ctx) editor:shift_phoneme(-5 * (ctx.count or 1)) end, "The phoneme starts 5 ticks earlier", { role = "second-" })
 emap("grp", function() editor:replace_phoneme() end, "Type the phoneme to sing instead")
