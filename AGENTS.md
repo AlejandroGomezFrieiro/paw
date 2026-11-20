@@ -46,6 +46,12 @@ commands, and a configuration that can change everything.
    use the skill in [.claude/skills/teal](.claude/skills/teal/SKILL.md)
    for each `.tl` file that you write or change.
 
+For each Rust change, use the skill in
+[.claude/skills/rust-skills](.claude/skills/rust-skills/SKILL.md). Prefer
+clear traits and structs to long functions and flags, and avoid its
+anti-patterns. The audio thread rules come first: no lock, no
+allocation and no wait on that thread.
+
 To write an extension, use the skill in
 [.claude/skills/paw-extension](.claude/skills/paw-extension/SKILL.md).
 
