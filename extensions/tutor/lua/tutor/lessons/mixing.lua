@@ -116,19 +116,19 @@ closes the mixer.]],
       done = "Keys plays through Bus now. The fader of Bus changes the level of the chords and of each other track that you send there.",
     },
     {
-      say = "A send copies a part of a track to a different track. Here it goes to Echo, which has a delay. No key does this yet. Type `:lua paw.track(\"Lead\"):send(paw.track(\"Echo\"), -6)` and `<CR>`.",
-      keys = { ":lua paw.track(\"Lead\"):send(paw.track(\"Echo\"), -6)", "<CR>" },
+      say = "A send copies a part of a track to a different track. Here it goes to Echo, which has a delay. Type `/Lead` and `<CR>` to find the track. Then type `:send Echo -6` and `<CR>`.",
+      keys = { "/Lead", "<CR>", ":send Echo -6", "<CR>" },
       check = function(_, look)
         for _, send in ipairs(api.track_get(look.track("Lead").id).sends) do
           if send.target == look.track("Echo").id and near(send.level, -6) then return true end
         end
       end,
       done = "Lead sends to Echo at -6 dB. The melody has an echo now, and the fader of Echo sets its level.",
-      hint = "`:lua` runs Lua. Tab does not complete in it, so type the text exactly as it is.",
+      hint = "`,s` does the same: it asks for the track and sends at the default level.",
     },
     {
-      say = "Now we add automation. `A` adds a volume point at the cursor and asks for its value. On Keys, press `0` and `A`. Press `<C-u>` to clear the value, type `-30` and press `<CR>`.",
-      keys = { "0", "A", "<C-u>", "-30", "<CR>" },
+      say = "Now we add automation. `A` adds a volume point at the cursor and asks for its value. Type `/Keys` and `<CR>` to return to Keys. Then press `0` and `A`. Press `<C-u>` to clear the value, type `-30` and press `<CR>`.",
+      keys = { "/Keys", "<CR>", "0", "A", "<C-u>", "-30", "<CR>" },
       check = function(_, look)
         local lane = look.track("Keys"):lane("volume")
         return lane and #lane:points() == 1 and lane:points()[1][1] == 0 and near(lane:points()[1][2], -30)

@@ -16,7 +16,7 @@ give the rules for a change.
 | `runtime/lua/paw/defaults/` | The built-in keys, commands and views. They use the same `paw` module as a configuration. |
 | `runtime/lua/paw/*.tl` | The modules of the runtime written in Teal. The build compiles them to Lua. `types.tl` holds the records of the data that crosses `paw.api`. |
 | `runtime/lua/tl.lua` | The compiler of Teal, version 0.24.8 (MIT license, `tl.LICENSE`). |
-| `runtime/types/` | `paw.lua`, the type definitions of the `paw` module for LuaLS. `paw.d.tl` and `paw/api.d.tl`, the declarations of `paw` and `paw.api` for Teal. `any-allowed.txt`, each `any` that they can have, with the reason. `tools/apidoc.lua` makes them. |
+| `runtime/types/` | `paw.lua`, the type definitions of the `paw` module for LuaLS. `paw.d.tl` and `paw/api.d.tl`, the declarations of `paw` and `paw.api` for Teal. `paw/untyped.d.tl`, the type that a module of the runtime in Teal gives to the parts of `paw` that are still Lua. `any-allowed.txt`, each `any` that they can have, with the reason. `tools/apidoc.lua` makes them. |
 | `tlconfig.lua` | The configuration of Teal for `tl check` and editors. |
 | `extensions/` | The bundled extensions. Each folder has a `README.md`, a `manifest.lua`, an `init.lua`, its Lua in `lua/` and its tests in `tests*.lua`. Some also have `doc/`, `images/`, `native/` and `nix/`. |
 | `config/` | The example configuration: an `init.lua` that loads the bundled extensions, and two small extensions in `config/extensions/`. |
@@ -56,7 +56,7 @@ Do not edit these files. Make them again from their source.
 
 | File | Source | Command |
 | --- | --- | --- |
-| `docs/reference/api.md`, `runtime/types/paw.lua`, `runtime/types/paw.d.tl`, `runtime/types/paw/api.d.tl` | the doc comments of the `paw` modules, of `crates/paw-core/src/api.rs` and of the other files that add to `paw.api` | `paw --clean --no-plugins -l tools/apidoc.lua` |
+| `docs/reference/api.md`, `runtime/types/paw.lua`, `runtime/types/paw.d.tl`, `runtime/types/paw/api.d.tl`, `runtime/types/paw/untyped.d.tl` | the doc comments of the `paw` modules, of `crates/paw-core/src/api.rs` and of the other files that add to `paw.api` | `paw --clean --no-plugins -l tools/apidoc.lua` |
 | `docs/tutorials/course/*.md` | the tutor's lessons in `extensions/tutor/lua/tutor/lessons/` | `paw --clean --no-plugins -l extensions/tutor/make-docs.lua` |
 | `docs/images/*.gif`, `docs/images/*.png` | a recording of paw | `docs/images/make/make.sh` |
 

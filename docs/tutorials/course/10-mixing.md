@@ -40,10 +40,10 @@ The tutor opens a practice project for this lesson. It checks each step when you
    - ✓ A track with the name Bus shows below Keys. The cursor is on it.
 8. Now send Keys into the bus. Type `/Keys` and `<CR>` to find the track. Then type `:track.output Bus` and `<CR>`.
    - ✓ Keys plays through Bus now. The fader of Bus changes the level of the chords and of each other track that you send there.
-9. A send copies a part of a track to a different track. Here it goes to Echo, which has a delay. No key does this yet. Type `:lua paw.track("Lead"):send(paw.track("Echo"), -6)` and `<CR>`.
-   - *Hint:* `:lua` runs Lua. Tab does not complete in it, so type the text exactly as it is.
+9. A send copies a part of a track to a different track. Here it goes to Echo, which has a delay. Type `/Lead` and `<CR>` to find the track. Then type `:send Echo -6` and `<CR>`.
+   - *Hint:* `,s` does the same: it asks for the track and sends at the default level.
    - ✓ Lead sends to Echo at -6 dB. The melody has an echo now, and the fader of Echo sets its level.
-10. Now we add automation. `A` adds a volume point at the cursor and asks for its value. On Keys, press `0` and `A`. Press `<C-u>` to clear the value, type `-30` and press `<CR>`.
+10. Now we add automation. `A` adds a volume point at the cursor and asks for its value. Type `/Keys` and `<CR>` to return to Keys. Then press `0` and `A`. Press `<C-u>` to clear the value, type `-30` and press `<CR>`.
    - *Hint:* The cursor must be on Keys. Type `/Keys` and `<CR>`.
    - ✓ A point of -30 dB is at the start. An `A` shows in the track header.
 11. Press `2W` to move two bars. Then press `A` and `<C-u>`, type `-10` and press `<CR>`. The chords fade in over two bars.
