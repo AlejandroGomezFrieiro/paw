@@ -84,6 +84,38 @@ paw adds nothing. A change from paw's code to a crate keeps the behavior.
 It keeps the same output bytes and command-line flags, and the same error
 texts that Lua or a user sees.
 
+## Audio
+
+paw is an audio program, so the audio crates matter most. The sources are
+the audio page of <https://arewegameyet.rs/ecosystem/audio/> and crates.io's
+download counts (checked 2026-11-20).
+
+| Job | Use | Not |
+|---|---|---|
+| Sound devices | `cpal` (paw uses it) | |
+| WAV, read and write | `hound` (paw-engine uses it) | a RIFF header by hand |
+| FLAC, Ogg Vorbis, MP3 and other files, read | `symphonia` (paw uses it) | `claxon`, `lewton`, `minimp3` next to it |
+| FLAC, write | `flacenc` (paw uses it) | |
+| Sample-rate conversion | `rubato` (paw uses it) | |
+| FFT | `realfft` (paw uses it) | a radix-2 FFT by hand |
+| Loudness (BS.1770, EBU R 128: integrated, short-term, range, true peak) | `ebur128` | own K-weighting and gates |
+| Lock-free queues to the audio thread | `rtrb` (paw uses it) | |
+
+What paw keeps as its own, and why:
+
+- **The engine.** `kira`, `rodio`, `firewheel`, `oddio` and `fyrox-sound`
+  are engines for games. paw's engine hosts plugins in a sandbox, plays
+  MIDI 2.0, puts quiet devices to sleep, and has a test that proves the
+  audio thread does not allocate. It is measured against REAPER. An engine
+  for games does none of this.
+- **The devices' DSP** (EQ, dynamics, reverb, synth, drums). These run on
+  the audio thread, and their cost is measured. A crate such as `fundsp` or
+  `biquad` replaces a device only when it gives the same sound and costs no
+  more, measured with the benches.
+- **MIDI 2.0.** paw speaks Universal MIDI Packets to ALSA through
+  `alsa-sys`. `midir`, `portmidi` and `wmidi` are MIDI 1.0 only.
+- **The sampler's formats** and other formats that are paw's own.
+
 ## Where paw does it by hand today (2026-11-20)
 
 Found with grep at a72467cf. Each refactor part that owns the file fixes it.
@@ -110,3 +142,15 @@ Found with grep at a72467cf. Each refactor part that owns the file fixes it.
 - **poll:** `paw-tui/src/terminal.rs`, `paw-engine/src/midi.rs`.
 - **Temporary folders in tests:** paw-mcp, paw-plugins `attach.rs`,
   paw-gui, paw-tui tests.
+- **WAV writers:** `paw-engine/src/record.rs` (a take, header kept valid
+  as it grows: `hound`'s `WavWriter::flush` does this),
+  `paw-listen/src/lib.rs`, and the sampler's `audio.rs` (reads and writes).
+- **FFT:** three radix-2 transforms by hand: `paw-core/src/measure/analysis.rs`,
+  `paw-mcp/src/audio.rs`, `paw-engine/src/devices/dsp.rs`. Use `realfft`.
+  The one in `dsp.rs` stays only if a device calls it on the audio thread.
+- **Loudness:** `paw-core/src/measure/analysis.rs` has its own BS.1770
+  K-weighting, gates, loudness range and true peak. Compare it with
+  `ebur128` on the tests in `measure/tests.rs`, and change to the crate if
+  the numbers agree.
+- **`rubato` 0.16** in paw-core: crates.io has 5.1. Update it with the
+  sample-rate tests.
