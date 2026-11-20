@@ -161,6 +161,27 @@ can call it and read its fields. Cast each value that you keep to its
 type: `local group = paw.scope.current() as integer`. When the module is in
 Teal, the cast is not necessary.
 
+## Use the library of Lua 5.3
+
+Teal checks your code with the standard library of Lua 5.3, and paw
+gives that library on LuaJIT. Use `is integer`, the operators `&`, `|`,
+`~`, `<<`, `>>` and `//`, `table.unpack` and `utf8` as in Lua 5.3:
+
+```lua
+local function note_on(channel: integer, pitch: integer, velocity: integer): {integer}
+  return { 0x90 | (channel - 1), pitch, velocity }
+end
+
+local status, pitch = table.unpack(note_on(10, 36, 100))
+assert(status & 0x0F == 9 and status >> 4 == 9 and pitch // 12 == 3)
+assert(utf8.len("E♭ minor") == 8)
+```
+
+`string.pack` is not in paw: use `ffi` to pack bytes. To find a zero byte
+with a pattern, write `%z`.
+[About Teal in paw](../explanation/about-teal.md#the-standard-library)
+tells what the library has.
+
 ## Use the contracts
 
 A view, a picker, a buffer type and the other tables that you give to paw
