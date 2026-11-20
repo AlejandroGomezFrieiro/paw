@@ -67,7 +67,8 @@ Other rules for documentation:
 - A change that alters a behavior, a format, a file, a command, a key or
   an option also changes each page that tells about it, in the same
   commit. Before you commit, search `README.md`, `AGENTS.md`, `docs/`,
-  `bench/`, the READMEs of the crates and extensions, and
+  `bench/`, the READMEs of the crates and extensions, the `doc/` pages
+  of the extensions, and
   `.claude/skills` for the old words and names. Fix each sentence that is
   no longer true. For example, when projects became folders, the README
   still said "A project is a JSON file". In your report, give the search
