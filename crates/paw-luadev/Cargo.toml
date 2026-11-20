@@ -10,5 +10,6 @@ paw-engine.workspace = true
 anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+thiserror = "2"
 # The same features as the kernel's, so that both share one build of LuaJIT.
 mlua = { version = "0.12", features = ["luajit", "vendored", "serde"] }
