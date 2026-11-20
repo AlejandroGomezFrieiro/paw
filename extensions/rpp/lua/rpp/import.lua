@@ -18,17 +18,11 @@ local M = {}
 
 local SUPPORTED_AUDIO = { wav = true, wave = true, aif = true, aiff = true, flac = true, mp3 = true, ogg = true }
 
-local function db(amp)
-  if not amp or amp <= 0 then return -120 end
-  return math.max(-120, math.min(24, 20 * math.log10(amp)))
-end
+--- A gain as decibels, from -120 to 24.
+local function db(gain) return paw.util.clamp(require("paw.dsp").db(gain or 0), -120, 24) end
 M.db = db
 
-local function exists(path)
-  local f = io.open(path, "rb")
-  if f then f:close() end
-  return f ~= nil
-end
+local exists = paw.api.fs_exists
 
 local function dirname(path) return path:match("^(.*)/[^/]*$") or "." end
 

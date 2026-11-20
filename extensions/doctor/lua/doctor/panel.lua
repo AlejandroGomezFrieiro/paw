@@ -60,7 +60,7 @@ local eighths = { "▁", "▂", "▃", "▄", "▅", "▆", "▇", "█" }
 
 --- A level (0 to 1) as one character: nothing at -60 dBFS, full at 0.
 function view.glyph(level)
-  local db = level > 1e-6 and 20 * math.log10(level) or -120
+  local db = math.max(-120, require("paw.dsp").db(level))
   local at = util.clamp((db + 60) / 60, 0, 1)
   return at <= 0 and " " or eighths[util.clamp(math.ceil(at * 8), 1, 8)]
 end

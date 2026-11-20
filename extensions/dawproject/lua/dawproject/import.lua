@@ -16,10 +16,8 @@ local M = {}
 
 local INF = math.huge
 
-local function db(a)
-  if not a or a <= 0 then return -120 end
-  return math.max(-120, math.min(24, 20 * math.log10(a)))
-end
+--- A gain as decibels, from -120 to 24.
+local function db(gain) return paw.util.clamp(require("paw.dsp").db(gain or 0), -120, 24) end
 
 local function num(v, default)
   local n = tonumber(v)

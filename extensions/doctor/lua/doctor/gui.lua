@@ -72,7 +72,7 @@ function view:paint(g, ctx)
   if model.meters and #model.meters > 0 then
     for ch, level in ipairs(model.meters) do
       local mx = PAD + (ch - 1) * 120
-      local db = level > 1e-6 and 20 * math.log10(level) or -120
+      local db = math.max(-120, require("paw.dsp").db(level))
       local at = util.clamp((db + 60) / 60, 0, 1)
       g:rect(mx, by + 12, 100, 6, { fill = c.well, radius = 3 })
       g:rect(mx, by + 12, math.max(2, 100 * at), 6, { fill = at > 0.9 and c.error or c.meter_low, radius = 3 })

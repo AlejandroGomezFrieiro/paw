@@ -1609,7 +1609,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.seats
 
 - `paw.seats.close(id, why)`: Let go of a reason for `id`'s seat (or of all of them, with none): the seat closes with its last one.
-- `paw.seats.copy(value)`: A deep copy of a value. A new seat starts from the values of seat 0 with it, and does not share them.
+- `paw.seats.copy(value)`: A deep copy of a value: tables are copied all the way down (their metatables are not), anything else is given back as it is.
 - `paw.seats.enter(id)`: Make `id`'s seat the current one: an open seat, else the instance's. Returns the seat entered.
 - `paw.seats.fields(name, tbl, keys, start)`: Keep fields of a table (a view's scroll, say) for each seat: `keys` names them, `start` gives what a new seat starts with (nil if absent).
 
@@ -1955,6 +1955,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.util
 
 - `paw.util.clamp(v, lo, hi)`: `v`, kept between `lo` and `hi`.
+- `paw.util.copy`: the same as `paw.seats.copy`.
 - `paw.util.expand_path(path)`: A path as typed, with `~` at its start for the home folder, as a shell reads it: `~/mix.wav`. Every command that takes a file name reads it so.
 - `paw.util.fader_db(now, want, lo, hi)`: The level a fader goes to from `now` when it is moved to `want`: in its travel (`lo` to `hi`, the fader's when not given), but never back past where it is. A track at +10 dB that is turned down goes to +9, not to the top of the travel.
 - `paw.util.fit(text, width)`: Cut or pad text to exactly `width` columns.

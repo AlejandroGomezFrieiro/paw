@@ -5,12 +5,7 @@ local api = paw.api
 
 local M = {}
 
-local function copy(t)
-  if type(t) ~= "table" then return t end
-  local out = {}
-  for k, v in pairs(t) do out[k] = copy(v) end
-  return out
-end
+local copy = paw.util.copy
 M.copy = copy
 
 --- The notes of a clip, in time order (the order the kernel keeps them in).

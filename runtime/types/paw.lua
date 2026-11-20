@@ -6221,8 +6221,8 @@ function paw.scope.widen() end
 ---@param why any
 function paw.seats.close(id, why) end
 
---- A deep copy of a value. A new seat starts from the values of seat 0 with
---- it, and does not share them.
+--- A deep copy of a value: tables are copied all the way down (their
+--- metatables are not), anything else is given back as it is.
 ---@param value any
 function paw.seats.copy(value) end
 
@@ -7555,6 +7555,8 @@ function paw.ui.keybar.show(lhs) end
 ---@param lo any
 ---@param hi any
 function paw.util.clamp(v, lo, hi) end
+
+paw.util.copy = paw.seats.copy
 
 --- A path as typed, with `~` at its start for the home folder, as a shell
 --- reads it: `~/mix.wav`. Every command that takes a file name reads it so.
