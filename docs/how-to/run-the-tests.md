@@ -49,7 +49,8 @@ them. If one is not there, the tests say which one and pass.
 Each scenario starts Xvfb on a free display from `:120` up, with openbox
 and no session bus. A scenario claims its display number with a file in
 `/tmp`. Two test runs at the same time do not share a display. Nothing
-goes to your desktop.
+goes to your desktop. A scenario opens its window when openbox runs, and gives
+the window the input focus before the first key.
 
 The tests use xdotool for
 the pointer and the keys. They find menu entries and buttons with
