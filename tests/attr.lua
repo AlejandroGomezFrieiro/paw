@@ -492,7 +492,7 @@ test("sampler: a note's attribute chooses the articulation, with no keyswitch an
   if not s.available() then return "skipped: the sampler plugin is not built (extensions/sampler/native/build.sh)" end
   local loaded = paw.ext.loaded.sampler
   local dir = T.scratch .. "/attr-sampler-fixtures"
-  if os.execute("'" .. loaded.path .. "/bin/paw-sampler' fixtures '" .. dir .. "' 2>/dev/null") ~= 0 then
+  if os.execute("'" .. loaded.path .. "/bin/paw-sampler' fixtures '" .. dir .. "' 2>/dev/null") ~= true then
     return "skipped: extensions/sampler/bin/paw-sampler is not built"
   end
   fresh()

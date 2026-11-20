@@ -40,7 +40,7 @@ local function fixture_dir()
     local loaded = paw.ext.loaded.sampler
     local cli = loaded and (loaded.path .. "/bin/paw-sampler")
     local dir = T.scratch .. "/sampler-fixtures"
-    fixtures = cli and os.execute("'" .. cli .. "' fixtures '" .. dir .. "' 2>/dev/null") == 0 and dir or false
+    fixtures = cli and os.execute("'" .. cli .. "' fixtures '" .. dir .. "' 2>/dev/null") == true and dir or false
   end
   return fixtures or nil
 end

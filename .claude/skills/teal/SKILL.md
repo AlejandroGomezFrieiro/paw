@@ -26,6 +26,7 @@ before writing; this page is the checklist.
 | The counted escapes | `runtime/types/any-allowed.txt` | only to remove entries, or add one by hand with a reason |
 | Compiler settings | `tlconfig.lua` (`gen_target = "5.1"`, `gen_compat = "off"`) | rarely |
 | The vendored compiler | `runtime/lua/tl.lua` (Teal 0.24.8) | no |
+| The Lua 5.3 library on LuaJIT | `runtime/lua/compat53/` (lua-compat-5.3 0.14.4, vendored), loaded by `runtime/lua/paw/compat.tl` | compat53: no; compat.tl: yes |
 
 Kernel types come from Rust doc lines: `// @param`, `// @return`, `// @type`
 over each function in `crates/paw-core/src/api.rs` and the `*_api.rs` files;
@@ -105,12 +106,12 @@ local paw = (_G as {string:Paw}).paw
 
 | Pitfall | Do |
 |---|---|
-| `x is integer` compiles to `math.type(x)`; LuaJIT has no `math.type` | paw provides it at boot (being replaced by the full lua-compat-5.3, which also gives `math.tointeger`, `table.unpack`, `utf8`, `bit32` for `&` `\|` `<<`). Until compat-5.3 lands, avoid those library calls and bitwise operators |
+| Teal's code calls the Lua 5.3 library (`math.type` for `is integer`, `bit32` for `&` `\|` `~` `<<` `>>`) | it is there: paw loads lua-compat-5.3 at boot (`runtime/lua/paw/compat.tl`), with `math.type`/`tointeger`, `table.unpack`/`pack`/`move`, `utf8`, `bit32`, `__pairs`. Not there: `string.pack` (use `ffi`), a zero byte in a pattern (write `%z`). `os.execute` gives `true`/`nil`, not `0` |
 | `ipairs(f())` where `f` returns two values | store the list first: `local list = f()` |
 | A contract method must take every parameter of the contract | declare unused ones; contracts make context parameters optional |
 | `paw.lang.check` reports unused locals as errors (`tl check` does not) | remove or use them |
 | Shadowed locals are warnings the strict check counts | rename |
-| Teal's 5.1 library lacks `unpack`, `table.maxn`, `loadstring`, `jit` | cast `_G` once at the top of the file |
+| Teal's library lacks LuaJIT's `unpack`, `table.maxn`, `loadstring`, `bit`, `ffi`, `jit` | prefer `table.unpack` and `load`; else cast `_G` once at the top of the file |
 | `setmetatable` needs a typed metatable | a separate metatable record, not the class table |
 | `integer` vs `number` inference in sums | annotate `: number` |
 | `paw.Track` is a type in Teal, not a value | `getmetatable(x) == …` checks stay in Lua |
@@ -123,7 +124,7 @@ local paw = (_G as {string:Paw}).paw
 ## What stays Lua
 
 LuaJIT FFI code on the audio thread (`dsp.lua`, Lua devices), the vendored
-`tl.lua`, generated files, extension `manifest.lua` files (checked against
+`tl.lua` and `compat53/`, generated files, extension `manifest.lua` files (checked against
 `contracts.Manifest`), and tests for now. Each needs a written reason.
 
 ## A port, step by step
