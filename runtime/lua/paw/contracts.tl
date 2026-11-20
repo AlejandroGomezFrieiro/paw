@@ -850,12 +850,17 @@ local record contracts
    type QueryField = function(node: QueryNode): QueryValue
 
    --- A part of an address (paw/address.tl): a stretch of time `{ from,
-   --- to }` in beats, notes by id, pitches `{ low, high }`, or a value.
+   --- to }` in beats, notes by id, pitches `{ low, high }`, or a value; in
+   --- a render, a stretch `{ from, to }` in seconds; in a page of help
+   --- (`paw://help/...`), a line and a column.
    record Selector
       time: {number}
       notes: {integer}
       pitch: {number}
       value: number
+      seconds: {number}
+      line: integer
+      col: integer
    end
 
    --- A place: an address and, optionally, a part of it.

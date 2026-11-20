@@ -4738,7 +4738,7 @@ function paw.loading.toggle(device) end
 ---@param cb any
 function paw.lsp.actions_at(location, cb) end
 
---- Add a dialect: how a kind of server is spoken to (see paw/lsp/standard.lua
+--- Add a dialect: how a kind of server is spoken to (see paw/lsp/standard.tl
 --- for the functions an adapter has; any it leaves out are the standard ones).
 ---@param name any
 ---@param spec any
@@ -4823,7 +4823,9 @@ function paw.lsp.document(which, uri) end
 function paw.lsp.enable(name, on) end
 
 --- True if a server that runs (a client or its name) gives a feature:
---- "hover", "completion", "actions", "diagnostics", "analysis".
+--- "hover", "completion", "actions", "diagnostics", "analysis", or
+--- "completion" with a lane: `has(name, "completion", "velocity")`. LSP's
+--- names (`hoverProvider`, `completionProvider`) are taken too.
 ---@param which any
 ---@param feature any
 ---@param lane any
@@ -4893,7 +4895,7 @@ function paw.lsp.show_lines(location, lines, sections) end
 ---@param name any
 function paw.lsp.stop(name) end
 
---- Add a subject (see paw/lsp/subjects.lua).
+--- Add a subject (see paw/lsp/subjects.tl).
 ---@param name any
 ---@param spec any
 function paw.lsp.subject(name, spec) end

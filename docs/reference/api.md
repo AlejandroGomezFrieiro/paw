@@ -1173,7 +1173,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.lsp
 
 - `paw.lsp.actions_at(location, cb)`: Ask each server that gives actions, and contains the location, for the actions there. `cb(actions)` gets `{ { title, source, edit | run } }`.
-- `paw.lsp.adapter(name, spec)`: Add a dialect: how a kind of server is spoken to (see paw/lsp/standard.lua for the functions an adapter has; any it leaves out are the standard ones).
+- `paw.lsp.adapter(name, spec)`: Add a dialect: how a kind of server is spoken to (see paw/lsp/standard.tl for the functions an adapter has; any it leaves out are the standard ones).
 - `paw.lsp.attach(which, address, keep, subject)`: Make a server keep a subject of an address open, when paw would send it and when it would not (`keep` false releases it). A clip id names its clip.
 - `paw.lsp.attaches(which, address, subject)`: True if a server is attached to an address (for its subject, or for any subject).
 - `paw.lsp.cancel(which, id)`: Tell a server to forget a request that it did not answer yet.
@@ -1203,7 +1203,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   ```
 - `paw.lsp.document(which, uri)`: The document a server holds under a URI, or nil.
 - `paw.lsp.enable(name, on)`: Start a configured server (`on` false stops it).
-- `paw.lsp.has(which, feature, lane)`: True if a server that runs (a client or its name) gives a feature: "hover", "completion", "actions", "diagnostics", "analysis".
+- `paw.lsp.has(which, feature, lane)`: True if a server that runs (a client or its name) gives a feature: "hover", "completion", "actions", "diagnostics", "analysis", or "completion" with a lane: `has(name, "completion", "velocity")`. LSP's names (`hoverProvider`, `completionProvider`) are taken too.
 - `paw.lsp.hover(id, pitch, beat, cb)`: Ask about a place in a clip (`pitch` and `beat` from its start), as before addresses: the same as `hover_at` on the note there.
 - `paw.lsp.hover_at(location, cb)`: Ask each server that hovers, and contains the location, for its text there. `cb(sections)` gets `{ { client, lines } }` when all servers answer.
 - `paw.lsp.info_lines()`: What `:lsp info` shows: each server, its transport, state, what it is attached to and can do, and what it holds.
@@ -1215,7 +1215,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.lsp.show_hover(id, pitch, beat)`: Show what is known about a location (by default what is under the cursor of the focused view): the diagnostics about it and what it holds, then each server's hover, in a float.
 - `paw.lsp.show_lines(location, lines, sections)`: The hover float itself: the diagnostics' lines, then each server's.
 - `paw.lsp.stop(name)`: Stop every server, or the one named.
-- `paw.lsp.subject(name, spec)`: Add a subject (see paw/lsp/subjects.lua).
+- `paw.lsp.subject(name, spec)`: Add a subject (see paw/lsp/subjects.tl).
 - `paw.lsp.sync()`: Update each server now. Open the documents that it is attached to, send the changes, and close the documents that it is not attached to now. Requests call this first, so they are about the current state.
 
 ## Module paw.lsp.document_module

@@ -30,6 +30,7 @@ local type HooksModule = require("paw.hooks")
 local type LanesModule = require("paw.lanes")
 local type LangModule = require("paw.lang")
 local type LimitModule = require("paw.limit")
+local type LspModule = require("paw.lsp")
 local type MarkdownModule = require("paw.markdown")
 local type MarkersModule = require("paw.markers")
 local type MidifileModule = require("paw.midifile")
@@ -119,7 +120,7 @@ global record paw
    learn: Untyped
    limit: LimitModule
    loading: Untyped
-   lsp: Untyped
+   lsp: LspModule
    luadev: Untyped
    markdown: MarkdownModule
    markers: MarkersModule
