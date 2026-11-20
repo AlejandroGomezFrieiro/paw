@@ -659,7 +659,7 @@ function view:paint(g, ctx)
   local clip = self:clip()
   if not clip then
     g:text(24, 24, "No clip is open as notation.", { color = ctx.fg or c.text, size = 16, bold = true })
-    g:text(24, 50, "Right click a MIDI clip and choose Open as notation, or put the cursor on one and type ,n.", { color = c.text_2 })
+    g:text(24, 50, "Right click a MIDI clip and choose Open as notation, or put the cursor on one and type " .. paw.keymap.human("<localleader>n") .. ".", { color = c.text_2 })
     return
   end
   local data = clip:get()

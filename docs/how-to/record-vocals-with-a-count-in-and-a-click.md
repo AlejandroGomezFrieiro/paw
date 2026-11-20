@@ -33,7 +33,7 @@ record the click.
 2. Press `R`. The metronome counts one bar, and the status line shows
    `count`. The playhead does not move during the count.
 3. Sing after the count. The song plays, and paw records.
-4. Press `<Space>` to stop. The take is a clip that starts at the
+4. Press `<Space><Space>` to stop. The take is a clip that starts at the
    cursor, not at the start of the count.
 
 To record the same lines many times, see

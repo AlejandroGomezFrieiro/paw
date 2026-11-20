@@ -13,6 +13,13 @@ function M.file(n, lesson)
   return string.format("%02d-%s.md", n, lesson.id)
 end
 
+--- The keys as the default leader reads: `<leader>hn` is `<Space>hn`.
+local function keys(text)
+  return (text:gsub("`(<[Ll]eader>[^`]*)`", function(code)
+    return "`" .. code:gsub("<[Ll]eader>", "<Space>") .. "`"
+  end))
+end
+
 local function paragraphs(text)
   -- Lines within a paragraph are joined, so that Markdown flows them.
   local out = {}
@@ -39,7 +46,7 @@ function M.lesson(n, lesson, lessons)
     add(string.format("%d. %s", i, step.say))
     if step.hint then add("   - *Hint:* " .. step.hint) end
     if step.unchecked then
-      add("   - *The tutor cannot check this step* (" .. step.unchecked:gsub("%.$", "") .. "). `,hn` moves to the next step.")
+      add("   - *The tutor cannot check this step* (" .. step.unchecked:gsub("%.$", "") .. "). `<leader>hn` moves to the next step.")
     elseif step.done then
       add("   - ✓ " .. step.done)
     end
@@ -51,7 +58,7 @@ function M.lesson(n, lesson, lessons)
   nav[#nav + 1] = "[All lessons](README.md)"
   if lessons[n + 1] then nav[#nav + 1] = string.format("Next: [%s](%s)", lessons[n + 1].title, M.file(n + 1, lessons[n + 1])) end
   add(table.concat(nav, " · "))
-  return table.concat(out, "\n") .. "\n"
+  return keys(table.concat(out, "\n")) .. "\n"
 end
 
 function M.index(lessons)
@@ -91,7 +98,7 @@ does in Vim: ranges of bars and tracks, `:s` and `:g`.]]))
   add(paragraphs([[
 The five lessons of [Make music with paw](../make-music/README.md) make one
 song, from the first note to an MP3 file. They use the keys of this course.]]))
-  return table.concat(out, "\n") .. "\n"
+  return keys(table.concat(out, "\n")) .. "\n"
 end
 
 --- Every file of the course: { [name] = text }.

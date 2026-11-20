@@ -1,5 +1,5 @@
 -- A one-file extension that adds a view: the transport position in big digits.
--- It starts hidden. `,C` and `:clock` show and hide it.
+-- It starts hidden. `<Space>C` and `:clock` show and hide it.
 local glyphs = {
   ["0"] = { "█▀█", "█ █", "▀▀▀" }, ["1"] = { " █ ", " █ ", " ▀ " }, ["2"] = { "▀▀█", "█▀▀", "▀▀▀" },
   ["3"] = { "▀▀█", " ▀█", "▀▀▀" }, ["4"] = { "█ █", "▀▀█", "  ▀" }, ["5"] = { "█▀▀", "▀▀█", "▀▀▀" },

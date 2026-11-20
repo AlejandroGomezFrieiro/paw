@@ -7,8 +7,8 @@ SETUP=$TUI_DEMO
 rig_start
 term_start
 rec_start tui-arrange
-cap "Space plays; j w move over tracks and clips as over lines and words"
-pause 0.5; key space; pause 0.6
+cap "Space Space plays; j w move over tracks and clips as over lines and words"
+pause 0.5; key space space; pause 0.6
 keys 0.4 j w
 cap "3>ic moves the clip three steps later, . does it again, u undoes"
 TYPE_DELAY=200 typ "3>ic"; pause 0.8; key period; pause 0.8; key u; pause 0.5; key u; pause 0.6

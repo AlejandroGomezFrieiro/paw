@@ -53,7 +53,7 @@ The tutor opens a practice project for this lesson. It checks each step when you
    - ✓ Bass is back, with its synth and its clip. So a delete is also a cut.
 12. `gl` is the loop operator. Press `k` to go up to Beat. Press `0` and `w` to put the cursor on `snare`. Then press `glic`.
    - ✓ The loop is the snare clip. The ruler shows it.
-13. Press `gcic` to unmute `snare`. Press `<Space>` to hear the loop. `<Space>` stops.
+13. Press `gcic` to unmute `snare`. Press `<Space><Space>` to hear the loop. `<Space><Space>` stops.
    - ✓ The snare bar and the bass play again and again.
 
 ## What we did

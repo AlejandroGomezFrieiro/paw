@@ -92,7 +92,7 @@ An audio clip has `fade_in` and `fade_out`, in beats.
 | Way | Effect |
 | --- | --- |
 | `clip.fade_in = 1` | A fade-in of one beat. |
-| `:clip.fade in=1 out=2`, `,cf` | Set the fades of the clip. |
+| `:clip.fade in=1 out=2`, `<Space>cf` | Set the fades of the clip. |
 | `\fi`, `\fo` | In the arrange view: a fade-in up to the cursor, a fade-out from the cursor. A count gives the beats. |
 | `:clip.crossfade 1` | Extend the clip under the start of the next clip by one beat, and fade the two across each other. |
 

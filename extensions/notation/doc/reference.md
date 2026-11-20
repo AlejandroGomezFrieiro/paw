@@ -374,7 +374,7 @@ the clip is `ie`, as it is in the piano roll too.
 | --- | --- |
 | `f` `F` + letter | to the next, previous note of that name in the voice (`2fe`); with an operator the note found is taken in, as Vim's `df` |
 | `t` `T` + letter | to the note before (after) it |
-| `;` `,` | the last `f` `F` `t` `T` again, the other way. `,` is also the leader: alone it lists the leader keys and waits a few seconds for one, then moves; `,` followed by a key no leader map has moves at once. The popovers are on the local leader (`\`), so every `,` key means here what it means everywhere |
+| `;` `,` | the last `f` `F` `t` `T` again, the other way |
 | `)` `(` | the next, previous phrase: a note after a rest |
 | `]v` `[v` | the next, previous voice (then the next staff's); note entry goes into it |
 | `Ctrl-j` `Ctrl-k` | the staff below, above |
@@ -539,10 +539,10 @@ last popover again, with what you typed in it.
 | `\.` | the last popover again | | with what was typed in it |
 
 The letters are the letters of Dorico, where the letter of Dorico is not a
-note name. They are on the local leader (`\`), not on the leader (`,`), so
+note name. They are on the local leader (`\`), not on the leader (`<Space>`), so
 the leader keeps its meaning in the notation view. There, as in all views,
-`,d` is the device panel, `,m` the mixer, `,l` the session view and `,p`
-the piano roll. `,c` and `,x` start `,ca` (fixes and actions) and the mix
+`<Space>d` is the device panel, `<Space>m` the mixer, `<Space>l` the session view and `<Space>p`
+the piano roll. `<Space>c` and `<Space>x` start `<Space>ca` (fixes and actions) and the mix
 measurements, as in all views. The clef is `\C` and text is `\X`. `\.`
 repeats the last popover.
 

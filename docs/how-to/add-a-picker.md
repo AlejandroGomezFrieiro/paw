@@ -33,7 +33,7 @@ in an extension. The example chooses a tempo from a list.
 
 4. Type `:reload`.
 
-Now `,fT`, `:pick tempo` and `paw.pick("tempo")` open the picker, and `,fp`
+Now `<Space>fT`, `:pick tempo` and `paw.pick("tempo")` open the picker, and `<Space>fp`
 lists it.
 
 If `items` is a function, paw calls it each time that the picker opens.

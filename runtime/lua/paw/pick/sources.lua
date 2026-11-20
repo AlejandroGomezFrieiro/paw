@@ -228,7 +228,7 @@ return function(pick)
         end)
         -- After them, the keys of the other views, so that a search for what
         -- a key does finds it wherever it works: `send` in the mixer finds
-        -- the arrange view's `,s`.
+        -- the arrange view's `<leader>s`.
         local names = {}
         for name, v in pairs(paw.ui.views) do
           if name ~= view and v.focusable ~= false and not v.modal then names[#names + 1] = name end

@@ -20,7 +20,7 @@ paw.ext.load("extensions/undotree")   -- or put the directory in ~/.config/paw/e
 2. Put the cursor on a clip. Type `3>ic`. The clip moves three steps later.
 3. Press `u`, then type `2>ic`. The clip moves two steps later. The first
    edit is now on another branch.
-4. Press `,uu`. The window of the tree shows two branches.
+4. Press `<Space>uu`. The window of the tree shows two branches.
 5. Press `j` to select the state of the first edit, and press Enter. The
    clip is three steps later again.
 
@@ -32,27 +32,27 @@ paw.ext.load("extensions/undotree")   -- or put the directory in ~/.config/paw/e
   `:later 2m`.
 - To step through states in the order that they were made, press `g-` or
   `g+`.
-- To choose a state, press `,uu`, select the state and press Enter.
+- To choose a state, press `<Space>uu`, select the state and press Enter.
 
 ### How to compare two versions by ear
 
-1. Press `,ua`. This state is A.
+1. Press `<Space>ua`. This state is A.
 2. Continue to work, or go to another state of the tree.
-3. Start playback, and press `,ub`. You hear A.
-4. Press `,ub` again. You hear where you were, B.
-5. To forget A and B, press `,uB`.
+3. Start playback, and press `<Space>ub`. You hear A.
+4. Press `<Space>ub` again. You hear where you were, B.
+5. To forget A and B, press `<Space>uB`.
 
 ### How to keep a version after paw closes
 
 1. Save the project.
-2. Type `:checkpoint before the bridge`, or press `,uc` and type the name.
+2. Type `:checkpoint before the bridge`, or press `<Space>uc` and type the name.
 3. Later, to restore it, type `:checkpoints` and choose it.
 
 The restore is a new step. So `u` returns to where you were.
 
 ### How to see what a step changed
 
-- For the last step, type `:undo.diff`, or press `,ud`.
+- For the last step, type `:undo.diff`, or press `<Space>ud`.
 - From state 3 to now, type `:undo.diff 3`.
 
 ### In the graphical window
@@ -99,7 +99,7 @@ is not loaded. The extension is the interface to the rest of the tree.
 | `n` | names the selected state |
 | `c` | writes a checkpoint of the current state |
 | `d` | switches the right side between what the step of the selected state changed, and what is different from it to the current state |
-| `Space` | plays and stops |
+| `<Space><Space>` | plays and stops |
 | `q`, `Esc` | closes |
 
 A click on a row selects it. The wheel moves the selection.

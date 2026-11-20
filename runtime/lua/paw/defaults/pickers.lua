@@ -51,7 +51,6 @@ for _, entry in ipairs(pick_keys) do
 end
 map("<leader>fR", "recent", { desc = "Open a recent project" })
 map("<leader>f.", "pick.resume", { desc = "The last picker again" })
-map("<leader><leader>", "pick.commands", { desc = "Run a command" })
 
 -- With no argument, `device.add` chooses from every device in a picker.
 do

@@ -808,7 +808,7 @@ paw.ex.view("notation", {
 })
 
 -- Where the view shows things with an address, so that diagnostics, hover
--- and fixes (`]d` `[d`, `gK`, `,ca`) work on what is under its cursor.
+-- and fixes (`]d` `[d`, `gK`, `<leader>ca`) work on what is under its cursor.
 if paw.ui.locator and paw.address then
   local A = paw.address
   paw.ui.locator("notation", {
@@ -1058,7 +1058,7 @@ do
       find(was.key, -was.dir, was.till, ctx.count)
       last_find = was
     end
-  end, "The last f, F, t or T the other way (after a moment: , is the leader)", motion)
+  end, "The last f, F, t or T the other way", motion)
   local function phrase(dir) return function(ctx)
     local sc = O.score()
     local it = sc and O.phrase_start(sc, dir, ctx.count)

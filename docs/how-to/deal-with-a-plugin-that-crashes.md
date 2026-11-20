@@ -10,7 +10,7 @@ rule, see [Plugins](../reference/plugins.md#processes).
 1. Read the message. It names the plugin, the track and the reason, for
    example `stopped working: it was killed`. The track plays on without
    the plugin: an effect lets the sound through, an instrument is silent.
-2. Put the cursor on the track and press `,d` to show the device panel.
+2. Put the cursor on the track and press `<Space>d` to show the device panel.
    Press `w` until the cursor is on the name of the plugin.
 3. Press `gR` to start the plugin again. It gets the settings that the
    project has for it.

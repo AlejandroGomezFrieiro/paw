@@ -14,6 +14,6 @@ keys 0.3 4 l Return; keys 0.3 8 l Return; pause 0.6
 cap "+ - make the hit under the cursor harder or softer"
 keys 0.3 minus minus minus; pause 0.6
 
-cap "& repeats the bar to the end of the clip; Space plays"
-key ampersand; pause 0.8; key space; pause 3.0; key space; pause 0.4
+cap "& repeats the bar to the end of the clip; Space Space plays"
+key ampersand; pause 0.8; key space space; pause 3.0; key space space; pause 0.4
 rec_stop

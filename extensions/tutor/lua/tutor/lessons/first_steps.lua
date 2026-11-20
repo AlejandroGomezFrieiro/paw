@@ -17,9 +17,10 @@ The keys have the names that Vim gives them. `j` is the j key and `J` is
 Shift and j. `<C-r>` is Ctrl and r. `<CR>` is Enter, `<Esc>` is Escape,
 `<Space>` is the space bar and `<BS>` is Backspace. `gs` is g, then s.]],
   idea = [[
-You do not need the mouse. Some keys do an action immediately: `<Space>`
-plays. Other keys start an action that more keys complete. `:` starts a
-command line. `g` starts commands of two keys, for example `gs`.
+You do not need the mouse. Some keys do an action immediately: `x`
+deletes. Other keys start an action that more keys complete. `:` starts a
+command line. `g` starts commands of two keys, for example `gs`. `<leader>`
+starts the keys that work in every view: `<leader><Space>` plays.
 
 If you
 do not know the current state, press `<Esc>` to return to normal mode. `?`
@@ -47,15 +48,15 @@ tracks (`:5,8d`, `:%s/c4/d4/g`). Lesson 17 shows them.]],
   end,
   steps = {
     {
-      say = "This short song has three tracks: Drums, Bass and Keys. Press `<Space>` to play it.",
-      keys = { "<Space>" },
+      say = "This short song has three tracks: Drums, Bass and Keys. Press `<leader><Space>` to play it.",
+      keys = { "<leader><Space>" },
       check = function() return paw.transport.playing end,
       done = "The song plays again and again, because the loop is on. The status line shows `loop`.",
       hint = "`<Space>` is the space bar. Look at the ▶ in the status line and at the playhead, which moves across the clips.",
     },
     {
-      say = "Press `<Space>` again to stop.",
-      keys = { "<Space>" },
+      say = "Press `<leader><Space>` again to stop.",
+      keys = { "<leader><Space>" },
       check = function(ctx, look) return look.became(ctx, "stopped", not paw.transport.playing) end,
       done = "The song stops. The playhead stays where it stopped.",
     },
@@ -88,8 +89,8 @@ tracks (`:5,8d`, `:%s/c4/d4/g`). Lesson 17 shows them.]],
       hint = "Type the colon too. `<Esc>` cancels a command line. `<BS>` on an empty command line closes it.",
     },
     {
-      say = "Press `<Space>` to hear the faster song. Then press `<Space>` to stop it.",
-      keys = { "<Space>", { wait = 300 }, "<Space>" },
+      say = "Press `<leader><Space>` to hear the faster song. Then press `<leader><Space>` to stop it.",
+      keys = { "<leader><Space>", { wait = 300 }, "<leader><Space>" },
       check = function(ctx, look) return look.played(ctx) end,
       done = "The song is faster.",
     },
@@ -98,7 +99,7 @@ tracks (`:5,8d`, `:%s/c4/d4/g`). Lesson 17 shows them.]],
       keys = { { sim = "quit", instead = { ":q", "<CR>" } } },
       on_quit = true,
       done = "paw quits.",
-      hint = "If you do not want to quit now, press `,hn` to start lesson 2.",
+      hint = "If you do not want to quit now, press `<leader>hn` to start lesson 2.",
     },
   },
   outro = "We played a song, moved the cursor, used the command line and found the list of all the keys.",

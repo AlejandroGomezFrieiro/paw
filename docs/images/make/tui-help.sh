@@ -9,8 +9,8 @@ key j w; pause 0.4
 rec_start tui-help
 cap "? lists every key of the view you are in"
 pause 0.5; key question; pause 2.0; key Escape; pause 0.3
-cap ", alone waits and lists what can follow it"
-key comma; pause 1.8; key Escape; pause 0.3
+cap "Space alone waits and lists what can follow it"
+key space; pause 1.8; key Escape; pause 0.3
 cap "K says what is under the cursor"
 key K; pause 1.8; key Escape; pause 0.3
 cap ":help opens the manual where a topic is described"

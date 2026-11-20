@@ -3,7 +3,7 @@
 
 One page to keep next to the keyboard. The keys are written as Vim writes
 them. `<C-r>` is Ctrl and r, `<A-j>` Alt and j, `<CR>` Enter, `<Esc>`
-Escape. `,` is the leader key, and `\` the local leader of a view (the
+Escape. `<Space>` (the space bar) is the leader key, and `\` the local leader of a view (the
 notation popovers). **A** is the arrange view, **R** the piano roll, **M**
 the mixer, **D** the device panel.
 
@@ -68,12 +68,12 @@ are rows, `w` `b` devices, `e` the last parameter of a device.
 | `<A-j>` `<A-k>` | move the track down, up | |
 | `M` `s` `r` | mute, solo, arm the track | |
 | `zn` `zw` | narrow to the group at the cursor, in a tab of its own; widen again | |
-| `,vn` `,va` `,vr` `,vx` `,vl` | a new VCA over the selected tracks; put them under a VCA; take them out of their VCAs; take the VCA at the cursor away; link the faders of a group | |
+| `<Space>vn` `<Space>va` `<Space>vr` `<Space>vx` `<Space>vl` | a new VCA over the selected tracks; put them under a VCA; take them out of their VCAs; take the VCA at the cursor away; link the faders of a group | |
 | `I` `<A-i>` | choose the input (audio, MIDI port and channel), monitor it | |
 | `a` | add a device | enter notes after the note |
 | `A` | add a volume automation point | |
-| `,at` `,ax` | automation off and on, clear it | |
-| `,am` | the track's automation mode: read, touch, latch, write, off in turn | |
+| `<Space>at` `<Space>ax` | automation off and on, clear it | |
+| `<Space>am` | the track's automation mode: read, touch, latch, write, off in turn | |
 | `]t` `[t` | the clip's next take, the one before | |
 | `zt` `zT` | show or hide the track's take lanes, the tempo lane under the ruler | |
 | `g'` `g"` | put a marker at the cursor; go to one from a list | |
@@ -139,7 +139,7 @@ In the **curve editor**:
 | `s` `M` `r` | solo, mute, arm the track |
 | `c` | a preset or a value |
 | `[p` `]p` | step presets |
-| `,w` | save a preset |
+| `<Space>w` | save a preset |
 | `yy` `dd` `p` | devices (`yy` on a parameter: its setting) |
 | `<A-j>` `<A-k>` | reorder |
 | `gS` | the track that the device listens to (side-chain) |
@@ -241,12 +241,12 @@ See [Snippets](snippets.md) and [Completion](completion.md).
 
 | Keys | |
 | --- | --- |
-| `<Space>` | play, stop |
+| `<Space><Space>` | play, stop |
 | `<S-CR>` | play from the cursor |
 | `gs` `gp` | playhead to the start, to the cursor. `g0` is the playhead to the start too, also in the views where `gs` does another thing (curve editor, drum grid, score) |
 | `gL` `gm` | loop on and off, metronome |
 | `gM` | count a bar in before recording, or not |
-| `,b` | tap the tempo (the beat): press it on each beat, four times or more |
+| `<Space>b` | tap the tempo (the beat): press it on each beat, four times or more |
 | `gI` | punch recording on and off (over a selection: punch there); `:preroll 2` plays two bars before the punch in |
 | `R` | record armed tracks from the cursor (while the song plays, from the playhead), or stop recording; with the loop on, every time round is a take |
 
@@ -257,12 +257,12 @@ See [Snippets](snippets.md) and [Completion](completion.md).
 | `?` | every key of this view |
 | `:` | a command by name; `<Tab>` completes, `<Up>` for history |
 | `/` `n` `N` `*` | find a clip or track by name (in R a pitch: `/c4`); next, previous; next with this name |
-| `,,` | pick a command |
-| `,fk` `,ft` `,fl` `,fa` `,fd` | pick a key, track, clip, device to add, device of the track |
-| `,fm` `,fr` `,fn` `,ff` `,fo` `,fp` `,f.` | marks, registers, messages, files, options, every picker, the last picker |
-| `,fR` | recent projects (`:recent 2` opens the second) |
-| `,fh` `,f'` `,fg` `,fN` `,fw` | help tags, markers and regions, any text in the project, notes (pitch, lyric, articulation), sound files |
-| `,fq` `,fu` `,fe` `,fs` `,fP` | the quickfix list, undo states, extensions, the Lua API, presets |
+| `<Space>fc` | pick a command |
+| `<Space>fk` `<Space>ft` `<Space>fl` `<Space>fa` `<Space>fd` | pick a key, track, clip, device to add, device of the track |
+| `<Space>fm` `<Space>fr` `<Space>fn` `<Space>ff` `<Space>fo` `<Space>fp` `<Space>f.` | marks, registers, messages, files, options, every picker, the last picker |
+| `<Space>fR` | recent projects (`:recent 2` opens the second) |
+| `<Space>fh` `<Space>f'` `<Space>fg` `<Space>fN` `<Space>fw` | help tags, markers and regions, any text in the project, notes (pitch, lyric, articulation), sound files |
+| `<Space>fq` `<Space>fu` `<Space>fe` `<Space>fs` `<Space>fP` | the quickfix list, undo states, extensions, the Lua API, presets |
 | `<C-Space>` | in a picker of presets, devices, files, beats, snippets, clips or notes: hear the item under the selection, or stop the sound; `<Esc>` takes back what was tried |
 | in a picker | Tab marks a line, Ctrl-q sends the marked (or all) to the quickfix list; Ctrl-v, Ctrl-x, Ctrl-t open it beside, below, in a tab; Ctrl-r steps fuzzy, exact, regex; Alt-d deletes; Ctrl-Up what was typed before |
 | `:vimgrep /pizz/` | every text in the project that matches, in the quickfix list |
@@ -293,7 +293,7 @@ Stop half way through a sequence and the keys that can follow are listed.
 | `<Tab>` `<C-w>w` | next window |
 | `<C-w>p` | back to the window that had the keyboard before (out of R, say) |
 | `<C-^>` | show again what this window showed before (`:b #`) |
-| `,m` `,d` `,p` `,l` | mixer, device panel, piano roll, session view (with the clip launcher extension) |
+| `<Space>m` `<Space>d` `<Space>p` `<Space>l` | mixer, device panel, piano roll, session view (with the clip launcher extension) |
 | `E` | in R: the clip's notes and controller moves as a list to change in place |
 | `<C-w>c` `<C-w>o` | close this window, close every other window |
 | `<C-w>s` `<C-w>v` | split the window, one above the other, side by side (`:vs roll` shows the piano roll beside) |
@@ -349,7 +349,7 @@ text. `:w` shows the plan and `y` does it. Deleted files go to the trash.
 | --- | --- |
 | `]d` `[d` | next, previous diagnostic this view shows (R, A, M, D): the cursor goes there |
 | `gK` | what the diagnostics and language servers say about what is under the cursor |
-| `,ca` | fixes and actions for what is under the cursor; Enter makes one, as one undo step |
+| `<Space>ca` | fixes and actions for what is under the cursor; Enter makes one, as one undo step |
 | `:diagnostics` | every diagnostic, grouped by what it is about; Enter goes there |
 | `:lsp` | the language servers: `:lsp info`, `:lsp restart`, `:lsp log` |
 
@@ -360,7 +360,7 @@ text. `:w` shows the plan and `y` does it. Deleted files go to the trash.
 | `]q` `[q` | next, previous entry of the quickfix list (Problems: what went wrong anywhere): the view that shows it gets the keyboard |
 | `]Q` `[Q` | last, first entry |
 | `]l` `[l` | next, previous entry of the window's location list |
-| `:copen` `:cclose` | the list's window along the bottom; in it `j` `k` move, `Enter` goes, `,ca` fixes, `q` closes |
+| `:copen` `:cclose` | the list's window along the bottom; in it `j` `k` move, `Enter` goes, `<Space>ca` fixes, `q` closes |
 | `:cdo` `:cfdo` `:cfix` | a command on every entry, on every track of them; make every fix (each one undo step) |
 | `:colder` `:cnewer` `:cdiag` | the list before, after; a list of the diagnostics |
 
@@ -379,7 +379,7 @@ describes them:
 
 - [Notation](../../extensions/notation/doc/reference.md#keys): the score, note entry by letter, the popovers, scores and parts
 - [Articulations](../../extensions/articulations/README.md): the articulation of a note in the piano roll
-- [The clip launcher](../../extensions/launcher/README.md): the session view (`,l`)
+- [The clip launcher](../../extensions/launcher/README.md): the session view (`<Space>l`)
 - [The tutor](../../extensions/tutor/README.md): the course (`:tutor`)
 - [The doctor](../../extensions/doctor/README.md): the check of the hardware (`:doctor`)
 - [Each other extension](extensions.md): the README of each one

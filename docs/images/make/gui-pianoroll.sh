@@ -22,7 +22,7 @@ cap "Draw the velocities in the strip under the notes"
 key Escape; pause 0.2
 stroke 66 725 300 705 520 720 735 700 950 712
 pause 0.6
-cap "A click on the ruler moves the playhead; Space plays"
+cap "A click on the ruler moves the playhead; Space Space plays"
 glide 512 380 10; xdotool click 1; pause 0.3
-key space; pause 3.6; key space; pause 0.4
+key space space; pause 3.6; key space space; pause 0.4
 rec_stop

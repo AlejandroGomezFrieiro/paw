@@ -94,7 +94,7 @@ for _, lhs in ipairs({ "ip", "ap" }) do
     return { view = "utau", kind = "char", r0 = 0, r1 = 127, c0 = a.start, c1 = b.start + b.length - 1e-6 }
   end, { view = "utau", desc = "The phrase at the cursor" })
 end
-emap("<Space>", function() editor:play_from_cursor() end, "Play from the cursor, or stop")
+emap("<leader><Space>", function() editor:play_from_cursor() end, "Play from the cursor, or stop", { role = "play" })
 
 -- Curves -----------------------------------------------------------------------------
 

@@ -44,6 +44,7 @@ local registers = {}
 local marks, jumps = {}, {}
 local changes = {} -- view -> positions where the project was edited, newest last
 local groups = {}   -- scope -> keys -> name of a prefix that only leads to more keys
+local group_lhs = {}   -- the groups on a leader: { scope, prefix as written, name, keys now }
 
 --- The mode: "n", "i", "x" (visual), "o" (after an operator) or "c".
 --- @type string
@@ -65,10 +66,13 @@ paw.seats.keep("keymap",
   end,
   function() return {}, nil, nil, nil, nil, nil, nil, {}, nil, nil, nil, {}, {}, {}, "n", nil, nil, nil end)
 
+--- A leader option as a key: a space (the default leader) is `<Space>`.
+local function leader_key(value) return value == " " and "<Space>" or value end
+
 --- Write `<leader>` and `<localleader>` as the keys the options name.
 function M.expand(lhs)
-  return (lhs:gsub("<[Ll]ocal[Ll]eader>", function() return paw.opt.localleader end)
-    :gsub("<[Ll]eader>", function() return paw.opt.leader end))
+  return (lhs:gsub("<[Ll]ocal[Ll]eader>", function() return leader_key(paw.opt.localleader) end)
+    :gsub("<[Ll]eader>", function() return leader_key(paw.opt.leader) end))
 end
 
 --- Split `gg<C-x>` into { "g", "g", "<C-x>" }, and expand `<leader>` and `<localleader>`.
@@ -80,7 +84,8 @@ function M.parse(lhs)
     -- A key with modifiers may be a punctuation mark: `<C-]>`.
     local special = expanded:match("^<[%w%-]+>", pos) or expanded:match("^<[%a%-]-%a%-[^%w%s>]>", pos)
     local key = special or expanded:match("^[%z\1-\127\194-\244][\128-\191]*", pos)
-    keys[#keys + 1] = key
+    -- A space is the Space key, as the keyboard sends it: `paw.keymap.set(" z", ...)`.
+    keys[#keys + 1] = key == " " and "<Space>" or key
     pos = pos + #key
   end
   return keys
@@ -93,7 +98,7 @@ local key_names = {
 }
 local modifier_names = { C = "Ctrl", A = "Alt", M = "Alt", S = "Shift", D = "Super" }
 
---- Keys as a person writes them: `<A-h>` is `Alt-h`, `<leader>at` is `,at`,
+--- Keys as a person writes them: `<A-h>` is `Alt-h`, `<leader>at` is `Space at`,
 --- `<localleader>d` is `\d`, `<C-w>o` is `Ctrl-w o`, `<CR>` is `Enter`. Takes an `lhs` or a list of keys.
 function M.human(keys)
   if type(keys) == "string" then keys = M.parse(keys) end
@@ -204,7 +209,9 @@ end
 function M.group(prefix, name, opts)
   local scope = opts and opts.view or "global"
   groups[scope] = groups[scope] or {}
-  groups[scope][table.concat(M.parse(prefix))] = name
+  local keys = table.concat(M.parse(prefix))
+  groups[scope][keys] = name
+  if prefix:lower():find("leader>", 1, true) then group_lhs[#group_lhs + 1] = { scope, prefix, name, keys } end
 end
 
 --- Define an operator: `fn(region, ctx)` acts on a region of the focused
@@ -1039,14 +1046,7 @@ handle = function(key)
       return
     end
     if exact then
-      -- The leader that is also a motion (`,` again in the notation view)
-      -- waits longer, so that the list of what can follow it has its time
-      -- on the screen before the motion is taken.
-      local wait = paw.opt.timeoutlen
-      if paw.opt.hints and #pending == 1 and key == paw.opt.leader then
-        wait = math.max(wait, paw.opt.hint_delay + 2000)
-      end
-      timer = api.timer_start(wait, false, function()
+      timer = api.timer_start(paw.opt.timeoutlen, false, function()
         timer = nil
         take(exact)
         finish_command()
@@ -1262,6 +1262,35 @@ paw.on("view.focused", function()
     reset()
     M.set_mode("n")
   end
+end)
+
+-- A leader set in init.lua or with `:set` moves every key on it, the
+-- keys mapped before too: `paw.opt.leader = ","` puts the mixer on `,m`.
+paw.on("option.changed", function(e)
+  if e.name ~= "leader" and e.name ~= "localleader" then return end
+  for _, by_scope in pairs(maps) do
+    for _, by_keys in pairs(by_scope) do
+      local moved = {}
+      for keys, map in pairs(by_keys) do
+        if type(map.lhs) == "string" and map.lhs:lower():find("leader>", 1, true) then
+          moved[#moved + 1] = map
+          by_keys[keys] = nil
+        end
+      end
+      for _, map in ipairs(moved) do
+        map.keys = M.parse(map.lhs)
+        by_keys[table.concat(map.keys)] = map
+      end
+    end
+  end
+  for _, g in ipairs(group_lhs) do
+    if groups[g[1]][g[4]] == g[3] then groups[g[1]][g[4]] = nil end
+  end
+  for _, g in ipairs(group_lhs) do
+    g[4] = table.concat(M.parse(g[2]))
+    groups[g[1]][g[4]] = g[3]
+  end
+  reset()
 end)
 
 -- A seat that closes leaves no key waiting to run in it.

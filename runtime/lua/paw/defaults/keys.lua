@@ -18,7 +18,7 @@ local motion, need_track, amap = common.motion, common.need_track, common.amap
 
 -- The names the key hints give to prefixes that only lead to more keys.
 keymap.group("<leader>a", "automation")
--- `,ca` is in every view that shows diagnostics; `,cf` only in the arrange view.
+-- `<leader>ca` is in every view that shows diagnostics; `<leader>cf` only in the arrange view.
 keymap.group("<leader>c", "fixes and actions")
 keymap.group("<leader>c", "fixes, clip fade", { view = "arrange" })
 keymap.group("<leader>f", "find")
@@ -29,7 +29,9 @@ local linewise = { motion = true, linewise = true }
 local far = { motion = true, jump = true }
 local far_lines = { motion = true, linewise = true, jump = true }
 
-map("<Space>", "transport.toggle", { mode = nx, desc = "Play or stop" })
+-- Space is the leader: Space Space plays and stops, at once (no other key
+-- starts with it, so it never waits).
+map("<leader><Space>", "transport.toggle", { mode = nx, role = "play", desc = "Play or stop" })
 map("<S-CR>", "transport.play_cursor", { mode = nx, desc = "Play from the cursor" })
 map("gs", "transport.start", { mode = nx, desc = "Playhead to the start" })
 map("g0", "transport.start", { mode = nx, desc = "Playhead to the start, in every view" })
@@ -668,7 +670,7 @@ command("roll.tracks", function() paw.roll_clips.pick() end,
   { desc = "Choose whose notes the piano roll shows behind its own, and which clips it edits together" })
 command("roll.only", function() paw.roll_clips.only() end, { desc = "Edit the piano roll's active clip alone" })
 -- Escape cancels and stays, as in every view: `<C-w>p` goes back to the
--- window before, `,p` hides the roll.
+-- window before, `<leader>p` hides the roll.
 pmap("<Esc>", function()
   if chosen() then return paw.frontend.act.clear_note_selection() end
   keymap.escape_hint()

@@ -325,7 +325,7 @@ test("launcher: the session view shows the slots and scenes, and its keys launch
   start()
   local t = synth("Lead", 0)
   launcher.set_scene_name(0, "Verse")
-  paw.keymap.feed(",l")
+  paw.keymap.feed("<leader>l")
   eq(paw.ui.focused, "session", "shown and focused")
   paw.cursor.set_track(t.id)
   local text = screen()
@@ -552,7 +552,7 @@ test("launcher: the README names every command and key of the extension", functi
         eq(named ~= nil, true, "README names " .. item)
       elseif part.kind == "keys" then
         local lhs, scope = item:match("^(%S+) %((.*)%)$")
-        lhs = lhs:gsub("<leader>", ",")
+        lhs = lhs:gsub("<leader>", "<Space>")
         if not (scope or ""):find("classic", 1, true) then
           keys = keys + 1
           eq(readme:find("`" .. lhs .. "`", 1, true) ~= nil, true, "README names the key " .. lhs .. " (" .. tostring(scope) .. ")")

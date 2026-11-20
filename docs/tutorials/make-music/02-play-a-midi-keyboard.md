@@ -42,15 +42,15 @@ If the list has no MIDI port for your keyboard, press `<Esc>`. Then type
      notes that come in.
 2. Play some notes on the keyboard.
    - You hear the lead synth, and the meter of the track moves.
-3. Press `<Space>` to play the loop, and play along with it. Press `<Space>`
-   to stop.
+3. Press `<Space><Space>` to play the loop, and play along with it. Press
+   `<Space><Space>` to stop.
 
 ## Record a take over the loop
 
 1. Press `0` to move the cursor to the start of the song.
 2. Press `R` to record from the cursor. Play a melody over the four bars.
 3. When the playhead returns to bar 1, press `R` to stop the recording.
-   Then press `<Space>` to stop the song.
+   Then press `<Space><Space>` to stop the song.
    - A clip with the name `take 1` shows on the Lead track. It holds the
      notes that you played.
 
@@ -77,9 +77,9 @@ take. Lesson 3 shows the takes.
 
 1. Press `<C-w>p` to return to the arrange view. Press `r` to disarm the
    lead.
-2. Press `gs` and `<Space>`.
+2. Press `gs` and `<Space><Space>`.
    - The lead plays your melody with the drums, the bass and the chords.
-3. Press `<Space>` to stop.
+3. Press `<Space><Space>` to stop.
 4. Type `:w with-lead` and press Enter.
 
 ## What we made

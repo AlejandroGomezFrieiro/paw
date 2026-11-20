@@ -163,7 +163,7 @@ test("lsp: the fixes are offered at the cursor with <leader>ca, and Enter applie
   range()
   until_(function() return #paw.diagnostic.get(clip.id) == 1 end, "the range diagnostic")
   paw.ui.views.pianoroll:set(96, 1)
-  paw.keymap.feed(",ca")
+  paw.keymap.feed("<leader>ca")
   eq(paw.pick.state().matches[1]:find("Move C7 to C6", 1, true) ~= nil, true, "the fix is offered")
   paw.keymap.feed("<CR>")
   eq(clip:notes()[2].pitch, 84, "and applied")

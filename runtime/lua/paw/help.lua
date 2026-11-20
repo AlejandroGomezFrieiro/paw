@@ -415,13 +415,14 @@ local function tags_of_code(text, first)
   if cmd and (word == text or text:sub(#word + 1, #word + 1) == " ") then
     out[#out + 1] = ":" .. word:gsub("!$", "")
   end
-  -- Keys after the leader are named as they are typed (`<leader>SL` is `,SL`).
+  -- Keys after the leader are named as they are typed (`<leader>SL` is `Space SL`).
   if text:match("^<leader>") or text:match("^<localleader>") then text = paw.keymap.human(text) end
   -- Keys written as mappings write them (`<C-w>o`) are named as people
   -- write them (`Ctrl-w o`), as the docs do.
-  if text:match("^<%a%-.->") or text:match("^<%u%a+>$") then text = paw.keymap.human(text) end
+  -- The default leader too: `<Space>xa` is `Space xa`.
+  if text:match("^<%a%-.->") or text:match("^<%u%a+>$") or text:match("^<Space>%S") then text = paw.keymap.human(text) end
   local short = #text <= 16 and not text:find("  ") and not text:find("^%s")
-  local keyish = short and (not text:find(" ") or text:match("^%u%l+%-%S+ %S+$"))
+  local keyish = short and (not text:find(" ") or text:match("^%u%l+%-%S+ %S+$") or text:match("^Space %S+$"))
   if keyish and (keys_known()[text] or first) then out[#out + 1] = text end
   return out
 end

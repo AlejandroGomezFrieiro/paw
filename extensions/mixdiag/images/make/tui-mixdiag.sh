@@ -8,8 +8,8 @@ term_start
 rec_start tui-mixdiag
 cap "A mistake to find: the bass 14 dB up (k, 14+)"
 pause 0.5; key k; pause 0.3; keys 0.12 1 4 plus; pause 0.8
-cap ",xa measures the song, rendered in memory, as a language server checks code"
-key comma x a; pause 4.0
-cap ",xx lists the findings: what is wrong, by how much, what would fix it"
-key comma x x; pause 3.0
+cap "Space xa measures the song, rendered in memory, as a language server checks code"
+key space x a; pause 4.0
+cap "Space xx lists the findings: what is wrong, by how much, what would fix it"
+key space x x; pause 3.0
 rec_stop

@@ -35,7 +35,7 @@ and `Enter` goes to one:
 
 ### How to see what changed since the last save
 
-Type `:Pdiff`, or press `,Pd`.
+Type `:Pdiff`, or press `<Space>Pd`.
 
 ### How to compare with an older version
 
@@ -46,7 +46,7 @@ Type `:Pdiff`, or press `,Pd`.
 
 ### How to keep a version to compare with later
 
-1. Type `:Psnapshot name`, or press `,Ps` and type the name.
+1. Type `:Psnapshot name`, or press `<Space>Ps` and type the name.
 2. Later, type `:Pdiff snap:name`.
 
 ### How to go through the changes as a list
@@ -86,7 +86,7 @@ track, device, clip, note, lane point and marker has a line:
 ### How to settle the conflicts of a merge
 
 1. Open the project. paw tells you that it has conflicts.
-2. Type `:Pmerge`, or press `,Pm`.
+2. Type `:Pmerge`, or press `<Space>Pm`.
 3. For each conflict, press `co` for ours, `ct` for theirs, or `cb` for the
    value before both.
 4. When no conflict is left, type `git add` and the file in a shell.

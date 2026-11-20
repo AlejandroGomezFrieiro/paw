@@ -16,7 +16,7 @@ render the song to a WAV file and an MP3 file, and listen to the file.
 
 ## Set the levels and the pan
 
-1. Press `,m` (comma, then m).
+1. Press `<Space>m` (comma, then m).
    - The mixer opens at the bottom, with one strip for each track. The
      cursor is on the fader of Drums.
 2. Press `V` and `$`, then `6-`. Press `<Esc>`.
@@ -32,33 +32,33 @@ render the song to a WAV file and an MP3 file, and listen to the file.
 
 ## Add an equalizer and a compressor
 
-1. Type `/Bass` and press Enter. Press `,d` to open the device panel.
+1. Type `/Bass` and press Enter. Press `<Space>d` to open the device panel.
 2. Press `a`, type `eq` and press Enter.
    - The equalizer comes after the synth.
 3. Press `gg` (the first device) and `w` (the next device, EQ). Press `c`.
 4. Type `tighten` and press Enter.
    - The preset `Bass: tighten` takes away some low mud. The curve shows
      in the panel.
-5. Press `,d` to close the device panel.
-6. Type `/Drums` and press Enter. Press `,d`.
+5. Press `<Space>d` to close the device panel.
+6. Type `/Drums` and press Enter. Press `<Space>d`.
 7. Press `a`, type `compressor` and press Enter.
 8. Press `gg`, `w` and `c`. Type `glue` and press Enter.
    - The preset `Drum bus: glue` compresses the kit a little. The panel
      shows the gain reduction while the song plays.
-9. Press `,d` to close the device panel.
+9. Press `<Space>d` to close the device panel.
 
 ## Send the chords and the lead to a reverb
 
 1. Press `G`. Type `:track.add Reverb` and press Enter.
    - A track with the name Reverb shows at the bottom.
-2. Press `,d`. Press `a`, type `reverb` and press Enter.
+2. Press `<Space>d`. Press `a`, type `reverb` and press Enter.
 3. Press `gg` and `c`. Type `on a send` and press Enter.
    - The preset `Plate on a send` gives a reverb with no dry sound.
-4. Press `,d`.
+4. Press `<Space>d`.
 5. Type `/Keys` and press Enter. Type `:send Reverb -9` and press Enter.
    - paw says `Keys ↗ Reverb at -9 dB`.
 6. Type `/Lead` and press Enter. Type `:send Reverb -12` and press Enter.
-7. Press `gs` and `<Space>`, and listen. Press `<Space>` to stop.
+7. Press `gs` and `<Space><Space>`, and listen. Press `<Space><Space>` to stop.
    - The chords and the lead are in a room now. The fader of Reverb sets
      how much.
 

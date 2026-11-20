@@ -75,7 +75,7 @@ test("[ and ] act at once in the mixer and on velocity, also pressed fast, and ]
   eq(c:notes()[1].velocity, 110, "each press is one undo step")
 end)
 
-test("? and ,fk search the whole description of a key, not the part that 80 columns show", function()
+test("? and Space fk search the whole description of a key, not the part that 80 columns show", function()
   start()
   local size = api.ui_size
   api.ui_size = function() return 80, 24 end
@@ -83,7 +83,7 @@ test("? and ,fk search the whole description of a key, not the part that 80 colu
     api.ui_size = size
     while paw.ui.float do paw.ui.close() end
   end)
-  for _, lhs in ipairs({ "?", ",fk" }) do
+  for _, lhs in ipairs({ "?", "<Space>fk" }) do
     paw.keymap.feed(lhs)
     local shown = paw.pick.state().matches
     local cut

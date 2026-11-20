@@ -200,7 +200,7 @@ end)
 test("pick: keys under <leader>f open the sources", function()
   start()
   paw.add_track({ name = "Bass" })
-  for keys, title in pairs({ [",ft"] = "Tracks", [",fc"] = "Commands", [",,"] = "Commands", [",fp"] = "Pickers", [",fa"] = "Add a device" }) do
+  for keys, title in pairs({ ["<Space>ft"] = "Tracks", ["<Space>fc"] = "Commands", ["<Space>fp"] = "Pickers", ["<Space>fa"] = "Add a device" }) do
     paw.keymap.feed(keys)
     eq(pick.state() and pick.state().title, title, keys)
     paw.keymap.feed("<Esc>")
