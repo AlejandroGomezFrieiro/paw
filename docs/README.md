@@ -41,7 +41,6 @@ below link the main ones.
 - [How to configure paw](how-to/configure-paw.md): `init.lua`, options, colors, commands, keys, events
 - [How to change the status line](how-to/change-the-status-line.md): sections and components in `init.lua`
 - [How to load an extension](how-to/load-an-extension.md): a bundled extension, your own, or one from Nix
-- [How to write an extension in Teal](how-to/write-an-extension-in-teal.md): Lua with types, checked before it runs, and other languages
 - [How to check all the hardware](../extensions/doctor/README.md#how-to-check-all-the-hardware): the doctor's guided check and its report
 
 ### Tracks and instruments
@@ -147,6 +146,7 @@ below link the main ones.
 - [How to write a snippet](how-to/write-a-snippet.md)
 - [How to write a completion source](how-to/write-a-completion-source.md)
 - [How to write a device in Lua](how-to/write-a-device-in-lua.md)
+- [How to write an extension in Teal](how-to/write-an-extension-in-teal.md): Lua with types, checked before it runs, and other languages
 - [How to write a language server](how-to/write-a-language-server.md)
 - [How to write an importer or exporter](how-to/write-an-importer-or-exporter.md): open and write the files of another program with `:import`, `:open` and `:export`
 - [How to give an extension an editor in the graphical window](how-to/add-an-editor-to-the-window.md)
