@@ -372,10 +372,10 @@ end
 --- The width of a line of text in pixels, near enough, at `size` (12).
 function M.text_width(text, size) return api.str_width(text) * (size or 12) * 0.58 end
 
---- A button: a rounded box with a label, painted with `g` and put in the
+--- A button: a rounded box with a label, painted with `g` and added to the
 --- hit list `hits` to run `action` (a function of the event, or a table as
 --- `Hits:add` takes) when pressed. `opts`: `width`, `height` (24), `fill`,
---- `color`, `on` (lit, in `lit` or the selection's colour), `size`.
+--- `color`, `on` (lit, in `lit` or the selection's color), `size`.
 --- Returns where the next button goes to its right, and the width.
 function M.button(g, hits, x, y, label, action, opts)
   opts = opts or {}

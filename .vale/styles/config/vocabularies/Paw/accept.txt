@@ -52,6 +52,7 @@ luafx
 vinput
 rpp
 interop
+metatable(s|'s)?
 utau
 tutor
 msgpack

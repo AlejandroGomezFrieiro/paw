@@ -1271,10 +1271,10 @@ function paw.bytes.vst3_split(raw) end
 ---@param name any
 function paw.canvas.back(name) end
 
---- A button: a rounded box with a label, painted with `g` and put in the
+--- A button: a rounded box with a label, painted with `g` and added to the
 --- hit list `hits` to run `action` (a function of the event, or a table as
 --- `Hits:add` takes) when pressed. `opts`: `width`, `height` (24), `fill`,
---- `color`, `on` (lit, in `lit` or the selection's colour), `size`.
+--- `color`, `on` (lit, in `lit` or the selection's color), `size`.
 --- Returns where the next button goes to its right, and the width.
 ---@param g any
 ---@param hits any
@@ -8174,7 +8174,7 @@ paw.api.fs_copy = nil
 ---@type fun(...): any
 paw.api.fs_create = nil
 
---- Whether a file or directory is there (a link that leads nowhere is not).
+--- True when a file or directory is there (a link that leads nowhere is not).
 ---@param path string
 function paw.api.fs_exists(path) end
 

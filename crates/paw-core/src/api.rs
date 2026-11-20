@@ -2196,7 +2196,7 @@ pub fn install(lua: &Lua, shared: &Rc<Shared>) -> mlua::Result<()> {
             t.set("total", st.f_blocks as f64 * st.f_frsize as f64)?;
             Ok(t)
         }
-        // Whether a file or directory is there (a link that leads nowhere is not).
+        // True when a file or directory is there (a link that leads nowhere is not).
         fn fs_exists(_, _sh, path => String) { Ok(Path::new(&path).exists()) }
         fn warnings(_, sh, () => ()) { Ok(std::mem::take(&mut sh.session.borrow_mut().warnings)) }
         fn env(lua, sh, () => ()) {

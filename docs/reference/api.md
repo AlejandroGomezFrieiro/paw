@@ -315,7 +315,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.canvas
 
 - `paw.canvas.back(name)`: Give the keyboard back to the main window from a view in a separate window. It goes to the window that had it before the view went there, else to the current window of the tab.
-- `paw.canvas.button(g, hits, x, y, label, action, opts)`: A button: a rounded box with a label, painted with `g` and put in the hit list `hits` to run `action` (a function of the event, or a table as `Hits:add` takes) when pressed. `opts`: `width`, `height` (24), `fill`, `color`, `on` (lit, in `lit` or the selection's colour), `size`. Returns where the next button goes to its right, and the width.
+- `paw.canvas.button(g, hits, x, y, label, action, opts)`: A button: a rounded box with a label, painted with `g` and added to the hit list `hits` to run `action` (a function of the event, or a table as `Hits:add` takes) when pressed. `opts`: `width`, `height` (24), `fill`, `color`, `on` (lit, in `lit` or the selection's color), `size`. Returns where the next button goes to its right, and the width.
 - `paw.canvas.cell_event(window, event, bare)`: A pointer event in pixels as the terminal gives it to the `on_mouse` of a view. It is in cells, with `kind` down, up, drag, `scroll_up` and other kinds, `button`, and `mods` ("C", "A", "S"). Nil for an event that the terminal cannot tell (the second click of a double click comes as down and up).
 - `paw.canvas.close(name)`: Close the separate window of a view. The keyboard returns to the main window, where it was before. For a view docked in the layout, its window there closes, as `:close` does.
 - `paw.canvas.dock(name)`: Put a view in a separate window back into the layout, with the keyboard. It goes where it was before it left the layout. If not, it goes where it docks. If not, it goes in a window split from the current window. paw does this when its separate window closes. `Ctrl-w d` in it does the same.
@@ -2092,7 +2092,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.events_take()`
 - `paw.api.fs_copy(...)`
 - `paw.api.fs_create(...)`
-- `paw.api.fs_exists(path)`: Whether a file or directory is there (a link that leads nowhere is not).
+- `paw.api.fs_exists(path)`: True when a file or directory is there (a link that leads nowhere is not).
 - `paw.api.fs_mkdir(...)`
 - `paw.api.fs_move(...)`
 - `paw.api.fs_remove(path)`: Remove a file, or a directory with all it holds: only for what paw or an extension made for itself, a cache or a temporary folder. The files of the user go to the trash (`fs_trash`) instead. Nothing there is no error.
