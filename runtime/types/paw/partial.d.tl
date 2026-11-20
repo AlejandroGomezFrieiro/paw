@@ -8,10 +8,6 @@ local type contracts = require("paw.contracts")
 local type Untyped = require("paw.untyped")
 
 local record partial
-   record Cursor
-      track: function(): contracts.TrackHandle
-      metamethod __index: function(Cursor, string): Untyped
-   end
    record Ext
       bundled: function(): {string}
       caller: function(): string
@@ -77,6 +73,8 @@ local record partial
       arrange: function(width?: integer, height?: integer): {contracts.ScreenRect}
       float: contracts.Float
       focused: string
+      locator: function(view: string, spec: contracts.Locator)
+      locators: {string:contracts.Locator}
       notify: function(text: string, level?: string)
       open: function(name: string, opts?: contracts.FloatOptions)
       role: function<P is contracts.MarkProps>(name: string, spec: contracts.Role<P>)
@@ -88,7 +86,6 @@ local record partial
    interface Paw
       buftype: function<B is contracts.Buftype>(name: string, def: B): B
       cancel: function(handle: integer)
-      cursor: Cursor
       defer: function(fn: function(), ms?: number): integer
       device_types: function(): {types.DeviceType}
       every: function(ms: number, fn: function()): integer

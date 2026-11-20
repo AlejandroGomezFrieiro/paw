@@ -8,10 +8,13 @@ local type UntypedLua = require("paw.untyped")
 local type Partial = require("paw.partial")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
+local type AddressModule = require("paw.address")
 local type AttrModule = require("paw.attr")
 local type BytesModule = require("paw.bytes")
 local type CommandsModule = require("paw.commands")
 local type ContractsModule = require("paw.contracts")
+local type CursorModule = require("paw.cursor")
+local type EditModule = require("paw.edit")
 local type EventsModule = require("paw.events")
 local type FormatsModule = require("paw.formats")
 local type HarmonyReadModule = require("paw.harmony.read")
@@ -20,12 +23,15 @@ local type HooksModule = require("paw.hooks")
 local type LangModule = require("paw.lang")
 local type LimitModule = require("paw.limit")
 local type MarkdownModule = require("paw.markdown")
+local type MarkersModule = require("paw.markers")
 local type MidifileModule = require("paw.midifile")
 local type MusicModule = require("paw.music")
 local type ObjectsModule = require("paw.objects")
 local type OptionModule = require("paw.options")
 local type RegexModule = require("paw.regex")
 local type SeatsModule = require("paw.seats")
+local type TempoModule = require("paw.tempo")
+local type TempolaneModule = require("paw.tempolane")
 local type UtilModule = require("paw.util")
 local type XmlModule = require("paw.xml")
 local type ZipModule = require("paw.zip")
@@ -74,7 +80,7 @@ global record paw
       voice: HarmonyVoiceModule
    end
    add_track: function(opts?: ObjectsModule.TrackInput): ObjectsModule.Track
-   address: Untyped
+   address: AddressModule
    annotation: Untyped
    attr: AttrModule
    audio: Untyped
@@ -93,7 +99,7 @@ global record paw
    complete: Untyped
    contracts: ContractsModule
    controls: Untyped
-   cursor: Partial.Cursor
+   cursor: CursorModule
    curves: Untyped
    defer: function(fn: function(), ms?: number): integer
    device: function(id: integer): ObjectsModule.Device
@@ -101,7 +107,7 @@ global record paw
    device_types: function(): {types.DeviceType}
    diagnostic: Untyped
    draw: Untyped
-   edit: Untyped
+   edit: EditModule
    emit: function<P>(event: string | EventsModule.Event<P>, payload?: P): boolean, string
    events: EventsModule
    every: function(ms: number, fn: function()): integer
@@ -138,7 +144,7 @@ global record paw
    lsp: Untyped
    luadev: Untyped
    markdown: MarkdownModule
-   markers: Untyped
+   markers: MarkersModule
    master: ObjectsModule.Track
    media: Untyped
    midi: ObjectsModule.Midi
@@ -190,8 +196,8 @@ global record paw
    stretch: Untyped
    tab: Untyped
    takes: Untyped
-   tempo: Untyped
-   tempolane: Untyped
+   tempo: TempoModule
+   tempolane: TempolaneModule
    textbuf: Partial.Textbuf
    time: ObjectsModule.Time
    timers: {integer:function()}

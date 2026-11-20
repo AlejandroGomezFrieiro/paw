@@ -144,10 +144,21 @@ local n: integer = steps:get()
 steps:set(n * 2)
 ```
 
+**Tracks, clips and devices.** `paw.track`, `paw.clip`, `paw.device` and
+`paw.lane` give objects with the types `paw.Track`, `paw.Clip`,
+`paw.Device` and `paw.Lane`. A field of an object reads the kernel, and
+the checker knows its type. A method checks what you give it:
+
+```lua
+local track: paw.Track = paw.track(1)
+local volume: number = track.volume
+track:add_clip({ start = 0, length = 4, notes = { { pitch = "C4", start = 0, length = 1 } } })
+```
+
 **The parts of paw that are in Lua.** A module of paw that is not in Teal
 yet has the type `paw.Untyped`, except for the parts that it types. You
 can call it and read its fields. Cast each value that you keep to its
-type: `local id = paw.cursor.track_id() as integer`. When the module is in
+type: `local group = paw.scope.current() as integer`. When the module is in
 Teal, the cast is not necessary.
 
 ## Use the contracts

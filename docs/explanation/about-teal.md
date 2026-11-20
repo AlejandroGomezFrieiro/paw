@@ -84,7 +84,7 @@ paw can load each of these through the same registry of languages
   a value (`M.views = {}`). `runtime/types/paw/partial.d.tl` collects
   these types, one record for each module. All the other parts of a
   module in Lua have the type `paw.Untyped`. A Teal file can call them,
-  and casts what it keeps: `paw.cursor.track_id() as integer`. When the
+  and casts what it keeps: `paw.scope.current() as integer`. When the
   module moves to Teal, its types replace `paw.Untyped`.
 - **A module of the runtime and the global `paw`.** The declaration of
   the global `paw` requires each module of the runtime that is in Teal.
@@ -183,7 +183,7 @@ work of one agent. The areas of one wave do not depend on each other.
 | Done | Kernel types | the `// @return` of `api.rs` and the other files that add to `paw.api`, and records in `types.tl`: 343 `any` of `paw.api` down to 20, and 5 in the records, each with its reason | 270 functions | none |
 | Done | Contracts, Rust side | the events of the kernel as a Rust type, with a descriptor and a record for each; the setters take a table of changes (`track_set(id, patch)`), and `device_find_all` is separate from `device_find`; the props of the roles that the window paints as Rust types: 13 fewer `any` entries | 45 events, 7 functions, 21 roles | none |
 | Done | Contracts, Lua side | `contracts.tl`, the `@type` lines of the modules in Lua (`partial.d.tl`) and the types of the options (`opts.d.tl`): 880 lines of Teal, 12 fewer `paw.Untyped` entries | 10 functions that register | wave 1 |
-| 2 | The project | `objects`, `cursor`, `edit`, `address`, `tempo`, `tempolane`, `markers`, `locators` | 3,400 | wave 1 |
+| Done | The project | `objects`, `cursor`, `edit`, `address`, `tempo`, `tempolane`, `markers`, `locators`: 4,408 lines of Teal, 24 fewer entries of `any-allowed.txt`, and no `any` or `paw.Untyped` in these modules | 3,100 | wave 1 |
 | 2 | Music on the project | `harmony`, `structure`, `takes`, `groups`, `vca`, `lanes`, `curves`, `audition` | 3,100 | wave 1 |
 | 3 | Queries and lists | `query`, `grep`, `qf`, `diagnostic`, `complete`, `snippet` | 3,900 | wave 2 |
 | 3 | Drawing | `buf`, `draw`, `canvas`, `roles`, `scene`, `theme`, `plot`, `statusline` | 4,100 | wave 2 |
@@ -284,5 +284,32 @@ entries.
 - `paw.ext.current` and `paw.ui.float` are nil until something sets them,
   so a module that reads the table does not find them. `tools/apidoc.lua`
   reads the `@type` line over the line that sets each one.
+- The checker found no error that changed what the code does: the tests
+  pass with no change.
+
+## What the checker found in the project
+
+- In Teal, `value is integer` becomes a call of `math.type`, which LuaJIT
+  does not have. So such a test stops with an error when it runs.
+  `paw.track` and `Lane:state_index` take a number or a text, and test
+  for a number, as the Lua did.
+- A method of an object has the name of a field of the kernel:
+  `track:devices()`, `track:clips()`, `clip:track()` and
+  `lane:states()`. The method comes first, so the object does not give
+  the field. The records leave out these fields, and `get` gives them.
+- A setter takes a table of changes, and a table holds no nil. An
+  object sets a field to nil (`track.output = nil`) with the key form, as
+  the Lua did.
+- `paw.address.resolve` gives a thing of the kind of its address: a
+  track, a note, a parameter, an item of an extension. Teal has no union
+  of several records, so the result is `paw.address.Thing`, and a caller
+  casts it by the kind of the address.
+- In Teal, `paw.Track` and the other objects are types, not values. A
+  test such as `getmetatable(value) == paw.Track` is for Lua.
+- `paw.contracts.Selector` did not have `pitch` and `value`, which
+  `paw.address` names and the locator of the piano roll gives. It has
+  them now. A view's locator is a contract too: `paw.contracts.Locator`.
+- `ipairs(clip:notes())` gave `ipairs` two values. Teal wants the first
+  only, in parentheses. What the code does is the same.
 - The checker found no error that changed what the code does: the tests
   pass with no change.

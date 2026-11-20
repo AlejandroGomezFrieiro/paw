@@ -77,7 +77,7 @@ gets.
 | `mode.changed` | `{ mode, old }` | the mode of the keymap changed |
 | `key.pre` | `{ key, mode, view }` | a key, before the keymap gets it. A handler can refuse: then the key does nothing more |
 | `escape` | `{}` | Escape had nothing to cancel |
-| `cursor.changed` | `{ track, beat, lane }` | the cursor moved |
+| `cursor.changed` | `{ track, beat, lane }` | the cursor moved. In Teal, its descriptor is `paw.cursor.changed` |
 | `selection.changed` | `{ view, kind, region, clips, notes }` | the selection changed. `kind` is `region` (visual mode, `region` as an operator gets it), `clips` (ids, selected with the pointer), `notes` (notes of the clips that the piano roll edits, `{ clip, place }`) or nil |
 | `command.pre`, `command.post` | `{ name, command, args }` | before and after a command |
 | `option.changed` | `{ name, value, old }` | an option got a different value |
@@ -94,7 +94,7 @@ gets.
 | `ui.focus` | `{ focused }` | the terminal (mode 1004) or the window got the focus of the desktop, or lost it |
 | `scope.changed` | `{ scope }` | the tab is narrowed to a group, or not narrowed |
 | `seat.opened`, `seat.closing` | `{ seat }` | a terminal or a graphical window attached, or will go |
-| `address.changed` | `{ uris, revision }` | things with addresses changed (`paw/address.lua`) |
+| `address.changed` | `{ uris, revision }` | things with addresses changed (`paw/address.tl`). In Teal, its descriptor is `paw.address.changed` |
 | `annotation.changed`, `diagnostic.changed` | `{ namespace, document, ... }` | annotations or diagnostics changed |
 | `qf.changed` | `{ title, win }` | the quickfix list or a location list changed |
 | `lsp.status` | `{ client, status, document }` | a language server started, failed or stopped |

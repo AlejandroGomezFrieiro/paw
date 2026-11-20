@@ -1183,7 +1183,7 @@ M.redraw = api.ui_redraw
 --
 -- What modules draw over a view (diagnostics, annotations, a suggestion),
 -- each a layer of a part of it, drawn in order; and how a view says where
--- things with an address are (paw/address.lua). The piano roll has layers
+-- things with an address are (paw/address.tl). The piano roll has layers
 -- of its own (`paw.ui.views.pianoroll.layer`).
 
 M.layers = {}  -- view -> part -> { { name, order, paint } }
@@ -1210,13 +1210,16 @@ function M.paint(view, part, ctx)
   for _, layer in ipairs(list) do layer.paint(ctx) end
 end
 
-M.locators = {}  -- view -> locator
+--- The locator of each view, by the view's name (`paw.ui.locator`).
+--- @type {string:contracts.Locator}
+M.locators = {}
 
 --- Say how a view places locations (`{ uri, selector }`):
 ---   at()            the location under its cursor, or nil
 ---   position()      where its cursor is, as a list of numbers to sort by
 ---   place(location) where a location is in it, the same way, or nil when it does not show it
 ---   go(location)    put its cursor there
+--- @type function(view: string, spec: contracts.Locator)
 function M.locator(view, spec) M.locators[view] = spec end
 
 --- The location under the cursor of the focused view (or `view`). With

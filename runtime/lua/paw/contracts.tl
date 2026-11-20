@@ -753,16 +753,30 @@ local record contracts
    --- A field of a kind of node (`paw.query.field`).
    type QueryField = function(node: QueryNode): QueryValue
 
-   --- A part of an address: a time, notes by id.
+   --- A part of an address (paw/address.tl): a stretch of time `{ from,
+   --- to }` in beats, notes by id, pitches `{ low, high }`, or a value.
    record Selector
       time: {number}
       notes: {integer}
+      pitch: {number}
+      value: number
    end
 
    --- A place: an address and, optionally, a part of it.
    record Location
       uri: string
       selector: Selector
+   end
+
+   --- How a view places locations (`paw.ui.locator`): `at` the location
+   --- under its cursor, `position` where its cursor is and `place` where a
+   --- location is in it (with `anywhere`, also one it does not show now),
+   --- each as a list of numbers to sort by; `go` puts its cursor there.
+   record Locator
+      at: function(): Location
+      position: function(): {number}
+      place: function(location: Location, anywhere?: boolean): {number}
+      go: function(location: Location)
    end
 
    --- A text that `paw.grep` searches: what it says, what kind of text it

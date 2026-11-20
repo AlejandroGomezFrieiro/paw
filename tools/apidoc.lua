@@ -505,8 +505,16 @@ function M.teal_modules()
       seen[mod.module] = true
     end
   end
+  -- The values of `paw`, to find the hidden modules that give some.
+  local of_paw = {}
+  for _, v in pairs(paw) do of_paw[v] = true end
+  local function gives(value)
+    for _, v in pairs(value) do
+      if type(v) ~= "string" and type(v) ~= "number" and type(v) ~= "boolean" and of_paw[v] then return true end
+    end
+  end
   for module, value in pairs(package.loaded) do
-    local file = type(value) == "table" and module:match("^paw%.") and not seen[module] and teal_file(module)
+    local file = type(value) == "table" and module:match("^paw%.") and not seen[module] and gives(value) and teal_file(module)
     if file then out[#out + 1] = { name = module, module = module, file = file, hidden = true } end
   end
   table.sort(out, function(a, b) return a.name < b.name end)

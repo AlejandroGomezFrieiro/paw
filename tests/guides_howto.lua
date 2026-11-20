@@ -1020,8 +1020,9 @@ test("guide: write an extension in Teal", function()
   -- The examples of events and setters are correct Teal too.
   local events = page:match("```lua\n(local kernel = .-)```") .. page:match("```lua\n(local record Filled.-)```")
     .. "local id = 1\n" .. page:match("```lua\n(paw.api.track_set.-)```")
+    .. page:match("```lua\n(local track: paw.Track.-)```") .. "print(volume)\n"
   T.write_file(dir .. "/events.tl", events)
-  eq(#paw.lang.check({ dir .. "/events.tl" }), 0, "the examples of events and setters check")
+  eq(#paw.lang.check({ dir .. "/events.tl" }), 0, "the examples of events, setters and objects check")
   keys(':lua paw.ext.load("' .. dir .. '/scale.tl")<CR>')
   T.after(function() paw.ext.unload("scale") end)
   keys(":scale.notes C4 dorian<CR>")
