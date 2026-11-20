@@ -16,9 +16,9 @@ local paw = require("paw")
   A setter also takes one key and its value,
   `paw.api.track_set(id, "volume", -6)`. Only this form clears an entry
   (`paw.api.track_set(id, "output", nil)`).
-- The objects of the `paw` module are a thin Lua layer over `paw.api`, in
-  [objects.lua](../../runtime/lua/paw/objects.lua).
-- The other modules of `paw` are Lua in `runtime/lua/paw`.
+- The objects of the `paw` module are a thin layer over `paw.api`, in
+  [objects.tl](../../runtime/lua/paw/objects.tl).
+- The other modules of `paw` are Lua or Teal in `runtime/lua/paw`.
 
 ## Units
 

@@ -1,5 +1,5 @@
 -- Diagnostics, as `vim.diagnostic`: what is wrong (or worth knowing) about
--- anything with an address (paw/address.lua): notes of a clip, a track, a
+-- anything with an address (paw/address.tl): notes of a clip, a track, a
 -- device or one of its parameters, a stretch of time, the project, a
 -- rendered file. Anyone publishes them (a language server through
 -- `paw.lsp`, a lint written in Lua) under a namespace of their own, for a

@@ -486,18 +486,36 @@ local function kernel_sig(k)
   return { "function(" .. table.concat(params, ", ") .. ")" .. ret }
 end
 
---- The modules of the runtime written in Teal, by name: `{ name, module, file }`.
+--- The modules of the runtime written in Teal, by name: `{ name, module,
+--- file, hidden }`. A module that is no value of `paw` itself is `hidden`:
+--- its values are (`paw.Track` and `paw.tracks` of paw.objects).
 function M.teal_modules()
-  local out = {}
-  for _, mod in ipairs(M.modules()) do
-    local file = mod.module and "runtime/lua/" .. mod.module:gsub("%.", "/")
-    for _, candidate in ipairs({ file and file .. ".tl", file and file .. "/init.tl" }) do
-      -- Under any name: `paw.option` is the module paw.options.
-      if read(candidate) then
-        out[#out + 1] = { name = mod.name, module = mod.module, file = candidate }
-        break
-      end
+  local out, seen = {}, {}
+  local function teal_file(module)
+    local file = "runtime/lua/" .. module:gsub("%.", "/")
+    for _, candidate in ipairs({ file .. ".tl", file .. "/init.tl" }) do
+      if read(candidate) then return candidate end
     end
+  end
+  for _, mod in ipairs(M.modules()) do
+    -- Under any name: `paw.option` is the module paw.options.
+    local file = mod.module and teal_file(mod.module)
+    if file then
+      out[#out + 1] = { name = mod.name, module = mod.module, file = file }
+      seen[mod.module] = true
+    end
+  end
+  -- The values of `paw`, to find the hidden modules that give some.
+  local of_paw = {}
+  for _, v in pairs(paw) do of_paw[v] = true end
+  local function gives(value)
+    for _, v in pairs(value) do
+      if type(v) ~= "string" and type(v) ~= "number" and type(v) ~= "boolean" and of_paw[v] then return true end
+    end
+  end
+  for module, value in pairs(package.loaded) do
+    local file = type(value) == "table" and module:match("^paw%.") and not seen[module] and gives(value) and teal_file(module)
+    if file then out[#out + 1] = { name = module, module = module, file = file, hidden = true } end
   end
   table.sort(out, function(a, b) return a.name < b.name end)
   return out
@@ -516,6 +534,11 @@ local function teal_values(mods, alias_of)
     local alias = alias_of(mod)
     local exported = {}
     for name in text:gmatch("\n%s+type ([%w_]+) =") do exported[name] = true end
+    local record = text:match("\nlocal record M\n(.-)\nend\n") or ""
+    -- A record of the module's own (`record Track` in `local record M`):
+    -- a type, and its value the table of the record (`paw.Track`).
+    local records = {}
+    for name in ("\n" .. record):gmatch("\n  record ([%w_]+)") do exported[name], records[name] = true, true end
     local function qualify(t)
       -- The module's own types, `M.Event`, are the alias's.
       t = t:gsub("%f[%w_.]M%.", alias .. ".")
@@ -523,7 +546,6 @@ local function teal_values(mods, alias_of)
         return exported[word] and alias .. "." .. word or word
       end))
     end
-    local record = text:match("\nlocal record M\n(.-)\nend\n") or ""
     local value = package.loaded[mod.module]
     for name, v in pairs(type(value) == "table" and value or {}) do
       if type(name) == "string" then
@@ -536,10 +558,16 @@ local function teal_values(mods, alias_of)
           if sig and not sig:find("%f[%w_]return%f[^%w_]") and not sig:find("%f[%w_]end%f[^%w_]") then
             t = "function" .. generics .. sig
           end
+          -- A function written on one line: its type in the module's record.
+          t = t or ("\n" .. record):match("\n  " .. name .. ": (function[^\n]+)")
+        elseif records[name] and v == value[name] then
+          t = "type " .. name
         else
-          t = record:match("\n%s+" .. name .. ": ([^\n]+)") or record:match("^%s+" .. name .. ": ([^\n]+)")
+          -- A field of the module's record, not of a record in it.
+          t = ("\n" .. record):match("\n  " .. name .. ": ([^\n]+)") or record:match("\n%s+" .. name .. ": ([^\n]+)")
+            or record:match("^%s+" .. name .. ": ([^\n]+)")
         end
-        if t and not out[v] then out[v] = qualify(t) end
+        if t and not out[v] then out[v] = t:match("^type ") and "type " .. alias .. "." .. name or qualify(t) end
       end
     end
   end
@@ -726,18 +754,20 @@ function M.teal()
   for _, mod in ipairs(mods) do
     local alias = alias_of(mod)
     out[#out + 1] = "local type " .. alias .. " = require(\"" .. mod.module .. "\")"
-    local node = tree
-    local parts = {}
-    for part in mod.name:gmatch("[^.]+") do parts[#parts + 1] = part end
-    for i = 2, #parts - 1 do
-      local key = parts[i]
-      if not node.children[key] then
-        node.children[key] = { children = {}, order = {}, lines = {} }
-        node.order[#node.order + 1] = key
+    if not mod.hidden then
+      local node = tree
+      local parts = {}
+      for part in mod.name:gmatch("[^.]+") do parts[#parts + 1] = part end
+      for i = 2, #parts - 1 do
+        local key = parts[i]
+        if not node.children[key] then
+          node.children[key] = { children = {}, order = {}, lines = {} }
+          node.order[#node.order + 1] = key
+        end
+        node = node.children[key]
       end
-      node = node.children[key]
+      node.lines[#node.lines + 1] = parts[#parts] .. ": " .. alias
     end
-    node.lines[#node.lines + 1] = parts[#parts] .. ": " .. alias
   end
   out[#out + 1] = ""
   out[#out + 1] = "global record paw"
@@ -823,7 +853,7 @@ function M.teal()
   local function untyped(node, path, value)
     local taken = { api = path == "paw" or nil }
     for _, key in ipairs(node.order) do taken[key] = true end
-    for _, line in ipairs(node.lines) do taken[line:match("^([%w_]+)")] = true end
+    for _, line in ipairs(node.lines) do taken[line:match("^type ([%w_]+) =") or line:match("^([%w_]+)")] = true end
     local keys = {}
     for k in pairs(type(value) == "table" and value or {}) do
       if type(k) == "string" and k:match("^%a[%w_]*$") and not KEYWORDS[k] and not taken[k] then keys[#keys + 1] = k end
@@ -835,7 +865,10 @@ function M.teal()
       -- What the comments of a module in Lua type: a function by its forms,
       -- a module by its record of partial.d.tl, a value of `paw` by its type.
       local forms = lua.forms[v] or kernel_forms[v] or (path == "paw" and lua.top[k])
-      if typed then
+      if typed and typed:match("^type ") then
+        -- A record of a module in Teal: its type, and its table as a value.
+        node.lines[#node.lines + 1] = "type " .. k .. " = " .. typed:sub(6)
+      elseif typed then
         node.lines[#node.lines + 1] = k .. ": " .. typed
       elseif forms then
         for _, form in ipairs(forms) do node.lines[#node.lines + 1] = count(path .. "." .. k, k .. ": " .. form) end

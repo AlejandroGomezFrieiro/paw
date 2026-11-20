@@ -19,7 +19,7 @@ local view = {
   -- room where three or more windows share it (paw/ui.lua).
   share = { column = 2 / 5, least = 1 / 3 },
   -- Each window of the arrange view scrolls on its own. The edit cursor
-  -- (paw/cursor.lua) is one for all of them.
+  -- (paw/cursor.tl) is one for all of them.
   window_state = { "scroll", "top", "flags", "seen_index", "seen_fit", "seen_lane", "seen_beat", "geometry", "comp" },
   window_fresh = { "geometry", "flags" },
 }
@@ -28,7 +28,7 @@ paw.seats.fields("arrange", view, { "scroll", "top", "flags", "seen_index", "see
 
 local draw = paw.draw
 
--- Another project is shown from its start, as the cursor is (paw/cursor.lua).
+-- Another project is shown from its start, as the cursor is (paw/cursor.tl).
 paw.on("project.loaded", function() view.scroll, view.top, view.seen_beat = 0, 1, nil end)
 
 -- Small piano rolls and waveforms drawn inside clips, and what a header says
