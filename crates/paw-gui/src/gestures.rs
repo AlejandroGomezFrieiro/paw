@@ -727,8 +727,8 @@ fn what_the_window_writes_has_glyphs() {
         include_str!("panes.rs"),
         include_str!("timeline.rs"),
         include_str!("widgets.rs"),
-        include_str!("../../../runtime/lua/paw/window_menus.lua"),
-        include_str!("../../../runtime/lua/paw/mouse_menus.lua"),
+        include_str!("../../../runtime/lua/paw/window_menus.tl"),
+        include_str!("../../../runtime/lua/paw/mouse_menus.tl"),
         include_str!("../../../runtime/lua/paw/views/arrange_mouse.lua"),
         include_str!("../../../runtime/lua/paw/roles/arrange.lua"),
     ];

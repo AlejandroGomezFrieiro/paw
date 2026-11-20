@@ -32,6 +32,8 @@ local kernel = require("paw.events.kernel")
 local type contracts = require("paw.contracts")
 local type types = require("paw.types")
 local type partial = require("paw.partial")
+local type UiModule = require("paw.ui")
+local type MouseModule = require("paw.mouse")
 local type objects = require("paw.objects")
 local type CursorModule = require("paw.cursor")
 local type DrawModule = require("paw.draw")
@@ -57,9 +59,6 @@ local record Keymap
   recording: function(): string
   pending: function(): string
 end
-local record Mouse
-  hint_text: function(): string
-end
 local record Scope
   current: function(): integer
 end
@@ -73,11 +72,12 @@ local record Textbuf
   buf: function(): contracts.LayoutBuffer
 end
 local record Paw is partial.Paw
+  ui: UiModule
   audio: Audio
   cursor: CursorModule
   diagnostic: Lister
   draw: DrawModule
-  mouse: Mouse
+  mouse: MouseModule
   qf: Lister
   scope: Scope
   tempo: TempoModule

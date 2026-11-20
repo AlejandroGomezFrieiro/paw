@@ -40,6 +40,7 @@ local music = require("paw.music")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type UiModule = require("paw.ui")
 local type objects = require("paw.objects")
 local type HarmonyModule = require("paw.harmony")
 local type EditModule = require("paw.edit")
@@ -276,6 +277,7 @@ local record PickState
 end
 
 local record Paw is partial.Paw
+  ui: UiModule
   harmony: HarmonyModule
   edit: EditModule
   audition: AuditionModule

@@ -4270,7 +4270,7 @@ function paw.layout.dock(name, opts) end
 
 --- Move a border to the position of the pointer. If one of the two sides
 --- has its own size, it keeps a size. If not, the first side gets a size.
---- A graphical frontend lays the tree out in pixels (paw/panes.lua):
+--- A graphical frontend lays the tree out in pixels (paw/panes.tl):
 --- `opts.unit` is its cell `{ w, h }`, and `opts.map` takes each node
 --- of its arrangement to the node of the tree. Sizes stay in cells.
 ---@param border any
@@ -4308,8 +4308,8 @@ function paw.layout.export(node) end
 --- that had the keyboard last. With `shown`, only one on screen.
 ---@param root any
 ---@param name any
----@param shown any
-function paw.layout.find(root, name, shown) end
+---@param on_screen any
+function paw.layout.find(root, name, on_screen) end
 
 --- The window of an id in the tree under `root`.
 ---@param root any
@@ -7395,10 +7395,10 @@ function paw.ui.input(opts, on_submit) end
 function paw.ui.layer(view, part, name, order, paint) end
 
 --- Draw a live part on `buf`: `draw(buf)` draws it, now and each time it
---- is drawn again by itself. Returns what `draw` returns.
+--- is drawn again by itself.
 ---@param buf any
----@param draw any
-function paw.ui.live(buf, draw) end
+---@param draw_part any
+function paw.ui.live(buf, draw_part) end
 
 --- True if a live part drawn now is one of the terminal's screen.
 function paw.ui.live_drawing() end
@@ -8766,7 +8766,7 @@ function paw.api.project_save_files(paths) end
 
 --- The tabs and windows that the project file keeps, as plain data,
 --- or nil. They are not part of the song: setting them is not an
---- edit, and the next save writes them.
+--- edit, and the next save writes them (paw/layout.tl).
 function paw.api.project_screen() end
 
 ---@param value any

@@ -28,6 +28,8 @@ local A = require("paw.address")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type UiModule = require("paw.ui")
+local type LayoutModule = require("paw.layout")
 local type objects = require("paw.objects")
 local type DiagnosticModule = require("paw.diagnostic")
 local type LanesModule = require("paw.lanes")
@@ -181,9 +183,10 @@ local record Scanned
   name: string
 end
 
--- What this module reads of the modules that are still in Lua.
+-- What this module reads of paw/layout.tl, as records of its own, and of
+-- the modules that are still in Lua.
 
---- A window of the layout (paw/layout.lua): its id, its view, its buffer,
+--- A window of the layout (paw/layout.tl): its id, its view, its buffer,
 --- its size in rows and its weight.
 local record Win
   id: integer
@@ -213,7 +216,7 @@ local record LeafFields
   size: number
 end
 
---- paw/layout.lua, as far as this module calls it.
+--- paw/layout.tl, as far as this module calls it.
 local record Layout
   current: function(): Win
   get: function(id: integer): Win
@@ -248,6 +251,8 @@ local record Keymap
 end
 
 local record Paw is partial.Paw
+  ui: UiModule
+  layout: LayoutModule
   lanes: LanesModule
   cursor: CursorModule
   time: objects.Time

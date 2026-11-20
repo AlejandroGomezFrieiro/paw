@@ -22,6 +22,7 @@ local options = require("paw.options")
 local commands = require("paw.commands")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type UiModule = require("paw.ui")
 local type objects = require("paw.objects")
 local type CursorModule = require("paw.cursor")
 
@@ -101,6 +102,7 @@ end
 -- What this module reads of `paw`, which paw/init.lua makes: the parts of
 -- the modules in Lua that their doc comments type, and the rest here.
 local record Paw is partial.Paw
+  ui: UiModule
   cursor: CursorModule
   time: objects.Time
   transport: objects.Transport

@@ -10,33 +10,73 @@
 -- `{ separator = true }`. An entry the window does itself names it in
 -- `window` (a dialog of its own, leaving the project): "new", "open",
 -- "open:<path>", "saveas", "import", "render", "quit", "listen".
-local api = paw.api
-local M = {}
+--
+-- Written in Teal (paw/lang.tl): the build compiles it to Lua.
+local mouse_menus = require("paw.mouse_menus")
+local type contracts = require("paw.contracts")
+local type partial = require("paw.partial")
+local type CommandsModule = require("paw.commands")
+local type CanvasModule = require("paw.canvas")
+local type CursorModule = require("paw.cursor")
+local type MenuModule = require("paw.menu")
 
-local function act() return paw.frontend.act end
-local function run(line) return function() paw.commands.exec(line) end end
+local type Entry = contracts.MenuEntry
+local type Item = contracts.MenuItem
+local type Choice = mouse_menus.Choice
+local type MenuArg = mouse_menus.MenuArg
+local type Described = mouse_menus.Described
+
+--- A function that builds a menu from the window's arguments.
+local type Builder = function(...: MenuArg): {Entry}
+
+local record Paw is partial.Paw
+  commands: CommandsModule
+  canvas: CanvasModule
+  cursor: CursorModule
+end
+-- The global `paw` of the declarations does not hold this module, so its
+-- local has a name of its own.
+local runtime = (_G as {string:Paw}).paw
+
+-- Lua 5.1's function that Teal's library leaves out.
+local record Lua51
+  unpack: function({MenuArg}): MenuArg...
+end
+local unpack = (_G as Lua51).unpack
+
+local record M
+  shown: function(): {Entry}
+  items: function(kind: string, args?: {MenuArg}): {Entry}
+  describe: function(kind: string, args?: {MenuArg}): {Described}
+  choose: function(kind: string, args: {MenuArg}, path: {integer})
+end
+
+local function frontend(): mouse_menus.Frontend return runtime.frontend as mouse_menus.Frontend end
+local function act(): mouse_menus.Act return frontend().act end
+local function run(line: string): function() return function() runtime.commands.exec(line) end end
+local function menu(): MenuModule return require("paw.menu") end
 
 -- A menu of choices as the frontend lists them (`{ label, checked }`),
 -- each passed to `choose` with its place from 1.
-local function choices(list, choose)
-  local out = {}
+local function choices(list: {Choice}, choose: function(i: integer)): {Entry}
+  local out: {Entry} = {}
   for i, c in ipairs(list or {}) do
     out[i] = { label = c.label, checked = c.checked, run = function() choose(i) end }
   end
   return out
 end
 
-local function heading(label) return { label = label, enabled = false } end
+local function heading(label: string): Item return { label = label, enabled = false } end
 
-local function append(list, more)
+local function append(list: {Entry}, more: {Entry}): {Entry}
   for _, item in ipairs(more) do list[#list + 1] = item end
   return list
 end
 
 --- The File menu, from the project's name.
-function M.file()
-  local recent = {}
-  for i, entry in ipairs(paw.frontend.recent_menu()) do
+function M.file(): {Entry}
+  local recent: {Entry} = {}
+  for i, entry in ipairs(frontend().recent_menu()) do
     recent[i] = { label = entry.label, window = "open:" .. entry.path }
   end
   recent[#recent + 1] = "-"
@@ -66,21 +106,21 @@ end
 
 --- "+ Track": an empty one, one from a sound file, and the kinds of track
 --- extensions add (the timeline's entries, for the selected track).
-function M.add_track()
-  local items = {
+function M.add_track(): {Entry}
+  local items: {Entry} = {
     { label = "Empty track", run = run("track.add") },
     { label = "From a sound file…", window = "import" },
   }
-  for index, entry in ipairs(paw.frontend.menus.timeline) do
-    items[#items + 1] = { label = entry.label, run = function() act().menu("timeline", index, paw.cursor.track_id(), -1) end }
+  for index, entry in ipairs(frontend().menus.timeline) do
+    items[#items + 1] = { label = entry.label, run = function() act().menu("timeline", index, runtime.cursor.track_id(), -1) end }
   end
   return items
 end
 
 --- More: every view to open in a pane, the extensions' among them.
-function M.views()
-  local items = {}
-  for i, v in ipairs(paw.canvas.openable()) do
+function M.views(): {Entry}
+  local items: {Entry} = {}
+  for i, v in ipairs(runtime.canvas.openable()) do
     items[i] = { label = v.title, run = run("view.open " .. v.name) }
   end
   if #items == 0 then items[1] = heading("No other views") end
@@ -90,52 +130,52 @@ end
 --- The audio devices, from the engine indicator. `opts`: whether the
 --- window is attached to a kernel elsewhere (`remote`) and plays its sound
 --- (`listening`).
-function M.engine(opts)
+function M.engine(opts?: mouse_menus.MenuTable): {Entry}
   opts = opts or {}
-  local menu = paw.frontend.engine_menu()
-  local items = {}
-  for _, line in ipairs(menu.info) do items[#items + 1] = heading(line.label) end
+  local engine = frontend().engine_menu()
+  local items: {Entry} = {}
+  for _, line in ipairs(engine.info) do items[#items + 1] = heading(line.label) end
   items[#items + 1] = "-"
   items[#items + 1] = { label = "Hear it on this machine", checked = opts.listening or false, enabled = opts.remote or false, window = "listen" }
-  local function group(name) return function(i) act().choose_engine(name, i) end end
+  local function group(name: string): function(i: integer) return function(i: integer) act().choose_engine(name, i) end end
   append(items, { "-", heading("Output") })
-  append(items, choices(menu.output, group("output")))
+  append(items, choices(engine.output, group("output")))
   append(items, { "-", heading("Input") })
-  append(items, choices(menu.input, group("input")))
+  append(items, choices(engine.input, group("input")))
   append(items, {
     "-",
-    { label = "Block size", items = choices(menu.block, group("block")) },
-    { label = "Sample rate", items = choices(menu.rate, group("rate")) },
-    { label = "Sound system", items = choices(menu.backend, group("backend")) },
+    { label = "Block size", items = choices(engine.block, group("block")) },
+    { label = "Sample rate", items = choices(engine.rate, group("rate")) },
+    { label = "Sound system", items = choices(engine.backend, group("backend")) },
   })
   return items
 end
 
 --- A track's input button: its audio inputs, MIDI ports and channels,
 --- monitoring, and where it sends MIDI.
-function M.input(track)
-  local menu = paw.frontend.input_menu(track)
-  local function group(name) return function(i) act().choose_input(track, name, i) end end
-  local items = { heading("Audio") }
-  append(items, choices(menu.audio, group("audio")))
+function M.input(track: integer): {Entry}
+  local input = frontend().input_menu(track)
+  local function group(name: string): function(i: integer) return function(i: integer) act().choose_input(track, name, i) end end
+  local items: {Entry} = { heading("Audio") }
+  append(items, choices(input.audio, group("audio")))
   append(items, { "-", heading("MIDI") })
-  append(items, choices(menu.midi, group("midi")))
+  append(items, choices(input.midi, group("midi")))
   append(items, {
-    { label = "MIDI channel", items = choices(menu.channel, group("channel")) },
+    { label = "MIDI channel", items = choices(input.channel, group("channel")) },
     "-",
-    { label = "Monitor: hear the input without arming", checked = menu.monitor or false, run = function() act().toggle(track, "monitor") end },
+    { label = "Monitor: hear the input without arming", checked = input.monitor or false, run = function() act().toggle(track, "monitor") end },
     "-",
-    { label = "MIDI out: send what it plays to", items = choices(menu.midi_out, group("midi_out")) },
-    { label = "MIDI out channel", items = choices(menu.midi_out_channel, group("midi_out_channel")) },
-    { label = "MIDI out form, where the port takes no MIDI 2.0", items = choices(menu.midi_out_form, group("midi_out_form")) },
+    { label = "MIDI out: send what it plays to", items = choices(input.midi_out, group("midi_out")) },
+    { label = "MIDI out channel", items = choices(input.midi_out_channel, group("midi_out_channel")) },
+    { label = "MIDI out form, where the port takes no MIDI 2.0", items = choices(input.midi_out_form, group("midi_out_form")) },
   })
   return items
 end
 
 --- Where a track plays into: the master or another track.
-function M.output(track)
-  local routing = paw.frontend.routing(track)
-  local items = {}
+function M.output(track: integer): {Entry}
+  local routing = frontend().routing(track)
+  local items: {Entry} = {}
   for i, t in ipairs(routing.targets) do
     items[i] = { label = t.name, checked = t.id == routing.output_id, run = function() act().set_output(track, t.id) end }
   end
@@ -143,17 +183,17 @@ function M.output(track)
 end
 
 --- A track to send a track's sound to as well.
-function M.send(track)
-  local items = {}
-  for i, t in ipairs(paw.frontend.routing(track).targets) do
+function M.send(track: integer): {Entry}
+  local items: {Entry} = {}
+  for i, t in ipairs(frontend().routing(track).targets) do
     items[i] = { label = t.name, enabled = t.id ~= 0, run = function() act().add_send(track, t.id) end }
   end
   return items
 end
 
 --- A device's presets, and saving one.
-function M.preset(device)
-  local items = {}
+function M.preset(device: integer): {Entry}
+  local items: {Entry} = {}
   for i, name in ipairs(act().preset_menu(device)) do
     items[i] = { label = name, run = function() act().preset_choose(device, i) end }
   end
@@ -165,15 +205,15 @@ function M.preset(device)
 end
 
 --- What a device listens to on its side-chain.
-function M.sidechain(device)
-  return choices(paw.frontend.sidechain_menu(device), function(i) act().choose_sidechain(device, i) end)
+function M.sidechain(device: integer): {Entry}
+  return choices(frontend().sidechain_menu(device), function(i: integer) act().choose_sidechain(device, i) end)
 end
 
 --- Where a device's further output pairs play.
-function M.outputs(device)
-  local items = {}
-  for p, pair in ipairs(paw.frontend.outputs_menu(device)) do
-    items[p] = { label = pair.label, items = choices(pair.choices, function(i) act().route_pair(device, p + 1, i) end) }
+function M.outputs(device: integer): {Entry}
+  local items: {Entry} = {}
+  for p, pair in ipairs(frontend().outputs_menu(device)) do
+    items[p] = { label = pair.label, items = choices(pair.choices, function(i: integer) act().route_pair(device, p + 1, i) end) }
   end
   append(items, { "-", { label = "Spread the outputs over new tracks", run = function() act().device_command(device, "device.spread") end } })
   return items
@@ -181,19 +221,22 @@ end
 
 --- The entries of menu `kind` for `args` (a list), as the terminal's
 --- menu takes them.
-function M.items(kind, args)
+function M.items(kind: string, args?: {MenuArg}): {Entry}
   args = args or {}
-  local build = M[kind] ~= nil and kind ~= "items" and kind ~= "describe" and kind ~= "choose" and M[kind] or require("paw.mouse_menus")[kind]
+  local own = M as {string:Builder}
+  local build = own[kind] ~= nil and kind ~= "items" and kind ~= "describe" and kind ~= "choose" and own[kind]
+    or (mouse_menus as {string:Builder})[kind]
   if not build then error("no menu " .. tostring(kind)) end
   return build(unpack(args)) or {}
 end
 
-local function describe(items)
-  local out = {}
-  for i, item in ipairs(items) do
-    if item == "-" or item.separator then
+local function describe(items: {Entry}): {Described}
+  local out: {Described} = {}
+  for i, entry in ipairs(items) do
+    if entry == "-" or (entry as Item).separator then
       out[i] = { separator = true }
     else
+      local item = entry as Item
       out[i] = {
         label = item.label, keys = item.keys or "", enabled = item.enabled ~= false, checked = item.checked or false,
         window = item.window, items = item.items and describe(item.items) or nil,
@@ -204,35 +247,36 @@ local function describe(items)
 end
 
 --- Menu `kind` for `args`, as plain data for a window to show.
-function M.describe(kind, args)
+function M.describe(kind: string, args?: {MenuArg}): {Described}
   return describe(M.items(kind, args))
 end
 
 --- The menu the kernel has open (`paw.ui.menu`: a right click in a pane
 --- the window shows from its scene), which the window shows as its own.
-function M.shown()
-  return (require("paw.menu").shown()) or {}
+function M.shown(): {Entry}
+  return (menu().shown()) or {}
 end
 
 --- Do the entry at `path` (its place from 1 in each menu down to it) of
 --- menu `kind` for `args`, as built again now.
-function M.choose(kind, args, path)
+function M.choose(kind: string, args: {MenuArg}, path: {integer})
   local items = M.items(kind, args)
   -- The kernel's menu the window showed is let go before its entry is done.
-  if kind == "shown" then require("paw.menu").close(0) end
-  local item
+  if kind == "shown" then menu().close(0) end
+  local item: Item
   for _, at in ipairs(path) do
-    item = items and items[at]
-    if type(item) ~= "table" then return end
+    local entry = items and items[at]
+    if not entry is Item then return end
+    item = entry
     items = item.items
   end
   if item and item.enabled ~= false and item.run then item.run() end
 end
 
-paw.frontend.menu = M.describe
-paw.frontend.act.menu_choose = M.choose
+frontend().menu = M.describe
+frontend().act.menu_choose = M.choose
 --- The window let go of the kernel's menu it showed (`shown`) without
 --- choosing: so does the kernel.
-paw.frontend.act.menu_dismiss = function() require("paw.menu").close(0) end
+frontend().act.menu_dismiss = function() menu().close(0) end
 
 return M

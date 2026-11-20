@@ -26,6 +26,7 @@ local A = require("paw.address")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type UiModule = require("paw.ui")
 local type objects = require("paw.objects")
 local type DrawModule = require("paw.draw")
 
@@ -280,6 +281,7 @@ local record Qf
 end
 
 local record Paw is partial.Paw
+  ui: UiModule
   draw: DrawModule
   qf: Qf
   time: objects.Time

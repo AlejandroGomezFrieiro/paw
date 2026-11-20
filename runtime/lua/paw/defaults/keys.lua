@@ -78,7 +78,7 @@ map("n", function(ctx) keymap.search_next(1, ctx.count) end, util.merge(far, { d
 map("N", function(ctx) keymap.search_next(-1, ctx.count) end, util.merge(far, { desc = "Previous match" }))
 map("<Tab>", "view.next", { mode = nx, desc = "Focus the next view" })
 map("<S-Tab>", "view.prev", { mode = nx, desc = "Focus the previous view" })
--- Windows and tabs (`Ctrl-w`, `gt`) are mapped in paw/layout.lua.
+-- Windows and tabs (`Ctrl-w`, `gt`) are mapped in paw/layout.tl.
 map("<leader>m", "view.toggle mixer", { desc = "Show or hide the mixer" })
 map("<leader>d", "view.toggle devices", { desc = "Show or hide the device panel" })
 map("<leader>p", "roll.toggle", { desc = "Show or hide the piano roll, on the clip under the cursor" })

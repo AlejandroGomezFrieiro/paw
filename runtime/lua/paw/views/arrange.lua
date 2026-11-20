@@ -16,7 +16,7 @@ local view = {
   -- `top`, `rows` and `th` (the first track shown, how many, rows per track).
   layers = {},
   -- Tracks need rows: two fifths of a column's height, and a third of the
-  -- room where three or more windows share it (paw/ui.lua).
+  -- room where three or more windows share it (paw/ui.tl).
   share = { column = 2 / 5, least = 1 / 3 },
   -- Each window of the arrange view scrolls on its own. The edit cursor
   -- (paw/cursor.tl) is one for all of them.
@@ -1092,7 +1092,7 @@ view.grid = {
 }
 
 -- Its ruler is its first row: a graphical frontend shows it with no title
--- of its own over it (paw/panes.lua).
+-- of its own over it (paw/panes.tl).
 view.titled = true
 -- What moves on its own as the song plays: the playhead and the meters. A
 -- frontend that paints them with the live values needs no new scene for

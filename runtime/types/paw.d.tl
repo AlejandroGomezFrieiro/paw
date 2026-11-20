@@ -29,13 +29,16 @@ local type HarmonyModule = require("paw.harmony")
 local type HooksModule = require("paw.hooks")
 local type LanesModule = require("paw.lanes")
 local type LangModule = require("paw.lang")
+local type LayoutModule = require("paw.layout")
 local type LimitModule = require("paw.limit")
 local type MarkdownModule = require("paw.markdown")
 local type MarkersModule = require("paw.markers")
 local type MidifileModule = require("paw.midifile")
+local type MouseModule = require("paw.mouse")
 local type MusicModule = require("paw.music")
 local type ObjectsModule = require("paw.objects")
 local type OptionModule = require("paw.options")
+local type PanesModule = require("paw.panes")
 local type PlotModule = require("paw.plot")
 local type QfModule = require("paw.qf")
 local type QueryModule = require("paw.query")
@@ -48,6 +51,7 @@ local type StatuslineModule = require("paw.statusline")
 local type TakesModule = require("paw.takes")
 local type TempoModule = require("paw.tempo")
 local type TempolaneModule = require("paw.tempolane")
+local type UiModule = require("paw.ui")
 local type UtilModule = require("paw.util")
 local type VcaModule = require("paw.vca")
 local type XmlModule = require("paw.xml")
@@ -64,7 +68,7 @@ global record paw
    audition: AuditionModule
    autosave: Untyped
    bounce: Untyped
-   buf: Untyped
+   buf: LayoutModule.Bufs
    buftype: function<B is contracts.Buftype>(name: string, def: B): B
    bytes: BytesModule
    cancel: function(handle: integer)
@@ -114,8 +118,8 @@ global record paw
    lane: function(id: integer): ObjectsModule.Lane
    lanes: LanesModule
    lang: LangModule
-   layout: Partial.Layout
-   layouts: Untyped
+   layout: LayoutModule
+   layouts: {string:LayoutModule.Spec}
    learn: Untyped
    limit: LimitModule
    loading: Untyped
@@ -128,7 +132,7 @@ global record paw
    midi: ObjectsModule.Midi
    midifile: MidifileModule
    mixer_rows: Untyped
-   mouse: Untyped
+   mouse: MouseModule
    music: MusicModule
    notify: function(text: string, level?: string)
    off: function(id: integer)
@@ -138,7 +142,7 @@ global record paw
    open_chain: Untyped
    opt: OptionModule.Opt
    option: OptionModule
-   panes: Untyped
+   panes: PanesModule
    params: Untyped
    pick: Partial.Pick
    plot: PlotModule
@@ -172,7 +176,7 @@ global record paw
    statusline: StatuslineModule
    stems: Untyped
    stretch: Untyped
-   tab: Untyped
+   tab: LayoutModule.Tabs
    takes: TakesModule
    tempo: TempoModule
    tempolane: TempolaneModule
@@ -189,13 +193,13 @@ global record paw
    type Device = ObjectsModule.Device
    type Lane = ObjectsModule.Lane
    type Track = ObjectsModule.Track
-   ui: Partial.Ui
+   ui: UiModule
    undo: function(): boolean
    util: UtilModule
    vca: VcaModule
    version: Untyped
    wait: function(ms: number)
-   win: Untyped
+   win: LayoutModule.Wins
    xml: XmlModule
    zip: ZipModule
 end

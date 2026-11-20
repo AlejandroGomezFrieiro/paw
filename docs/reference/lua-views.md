@@ -462,7 +462,7 @@ The `help` field of a view names its topic for the bottom line.
 `paw.mouse.grab(event, { drag = fn, up = fn })` on a press sends the drags
 and the release to the view, wherever the pointer goes. They have `dx`
 and `dy` from the press. `paw.mouse.hint(text)` shows on the status line
-what is under the pointer. See `runtime/lua/paw/mouse.lua`.
+what is under the pointer. See `runtime/lua/paw/mouse.tl`.
 
 ## Curves
 

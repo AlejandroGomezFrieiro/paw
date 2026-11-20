@@ -473,7 +473,7 @@ end)
 
 paw.ui.view("cmdline", {
   focusable = false,
-  -- Nothing in it moves on its own as the song plays (paw/ui.lua).
+  -- Nothing in it moves on its own as the song plays (paw/ui.tl).
   still = true,
   render = function(_, buf, ctx)
     if active and not anchored(active) then

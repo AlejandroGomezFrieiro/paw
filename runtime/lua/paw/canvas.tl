@@ -50,6 +50,8 @@ local events = require("paw.events")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type UiModule = require("paw.ui")
+local type LayoutModule = require("paw.layout")
 local type LimitModule = require("paw.limit")
 
 local type View = contracts.View
@@ -62,10 +64,12 @@ local type Pixels = contracts.StripPixels
 local type CanvasOp = types.CanvasOp
 
 -- What this module reads of `paw`, which paw/init.lua makes, and of the
--- modules in Lua that it calls (paw/layout.lua, paw/panes.lua,
--- paw/mouse.lua, paw/ui.lua, paw/keymap.lua): their parts that it uses.
+-- modules that it calls (paw/layout.tl, paw/panes.tl, paw/mouse.tl,
+-- paw/ui.tl, paw/keymap.lua): their parts that it uses. It keeps a window
+-- of the layout as a `contracts.Window`. paw/panes.tl names this module's
+-- types, so this one cannot name its.
 
---- A tree of windows of a tab (paw/layout.lua), which this module only
+--- A tree of windows of a tab (paw/layout.tl), which this module only
 --- passes on.
 local record Tree
 end
@@ -77,7 +81,7 @@ local record Tab
   prev: integer
 end
 
---- How a view keeps a state of its own for each window (paw/layout.lua),
+--- How a view keeps a state of its own for each window (paw/layout.tl),
 --- which this module only looks for.
 local record Keeper
 end
@@ -114,7 +118,7 @@ local record Layout
   settle: function()
 end
 
---- An area a view keeps for pixels (`buf:strip`, paw/ui.lua): where it
+--- An area a view keeps for pixels (`buf:strip`, paw/ui.tl): where it
 --- shows on the screen, in cells, the part of the whole strip that shows
 --- (`left`, `top`), the whole strip's size and what draws it.
 local record Picture
@@ -148,6 +152,8 @@ local record Mouse
 end
 
 local record Paw is partial.Paw
+  ui: UiModule
+  layout: LayoutModule
   panes: Panes
   mouse: Mouse
   limit: LimitModule

@@ -152,7 +152,13 @@ local record Ex
   complete_range: function(string): {Entry}
   complete_pattern: function(string): {Entry}
 end
+-- paw/ui.tl names this module's types (through paw/layout.tl), so this
+-- one declares only the part of it that it reads.
+local record Ui
+  views: {string:contracts.View}
+end
 local record Paw is partial.Paw
+  ui: Ui
   state: State
   emit: function(string, Ran)
   limit: LimitModule

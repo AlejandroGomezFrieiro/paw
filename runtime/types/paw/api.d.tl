@@ -198,8 +198,8 @@ local record api
    project_reload: function()
    project_save: function(path?: string): string
    project_save_files: function(paths: {string}): {string}
-   project_screen: function(): any
-   project_screen_set: function(value: any)
+   project_screen: function(): types.ProjectScreen
+   project_screen_set: function(value: types.ProjectScreen)
    project_set: function(patch: types.Project)
    project_set: function(key: string, value: nil)
    project_shelve: function()

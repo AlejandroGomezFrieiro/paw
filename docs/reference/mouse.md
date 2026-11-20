@@ -53,7 +53,7 @@ A menu opens at the pointer and takes the keys while it is open.
 
 The menu also has the entries of extensions (`paw.frontend.menus`), as the
 menus of the graphical window have. A script opens a menu with
-`paw.ui.menu(items, { x = x, y = y })` (see `runtime/lua/paw/menu.lua`).
+`paw.ui.menu(items, { x = x, y = y })` (see `runtime/lua/paw/menu.tl`).
 
 ## The terminal and multiplexers
 

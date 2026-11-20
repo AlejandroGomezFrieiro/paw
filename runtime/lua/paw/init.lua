@@ -109,7 +109,7 @@ paw.music = require("paw.music")
 paw.attr = require("paw.attr")
 paw.params = require("paw.params")
 paw.ui = require("paw.ui")
--- Buffers, windows and tabs (paw/layout.lua).
+-- Buffers, windows and tabs (paw/layout.tl).
 paw.layout = require("paw.layout")
 paw.buf, paw.win, paw.tab = paw.layout.buf, paw.layout.win, paw.layout.tabs
 paw.buftype, paw.layouts = paw.layout.buftype, paw.layout.layouts
@@ -124,7 +124,7 @@ require("paw.roles.notes")
 require("paw.roles.arrange")
 require("paw.menu")
 paw.canvas = require("paw.canvas")
--- The tabs and windows as panes of a graphical frontend (paw/panes.lua).
+-- The tabs and windows as panes of a graphical frontend (paw/panes.tl).
 paw.panes = require("paw.panes")
 paw.notify = paw.ui.notify
 paw.keymap = require("paw.keymap")
@@ -221,7 +221,7 @@ paw.takes = require("paw.takes")
 paw.stretch = require("paw.stretch")
 paw.harmony = require("paw.harmony")
 paw.snippet = require("paw.snippet")
--- The window's menus, shown by it and built here (paw/window_menus.lua).
+-- The window's menus, shown by it and built here (paw/window_menus.tl).
 require("paw.window_menus")
 
 -- JSON, for what extensions keep in files: `paw.json.encode(value, pretty)`

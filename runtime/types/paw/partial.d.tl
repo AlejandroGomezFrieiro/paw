@@ -33,10 +33,6 @@ local record partial
       selection: function(): contracts.Region
       metamethod __index: function(Keymap, string): Untyped
    end
-   record Layout
-      buftype: function<B is contracts.Buftype>(name: string, def: B): B
-      metamethod __index: function(Layout, string): Untyped
-   end
    record Pick
       open: function<T>(spec: contracts.PickSource<T>)
       open: function(name: string, extra?: contracts.PickExtra)
@@ -52,20 +48,6 @@ local record partial
       define: function(name: string, spec: contracts.TrackKind): contracts.TrackKind
       metamethod __index: function(TrackKinds, string): Untyped
    end
-   record Ui
-      arrange: function(width?: integer, height?: integer): {contracts.ScreenRect}
-      float: contracts.Float
-      focused: string
-      locator: function(view: string, spec: contracts.Locator)
-      locators: {string:contracts.Locator}
-      notify: function(text: string, level?: string)
-      open: function(name: string, opts?: contracts.FloatOptions)
-      role: function<P is contracts.MarkProps>(name: string, spec: contracts.Role<P>)
-      roles: {string:contracts.Role<contracts.MarkProps>}
-      view: function<V is contracts.View>(name: string, def: V): V
-      views: {string:contracts.View}
-      metamethod __index: function(Ui, string): Untyped
-   end
    --- The global `paw`, as far as the modules in Lua type it.
    interface Paw
       buftype: function<B is contracts.Buftype>(name: string, def: B): B
@@ -80,14 +62,12 @@ local record partial
       frontend: Frontend
       health: Health
       keymap: Keymap
-      layout: Layout
       notify: function(text: string, level?: string)
       off: function(id: integer)
       pick: Pick
       textbuf: Textbuf
       timers: {integer:function()}
       track_kinds: TrackKinds
-      ui: Ui
    end
 end
 

@@ -1,5 +1,5 @@
 -- The screen: views, the tabs and windows that arrange them (laid out by
--- paw/layout.lua), focus, messages and highlight groups.
+-- paw/layout.tl), focus, messages and highlight groups.
 --
 -- A view is a table with a `render(self, buf, ctx)` function that draws into a
 -- cell buffer. Everything on screen, including the built-in arrange view and
@@ -8,26 +8,349 @@
 -- A view that also paints (`paint`, see `paw.canvas`) can show its pixels
 -- in a terminal that shows images: its `render` keeps an area for them
 -- with `buf:surface`, or the view sets `surface = true` to be all pixels.
-local api = paw.api
+--
+-- Written in Teal (paw/lang.tl): the build compiles it to Lua. The modules
+-- that draw (paw/canvas.tl, paw/roles.tl, paw/statusline.tl, paw/scene.tl)
+-- name this module's types, so it declares only the parts of them that it
+-- calls.
+local api = require("paw.api")
 local L = require("paw.layout")
-local M = {
-  Buf = require("paw.buf"),
-  --- The views, by name.
-  --- @type {string:contracts.View}
-  views = {},
-  --- The view of the window with the keyboard.
-  --- @type string
-  focused = nil,
-  messages = {},   -- every message so far, oldest first
-  message = nil,   -- the one on the command line now
-  grabber = nil,   -- function that takes every key while set (prompts)
-  --- The floating view, if one is open.
-  --- @type contracts.Float
-  float = nil,
-  rects = {},      -- where each view was last drawn
-}
+local events = require("paw.events")
+local kernel = require("paw.events.kernel")
+local options = require("paw.options")
+local seats = require("paw.seats")
+local util = require("paw.util")
+local Buf = require("paw.buf")
+local type types = require("paw.types")
+local type contracts = require("paw.contracts")
+local type partial = require("paw.partial")
+local type role_props = require("paw.role_props")
+local type MouseModule = require("paw.mouse")
+local type DrawModule = require("paw.draw")
 
--- The tabs, each a tree of windows (see paw/layout.lua for how a tree is
+local type View = contracts.View
+local type Node = L.Node
+local type Tab = L.Tab
+local type Arrangement = L.Arrangement
+local type ScreenRect = contracts.ScreenRect
+local type MouseEvent = contracts.MouseEvent
+local type RenderContext = contracts.RenderContext
+local type Style = string | types.CellStyle
+local opt = options.opt
+
+--- A bar along the bottom of every tab: the status line, the key line.
+local record Bar
+  view: string
+  size: integer
+  hidden: boolean
+end
+
+--- A message on the command line (`paw.ui.notify`).
+local record Message
+  text: string
+  level: string
+  time: number
+end
+
+--- What `paw.ui.titlebar` takes.
+local record TitlebarOptions
+  name: string | number
+  pill: {string}
+  context: string | number
+  right: string | number
+  reserve: integer
+  focused: boolean
+end
+
+--- A strip a view drew in cells for a window (`render_scene`): where it
+--- shows, where that is in the whole strip, and what draws it.
+local record Picture
+  x: integer
+  y: integer
+  w: integer
+  h: integer
+  left: integer
+  top: integer
+  whole_w: integer
+  whole_h: integer
+  draw: function(g: contracts.Painter, px: contracts.StripPixels)
+end
+
+--- What `paw.ui.strip` takes besides the area: as `buf:strip` takes, and
+--- the view it is for, and `paint` for a view's whole drawing.
+local record StripOptions
+  key: string
+  under: boolean
+  draw: function(g: contracts.Painter, px: contracts.StripPixels)
+  view: string
+  paint: boolean
+end
+
+--- A live part of the screen: its buffer and what draws it.
+local record LivePart
+  buf: Buf
+  draw: function(b: Buf)
+end
+local record Live
+  {LivePart}
+  width: integer
+  height: integer
+end
+
+--- A meter's values now: the levels of its two channels, the peak held,
+--- and whether it clipped.
+local record Meter
+  levels: {number}
+  hold: number
+  clipped: boolean
+end
+
+--- The live values of now, while the live parts are drawn again.
+local type Bound = {string:number | string | boolean}
+local record Refreshing
+  position: number
+  meters: {integer:Meter}
+  views: {contracts.LiveValues}
+end
+
+--- A layer of a part of a view (`paw.ui.layer`).
+local type Paint<C> = function(ctx: C)
+local record Layer
+  name: string
+  order: number
+  paint: function(ctx: Bound)
+end
+
+--- What `paw.ui.input` takes (the command line's prompt, paw/views/cmdline.lua).
+local record InputOptions
+  prompt: string
+  text: string
+  history: string
+  label: string
+  complete: function(text: string): {string | Candidate}
+  preview: function(text: string): string, string
+  on_change: function(text: string): string, string
+  anchor: function(): types.Point
+  on_key: function(key: string, text: string): boolean | string
+  mode: string
+  ghost: string
+  select: boolean
+end
+--- A candidate of a prompt's completion.
+local record Candidate
+  text: string
+  label: string
+  desc: string
+end
+
+--- What `paw.ui.ask_value` takes (paw/views/cmdline.lua).
+local record AskOptions
+  label: string
+  now: number
+  unit: string
+  min: number
+  max: number
+  show: function(value: number): string
+  parse: function(text: string): number
+end
+
+--- What `paw.ui.page` takes besides the lines (paw/views/help.lua).
+local record PageOptions
+  bottom: boolean
+  width: integer
+  height: integer
+end
+
+--- The state of each seat's screen.
+local record SeatState
+  focused: string
+  float: contracts.Float
+  grabber: function(key: string): boolean
+  rects: Arrangement
+  tabs: {Tab}
+  tab: integer
+  pressed: string
+end
+
+--- The key line (paw/keybar.lua): the keys of each view in each mode.
+local type KeyHint = DrawModule.KeyHint
+local record Keybar
+  lines: {string:{string:{KeyHint}}}
+  entries: function(): {KeyHint}
+  set: function(view: string, mode: string, entries: {KeyHint})
+  show: function(lhs: string): string
+end
+
+-- The parts of the modules above this one that it calls: they name this
+-- module's types, so it cannot name theirs.
+local record Roles
+  begin: function(name: string, win?: integer)
+  finish: function()
+  pointer: function(view: View, name: string, event: MouseEvent): boolean
+end
+local record OpenView
+  win: Node
+end
+local record Colors
+  fg: string
+  bg: string
+end
+local record PaintOptions
+  cell: types.Size
+  glyphs: boolean
+  surface: boolean
+  colors: Colors
+  marks: {contracts.PaintMark}
+end
+local record Drawing
+  ops: {types.CanvasOp}
+end
+local record Canvas
+  open_views: {string:OpenView}
+  inside: string
+  paint: function(name: string, width: number, height: number, opts?: PaintOptions): Drawing
+  draw: function(draw: function(g: contracts.Painter, px: contracts.StripPixels), px: contracts.StripPixels): {types.CanvasOp}
+  close: function(name: string)
+end
+local record Statusline
+  winbar: function(view: string, focused: boolean): string
+  tabline: function(width: integer): {contracts.Piece}
+  tabline_always: function(): boolean
+end
+local record Waker
+  wake: function()
+end
+local record Panes
+  cells: function(): types.Size
+end
+local record Hint
+  key: string
+  desc: string
+end
+local record Keymap
+  hints: function(): {Hint}, string
+end
+local record Paw is partial.Paw
+  roles: Roles
+  canvas: Canvas
+  statusline: Statusline
+  scene: Waker
+  remote: Waker
+  panes: Panes
+  mouse: MouseModule
+  draw: DrawModule
+end
+local paw = (_G as {string:Paw}).paw
+local function keymap(): Keymap return paw.keymap as Keymap end
+
+--- The payloads of the events this module sends and hears.
+local record ViewFocused
+  view: string
+  old: string
+end
+local record WinResized
+  win: integer
+end
+local record OptionChanged
+  name: string
+end
+local view_focused: events.Event<ViewFocused> = events.event("view.focused")
+local win_resized: events.Event<WinResized> = events.event("win.resized")
+local option_changed: events.Event<OptionChanged> = events.event("option.changed")
+
+local record M
+  type Bar = Bar
+  type Message = Message
+  type TitlebarOptions = TitlebarOptions
+  type Picture = Picture
+  type StripOptions = StripOptions
+  type Layer = Layer
+  type InputOptions = InputOptions
+  type Candidate = Candidate
+  type AskOptions = AskOptions
+  type PageOptions = PageOptions
+  type Keybar = Keybar
+  type Buf = Buf
+
+  --- The views, by name.
+  views: {string:View}
+  --- The view of the window with the keyboard.
+  focused: string
+  --- Every message so far, oldest first.
+  messages: {Message}
+  --- The one on the command line now.
+  message: Message
+  --- A function that takes every key while set (prompts).
+  grabber: function(key: string, pasted?: boolean): boolean
+  --- The floating view, if one is open.
+  float: contracts.Float
+  --- Where each view was last drawn.
+  rects: Arrangement
+  --- The tabs, each a tree of windows, and the current one.
+  tabs: {Tab}
+  tab: integer
+  --- The tree of the current tab.
+  layout: Node
+  --- The status line and the command line, along the bottom of every tab.
+  bars: {Bar}
+  --- The view the button held went down in.
+  pressed: string
+  --- The smallest screen the program draws on; below it a notice says so.
+  min_width: integer
+  min_height: integer
+  --- Views drawn on a background of their own: the status line and the key line.
+  backgrounds: {string:string}
+  --- The view being drawn now, and its window.
+  drawing: string
+  drawing_win: Node
+  --- True while the terminal's screen is drawn.
+  screen: boolean
+  --- A window of the layout that `render_view` draws, and the strips a
+  --- view keeps for a scene while it is drawn (`render_scene`).
+  view_win: Node
+  pictures: {Picture}
+  scene_drawing: boolean
+  --- The layers of each part of each view: view -> part -> layers.
+  layers: {string:{string:{Layer}}}
+  --- The locator of each view, by the view's name (`paw.ui.locator`).
+  locators: {string:contracts.Locator}
+  --- Whether the terminal has the keyboard focus of the desktop.
+  has_focus: boolean
+  --- The layout the configuration starts with (`paw.layout.start`).
+  start_layout: L.Spec
+
+  -- What other modules put here.
+  --- The key line (paw/keybar.lua).
+  keybar: Keybar
+  --- A role (`paw.roles.define`) and every role.
+  role: function<P is contracts.MarkProps>(name: string, spec: contracts.Role<P>)
+  roles: {string:contracts.Role<contracts.MarkProps>}
+  --- A menu at the pointer (paw/menu.tl), and what draws it.
+  menu: function(items: {contracts.MenuEntry}, opts?: contracts.MenuOptions)
+  draw_menu: function(buf: Buf)
+  --- The command line's list over the screen (paw/views/cmdline.lua).
+  draw_popup: function(buf: Buf)
+  --- Ask for a value on the command line (paw/views/cmdline.lua).
+  ask_value: function(opts: AskOptions, set: function(value: number))
+  --- Show lines of text in a float (paw/views/help.lua).
+  page: function(title: string, lines: {string | contracts.PageLine}, opts?: PageOptions)
+
+  redraw: function()
+  arrange: function(width?: integer, height?: integer): Arrangement
+  focus_next: function(step?: integer)
+  render_screen: function(buf: Buf)
+  focus: function(name: string)
+  wake: function()
+  close: function()
+  draw_hints: function(buf: Buf)
+end
+
+M.views = {}
+M.messages = {}
+M.rects = {}
+rawset(M as {string:Buf}, "Buf", Buf)
+
+-- The tabs, each a tree of windows (see paw/layout.tl for how a tree is
 -- laid out), and the current one, whose tree is `M.layout`. The status line
 -- and the command line are drawn along the bottom of every tab.
 M.tabs = { { layout = L.default_tree() } }
@@ -39,17 +362,19 @@ M.bars = { { view = "status", size = 1 }, { view = "cmdline", size = 1 } }
 -- Each seat has its own focus, floating view, prompt, tabs and windows,
 -- and the view a held button went down in; a new one starts with the tabs
 -- and windows of the instance's terminal.
-paw.seats.keep("ui",
-  function() return M.focused, M.float, M.grabber, M.rects, M.tabs, M.tab, M.pressed end,
-  function(focused, float, grabber, rects, tabs, tab, pressed)
-    M.focused, M.float, M.grabber, M.rects, M.pressed = focused, float, grabber, rects, pressed
-    M.tabs, M.tab, M.layout = tabs, tab, tabs[tab].layout
+seats.keep("ui",
+  function(): SeatState
+    return { focused = M.focused, float = M.float, grabber = M.grabber, rects = M.rects, tabs = M.tabs, tab = M.tab, pressed = M.pressed }
   end,
-  function(_, _, _, _, tabs, tab)
-    local copied = L.copy_tabs(tabs)
-    local t = copied[tab]
+  function(s: SeatState)
+    M.focused, M.float, M.grabber, M.rects, M.pressed = s.focused, s.float, s.grabber, s.rects, s.pressed
+    M.tabs, M.tab, M.layout = s.tabs, s.tab, s.tabs[s.tab].layout
+  end,
+  function(s: SeatState): SeatState
+    local copied = L.copy_tabs(s.tabs)
+    local t = copied[s.tab]
     local win = t and (t.win and L.find_id(t.layout, t.win) or L.windows(t.layout)[1])
-    return win and win.view, nil, nil, {}, copied, tab, nil
+    return { focused = win and win.view, rects = {}, tabs = copied, tab = s.tab }
   end)
 
 --- Register a view. It replaces a view with the same name.
@@ -68,23 +393,22 @@ paw.seats.keep("ui",
 --- a thing by name in the window (`:e roll://7`), and `window_target(self)`
 --- gives that name back for a saved layout. `share` says what part of the
 --- room the view keeps where windows share it: `{ column, least, most }`.
---- @type function<V is contracts.View>(name: string, def: V): V
-function M.view(name, def)
+function M.view<V is contracts.View>(name: string, def: V): V
   def.name = name
-  if def.window_state then L.window_fields(name, def, def.window_state, def.window_fresh) end
+  if def.window_state then L.window_fields(name, def as {string:L.Kept}, def.window_state, def.window_fresh) end
   M.views[name] = def
   api.ui_redraw()
   return def
 end
 
-local function bar(name)
+local function bar(name: string): Bar
   for _, node in ipairs(M.bars) do
     if node.view == name then return node end
   end
 end
 
 --- True if a view is on the screen now.
-function M.visible(name)
+function M.visible(name: string): boolean
   if M.float and M.float.name == name then return true end
   for _, rect in ipairs(M.arrange()) do
     if rect.name == name then return true end
@@ -92,7 +416,7 @@ function M.visible(name)
   return false
 end
 
-local function focusable(name)
+local function focusable(name: string): boolean
   local view = M.views[name]
   return view and view.focusable ~= false
 end
@@ -100,7 +424,7 @@ end
 --- Show a view: in its window if it has one in this tab, else where it was
 --- docked. A view has one window at a time: one on screen in another tab
 --- moves here.
-function M.show(name)
+function M.show(name: string)
   local node = bar(name)
   if node then
     node.hidden = false
@@ -113,7 +437,7 @@ end
 --- Close the window of a view, in each tab. The view keeps its place for
 --- the next time. The last window of a tab does not close: it goes on
 --- showing the view, as `Ctrl-w c` leaves it.
-function M.hide(name)
+function M.hide(name: string)
   local node = bar(name)
   if node then
     node.hidden = true
@@ -129,7 +453,7 @@ function M.hide(name)
 end
 
 --- Show the view `name` in its window, or hide it if it shows now.
-function M.toggle(name)
+function M.toggle(name: string)
   local win = L.find(M.layout, name)
   if (win and not win.hidden) or not (win or L.homes[name]) then
     -- The only window of the tab does not close, as `Ctrl-w c` does not:
@@ -140,7 +464,10 @@ function M.toggle(name)
     end
     if alone then return paw.notify("the last window does not close: `:e <name>` shows something else in it", "warn") end
     -- A view in several windows: the one found closes.
-    if win and not L.one_window(name) then return L.close(win) end
+    if win and not L.one_window(name) then
+      L.close(win)
+      return
+    end
     return M.hide(name)
   end
   M.show(name)
@@ -153,14 +480,14 @@ end
 --- the arrange view). Without `size`, the view shares the space that is
 --- left. To dock a view that is already in the layout moves it. Other tabs
 --- put it in the same place when they show it.
-function M.dock(name, opts)
+function M.dock(name: string, opts?: L.DockOptions)
   L.dock(name, opts or {})
   api.ui_redraw()
 end
 
 --- Give a view the keyboard, and show it first if it is hidden. The window
 --- that contains it gets the keys, and paw goes to the tab of that window.
-function M.focus(name)
+function M.focus(name: string)
   if not M.views[name] then error("no view `" .. tostring(name) .. "`", 2) end
   local win = L.reveal(name, true)
   if win then return L.enter(win) end
@@ -170,19 +497,21 @@ function M.focus(name)
     -- never given to a view that is not drawn.
     local cur = L.current()
     if not cur then error("no window to show `" .. name .. "` in", 2) end
-    return L.show_in(cur, name)
+    L.show_in(cur, name)
+    return
   end
   if M.focused ~= name then
     local old = M.focused
     M.focused = name
-    paw.emit("view.focused", { view = name, old = old })
+    events.emit(view_focused, { view = name, old = old })
   end
   api.ui_redraw()
 end
 
 --- Focus the next (or with -1 the previous) window that takes the keyboard.
-function M.focus_next(step)
-  local wins, at = {}, 0
+function M.focus_next(step?: integer)
+  local wins: {integer} = {}
+  local at = 0
   local cur = L.current()
   for _, rect in ipairs(M.arrange()) do
     if rect.win and focusable(rect.name) then
@@ -199,23 +528,25 @@ end
 -- share what is left by weight, a child below its `min` given that much and
 -- the rest shared again among the others. With no child left to share, the
 -- last one takes what is left.
-local function shares(children, total)
-  local flexible
+local function shares(children: {Node}, total: integer): {integer}
+  local flexible: boolean
   for _, child in ipairs(children) do
     if not child.size then flexible = true end
   end
   local grow = not flexible and children[#children]
-  local function size_of(child) return child ~= grow and child.size or nil end
+  local function size_of(child: Node): integer return child ~= grow and child.size or nil end
   local fixed = 0
   for _, child in ipairs(children) do fixed = fixed + (size_of(child) or 0) end
   local spare = math.max(0, total - fixed)
-  local sizes = {}
+  local sizes: {integer} = {}
   for _ = 1, #children do
-    local weights, left = 0, spare
+    local weights: number = 0
+    local left = spare
     for i, child in ipairs(children) do
       if size_of(child) then sizes[i] = size_of(child) elseif sizes[i] then left = left - sizes[i] else weights = weights + (child.weight or 1) end
     end
-    local grew, weight_seen = false, 0
+    local grew = false
+    local weight_seen: number = 0
     for i, child in ipairs(children) do
       if not size_of(child) and not sizes[i] then
         -- Round cumulatively, so the flexible children add up to exactly what is left.
@@ -245,11 +576,11 @@ end
 
 --- The share of the room that the views in a node ask for (`view.share`):
 --- the largest `least` or `column` of its windows, the smallest `most`.
-local function share(node, key)
-  local out
+local function share(node: Node, key: string): number
+  local out: number
   for _, win in ipairs(node.view and { node } or L.windows(node)) do
     local view = M.views[win.view]
-    local v = view and view.share and view.share[key]
+    local v = view and view.share and (view.share as {string:number})[key]
     if v then out = out and (key == "most" and math.min(out, v) or math.max(out, v)) or v end
   end
   return out
@@ -259,8 +590,9 @@ end
 -- goes to them in proportion to their sizes, a negative one is taken from
 -- them in proportion to what each can spare (down to its `min`, else one).
 -- Returns how many cells moved.
-local function spread(children, sizes, others, amount)
-  local room, sum = {}, 0
+local function spread(children: {Node}, sizes: {integer}, others: {integer}, amount: integer): integer
+  local room: {integer:integer} = {}
+  local sum = 0
   for _, j in ipairs(others) do
     room[j] = amount > 0 and sizes[j] or math.max(0, sizes[j] - (children[j].min or 1))
     sum = sum + room[j]
@@ -285,13 +617,13 @@ end
 -- where three or more share the room; `most`, the part it takes at most
 -- there. The arrange view keeps two fifths of a column and a third of the
 -- room, as `Ctrl-w =` gives it, and the notation view takes at most half.
-local function limit_shares(children, sizes, total, vertical)
-  local flexible = {}
+local function limit_shares(children: {Node}, sizes: {integer}, total: integer, vertical: boolean)
+  local flexible: {integer} = {}
   for i, child in ipairs(children) do
     if not child.size then flexible[#flexible + 1] = i end
   end
-  local function others_of(i, list)
-    local out = {}
+  local function others_of(i: integer, list: {integer}): {integer}
+    local out: {integer} = {}
     for _, j in ipairs(list) do
       if j ~= i then out[#out + 1] = j end
     end
@@ -318,7 +650,7 @@ local function limit_shares(children, sizes, total, vertical)
     local column = share(child, "column")
     local want = column and math.floor(total * column + 1e-9)
     if want and sizes[i] < want then
-      local fixed = {}
+      local fixed: {integer} = {}
       for j in ipairs(children) do
         if j ~= i and children[j].size then fixed[#fixed + 1] = j end
       end
@@ -330,7 +662,7 @@ local function limit_shares(children, sizes, total, vertical)
   end
 end
 
-local function place(node, x, y, w, h, out, screen_w, after)
+local function place(node: Node, x: integer, y: integer, w: integer, h: integer, out: Arrangement, screen_w: number, after?: string)
   out.nodes[node] = { x = x, y = y, w = w, h = h }
   if node.view then
     out[#out + 1] = { name = node.view, win = node.id, x = x, y = y, w = w, h = h, after = after }
@@ -338,7 +670,7 @@ local function place(node, x, y, w, h, out, screen_w, after)
   end
   local vertical = node.dir ~= "h"
   local total = vertical and h or w
-  local children = {}
+  local children: {Node} = {}
   for _, child in ipairs(node) do
     if L.shown(child) then
       if child.float_below and screen_w < child.float_below and child.view then
@@ -361,7 +693,7 @@ local function place(node, x, y, w, h, out, screen_w, after)
     else
       if i > 1 then out.borders[#out.borders + 1] = { node = node, a = children[i - 1], b = child, dir = "h", x = x + pos, y = y, h = h } end
       -- A view beside another has a rule along its left edge.
-      place(child, x + pos, y, size, h, out, screen_w, (i > 1 or after) and "rule" or nil)
+      place(child, x + pos, y, size, h, out, screen_w, (i > 1 or after ~= nil) and "rule" or nil)
     end
     pos = pos + size
   end
@@ -369,8 +701,8 @@ end
 
 --- Lay a tree of windows out over a rectangle, as `arrange` lays out a
 --- tab's: in whatever unit its sizes are in (a graphical frontend's pixels).
-function M.place(root, x, y, w, h)
-  local out = { nodes = {}, borders = {}, floating = {} }
+function M.place(root: Node, x: integer, y: integer, w: integer, h: integer): Arrangement
+  local out: Arrangement = { nodes = {}, borders = {}, floating = {} }
   place(root, x, y, w, h, out, math.huge)
   out.floating = nil
   return out
@@ -380,9 +712,9 @@ end
 --- the seat of a graphical frontend that told the size of its main area, it
 --- is the size of that area (`paw.panes`). So paw measures a split there
 --- on what it shows.
-function M.size()
+function M.size(): integer, integer
   local cells = paw.panes and paw.panes.cells()
-  if cells then return cells.w, cells.h end
+  if cells then return cells.w as integer, cells.h as integer end
   return api.ui_size()
 end
 
@@ -390,10 +722,9 @@ end
 --- list of `{ name, win, x, y, w, h }`. The tab line is along the top when
 --- there is more than one tab. `.borders` contains the borders between
 --- windows, and `.nodes` the position of each node of the tree, to resize them.
---- @type function(width?: integer, height?: integer): {contracts.ScreenRect}
-function M.arrange(width, height)
+function M.arrange(width?: integer, height?: integer): Arrangement
   if not width then width, height = M.size() end
-  local out = { nodes = {}, borders = {}, floating = {} }
+  local out: Arrangement = { nodes = {}, borders = {}, floating = {} }
   local top = (#M.tabs > 1 or paw.statusline.tabline_always()) and 1 or 0
   local below = 0
   for _, node in ipairs(M.bars) do
@@ -420,30 +751,29 @@ function M.arrange(width, height)
   return out
 end
 
---- The smallest screen the program draws on; below it a notice says so.
 M.min_width, M.min_height = 60, 16
 
 -- Views drawn on a background of their own: the status line and the key line.
-local backgrounds = { status = "StatusLine", cmdline = "KeyBar" }
+local backgrounds: {string:string} = { status = "StatusLine", cmdline = "KeyBar" }
 M.backgrounds = backgrounds
 
-local function draw_view(view, buf, ctx)
+local function draw_view(view: View, buf: Buf, ctx: RenderContext)
   M.drawing = view.name
   if view.surface == true and view.paint and buf:surface(0, 0, buf.width, buf.height) then return end
   if view.paint and not view.render then
     -- A view that only paints, on a terminal that shows no pictures.
     if not buf:surface(0, 0, buf.width, buf.height) then
-      buf:text(1, 0, paw.util.fit((view.title or view.name) .. ": drawn in a graphical window, or a terminal that shows pictures", buf.width - 1), "Dim")
+      buf:text(1, 0, util.fit((view.title or view.name) .. ": drawn in a graphical window, or a terminal that shows pictures", buf.width - 1), "Dim")
     end
     return
   end
-  local ok, err = xpcall(view.render, debug.traceback, view, buf, ctx)
+  local ok, err = xpcall(view.render, debug.traceback, view, buf, ctx) as (boolean, string)
   if not ok then
     -- Show the failure where the view would have been.
     buf:fill(0, 0, buf.width, buf.height, " ", "Normal")
     local row = 0
     for line in tostring(err):gmatch("[^\n]+") do
-      buf:text(0, row, line:gsub("\t", "  "), "Error")
+      buf:text(0, row, (line:gsub("\t", "  ")), "Error")
       row = row + 1
     end
   end
@@ -451,10 +781,10 @@ end
 
 --- Draw a view; the strips it kept are its own until it is done, and what
 --- is drawn over them after (a menu, a float) covers them.
-local function draw(view, buf, ctx)
-  M.drawing_win = ctx and ctx.win
+local function draw(view: View, buf: Buf, ctx: RenderContext)
+  M.drawing_win = ctx and ctx.win as Node
   -- The view draws with the state of its window.
-  if ctx and ctx.win then L.bind(ctx.win) end
+  if ctx and ctx.win then L.bind(ctx.win as Node) end
   -- The hit regions it marks on the screen are where the pointer finds them.
   if M.screen then paw.roles.begin(view.name, ctx and ctx.win and ctx.win.id) end
   draw_view(view, buf, ctx)
@@ -463,7 +793,7 @@ local function draw(view, buf, ctx)
   if M.rects.surfaces then api.grid_surfaces_seal() end
 end
 
-local function float_rect(width, height)
+local function float_rect(width: integer, height: integer): ScreenRect
   local f = M.float
   local w = math.min(f.width or 72, width - 2)
   local h = math.min(f.height or 24, height - 2)
@@ -473,7 +803,7 @@ local function float_rect(width, height)
 end
 
 --- Draw a box around a buffer's edge and return a buffer for the inside.
-function M.box(buf, title, style)
+function M.box(buf: Buf, title?: string, style?: string): Buf
   local w, h = buf.width, buf.height
   style = style or "Border"
   local g = paw.draw.g
@@ -495,7 +825,7 @@ end
 --- view's own items), `focused`. When the panel has focus, the whole bar is
 --- in the accent color, inverted.
 ---   local body = paw.ui.titlebar(buf, { name = "Mixer", context = "5 tracks", focused = ctx.focused })
-function M.titlebar(buf, opts)
+function M.titlebar(buf: Buf, opts: TitlebarOptions): Buf
   local g = paw.draw.g
   local focused = opts.focused
   local plain = focused and "TitleBarFocus" or "TitleBar"
@@ -517,14 +847,14 @@ function M.titlebar(buf, opts)
   if opts.name then
     local room = math.max(1, buf.width - x - (right_w > 0 and right_w + 2 or 0))
     local name = tostring(opts.name)
-    if api.str_width(name) > room then name = paw.util.fit(name, room) end
+    if api.str_width(name) > room then name = util.fit(name, room) end
     x = x + buf:text(x, 0, name, focused and "TitleBarNameFocus" or "TitleBarName")
   end
   if opts.context and opts.context ~= "" then
     local room = buf.width - x - 2 - (right_w > 0 and right_w + 2 or 0)
     if room >= 4 then
       local text = tostring(opts.context)
-      if api.str_width(text) > room then text = paw.util.fit(text, room) end
+      if api.str_width(text) > room then text = util.fit(text, room) end
       x = x + 2 + buf:text(x + 2, 0, text, plain)
     end
   end
@@ -534,7 +864,7 @@ end
 
 --- What is shown on a screen too small to draw on: the status line, the
 --- command line, and in the middle how big the screen is and needs to be.
-local function too_small(buf)
+local function too_small(buf: Buf)
   local w, h = buf.width, buf.height
   local g = paw.draw.g
   local lines = {
@@ -563,20 +893,20 @@ end
 --- w, h }, under, draw, paint }` each, in cells of the screen (`name` the
 --- view that kept it, `win` the id of its window, `paint` for a view's
 --- whole drawing, `buf:surface`).
-function M.strip(buf, x, y, w, h, opts)
+function M.strip(buf: Buf, x: number, y: number, w: number, h: number, opts?: StripOptions): boolean
   opts = opts or {}
-  if paw.opt.graphics == false then return false end
+  if opt.graphics == false then return false end
   if not M.screen then
     -- A view drawn in cells for a window (`M.render_scene`,
     -- `paw.canvas.paint_cells`): the window draws the strip's picture with
     -- the cells, under their text.
     if not (M.pictures and opts.draw and opts.under) then return false end
-    x, y, w, h = math.floor(buf.x + x), math.floor(buf.y + y), math.floor(w), math.floor(h)
-    local x0, y0 = math.max(x, buf.cx), math.max(y, buf.cy)
-    local x1, y1 = math.min(x + w, buf.cx + buf.cw), math.min(y + h, buf.cy + buf.ch)
+    local px, py, pw, ph = math.floor(buf.x + x), math.floor(buf.y + y), math.floor(w), math.floor(h)
+    local x0, y0 = math.max(px, buf.cx), math.max(py, buf.cy)
+    local x1, y1 = math.min(px + pw, buf.cx + buf.cw), math.min(py + ph, buf.cy + buf.ch)
     if x1 <= x0 or y1 <= y0 then return false end
-    M.pictures[#M.pictures + 1] = { x = x0, y = y0, w = x1 - x0, h = y1 - y0, left = x0 - x, top = y0 - y,
-      whole_w = w, whole_h = h, draw = opts.draw }
+    M.pictures[#M.pictures + 1] = { x = x0, y = y0, w = x1 - x0, h = y1 - y0, left = x0 - px, top = y0 - py,
+      whole_w = pw, whole_h = ph, draw = opts.draw }
     return true
   end
   local caps = api.ui_caps()
@@ -584,21 +914,21 @@ function M.strip(buf, x, y, w, h, opts)
   local name = opts.view or M.drawing
   local win = M.drawing_win
   local key = opts.key or (tostring(name) .. "#" .. tostring(win and win.id or "float"))
-  x, y, w, h = math.floor(buf.x + x), math.floor(buf.y + y), math.floor(w), math.floor(h)
+  local sx, sy, sw, sh = math.floor(buf.x + x), math.floor(buf.y + y), math.floor(w), math.floor(h)
   if opts.paint then
     -- A view's paint lays out what shows of it.
-    local x0, y0 = math.max(x, buf.cx), math.max(y, buf.cy)
-    x, y, w, h = x0, y0, math.min(x + w, buf.cx + buf.cw) - x0, math.min(y + h, buf.cy + buf.ch) - y0
+    local x0, y0 = math.max(sx, buf.cx), math.max(sy, buf.cy)
+    sx, sy, sw, sh = x0, y0, math.min(sx + sw, buf.cx + buf.cw) - x0, math.min(sy + sh, buf.cy + buf.ch) - y0
   end
-  local index = api.grid_surface(key, x, y, w, h, buf.cx, buf.cy, buf.cw, buf.ch, opts.under == true)
+  local index = api.grid_surface(key, sx, sy, sw, sh, buf.cx, buf.cy, buf.cw, buf.ch, opts.under == true)
   if not index then return false end
   -- What shows of it inside the buffer.
-  local x0, y0 = math.max(x, buf.cx), math.max(y, buf.cy)
-  local x1, y1 = math.min(x + w, buf.cx + buf.cw), math.min(y + h, buf.cy + buf.ch)
+  local x0, y0 = math.max(sx, buf.cx), math.max(sy, buf.cy)
+  local x1, y1 = math.min(sx + sw, buf.cx + buf.cw), math.min(sy + sh, buf.cy + buf.ch)
   M.rects.surfaces = M.rects.surfaces or {}
   table.insert(M.rects.surfaces, {
     key = key, name = name, win = win and win.id, index = index, x = x0, y = y0, w = x1 - x0, h = y1 - y0,
-    left = x0 - x, top = y0 - y, whole_w = w, whole_h = h,
+    left = x0 - sx, top = y0 - sy, whole_w = sw, whole_h = sh,
     cell = caps.cell, under = opts.under == true, draw = opts.draw, paint = opts.paint,
   })
   return true
@@ -606,7 +936,7 @@ end
 
 --- Keep an area of a buffer for a view's pixels: see `Buf:surface`. A
 --- strip, kept for the view's window, whose drawing is the view's `paint`.
-function M.surface(buf, x, y, w, h, name)
+function M.surface(buf: Buf, x: number, y: number, w: number, h: number, name?: string): boolean
   name = name or M.drawing
   local view = M.views[name]
   if not (view and view.paint) then return false end
@@ -619,12 +949,12 @@ local function paint_surfaces()
   for _, s in ipairs(M.rects.surfaces or {}) do
     local cw, ch = s.cell.w, s.cell.h
     local w, h = s.w * cw, s.h * ch
-    local ops
+    local ops: {types.CanvasOp}
     if s.draw then
       -- The whole strip, of which `view` shows: a strip partly off its
       -- window draws what shows and a piece's width either side of it.
       ops = paw.canvas.draw(s.draw, {
-        w = s.whole_w * cw, h = s.whole_h * ch, cell = s.cell, fg = caps.fg, bg = caps.bg,
+        w = s.whole_w * cw, h = s.whole_h * ch, cell = s.cell as contracts.StripPixels.Cell, fg = caps.fg, bg = caps.bg,
         view = { x = s.left * cw, y = s.top * ch, w = w, h = h },
       })
     else
@@ -645,38 +975,37 @@ end
 -- that it draws all that moves in it as live parts with `view.live_roles`
 -- (the roles of its marks bound to live values, as for a window), or that
 -- nothing in it moves on its own with `view.still`.
-local live           -- the live parts of the seat's screen: `{ buf, draw }` each
-local recording      -- the list that the screen being drawn fills, or nil
-local refreshing     -- the live values of now, while the parts are drawn again
-paw.seats.keep("ui.live", function() return live end, function(l) live = l end, function() return nil end)
+local live: Live           -- the live parts of the seat's screen: `{ buf, draw }` each
+local recording: Live      -- the list that the screen being drawn fills, or nil
+local refreshing: Refreshing     -- the live values of now, while the parts are drawn again
+seats.keep("ui.live", function(): Live return live end, function(l: Live) live = l end, function(): Live return nil end)
 
 --- True if a live part drawn now is one of the terminal's screen.
-function M.live_drawing()
+function M.live_drawing(): boolean
   return recording ~= nil
 end
 
 --- Draw a live part on `buf`: `draw(buf)` draws it, now and each time it
---- is drawn again by itself. Returns what `draw` returns.
-function M.live(buf, draw)
-  if not recording then return draw(buf) end
+--- is drawn again by itself.
+function M.live(buf: Buf, draw_part: function(b: Buf))
+  if not recording then return draw_part(buf) end
   local index = api.grid_live_begin(buf.x, buf.y, buf.width, buf.height, buf.cx, buf.cy, buf.cw, buf.ch)
   local was = recording
   recording = nil  -- what it draws inside is part of it
-  local ok, result = pcall(draw, buf)
+  local ok, result = pcall(draw_part, buf) as (boolean, string)
   recording = was
   if index then
     api.grid_live_end(index)
-    recording[#recording + 1] = { buf = buf, draw = draw }
+    recording[#recording + 1] = { buf = buf, draw = draw_part }
   end
   if not ok then error(result, 0) end
-  return result
 end
 
-local function meter_of(values, id)
+local function meter_of(values: Refreshing, id: integer): Meter
   local m = values.meters[id]
   if not m then
     local l, r, hold, clipped = paw.draw.track_peak(id)
-    m = { { l, r }, hold, clipped }
+    m = { levels = { l, r }, hold = hold, clipped = clipped }
     values.meters[id] = m
   end
   return m
@@ -685,30 +1014,32 @@ end
 --- While a live part is drawn again: set the props of a mark bound to
 --- `bind` (`position`, `meter:<id>`, or a value that a view's
 --- `live_values()` gives) to the values of now.
-function M.live_value(bind, props)
+function M.live_value(bind: string, props: contracts.MarkProps)
   local values = refreshing
   if not values then return end
+  local set = props as Bound
   if bind == "position" then
     values.position = values.position or api.transport_get().position
-    props.at = values.position
+    set.at = values.position
   elseif bind:sub(1, 6) == "meter:" then
-    local m = meter_of(values, tonumber(bind:sub(7)) or 0)
-    props.levels, props.hold, props.clipped = m[1], m[2], m[3]
+    local m = meter_of(values, (tonumber(bind:sub(7)) or 0) as integer)
+    local p = props as {string:{number} | number | boolean}
+    p.levels, p.hold, p.clipped = m.levels, m.hold, m.clipped
   else
     if not values.views then
       values.views = {}
       for _, view in pairs(M.views) do
         if type(view.live_values) == "function" then
-          local ok, got = pcall(view.live_values)
+          local ok, got = pcall(view.live_values) as (boolean, contracts.LiveValues)
           if ok and type(got) == "table" then values.views[#values.views + 1] = got end
         end
       end
     end
     for _, got in ipairs(values.views) do
       for _, group in pairs(got) do
-        local v = type(group) == "table" and group[bind]
+        local v = type(group) == "table" and group[bind] or nil
         if type(v) == "table" then
-          for k, x in pairs(v) do props[k] = x end
+          for k, x in pairs(v) do set[k] = x end
           return
         end
       end
@@ -719,8 +1050,8 @@ end
 --- Whether the screen can be drawn by its live parts only: each view on
 --- it says what moves in it (`view.live_roles`) or that nothing does
 --- (`view.still`), and none must be drawn whole now (`view:moving()`).
-local function only_live()
-  local function fits(name, win)
+local function only_live(): boolean
+  local function fits(name: string, win?: Node): boolean
     local view = M.views[name]
     if not view then return true end
     if not (view.live_roles or view.still or view.live_part) then return false end
@@ -744,16 +1075,17 @@ end
 --- Draw the live parts of the screen again, on the frame drawn last.
 --- Called by the kernel (`paw.api.ui_redraw_live`). False when the screen
 --- must be drawn whole instead.
-function M.render_live(buf)
+function M.render_live(buf: Buf): boolean
   if not (live and live.width == buf.width and live.height == buf.height) then return false end
   if not only_live() then return false end
   M.screen = true
   refreshing = { meters = {} }
+  local parts = live
   local ok, err = pcall(function()
     api.grid_live_restore()
     recording = {}
-    for _, part in ipairs(live) do M.live(part.buf, part.draw) end
-  end)
+    for _, part in ipairs(parts) do M.live(part.buf, part.draw) end
+  end) as (boolean, string)
   -- A part of a view with a state for each window bound that window's.
   L.settle()
   recording, refreshing, M.screen = nil, nil, false
@@ -766,10 +1098,10 @@ function M.render_live(buf)
 end
 
 --- Draw the whole screen. Called by the kernel.
-function M.render(buf)
+function M.render(buf: Buf)
   M.screen = true
   recording = {}
-  local ok, err = pcall(M.render_screen, buf)
+  local ok, err = pcall(M.render_screen, buf) as (boolean, string)
   live, recording = recording, nil
   live.width, live.height = buf.width, buf.height
   api.grid_live_seal()
@@ -783,9 +1115,9 @@ end
 
 --- Draw the whole screen into `buf`: the tab's windows, floats, the status
 --- and command lines.
-function M.render_screen(buf)
+function M.render_screen(buf: Buf)
   buf:fill(0, 0, buf.width, buf.height, " ", "Normal")
-  api.ui_mouse(paw.opt.mouse ~= false)
+  api.ui_mouse(opt.mouse ~= false)
   if buf.width < M.min_width or buf.height < M.min_height then return too_small(buf) end
   local sizes_before = M.rects.sizes or {}
   M.rects = M.arrange(buf.width, buf.height)
@@ -794,7 +1126,7 @@ function M.render_screen(buf)
   -- A time bound window with the keyboard is drawn first, and the other
   -- time bound windows take its time before they are drawn.
   local lead, followers = L.time_lead()
-  local order = {}
+  local order: {ScreenRect} = {}
   for i, r in ipairs(M.rects) do order[i] = r end
   for i, r in ipairs(order) do
     if lead and r.win == lead.id and r.after ~= "box" then
@@ -802,7 +1134,8 @@ function M.render_screen(buf)
       break
     end
   end
-  local sizes, resized = {}, {}
+  local sizes: {integer:string} = {}
+  local resized: {integer} = {}
   for _, r in ipairs(order) do
     local view = M.views[r.name]
     if view and r.w > 0 and r.h > 0 then
@@ -820,14 +1153,14 @@ function M.render_screen(buf)
       end
       local follower = win and followers and followers[win.id]
       if follower then L.time_follow(lead, win) end
-      local ctx = { focused = focused, x = r.x, y = r.y, win = win, follower = follower or nil }
+      local ctx: RenderContext = { focused = focused, x = r.x, y = r.y, win = win, follower = follower or nil }
       local background = backgrounds[r.name]
       if win and (r.w < L.min_width or r.h < (focusable(r.name) and 2 or 1)) then
         if background then area:fill(0, 0, r.w, r.h, " ", background) end
-        area:text(0, 0, paw.util.fit("too small", r.w), "TooSmall")
+        area:text(0, 0, util.fit("too small", r.w), "TooSmall")
       elseif view.live_part then
         -- All of it moves (the status line's clock): a live part.
-        M.live(area, function(b)
+        M.live(area, function(b: Buf)
           if background then b:fill(0, 0, b.width, b.height, " ", background) end
           draw(view, b, ctx)
         end)
@@ -845,16 +1178,17 @@ function M.render_screen(buf)
   L.settle()
   if #resized > 0 then
     paw.defer(function()
-      for _, id in ipairs(resized) do paw.emit("win.resized", { win = id }) end
+      for _, id in ipairs(resized) do events.emit(win_resized, { win = id }) end
     end)
   end
   if M.rects.tabline then
     -- The tabs along the top, the current one bright. Its sections may
     -- show what moves, as the status line's do: a live part.
     local tabline = M.rects.tabline
-    M.live(buf:sub(0, 0, buf.width, 1), function(line)
+    M.live(buf:sub(0, 0, buf.width, 1), function(line: Buf)
       line:fill(0, 0, line.width, 1, " ", "TitleBar")
-      local x, spans = 0, {}
+      local x = 0
+      local spans: {L.Span} = {}
       for i, t in ipairs(M.tabs) do
         local mine = i == M.tab
         local used = line:text(x, 0, (mine and g.mark or " ") .. i .. " " .. L.tab_title(t) .. " ", mine and "TitleBarNameFocus" or "TitleBarName")
@@ -880,7 +1214,8 @@ function M.render_screen(buf)
     M.rects[#M.rects + 1] = r
     draw(M.views[r.name], inner, { focused = true, x = r.x, y = r.y })
     -- The float's keys along its bottom border, as on the key line.
-    local entries = M.keybar and M.keybar.lines[r.name] and M.keybar.entries() or {}
+    local entries: {KeyHint} = {}
+    if M.keybar and M.keybar.lines[r.name] then entries = M.keybar.entries() end
     if #entries > 0 and r.w > 12 then
       local footer = outer:sub(2, r.h + 1, r.w - 2, 1)
       local used = paw.draw.keys(footer, 1, 0, entries, r.w - 4, "FloatFooter")
@@ -901,7 +1236,7 @@ end
 --- main area also shows a window of the layout this way (`M.view_win`,
 --- while paw draws it). Braille shows there as dots (`paw.canvas`),
 --- because the font has no braille.
-function M.render_view(name, buf)
+function M.render_view(name: string, buf: Buf)
   M.screen = false
   local view = M.views[name]
   buf:fill(0, 0, buf.width, buf.height, " ", backgrounds[name] or "Normal")
@@ -927,7 +1262,7 @@ end
 --- fills of the scene. The strips that the view keeps under them become its
 --- pictures. A view that paints is one picture of the whole area. The kernel
 --- keeps the scene, and `paw.api.scene_end` tells what changed in it.
-function M.render_scene(name, w, h, cell, win)
+function M.render_scene(name: string, w: number, h: number, cell: types.Size, win?: Node)
   local view = M.views[name]
   api.scene_begin(w, h)
   if view and view.paint then
@@ -935,31 +1270,31 @@ function M.render_scene(name, w, h, cell, win)
     if win then L.bind(win) end
     -- What the view marks over its picture (`ctx.marks`): roles that the
     -- frontend paints, such as a playhead that the live values move.
-    local marks = {}
-    local ok, drawing = pcall(paw.canvas.paint, name, px[1], px[2], { cell = cell, glyphs = true, marks = marks })
+    local marks: {contracts.PaintMark} = {}
+    local ok, drawing = pcall(paw.canvas.paint, name, px[1], px[2], { cell = cell, glyphs = true, marks = marks }) as (boolean, Drawing)
     L.settle()
     if not ok then error(drawing, 0) end
     api.scene_picture({ x = 0, y = 0, w = w, h = h }, { ops = drawing and drawing.ops or {}, px = px })
     for i, m in ipairs(marks) do
-      local r = { x = m.x / cell.w, y = m.y / cell.h, w = m.w / cell.w, h = m.h / cell.h }
-      local props = {}
-      for k, v in pairs(m.props or {}) do
+      local r: types.Rect = { x = m.x / cell.w, y = m.y / cell.h, w = m.w / cell.w, h = m.h / cell.h }
+      local props: {string:Bound} = {}
+      for k, v in pairs((m.props or {}) as {string:Bound}) do
         if k ~= "bind" then props[k] = v end
       end
-      if api.scene_open(r, { role = m.role, props = props, bind = m.props and m.props.bind, key = "mark:" .. i }) then api.scene_close() end
+      if api.scene_open(r, { role = m.role, props = props as role_props.Props, bind = m.props and m.props.bind, key = "mark:" .. i }) then api.scene_close() end
     end
     return
   end
   -- The roles it marks are nodes of the scene (paw/roles.tl).
   M.view_win, M.pictures, M.scene_drawing = win, {}, true
-  local ok, err = pcall(api.scene_draw, name, math.floor(w), math.floor(h))
+  local ok, err = pcall(api.scene_draw, name, math.floor(w), math.floor(h)) as (boolean, string)
   local pictures = M.pictures
   M.view_win, M.pictures, M.scene_drawing = nil, nil, nil
   L.settle()
   if not ok then error(err, 0) end
   for _, p in ipairs(pictures) do
     -- The whole strip, cut to the part that shows.
-    local px = { w = p.whole_w * cell.w, h = p.whole_h * cell.h, cell = { w = cell.w, h = cell.h },
+    local px: contracts.StripPixels = { w = p.whole_w * cell.w, h = p.whole_h * cell.h, cell = { w = cell.w, h = cell.h },
       view = { x = p.left * cell.w, y = p.top * cell.h, w = p.w * cell.w, h = p.h * cell.h } }
     api.scene_picture({ x = p.x - p.left, y = p.y - p.top, w = p.whole_w, h = p.whole_h }, {
       ops = paw.canvas.draw(p.draw, px), px = { px.w, px.h }, under = true,
@@ -970,9 +1305,9 @@ end
 
 --- List the keys that can follow a half-typed command, in a box along the
 --- bottom of the screen.
-function M.draw_hints(buf)
-  if not paw.opt.hints then return end
-  local hints, title = paw.keymap.hints()
+function M.draw_hints(buf: Buf)
+  if not opt.hints then return end
+  local hints, title = keymap().hints()
   if not hints then return end
   local width = 0
   for _, hint in ipairs(hints) do width = math.max(width, api.str_width(hint.key) + api.str_width(hint.desc) + 4) end
@@ -986,7 +1321,7 @@ function M.draw_hints(buf)
     if col < columns then
       local x = col * width
       local used = inner:text(x + 1, row, hint.key, "HintKey")
-      inner:text(x + 2 + used, row, paw.util.fit(hint.desc, math.max(1, width - used - 3)), "Normal")
+      inner:text(x + 2 + used, row, util.fit(hint.desc, math.max(1, width - used - 3)), "Normal")
     end
   end
 end
@@ -994,8 +1329,7 @@ end
 --- Open a view in a float over the other views. It takes the keyboard
 --- until `paw.ui.close()`.
 ---   paw.ui.open("help", { title = "Keys", width = 80, height = 30 })
---- @type function(name: string, opts?: contracts.FloatOptions)
-function M.open(name, opts)
+function M.open(name: string, opts?: contracts.FloatOptions)
   if not M.views[name] then error("no view `" .. tostring(name) .. "`", 2) end
   opts = opts or {}
   M.float = { name = name, title = opts.title, width = opts.width, height = opts.height, top = opts.top, back = M.float and M.float.back or M.focused }
@@ -1016,17 +1350,25 @@ function M.close()
   api.ui_redraw()
 end
 
+--- A copy of an event with other fields laid over it.
+local function merged(event: MouseEvent, extra: MouseEvent): MouseEvent
+  local out: MouseEvent = {}
+  for k, v in pairs(event as {string:Bound}) do (out as {string:Bound})[k] = v end
+  for k, v in pairs(extra as {string:Bound}) do (out as {string:Bound})[k] = v end
+  return out
+end
+
 --- A border between two windows held from a press: it follows the pointer.
-local function hold_border(event, border, only_moved)
-  paw.mouse.grab(paw.util.merge(event, { view_x = 0, view_y = 0 }), {
-    drag = function(d) L.drag_border(border, M.rects, d.x, d.y) end,
-    up = function(u)
+local function hold_border(event: MouseEvent, border: L.Border, only_moved?: boolean)
+  paw.mouse.grab(merged(event, { view_x = 0, view_y = 0 }), {
+    drag = function(d: MouseEvent) L.drag_border(border, M.rects, d.x, d.y) end,
+    up = function(u: MouseEvent)
       if u.moved or not only_moved then L.drag_border(border, M.rects, u.x, u.y) end
     end,
   })
 end
 
-local function route(event)
+local function route(event: MouseEvent)
   local tabline = M.rects.tabline
   if tabline and event.y == tabline.y and not M.float then
     -- A click on a tab goes to it.
@@ -1035,7 +1377,7 @@ local function route(event)
     end
     return
   end
-  local target
+  local target: ScreenRect
   for _, r in ipairs(M.rects) do
     if event.x >= r.x and event.x < r.x + r.w and event.y >= r.y and event.y < r.y + r.h then target = r end
   end
@@ -1068,7 +1410,7 @@ local function route(event)
   local under = target.win and L.find_id(M.layout, target.win)
   if under then L.bind(under) end
   if paw.mouse.to_surface(target, event) then return end
-  local e = paw.util.merge(event, {
+  local e = merged(event, {
     x = event.x - target.x, y = event.y - target.y, view_x = target.x, view_y = target.y, w = target.w, h = target.h,
     win = target.win,
   })
@@ -1084,7 +1426,7 @@ end
 --- relative to that view (and `view_x`, `view_y`, `w`, `h`, the position of
 --- the view). First, the floats over the views and a gesture in progress
 --- get it (`paw.mouse`).
-function M.mouse(event)
+function M.mouse(event: MouseEvent)
   if paw.mouse.take(event) then return end
   route(event)
   paw.mouse.done(event)
@@ -1093,14 +1435,14 @@ end
 
 -- The timer that takes the message shown off the screen, while one is due:
 -- one for any number of messages, so that a flood of them stays cheap.
-local clearing
+local clearing: integer
 
-local function clear_later(ms)
+local function clear_later(ms: number)
   clearing = paw.defer(function()
     clearing = nil
     local message = M.message
     if not message then return end
-    local left = message.time + paw.opt.message_time - api.now()
+    local left = message.time + opt.message_time - api.now()
     if left > 0 then return clear_later(left) end
     M.message = nil
     api.ui_redraw()
@@ -1108,12 +1450,11 @@ local function clear_later(ms)
 end
 
 --- Show a message. `level` is "info" (default), "warn" or "error".
---- @type function(text: string, level?: string)
-function M.notify(text, level)
+function M.notify(text: string, level?: string)
   -- What the kernel refused, as it said it, without the prefix its errors
   -- carry through Lua.
-  text, level = tostring(text):gsub("runtime error: ", ""), level or "info"
-  local message = { text = text, level = level, time = api.now() }
+  text, level = (tostring(text):gsub("runtime error: ", "")), level or "info"
+  local message: Message = { text = text, level = level, time = api.now() }
   M.messages[#M.messages + 1] = message
   if #M.messages > 500 then table.remove(M.messages, 1) end
   api.log(string.format("[%s] %s", level, text))
@@ -1121,17 +1462,17 @@ function M.notify(text, level)
   -- frontend shows `M.message` like the command line does.
   if not api.ui_attached() then io.stderr:write(text, "\n") end
   M.message = message
-  if not clearing then clear_later(paw.opt.message_time) end
+  if not clearing then clear_later(opt.message_time) end
   api.ui_redraw()
 end
 
 -- Every group as it was defined, so that the colours can be made again for
 -- a terminal that shows fewer of them (`paw.opt.termcolors`).
-local defined = {}
+local defined: {string:Style} = {}
 local set_raw = api.hl_set
-local truecolor = nil
+local truecolor: boolean = nil
 
-local function set(name, def)
+local function set(name: string, def: Style)
   defined[name] = def
   if truecolor == nil then truecolor = paw.draw.truecolor() end
   -- A window draws the group as defined, whatever the terminal shows.
@@ -1146,12 +1487,12 @@ api.hl_set = set
 --- Colors are `#rrggbb`, or a number for one of the 256 colors of the
 --- terminal. On a terminal without 24-bit color, each `#rrggbb` shows as
 --- the nearest of the 256.
-function M.hl(name, def)
+function M.hl(name: string, def: string | types.CellStyle)
   set(name, def)
 end
 
 --- Define many highlight groups at once.
-function M.theme(groups)
+function M.theme(groups: {string:string | types.CellStyle})
   for name, def in pairs(groups) do set(name, def) end
 end
 
@@ -1162,7 +1503,7 @@ function M.recolour()
   api.ui_redraw()
 end
 
-paw.on("option.changed", function(event)
+events.on(option_changed, function(event: OptionChanged)
   if event.name == "termcolors" then M.recolour() end
   if event.name == "ascii" then paw.draw.use_glyphs() end
 end)
@@ -1173,8 +1514,11 @@ end)
 --- options are those of the command line (`paw.views.cmdline.open`):
 --- `complete`, `history`, `on_change` (live preview), `anchor` (draw it
 --- next to its subject), `on_key`.
-function M.input(opts, on_submit)
-  require("paw.views.cmdline").open(opts, on_submit)
+function M.input(opts: InputOptions, on_submit: function(text: string))
+  local record Cmdline
+    open: function(opts: InputOptions, on_submit: function(text: string))
+  end
+  (require as function(string): Cmdline)("paw.views.cmdline").open(opts, on_submit)
 end
 
 M.redraw = api.ui_redraw
@@ -1191,27 +1535,25 @@ M.layers = {}  -- view -> part -> { { name, order, paint } }
 --- Draw `paint(ctx)` as a layer of a part of a view (`"arrange", "header"`).
 --- It replaces a layer with the same name (nil removes it). The view tells
 --- what `ctx` contains where it calls `paw.ui.paint`.
-function M.layer(view, part, name, order, paint)
+function M.layer<C>(view: string, part: string, name: string, order: number, paint?: Paint<C>)
   M.layers[view] = M.layers[view] or {}
   local list = M.layers[view][part] or {}
   for i = #list, 1, -1 do
     if list[i].name == name then table.remove(list, i) end
   end
-  if paint then list[#list + 1] = { name = name, order = order, paint = paint } end
-  table.sort(list, function(a, b) return a.order < b.order end)
+  if paint then list[#list + 1] = { name = name, order = order, paint = paint as function(ctx: Bound) } end
+  table.sort(list, function(a: Layer, b: Layer): boolean return a.order < b.order end)
   M.layers[view][part] = list
   api.ui_redraw()
 end
 
 --- Draw the layers of a part of a view: views call this where the part is drawn.
-function M.paint(view, part, ctx)
+function M.paint<C>(view: string, part: string, ctx: C)
   local list = M.layers[view] and M.layers[view][part]
   if not list then return end
-  for _, layer in ipairs(list) do layer.paint(ctx) end
+  for _, layer in ipairs(list) do layer.paint(ctx as Bound) end
 end
 
---- The locator of each view, by the view's name (`paw.ui.locator`).
---- @type {string:contracts.Locator}
 M.locators = {}
 
 --- Say how a view places locations (`{ uri, selector }`):
@@ -1219,12 +1561,11 @@ M.locators = {}
 ---   position()      where its cursor is, as a list of numbers to sort by
 ---   place(location) where a location is in it, the same way, or nil when it does not show it
 ---   go(location)    put its cursor there
---- @type function(view: string, spec: contracts.Locator)
-function M.locator(view, spec) M.locators[view] = spec end
+function M.locator(view: string, spec: contracts.Locator) M.locators[view] = spec end
 
 --- The location under the cursor of the focused view (or `view`). With
 --- `win`, the cursor of that window: each window of a view has its own.
-function M.location(view, win)
+function M.location(view?: string, win?: Node): contracts.Location
   local loc = M.locators[view or M.focused]
   if not loc then return nil end
   if win then return L.within(win, loc.at) end
@@ -1234,12 +1575,12 @@ end
 --- Go to a location in the view that shows it best, and focus that view.
 --- The piano roll shows notes, the device panel shows devices and
 --- parameters, and the arrange view shows tracks and time.
-function M.go(location)
+function M.go(location: contracts.Location)
   for _, name in ipairs({ "pianoroll", "devices", "arrange", "mixer" }) do
     local loc = M.locators[name]
     -- A window of the view that shows the place already has it first.
     for _, win in ipairs(loc and L.windows(M.layout) or {}) do
-      if win.view == name and L.within(win, loc.place, location) then
+      if win.view == name and L.within(win, function(): {number} return loc.place(location) end) then
         L.enter(win)
         return loc.go(location)
       end
@@ -1258,23 +1599,23 @@ end
 -- and the kernel sends only the cells that changed: no frame when nothing
 -- did. No timer runs while nothing moves: the song starting, a note played
 -- (`poke`) or any frame wakes it again.
-local active_until = 0
+local active_until: number = 0
 -- The timer of the next frame, while one waits.
-local ticker
+local ticker: integer
 
 --- How many milliseconds at least go between two frames while something
 --- moves: 1000 / `paw.opt.fps`, as the option is now.
-function M.frame_ms()
-  return 1000 / paw.opt.fps
+function M.frame_ms(): number
+  return 1000 / opt.fps
 end
 
 --- True if something moves on its own now: the song plays, or a moment
 --- after activity (`poke`), while meters fall.
-function M.active()
+function M.active(): boolean
   return api.transport_get().playing or api.now() < active_until
 end
 
-local function moving()
+local function moving(): boolean
   return api.ui_attached() and M.active()
 end
 
@@ -1293,7 +1634,7 @@ function M.wake()
 end
 
 --- Keep the screen animated for some time, for example after paw plays a note.
-function M.poke(ms)
+function M.poke(ms?: number)
   active_until = math.max(active_until, api.now() + (ms or 1500))
   M.wake()
   -- And what graphical frontends are sent.
@@ -1303,9 +1644,9 @@ end
 
 --- Draw what moves while the song plays: from when it starts.
 function M.start_ticker()
-  paw.on("transport.play", M.wake)
+  events.on(kernel.transport_play, function() M.wake() end)
   -- The meters fall for a moment after the song stops.
-  paw.on("transport.stop", function() M.poke(1500) end)
+  events.on(kernel.transport_stop, function() M.poke(1500) end)
   M.wake()
 end
 

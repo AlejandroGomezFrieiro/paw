@@ -11,8 +11,6 @@ paw.api.json_decode 1 truly any JSON value
 paw.api.json_encode 1 truly any Lua value that JSON can hold
 paw.api.project_backup 1 the script's own note, any JSON value
 paw.api.project_recover 1 the note that project_backup was given, as it was given
-paw.api.project_screen 1 the tabs and windows as paw.layout keeps them: typed when it is ported (wave 4)
-paw.api.project_screen_set 1 the tabs and windows as paw.layout keeps them: typed when it is ported (wave 4)
 paw.api.rpc_push 1 truly any JSON payload of an event that a script pushes
 paw.api.state_get 1 truly any value a script kept with state_set
 paw.api.state_set 1 truly any value a script keeps over a reload
@@ -21,7 +19,6 @@ paw.api.toml_encode 1 truly any Lua value that TOML can hold
 paw.audio 1 written in Lua: typed when its module is ported to Teal
 paw.autosave 1 written in Lua: typed when its module is ported to Teal
 paw.bounce 1 written in Lua: typed when its module is ported to Teal
-paw.buf 1 written in Lua: typed when its module is ported to Teal
 paw.command 1 written in Lua: typed when its module is ported to Teal
 paw.controls 1 written in Lua: typed when its module is ported to Teal
 paw.device_rows 1 written in Lua: typed when its module is ported to Teal
@@ -40,18 +37,14 @@ paw.is_chain_file 1 written in Lua: typed when its module is ported to Teal
 paw.json 1 written in Lua: typed when its module is ported to Teal
 paw.keymap 1 written in Lua: typed when its module is ported to Teal
 paw.keyrule 1 written in Lua: typed when its module is ported to Teal
-paw.layout 1 written in Lua: typed when its module is ported to Teal
-paw.layouts 1 written in Lua: typed when its module is ported to Teal
 paw.learn 1 written in Lua: typed when its module is ported to Teal
 paw.loading 1 written in Lua: typed when its module is ported to Teal
 paw.lsp 1 written in Lua: typed when its module is ported to Teal
 paw.luadev 1 written in Lua: typed when its module is ported to Teal
 paw.media 1 written in Lua: typed when its module is ported to Teal
 paw.mixer_rows 1 written in Lua: typed when its module is ported to Teal
-paw.mouse 1 written in Lua: typed when its module is ported to Teal
 paw.open 1 written in Lua: typed when its module is ported to Teal
 paw.open_chain 1 written in Lua: typed when its module is ported to Teal
-paw.panes 1 written in Lua: typed when its module is ported to Teal
 paw.params 1 written in Lua: typed when its module is ported to Teal
 paw.pick 1 written in Lua: typed when its module is ported to Teal
 paw.plugins 1 written in Lua: typed when its module is ported to Teal
@@ -71,12 +64,9 @@ paw.scope 1 written in Lua: typed when its module is ported to Teal
 paw.state 1 written in Lua: typed when its module is ported to Teal
 paw.stems 1 written in Lua: typed when its module is ported to Teal
 paw.stretch 1 written in Lua: typed when its module is ported to Teal
-paw.tab 1 written in Lua: typed when its module is ported to Teal
 paw.textbuf 1 written in Lua: typed when its module is ported to Teal
 paw.toml 1 written in Lua: typed when its module is ported to Teal
 paw.track_kinds 1 written in Lua: typed when its module is ported to Teal
 paw.try 1 written in Lua: typed when its module is ported to Teal
-paw.ui 1 written in Lua: typed when its module is ported to Teal
 paw.version 1 written in Lua: typed when its module is ported to Teal
-paw.win 1 written in Lua: typed when its module is ported to Teal
 types.Meta 1 an extension's own data in `meta`, any JSON value: the extension gives it a record of its own

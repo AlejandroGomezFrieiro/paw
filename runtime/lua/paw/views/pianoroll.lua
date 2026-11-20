@@ -931,7 +931,7 @@ function view:change(fn)
 end
 
 -- Its title row has buttons of its own (`view.title_tools`): a graphical
--- frontend shows it rather than a title of its own over it (paw/panes.lua).
+-- frontend shows it rather than a title of its own over it (paw/panes.tl).
 view.titled = true
 -- What moves on its own as the song plays is the playhead: a frontend that
 -- paints it with the live values needs no new scene of the roll for it.

@@ -506,7 +506,7 @@ function M.teal_modules()
     end
   end
   -- A module in Teal that is a value of a module in Lua (`paw.ui.Buf`, the
-  -- module paw.buf, of paw/ui.lua) is no field of the record of `paw`, which
+  -- module paw.buf, of paw/ui.tl) is no field of the record of `paw`, which
   -- types that module as partial.d.tl does: it is left out until its parent
   -- is in Teal too.
   local teal_name = {}
