@@ -188,7 +188,10 @@ live in the terminal. The trackers and sequencers
 [terminal-tracker](https://github.com/2bt/terminal-tracker),
 [PLEBTracker](https://github.com/danfrz/PLEBTracker),
 [teqqer](https://github.com/fps/teqqer) and
-[cquencer](https://github.com/dnewcome/cquencer) run in ncurses. Other ideas come from
+[cquencer](https://github.com/dnewcome/cquencer) run in ncurses. Other
+DAWs also run in a terminal: [Phosphor](https://github.com/joshjetson/phosphor),
+[SHR-DAW](https://github.com/PaolaShultz/shr-daw) for a Raspberry Pi, and
+the terminal interface of [daw-ai](https://github.com/hrubiian/daw-ai). Other ideas come from
 [Ardour](https://ardour.org), [Bitwig Studio](https://www.bitwig.com),
 [Renoise](https://www.renoise.com), [Dorico](https://www.steinberg.net/dorico/),
 [MuseScore](https://musescore.org) and [TidalCycles](https://tidalcycles.org).
