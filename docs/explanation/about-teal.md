@@ -237,7 +237,7 @@ work of one agent. The areas of one wave do not depend on each other.
 | Done | Drawing | `buf`, `draw`, `canvas`, `roles`, `scene`, `theme`, `plot`, `statusline`: 4,740 lines of Teal, 6 fewer entries on the allow-list, and no `any` or `paw.Untyped` in these modules | 3,700 | wave 2 |
 | 4 | Windows | `ui`, `layout`, `panes`, `mouse`, the menus | 4,500 | wave 3 |
 | Done | Editors: Ex and text buffers | `ex`, `textbuf`: 4,817 lines of Teal, `paw.ex` and `paw.command` typed (the types of commands are contracts now), 3 fewer entries on the allow-list, and no `any` or `paw.Untyped` in these modules | 4,100 | wave 3 |
-| 4 | Editors: pickers and help | `pick` and `pick/`, `help`, `lsp/` | 4,900 | wave 3 |
+| Done | Editors: pickers, help and language servers | `pick` and `pick/`, `help`, `lsp/`: 8,039 lines of Teal, 3 fewer entries on the allow-list, and no `any` or `paw.Untyped` in these modules | 4,900 | wave 3 |
 | Done | The frontend | `frontend`, `remote`, `render`, `media`: 5,290 lines of Teal, 9 fewer entries on the allow-list, and no `any` or `paw.Untyped` in these modules | 3,800 | wave 3 |
 | 5 | Keys and views | `keymap`, `keyrule`, `keybar`, `defaults/`, `views/`, `roles/` | 15,000 | wave 4, and the work on the keys that runs now |
 | 5 | Extensions | one agent for each: `notation` (20,000), `utau` (8,000), `plugstate` (5,700), `interop` (4,000), the others (under 3,200 each) | 60,000 | the modules of paw that each uses |
@@ -515,6 +515,44 @@ entries.
   uses the types of `paw.query` now.
 - The checker found no error that changed what the code does: the tests
   pass with no change.
+
+## What the checker found in the pickers, help and language servers
+
+- A picker's items are of its own type, so the sources are generic:
+  `paw.contracts.PickSource<T>`. `paw.pick` keeps the items of the open
+  picker as `paw.pick.Item` and gives them back to the functions of the
+  picker. The sources of the runtime are pickers of records
+  (`paw.pick.sources.TrackLine`, `paw.help.Tag`, `paw.query.Node`).
+- The picker of the Lua API walks the `paw` global, whose tables also
+  have number keys. The first port read each key as a name, and the
+  search tests found the error. The port tests that a key is a name, as
+  the Lua did.
+- `paw.pick.sources` held `_walk`, a function that is no picker, for a
+  test. The function is `paw.pick.walk` now, and the test calls it there.
+- The place of the pointer is a number, and a row of the picker is an
+  integer. The port rounds the place down to the row that it is in.
+- `paw.contracts.Selector` did not have `seconds`, the time range in a
+  render that a one-shot server gives, or `line` and `col`, which help
+  gives for its pages. It has them now.
+- A one-shot server with a command of one word as text stopped with an
+  error, because its command was read as a list. It is a list of one word
+  now, as for a server that runs as a process.
+- The `edit` of an item that a server suggests went to `paw.complete`,
+  which does not read it. The port does not send it.
+- A message of JSON-RPC is a record (`paw.lsp.rpc.Message`). The
+  parameters and the result of a message are `paw.lsp.rpc.Payload`, a
+  record with no fields: each handler casts it to the record of its
+  method. The settings of a server are JSON values (`paw.util.Data`).
+- The records that the adapters and paw share (a client, its config, a
+  document, an adapter) are in paw/lsp/standard.tl. paw/lsp/init.tl
+  requires that module, so the two modules do not need the types of each
+  other.
+- `lsp.status` and `lsp.analysis` have the descriptors
+  `paw.lsp.status_changed` and `paw.lsp.analysed`.
+- `paw.pick` needs the types of `paw.qf` and `paw.commands`, and these
+  modules call `paw.pick`. So `paw.commands`, `paw.grep`, `paw.takes`,
+  `paw.markers`, `paw.diagnostic` and `paw.snippet` declare the part of
+  `paw.pick` that they call.
 
 ## What the checker found in the frontend
 

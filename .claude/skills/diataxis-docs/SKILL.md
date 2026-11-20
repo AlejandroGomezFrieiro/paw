@@ -146,7 +146,7 @@ it is the one place where kinds sit side by side, each under its heading.
 
 Rules specific to paw:
 
-- **:help reads these files** (runtime/lua/paw/help.lua): docs/**.md,
+- **:help reads these files** (runtime/lua/paw/help.tl): docs/**.md,
   extensions' README.md and doc/*.md. Tags come from headings and from code
   spans at their first description, so keep each key, command (`:s`),
   option (`'timebind'`) and Lua name described once, in reference, in the

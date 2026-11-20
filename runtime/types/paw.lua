@@ -3624,9 +3624,9 @@ function paw.help.excerpt_for_map(map, width, rows) end
 --- Vim. First the tag itself, then the tags that start with it, the tags
 --- that contain it, and the tags that contain its letters in order. You can
 --- write keys in the two ways: `<C-w>o` finds `Ctrl-w o`.
----@param topic any
+---@param given any
 ---@param limit any
-function paw.help.find(topic, limit) end
+function paw.help.find(given, limit) end
 
 --- `Ctrl-]`: follow the link under the cursor, or find the code or the word there.
 function paw.help.follow() end
@@ -3641,8 +3641,8 @@ function paw.help.for_command(name) end
 function paw.help.for_map(map) end
 
 --- `:helpgrep`: every line of help that holds the words, in the quickfix list.
----@param pattern any
-function paw.help.grep(pattern) end
+---@param given any
+function paw.help.grep(given) end
 
 --- What help knows: `{ sources, tags = name -> { name, source, row, col }, list }`.
 function paw.help.index() end
@@ -4746,7 +4746,7 @@ function paw.loading.toggle(device) end
 ---@param cb any
 function paw.lsp.actions_at(location, cb) end
 
---- Add a dialect: how a kind of server is spoken to (see paw/lsp/standard.lua
+--- Add a dialect: how a kind of server is spoken to (see paw/lsp/standard.tl
 --- for the functions an adapter has; any it leaves out are the standard ones).
 ---@param name any
 ---@param spec any
@@ -4831,7 +4831,9 @@ function paw.lsp.document(which, uri) end
 function paw.lsp.enable(name, on) end
 
 --- True if a server that runs (a client or its name) gives a feature:
---- "hover", "completion", "actions", "diagnostics", "analysis".
+--- "hover", "completion", "actions", "diagnostics", "analysis", or
+--- "completion" with a lane: `has(name, "completion", "velocity")`. LSP's
+--- names (`hoverProvider`, `completionProvider`) are taken too.
 ---@param which any
 ---@param feature any
 ---@param lane any
@@ -4901,7 +4903,7 @@ function paw.lsp.show_lines(location, lines, sections) end
 ---@param name any
 function paw.lsp.stop(name) end
 
---- Add a subject (see paw/lsp/subjects.lua).
+--- Add a subject (see paw/lsp/subjects.tl).
 ---@param name any
 ---@param spec any
 function paw.lsp.subject(name, spec) end
@@ -5580,9 +5582,9 @@ function paw.pick.match(query, text, want_positions, mode) end
 
 --- Open a picker. See the top of this file for the fields of `spec`, or pass
 --- the name of a source. Returns the picker's state.
----@param spec any
+---@param given any
 ---@param extra any
-function paw.pick.open(spec, extra) end
+function paw.pick.open(given, extra) end
 
 --- Open the last picker again, as it was: what was typed, the mode, the
 --- line selected. Its items are read again.
@@ -5591,13 +5593,18 @@ function paw.pick.resume() end
 --- Show a location: in place (`how` nil), or in a new window to the side
 --- ("vsplit"), below ("split") or in a new tab ("tab"). The view that shows
 --- it best moves there. Returns true if there was a place to go.
----@param loc any
+---@param where any
 ---@param how any
-function paw.pick.show(loc, how) end
+function paw.pick.show(where, how) end
 
 --- The open picker, if any: its query, the matches as lines, and the item
 --- under the selection. For tests and for frontends.
 function paw.pick.state() end
+
+--- Project and audio files under `root`, walking at most `limit` entries.
+---@param root any
+---@param limit any
+function paw.pick.walk(root, limit) end
 
 --- A color `#rrggbb` at `alpha` (0 to 1), as `#rrggbbaa`.
 ---@param colour any

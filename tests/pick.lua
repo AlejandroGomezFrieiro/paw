@@ -307,7 +307,7 @@ test("pick: files opens projects and imports audio", function()
   os.execute("cp tests/fixtures/tone-mono-8k.wav '" .. dir .. "/sub/take.wav'")
   os.execute("cp tests/fixtures/tone-mono-8k.wav '" .. dir .. "/sub/.hidden/no.wav'")
   local found = {}
-  for _, f in ipairs(pick.sources._walk(dir, 1000)) do found[#found + 1] = f.kind .. ":" .. f.path:sub(#dir + 2) end
+  for _, f in ipairs(pick.walk(dir, 1000)) do found[#found + 1] = f.kind .. ":" .. f.path:sub(#dir + 2) end
   table.sort(found)
   eq(table.concat(found, " "), "audio:sub/take.wav project:song.json", "projects and audio, not other JSON or hidden files")
 

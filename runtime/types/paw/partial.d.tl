@@ -32,13 +32,6 @@ local record partial
       buftype: function<B is contracts.Buftype>(name: string, def: B): B
       metamethod __index: function(Layout, string): Untyped
    end
-   record Pick
-      open: function<T>(spec: contracts.PickSource<T>)
-      open: function(name: string, extra?: contracts.PickExtra)
-      sources: {string:contracts.PickEntry}
-      metamethod __call: function<T>(Pick, spec: string | contracts.PickSource<T>, extra?: contracts.PickExtra)
-      metamethod __index: function(Pick, string): Untyped
-   end
    record TrackKinds
       define: function(name: string, spec: contracts.TrackKind): contracts.TrackKind
       metamethod __index: function(TrackKinds, string): Untyped
@@ -74,7 +67,6 @@ local record partial
       layout: Layout
       notify: function(text: string, level?: string)
       off: function(id: integer)
-      pick: Pick
       render_cancel: function(): boolean
       render_tags: function(set?: types.RenderTags): types.RenderTags
       timers: {integer:function()}

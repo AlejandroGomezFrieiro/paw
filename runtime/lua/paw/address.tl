@@ -160,6 +160,7 @@ local record M
   type Scheme = Scheme
   type Param = Param
   type Rendered = Rendered
+  type RenderOptions = RenderOptions
   type Changed = Changed
   --- The kinds of address of extensions, by name.
   schemes: {string: Scheme}
