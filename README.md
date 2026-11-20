@@ -180,7 +180,15 @@ paw takes ideas from [Neovim](https://neovim.io),
 can control a DAW: [reaper-keys](https://github.com/gwatcha/reaper-keys),
 [vimper](https://github.com/ggVGc/vimper),
 [reavim-ext](https://github.com/AntoineBalaine/reavim-ext) and
-[ReaLeader](https://github.com/SV3A/ReaLeader). Other ideas come from
+[ReaLeader](https://github.com/SV3A/ReaLeader). Music in the terminal is
+older than paw. [Ecasound](https://ecasound.seul.org) and
+[Nama](https://metacpan.org/pod/Nama) record, edit and mix from a command
+line. [Orca-c](https://github.com/hundredrabbits/Orca-c) is a grid that you program
+live in the terminal. The trackers and sequencers
+[terminal-tracker](https://github.com/2bt/terminal-tracker),
+[PLEBTracker](https://github.com/danfrz/PLEBTracker),
+[teqqer](https://github.com/fps/teqqer) and
+[cquencer](https://github.com/dnewcome/cquencer) run in ncurses. Other ideas come from
 [Ardour](https://ardour.org), [Bitwig Studio](https://www.bitwig.com),
 [Renoise](https://www.renoise.com), [Dorico](https://www.steinberg.net/dorico/),
 [MuseScore](https://musescore.org) and [TidalCycles](https://tidalcycles.org).

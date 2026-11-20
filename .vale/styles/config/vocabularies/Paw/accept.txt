@@ -263,3 +263,8 @@ Celemony's
 yabridge
 quantiles
 fuzzer
+Ecasound
+PLEBTracker
+teqqer
+cquencer
+ncurses
