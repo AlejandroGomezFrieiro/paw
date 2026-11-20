@@ -14,8 +14,8 @@ the same project, and all of it also works from the keyboard.
 nix run .#paw-gui -- -e 'dofile("examples/demo-song.lua")'
 ```
 
-The window starts a kernel of its own with the demo song. Press `Space` to
-play it. Drag a clip on the timeline, then press `u` to undo the move.
+The window starts a kernel of its own with the demo song. Press `Space` two
+times to play it. Drag a clip on the timeline, then press `u` to undo the move.
 
 ![The window's panes: arrange, device panel, piano roll, tracks as text](../../docs/images/gui-panes.png)
 

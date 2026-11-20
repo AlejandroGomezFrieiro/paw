@@ -24,9 +24,9 @@ Each track has an automation mode: `track.automation`.
 | --- | --- |
 | `:automation touch` | Set the mode of the track. |
 | `:automation read all` | Set the mode of every track. |
-| `:automation`, `,am` | The next mode. |
-| `:lane.write`, `,aw` | Write on, for the full song. Again: off. `:lane.write off`: off. |
-| `,al` | Select what to automate, and show its lane. |
+| `:automation`, `<Space>am` | The next mode. |
+| `:lane.write`, `<Space>aw` | Write on, for the full song. Again: off. `:lane.write off`: off. |
+| `<Space>al` | Select what to automate, and show its lane. |
 
 In the graphical window, the `A` flag on the track header shows the mode.
 
@@ -63,7 +63,7 @@ Each state has a `name` and one or more of these fields:
 
 | Keys, command | Effect |
 | --- | --- |
-| `,al`, then `state` | Make the state lane of a device of the track, and show its row. |
+| `<Space>al`, then `state` | Make the state lane of a device of the track, and show its row. |
 | `\s` on the lane's row, `:lane.state [name]` | Keep the device's state now (its saved state and its parameters) as a state of the lane, and give it from the cursor. The default name is the name of the device's preset, or the next free letter. |
 | `c` on the lane's row | Choose the state of the point under the cursor, or of a new point there, from a list. |
 | `+` `-` | Give the point under the cursor the next or the previous state. |

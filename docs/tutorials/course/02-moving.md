@@ -55,7 +55,7 @@ The tutor opens a practice project for this lesson. It checks each step when you
    - ✓ The piano roll gets the keys now.
 13. Here the rows are pitches, so `k` moves up one semitone, not one track. Press `k` two times. You hear each pitch.
    - ✓ The key is the same, but the view and the meaning are different. It still moves up.
-14. `<Esc>` stays in the current window, in each view. `<C-w>p` returns to the previous window. Press `<C-w>p`. Then press `gp` to move the playhead to the cursor. Press `<Space>` to play and `<Space>` to stop.
+14. `<Esc>` stays in the current window, in each view. `<C-w>p` returns to the previous window. Press `<C-w>p`. Then press `gp` to move the playhead to the cursor. Press `<Space><Space>` to play and `<Space><Space>` to stop.
    - *Hint:* If the terminal knows `<S-CR>` (Shift and Enter) from Enter, `<S-CR>` plays from the cursor in one step.
    - ✓ The song played from bar 5, where the melody starts.
 

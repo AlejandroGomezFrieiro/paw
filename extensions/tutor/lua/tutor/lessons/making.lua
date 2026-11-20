@@ -71,8 +71,8 @@ the cursor draws notes, not text. `grn` renames, as in the LSP keys of Neovim.]]
       done = "The arrange view gets the keys again, in NORMAL mode.",
     },
     {
-      say = "Press `<Space>` to hear your notes with the drums. Press `<Space>` again to stop.",
-      keys = { "<Space>", { wait = 300 }, "<Space>" },
+      say = "Press `<leader><Space>` to hear your notes with the drums. Press `<leader><Space>` again to stop.",
+      keys = { "<leader><Space>", { wait = 300 }, "<leader><Space>" },
       check = function(ctx, look) return look.played(ctx) end,
       done = "That is your bass line.",
     },
@@ -96,8 +96,8 @@ the cursor draws notes, not text. `grn` renames, as in the LSP keys of Neovim.]]
       done = "The clip is deleted. `u` can bring it back.",
     },
     {
-      say = "Listen to the result. Press `gs` to move to the start, `<Space>` to play and `<Space>` to stop.",
-      keys = { "gs", "<Space>", { wait = 300 }, "<Space>" },
+      say = "Listen to the result. Press `gs` to move to the start, `<leader><Space>` to play and `<leader><Space>` to stop.",
+      keys = { "gs", "<leader><Space>", { wait = 300 }, "<leader><Space>" },
       check = function(ctx, look) return look.ran(ctx, "transport.start") and look.played(ctx) end,
       done = "You have a bass line on a track that you made.",
     },

@@ -18,7 +18,7 @@ paw.ext.load("/path/to/paw/extensions/templates")   -- or link it into ~/.config
 3. Move the cursor to another track, and press `\Tl`.
 4. Type `ke` and press Enter. A copy of the track appears below the
    cursor track.
-5. Press `,d`. The devices of the new track are the devices of the saved
+5. Press `<Space>d`. The devices of the new track are the devices of the saved
    track.
 
 ## How to

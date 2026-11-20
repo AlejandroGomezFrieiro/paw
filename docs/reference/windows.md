@@ -14,16 +14,16 @@ The status line and the bottom line stay along the bottom of every tab.
 
 At the start there is one tab. The configuration can give a start layout
 (see [Layouts](#layouts)). Without one, the tab shows the arrange view.
-The panels open and close in their places (`,m`, `,d`, `,p`, `Enter` on
+The panels open and close in their places (`<Space>m`, `<Space>d`, `<Space>p`, `Enter` on
 a clip).
 
 No view is the home of the screen. Any view can be alone in a
 tab. paw never puts the arrange view in a window that you did not ask
 for.
 
-- `,p` with no clip open opens the piano roll on the clip under the cursor. If there is no clip there, it shows a message and changes nothing.
-- A view that is not in the tab docks on its side of the window that has the keyboard, as a split in Neovim does. For example, `,m` puts the mixer below that window.
-- The last window of a tab does not close. `Ctrl-w c`, `:close`, `,m` and the other keys that close a panel leave it. It continues to show its view.
+- `<Space>p` with no clip open opens the piano roll on the clip under the cursor. If there is no clip there, it shows a message and changes nothing.
+- A view that is not in the tab docks on its side of the window that has the keyboard, as a split in Neovim does. For example, `<Space>m` puts the mixer below that window.
+- The last window of a tab does not close. `Ctrl-w c`, `:close`, `<Space>m` and the other keys that close a panel leave it. It continues to show its view.
 - When a window closes, the keyboard goes to the window that had it before.
 - `:view.focus` of a view that does not show puts it in the current window. So the focus is never on a view that is not visible.
 - `:help` splits half of the screen, as Vim does for its help.

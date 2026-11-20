@@ -51,7 +51,7 @@ test("a sequence that matches nothing says so and drops what follows it", functi
   eq(ran.last, nil, "the last key did not run alone")
   eq(ran.mapped, nil, "nor the mapping it was heading for")
   eq(paw.keymap.pending(), "", "nothing is left half typed")
-  eq(paw.ui.message and paw.ui.message.text, ",yQ is not mapped", "the message says what was typed")
+  eq(paw.ui.message and paw.ui.message.text, "Space yQ is not mapped", "the message says what was typed")
   -- A key that is a mapping by itself still runs, then the next key starts afresh.
   paw.keymap.set("wm", function() ran.wm = (ran.wm or 0) + 1 end, { desc = "test" })
   paw.keymap.set("wmm", function() ran.wmm = true end, { desc = "test" })

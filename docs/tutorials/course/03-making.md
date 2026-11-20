@@ -35,7 +35,7 @@ The tutor opens a practice project for this lesson. It checks each step when you
    - ✓ The clip has three notes, C D E. paw wrote them when you left insert mode.
 6. Press `<C-w>p` to return to the arrange view, the previous window. `<Esc>` does not leave the piano roll, as in each view.
    - ✓ The arrange view gets the keys again, in NORMAL mode.
-7. Press `<Space>` to hear your notes with the drums. Press `<Space>` again to stop.
+7. Press `<Space><Space>` to hear your notes with the drums. Press `<Space><Space>` again to stop.
    - ✓ That is your bass line.
 8. `&` puts a copy of the clip immediately after it. Press `&` two times.
    - *Hint:* The cursor must be on the clip. `0` moves it to the start.
@@ -44,7 +44,7 @@ The tutor opens a practice project for this lesson. It checks each step when you
    - ✓ paw undid the change and did it again. Each key that changes the project is one undo step.
 10. `x` deletes the clip under the cursor. Press `x`.
    - ✓ The clip is deleted. `u` can bring it back.
-11. Listen to the result. Press `gs` to move to the start, `<Space>` to play and `<Space>` to stop.
+11. Listen to the result. Press `gs` to move to the start, `<Space><Space>` to play and `<Space><Space>` to stop.
    - ✓ You have a bass line on a track that you made.
 
 ## What we did

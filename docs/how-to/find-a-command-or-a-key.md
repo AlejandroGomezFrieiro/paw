@@ -14,15 +14,15 @@ runs or opens the line that you select.
 3. Select the line and press `Enter`. paw does what the key does.
    Or press `Esc`, and use the key from now on.
 
-`,fk` shows the same list.
+`<Space>fk` shows the same list.
 
 If you stop in the middle of a sequence of keys, paw lists the keys that
-can come next. For example, press `,` and wait: the leader keys show at the
+can come next. For example, press `<Space>` and wait: the leader keys show at the
 bottom of the screen.
 
 ## Find a command
 
-1. Press `,,`. The list shows each command with its key, if it has one,
+1. Press `<Space>fc`. The list shows each command with its key, if it has one,
    and what it does.
 2. Type a part of the name or of the description, for example
    `metronome`.

@@ -45,12 +45,25 @@ end, { desc = "Add a synth track: `track.synth Lead cutoff=900`" })
 paw.keymap.set("<leader>s", "track.synth", { desc = "Add a synth track" })
 ```
 
-Now `:track.synth Lead cutoff=900` adds a track, and `,s` does the same
+Now `:track.synth Lead cutoff=900` adds a track, and `<Space>s` does the same
 with the default values.
 
 If you map a key in one view, do not use a key of the global leader for
 it. To find the keys that break this rule, type
 `:lua =paw.keyrule.broken()`. See [The key rule](../reference/key-rule.md).
+
+## Use a different leader key
+
+The leader key is the space bar. It starts the keys that work in every
+view: `<Space>m` opens the mixer, and `<Space><Space>` plays and stops. To
+use the comma as the leader, add this line to `init.lua`:
+
+```lua
+paw.opt.leader = ","
+```
+
+Each key on the leader moves to the comma: `,m` opens the mixer, and
+`,<Space>` plays. `:set leader=,` does the same for this session.
 
 ## Run code on an event
 

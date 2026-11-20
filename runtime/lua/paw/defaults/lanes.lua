@@ -18,7 +18,7 @@ local function clamp_to(l, v) return util.clamp(v, l.min, l.max) end
 --- The lane the cursor's row is, or a warning.
 local function cursor_lane()
   local id = cursor.lane_id()
-  if not id then paw.notify("the cursor is not on an automation lane: `,aa` shows the track's lanes", "warn") end
+  if not id then paw.notify("the cursor is not on an automation lane: `" .. paw.keymap.human("<leader>aa") .. "` shows the track's lanes", "warn") end
   return id and paw.lane(id)
 end
 
@@ -83,7 +83,7 @@ command("lane.show", function(ctx)
   local track = need_track()
   if not track then return end
   if #api.lane_list(track.id) == 0 then
-    return paw.notify(track.name .. " has no automation yet: `,al` chooses what to automate", "warn")
+    return paw.notify(track.name .. " has no automation yet: `" .. paw.keymap.human("<leader>al") .. "` chooses what to automate", "warn")
   end
   local now = paw.lanes.toggle(track)
   cursor.set_track(track.id)
@@ -203,7 +203,7 @@ command("lane.state", function(ctx)
   local lane = cursor_lane()
   if not lane then return end
   local l = lane:get()
-  if l.target ~= "state" then return paw.notify("the cursor is not on a state lane: `,al` makes one for a device", "warn") end
+  if l.target ~= "state" then return paw.notify("the cursor is not on a state lane: `" .. paw.keymap.human("<leader>al") .. "` makes one for a device", "warn") end
   local device = paw.device(l.device)
   local name = table.concat(ctx.args, " ")
   if name == "" then

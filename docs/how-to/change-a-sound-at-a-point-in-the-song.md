@@ -12,7 +12,7 @@ The guide assumes a track with the plugin on it.
 
 ## Keep the first sound
 
-1. Put the cursor on the track and press `,al`. A list of what to
+1. Put the cursor on the track and press `<Space>al`. A list of what to
    automate opens.
 2. Type `state` and press `Enter`. A row for the state lane of the plugin
    opens under the track, and the cursor is on it.
@@ -28,7 +28,7 @@ The guide assumes a track with the plugin on it.
    changes, for example with `w` or `l`.
 3. Press `\s`. The lane keeps the sound as the state `B`, from the
    cursor. The row shows `A` and `B` where each starts.
-4. Press `Space` to play from the start. The first sound plays up to the
+4. Press `<Space><Space>` to play from the start. The first sound plays up to the
    point, and the second sound plays from it.
 
 To give a point another state, put the cursor on the point and press `c`.

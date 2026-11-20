@@ -63,7 +63,7 @@ In the graphical window, you can also drag a clip to move it.
      song plays a little faster.
 2. Press `gL` to stop the loop.
    - `loop 1–4` goes away from the status line. The whole song plays now.
-3. Press `gs` and `<Space>`. Listen to the song, and press `<Space>` to stop.
+3. Press `gs` and `<Space><Space>`. Listen to the song, and press `<Space><Space>` to stop.
 
 ## Find a part
 
@@ -74,13 +74,13 @@ In the graphical window, you can also drag a clip to move it.
 3. Press `['`.
    - `['` goes to the marker before, the second verse. `]'` goes to the
      next marker.
-4. Press `,ft` (comma, f, t).
-   - A list of the tracks opens. `,f` and a letter open a list of other
-     things, for example `,fl` the clips.
+4. Press `<Space>ft` (comma, f, t).
+   - A list of the tracks opens. `<Space>f` and a letter open a list of other
+     things, for example `<Space>fl` the clips.
 5. Type `Bass` and press Enter.
    - The cursor goes to the Bass track, at the same bar.
-6. Press `gp` to move the playhead to the cursor. Press `<Space>`.
-   - The song plays from the second verse. Press `<Space>` to stop.
+6. Press `gp` to move the playhead to the cursor. Press `<Space><Space>`.
+   - The song plays from the second verse. Press `<Space><Space>` to stop.
 7. Type `:w arranged` and press Enter.
 
 ## What we made

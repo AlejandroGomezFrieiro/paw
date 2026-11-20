@@ -15,7 +15,7 @@ mappings and commands in it each time.
 quit. The grid is different: the tutor sets it to its old value when you
 leave the tutor.]],
   idea = [[
-`paw.opt.name = value` sets an option (`:lua paw.opt.grid = 0.5`). `,fo`
+`paw.opt.name = value` sets an option (`:lua paw.opt.grid = 0.5`). `<leader>fo`
 shows the options. `paw.keymap.set(keys, command or function, { desc = ...,
 view = ... })` maps keys. `<leader>` is the leader (`,`), and
 `<localleader>` is the leader of the keys of one view (a backslash).
@@ -48,16 +48,16 @@ name in `~/.config/paw/lua/` replaces a built-in module.]],
       hint = "Type the text exactly, with the spaces. On the command line, `<Up>` shows the text that you typed before.",
     },
     {
-      say = "Now map a key of your own. Type `:lua paw.keymap.set(\"<leader>z\", \"transport.metronome\", { desc = \"Click\" })` and `<CR>`. Then press `,z`.",
-      keys = { ":lua paw.keymap.set(\"<leader>z\", \"transport.metronome\", { desc = \"Click\" })", "<CR>", ",z" },
+      say = "Now map a key of your own. Type `:lua paw.keymap.set(\"<leader>z\", \"transport.metronome\", { desc = \"Click\" })` and `<CR>`. Then press `<leader>z`.",
+      keys = { ":lua paw.keymap.set(\"<leader>z\", \"transport.metronome\", { desc = \"Click\" })", "<CR>", "<leader>z" },
       check = function() return paw.transport.metronome end,
-      done = "`,z` enables and disables the click. `?` shows your mapping with its description.",
+      done = "`<leader>z` enables and disables the click. `?` shows your mapping with its description.",
     },
     {
       say = "Now make a command of your own. Type `:lua paw.command(\"hello\", function() paw.notify(\"hello from my command\") end)` and `<CR>`. Then type `:hello` and `<CR>`.",
       keys = { ":lua paw.command(\"hello\", function() paw.notify(\"hello from my command\") end)", "<CR>", ":hello", "<CR>" },
       check = function(ctx, look) return look.said(ctx, "hello from my command") end,
-      done = "Your command ran. `:commands` and the `,,` picker show it now, with the built-in commands.",
+      done = "Your command ran. `:commands` and the `<leader>fc` picker show it now, with the built-in commands.",
     },
     {
       say = "To keep them, open `~/.config/paw/init.lua` in your text editor. Add the same three lines without `:lua`, and save. Then type `:reload` here.",
@@ -67,8 +67,8 @@ name in `~/.config/paw/lua/` replaces a built-in module.]],
       hint = "In init.lua, each line is usual Lua, for example `paw.opt.grid = 0.5`. If there is an error, `:extensions` and `:messages` show it.",
     },
     {
-      say = "Listen with your click. Press `<Space>`, then `<Space>` to stop and `,z` to disable the click.",
-      keys = { "<Space>", { wait = 300 }, "<Space>", ",z" },
+      say = "Listen with your click. Press `<leader><Space>`, then `<leader><Space>` to stop and `<leader>z` to disable the click.",
+      keys = { "<leader><Space>", { wait = 300 }, "<leader><Space>", "<leader>z" },
       check = function(ctx, look) return look.played(ctx) and not paw.transport.metronome end,
       done = "Your own key works.",
     },

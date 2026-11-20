@@ -12,7 +12,7 @@ command, see [Takes](../reference/takes.md).
 2. Arm the track with `r`.
 3. Put the cursor at the loop start, or before it. Press `R`.
 4. Play the part again on each time round the loop.
-5. Press `<Space>` to stop. The clip shows the number of takes, for
+5. Press `<Space><Space>` to stop. The clip shows the number of takes, for
    example `take 3 ‹3/3›`. The last take plays.
 
 A time round counts if it reached at least half of the loop.

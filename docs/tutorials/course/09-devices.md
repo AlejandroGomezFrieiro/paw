@@ -14,7 +14,7 @@ The built-in devices include `synth`, `drums`, `gain`, `delay` and `limiter`. Th
 
 In the device panel, `j` `k` select a row: the name of a device or one of its parameters. `w` `b` select a device. `+` `-` change a parameter by one step, and a count before them (`10+`) changes it by more steps. `a` adds a device, `x` removes one and `gc` bypasses one. `yy` `dd` `p` copy and move devices, also to other tracks. `<A-j>` `<A-k>` change the order, and `ge` opens the window of a plugin.
 
-`,d` shows and hides the panel, and `<C-w>c` closes it. In the arrange view, `ge` opens the plugin window of the track.
+`<Space>d` shows and hides the panel, and `<C-w>c` closes it. In the arrange view, `ge` opens the plugin window of the track.
 
 ## If you know Vim
 
@@ -24,14 +24,14 @@ In the device panel, `j` `k` select a row: the name of a device or one of its pa
 
 The tutor opens a practice project for this lesson. It checks each step when you do it.
 
-1. The cursor is on Lead. Press `,d` (comma, then d) to show its device panel on the right. The panel gets the keys.
+1. The cursor is on Lead. Press `<Space>d` (the space bar, then d) to show its device panel on the right. The panel gets the keys.
    - *Hint:* `,` is the leader key. It starts many commands of two keys.
    - ✓ The panel shows the name of the synth, then one row for each parameter.
 2. `j` and `k` select a row. Press `6j` to go down to `cutoff`, which sets how bright the sound is.
    - ✓ `cutoff` is selected.
 3. `+` increases the parameter by one step and `-` decreases it. A count before them gives the number of steps. Press `10+` three times.
    - ✓ The sound is brighter. The bar and the number show the new value.
-4. Listen while you change the value. Press `<Space>`, then press `-` some times to make the sound darker. Press `<Space>` to stop.
+4. Listen while you change the value. Press `<Space><Space>`, then press `-` some times to make the sound darker. Press `<Space><Space>` to stop.
    - ✓ Parameters change while the song plays.
 5. `a` adds a device after the instrument. Press `a`, type `delay` and press `<CR>`.
    - ✓ An echo comes after the synth now.
@@ -43,10 +43,10 @@ The tutor opens a practice project for this lesson. It checks each step when you
 8. `ge` opens the window of a plugin. Built-in devices have no window, and the message line tells you so. Press `ge`.
    - ✓ For a plugin, the window opens. `ge` again closes it, here and in each view.
 9. If you installed plugins, `a` shows them with the built-in devices. Press `a`, type a part of the name of a plugin and press `<CR>`. Then press `ge` to see its window. `:devices` shows all the devices.
-   - *The tutor cannot check this step* (The installed plugins are different on each computer, and a window needs a desktop). `,hn` moves to the next step.
+   - *The tutor cannot check this step* (The installed plugins are different on each computer, and a window needs a desktop). `<Space>hn` moves to the next step.
 10. `<C-w>c` closes the panel, and the arrange view gets the keys again. Press `<C-w>c`.
-   - ✓ The panel is closed. `,d` shows it again.
-11. Listen to the line with its echo. Press `<Space>`, and `<Space>` to stop.
+   - ✓ The panel is closed. `<Space>d` shows it again.
+11. Listen to the line with its echo. Press `<Space><Space>`, and `<Space><Space>` to stop.
    - ✓ You hear a synth and a delay that you adjusted by ear.
 
 ## What we did

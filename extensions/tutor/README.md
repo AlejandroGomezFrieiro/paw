@@ -23,8 +23,8 @@ paw.ext.load("/path/to/paw/extensions/tutor")   -- in ~/.config/paw/init.lua
    the first step.
 3. Do the step. The panel tells you that it is done, and shows the next
    step.
-4. Press `,hh`. The panel shows a hint for the step.
-5. Press `,hq`. The tutor closes, and your project opens again.
+4. Press `<Space>hh`. The panel shows a hint for the step.
+5. Press `<Space>hq`. The tutor closes, and your project opens again.
 
 ## How to
 
@@ -36,7 +36,7 @@ Type `:tutor`. The course continues where you stopped.
 
 - Type `:tutor 5` or `:tutor visual`. A lesson that you started continues
   where you were.
-- To see all lessons and your progress, press `,hl`.
+- To see all lessons and your progress, press `<Space>hl`.
 
 ### How to start a lesson when your project has changes
 
@@ -69,11 +69,11 @@ saved.
 | --- | --- |
 | `:tutor` | the course, where you stopped (lesson 1 the first time) |
 | `:tutor 5`, `:tutor visual` | a lesson by number or name. A lesson that you started continues where you were |
-| `:tutor list`, `:tutor.list`, `,hl` | the lessons and your progress, to choose one |
-| `,hh` (`:tutor hint`, `:tutor.hint`) | a hint for the step |
-| `,hn` (`:tutor next`, `:tutor.next`) | skips the step. At the end of a lesson, goes to the next lesson |
-| `,hr` (`:tutor restart`, `:tutor.restart`) | starts the lesson again from a new practice project |
-| `,hq` (`:tutor quit`, `:tutor.quit`) | closes the tutor and opens your own project again |
+| `:tutor list`, `:tutor.list`, `<Space>hl` | the lessons and your progress, to choose one |
+| `<Space>hh` (`:tutor hint`, `:tutor.hint`) | a hint for the step |
+| `<Space>hn` (`:tutor next`, `:tutor.next`) | skips the step. At the end of a lesson, goes to the next lesson |
+| `<Space>hr` (`:tutor restart`, `:tutor.restart`) | starts the lesson again from a new practice project |
+| `<Space>hq` (`:tutor quit`, `:tutor.quit`) | closes the tutor and opens your own project again |
 | `:tutor reset` | forgets all progress |
 | `:tutor.try sections` | loads one of the bundled extensions for this session (lesson 16) |
 
@@ -83,7 +83,7 @@ and what is different for a user of Vim. Any key closes the page.
 ### Your project during a lesson
 
 - A lesson opens its own practice project. So your project closes while
-  you practice. `,hq` opens it again, as it is on the disk.
+  you practice. `<Space>hq` opens it again, as it is on the disk.
 - If your project has changes that are not saved, the lesson does not
   start. The tutor tells you. Save first (`:w`), or start with `:tutor! 3`.
 - An untitled empty project is replaced.
@@ -173,7 +173,7 @@ this, so the text and the test stay the same. Other items:
 **Other fields.**
 
 - `unchecked = "why"` in place of `check`: a step that the tutor cannot
-  see. The panel tells the learner to press `,hn` when done.
+  see. The panel tells the learner to press `<Space>hn` when done.
 - `on_quit = true`: the step is complete when you quit paw.
 - `test = { before = fn, after = fn }` on a lesson: prepares the test run
   (an audio engine with a test input) and removes what it made (files
@@ -261,8 +261,8 @@ row gives the lesson and a change that would help a new user.
 
 | Lesson | What occurs | What would help |
 | --- | --- | --- |
-| 12 | After `<Space>` stops a take, record mode stays on (`rec` lit). The next `R` stops record mode, and the next `<Space>` records again. The lesson must teach `R` then `<Space>` | Stop record mode when the transport stops, or make `R` always start a take when stopped |
-| 9 | The device panel keeps its row when the track changes. So `,d` can open on a row of the list of another device | Start at the top for a new track |
+| 12 | After `<Space><Space>` stops a take, record mode stays on (`rec` lit). The next `R` stops record mode, and the next `<Space><Space>` records again. The lesson must teach `R` then `<Space><Space>` | Stop record mode when the transport stops, or make `R` always start a take when stopped |
+| 9 | The device panel keeps its row when the track changes. So `<Space>d` can open on a row of the list of another device | Start at the top for a new track |
 | 3, 10 | Prompts have text in them (`grn` with the old name, `A` with the current value), and new text goes at the end. The lesson must teach `<C-u>` first | The first key replaces the text, as in the lyric prompt of the vocal editor |
 | 4 | The note length set with a digit in insert mode stays for the session, across clips. It is also the length that `<CR>` gives a new note in normal mode. Nothing shows it outside insert mode | Reset it when insert mode ends, or always show it in the title row of the piano roll |
 | 3 | A clip made with `i` has the name `midi` | No name, or the name of the track |

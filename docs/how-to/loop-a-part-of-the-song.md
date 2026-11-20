@@ -14,7 +14,7 @@ the ruler, and the status line gives its bars, for example `loop 2–3`.
 - To loop a range of time, press `v`, move the cursor to the end of the
   range, and press `gl`.
 
-`gl` also turns the loop on. Press `Space` to play. At the end of the
+`gl` also turns the loop on. Press `<Space><Space>` to play. At the end of the
 loop, the playhead returns to its start.
 
 ## Loop a region

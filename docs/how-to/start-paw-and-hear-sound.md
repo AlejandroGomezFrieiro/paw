@@ -53,7 +53,7 @@ In the graphical window, the doctor page has a button for each answer.
    track.
 3. Press `i`, then `4l`, then `Esc`. paw writes a note of one beat into a new clip.
 4. Press `gs` to move the playhead to the start.
-5. Press `Space`. The note plays, and the meter of the track moves.
+5. Press `<Space><Space>`. The note plays, and the meter of the track moves.
 
 ## See also
 

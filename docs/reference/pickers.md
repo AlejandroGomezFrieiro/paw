@@ -3,37 +3,37 @@
 <!-- tags: pick telescope -->
 
 A picker chooses one thing from many: you type some letters of it, as in
-Telescope of Neovim. `,,` runs a command by name. The other pickers are
-under `,f` (`,` is the leader).
+Telescope of Neovim. `<Space>fc` runs a command by name. The other pickers are
+under `<Space>f` (`<Space>` is the leader).
 
 ## The pickers
 
 | Keys | Command | Lists | `Enter` |
 | --- | --- | --- | --- |
-| `,,` `,fc` | `pick.commands` | every command, with its key. A match in the name ranks above a match in the description. A name that is the typed word, or starts with it, ranks above the others (`arrange` finds `:arrange`). Among equal matches, the commands that you ran from here come first, then those that the focused view has keys for. | runs it. `Ctrl-e` types it on the command line, for arguments. |
-| `?` `,fk` | `pick.keys` | every key of the focused view and the global keys, written as `Alt-h`, `,at`, `Ctrl-w o`. Each has a tag for where it works, and if it is a motion, an operator, a text object, or for a selection or insert mode. The keys of the view come first, then the global keys. Plain keys come before operators, motions and the others, and short keys before long keys. Keys that do the same are one line (`Ctrl-z, u`). The right side shows the section of the manual for the chosen key. The keys of the other views come last, with a tag (`arrange view`), so `send` in the mixer finds `,s` of the arrange view. | runs it. A key of a different view goes to that view. |
-| `,ft` | `pick.tracks` | the tracks | moves the cursor to the track |
-| `,fl` | `pick.clips` | every clip, with its track | goes to it |
-| `,fa` | `pick.devices` | the devices and plugins that you can add | adds it to the track of the cursor |
-| `,fd` | `pick.track_devices` | the devices on the track | shows it in the device panel. `Ctrl-e` opens the window of the plugin. |
-| `,fm` | `pick.marks` | the marks | goes to the mark |
-| `,fr` | `pick.registers` | the registers | pastes it at the cursor, or plays a macro |
-| `,fn` | `pick.messages` | the earlier messages, newest first | shows the full message |
-| `,ff` | `pick.files` | projects, audio and MIDI files under the working directory | opens the project, adds the audio at the cursor, or adds the tracks of the MIDI file there |
-| `,fo` | `pick.options` | the options and their values | switches a true or false option, or asks for a new value |
-| `,fR` | `recent` | the recent projects, with their place and when each was last opened. `Alt-d` removes one. | opens it |
-| `,fh` | `pick.help` | every help tag, with its page | goes to it |
-| `,f'` | `pick.markers` | the markers and regions, with what plays there | goes to it |
-| `,fg` | `pick.grep` | every text in the project: the names of tracks, clips, markers and devices, lyrics, articulations, comments, the tags of the project. A live grep, which starts in exact mode. | goes to it |
-| `,fN` | `pick.notes` | every note: pitch, velocity, lyric, articulations, clip and place, with the clip drawn next to it. You hear a note when the selection stops on it. | goes to it |
-| `,fw` | `pick.media` | the sound files of the project, and the clips that play each | adds it at the cursor |
-| `,fq` | `pick.quickfix` | the entries of the quickfix list | goes to it |
-| `,fu` | `pick.undo` | the states of the undo history, newest first, with what each state changes | goes there |
-| `,fe` | `pick.extensions` | the extensions, loaded or not, with their README | shows its help, or loads it |
-| `,fs` | `pick.symbols` | every function of the Lua API, with its parameters and its comment | shows its help |
-| `,fP` | `pick.presets` | the presets of the device (as `:preset`) | loads it |
-| `,fp` | `pick` | every picker | opens it |
-| `,f.` | `pick.resume` | the last picker as it was: the typed text, the mode, the line (`:pick resume`) | |
+| `<Space>fc` | `pick.commands` | every command, with its key. A match in the name ranks above a match in the description. A name that is the typed word, or starts with it, ranks above the others (`arrange` finds `:arrange`). Among equal matches, the commands that you ran from here come first, then those that the focused view has keys for. | runs it. `Ctrl-e` types it on the command line, for arguments. |
+| `?` `<Space>fk` | `pick.keys` | every key of the focused view and the global keys, written as `Alt-h`, `Space at`, `Ctrl-w o`. Each has a tag for where it works, and if it is a motion, an operator, a text object, or for a selection or insert mode. The keys of the view come first, then the global keys. Plain keys come before operators, motions and the others, and short keys before long keys. Keys that do the same are one line (`Ctrl-z, u`). The right side shows the section of the manual for the chosen key. The keys of the other views come last, with a tag (`arrange view`), so `send` in the mixer finds `<Space>s` of the arrange view. | runs it. A key of a different view goes to that view. |
+| `<Space>ft` | `pick.tracks` | the tracks | moves the cursor to the track |
+| `<Space>fl` | `pick.clips` | every clip, with its track | goes to it |
+| `<Space>fa` | `pick.devices` | the devices and plugins that you can add | adds it to the track of the cursor |
+| `<Space>fd` | `pick.track_devices` | the devices on the track | shows it in the device panel. `Ctrl-e` opens the window of the plugin. |
+| `<Space>fm` | `pick.marks` | the marks | goes to the mark |
+| `<Space>fr` | `pick.registers` | the registers | pastes it at the cursor, or plays a macro |
+| `<Space>fn` | `pick.messages` | the earlier messages, newest first | shows the full message |
+| `<Space>ff` | `pick.files` | projects, audio and MIDI files under the working directory | opens the project, adds the audio at the cursor, or adds the tracks of the MIDI file there |
+| `<Space>fo` | `pick.options` | the options and their values | switches a true or false option, or asks for a new value |
+| `<Space>fR` | `recent` | the recent projects, with their place and when each was last opened. `Alt-d` removes one. | opens it |
+| `<Space>fh` | `pick.help` | every help tag, with its page | goes to it |
+| `<Space>f'` | `pick.markers` | the markers and regions, with what plays there | goes to it |
+| `<Space>fg` | `pick.grep` | every text in the project: the names of tracks, clips, markers and devices, lyrics, articulations, comments, the tags of the project. A live grep, which starts in exact mode. | goes to it |
+| `<Space>fN` | `pick.notes` | every note: pitch, velocity, lyric, articulations, clip and place, with the clip drawn next to it. You hear a note when the selection stops on it. | goes to it |
+| `<Space>fw` | `pick.media` | the sound files of the project, and the clips that play each | adds it at the cursor |
+| `<Space>fq` | `pick.quickfix` | the entries of the quickfix list | goes to it |
+| `<Space>fu` | `pick.undo` | the states of the undo history, newest first, with what each state changes | goes there |
+| `<Space>fe` | `pick.extensions` | the extensions, loaded or not, with their README | shows its help, or loads it |
+| `<Space>fs` | `pick.symbols` | every function of the Lua API, with its parameters and its comment | shows its help |
+| `<Space>fP` | `pick.presets` | the presets of the device (as `:preset`) | loads it |
+| `<Space>fp` | `pick` | every picker | opens it |
+| `<Space>f.` | `pick.resume` | the last picker as it was: the typed text, the mode, the line (`:pick resume`) | |
 
 `:pick tracks` opens a picker by name. `:pick devices query=reverb` or
 `:pick.devices reverb` opens it with text typed.
@@ -116,7 +116,7 @@ that order, but not necessarily together. `dfh` finds `Dragonfly Hall`.
 | Mode | Effect |
 | --- | --- |
 | fuzzy | as above |
-| exact | each word as written, anywhere. `,fg` starts in this mode. |
+| exact | each word as written, anywhere. `<Space>fg` starts in this mode. |
 | regex | the whole typed line is a regular expression: `. * + ? {n,m} ^ $ [a-z] \d \w \s`, `\|` between alternatives, `( )` around alternatives. Lowercase ignores case. |
 
 A mode that is not fuzzy shows next to the count. A picker keeps the mode
@@ -138,8 +138,8 @@ file. The top of the pane says what plays: `▶ Soft pad · loop bar 5`.
 | Picker | What you hear |
 | --- | --- |
 | presets (`:preset`) | The preset loaded into the device, with the notes of the track: the bar of its MIDI clip at the cursor (else the last bar before it with notes), again and again. A track without notes plays a built-in phrase in the key of the song (a beat on a drum track). When you move, paw loads the next preset over the same loop. |
-| devices (`,fa`) | The device added to the track of the cursor, with the same phrase. paw makes a plugin in a separate process, so the selection stops on it for 600 ms first, and the pane shows `… loading` until it plays. |
-| files (`,ff`, and the file picker of `:import`) | A sound file alone, from its start, over everything else at `paw.opt.audition_level` dB (-12), with its outline and the place that it plays. A MIDI file plays its first two bars, at its own tempo, through the track of the cursor if it has an instrument, else through a synth (and a kit for its drums) that paw adds for this. |
+| devices (`<Space>fa`) | The device added to the track of the cursor, with the same phrase. paw makes a plugin in a separate process, so the selection stops on it for 600 ms first, and the pane shows `… loading` until it plays. |
+| files (`<Space>ff`, and the file picker of `:import`) | A sound file alone, from its start, over everything else at `paw.opt.audition_level` dB (-12), with its outline and the place that it plays. A MIDI file plays its first two bars, at its own tempo, through the track of the cursor if it has an instrument, else through a synth (and a kit for its drums) that paw adds for this. |
 | beats (`:drums.beat`) | The beat written into the clip, its first bar again and again. |
 | snippets (`Ctrl-s` in the piano roll) | What the snippet writes, one time, with what the other pitched tracks play over the same beats. |
 | tracks, clips, notes, media | With `Ctrl-Space`: the first two bars of a clip through its track, a note with the chord that it starts, an audio file. The tracks picker starts with audition off. |

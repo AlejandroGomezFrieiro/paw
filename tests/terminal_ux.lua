@@ -80,7 +80,7 @@ test("`,m` in a window that is only the mixer leaves the mixer there, as Ctrl-w 
   paw.ui.focus("mixer")
   L.only()
   eq(windows(), "mixer", "the mixer alone")
-  paw.keymap.feed(",m")
+  paw.keymap.feed("<leader>m")
   eq(windows(), "mixer", "the last window does not close, and no arrange view comes back")
   eq(paw.ui.message and paw.ui.message.text:find("last window", 1, true) ~= nil, true, "it says so")
   paw.keymap.feed("<C-w>c")

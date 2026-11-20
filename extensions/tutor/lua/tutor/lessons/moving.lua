@@ -140,8 +140,8 @@ is the first clip. `|` and `:5` take a bar number, not a column or a line.]],
       done = "The key is the same, but the view and the meaning are different. It still moves up.",
     },
     {
-      say = "`<Esc>` stays in the current window, in each view. `<C-w>p` returns to the previous window. Press `<C-w>p`. Then press `gp` to move the playhead to the cursor. Press `<Space>` to play and `<Space>` to stop.",
-      keys = { "<C-w>p", "gp", "<Space>", { wait = 300 }, "<Space>" },
+      say = "`<Esc>` stays in the current window, in each view. `<C-w>p` returns to the previous window. Press `<C-w>p`. Then press `gp` to move the playhead to the cursor. Press `<leader><Space>` to play and `<leader><Space>` to stop.",
+      keys = { "<C-w>p", "gp", "<leader><Space>", { wait = 300 }, "<leader><Space>" },
       check = function(ctx, look)
         return look.focused() == "arrange" and look.ran(ctx, "transport.to_cursor") and look.played(ctx)
       end,

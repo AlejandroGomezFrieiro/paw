@@ -118,7 +118,7 @@ test("on a state lane's row \\s keeps the device's state at the cursor, c choose
   t:add_device("gain", { gain = -12 })
   paw.cursor.set_track(t)
   paw.cursor.set_beat(0)
-  paw.keymap.feed(",al")
+  paw.keymap.feed("<leader>al")
   paw.keymap.feed("state<CR>")
   local id = paw.cursor.lane_id()
   eq(id ~= nil and api.lane_get(id).target, "state", "the picker makes a state lane, and the cursor is on its row")

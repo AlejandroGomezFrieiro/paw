@@ -19,17 +19,17 @@ One key, one command or one gesture of the mouse is one change.
 
 After an undo, a new change starts a new branch. The old states stay.
 
-1. Press `,fu`. The list of the undo states opens, the newest first, with
+1. Press `<Space>fu`. The list of the undo states opens, the newest first, with
    what each state changed.
 2. Select a state and press `Enter`. The project returns to that state.
 
-The return is not a change: `,fu` again shows all the states, and you can
+The return is not a change: `<Space>fu` again shows all the states, and you can
 go to a newer one.
 
 ## See the branches as a tree
 
 1. Type `:ext.load undotree`.
-2. Press `,uu`. The window of the undo tree shows each branch, and what
+2. Press `<Space>uu`. The window of the undo tree shows each branch, and what
    the selected state changed.
 3. Press `j` and `k` to select a state, and `Enter` to go there.
 

@@ -14,7 +14,7 @@ The keys have the names that Vim gives them. `j` is the j key and `J` is Shift a
 
 ## The idea
 
-You do not need the mouse. Some keys do an action immediately: `<Space>` plays. Other keys start an action that more keys complete. `:` starts a command line. `g` starts commands of two keys, for example `gs`.
+You do not need the mouse. Some keys do an action immediately: `x` deletes. Other keys start an action that more keys complete. `:` starts a command line. `g` starts commands of two keys, for example `gs`. `<Space>` starts the keys that work in every view: `<Space><Space>` plays.
 
 If you do not know the current state, press `<Esc>` to return to normal mode. `?` shows the keys of the current view.
 
@@ -26,10 +26,10 @@ If you do not know the current state, press `<Esc>` to return to normal mode. `?
 
 The tutor opens a practice project for this lesson. It checks each step when you do it.
 
-1. This short song has three tracks: Drums, Bass and Keys. Press `<Space>` to play it.
+1. This short song has three tracks: Drums, Bass and Keys. Press `<Space><Space>` to play it.
    - *Hint:* `<Space>` is the space bar. Look at the ▶ in the status line and at the playhead, which moves across the clips.
    - ✓ The song plays again and again, because the loop is on. The status line shows `loop`.
-2. Press `<Space>` again to stop.
+2. Press `<Space><Space>` again to stop.
    - ✓ The song stops. The playhead stays where it stopped.
 3. `gs` moves the playhead to the start. Press `g`, then `s`.
    - *Hint:* Press the two keys one after the other, not together.
@@ -43,10 +43,10 @@ The tutor opens a practice project for this lesson. It checks each step when you
 6. `:` opens the command line at the bottom. Type `:tempo 130` and press `<CR>` (Enter). The song becomes faster.
    - *Hint:* Type the colon too. `<Esc>` cancels a command line. `<BS>` on an empty command line closes it.
    - ✓ The tempo is 130 beats per minute. The status line shows it.
-7. Press `<Space>` to hear the faster song. Then press `<Space>` to stop it.
+7. Press `<Space><Space>` to hear the faster song. Then press `<Space><Space>` to stop it.
    - ✓ The song is faster.
 8. To quit paw, type `:q` and `<CR>`. `ZQ` also quits, and `ZZ` saves before it quits. Quit now. The tutor keeps your place, and `:tutor` starts lesson 2 next time.
-   - *Hint:* If you do not want to quit now, press `,hn` to start lesson 2.
+   - *Hint:* If you do not want to quit now, press `<Space>hn` to start lesson 2.
    - ✓ paw quits.
 
 ## What we did

@@ -37,7 +37,7 @@ interface.
 
 1. Press `a`, type `saturation` and press Enter.
    - The saturation device is the amp. It adds drive and harmonics.
-2. Press `,d` (comma, then d) to open the device panel.
+2. Press `<Space>d` (comma, then d) to open the device panel.
    - The panel shows Saturation and its parameters. The cursor is on the
      name of the device.
 3. Press `j` to go to Drive. Press `12+`.
@@ -61,7 +61,7 @@ interface.
 2. Press `r` to arm the track.
 3. Press `R` and play the riff. Play it again on the second time round
    the loop.
-4. When the playhead returns to bar 1 the third time, press `<Space>`.
+4. When the playhead returns to bar 1 the third time, press `<Space><Space>`.
    - A clip with the name `take 1 ‹2/2›` shows. It holds two takes, and
      the second take plays.
 
@@ -79,7 +79,7 @@ Here, we keep bar 1 of the second take and bar 2 of the first take.
 4. Type `:take 1` and press Enter.
    - The command line starts with `:'<,'>`, which is the selection. paw
      cuts the clip at bar 2, and take 1 plays there.
-5. Press `<Space>` to listen, and `<Space>` to stop.
+5. Press `<Space><Space>` to listen, and `<Space><Space>` to stop.
    - Each piece keeps both takes. To change a piece, select it and type
      `:take 2`.
 
@@ -90,7 +90,7 @@ Here, we keep bar 1 of the second take and bar 2 of the first take.
 2. Type `:clip.fade out=2` and press Enter.
    - The piece fades out over its last two beats.
 3. Press `r` to disarm the track, and `<A-i>` to stop the monitor.
-4. Press `gs` and `<Space>`, and `<Space>` to stop.
+4. Press `gs` and `<Space><Space>`, and `<Space><Space>` to stop.
    - The guitar riff plays with the song and fades out at the end of bar 2.
 5. Type `:w with-guitar` and press Enter.
 

@@ -26,7 +26,7 @@ key j; pause 0.4
 rec_start tui-takes
 cap "r arms the lead; R records round the loop, a take each time round"
 pause 0.5; key r; pause 0.6; key R; feed & FEED=$!
-pause 7.0; wait $FEED; key space; pause 0.8
+pause 7.0; wait $FEED; key space space; pause 0.8
 cap "zt shows the takes as lanes under the clip; the last one plays"
 key z t; pause 1.6
 cap "Comping: select the first half, :take 1 plays the first take there"

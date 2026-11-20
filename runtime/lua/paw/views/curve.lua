@@ -409,7 +409,7 @@ function M.under_cursor(note)
     local lane = paw.cursor.lane_id()
     if lane then return paw.address.lane(lane) end
     if paw.tempolane.shown() then return paw.address.tempo() end
-    return nil, "not on a lane row: `,aa` shows the lanes, `,al` chooses one"
+    return nil, "not on a lane row: `" .. paw.keymap.human("<leader>aa") .. "` shows the lanes, `" .. paw.keymap.human("<leader>al") .. "` chooses one"
   end
   -- A view that knows the curve of what is under its cursor (the mixer's fader).
   local view = paw.ui.views[focused]

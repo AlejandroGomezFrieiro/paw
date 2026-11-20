@@ -524,7 +524,7 @@ local function lane(self, buf, row, track, selected, cursor_clip, lanes, hue, ma
   -- on the track the cursor is on: drawn on every track it ran along the
   -- clips' edges and made the notes harder to read, and the curve of a
   -- track is a thing to look at while working on that track (the others
-  -- show an `A` in their header; `,a` opens their lanes as rows).
+  -- show an `A` in their header; `<leader>a` opens their lanes as rows).
   for _, l in ipairs(lanes) do
     if selected and height >= 2 and l.target == "volume" and l.point_count > 0 then
       local function over_clip(col)
@@ -549,8 +549,8 @@ local function welcome(buf)
     { "a", "put an instrument on it" },
     { "i", "enter notes: a clip opens to draw them" },
     { "then I", "type them: a s d f g h j k are a scale" },
-    { "Space", "play, and stop" },
-    { ",,", "find any command, track or device" },
+    { paw.keymap.human("<leader><Space>"), "play, and stop" },
+    { paw.keymap.human("<leader>fc"), "find any command" },
     { "?", "every key that works where you are" },
     { ":", "run a command by name" },
     { ":help", "the manual, inside the program" },
@@ -561,7 +561,7 @@ local function welcome(buf)
   buf:text(x, y + 1, "Everything is driven from the keyboard. To begin:", "Dim")
   for i, line in ipairs(lines) do
     buf:text(x + 2, y + 2 + i, line[1], "HintKey")
-    buf:text(x + 11, y + 2 + i, line[2], "Welcome")
+    buf:text(x + 13, y + 2 + i, line[2], "Welcome")
   end
 end
 
