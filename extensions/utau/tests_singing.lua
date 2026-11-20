@@ -55,8 +55,8 @@ local function load_utau()
     paw.ext.load("extensions/utau")
     utau = require("utau")
   end
-  -- The vocal editor's own keys: musicops maps some of them again (`ip`,
-  -- `(` `)`) when it loads after utau.
+  -- The vocal editor's own keys: musicops maps some of them again (`ip`)
+  -- when it loads after utau.
   if paw.ext.loaded.musicops then paw.ext.unload("musicops") end
   return utau
 end
@@ -488,8 +488,8 @@ test("the vocal editor draws and erases expression curves under the notes", func
   local text = table.concat(api.ui_snapshot(120, 40), "\n")
   eq(text:find("tenc", 1, true) ~= nil and text:find("15", 1, true) ~= nil, true, "the terminal shows the curve and its value at the cursor")
   eq(text:find("[\240][\159][\172-\175]") ~= nil or text:find("[▌▐█]") ~= nil, true, "drawn in sextants under the notes")
-  paw.keymap.feed("=")
-  eq(notes.curve_at(track.id, device, "tenc", clip.start + 2), 0, "= puts it back under the note")
+  paw.keymap.feed("=in")
+  eq(notes.curve_at(track.id, device, "tenc", clip.start + 2), 0, "=in puts it back under the note")
   win.close()
 end)
 
@@ -584,19 +584,19 @@ test("the vocal editor moves and replaces phonemes, in the window and with keys"
   -- The keys: ( and ) choose a phoneme, [ and ] move it, gr types it.
   paw.ui.focus("utau")
   editor.pitch, editor.beat, editor.ph = 62, 1, nil
-  paw.keymap.feed(")")
-  paw.keymap.feed(")")
-  eq(editor.ph.note .. ":" .. editor.ph.k, "2:2", ") goes on to the next phoneme")
-  paw.keymap.feed("2])")
+  paw.keymap.feed("]p")
+  paw.keymap.feed("]p")
+  eq(editor.ph.note .. ":" .. editor.ph.k, "2:2", "]p goes on to the next phoneme")
+  paw.keymap.feed("2]]p")
   eq(clip:notes()[2].meta.utau.ph[1].offset, 10, "] starts it later")
-  paw.keymap.feed("grya<CR>")
-  eq(clip:notes()[2].meta.utau.ph[1].phoneme, "ya", "gr types the phoneme to sing")
+  paw.keymap.feed("grpya<CR>")
+  eq(clip:notes()[2].meta.utau.ph[1].phoneme, "ya", "grp types the phoneme to sing")
   local text = table.concat(api.ui_snapshot(120, 40), "\n")
   eq(text:find("[a (!い)]", 1, true) ~= nil, true, "the chosen phoneme is marked in the terminal")
   paw.keymap.feed("gR")
   eq(clip:notes()[2].meta.utau, nil, "gR puts it back")
-  paw.keymap.feed("(")
-  eq(editor.ph.k, 1, "( goes back")
+  paw.keymap.feed("[p")
+  eq(editor.ph.k, 1, "[p goes back")
   utau.phonemes[clip.id] = nil
   win.close()
 end)

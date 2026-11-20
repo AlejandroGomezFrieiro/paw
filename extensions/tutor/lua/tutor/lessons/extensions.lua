@@ -6,7 +6,7 @@ end
 return {
   id = "extensions",
   title = "The bundled extensions",
-  intro = [[
+  intro = [=[
 In this lesson, we load seven of the extensions that come with paw, and we
 try one feature of each.
 
@@ -16,9 +16,9 @@ Extensions give much of what paw can do. An extension is a folder of Lua in
 extension each time, link its folder into `~/.config/paw/extensions`.
 
 The README.md of each extension tells all that it does. Each extension has
-its keys under its own prefix. These are `]s` `[s` and `,S` (sections), `gz`
-(musicops) and `,t` (pattern). They are also `,x` and `]d` `[d` (mixdiag),
-`,u` `g-` `g+` (undotree) and `,v` (utau).]],
+its keys under its own prefix. These are `]]` `[[` and `\S` (sections), `gz`
+(musicops) and `\t` (pattern). They are also `,x` (mixdiag),
+`,u` `g-` `g+` (undotree) and `\V` (utau).]=],
   idea = [[
 An extension adds commands, keys, text objects, operators and views with the
 functions of lesson 15. So its additions obey the grammar that you know.
@@ -48,7 +48,7 @@ extensions.]],
         local clip = look.clips("Drums")[1]
         return loaded("pattern") and clip and #clip:notes() > 0
       end,
-      done = "The clip plays kick, kick, rest, snare. `,tt` edits the text of the clip under the cursor.",
+      done = "The clip plays kick, kick, rest, snare. `\\tt` edits the text of the clip under the cursor.",
     },
     {
       say = "musicops adds musical operators under `gz`. Type `:tutor.try musicops` and `<CR>`. Press `j` to go to Keys. Press `gzkic` to move each note of the clip one step up the scale.",
@@ -59,15 +59,15 @@ extensions.]],
       done = "The tune is D E F A F E D now. It moved in C major. `gzh` humanizes, `gzs` strums, and `.` repeats them.",
     },
     {
-      say = "sections gives names to the parts of a song. Type `:tutor.try sections` and `<CR>`. Press `,Sa`, type `Verse` and press `<CR>` to mark a section at the cursor.",
-      keys = { ":tutor.try sections", "<CR>", ",Sa", "Verse", "<CR>" },
+      say = "sections gives names to the parts of a song. Type `:tutor.try sections` and `<CR>`. Press `\\Sa`, type `Verse` and press `<CR>` to mark a section at the cursor.",
+      keys = { ":tutor.try sections", "<CR>", "\\Sa", "Verse", "<CR>" },
       check = function()
         if not loaded("sections") then return false end
         for _, s in ipairs(require("sections").list()) do
           if s.name == "Verse" then return true end
         end
       end,
-      done = "Verse shows on the ruler. `is` is now a text object: `yis` yanks the section on all tracks, and `]s` goes to the next section.",
+      done = "Verse shows on the ruler. `is` is now a text object: `yis` yanks the section on all tracks, and `]]` goes to the next section.",
     },
     {
       say = "undotree shows each state of the project. Type `:tutor.try undotree` and `<CR>`. Press `,uu` to open the undo tree. Look at it, then press `q` to close it.",
@@ -98,7 +98,7 @@ extensions.]],
           if look.device(t, "lua:utau") then return loaded("utau") end
         end
       end,
-      done = "The track is a vocal track. It sings when you install `paw-utau-engine` and a voicebank (see extensions/utau/README.md). Then `,v` adds a vocal track and asks for its singer in one step.",
+      done = "The track is a vocal track. It sings when you install `paw-utau-engine` and a voicebank (see extensions/utau/README.md). Then `\\Vt` adds a vocal track and asks for its singer in one step.",
     },
     {
       say = "Listen to the pattern and the tune. Press `gs` and `<Space>`, and `<Space>` to stop.",

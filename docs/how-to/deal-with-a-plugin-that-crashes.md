@@ -12,7 +12,7 @@ rule, see [Plugins](../reference/plugins.md#processes).
    the plugin: an effect lets the sound through, an instrument is silent.
 2. Put the cursor on the track and press `,d` to show the device panel.
    Press `w` until the cursor is on the name of the plugin.
-3. Press `R` to start the plugin again. It gets the settings that the
+3. Press `gR` to start the plugin again. It gets the settings that the
    project has for it.
 
 If the plugin stops again, set it offline: press `o` on its name. paw

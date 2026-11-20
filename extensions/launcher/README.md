@@ -18,7 +18,7 @@ extension: paw keeps the clips, and plays the timeline.
 1. Type `:ext.load launcher`, and open a song with a few tracks.
 2. Press `,l`. The session view opens under the arrange view. Each track is
    a column of slots, and the scenes are on the right.
-3. Press `n`. The slot under the cursor gets a MIDI clip of one bar. Press
+3. Press `o`. The slot under the cursor gets a MIDI clip of one bar. Press
    `i` and enter some notes in the piano roll, then press `,l` twice to go
    back to the session view.
 4. Press `<CR>`. The song starts and the clip loops. The clip is lit, and it
@@ -127,14 +127,14 @@ loop. A clip that waits for its boundary has a mark until it starts.
 | `S` `gS` | stop the clip of the track, stop every clip |
 | `s` `M` `r` | solo the track, mute the track, arm the track (as in every view) |
 | `B` `gB` | send the track back to its timeline, send every track back |
-| `n` | make a MIDI clip of one bar in the slot (`:slot.new 2` for two bars) |
+| `o` | make a MIDI clip of one bar in the slot (`:slot.new 2` for two bars) |
 | `i` | open the notes of the clip in the piano roll |
 | `x` `dd` | empty the slot |
 | `yy` | copy the clip of the slot into a register |
 | `p` | paste a clip into the slot: a clip copied here, or the first clip copied in the arrange view |
 | `gp` | copy the clip under the cursor of the arrange view into the slot |
-| `m` | the next launch mode |
-| `gl` | legato on or off |
+| `~` | the next launch mode |
+| `g~` | legato on or off |
 | `R` `4R` | record one bar, or four bars, into the empty slot. Again: stop. |
 | `grn` | give a name to the scene |
 | `C` | capture the launches into the timeline, on or off |

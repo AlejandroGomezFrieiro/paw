@@ -82,7 +82,8 @@ paw.ui.locator("arrange", {
       local ok, c = p and p.clip and pcall(api.clip_get, p.clip)
       track = ok and c.track or nil
     end
-    if track then paw.cursor.set_track(track) end
+    -- The master has no row: the cursor keeps its track.
+    if track and track ~= 0 then paw.cursor.set_track(track) end
     if at then paw.cursor.set_beat(math.max(0, at[1])) end
   end,
 })

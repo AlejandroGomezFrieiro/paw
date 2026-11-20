@@ -236,7 +236,7 @@ function view:render(buf, ctx)
       return
     end
     local x = 2 + buf:text(2, 2, "No clip open. Put the cursor on a MIDI clip in the arrange view and press", "Empty")
-    x = x + 1 + buf:text(x + 1, 2, paw.ui.keybar.show("<leader>n"), "EmptyKey")
+    x = x + 1 + buf:text(x + 1, 2, paw.ui.keybar.show("<localleader>n"), "EmptyKey")
     buf:text(x + 1, 2, "or :notation.", "Empty")
     return
   end

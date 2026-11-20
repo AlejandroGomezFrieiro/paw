@@ -246,7 +246,7 @@ test("c and = in the device panel ask for the parameter's value in its unit", fu
   end
   T.keys("c800<CR>")
   eq(api.device_get(cutoff.device.id).params.cutoff, 800, "cutoff 800 Hz")
-  T.keys("=+=200<CR>")
+  T.keys("c+=200<CR>")
   eq(api.device_get(cutoff.device.id).params.cutoff, 1000, "+=200 steps")
   for i, row in ipairs(panel:rows()) do
     if row.param and #row.param.choices > 0 then panel.row, cutoff = i, row end

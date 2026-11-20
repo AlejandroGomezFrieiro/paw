@@ -164,8 +164,8 @@ local function qmap(lhs, rhs, desc, opts) map(lhs, rhs, paw.util.merge({ view = 
 local motion = { motion = true }
 qmap("j", function(ctx) move(ctx.count or 1) end, "The next entry", motion)
 qmap("k", function(ctx) move(-(ctx.count or 1)) end, "The entry above", motion)
-qmap("<Down>", function(ctx) move(ctx.count or 1) end, "The next entry")
-qmap("<Up>", function(ctx) move(-(ctx.count or 1)) end, "The entry above")
+qmap("<Down>", function(ctx) move(ctx.count or 1) end, "The next entry", motion)
+qmap("<Up>", function(ctx) move(-(ctx.count or 1)) end, "The entry above", motion)
 qmap("<C-d>", function() move(10) end, "Ten entries down")
 qmap("<C-u>", function() move(-10) end, "Ten entries up")
 qmap("gg", function(ctx) move(-math.huge) if ctx.count then move(ctx.count - 1) end end, "The first entry", motion)

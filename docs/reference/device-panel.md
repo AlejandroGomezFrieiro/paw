@@ -20,7 +20,7 @@ as widgets: sliders, a power button, buttons with icons.
 | `e` | Goes to the last parameter of the device. |
 | `gg` `G` | Go to the first and the last row. |
 | `+` `-` | Change the parameter by 1/100 of its range (`10+`, `5 Ctrl-x`). On the row of a device, change its wet mix. |
-| `c`, `=` | Types the value of the parameter in its own unit. A choice takes its name. `-6` is the value -6. `+=2` and `-=3` step from the value. |
+| `c` | Types the value of the parameter in its own unit. A choice takes its name. `-6` is the value -6. `+=2` and `-=3` step from the value. |
 | `x` | Sets the parameter to its default. On the row of a device, removes the device. |
 | `Enter`, `gC` | Open the curve of the parameter in the [curve editor](curve-editor.md). On the row of a device, `Enter` shows the window of the device. |
 | `A` | Automates the parameter (`:param.automate`): makes its lane with a point at its value, at the beat of the arrange cursor, and shows the lanes of the track with the cursor on the new lane. |
@@ -92,7 +92,7 @@ window.
 | The preset, or the caret | A menu of the presets: load one, save one, make one the default. |
 | `⧉` `↑` `↓` `×` | Show the window of the plugin, move the device up or down the chain, remove it. |
 | `outs`, `key` | A menu of where the further outputs play, or of the track that the device listens to. |
-| `offline: o`, `stopped: R restarts` | Puts the plugin online again, or starts it again. |
+| `offline: o`, `stopped: gR restarts` | Puts the plugin online again, or starts it again. |
 | `A`, `L` | Automates the parameter, as the menu does. Learns a MIDI controller for it. |
 | `+ add a device` | Opens the picker of devices, as `a` does. |
 | The output, `+ send` | A menu of the tracks to play into, or to send to. |

@@ -9,9 +9,9 @@ rig_start
 term_start
 key j; pause 0.4
 rec_start tui-utau
-cap ":track.add vocal adds a vocal track, ,V its singer, :utau.phonemizer how words are sung"
+cap ":track.add vocal adds a vocal track, \\Vs its singer, :utau.phonemizer how words are sung"
 pause 0.5; key colon; TYPE_DELAY=70 typ "track.add vocal"; key Return; pause 0.8
-key comma V; pause 0.5; TYPE_DELAY=100 typ "kitane"; pause 0.3; key Return; pause 0.6
+key backslash V s; pause 0.5; TYPE_DELAY=100 typ "kitane"; pause 0.3; key Return; pause 0.6
 key colon; TYPE_DELAY=50 typ "utau.phonemizer japanesevcv"; key Return; pause 0.6
 cap "The melody pasted onto it, and Enter opens the vocal editor"
 keys 0.15 k w; TYPE_DELAY=120 typ "yic"; keys 0.15 j P; pause 0.4; key Return; pause 1.0

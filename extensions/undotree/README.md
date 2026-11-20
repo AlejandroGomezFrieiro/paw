@@ -38,8 +38,8 @@ paw.ext.load("extensions/undotree")   -- or put the directory in ~/.config/paw/e
 
 1. Press `,ua`. This state is A.
 2. Continue to work, or go to another state of the tree.
-3. Start playback, and press `\`. You hear A.
-4. Press `\` again. You hear where you were, B.
+3. Start playback, and press `,ub`. You hear A.
+4. Press `,ub` again. You hear where you were, B.
 5. To forget A and B, press `,uB`.
 
 ### How to keep a version after paw closes
@@ -73,7 +73,7 @@ is not loaded. The extension is the interface to the rest of the tree.
 | `g-` `g+` | the state made before or after this state, on any branch (with a count: `5g-`) |
 | `<leader>uu` | the window of the undo tree |
 | `<leader>ua` | marks this state as A |
-| `<leader>ub`, `\` | switches between A and where you were (B) |
+| `<leader>ub` | switches between A and where you were (B) |
 | `<leader>uB` | forgets A and B |
 | `<leader>uc` | writes a checkpoint. It asks for a name |
 | `<leader>ul` | lists checkpoints, to restore one |
@@ -82,11 +82,9 @@ is not loaded. The extension is the interface to the rest of the tree.
 
 - `u` and `Ctrl-r` are the built-in undo and redo. Undo goes to the parent
   state. Redo goes to the child that you visited last.
-- `\` is the option `undotree_ab_key`. Set it to another key, or to `""`
-  for none, before the extension loads.
-- `\` is also the local leader. In a view with keys of its own after `\`
-  (the fades of the arrange view, the popovers of a score), the switch
-  comes when the wait for more keys ends.
+- To switch between A and B with one more key, set the option
+  `undotree_ab_key` before the extension loads, for example
+  `paw.opt.undotree_ab_key = "<F5>"`. It is `""` by default: no key.
 
 ### The window
 

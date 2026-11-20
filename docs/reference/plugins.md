@@ -188,7 +188,7 @@ again.
 - If a plugin crashes or hangs, paw loses only that plugin. paw tells
   which plugin and why. The track continues: an effect that is gone lets
   the sound through, an instrument is silent.
-- `:device.restart` (`R` in the device panel, the Restart button in the
+- `:device.restart` (`gR` in the device panel, the Restart button in the
   graphical window) starts the plugin again, with its last state in the
   project.
 - The audio thread waits for a plugin for about the time of one block. A
