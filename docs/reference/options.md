@@ -10,7 +10,7 @@ instance: every frontend attached to it shares them.
 An option takes values of the type of its default. A number must be in the
 range of the option. paw refuses a value that is not correct, shows an
 error that says what the option takes, and keeps the old value. A change
-emits the event `option.changed`. `,fo` chooses an option from a list.
+emits the event `option.changed`. `<Space>fo` chooses an option from a list.
 
 An extension adds options of its own with `paw.option.define(name, default, spec)`.
 `paw.option.list()` gives every option with its default.
@@ -19,7 +19,7 @@ An extension adds options of its own with `paw.option.define(name, default, spec
 
 | Option | Default | Effect |
 | --- | --- | --- |
-| `paw.opt.leader` | `","` | What `<leader>` means in a key: the keys that mean the same in every view (`,m` the mixer). |
+| `paw.opt.leader` | `" "` | What `<leader>` means in a key: the space bar. It starts the keys that mean the same in every view (`<Space>m` the mixer, `<Space><Space>` play and stop). A change moves every key on the leader. |
 | `paw.opt.localleader` | `"\\"` | What `<localleader>` means: the leader of the keys of one view (the notation popovers, `\d`). |
 | `paw.opt.timeoutlen` | `800` | The time in ms to wait for the next keys of a sequence, 0 to 10000. |
 | `paw.opt.hints` | `true` | Lists the keys that can come after a key sequence that is not complete. |

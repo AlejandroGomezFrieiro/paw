@@ -266,7 +266,7 @@ paw.command("devices.pin", function(ctx)
   local L = paw.layout
   local cur = L.current()
   local win = cur and cur.view == "devices" and cur or L.find(paw.ui.layout, "devices", true)
-  if not win then return paw.notify("no device panel on the screen: `,d` shows it", "warn") end
+  if not win then return paw.notify("no device panel on the screen: `" .. paw.keymap.human("<leader>d") .. "` shows it", "warn") end
   local name = ctx.args[1] and table.concat(ctx.args, " ")
   L.within(win, function()
     if name then

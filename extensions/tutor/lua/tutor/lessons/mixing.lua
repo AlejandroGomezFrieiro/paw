@@ -29,8 +29,8 @@ change the row under the cursor, by 1 dB on the fader. `]` `[` pan, and `M`
 Commands set the routing. `:track.output Bus` sends the track into the track
 with the name Bus, and `:track.output master` sends it to the master again.
 With no name, it shows the tracks that you can select. `A` adds a volume
-automation point at the cursor. `,at` disables and enables the automation,
-and `,ax` clears it.]],
+automation point at the cursor. `<leader>at` disables and enables the automation,
+and `<leader>ax` clears it.]],
   vim = [[
 The mixer turns the grid on its side. `h` `l` move between tracks because the
 tracks are its columns, and `j` `k` only move, as in each view. `6<C-x>`
@@ -65,8 +65,8 @@ closes the mixer.]],
   at = function() paw.cursor.set_track(paw.track("Drums")) end,
   steps = {
     {
-      say = "Press `,m` to open the mixer at the bottom. It has one strip for each track, with a fader and a meter.",
-      keys = { ",m" },
+      say = "Press `<leader>m` to open the mixer at the bottom. It has one strip for each track, with a fader and a meter.",
+      keys = { "<leader>m" },
       check = function(_, look) return look.focused() == "mixer" end,
       done = "The mixer gets the keys. The master is on the right.",
     },
@@ -83,8 +83,8 @@ closes the mixer.]],
       done = "Bass is a little to the right.",
     },
     {
-      say = "`s` solos a track: you hear only the soloed tracks. Press `<Space>` to play and `s` to hear Bass alone. Press `s` again to hear all tracks, and `<Space>` to stop.",
-      keys = { "<Space>", "s", { wait = 200 }, "s", "<Space>" },
+      say = "`s` solos a track: you hear only the soloed tracks. Press `<leader><Space>` to play and `s` to hear Bass alone. Press `s` again to hear all tracks, and `<leader><Space>` to stop.",
+      keys = { "<leader><Space>", "s", { wait = 200 }, "s", "<leader><Space>" },
       check = function(ctx, look)
         local _, n = look.ran(ctx, "track.solo")
         return n >= 2 and not look.track("Bass").solo and look.played(ctx)
@@ -124,7 +124,7 @@ closes the mixer.]],
         end
       end,
       done = "Lead sends to Echo at -6 dB. The melody has an echo now, and the fader of Echo sets its level.",
-      hint = "`,s` does the same: it asks for the track and sends at the default level.",
+      hint = "`<leader>s` does the same: it asks for the track and sends at the default level.",
     },
     {
       say = "Now we add automation. `A` adds a volume point at the cursor and asks for its value. Type `/Keys` and `<CR>` to return to Keys. Then press `0` and `A`. Press `<C-u>` to clear the value, type `-30` and press `<CR>`.",
@@ -147,8 +147,8 @@ closes the mixer.]],
       done = "The lane of the track shows the line between the points.",
     },
     {
-      say = "Listen from the start. Press `gs` and `<Space>`, and `<Space>` to stop.",
-      keys = { "gs", "<Space>", { wait = 300 }, "<Space>" },
+      say = "Listen from the start. Press `gs` and `<leader><Space>`, and `<leader><Space>` to stop.",
+      keys = { "gs", "<leader><Space>", { wait = 300 }, "<leader><Space>" },
       check = function(ctx, look) return look.ran(ctx, "transport.start") and look.played(ctx) end,
       done = "The chords fade in through a bus, the melody has an echo, and the bass is on the right.",
     },

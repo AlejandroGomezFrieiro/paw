@@ -15,12 +15,12 @@ from some letters of its name.
 Each key runs a command with a name. So you can type the name of each action
 that a key does. You can also map each command that you find to a key.]],
   idea = [[
-Key hints show when you stop after the start of a sequence (`g`, `,`, `d`,
+Key hints show when you stop after the start of a sequence (`g`, `<leader>`, `d`,
 `"`). `?` is the list of keys for the view that has the keys. `:commands`
 shows each command and what it does.
 
-`,,` (or `,fc`) finds a command, `,fk` a key, `,ft` a track and `,fl` a
-clip. `,fa` finds a device, `,fm` a mark, `,fr` a register and `,fp` a picker. In a
+`<leader>fc` finds a command, `<leader>fk` a key, `<leader>ft` a track and `<leader>fl` a
+clip. `<leader>fa` finds a device, `<leader>fm` a mark, `<leader>fr` a register and `<leader>fp` a picker. In a
 picker, the text that you type makes the list shorter. The letters must be in
 order, but they can have other letters between them. `<C-n>` `<C-p>` move,
 `<CR>` selects and `<Esc>` cancels. `K` gives data about the clip and the
@@ -64,14 +64,14 @@ history (`<Up>`).]],
       done = "Bass is at -6 dB. `+` and `-` run the command `track.volume`.",
     },
     {
-      say = "`,,` opens a picker of all the commands. Type some letters, and `<CR>` runs the first command. Press `,,`, type `metro` and press `<CR>`.",
-      keys = { ",,", "metro", "<CR>" },
+      say = "`<leader>fc` opens a picker of all the commands. Type some letters, and `<CR>` runs the first command. Press `<leader>fc`, type `metro` and press `<CR>`.",
+      keys = { "<leader>fc", "metro", "<CR>" },
       check = function() return paw.transport.metronome end,
       done = "The metronome is on. You ran `transport.metronome`, but you did not know its name or its key.",
     },
     {
-      say = "`,fk` finds a key from its action. Press `,fk` and type `loop` to see all the keys for the loop. Then press `<Esc>`.",
-      keys = { ",fk", "loop", "<Esc>" },
+      say = "`<leader>fk` finds a key from its action. Press `<leader>fk` and type `loop` to see all the keys for the loop. Then press `<Esc>`.",
+      keys = { "<leader>fk", "loop", "<Esc>" },
       check = function(ctx, look)
         local state = paw.pick.state()
         if state and state.query == "loop" then ctx.found = true end
@@ -80,10 +80,10 @@ history (`<Up>`).]],
       done = "The list showed `gL`, `gl` and `il`. `<CR>` on a line types its key for you.",
     },
     {
-      say = "`,ft` goes to a track by its name. Press `,ft`, type `dr` and press `<CR>`.",
-      keys = { ",ft", "dr", "<CR>" },
+      say = "`<leader>ft` goes to a track by its name. Press `<leader>ft`, type `dr` and press `<CR>`.",
+      keys = { "<leader>ft", "dr", "<CR>" },
       check = function(ctx, look) return look.ran(ctx, "pick.tracks") and look.cursor_track() == "Drums" end,
-      done = "The cursor is on Drums. `,fl` does the same for clips.",
+      done = "The cursor is on Drums. `<leader>fl` does the same for clips.",
     },
     {
       say = "`K` gives data about the item under the cursor: the clip, the track and its devices. Press `K`, then `q` to close it.",
@@ -92,11 +92,11 @@ history (`<Up>`).]],
       done = "`K` is the fastest way to see the devices, sends and automation of a track.",
     },
     {
-      say = "Listen with the click. Press `<Space>`, then `<Space>` to stop and `gm` to disable the click.",
-      keys = { "<Space>", { wait = 300 }, "<Space>", "gm" },
+      say = "Listen with the click. Press `<leader><Space>`, then `<leader><Space>` to stop and `gm` to disable the click.",
+      keys = { "<leader><Space>", { wait = 300 }, "<leader><Space>", "gm" },
       check = function(ctx, look) return look.played(ctx) and not paw.transport.metronome end,
       done = "The bass is quieter, and the click came from a command that you found by its name.",
     },
   },
-  outro = "We used key hints, `?`, `:commands`, Tab on the command line, `,,`, the `,f` pickers and `K`.",
+  outro = "We used key hints, `?`, `:commands`, Tab on the command line, the `<leader>f` pickers and `K`.",
 }

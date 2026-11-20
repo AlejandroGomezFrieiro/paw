@@ -3,7 +3,7 @@
 -- diagnostics, each about the track it names (the master for the whole
 -- mix) at the beat it names, with a fix wherever a finding says by how much
 -- to lower a fader. So `:diagnostics`, `]d`, the marks on strips and
--- headers, and `,ca` agree with the mix report.
+-- headers, and `<leader>ca` agree with the mix report.
 local mixdiag = require("mixdiag")
 local A = paw.address
 

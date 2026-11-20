@@ -33,7 +33,7 @@ The tutor opens a practice project for this lesson. It checks each step when you
    - ✓ tutor-song.wav is in the folder of the practice project. The message line shows its length and peak level.
 4. `:messages` shows the messages that you did not see. Type `:messages` and `<CR>`, then press `q` to close the list.
    - ✓ The list showed all the messages since paw started, with the saves and the renders.
-5. You can play the rendered file in a different player. Here, `<Space>` plays the song in paw. `<Space>` stops.
+5. You can play the rendered file in a different player. Here, `<Space><Space>` plays the song in paw. `<Space><Space>` stops.
    - ✓ The song is saved and rendered.
 
 ## What we did

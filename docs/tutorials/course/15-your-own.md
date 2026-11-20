@@ -12,7 +12,7 @@ Each key that you used is a usual mapping, and each command is a usual Lua funct
 
 ## The idea
 
-`paw.opt.name = value` sets an option (`:lua paw.opt.grid = 0.5`). `,fo` shows the options. `paw.keymap.set(keys, command or function, { desc = ..., view = ... })` maps keys. `<leader>` is the leader (`,`), and `<localleader>` is the leader of the keys of one view (a backslash).
+`paw.opt.name = value` sets an option (`:lua paw.opt.grid = 0.5`). `<Space>fo` shows the options. `paw.keymap.set(keys, command or function, { desc = ..., view = ... })` maps keys. `<Space>` is the leader (`,`), and `<localleader>` is the leader of the keys of one view (a backslash).
 
 `paw.command(name, function(ctx) ... end, { desc = ... })` makes a command. `:name` runs it, and a mapping can use its name. `:reload` runs `init.lua` again and does not change the project.
 
@@ -27,14 +27,14 @@ The tutor opens a practice project for this lesson. It checks each step when you
 1. First, set an option. Type `:lua paw.opt.grid = 0.5` and `<CR>`. Then press `l`: the cursor moves half a beat now.
    - *Hint:* Type the text exactly, with the spaces. On the command line, `<Up>` shows the text that you typed before.
    - ✓ The grid is half a beat, and the status line shows `grid 0.5`. `]g` and `[g` also change it.
-2. Now map a key of your own. Type `:lua paw.keymap.set("<leader>z", "transport.metronome", { desc = "Click" })` and `<CR>`. Then press `,z`.
-   - ✓ `,z` enables and disables the click. `?` shows your mapping with its description.
+2. Now map a key of your own. Type `:lua paw.keymap.set("<leader>z", "transport.metronome", { desc = "Click" })` and `<CR>`. Then press `<Space>z`.
+   - ✓ `<Space>z` enables and disables the click. `?` shows your mapping with its description.
 3. Now make a command of your own. Type `:lua paw.command("hello", function() paw.notify("hello from my command") end)` and `<CR>`. Then type `:hello` and `<CR>`.
-   - ✓ Your command ran. `:commands` and the `,,` picker show it now, with the built-in commands.
+   - ✓ Your command ran. `:commands` and the `<Space>fc` picker show it now, with the built-in commands.
 4. To keep them, open `~/.config/paw/init.lua` in your text editor. Add the same three lines without `:lua`, and save. Then type `:reload` here.
    - *Hint:* In init.lua, each line is usual Lua, for example `paw.opt.grid = 0.5`. If there is an error, `:extensions` and `:messages` show it.
-   - *The tutor cannot check this step* (The tutor does not read or write your configuration). `,hn` moves to the next step.
-5. Listen with your click. Press `<Space>`, then `<Space>` to stop and `,z` to disable the click.
+   - *The tutor cannot check this step* (The tutor does not read or write your configuration). `<Space>hn` moves to the next step.
+5. Listen with your click. Press `<Space><Space>`, then `<Space><Space>` to stop and `<Space>z` to disable the click.
    - ✓ Your own key works.
 
 ## What we did

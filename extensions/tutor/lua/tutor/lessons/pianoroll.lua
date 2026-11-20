@@ -130,8 +130,8 @@ of it is one undo step. `.` repeats it at the cursor, as Vim repeats an insert.]
       hint = "`<Space>` adds a rest of one step before the next note.",
     },
     {
-      say = "In normal mode, `<Esc>` stays in the piano roll, as in each view. `<C-w>p` returns to the previous window. Press `<C-w>p`, then `gs` and `<Space>` to listen. `<Space>` stops.",
-      keys = { "<C-w>p", "gs", "<Space>", { wait = 300 }, "<Space>" },
+      say = "In normal mode, `<Esc>` stays in the piano roll, as in each view. `<C-w>p` returns to the previous window. Press `<C-w>p`, then `gs` and `<leader><Space>` to listen. `<leader><Space>` stops.",
+      keys = { "<C-w>p", "gs", "<leader><Space>", { wait = 300 }, "<leader><Space>" },
       check = function(ctx, look) return look.focused() == "arrange" and look.played(ctx) end,
       done = "Your tune plays over the drums.",
     },

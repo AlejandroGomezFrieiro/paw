@@ -17,7 +17,7 @@ paw.render("vocal.wav")   -- waits until every phrase is sung at final quality
 
 ![A vocal track added to the demo song with :track.add vocal, its singer chosen with \Vs and its phonemizer with :utau.phonemizer, the melody pasted in, lyrics typed in romaji with :utau.lyrics and made kana with :utau.batch. The phrases turn green as the engine sings them](images/tui-utau.gif)
 
-![The vocal editor on the sung melody: the phonemes under the notes, ~ puts a vibrato on the long note, \]c and } raise its dynamics, r sings it again, and Space plays it](images/tui-utau-editor.gif)
+![The vocal editor on the sung melody: the phonemes under the notes, ~ puts a vibrato on the long note, \]c and } raise its dynamics, r sings it again, and Space Space plays it](images/tui-utau-editor.gif)
 
 ## Try it
 
@@ -29,8 +29,8 @@ paw.render("vocal.wav")   -- waits until every phrase is sung at final quality
 4. Put the cursor on an empty part of the track. Press `i` to make a clip,
    and press Enter. The vocal editor opens.
 5. Press `i` to add a note, then `c`, type `a` and press Enter. The phrase
-   in the ruler turns green when the engine has sung it. Press Space to
-   hear it.
+   in the ruler turns green when the engine has sung it. Press Space two
+   times to hear it.
 
 ## How to
 
@@ -142,7 +142,7 @@ A vocal track is a kind of track (`paw.track_kinds`).
 | `[` `]` | that phoneme starts 5 ticks earlier or later |
 | `grp`, `gR` | type the phoneme to sing in its place. Restore it from the voicebank |
 | `~`, `:utau.note key=value ...` | vibrato on or off. Set properties of the selected notes: `tuning`, `vibrato=on`, `length` `period` `depth` `in` `out` `shift` `drift` `vol_link`, `po` (phonemizer, `default` for the track's), `transition=default`, and any expression (`vel=120`) |
-| `Space`, `gh` | play from the cursor or stop. Hear the note under the cursor |
+| `<Space><Space>`, `gh` | play from the cursor or stop. Hear the note under the cursor |
 | `S`, `s`, `r` | choose the singer, show the lyric sheet, render again |
 | `Esc`, `<C-w>p`, `<C-w>c` | forget the selection (the editor stays). Return to the window before. Close the editor |
 

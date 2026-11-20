@@ -116,7 +116,7 @@ local function play_lesson(tutor, n)
       end
       if step.unchecked then
         eq(tutor.state().step, i, where .. ": an unchecked step waits for the learner")
-        type_keys(",hn")
+        type_keys("<leader>hn")
       end
       if tutor.state().step ~= i + 1 then
         error(string.format("%s: not noticed after typing its keys (%s)\nthe panel says:\n%s", where, step.say, panel_text()), 0)
@@ -124,7 +124,7 @@ local function play_lesson(tutor, n)
       local rec = tutor.record(lesson.id).steps[i]
       eq(rec, step.unchecked and "skipped" or "done", where .. ": recorded")
       if not step.unchecked then
-        eq(panel_text():find("✓ " .. (step.done or "Done."), 1, true) ~= nil, true, where .. ": the panel says it is done")
+        eq(panel_text():find("✓ " .. require("tutor.panel").keys(step.done or "Done."), 1, true) ~= nil, true, where .. ": the panel says it is done")
       end
     end
     eq(tutor.state().finished, true, lesson.id .. ": finished")
@@ -155,9 +155,9 @@ test("tutor: a hint is shown when asked for, and skipping goes on without doing 
   local lesson = tutor.by_id["first-steps"]
   eq(tutor.state().step, 1, "on the first step")
   eq(screen():find("Hint:", 1, true), nil, "no hint before it is asked for")
-  type_keys(",hh")
+  type_keys("<leader>hh")
   eq(panel_text():find("Hint: " .. lesson.steps[1].hint, 1, true) == nil, false, "the hint is in the panel")
-  type_keys(",hn")
+  type_keys("<leader>hn")
   eq(tutor.state().step, 2, "skipped to the second step")
   eq(tutor.record("first-steps").steps[1], "skipped", "recorded as skipped")
   eq(panel_text():find("✓ Skipped.", 1, true) ~= nil, true, "the panel says so")
@@ -175,7 +175,7 @@ test("tutor: restarting a lesson builds its practice project again", function()
   type_keys("dw")
   eq(tutor.state().step, 2, "the first step is done")
   eq(require("tutor.look").names("Beat"), "snare fill crash", "kick deleted")
-  type_keys(",hr")
+  type_keys("<leader>hr")
   type_keys("<Esc>")
   eq(tutor.state().step, 1, "back at the first step")
   eq(require("tutor.look").names("Beat"), "kick snare fill crash", "a fresh practice project")
@@ -187,10 +187,10 @@ end)
 test("tutor: a finished lesson says so, and the next one follows", function()
   local tutor = start()
   type_keys(":tutor 13<CR><Esc>")
-  for _ = 1, #tutor.by_id.saving.steps do type_keys(",hn") end
+  for _ = 1, #tutor.by_id.saving.steps do type_keys("<leader>hn") end
   eq(tutor.state().finished, true, "finished")
-  eq(panel_text():find("Lesson done. `,hn` goes on to lesson 14", 1, true) ~= nil, true, "the panel offers the next lesson")
-  type_keys(",hn<Esc>")
+  eq(panel_text():find("Lesson done. `<Space>hn` goes on to lesson 14", 1, true) ~= nil, true, "the panel offers the next lesson")
+  type_keys("<leader>hn<Esc>")
   eq(tutor.state().lesson, "finding", "on to lesson 14")
   eq(tutor.state().step, 1, "at its first step")
   tutor.quit()
@@ -205,7 +205,7 @@ test("tutor: skipping a step never makes the tutor jump over the next one", func
     type_keys("<Esc>")
     while not tutor.state().finished do
       local i = tutor.state().step
-      type_keys(",hn")
+      type_keys("<leader>hn")
       if not tutor.state().finished and tutor.state().step ~= i + 1 then
         problems[#problems + 1] = string.format("%s: step %d was passed without being done", lesson.id, i + 1)
       end
@@ -240,7 +240,7 @@ test("tutor: the learner's project is never touched, and comes back when they le
   eq(paw.track("Mine"), nil, "the learner's tracks are not in it")
   eq(paw.opt.grid, 1, "lessons start from the default grid")
   type_keys("o")
-  type_keys(",hq")
+  type_keys("<leader>hq")
   eq(tutor.state().active, false, "left the tutor")
   eq(paw.project.path, path, "the learner's project is open again")
   eq(paw.track("Mine") ~= nil and #paw.tracks() == 1, true, "as it was")
@@ -290,7 +290,7 @@ test("tutor: progress survives leaving and coming back, and a restart of the pro
   type_keys("o")                         -- step 1: a track
   type_keys("grn<C-u>Bass<CR>")           -- step 2: its name
   eq(tutor.state().step, 3, "two steps done")
-  type_keys(",hq")
+  type_keys("<leader>hq")
   eq(require("tutor.store").exists(T.scratch .. "/tutor/progress.lua"), true, "progress is in the tutor's directory")
   -- As if the program had been closed and started again.
   tutor._forget()
@@ -338,8 +338,8 @@ end)
 test("tutor: the lessons are listed with progress, and one is chosen from the list", function()
   local tutor = start()
   type_keys(":tutor 1<CR><Esc>")
-  for _ = 1, #tutor.by_id["first-steps"].steps do type_keys(",hn") end
-  type_keys(",hl")
+  for _ = 1, #tutor.by_id["first-steps"].steps do type_keys("<leader>hn") end
+  type_keys("<leader>hl")
   local state = paw.pick.state()
   eq(state and state.title, "Lessons", "a picker of lessons")
   eq(#state.matches, #tutor.lessons, "every lesson")
@@ -460,5 +460,7 @@ test("tutor: the keys in a lesson follow the learner's leader and local leader",
   local leader, localleader = paw.opt.leader, paw.opt.localleader
   T.after(function() paw.opt.leader, paw.opt.localleader = leader, localleader end)
   paw.opt.leader, paw.opt.localleader = "-", ";"
-  eq(panel.keys("Press `,hh`, then `\\Sa` and `\\`."), "Press `-hh`, then `;Sa` and `\\`.")
+  eq(panel.keys("Press `<leader>hh`, then `\\Sa` and `\\`."), "Press `-hh`, then `;Sa` and `\\`.")
+  paw.opt.leader, paw.opt.localleader = " ", "\\"
+  eq(panel.keys("Press `<leader><Space>`."), "Press `<Space><Space>`.", "the default leader is the space bar")
 end)

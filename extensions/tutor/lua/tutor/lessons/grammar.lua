@@ -122,8 +122,8 @@ In Vim, `gc` changes lines to comments. Here it mutes. `gl` (loop) is new.
       done = "The loop is the snare clip. The ruler shows it.",
     },
     {
-      say = "Press `gcic` to unmute `snare`. Press `<Space>` to hear the loop. `<Space>` stops.",
-      keys = { "gcic", "<Space>", { wait = 300 }, "<Space>" },
+      say = "Press `gcic` to unmute `snare`. Press `<leader><Space>` to hear the loop. `<leader><Space>` stops.",
+      keys = { "gcic", "<leader><Space>", { wait = 300 }, "<leader><Space>" },
       check = function(ctx, look)
         local c = look.clip("Beat", "snare")
         return c and not c.muted and look.played(ctx)

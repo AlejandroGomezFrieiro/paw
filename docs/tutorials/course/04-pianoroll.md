@@ -57,7 +57,7 @@ The tutor opens a practice project for this lesson. It checks each step when you
 12. `<CR>` continues after the chord. `<C-d>` and `<C-u>` move one octave. Press `<CR>`, `<C-d>` and `7j` (the C below), `4l` and `<Esc>`.
    - *Hint:* `<Space>` adds a rest of one step before the next note.
    - ✓ The clip has a C major chord, then a C3 below it.
-13. In normal mode, `<Esc>` stays in the piano roll, as in each view. `<C-w>p` returns to the previous window. Press `<C-w>p`, then `gs` and `<Space>` to listen. `<Space>` stops.
+13. In normal mode, `<Esc>` stays in the piano roll, as in each view. `<C-w>p` returns to the previous window. Press `<C-w>p`, then `gs` and `<Space><Space>` to listen. `<Space><Space>` stops.
    - ✓ Your tune plays over the drums.
 
 ## What we did

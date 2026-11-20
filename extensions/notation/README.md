@@ -32,7 +32,7 @@ paw.ext.load("extensions/notation")   -- or put it in ~/.config/paw/extensions
 4. Press `v`, then `B` to select back to the start of the bar. Press `\d`,
    type `p<f` and press Enter. A hairpin from `p` to `f` appears under the
    notes.
-5. Press Space. The notes play louder along the hairpin.
+5. Press Space two times. The notes play louder along the hairpin.
 
 ## How to
 

@@ -20,7 +20,7 @@ paw.ext.load("extensions/pattern")   -- or put the directory in ~/.config/paw/ex
 2. In the arrange view, put the cursor on an empty part of a drum track.
 3. Press `\tt`. Type `bd*2 [~ sn]` and press Enter. A clip appears, named
    `≈ bd*2 [~ sn]`.
-4. Press Space. You hear two kicks and a snare in each bar.
+4. Press Space two times. You hear two kicks and a snare in each bar.
 5. Press `\tt` again. Change the text to `bd*2 [~ sn] hh*8` and press
    Enter. The clip now has hats too, and you hear them in the next bar.
 

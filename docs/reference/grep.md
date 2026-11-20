@@ -30,7 +30,7 @@ Then use the list as any quickfix list: `]q` and `[q`, and `:copen`.
 example, `:vimgrep /^Viol/ track` then `:cdo track.mute`. See
 [The quickfix list](quickfix.md).
 
-`,fg` is the same text in a picker, filtered while you type. `Ctrl-q` sends
+`<Space>fg` is the same text in a picker, filtered while you type. `Ctrl-q` sends
 the lines that match to the list.
 
 ## Lua

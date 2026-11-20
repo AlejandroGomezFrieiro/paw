@@ -26,7 +26,7 @@ at the position where the recording started.
 A track with an audio input records audio. An armed track with no input
 records MIDI. For the first part, you need a microphone or a different input.
 For the second part, you need a MIDI keyboard. If you do not have them, read
-the steps, and press `,hn` to skip a step. The recordings of this practice
+the steps, and press `<leader>hn` to skip a step. The recordings of this practice
 project go in the folder of the tutor.]],
   idea = [[
 In the arrange view, `I` shows the inputs that the track can use. These are
@@ -37,7 +37,7 @@ port, and one MIDI channel.
 does not record it.
 
 `r` arms the track. `R` starts the recording from the playhead. `R` again
-stops the recording, but the song continues to play. Then `<Space>` stops it.
+stops the recording, but the song continues to play. Then `<leader><Space>` stops it.
 
 `:midi.inputs` shows the MIDI ports and `:midi.select` selects some.
 `:audio` selects the input and output devices. Each take is one undo step.]],
@@ -75,13 +75,13 @@ replace mode.]],
       done = "The track is armed. You also hear the input of an armed track.",
     },
     {
-      say = "`R` starts the recording from the cursor, as `<S-CR>` plays from it. Press `R`. Sing or play for some seconds. Then press `R` to stop the recording, and `<Space>` to stop the song.",
-      keys = { "R", { wait = 1000 }, "R", "<Space>" },
+      say = "`R` starts the recording from the cursor, as `<S-CR>` plays from it. Press `R`. Sing or play for some seconds. Then press `R` to stop the recording, and `<leader><Space>` to stop the song.",
+      keys = { "R", { wait = 1000 }, "R", "<leader><Space>" },
       check = function(_, look)
         local clip = look.clips("Voice")[1]
         return clip and clip.kind == "audio" and not paw.transport.playing and not paw.transport.recording
       end,
-      hint = "Press `R` before `<Space>`. If you press only `<Space>`, record mode stays on (`rec` is lit in the status line), and the next `<Space>` records again.",
+      hint = "Press `R` before `<leader><Space>`. If you press only `<leader><Space>`, record mode stays on (`rec` is lit in the status line), and the next `<leader><Space>` records again.",
       done = "A new audio clip with your take shows where the recording started. The clip shows its waveform.",
     },
     {
@@ -92,8 +92,8 @@ replace mode.]],
       hint = "`:midi.inputs` shows the MIDI ports that paw finds.",
     },
     {
-      say = "Press `0` to put the cursor at the start and `R` to record. Play some notes on your MIDI keyboard. Then press `R` and `<Space>` to stop.",
-      keys = { "0", "R", { sim = play_three_notes, instead = {} }, "R", "<Space>" },
+      say = "Press `0` to put the cursor at the start and `R` to record. Play some notes on your MIDI keyboard. Then press `R` and `<leader><Space>` to stop.",
+      keys = { "0", "R", { sim = play_three_notes, instead = {} }, "R", "<leader><Space>" },
       check = function(_, look)
         local clip = look.clips("Keys")[1]
         return clip and clip.kind == "midi" and #clip:notes() > 0 and not paw.transport.playing and not paw.transport.recording
@@ -101,11 +101,11 @@ replace mode.]],
       done = "A MIDI clip contains the notes that you played. `<CR>` on the clip opens it in the piano roll.",
     },
     {
-      say = "Press `r` to disarm Keys. Then listen: press `gs` and `<Space>`, and `<Space>` to stop.",
-      keys = { "r", "gs", "<Space>", { wait = 300 }, "<Space>" },
+      say = "Press `r` to disarm Keys. Then listen: press `gs` and `<leader><Space>`, and `<leader><Space>` to stop.",
+      keys = { "r", "gs", "<leader><Space>", { wait = 300 }, "<leader><Space>" },
       check = function(ctx, look) return not look.track("Keys").armed and look.played(ctx) end,
       done = "Your recordings play with the drums.",
     },
   },
-  outro = "We selected an input with `I`, armed with `r`, recorded with `R` and stopped with `<Space>`. We made an audio take and a MIDI take.",
+  outro = "We selected an input with `I`, armed with `r`, recorded with `R` and stopped with `<leader><Space>`. We made an audio take and a MIDI take.",
 }

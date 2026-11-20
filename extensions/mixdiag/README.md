@@ -14,32 +14,32 @@ paw.ext.load("extensions/mixdiag")      -- or put it in ~/.config/paw/extensions
 ## Try it
 
 1. Type `:ext.load mixdiag`, and open a song.
-2. Press `,xa`. The status line shows `measuring` and a percentage. At the
+2. Press `<Space>xa`. The status line shows `measuring` and a percentage. At the
    end, a message gives the summary: LUFS, true peak, LRA.
 3. Look above the arrange view. A row has a letter (`E`, `W`, `I` or `H`)
    at the beat of each finding.
 4. Press `]d`. The cursor goes to the first finding, and the message gives
    it.
-5. Press `,xx`. The list of the findings opens.
+5. Press `<Space>xx`. The list of the findings opens.
 
 ## How to
 
 ### How to check a mix before delivery
 
-1. Choose the target: press `,xt` until the message names it, or type
+1. Choose the target: press `<Space>xt` until the message names it, or type
    `:mix.target ebu`.
-2. Press `,xa` to measure the song.
-3. Press `,xr` to open the report. Press `j` and `k` to choose a finding.
+2. Press `<Space>xa` to measure the song.
+3. Press `<Space>xr` to open the report. Press `j` and `k` to choose a finding.
    Press Enter to go to it.
-4. Correct the mix, then press `,xa` again. The marks show `(old)` until you
+4. Correct the mix, then press `<Space>xa` again. The marks show `(old)` until you
    measure again.
 
 ### How to find the track that clips
 
-1. Press `,xa`. If a track output is over full scale, the finding
+1. Press `<Space>xa`. If a track output is over full scale, the finding
    `track_over` names it.
 2. To measure what one track adds to the mix, put the cursor on the track
-   and press `,xk`.
+   and press `<Space>xk`.
 
 ### How to measure a file
 
@@ -260,7 +260,7 @@ Times are seconds from the start of the measurement.
 ### Limits
 
 - Tracks give only their peak, not their loudness, correlation or
-  spectrum. To get the numbers of one track, measure what it adds (`,xk`).
+  spectrum. To get the numbers of one track, measure what it adds (`<Space>xk`).
   This is one render for each track.
 - paw measures the mix. So a DC offset, a phase problem or infrasonic
   energy points at a time, not at a track.

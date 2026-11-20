@@ -27,7 +27,7 @@ To hear an instrument in the list before you add it, select it and press
 
 ## Start from a preset
 
-1. Press `,d`. The device panel shows the devices of the track.
+1. Press `<Space>d`. The device panel shows the devices of the track.
 2. Put the cursor on the row of the instrument, and press `c`. The list of
    presets opens.
 3. Type a part of the name, for example `pluck`, and press `Enter`.
@@ -39,7 +39,7 @@ To try the presets one after the other, press `]p` and `[p`.
 1. Press `<C-w>p` to return to the arrange view.
 2. Press `i`. paw opens a new clip in the piano roll, in insert mode.
 3. Press `4l` to draw a note of one beat, then press `Esc`.
-4. Press `Space`. The note plays.
+4. Press `<Space><Space>`. The note plays.
 
 In the graphical window, click `+ add a device` under the devices of the
 device panel, type the name in the picker and press `Enter`. To make an

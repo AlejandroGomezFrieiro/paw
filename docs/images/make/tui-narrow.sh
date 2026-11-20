@@ -10,10 +10,10 @@ rig_start
 term_start
 rec_start tui-narrow
 cap "zn on a group: a tab of its tracks alone, the rest of the song played from files"
-pause 0.5; key space; pause 0.8; key z n; pause 2.4
+pause 0.5; key space space; pause 0.8; key z n; pause 2.4
 cap "Motions, ranges and the mixer see only the group: :t* is its tracks"
 keys 0.4 j j; key colon; TYPE_DELAY=110 typ "t* solo"; pause 1.0; key Escape; pause 0.4
 cap "zw widens again; :freeze renders a group and plays the file (F)"
-key z w; pause 1.0; key space; pause 0.4
+key z w; pause 1.0; key space space; pause 0.4
 key colon; TYPE_DELAY=110 typ "freeze Harmony"; key Return; pause 3.4
 rec_stop

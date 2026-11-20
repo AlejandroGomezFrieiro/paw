@@ -205,7 +205,7 @@ end, "Paste a clip into the slot")
 paw.ui.keybar.lines.session = {
   n = {
     { "<CR>", "launch" }, { "L", "scene" }, { "S", "stop" }, { "B", "resume timeline" }, { "o", "new clip" },
-    { "i", "notes" }, { "~", "mode" }, { "<Space>", "play" }, { "?", "keys" },
+    { "i", "notes" }, { "~", "mode" }, { "<leader><Space>", "play" }, { "?", "keys" },
   },
 }
 

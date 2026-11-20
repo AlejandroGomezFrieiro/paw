@@ -32,7 +32,7 @@ The tutor opens a practice project for this lesson. It checks each step when you
    - ✓ The cursor is on the chorus. `n` goes to the next match, the chorus of Bass.
 3. `gl` is the loop operator. Press `glic` to loop the clip under the cursor.
    - ✓ The chorus is the loop.
-4. `gm` enables the metronome (the click). Press `gm`. Then press `gp` to move the playhead to the cursor, and `<Space>` to play. `<Space>` stops.
+4. `gm` enables the metronome (the click). Press `gm`. Then press `gp` to move the playhead to the cursor, and `<Space><Space>` to play. `<Space><Space>` stops.
    - ✓ The chorus played with a click.
 5. Press `gm` to disable the click.
    - ✓ The click is off.
@@ -45,7 +45,7 @@ The tutor opens a practice project for this lesson. It checks each step when you
    - ✓ The cursor is at the start of Lead, where it was before `'a`. `''` again returns to the chorus. `<C-o>` goes further back.
 9. `gl` also accepts motions. Press `3|` to go to bar 3. Then press `gl2W` to loop two bars from there.
    - ✓ The loop is the first two bars of the verse.
-10. Listen. Press `gp` and `<Space>`. `<Space>` stops.
+10. Listen. Press `gp` and `<Space><Space>`. `<Space><Space>` stops.
    - ✓ Two bars of the verse play again and again.
 
 ## What we did

@@ -1,5 +1,5 @@
 -- What notation writes over its staves, the text and the dynamics, among
--- the text `:vimgrep` and `,fg` search (`paw.grep`).
+-- the text `:vimgrep` and `<leader>fg` search (`paw.grep`).
 local api = paw.api
 local WORDS = { text = "text", dynamic = "dynamic", dyn = "dynamic" }
 

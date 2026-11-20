@@ -11,20 +11,18 @@ paw.ui.hl("TutorText", { fg = "#c0caf5" })
 paw.ui.hl("TutorHint", { fg = "#e0af68" })
 paw.ui.hl("TutorDim", { fg = "#565f89" })
 
---- Write keys the way the learner's leaders read: the lessons write the
---- default `,` and `\`, so `,hh` becomes `<space>hh` when the leader is a
---- space, and `\Sa` follows the local leader the same way.
+--- Write keys the way the learner's leaders read: the lessons write
+--- `<leader>` and the default local leader `\`, so `<leader>hh` is
+--- `<Space>hh` with the default leader (a space) and `,hh` when the leader is
+--- `,`, and `\Sa` follows the local leader the same way.
 function M.keys(text)
   local leader, localleader = paw.opt.leader, paw.opt.localleader
-  if leader == "," and localleader == "\\" then return text end
+  if leader == " " then leader = "<Space>" end
   return (text:gsub("`([^`]*)`", function(code)
-    if #code > 1 then
-      local first = code:sub(1, 1)
-      if first == "," then
-        code = leader .. code:sub(2)
-      elseif first == "\\" then
-        code = localleader .. code:sub(2)
-      end
+    if code:match("^<[Ll]eader>") then
+      code = code:gsub("<[Ll]eader>", function() return leader end)
+    elseif #code > 1 and code:sub(1, 1) == "\\" and localleader ~= "\\" then
+      code = localleader .. code:sub(2)
     end
     return "`" .. code .. "`"
   end))
@@ -79,7 +77,7 @@ function M.paragraphs()
     return out
   end
   if S.paused then
-    add("This is not the lesson's project, so the tutor is waiting. `:tutor` goes back to the lesson, `,hq` leaves the tutor.", "TutorHint")
+    add("This is not the lesson's project, so the tutor is waiting. `:tutor` goes back to the lesson, `<leader>hq` leaves the tutor.", "TutorHint")
     return out
   end
   if S.just_done then add("✓ " .. S.just_done, "TutorDone") end
@@ -88,18 +86,18 @@ function M.paragraphs()
     local n = tutor.number(lesson)
     local following = tutor.lessons[n + 1]
     if following then
-      add(string.format("Lesson done. `,hn` goes on to lesson %d, %s; `,hl` lists the lessons; `,hq` leaves the tutor; `:help course-%d` is this lesson to read again.", n + 1, following.title, n))
+      add(string.format("Lesson done. `<leader>hn` goes on to lesson %d, %s; `<leader>hl` lists the lessons; `<leader>hq` leaves the tutor; `:help course-%d` is this lesson to read again.", n + 1, following.title, n))
     else
-      add("That was the last lesson. `,hl` lists them all; `,hq` leaves the tutor.")
+      add("That was the last lesson. `<leader>hl` lists them all; `<leader>hq` leaves the tutor.")
     end
     return out
   end
   if not step then return out end
   add(step.say)
   if step.unchecked then
-    add("The tutor cannot see this one happen: press `,hn` when you have done it.", "TutorDim")
+    add("The tutor cannot see this one happen: press `<leader>hn` when you have done it.", "TutorDim")
   end
-  if S.hint then add("Hint: " .. (step.hint or "Do exactly the keys shown, in order. `,hr` starts the lesson again."), "TutorHint") end
+  if S.hint then add("Hint: " .. (step.hint or "Do exactly the keys shown, in order. `<leader>hr` starts the lesson again."), "TutorHint") end
   if S.error then add("The tutor's check failed: " .. S.error, "Error") end
   return out
 end
@@ -134,7 +132,7 @@ function view:render(buf)
     for _, piece in ipairs(line) do inner:text(1 + piece.x, y, piece.text, piece.style) end
     y = y + 1
   end
-  local footer = "`,hh` hint · `,hn` skip · `,hr` restart · `,hl` lessons · `,hq` leave"
+  local footer = "`<leader>hh` hint · `<leader>hn` skip · `<leader>hr` restart · `<leader>hl` lessons · `<leader>hq` leave"
   -- The lesson's page of help, where there is room for it.
   local page = lesson and string.format(" · `:help course-%d` the lesson to read", tutor.number(lesson))
   if page and api.str_width((footer .. page):gsub("`", "")) < w - 2 then footer = footer .. page end

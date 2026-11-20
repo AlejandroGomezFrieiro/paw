@@ -3858,7 +3858,7 @@ function paw.keymap.has(mode, map) end
 --- type: a list of { key, desc }, and a title. Nil when there is nothing to show.
 function paw.keymap.hints() end
 
---- Keys as a person writes them: `<A-h>` is `Alt-h`, `<leader>at` is `,at`,
+--- Keys as a person writes them: `<A-h>` is `Alt-h`, `<leader>at` is `Space at`,
 --- `<localleader>d` is `\d`, `<C-w>o` is `Ctrl-w o`, `<CR>` is `Enter`. Takes an `lhs` or a list of keys.
 ---@param keys any
 function paw.keymap.human(keys) end
@@ -7727,7 +7727,7 @@ function paw.ui.keybar.entries() end
 ---@param entries any
 function paw.ui.keybar.set(view, mode, entries) end
 
---- A key as a person reads it: `<leader>m` is `,m`, `<C-w>c` is `Ctrl-w c`.
+--- A key as a person reads it: `<leader>m` is `Space m`, `<C-w>c` is `Ctrl-w c`.
 ---@param lhs any
 function paw.ui.keybar.show(lhs) end
 

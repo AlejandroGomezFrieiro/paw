@@ -14,7 +14,7 @@ pause 1.4
 cap "~ puts a vibrato on the long note; ]c picks a curve, } raises it there"
 keys 0.15 7 w; key asciitilde; pause 1.0
 keys 0.3 bracketright c; keys 0.15 4 braceright; pause 1.0
-cap "r sings the clip again; Space plays from the cursor"
-key r; pause 1.6; key 0; key space; pause 5.0; key space; pause 0.4
+cap "r sings the clip again; Space Space plays from the cursor"
+key r; pause 1.6; key 0; key space space; pause 5.0; key space space; pause 0.4
 rec_stop
 rm -rf "$XDG_RUNTIME_DIR"
