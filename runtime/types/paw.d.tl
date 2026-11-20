@@ -22,6 +22,7 @@ local type LimitModule = require("paw.limit")
 local type MarkdownModule = require("paw.markdown")
 local type MidifileModule = require("paw.midifile")
 local type MusicModule = require("paw.music")
+local type ObjectsModule = require("paw.objects")
 local type OptionModule = require("paw.options")
 local type RegexModule = require("paw.regex")
 local type SeatsModule = require("paw.seats")
@@ -72,11 +73,7 @@ global record paw
       tones: Untyped
       voice: HarmonyVoiceModule
    end
-   Clip: Untyped
-   Device: Untyped
-   Lane: Untyped
-   Track: Untyped
-   add_track: Untyped
+   add_track: function(opts?: ObjectsModule.TrackInput): ObjectsModule.Track
    address: Untyped
    annotation: Untyped
    attr: AttrModule
@@ -89,7 +86,7 @@ global record paw
    bytes: BytesModule
    cancel: function(handle: integer)
    canvas: Untyped
-   clip: Untyped
+   clip: function(id: integer): ObjectsModule.Clip
    cmd: function<C is CommandsModule.Context>(name: string, args?: CommandsModule.Args, ctx?: C): CommandsModule.Result
    command: Untyped
    commands: CommandsModule
@@ -99,7 +96,7 @@ global record paw
    cursor: Partial.Cursor
    curves: Untyped
    defer: function(fn: function(), ms?: number): integer
-   device: Untyped
+   device: function(id: integer): ObjectsModule.Device
    device_rows: Untyped
    device_types: function(): {types.DeviceType}
    diagnostic: Untyped
@@ -130,7 +127,7 @@ global record paw
    json: Untyped
    keymap: Partial.Keymap
    keyrule: Untyped
-   lane: Untyped
+   lane: function(id: integer): ObjectsModule.Lane
    lanes: Untyped
    lang: LangModule
    layout: Partial.Layout
@@ -142,9 +139,9 @@ global record paw
    luadev: Untyped
    markdown: MarkdownModule
    markers: Untyped
-   master: Untyped
+   master: ObjectsModule.Track
    media: Untyped
-   midi: Untyped
+   midi: ObjectsModule.Midi
    midifile: MidifileModule
    mixer_rows: Untyped
    mouse: Untyped
@@ -162,7 +159,7 @@ global record paw
    pick: Partial.Pick
    plot: Untyped
    plugins: Untyped
-   project: Untyped
+   project: ObjectsModule.Project
    qf: Untyped
    query: Partial.Query
    recent: Untyped
@@ -176,9 +173,9 @@ global record paw
    render_status: Untyped
    render_stems: Untyped
    render_tags: Untyped
-   restore_clip: Untyped
-   restore_device: Untyped
-   restore_track: Untyped
+   restore_clip: function(snap: ObjectsModule.ClipSnapshot, track: integer | ObjectsModule.Track): ObjectsModule.Clip
+   restore_device: function(snap: ObjectsModule.DeviceSnapshot, track: integer | ObjectsModule.Track, index?: integer): ObjectsModule.Device
+   restore_track: function(snap: ObjectsModule.TrackSnapshot, index?: integer): ObjectsModule.Track
    roles: Partial.Roles
    roll_clips: Untyped
    roll_draw: Untyped
@@ -196,14 +193,18 @@ global record paw
    tempo: Untyped
    tempolane: Untyped
    textbuf: Partial.Textbuf
-   time: Untyped
+   time: ObjectsModule.Time
    timers: {integer:function()}
    toml: Untyped
-   track: Untyped
+   track: function(which: number | string): ObjectsModule.Track
    track_kinds: Partial.TrackKinds
-   tracks: Untyped
-   transport: Untyped
+   tracks: function(): {ObjectsModule.Track}
+   transport: ObjectsModule.Transport
    try: Untyped
+   type Clip = ObjectsModule.Clip
+   type Device = ObjectsModule.Device
+   type Lane = ObjectsModule.Lane
+   type Track = ObjectsModule.Track
    ui: Partial.Ui
    undo: function(): boolean
    util: UtilModule

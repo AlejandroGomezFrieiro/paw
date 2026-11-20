@@ -114,9 +114,10 @@ too.
 These tables are the
 contracts between paw and the extensions. `runtime/lua/paw/contracts.tl`
 gives a type to each one, with the fields that the runtime reads. The
-module has only types, and it requires only `paw.types`. So the modules in
-Lua name the contracts in their `@type` lines before they move to Teal,
-and a module in Teal can require it.
+module has only types. It requires only `paw.types` and the types of
+`paw.objects`, which requires no contract. So the modules in Lua name the
+contracts in their `@type` lines before they move to Teal, and a module in
+Teal can require it.
 
 In an extension, the contracts are `paw.contracts.View`,
 `paw.contracts.PickSource<T>` and the others. The functions that take a

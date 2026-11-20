@@ -21,6 +21,9 @@
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local type types = require("paw.types")
+-- The objects of tracks and devices (paw/objects.tl), which a kind of
+-- track gets. Only their types come in: paw/objects.tl requires no contract.
+local type objects = require("paw.objects")
 
 local record contracts
    -- Drawing in cells ----------------------------------------------------------
@@ -804,20 +807,11 @@ local record contracts
       index: integer
    end
 
-   --- A track as `paw.track(id)` gives it, as far as a kind reads it:
-   --- its id and its `meta`.
-   interface TrackHandle
-      id: integer
-      meta: types.Meta
-      get: function(self: TrackHandle): types.Track
-      devices: function(self: TrackHandle): {DeviceHandle}
-   end
+   --- A track as `paw.track(id)` gives it (`paw.Track`).
+   type TrackHandle = objects.Track
 
-   --- A device as `paw.device(id)` gives it, as far as a caller reads it.
-   interface DeviceHandle
-      id: integer
-      get: function(self: DeviceHandle): types.Device
-   end
+   --- A device as `paw.device(id)` gives it (`paw.Device`).
+   type DeviceHandle = objects.Device
 
    --- A kind of track (`paw.track_kinds.define`). `title` and `letter`
    --- say how it is offered and shown. `create` makes an ordinary track

@@ -42,6 +42,16 @@ test("teal: a format that an extension in Teal registers is checked", function()
   eq(found[1].msg, "unknown field imprt", "the misspelled side")
 end)
 
+test("teal: a track is a typed object: its fields come from the kernel's record, and its methods take their inputs", function()
+  local file = T.scratch .. "/teal/track.tl"
+  write(file, 'local t: paw.Track = paw.track(1)\n'
+    .. 't:add_clip({ start = 0, notes = { { pitch = "C4" }, { "D4", 1, 1 } } }):set_note(1, { pitch = "E4" })\n'
+    .. 'local name: string = t.volume\nprint(name)\n')
+  local found = paw.lang.check({ file })
+  eq(#found, 1, "one error")
+  eq(found[1].line, 3, "a field of the wrong type")
+end)
+
 test("teal: an event of the kernel is a descriptor: its handler gets the payload's record, and a wrong one is caught", function()
   local file = T.scratch .. "/teal/events.tl"
   write(file, 'local kernel = require("paw.events.kernel")\n'
