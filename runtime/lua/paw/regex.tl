@@ -9,23 +9,43 @@
 -- any other character for itself, `|` between alternatives, and `( )` to
 -- group alternatives that do not repeat. Lower case matches either case;
 -- a capital letter makes the whole expression match case, as 'smartcase'.
-local M = {}
+--
+-- Written in Teal (paw/lang.lua): the build compiles it to Lua.
+
+--- What `compile` takes: `case` true matches case, false ignores it.
+local record Options
+  case: boolean
+end
+
+--- An expression ready to match: its text, whether it ignores case, and
+--- the Lua patterns of its alternatives.
+local record Regex
+  text: string
+  fold: boolean
+  patterns: {string}
+end
+
+local record M
+end
+
+local metatable_of_regex: metatable<Regex> = { __index = Regex }
 
 local MAGIC = "^$()%.[]*+-?"
-local CLASS = { d = "%d", D = "%D", w = "[%w_]", W = "[^%w_]", s = "%s", S = "%S" }
-local IN_CLASS = { d = "%d", D = "%D", w = "%w_", s = "%s", S = "%S" }
+local CLASS: {string:string} = { d = "%d", D = "%D", w = "[%w_]", W = "[^%w_]", s = "%s", S = "%S" }
+local IN_CLASS: {string:string} = { d = "%d", D = "%D", w = "%w_", s = "%s", S = "%S" }
 
-local function fail(text, why) error(string.format("`%s`: %s", text, why), 0) end
+local function fail(text: string, why: string) error(string.format("`%s`: %s", text, why), 0) end
 
-local function literal(c, fold)
+local function literal(c: string, fold: boolean): string
   if fold then c = c:lower() end
   if MAGIC:find(c, 1, true) then return "%" .. c end
   return c
 end
 
 --- Split at the `|`s that are not escaped, inside a class or a group.
-local function alternatives(text)
-  local out, depth, at, i = {}, 0, 1, 1
+local function alternatives(text: string): {string}
+  local out: {string} = {}
+  local depth, at, i = 0, 1, 1
   while i <= #text do
     local c = text:sub(i, i)
     if c == "\\" then
@@ -49,10 +69,16 @@ local function alternatives(text)
 end
 
 --- One alternative as a Lua pattern.
-local function translate(text, fold, whole)
-  local out = {}     -- atoms, each a piece of pattern a quantifier may follow
+local record Atom
+  text: string
+  atom: boolean
+  quantified: boolean
+end
+
+local function translate(text: string, fold: boolean, whole: string): string
+  local out: {Atom} = {}     -- atoms, each a piece of pattern a quantifier may follow
   local i = 1
-  local function last_atom()
+  local function last_atom(): Atom
     local a = out[#out]
     if not a or a.quantified or not a.atom then fail(whole, "a repeat with nothing before it to repeat") end
     return a
@@ -66,7 +92,7 @@ local function translate(text, fold, whole)
       i = i + 2
     elseif c == "[" then
       local j = i + 1
-      local body = { "[" }
+      local body: {string} = { "[" }
       if text:sub(j, j) == "^" then
         body[#body + 1] = "^"
         j = j + 1
@@ -98,16 +124,18 @@ local function translate(text, fold, whole)
       a.text, a.quantified = a.text .. (c == "*" and "*" or c == "+" and "+" or "?"), true
       i = i + 1
     elseif c == "{" then
-      local lo, comma, hi, close = text:match("^{(%d*)(,?)(%d*)}()", i)
+      local lo_text, comma, hi_text, close_at = text:match("^{(%d*)(,?)(%d*)}()", i)
+      local close = tonumber(close_at) as integer
       if not close then
         out[#out + 1] = { text = literal(c, fold), atom = true }
         i = i + 1
       else
         local a = last_atom()
-        lo = tonumber(lo) or 0
-        hi = comma == "" and lo or tonumber(hi)
+        local lo = tonumber(lo_text) as integer or 0
+        local hi = comma == "" and lo or tonumber(hi_text) as integer
         if hi and hi < lo then fail(whole, "a repeat `{n,m}` with m less than n") end
-        local base, parts = a.text, {}
+        local base = a.text
+        local parts: {string} = {}
         for _ = 1, lo do parts[#parts + 1] = base end
         if hi then
           for _ = lo + 1, hi do parts[#parts + 1] = base .. "?" end
@@ -137,15 +165,15 @@ local function translate(text, fold, whole)
       i = i + 1
     end
   end
-  local parts = {}
+  local parts: {string} = {}
   for k, a in ipairs(out) do parts[k] = a.text end
   return table.concat(parts)
 end
 
 --- Expand a group of alternatives inside an alternative (`(pizz|spicc)ato`)
 --- into whole alternatives, since a Lua pattern has none.
-local function expand(alt, whole)
-  local open = nil
+local function expand(alt: string, whole: string): {string}
+  local open: integer = nil
   local depth, i = 0, 1
   while i <= #alt do
     local c = alt:sub(i, i)
@@ -162,7 +190,7 @@ local function expand(alt, whole)
         local inner = alt:sub(open + 1, i - 1)
         local subs = alternatives(inner)
         if #subs > 1 then
-          local out = {}
+          local out: {string} = {}
           for _, s in ipairs(subs) do
             for _, rest in ipairs(expand(alt:sub(1, open - 1) .. s .. alt:sub(i + 1), whole)) do out[#out + 1] = rest end
           end
@@ -178,17 +206,15 @@ local function expand(alt, whole)
 end
 
 --- Whether an expression has a capital letter of its own (not one of `\D`).
-local function has_capital(text)
+local function has_capital(text: string): boolean
   return text:gsub("\\.", ""):find("%u") ~= nil
 end
 
-local Regex = {}
-Regex.__index = Regex
 
 --- Where the expression first matches in `s`: start and end, or nil.
-function Regex:find(s, init)
+function Regex:find(s: string, init?: integer): integer, integer
   if self.fold then s = s:lower() end
-  local best_a, best_b
+  local best_a, best_b: integer, integer
   for _, pat in ipairs(self.patterns) do
     local a, b = s:find(pat, init)
     if a and (not best_a or a < best_a or (a == best_a and b > best_b)) then best_a, best_b = a, b end
@@ -197,33 +223,33 @@ function Regex:find(s, init)
 end
 
 --- Whether the expression matches anywhere in `s`.
-function Regex:test(s) return self:find(s) ~= nil end
+function Regex:test(s: string): boolean return self:find(s) ~= nil end
 
 --- Make an expression ready to match. If it is not correct, raise an error
 --- that tells the problem. `opts.case` true matches case, and false ignores
 --- case. By default, an expression in lowercase ignores case.
-function M.compile(text, opts)
+function M.compile(text: string, opts?: Options): Regex
   text = tostring(text or "")
-  local fold
+  local fold: boolean
   if opts and opts.case ~= nil then fold = not opts.case else fold = not has_capital(text) end
-  local patterns = {}
+  local patterns: {string} = {}
   for _, alt in ipairs(alternatives(text)) do
     for _, one in ipairs(expand(alt, text)) do
       local pat = translate(one, fold, text)
       -- Check it is a pattern Lua takes, now rather than at the first match.
       local ok, err = pcall(string.find, "", pat)
-      if not ok then fail(text, tostring(err):gsub("^.-: ", "")) end
+      if not ok then fail(text, (tostring(err):gsub("^.-: ", ""))) end
       patterns[#patterns + 1] = pat
     end
   end
-  return setmetatable({ text = text, fold = fold, patterns = patterns }, Regex)
+  return setmetatable({ text = text, fold = fold, patterns = patterns } as Regex, metatable_of_regex)
 end
 
 --- An expression ready to match, or nil and what is wrong with it.
-function M.try(text, opts)
+function M.try(text: string, opts?: Options): Regex, string
   local ok, re = pcall(M.compile, text, opts)
-  if ok then return re end
-  return nil, re
+  if ok then return re as Regex end
+  return nil, tostring(re)
 end
 
 return M
