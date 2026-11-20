@@ -14,26 +14,176 @@
 --
 -- A window is named by a string: a window of the layout by its number
 -- ("3"), a view in a window of its own as `view:<name>`.
-local api = paw.api
-local L = require("paw.layout")
-local M = {}
+--
+-- Written in Teal (paw/lang.tl): the build compiles it to Lua.
+local api = require("paw.api")
+local events = require("paw.events")
+local kernel = require("paw.events.kernel")
+local type types = require("paw.types")
+local type contracts = require("paw.contracts")
+local type partial = require("paw.partial")
+local type CanvasModule = require("paw.canvas")
+local type DrawModule = require("paw.draw")
+local type RolesModule = require("paw.roles")
+local type SeatsModule = require("paw.seats")
 
--- What each watching connection has: its cell in pixels, its windows'
--- sizes (`areas`, by name: `{ w, h, drawn, at, view }`, `drawn` the redraw
--- they were last drawn at), whether it hears the live values, and what it
--- was last told of them.
-local watchers = {}
-local timer
+local type View = contracts.View
+local type Window = contracts.Window
+
+--- A value this module passes on and never reads.
+local record Value
+end
+
+-- What this module reads of `paw`, which paw/init.lua makes, and of the
+-- modules in Lua that it calls: their parts that it uses.
+
+--- A tree of windows of a tab (paw/layout.lua), which this module only
+--- passes on.
+local record Tree
+end
+local record Layout
+  find_id: function(root: Tree, id: integer): Window
+  bind: function(win: Window)
+  settle: function()
+end
+local record Ui
+  layout: Tree
+  render_scene: function(name: string, w: number, h: number, cell: types.Size, win: Window)
+  active: function(): boolean
+end
+--- A pane of the frontend's main area (`paw.panes.state`): its window,
+--- its view, and `native` for one the frontend draws itself.
+local record Pane
+  win: integer
+  view: string
+  kind: string
+end
+local record PanesState
+  panes: {Pane}
+end
+local record Panes
+  state: function(): PanesState
+  pointer: function(id: integer, e: contracts.PointerEvent, drawn: Area)
+end
+local record AudioInput
+  input: string
+end
+local record Audio
+  levels: function(): {number}
+  level: function(t: AudioInput, levels?: {number}): number
+  load: function(cpu?: number): number
+end
+local record Time
+  clock: function(beat: number): string
+end
+--- A method of the remote API: what the connection `client` sent.
+local type Method = function(client: integer, ...: Value): Value
+local record Remote
+  methods: {string:Method}
+end
+local record Paw is partial.Paw
+  audio: Audio
+  canvas: CanvasModule
+  draw: DrawModule
+  panes: Panes
+  remote: Remote
+  roles: RolesModule
+  seats: SeatsModule
+  time: Time
+end
+local paw = (_G as {string:Paw}).paw
+local L = paw.layout as Layout
+
+--- A window a watcher shows, as it gave its size (`scene.area`): `w` and
+--- `h` in units, the redraw it was last drawn at (`drawn`), when (`at`),
+--- the view it showed and the view's key then. A pointer event in cells
+--- adds the cell and the size in cells.
+local record Area
+  w: number
+  h: number
+  drawn: integer
+  at: number
+  view: string
+  key: string
+  cell: types.Size
+  cols: integer
+  rows: integer
+end
+
+--- What each watching connection has: its cell in pixels, its windows'
+--- sizes (`areas`, by name), whether it hears the live values (`live`) and
+--- what it was last told of them, the drag it holds, and the roles it
+--- paints by the live values.
+local record Watcher
+  cell: types.Size
+  areas: {string:Area}
+  live: boolean
+  told: string
+  held: RolesModule.Held
+  roles: {string:boolean}
+end
+
+--- A window a seat's frontend shows from the kernel's drawing: its view,
+--- and its window of the layout.
+local record Shown
+  view: string
+  win: Window
+end
+
+--- The values that move the bound nodes of a frontend (`scene.live`), and
+--- what views add for their own bound nodes.
+local record Live
+  position: number
+  playing: boolean
+  recording: boolean
+  clock: string
+  cpu: number
+  meters: {string:{number}}
+  peaks: {string:number}
+  clips: {string:boolean}
+  inputs: {string:number}
+end
+
+--- What `scene.watch` takes: the cell in pixels, whether to hear the live
+--- values, and the roles the frontend paints itself.
+local record WatchOptions
+  cell: types.Size
+  live: boolean
+  roles: {string}
+end
+
+--- What `scene.watch` answers: the palette, and the version of the roles.
+local record Watching
+  theme: CanvasModule.Palette
+  roles_version: integer
+end
+
+local record M
+  type Area = Area
+  type Watcher = Watcher
+  type Live = Live
+  --- A watcher, by connection, and the names of the windows whose size it gave.
+  record WatcherInfo
+    client: integer
+    windows: {string}
+  end
+  pace: number
+  live: function(): Live
+  closed: function(client: integer)
+end
+
+local watchers: {integer:Watcher} = {}
+local timer: integer
 -- The redraw the windows were last looked at for, after a turn.
-local looked
+local looked: integer
 
 --- The windows a seat's frontend shows from the kernel's drawing, by name:
 --- `{ view, win }` each, `win` the window of the layout.
-local function shown()
-  local out = {}
+local function shown(): {string:Shown}
+  local out: {string:Shown} = {}
   local state = paw.panes.state()
   for _, pane in ipairs(state and state.panes or {}) do
-    if pane.kind ~= "native" then out[tostring(pane.win)] = { view = pane.view, win = L.find_id(paw.ui.layout, pane.win) } end
+    if pane.kind ~= "native" then out[tostring(pane.win)] = { view = pane.view, win = L.find_id((paw.ui as Ui).layout, pane.win) } end
   end
   -- A view in a window of its own draws with that window's state.
   for _, w in ipairs(paw.canvas.windows()) do
@@ -55,15 +205,15 @@ end
 --- the playhead): while the key stays the same as at the last drawing of
 --- the window `area`, the scene stays too. It names the roles that it
 --- moves by the live values in `view.scene_roles`.
-local function key_of(view, win)
+local function key_of(view: View, win: Window): string
   if not view.scene_key then return nil end
   if win then L.bind(win) end
   local ok, key = pcall(view.scene_key, view)
   L.settle()
-  return ok and key or nil
+  return ok and key as string or nil
 end
 
-local function still(w, name, area, win)
+local function still(w: Watcher, name: string, area: Area, win: Window): boolean
   local view = paw.ui.views[name]
   if view and view.scene_key then
     for _, role in ipairs(view.scene_roles or {}) do
@@ -85,7 +235,7 @@ end
 --- How often a view that moves is drawn again while the song plays, in
 --- milliseconds: every tick, or less often if the view says so
 --- (`view.redraw_every`, for a view whose moving parts are small).
-local function every(name)
+local function every(name: string): number
   local view = paw.ui.views[name]
   return view and view.redraw_every or 30
 end
@@ -94,7 +244,7 @@ end
 --- (all of them with `all`, as on a tick: what moves while playing, and
 --- once a second what changes on its own, such as times), and push what
 --- changed of each.
-local function push(client, all)
+local function push(client: integer, all?: boolean)
   local w = watchers[client]
   if not w then return end
   paw.seats.within(client, function()
@@ -108,7 +258,7 @@ local function push(client, all)
       elseif area.drawn ~= redraws or area.view ~= what.view
         or (all and now - area.at >= (playing and every(what.view) or 1000) - 5 and not still(w, what.view, area, what.win)) then
         area.drawn, area.view, area.at = redraws, what.view, now
-        local ok, err = pcall(paw.ui.render_scene, what.view, area.w, area.h, w.cell, what.win)
+        local ok, err = pcall((paw.ui as Ui).render_scene, what.view, area.w, area.h, w.cell, what.win) as (boolean, string)
         if not ok then api.log("the scene of " .. what.view .. " failed: " .. tostring(err)) end
         area.key = key_of(paw.ui.views[what.view] or {}, what.win)
         local _, open = api.scene_end(client, id)
@@ -124,32 +274,38 @@ end
 --- light and the input. paw rounds them to what a frontend can show. So a program that
 --- does nothing has no new data to send (the load is as `paw.audio.load`
 --- gives it, as `frontend.watch` sends it). Each call gives the current values.
-local function live()
+local function live(): Live
   local t, e = api.transport_get(), api.engine_get()
-  local meters, peaks, clips, inputs, levels = {}, {}, {}, {}, paw.audio.levels()
-  local function round(v) return math.floor(v * 10000 + 0.5) / 10000 end
-  local function meter(id)
+  local meters: {string:{number}} = {}
+  local peaks: {string:number} = {}
+  local clips: {string:boolean} = {}
+  local inputs: {string:number} = {}
+  local levels = paw.audio.levels()
+  local function round(v: number): number return math.floor(v * 10000 + 0.5) / 10000 end
+  local function meter(id: integer)
     local l, r, hold, clipped = paw.draw.track_peak(id)
     meters[tostring(id)], peaks[tostring(id)] = { round(l), round(r) }, round(hold)
     if clipped then clips[tostring(id)] = true end
   end
+  local track_input = api.track_get as function(id: integer, key: string): string
   for _, id in ipairs(api.track_list()) do
     meter(id)
-    inputs[tostring(id)] = round(paw.audio.level({ input = api.track_get(id, "input") }, levels))
+    inputs[tostring(id)] = round(paw.audio.level({ input = track_input(id, "input") }, levels))
   end
   -- The master's, as track 0.
   meter(0)
-  local out = {
+  local out: Live = {
     position = t.position, playing = t.playing, recording = t.take ~= nil, clock = paw.time.clock(t.position),
     cpu = paw.audio.load(e.cpu), meters = meters, peaks = peaks, clips = clips, inputs = inputs,
   }
   -- What views add for their own bound nodes (`view.live_values()`, a
   -- table of values by name): the device panel's parameters that lanes move.
+  local fields = out as {string:Value}
   for _, view in pairs(paw.ui.views) do
     if type(view.live_values) == "function" then
       local ok, values = pcall(view.live_values)
       if ok and type(values) == "table" then
-        for k, v in pairs(values) do out[k] = v end
+        for k, v in pairs(values as {string:Value}) do fields[k] = v end
       end
     end
   end
@@ -159,7 +315,8 @@ end
 M.live = live
 
 local function tick()
-  local values, text
+  local values: Live
+  local text: string
   for client, w in pairs(watchers) do
     push(client, true)
     if w.live and watchers[client] then
@@ -177,19 +334,19 @@ M.pace = 33
 -- While something moves, a tick each `M.pace`; else one a second, for
 -- what changes slowly on its own (times). A turn that changes the drawing
 -- pushes at once (`M.turn`).
-local retime
+local retime: function()
 local function ticked()
   timer = nil
   tick()
   retime()
 end
 
-local fast  -- the timer waiting is at the pace
-function retime()
+local fast: boolean  -- the timer waiting is at the pace
+retime = function()
   if timer then paw.cancel(timer) end
   timer = nil
   if not next(watchers) then return end
-  fast = paw.ui.active()
+  fast = (paw.ui as Ui).active()
   timer = paw.defer(ticked, fast and M.pace or 1000)
 end
 
@@ -199,10 +356,10 @@ function M.wake()
   if next(watchers) and not fast then retime() end
 end
 
-paw.on("transport.play", M.wake)
+events.on(kernel.transport_play, function() M.wake() end)
 
 --- Tick every `ms` while something moves (`frontend.pace`).
-function M.set_pace(ms)
+function M.set_pace(ms: number)
   M.pace = ms
   retime()
 end
@@ -217,35 +374,39 @@ function M.turn()
   for client in pairs(watchers) do push(client) end
 end
 
-paw.remote.methods["scene.watch"] = function(client, opts)
+local methods = paw.remote.methods
+
+methods["scene.watch"] = function(client: integer, given: WatchOptions): Watching
   if client == 0 then error("only a connection can watch", 0) end
-  opts = type(opts) == "table" and opts or {}
-  local cell = opts.cell or {}
-  cell = { w = tonumber(cell.w) or paw.canvas.cell.w, h = tonumber(cell.h) or paw.canvas.cell.h }
+  local opts: WatchOptions = given is WatchOptions and given or {}
+  local asked = opts.cell or {}
+  local cell: types.Size = { w = tonumber(asked.w) or paw.canvas.cell.w, h = tonumber(asked.h) or paw.canvas.cell.h }
   -- The frontend's main area is laid out on its cell (paw/panes.lua).
   paw.canvas.cell = cell
   api.scene_forget(client)
   -- The roles it paints itself are sent as roles, without their cells.
-  local roles, known = {}, {}
-  for _, name in ipairs(type(opts.roles) == "table" and opts.roles or {}) do
-    if type(name) == "string" then roles[#roles + 1], known[name] = name, true end
+  local roles: {string} = {}
+  local known: {string:boolean} = {}
+  local asked_roles = opts.roles
+  for _, name in ipairs(asked_roles is {string} and asked_roles or {}) do
+    if name is string then roles[#roles + 1], known[name] = name, true end
   end
   api.scene_roles(client, roles)
   watchers[client] = { cell = cell, areas = {}, live = opts.live == true, held = {}, roles = opts.live == true and known or {} }
   retime()
   return { theme = paw.canvas.palette, roles_version = paw.roles.version }
-end
+end as Method
 
-paw.remote.methods["scene.unwatch"] = function(client)
+methods["scene.unwatch"] = function(client: integer): boolean
   M.closed(client)
   return true
-end
+end as Method
 
-paw.remote.methods["scene.area"] = function(client, id, w, h)
+methods["scene.area"] = function(client: integer, name: string | number, width: number | string, height: number | string): boolean
   local watcher = watchers[client]
   if not watcher then error("scene.area before scene.watch", 0) end
-  id = tostring(id)
-  w, h = math.max(0, tonumber(w) or 0), math.max(0, tonumber(h) or 0)
+  local id = tostring(name)
+  local w, h = math.max(0, tonumber(width) or 0), math.max(0, tonumber(height) or 0)
   if w == 0 or h == 0 then
     -- No longer shown: its next scene is sent whole.
     watcher.areas[id] = nil
@@ -257,62 +418,64 @@ paw.remote.methods["scene.area"] = function(client, id, w, h)
   watcher.areas[id] = { w = w, h = h }
   push(client)
   return true
-end
+end as Method
 
 --- A pointer event as the frontend sends it, in units of the window, as
 --- the views take them: in pixels of the watcher's cell.
-local function in_pixels(event, cell)
-  local out = {}
-  for k, v in pairs(event) do out[k] = v end
-  out.x, out.y = (tonumber(event.x) or 0) * cell.w, (tonumber(event.y) or 0) * cell.h
-  return out
+local function in_pixels(event: RolesModule.SceneEvent, cell: types.Size): contracts.PointerEvent
+  local out: {string:Value} = {}
+  for k, v in pairs(event as {string:Value}) do out[k] = v end
+  local e = out as contracts.PointerEvent
+  e.x, e.y = (tonumber(event.x) or 0) * cell.w, (tonumber(event.y) or 0) * cell.h
+  return e
 end
 
-local input
+local input: function(client: integer, name: string | number, event: RolesModule.SceneEvent): boolean
 
-paw.remote.methods["scene.input"] = function(client, id, event)
+methods["scene.input"] = function(client: integer, name: string | number, event: RolesModule.SceneEvent): boolean
   -- The view takes the pointer with the state of the window under it
   -- (paw/layout.lua), and then of the window with the keyboard again.
-  local win = tonumber(id) and L.find_id(paw.ui.layout, tonumber(id))
-  local own = not win and paw.canvas.open_views[tostring(id):match("^view:(.+)$") or ""]
+  local number = tonumber(name) as integer
+  local win = number and L.find_id((paw.ui as Ui).layout, number)
+  local own = not win and paw.canvas.open_views[tostring(name):match("^view:(.+)$") or ""]
   win = win or (own and own.win)
   if win then L.bind(win) end
-  local ok, result = pcall(input, client, id, event)
+  local ok, result = pcall(input, client, name, event)
   L.settle()
   if not ok then error(result, 0) end
-  return result
-end
+  return result as boolean
+end as Method
 
-function input(client, id, event)
+input = function(client: integer, name: string | number, event: RolesModule.SceneEvent): boolean
   local watcher = watchers[client]
   if not (watcher and type(event) == "table") then return false end
-  id = tostring(id)
-  local name = id:match("^view:(.+)$")
+  local id = tostring(name)
+  local own = id:match("^view:(.+)$")
   -- On a hit region of the scene it was sent, the view's gesture has it
-  -- in units (paw/roles.lua); anything else goes on as a terminal's would.
+  -- in units (paw/roles.tl); anything else goes on as a terminal's would.
   local area = watcher.areas[id]
-  local view = paw.ui.views[name or (area and area.view) or ""]
-  if view and paw.roles.input(client, id, view, not name and tonumber(id) or nil, event, watcher.held) then
+  local view = paw.ui.views[own or (area and area.view) or ""]
+  if view and paw.roles.input(client, id, view, not own and tonumber(id) as integer or nil, event, watcher.held) then
     return true
   end
   local e = in_pixels(event, watcher.cell)
-  if name then
-    paw.canvas.pointer(name, e)
+  if own then
+    paw.canvas.pointer(own, e)
     return true
   end
   -- The window's area keeps the button held, for a drag in cells.
-  local area = watcher.areas[id] or {}
-  area.cell, area.cols, area.rows = watcher.cell, math.floor(area.w or 0), math.floor(area.h or 0)
-  paw.panes.pointer(tonumber(id), e, area)
+  local drawn = watcher.areas[id] or {}
+  drawn.cell, drawn.cols, drawn.rows = watcher.cell, math.floor(drawn.w or 0), math.floor(drawn.h or 0)
+  paw.panes.pointer(tonumber(id) as integer, e, drawn)
   return true
 end
 
-paw.remote.methods["scene.blob"] = function(client, key)
+methods["scene.blob"] = function(client: integer, key: string): {types.CanvasOp}
   return api.scene_blob(client, key)
-end
+end as Method
 
 --- A connection closed or stopped to watch. paw keeps no more data for it.
-function M.closed(client)
+function M.closed(client: integer)
   if not watchers[client] then return end
   watchers[client] = nil
   api.scene_forget(client)
@@ -321,15 +484,15 @@ end
 
 --- The watchers: `{ client, windows }` each. `windows` is the names of the
 --- windows whose size it gave.
-function M.watchers()
-  local out = {}
+function M.watchers(): {M.WatcherInfo}
+  local out: {M.WatcherInfo} = {}
   for client, w in pairs(watchers) do
-    local windows = {}
+    local windows: {string} = {}
     for id in pairs(w.areas) do windows[#windows + 1] = id end
     table.sort(windows)
     out[#out + 1] = { client = client, windows = windows }
   end
-  table.sort(out, function(a, b) return a.client < b.client end)
+  table.sort(out, function(a: M.WatcherInfo, b: M.WatcherInfo): boolean return a.client < b.client end)
   return out
 end
 

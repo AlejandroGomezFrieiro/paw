@@ -27,6 +27,7 @@ local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
 local type objects = require("paw.objects")
+local type DrawModule = require("paw.draw")
 
 --- A severity: 1 (error) to 4 (hint), or one of the words `error`,
 --- `warning` (`warn`), `info` (`information`) and `hint`.
@@ -211,17 +212,6 @@ end
 
 -- What this module reads of the modules that are still in Lua.
 
---- The glyphs of paw/draw.lua that this module draws.
-local record Glyphs
-  mark: string
-  error: string
-  warn: string
-end
---- paw/draw.lua, as far as this module reads it.
-local record Draw
-  g: Glyphs
-end
-
 --- What a layer of the piano roll gets (paw/views/pianoroll.lua): the
 --- clip, the parts that it shows (clips and their offsets in beats), the
 --- roll's cells and its ruler, the column of a beat and the row of a pitch.
@@ -290,7 +280,7 @@ local record Qf
 end
 
 local record Paw is partial.Paw
-  draw: Draw
+  draw: DrawModule
   qf: Qf
   time: objects.Time
   Clip: objects.Clip
@@ -863,7 +853,7 @@ end
 
 -- Drawing ----------------------------------------------------------------------
 
-local g = function(): Glyphs return paw.draw.g end
+local g = function(): contracts.Glyphs return paw.draw.g end
 
 --- One clip's, `offset` beats from the roll's own.
 function M.paint_part(p: RollLayer, id: integer, offset: number)

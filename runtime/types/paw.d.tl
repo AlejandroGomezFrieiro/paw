@@ -12,12 +12,14 @@ local type AddressModule = require("paw.address")
 local type AttrModule = require("paw.attr")
 local type AuditionModule = require("paw.audition")
 local type BytesModule = require("paw.bytes")
+local type CanvasModule = require("paw.canvas")
 local type CommandsModule = require("paw.commands")
 local type CompleteModule = require("paw.complete")
 local type ContractsModule = require("paw.contracts")
 local type CursorModule = require("paw.cursor")
 local type CurvesModule = require("paw.curves")
 local type DiagnosticModule = require("paw.diagnostic")
+local type DrawModule = require("paw.draw")
 local type EditModule = require("paw.edit")
 local type EventsModule = require("paw.events")
 local type FormatsModule = require("paw.formats")
@@ -34,11 +36,15 @@ local type MidifileModule = require("paw.midifile")
 local type MusicModule = require("paw.music")
 local type ObjectsModule = require("paw.objects")
 local type OptionModule = require("paw.options")
+local type PlotModule = require("paw.plot")
 local type QfModule = require("paw.qf")
 local type QueryModule = require("paw.query")
 local type RegexModule = require("paw.regex")
+local type RolesModule = require("paw.roles")
+local type SceneModule = require("paw.scene")
 local type SeatsModule = require("paw.seats")
 local type SnippetModule = require("paw.snippet")
+local type StatuslineModule = require("paw.statusline")
 local type TakesModule = require("paw.takes")
 local type TempoModule = require("paw.tempo")
 local type TempolaneModule = require("paw.tempolane")
@@ -62,7 +68,7 @@ global record paw
    buftype: function<B is contracts.Buftype>(name: string, def: B): B
    bytes: BytesModule
    cancel: function(handle: integer)
-   canvas: Untyped
+   canvas: CanvasModule
    clip: function(id: integer): ObjectsModule.Clip
    cmd: function<C is CommandsModule.Context>(name: string, args?: CommandsModule.Args, ctx?: C): CommandsModule.Result
    command: Untyped
@@ -77,7 +83,7 @@ global record paw
    device_rows: Untyped
    device_types: function(): {types.DeviceType}
    diagnostic: DiagnosticModule
-   draw: Untyped
+   draw: DrawModule
    edit: EditModule
    emit: function<P>(event: string | EventsModule.Event<P>, payload?: P): boolean, string
    events: EventsModule
@@ -135,7 +141,7 @@ global record paw
    panes: Untyped
    params: Untyped
    pick: Partial.Pick
-   plot: Untyped
+   plot: PlotModule
    plugins: Untyped
    project: ObjectsModule.Project
    qf: QfModule
@@ -154,16 +160,16 @@ global record paw
    restore_clip: function(snap: ObjectsModule.ClipSnapshot, track: integer | ObjectsModule.Track): ObjectsModule.Clip
    restore_device: function(snap: ObjectsModule.DeviceSnapshot, track: integer | ObjectsModule.Track, index?: integer): ObjectsModule.Device
    restore_track: function(snap: ObjectsModule.TrackSnapshot, index?: integer): ObjectsModule.Track
-   roles: Partial.Roles
+   roles: RolesModule
    roll_clips: Untyped
    roll_draw: Untyped
    routes: Untyped
-   scene: Untyped
+   scene: SceneModule
    scope: Untyped
    seats: SeatsModule
    snippet: SnippetModule
    state: Untyped
-   statusline: Partial.Statusline
+   statusline: StatuslineModule
    stems: Untyped
    stretch: Untyped
    tab: Untyped

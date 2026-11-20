@@ -1,4 +1,4 @@
--- Tests of the status line's sections and components (paw/statusline.lua):
+-- Tests of the status line's sections and components (paw/statusline.tl):
 -- the line that comes with the program, setting it up, widths, a line per
 -- view, components of a script's own, the tab line and the winbar.
 -- Loaded by tests/suite.lua with its helpers.

@@ -1,7 +1,7 @@
 -- The vocal editor in a graphical frontend: the same view as the terminal's,
 -- painted in pixels and worked with the pointer. It is also the example of
 -- how an extension gives itself a window: a view with `paint(g, ctx)` and
--- `pointer(event)`, opened with `paw.canvas.open` (see runtime/lua/paw/canvas.lua).
+-- `pointer(event)`, opened with `paw.canvas.open` (see runtime/lua/paw/canvas.tl).
 --
 --   toolbar    the clip, the singer (click to choose), what the engine is
 --              doing, the tool, the panels, the grid, zoom

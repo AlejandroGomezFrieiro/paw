@@ -45,6 +45,7 @@ local type HarmonyModule = require("paw.harmony")
 local type EditModule = require("paw.edit")
 local type AuditionModule = require("paw.audition")
 local type CompleteModule = require("paw.complete")
+local type DrawModule = require("paw.draw")
 
 --- A note of a snippet, in project beats: `start` (or `at`), and in the
 --- context the note's `place` in the clip (from 1).
@@ -268,14 +269,6 @@ local record Roll
   clip: function(self: Roll): objects.Clip
 end
 
---- paw/draw.lua's glyphs, as far as this module reads them.
-local record Glyphs
-  clip_start: string
-end
-local record Draw
-  g: Glyphs
-end
-
 --- What `paw.pick.state()` gives, as far as this module reads it.
 local record PickState
   title: string
@@ -289,7 +282,7 @@ local record Paw is partial.Paw
   complete: CompleteModule
   time: objects.Time
   clip: function(id: integer): objects.Clip
-  draw: Draw
+  draw: DrawModule
 end
 local paw = (_G as {string:Paw}).paw
 local opt = options.opt

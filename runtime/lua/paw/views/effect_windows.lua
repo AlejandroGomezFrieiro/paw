@@ -1,5 +1,5 @@
 -- Windows for the built-in effects in a graphical frontend (see
--- runtime/lua/paw/canvas.lua), each opened by a command that works in the
+-- runtime/lua/paw/canvas.tl), each opened by a command that works in the
 -- terminal too, where the device panel shows the same things smaller:
 --
 --   :eq         the track's equaliser (one is added if it has none): its

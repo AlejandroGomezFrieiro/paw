@@ -100,7 +100,7 @@ pub fn lua_modules() -> Vec<(String, String)> {
         .files()
         .filter_map(|f| {
             let name = f.path().file_stem()?.to_str()?.to_string();
-            (f.path().extension()? == "lua").then(|| {
+            matches!(f.path().extension()?.to_str()?, "lua" | "tl").then(|| {
                 let intro = f
                     .contents_utf8()
                     .and_then(|text| text.lines().next())
@@ -126,9 +126,45 @@ pub fn lua_index() -> String {
     out
 }
 
+/// `key(beat: number): Key` as a script calls it, `key(beat)`: the name and
+/// the parameters' names, without Teal's types, type parameters or a body
+/// that follows on the same line.
+fn untyped_call(rest: &str) -> String {
+    let Some(open) = rest.find('(') else {
+        return rest.trim_end_matches(" end").trim().to_string();
+    };
+    let name = rest[..open].split('<').next().unwrap_or("").trim();
+    let mut depth = 0;
+    let mut params: Vec<String> = Vec::new();
+    let mut current = String::new();
+    for c in rest[open + 1..].chars() {
+        match c {
+            '(' | '{' | '<' | '[' => depth += 1,
+            ')' if depth == 0 => break,
+            ')' | '}' | '>' | ']' => depth -= 1,
+            ',' if depth == 0 => {
+                params.push(std::mem::take(&mut current));
+                continue;
+            }
+            _ => {}
+        }
+        current.push(c);
+    }
+    params.push(current);
+    let names: Vec<&str> = params
+        .iter()
+        .map(|p| p.split(':').next().unwrap_or("").trim().trim_end_matches('?'))
+        .filter(|p| !p.is_empty())
+        .collect();
+    format!("{name}({})", names.join(", "))
+}
+
 /// A module's documented functions, in the order of the file.
 pub fn lua_module(module: &str) -> Option<String> {
-    let file = RUNTIME.get_file(format!("paw/{module}.lua"))?;
+    // A module is Lua, or Teal (Lua with types) once it is ported.
+    let file = RUNTIME
+        .get_file(format!("paw/{module}.lua"))
+        .or_else(|| RUNTIME.get_file(format!("paw/{module}.tl")))?;
     let text = file.contents_utf8()?;
     let mut out = format!("# paw.{module}\n\n");
     // The comment at the top of the file says what the module is for.
@@ -155,8 +191,8 @@ pub fn lua_module(module: &str) -> Option<String> {
                 (sep, rest.trim_end())
             });
         if let (Some((sep, rest)), false) = (declared, doc.is_empty()) {
-            let rest = rest.trim_end_matches(" end").trim();
-            out.push_str(&format!("### `paw.{module}{sep}{rest}`\n{}\n\n", doc.join("\n")));
+            let call = untyped_call(rest);
+            out.push_str(&format!("### `paw.{module}{sep}{call}`\n{}\n\n", doc.join("\n")));
         }
         doc.clear();
     }

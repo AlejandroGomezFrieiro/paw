@@ -1565,10 +1565,20 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.roles.define(name, spec)`: Define a role. `spec.cells(buf, props, ctx)` draws it in cells. It is necessary, because the terminal comes first. `spec.props` names its props and their contents, for documentation and `paw.ui.roles`. `spec.bound` is the props that a frontend takes from the live value when the mark is bound to one. paw does not send these props.
 - `paw.roles.finish()`: The view being drawn is done: what it marks after is no hit region.
 - `paw.roles.gesture(view, e)`: An event on a hit region (`e.hit`, `e.rect`) to its view: true when it was taken.
-- `paw.roles.hit(buf, x, y, w, h, action)`: `buf:hit(x, y, w, h, action)`: see the top of this file.
-- `paw.roles.input(client, id, view, win, event, held)`: A pointer event from a frontend that gets scenes (paw/scene.lua), in units of its window `id`, over the view `view` (its window of the layout `win`, if any). On a hit region of the scene, the event goes to the gesture of the region, with `x` and `y` in units. A drag that started there continues in units (`held`, which the watcher of the frontend keeps). True when it takes the event.
-- `paw.roles.mark(buf, role, x, y, w, h, props)`: `buf:mark(role, x, y, w, h, props)`: see the top of this file.
-- `paw.roles.plane(buf, x, y, w, h, opts)`: `buf:plane(x, y, w, h, opts)`: see above.
+- `paw.roles.hit(buf, x, y, w, h, action)`: `buf:hit(x, y, w, h, action)`: make an area a hit region. A press, a move or the wheel there goes to the view's gesture for `action.kind`, in either frontend.
+- `paw.roles.input(client, id, view, win, event, held)`: A pointer event from a frontend that gets scenes (paw/scene.tl), in units of its window `id`, over the view `view` (its window of the layout `win`, if any). On a hit region of the scene, the event goes to the gesture of the region, with `x` and `y` in units. A drag that started there continues in units (`held`, which the watcher of the frontend keeps). True when it takes the event.
+- `paw.roles.mark(buf, role, x, y, w, h, props)`: `buf:mark(role, x, y, w, h, props)`: mark a role over an area. A terminal draws the cells of the role there. A frontend that knows the role paints it as what it is. `props.hit` makes it a hit region, and `props.bind` ties it to a live value. Returns the buffer of the area.
+
+  ```lua
+  buf:mark("fader", 4, 2, 3, 12, { at = 0.8, hit = { kind = "fader", track = id } })
+  ```
+- `paw.roles.plane(buf, x, y, w, h, opts)`: `buf:plane(x, y, w, h, opts)`: a plane over an area. Each axis of the plane has its own domain, `opts.x` and `opts.y` (`{ domain, from, per }`): `per` is the cells for one unit of the domain, and `from` is the value at the edge of the area. A terminal shows a mark on the cells it rounds to. A window shows it at its exact position.
+
+  ```lua
+  local roll = buf:plane(5, 2, 60, 20, { key = "roll", x = { domain = "beat", from = 0, per = 4 },
+    y = { domain = "pitch", from = 73, per = -1 }, hit = { kind = "grid" } })
+  roll:mark("note", 1.5, 60, 0.5, 1, { label = "C4" })
+  ```
 - `paw.roles.pointer(view, name, event)`: A mouse event in the terminal, in the cells of the view it is over (as its `on_mouse` takes it, with `view_x`, `view_y`, `win`): to the gesture of the hit region under it. True when it was taken.
 
 ## Module paw.roll_clips
@@ -1960,19 +1970,9 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   local name, body = buf:columns({ 12, "*" })
   ```
 - `paw.ui.Buf.fill(self, x, y, w, h, char, style)`: Fill a `w` by `h` area at `x`, `y` with `char` in `style`, clipped.
-- `paw.ui.Buf.hit(self, x, y, w, h, action)`: Make an area a hit region: a press, a move or the wheel there goes to the view's gesture for `action.kind` (paw/roles.lua), in either frontend.
-- `paw.ui.Buf.mark(self, role, x, y, w, h, props)`: Mark a role (paw/roles.lua) over an area. A terminal draws the cells of the role there. A frontend that knows the role paints it as what it is. `props.hit` makes it a hit region, and `props.bind` ties it to a live value. Returns the buffer of the area.
-
-  ```lua
-  buf:mark("fader", 4, 2, 3, 12, { at = 0.8, hit = { kind = "fader", track = id } })
-  ```
-- `paw.ui.Buf.plane(self, x, y, w, h, opts)`: A plane over an area (paw/roles.lua, "Planes"). Each axis of the plane has its own domain, `opts.x` and `opts.y` (`{ domain, from, per }`): `per` is the cells for one unit of the domain, and `from` is the value at the edge of the area. A terminal shows a mark on the cells it rounds to. A window shows it at its exact position.
-
-  ```lua
-  local roll = buf:plane(5, 2, 60, 20, { key = "roll", x = { domain = "beat", from = 0, per = 4 },
-    y = { domain = "pitch", from = 73, per = -1 }, hit = { kind = "grid" } })
-  roll:mark("note", 1.5, 60, 0.5, 1, { label = "C4" })
-  ```
+- `paw.ui.Buf.hit`: the same as `paw.roles.hit`.
+- `paw.ui.Buf.mark`: the same as `paw.roles.mark`.
+- `paw.ui.Buf.plane`: the same as `paw.roles.plane`.
 - `paw.ui.Buf.root(width, height)`: The buffer that covers a whole screen of the given size.
 - `paw.ui.Buf.strip(self, x, y, w, h, opts)`: Keep an area for pixels that `opts.draw(g, px)` draws, where the terminal shows images. `g` is a painter of `paw.canvas`. `px` is `{ w, h, cell = { w, h }, fg, bg, view }`: the size of the strip, the cell of the terminal in pixels, and its colors. For a strip that is partly off its window, `view` is the part that shows (x, y, w, h). paw calls it after it draws the screen. `opts.key` names the strip, and paw keeps images by this name. For a view that can be in two windows, put the id of the window in it. The default is the view and its window. With `opts.under`, the cells that the view draws there stay above the picture (its cursor, labels, the playhead). If not, they are blank. False where there are no pixels (`paw.opt.graphics` off, a terminal without images, tmux, or a terminal that cannot put text over an image). Then the view draws cells there:
 

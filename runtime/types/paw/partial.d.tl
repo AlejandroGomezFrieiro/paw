@@ -44,15 +44,6 @@ local record partial
       metamethod __call: function<T>(Pick, spec: string | contracts.PickSource<T>, extra?: contracts.PickExtra)
       metamethod __index: function(Pick, string): Untyped
    end
-   record Roles
-      define: function<P is contracts.MarkProps>(name: string, spec: contracts.Role<P>)
-      metamethod __index: function(Roles, string): Untyped
-   end
-   record Statusline
-      component: function(name: string, spec: contracts.StatusComponent): contracts.StatusComponent
-      component: function(name: string, fn: function(ctx: contracts.StatusContext): contracts.StatusText): contracts.StatusComponent
-      metamethod __index: function(Statusline, string): Untyped
-   end
    record Textbuf
       kind: function<I is contracts.TextItem, F>(name: string, spec: contracts.TextKind<I, F>): contracts.TextKind<I, F>
       metamethod __index: function(Textbuf, string): Untyped
@@ -70,6 +61,7 @@ local record partial
       notify: function(text: string, level?: string)
       open: function(name: string, opts?: contracts.FloatOptions)
       role: function<P is contracts.MarkProps>(name: string, spec: contracts.Role<P>)
+      roles: {string:contracts.Role<contracts.MarkProps>}
       view: function<V is contracts.View>(name: string, def: V): V
       views: {string:contracts.View}
       metamethod __index: function(Ui, string): Untyped
@@ -90,9 +82,8 @@ local record partial
       keymap: Keymap
       layout: Layout
       notify: function(text: string, level?: string)
+      off: function(id: integer)
       pick: Pick
-      roles: Roles
-      statusline: Statusline
       textbuf: Textbuf
       timers: {integer:function()}
       track_kinds: TrackKinds

@@ -28,50 +28,150 @@
 -- the view has no gesture for may say what a click does itself: `keys`
 -- (typed), `cmd` (an Ex command); and `hint`, what the status line says of
 -- it under the pointer.
-local api = paw.api
-local M = {
-  -- Every role, by name.
-  registry = {},
-  -- The version of the roles a frontend may know (`scene.watch`'s `roles`).
-  version = 1,
-}
+--
+-- Written in Teal (paw/lang.tl): the build compiles it to Lua.
+local api = require("paw.api")
+local type types = require("paw.types")
+local type contracts = require("paw.contracts")
+local type partial = require("paw.partial")
+local type role_props = require("paw.role_props")
+local Buf = require("paw.buf")
+local type CanvasModule = require("paw.canvas")
+local type CommandsModule = require("paw.commands")
+local type LimitModule = require("paw.limit")
+local type SeatsModule = require("paw.seats")
+local type UtilModule = require("paw.util")
+
+local type View = contracts.View
+local type MarkProps = contracts.MarkProps
+local type HitAction = contracts.HitAction
+local type MouseEvent = contracts.MouseEvent
+local type Axis = contracts.Axis
+local type Data = UtilModule.Data
+
+--- A gesture of the pointer that paw/mouse.lua holds, which this module
+--- only compares.
+local record Gesture
+end
+
+-- What this module reads of `paw`, which paw/init.lua makes, and of the
+-- modules in Lua that it calls (paw/ui.lua, paw/mouse.lua, paw/panes.lua).
+local record Ui
+  scene_drawing: boolean
+  live_drawing: function(): boolean
+  live: function(buf: Buf, draw: function(b: Buf))
+  live_value: function(bind: string, props: MarkProps)
+end
+local record Mouse
+  hint: function(text: string)
+  gesture: function(): Gesture
+  to_view: function(view: View, e: MouseEvent): boolean
+  mark_double: function(e: MouseEvent)
+end
+local record Panes
+  focus: function(win: integer)
+end
+local record Paw is partial.Paw
+  canvas: CanvasModule
+  commands: CommandsModule
+  limit: LimitModule
+  mouse: Mouse
+  panes: Panes
+  seats: SeatsModule
+  util: UtilModule
+end
+local paw = (_G as {string:Paw}).paw
+
+--- Where a terminal's hit region in a plane is (`plane:region()`): the
+--- corner of the plane's buffer on the screen, and the plane.
+local record PlaceIn
+  x: number
+  y: number
+  plane: Plane
+end
+
+--- A hit region of the terminal's screen, in screen cells: its action,
+--- and the plane it is in, if any.
+local record Region
+  x: number
+  y: number
+  w: number
+  h: number
+  hit: HitAction
+  plane: PlaceIn
+end
+
+--- What the frontend that gets scenes holds of a drag that started on a
+--- hit region (`held`, which its watcher keeps).
+local record Held
+  gesture: Gesture
+  button: string
+end
+
+--- A pointer event from a frontend that gets scenes, in units of its window.
+local type SceneEvent = contracts.PointerEvent
+
+local record M
+  type Region = Region
+  type Held = Held
+  type SceneEvent = SceneEvent
+  --- A plane (`buf:plane`): its buffer, its axes, its name in the scene,
+  --- and whether a scene is being drawn. The record is its class too.
+  record Plane is contracts.Plane
+    buf: Buf
+    x: Axis
+    y: Axis
+    key: string
+    scene: boolean
+    at: function(self: Plane, cx: number, cy: number): types.Point
+    region: function(self: Plane): PlaceIn
+  end
+  --- Every role, by name.
+  registry: {string:contracts.Role<contracts.MarkProps>}
+  --- The version of the roles a frontend may know (`scene.watch`'s `roles`).
+  version: integer
+  gesture: function(view: View, e: MouseEvent): boolean
+end
+local Plane = M.Plane
+M.registry = {}
+M.version = 1
 
 -- The hit regions each window of the terminal's screen drew last, by the
 -- view's name and its window: `{ x, y, w, h, hit }` each, in screen cells.
 -- A seat's screen is its own.
-local hits, drawing = {}, nil
-paw.seats.keep("roles", function() return hits end, function(h) hits = h end, function() return {} end)
+local hits: {string:{Region}} = {}
+local drawing: {Region} = nil
+paw.seats.keep("roles", function(): {string:{Region}} return hits end, function(h: {string:{Region}}) hits = h end, function(): {string:{Region}} return {} end)
 
 --- Define a role. `spec.cells(buf, props, ctx)` draws it in cells. It is
 --- necessary, because the terminal comes first. `spec.props` names its
 --- props and their contents, for documentation and `paw.ui.roles`.
 --- `spec.bound` is the props that a frontend takes from the live value when
 --- the mark is bound to one. paw does not send these props.
---- @type function<P is contracts.MarkProps>(name: string, spec: contracts.Role<P>)
-function M.define(name, spec)
+function M.define<P is contracts.MarkProps>(name: string, spec: contracts.Role<P>)
   if type(name) ~= "string" or name == "" then error("a role needs a name", 2) end
   if type(spec) ~= "table" or type(spec.cells) ~= "function" then error("role " .. name .. ": cells(buf, props, ctx) draws it", 2) end
-  M.registry[name] = spec
+  M.registry[name] = spec as contracts.Role<contracts.MarkProps>
 end
 
 --- What of a role's props goes to a frontend: data only, and not what it
 --- takes from a live value (`left`, names to leave out).
-local function wire(props, left)
-  local out = {}
-  for k, v in pairs(props) do
+local function wire(props: MarkProps, left: {string}): role_props.Props
+  local out: {string:Data} = {}
+  for k, v in pairs(props as {string:Data}) do
     if k ~= "hit" and k ~= "bind" and k ~= "key" and type(v) ~= "function" then out[k] = v end
   end
   for _, k in ipairs(left or {}) do out[k] = nil end
-  return out
+  return out as role_props.Props
 end
 
-local function key_of(name, win)
+local function key_of(name: string, win: integer): string
   return tostring(name) .. "#" .. tostring(win or "")
 end
 
 --- A view is about to be drawn on the terminal's screen (`win`, the id of
 --- its window, if any): its hit regions start afresh.
-function M.begin(name, win)
+function M.begin(name: string, win?: integer)
   drawing = {}
   hits[key_of(name, win)] = drawing
 end
@@ -82,7 +182,7 @@ function M.finish()
 end
 
 --- What `buf`'s rectangle `x, y, w, h` shows of the screen: nil for none.
-local function shown(buf, x, y, w, h)
+local function shown(buf: Buf, x: number, y: number, w: number, h: number): Region
   local x0, y0 = math.max(buf.x + x, buf.cx), math.max(buf.y + y, buf.cy)
   local x1, y1 = math.min(buf.x + x + w, buf.cx + buf.cw), math.min(buf.y + y + h, buf.cy + buf.ch)
   if x1 <= x0 or y1 <= y0 then return nil end
@@ -91,18 +191,18 @@ end
 
 --- Open a node of a scene being drawn over `buf`'s rectangle `x, y, w, h`;
 --- true when one was, to be closed.
-local function open(buf, x, y, w, h, opts)
-  if not paw.ui.scene_drawing then return false end
-  local r = { x = buf.x + x, y = buf.y + y, w = w, h = h }
+local function open(buf: Buf, x: number, y: number, w: number, h: number, opts: types.SceneOpenOptions): boolean
+  if not (paw.ui as Ui).scene_drawing then return false end
+  local r: types.Rect = { x = buf.x + x, y = buf.y + y, w = w, h = h }
   local cut = shown(buf, x, y, w, h)
   if not cut then return false end
-  if cut.x ~= r.x or cut.y ~= r.y or cut.w ~= r.w or cut.h ~= r.h then opts.clip = cut end
+  if cut.x ~= r.x or cut.y ~= r.y or cut.w ~= r.w or cut.h ~= r.h then opts.clip = cut as types.Rect end
   return api.scene_open(r, opts)
 end
 
 --- A hit region of the terminal's screen, where it shows; `plane` the
 --- plane it is in, if any, for where in its domain a press is.
-local function region(buf, x, y, w, h, action, plane)
+local function region(buf: Buf, x: number, y: number, w: number, h: number, action: HitAction, plane?: PlaceIn)
   if not drawing then return end
   local r = shown(buf, x, y, w, h)
   if r then
@@ -113,11 +213,11 @@ end
 
 --- What the view's cells hold of a role's props, and what goes to a
 --- frontend: the opts of its node.
-local function node_opts(role, spec, props)
+local function node_opts(role: string, spec: contracts.Role<contracts.MarkProps>, props: MarkProps): types.SceneOpenOptions
   return { role = role, props = wire(props, props.bind and spec.bound), hit = props.hit, bind = props.bind, key = props.key }
 end
 
-local function spec_of(role)
+local function spec_of(role: string): contracts.Role<contracts.MarkProps>
   local spec = M.registry[role]
   if not spec then error("no role " .. tostring(role), 3) end
   return spec
@@ -126,31 +226,38 @@ end
 --- Draw a role's cells. A mark bound to a live value on the terminal's
 --- screen is a live part of it, which paw draws again by itself as the
 --- value moves (`paw.ui.live`).
-local function cells(sub, role, spec, props)
-  if props.bind and spec.bound and paw.ui.live_drawing() then
-    return paw.ui.live(sub, function(b)
-      paw.ui.live_value(props.bind, props)
+local function cells(sub: Buf, role: string, spec: contracts.Role<contracts.MarkProps>, props: MarkProps)
+  local u = (paw.ui as Ui)
+  if props.bind and spec.bound and u.live_drawing() then
+    return u.live(sub, function(b: Buf)
+      u.live_value(props.bind, props)
       spec.cells(b, props, { role = role })
     end)
   end
   return spec.cells(sub, props, { role = role })
 end
 
---- `buf:mark(role, x, y, w, h, props)`: see the top of this file.
-function M.mark(buf, role, x, y, w, h, props)
+--- `buf:mark(role, x, y, w, h, props)`: mark a role over an area. A
+--- terminal draws the cells of the role there. A frontend that knows the
+--- role paints it as what it is. `props.hit` makes it a hit region, and
+--- `props.bind` ties it to a live value. Returns the buffer of the area.
+---   buf:mark("fader", 4, 2, 3, 12, { at = 0.8, hit = { kind = "fader", track = id } })
+function M.mark(buf: Buf, role: string, x: number, y: number, w: number, h: number, props?: MarkProps): Buf
   local spec = spec_of(role)
   props = props or {}
   local sub = buf:sub(x, y, w, h)
   local opened = open(buf, x, y, sub.width, sub.height, node_opts(role, spec, props))
-  local ok, err = pcall(cells, sub, role, spec, props)
+  local ok, err = pcall(cells, sub, role, spec, props) as (boolean, string)
   if opened then api.scene_close() end
   if not ok then error(err, 0) end
   if props.hit then region(buf, x, y, sub.width, sub.height, props.hit) end
   return sub
 end
 
---- `buf:hit(x, y, w, h, action)`: see the top of this file.
-function M.hit(buf, x, y, w, h, action)
+--- `buf:hit(x, y, w, h, action)`: make an area a hit region. A press, a
+--- move or the wheel there goes to the view's gesture for `action.kind`,
+--- in either frontend.
+function M.hit(buf: Buf, x: number, y: number, w: number, h: number, action: HitAction)
   if open(buf, x, y, w, h, { hit = action }) then api.scene_close() end
   region(buf, x, y, w, h, action)
 end
@@ -174,12 +281,12 @@ end
 -- where it is, between cells. A press on a plane, or on what is in it,
 -- comes with `e.at`: where in the domain it was (a terminal's at the
 -- middle of the cell).
-local Plane = {}
-Plane.__index = Plane
+local PlaneMeta = Plane as metatable<Plane>
+PlaneMeta.__index = Plane
 
 --- Where along an axis a stretch of its domain is, in cells from the
 --- plane's edge: the first and how many (one at least).
-local function along(axis, v, len)
+local function along(axis: Axis, v: number, len: number): integer, integer
   local a, b = (v - axis.from) * axis.per, (v + len - axis.from) * axis.per
   if a > b then a, b = b, a end
   local first = math.floor(a + 0.5)
@@ -187,55 +294,62 @@ local function along(axis, v, len)
 end
 
 --- The cells of the plane's buffer that a rectangle of its domain shows on.
-function Plane:cells(x, y, w, h)
+function Plane:cells(x: number, y: number, w: number, h: number): integer, integer, integer, integer
   local cx, cw = along(self.x, x, w)
   local cy, ch = along(self.y, y, h)
   return cx, cy, cw, ch
 end
 
 --- A point of the plane's buffer (fractions of its cells) in its domain.
-function Plane:at(cx, cy)
+function Plane:at(cx: number, cy: number): types.Point
   return { x = self.x.from + cx / self.x.per, y = self.y.from + cy / self.y.per }
 end
 
 --- What a terminal's hit region in the plane says of where a press is.
-function Plane:region()
+function Plane:region(): PlaceIn
   return { x = self.buf.x, y = self.buf.y, plane = self }
 end
 
-local function put(plane, x, y, w, h, opts, cells)
+local function put(plane: Plane, x: number, y: number, w: number, h: number, opts: types.SceneOpenOptions, draw?: function(sub: Buf)): Buf
   local cx, cy, cw, ch = plane:cells(x, y, w, h)
   local buf = plane.buf
   local sub = buf:sub(cx, cy, cw, ch)
   if not shown(buf, cx, cy, cw, ch) then return sub end
   opts.into = plane.key
   local opened = plane.scene and api.scene_open({ x = x, y = y, w = w, h = h }, opts)
-  local ok, err = true, nil
-  if cells then ok, err = pcall(cells, sub) end
+  local ok, err = true, nil as string
+  if draw then ok, err = pcall(draw, sub) as (boolean, string) end
   if opened then api.scene_close() end
   if not ok then error(err, 0) end
-  if opts.hit then region(buf, cx, cy, cw, ch, opts.hit, plane:region()) end
+  if opts.hit then region(buf, cx, cy, cw, ch, opts.hit as HitAction, plane:region()) end
   return sub
 end
 
 --- `plane:mark(role, x, y, w, h, props)`: a role over a rectangle of the
 --- plane's domain. Returns the buffer of the cells it shows on.
-function Plane:mark(role, x, y, w, h, props)
+function Plane:mark(role: string, x: number, y: number, w: number, h: number, props?: MarkProps): contracts.Buf
   local spec = spec_of(role)
   props = props or {}
-  return put(self, x, y, w, h, node_opts(role, spec, props), function(sub) cells(sub, role, spec, props) end)
+  return put(self, x, y, w, h, node_opts(role, spec, props), function(sub: Buf) cells(sub, role, spec, props) end)
 end
 
 --- `plane:hit(x, y, w, h, action)`: a hit region over a rectangle of the
 --- plane's domain.
-function Plane:hit(x, y, w, h, action)
+function Plane:hit(x: number, y: number, w: number, h: number, action: HitAction)
   put(self, x, y, w, h, { hit = action })
 end
 
---- `buf:plane(x, y, w, h, opts)`: see above.
-function M.plane(buf, x, y, w, h, opts)
+--- `buf:plane(x, y, w, h, opts)`: a plane over an area. Each axis of the
+--- plane has its own domain, `opts.x` and `opts.y` (`{ domain, from, per }`):
+--- `per` is the cells for one unit of the domain, and `from` is the value at
+--- the edge of the area. A terminal shows a mark on the cells it rounds to.
+--- A window shows it at its exact position.
+---   local roll = buf:plane(5, 2, 60, 20, { key = "roll", x = { domain = "beat", from = 0, per = 4 },
+---     y = { domain = "pitch", from = 73, per = -1 }, hit = { kind = "grid" } })
+---   roll:mark("note", 1.5, 60, 0.5, 1, { label = "C4" })
+function M.plane(buf: Buf, x: number, y: number, w: number, h: number, opts: contracts.PlaneOptions): Plane
   local sub = buf:sub(x, y, w, h)
-  local plane = setmetatable({ buf = sub, x = opts.x, y = opts.y, key = opts.key or "plane" }, Plane)
+  local plane = setmetatable({ buf = sub, x = opts.x, y = opts.y, key = opts.key or "plane" } as Plane, PlaneMeta)
   if open(buf, x, y, sub.width, sub.height, { plane = { x = opts.x, y = opts.y }, key = plane.key, hit = opts.hit }) then
     api.scene_close()
     plane.scene = true
@@ -246,7 +360,7 @@ end
 
 --- An event on a hit region (`e.hit`, `e.rect`) to its view: true when it
 --- was taken.
-function M.gesture(view, e)
+function M.gesture(view: View, e: MouseEvent): boolean
   local h = e.hit
   local fn = view.gestures and view.gestures[h.kind]
   if fn then
@@ -270,7 +384,7 @@ function M.gesture(view, e)
 end
 
 --- The last region drawn in `list` under the point `x, y`.
-local function under(list, x, y)
+local function under(list: {Region}, x: number, y: number): Region
   for i = #list, 1, -1 do
     local r = list[i]
     if x >= r.x and x < r.x + r.w and y >= r.y and y < r.y + r.h then return r end
@@ -280,27 +394,28 @@ end
 --- A mouse event in the terminal, in the cells of the view it is over (as
 --- its `on_mouse` takes it, with `view_x`, `view_y`, `win`): to the gesture
 --- of the hit region under it. True when it was taken.
-function M.pointer(view, name, event)
+function M.pointer(view: View, name: string, event: MouseEvent): boolean
   local kind = event.kind
   if kind ~= "down" and kind ~= "move" and not kind:match("^scroll") then return false end
   local list = hits[key_of(name, event.win)]
   local ox, oy = event.view_x or 0, event.view_y or 0
   local r = list and under(list, event.x + ox, event.y + oy)
   if not r then return false end
-  local e = paw.util.merge(event, { hit = r.hit, rect = { x = r.x - ox, y = r.y - oy, w = r.w, h = r.h } })
+  local rect: types.Rect = { x = r.x - ox, y = r.y - oy, w = r.w, h = r.h }
+  local e = paw.util.merge(event as {string:Data}, { hit = r.hit as {Data:Data}, rect = rect as {Data:Data} }) as MouseEvent
   -- In a plane, where in its domain: at the middle of the cell.
   local p = r.plane
   if p then e.at = p.plane:at(event.x + ox - p.x + 0.5, event.y + oy - p.y + 0.5) end
   return M.gesture(view, e)
 end
 
---- A pointer event from a frontend that gets scenes (paw/scene.lua), in
+--- A pointer event from a frontend that gets scenes (paw/scene.tl), in
 --- units of its window `id`, over the view `view` (its window of the
 --- layout `win`, if any). On a hit region of the scene, the event goes to
 --- the gesture of the region, with `x` and `y` in units. A drag that
 --- started there continues in units (`held`, which the watcher of the
 --- frontend keeps). True when it takes the event.
-function M.input(client, id, view, win, event, held)
+function M.input(client: integer, id: string, view: View, win: integer, event: SceneEvent, held: Held): boolean
   local kind = event.kind
   -- The pointer left the window: what the status line said of it goes.
   if kind == "leave" then
@@ -313,12 +428,12 @@ function M.input(client, id, view, win, event, held)
     local g = paw.mouse.gesture()
     if not (g and g == held.gesture) then return false end
     if kind == "up" then held.gesture = nil end
-    local e = { kind = kind == "move" and "drag" or "up", x = x, y = y, button = held.button, mods = mods, fine = true }
-    paw.limit.named("the mouse", paw.mouse.to_view, view, e)
+    local e: MouseEvent = { kind = kind == "move" and "drag" or "up", x = x, y = y, button = held.button, mods = mods, fine = true }
+    paw.limit.named("the mouse", function(): boolean return paw.mouse.to_view(view, e) end)
     api.ui_redraw()
     return true
   end
-  local e
+  local e: MouseEvent
   if kind == "down" then
     e = { kind = "down", button = event.button or "left" }
   elseif kind == "hover" then
@@ -341,9 +456,9 @@ function M.input(client, id, view, win, event, held)
     if win then paw.panes.focus(win) else paw.canvas.focus(view.name) end
   end
   e.x, e.y, e.mods, e.view_x, e.view_y, e.win, e.fine = x, y, mods, 0, 0, win, true
-  e.hit, e.rect, e.at = found.hit, found.rect, found.at
+  e.hit, e.rect, e.at = found.hit as HitAction, found.rect, found.at
   if kind == "down" then paw.mouse.mark_double(e) end
-  if not paw.limit.named("the mouse", M.gesture, view, e) then return false end
+  if not paw.limit.named("the mouse", function(): boolean return M.gesture(view, e) end) then return false end
   if kind == "down" then
     -- The gesture holds the pointer from here on, in units.
     held.gesture, held.button = paw.mouse.gesture(), e.button
@@ -351,5 +466,8 @@ function M.input(client, id, view, win, event, held)
   api.ui_redraw()
   return true
 end
+
+-- A buffer's `mark`, `hit` and `plane` are these (paw/buf.tl).
+Buf.mark, Buf.hit, Buf.plane = M.mark, M.hit, M.plane
 
 return M

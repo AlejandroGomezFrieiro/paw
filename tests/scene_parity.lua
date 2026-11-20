@@ -1,6 +1,6 @@
 -- Tests that a view shows the same in a terminal and in a graphical
 -- frontend. A frontend is sent a view as a scene (crates/paw-scene,
--- paw/scene.lua): the nodes its writes to its buffers make (`buf:text`,
+-- paw/scene.tl): the nodes its writes to its buffers make (`buf:text`,
 -- `buf:fill`), and the strips it keeps as pictures. So every view must draw
 -- through the buffer it is given (what it writes, written again on a screen
 -- of its own, is its drawing cell for cell), and its scene lowered to cells

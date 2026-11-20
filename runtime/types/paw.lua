@@ -6017,7 +6017,9 @@ function paw.roles.finish() end
 ---@param e any
 function paw.roles.gesture(view, e) end
 
---- `buf:hit(x, y, w, h, action)`: see the top of this file.
+--- `buf:hit(x, y, w, h, action)`: make an area a hit region. A press, a
+--- move or the wheel there goes to the view's gesture for `action.kind`,
+--- in either frontend.
 ---@param buf any
 ---@param x any
 ---@param y any
@@ -6026,7 +6028,7 @@ function paw.roles.gesture(view, e) end
 ---@param action any
 function paw.roles.hit(buf, x, y, w, h, action) end
 
---- A pointer event from a frontend that gets scenes (paw/scene.lua), in
+--- A pointer event from a frontend that gets scenes (paw/scene.tl), in
 --- units of its window `id`, over the view `view` (its window of the
 --- layout `win`, if any). On a hit region of the scene, the event goes to
 --- the gesture of the region, with `x` and `y` in units. A drag that
@@ -6040,7 +6042,11 @@ function paw.roles.hit(buf, x, y, w, h, action) end
 ---@param held any
 function paw.roles.input(client, id, view, win, event, held) end
 
---- `buf:mark(role, x, y, w, h, props)`: see the top of this file.
+--- `buf:mark(role, x, y, w, h, props)`: mark a role over an area. A
+--- terminal draws the cells of the role there. A frontend that knows the
+--- role paints it as what it is. `props.hit` makes it a hit region, and
+--- `props.bind` ties it to a live value. Returns the buffer of the area.
+---   buf:mark("fader", 4, 2, 3, 12, { at = 0.8, hit = { kind = "fader", track = id } })
 ---@param buf any
 ---@param role any
 ---@param x any
@@ -6050,7 +6056,14 @@ function paw.roles.input(client, id, view, win, event, held) end
 ---@param props any
 function paw.roles.mark(buf, role, x, y, w, h, props) end
 
---- `buf:plane(x, y, w, h, opts)`: see above.
+--- `buf:plane(x, y, w, h, opts)`: a plane over an area. Each axis of the
+--- plane has its own domain, `opts.x` and `opts.y` (`{ domain, from, per }`):
+--- `per` is the cells for one unit of the domain, and `from` is the value at
+--- the edge of the area. A terminal shows a mark on the cells it rounds to.
+--- A window shows it at its exact position.
+---   local roll = buf:plane(5, 2, 60, 20, { key = "roll", x = { domain = "beat", from = 0, per = 4 },
+---     y = { domain = "pitch", from = 73, per = -1 }, hit = { kind = "grid" } })
+---   roll:mark("note", 1.5, 60, 0.5, 1, { label = "C4" })
 ---@param buf any
 ---@param x any
 ---@param y any
@@ -7613,45 +7626,11 @@ function paw.ui.Buf.columns(self, widths, gap) end
 ---@param style any
 function paw.ui.Buf.fill(self, x, y, w, h, char, style) end
 
---- Make an area a hit region: a press, a move or the wheel there goes to
---- the view's gesture for `action.kind` (paw/roles.lua), in either frontend.
----@param self any
----@param x any
----@param y any
----@param w any
----@param h any
----@param action any
-function paw.ui.Buf.hit(self, x, y, w, h, action) end
+paw.ui.Buf.hit = paw.roles.hit
 
---- Mark a role (paw/roles.lua) over an area. A terminal draws the cells of
---- the role there. A frontend that knows the role paints it as what it is.
---- `props.hit` makes it a hit region, and `props.bind` ties it to a live
---- value. Returns the buffer of the area.
----   buf:mark("fader", 4, 2, 3, 12, { at = 0.8, hit = { kind = "fader", track = id } })
----@param self any
----@param role any
----@param x any
----@param y any
----@param w any
----@param h any
----@param props any
-function paw.ui.Buf.mark(self, role, x, y, w, h, props) end
+paw.ui.Buf.mark = paw.roles.mark
 
---- A plane over an area (paw/roles.lua, "Planes"). Each axis of the plane
---- has its own domain, `opts.x` and `opts.y` (`{ domain, from, per }`):
---- `per` is the cells for one unit of the domain, and `from` is the value at
---- the edge of the area. A terminal shows a mark on the cells it rounds to.
---- A window shows it at its exact position.
----   local roll = buf:plane(5, 2, 60, 20, { key = "roll", x = { domain = "beat", from = 0, per = 4 },
----     y = { domain = "pitch", from = 73, per = -1 }, hit = { kind = "grid" } })
----   roll:mark("note", 1.5, 60, 0.5, 1, { label = "C4" })
----@param self any
----@param x any
----@param y any
----@param w any
----@param h any
----@param opts any
-function paw.ui.Buf.plane(self, x, y, w, h, opts) end
+paw.ui.Buf.plane = paw.roles.plane
 
 --- The buffer that covers a whole screen of the given size.
 ---@param width any

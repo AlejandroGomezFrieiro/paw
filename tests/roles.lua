@@ -1,4 +1,4 @@
--- Tests of roles (paw/roles.lua): what a view marks on its buffer is drawn
+-- Tests of roles (paw/roles.tl): what a view marks on its buffer is drawn
 -- in cells by the role in a terminal, sent as the role to a window that
 -- paints it, and a hit region on it takes the pointer the same from both.
 -- Loaded by tests/suite.lua with its helpers.

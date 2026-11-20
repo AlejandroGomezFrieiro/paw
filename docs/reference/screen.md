@@ -58,7 +58,7 @@ its clips, its notes in the piano roll, and its name plate in the mixer.
 | the color of the track | the clips, notes and name plate of the track |
 
 `paw.ui.hl(group, { fg = ..., bg = ... })` changes a highlight group. The
-groups are in `runtime/lua/paw/theme.lua`.
+groups are in `runtime/lua/paw/theme.tl`.
 
 paw uses 24-bit color or the nearest of 256 colors (`paw.opt.termcolors`).
 `paw.opt.ascii` draws with ASCII characters only. `paw.opt.curve_glyphs`

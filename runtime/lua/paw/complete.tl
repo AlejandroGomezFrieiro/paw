@@ -43,6 +43,7 @@ local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
 local type objects = require("paw.objects")
 local type HarmonyModule = require("paw.harmony")
+local type DrawModule = require("paw.draw")
 
 --- A note of an item as a source gives it: `start` (or `at`) in beats from
 --- the clip's start.
@@ -210,24 +211,6 @@ local record Roll
   tool: function(self: Roll, name: string, fn: function(): Tool)
 end
 
---- The glyphs and colours of paw/draw.lua that this module uses.
-local record Glyphs
-  clip_start: string
-end
-local record Draw
-  g: Glyphs
-  mix: function(a: string, b: string, t: number): string
-  track_colour: function(track: types.Track): string
-end
-
---- paw/theme.lua's palette, as far as this module reads it.
-local record Palette
-  bg: string
-end
-local record Theme
-  palette: Palette
-end
-
 --- A hit region of the badge: a gesture of the window.
 local record ActHit is contracts.HitAction
   act: string
@@ -260,7 +243,7 @@ local record Paw is partial.Paw
   harmony: HarmonyModule
   time: objects.Time
   clip: function(id: integer): objects.Clip
-  draw: Draw
+  draw: DrawModule
 end
 local paw = (_G as {string:Paw}).paw
 local opt = options.opt
@@ -858,7 +841,7 @@ local styles: {string:GhostStyle} = {}
 --- The terminal's shades for ghost notes of a colour: a faint fill with
 --- the colour's own text, and the badge.
 local function ghost_style(colour: string): GhostStyle
-  local palette = (require as function(string): Theme)("paw.theme").palette
+  local palette = require("paw.theme").palette
   local key = colour .. palette.bg
   if not styles[key] then
     local name = "CompleteGhost_" .. colour:sub(2)
