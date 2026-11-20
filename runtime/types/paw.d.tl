@@ -5,9 +5,13 @@
 
 local type Api = require("paw.api")
 local type UntypedLua = require("paw.untyped")
+local type Partial = require("paw.partial")
+local type types = require("paw.types")
+local type contracts = require("paw.contracts")
 local type AttrModule = require("paw.attr")
 local type BytesModule = require("paw.bytes")
 local type CommandsModule = require("paw.commands")
+local type ContractsModule = require("paw.contracts")
 local type EventsModule = require("paw.events")
 local type FormatsModule = require("paw.formats")
 local type HarmonyReadModule = require("paw.harmony.read")
@@ -81,41 +85,42 @@ global record paw
    autosave: Untyped
    bounce: Untyped
    buf: Untyped
-   buftype: Untyped
+   buftype: function<B is contracts.Buftype>(name: string, def: B): B
    bytes: BytesModule
-   cancel: Untyped
+   cancel: function(handle: integer)
    canvas: Untyped
    clip: Untyped
    cmd: function<C is CommandsModule.Context>(name: string, args?: CommandsModule.Args, ctx?: C): CommandsModule.Result
    command: Untyped
    commands: CommandsModule
    complete: Untyped
+   contracts: ContractsModule
    controls: Untyped
-   cursor: Untyped
+   cursor: Partial.Cursor
    curves: Untyped
-   defer: Untyped
+   defer: function(fn: function(), ms?: number): integer
    device: Untyped
    device_rows: Untyped
-   device_types: Untyped
+   device_types: function(): {types.DeviceType}
    diagnostic: Untyped
    draw: Untyped
    edit: Untyped
    emit: function<P>(name: string, payload?: P): boolean, string
    events: EventsModule
-   every: Untyped
+   every: function(ms: number, fn: function()): integer
    ex: Untyped
-   ext: Untyped
+   ext: Partial.Ext
    external: Untyped
-   failure: Untyped
-   files: Untyped
-   flush: Untyped
+   failure: function(err: string): string
+   files: Partial.Files
+   flush: function()
    formats: FormatsModule
    freeze: Untyped
-   frontend: Untyped
+   frontend: Partial.Frontend
    fx: Untyped
-   grep: Untyped
+   grep: Partial.Grep
    groups: Untyped
-   health: Untyped
+   health: Partial.Health
    help: Untyped
    hooks: HooksModule
    import_audio: Untyped
@@ -123,12 +128,12 @@ global record paw
    is_audio_file: Untyped
    is_chain_file: Untyped
    json: Untyped
-   keymap: Untyped
+   keymap: Partial.Keymap
    keyrule: Untyped
    lane: Untyped
    lanes: Untyped
    lang: LangModule
-   layout: Untyped
+   layout: Partial.Layout
    layouts: Untyped
    learn: Untyped
    limit: LimitModule
@@ -144,7 +149,7 @@ global record paw
    mixer_rows: Untyped
    mouse: Untyped
    music: MusicModule
-   notify: Untyped
+   notify: function(text: string, level?: string)
    off: function(id: integer)
    on: function<P>(pattern: string, fn: function(P, string), opts?: EventsModule.OnOptions): integer
    once: function<P>(pattern: string, fn: function(P, string)): integer
@@ -154,15 +159,15 @@ global record paw
    option: OptionModule
    panes: Untyped
    params: Untyped
-   pick: Untyped
+   pick: Partial.Pick
    plot: Untyped
    plugins: Untyped
    project: Untyped
    qf: Untyped
-   query: Untyped
+   query: Partial.Query
    recent: Untyped
    reconnect: Untyped
-   redo: Untyped
+   redo: function(): boolean
    regex: RegexModule
    remote: Untyped
    render: Untyped
@@ -174,7 +179,7 @@ global record paw
    restore_clip: Untyped
    restore_device: Untyped
    restore_track: Untyped
-   roles: Untyped
+   roles: Partial.Roles
    roll_clips: Untyped
    roll_draw: Untyped
    routes: Untyped
@@ -183,28 +188,28 @@ global record paw
    seats: SeatsModule
    snippet: Untyped
    state: Untyped
-   statusline: Untyped
+   statusline: Partial.Statusline
    stems: Untyped
    stretch: Untyped
    tab: Untyped
    takes: Untyped
    tempo: Untyped
    tempolane: Untyped
-   textbuf: Untyped
+   textbuf: Partial.Textbuf
    time: Untyped
-   timers: Untyped
+   timers: {integer:function()}
    toml: Untyped
    track: Untyped
-   track_kinds: Untyped
+   track_kinds: Partial.TrackKinds
    tracks: Untyped
    transport: Untyped
    try: Untyped
-   ui: Untyped
-   undo: Untyped
+   ui: Partial.Ui
+   undo: function(): boolean
    util: UtilModule
    vca: Untyped
    version: Untyped
-   wait: Untyped
+   wait: function(ms: number)
    win: Untyped
    xml: XmlModule
    zip: ZipModule

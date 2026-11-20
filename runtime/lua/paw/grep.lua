@@ -19,6 +19,7 @@ local A = paw.address
 local M = { sources = {}, order = {} }
 
 --- Add a source of text, or replace the one of that name.
+--- @type function(name: string, fn: contracts.GrepSource)
 function M.source(name, fn)
   if not M.sources[name] then M.order[#M.order + 1] = name end
   M.sources[name] = fn

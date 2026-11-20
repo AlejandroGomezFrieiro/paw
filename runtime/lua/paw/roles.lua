@@ -47,6 +47,7 @@ paw.seats.keep("roles", function() return hits end, function(h) hits = h end, fu
 --- props and their contents, for documentation and `paw.ui.roles`.
 --- `spec.bound` is the props that a frontend takes from the live value when
 --- the mark is bound to one. paw does not send these props.
+--- @type function<P is contracts.MarkProps>(name: string, spec: contracts.Role<P>)
 function M.define(name, spec)
   if type(name) ~= "string" or name == "" then error("a role needs a name", 2) end
   if type(spec) ~= "table" or type(spec.cells) ~= "function" then error("role " .. name .. ": cells(buf, props, ctx) draws it", 2) end

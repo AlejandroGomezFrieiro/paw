@@ -14,6 +14,8 @@
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
 local events = require("paw.events")
+local type contracts = require("paw.contracts")
+local type partial = require("paw.partial")
 
 --- The payload of a change event, as far as this module reads it.
 local interface Change
@@ -27,14 +29,7 @@ local record Edit
 end
 
 --- A region of a view that visual mode selects (paw/keymap.lua).
-local interface Region
-  view: string
-  kind: string
-  r0: number
-  r1: number
-  c0: number
-  c1: number
-end
+local type Region = contracts.Region
 
 --- What is selected now: the payload of `selection.changed`.
 local record Selection
@@ -43,11 +38,6 @@ local record Selection
   region: Region
   clips: {integer}
   notes: {{integer}}
-end
-
---- A pane of the screen (paw/ui.lua), as far as this module reads it.
-local interface Pane
-  name: string
 end
 
 --- The payload of `undo` and `redo`.
@@ -64,30 +54,10 @@ end
 
 local type KernelFn = function(...: Value): Value
 
--- What this module reads of `paw`, which paw/init.lua makes. A module of the
--- runtime in Teal does not see the global `paw`: runtime/types/paw.d.tl
--- declares it from these modules.
-local record Keymap
-  selection: function(): Region
-  mode: string
-end
-local record Frontend
-  chosen_clips: function(): {integer}
-  chosen_refs: function(): {{integer}}
-end
-local record Ui
-  focused: string
-  arrange: function(): {Pane}
-  float: Pane
-end
-local record Paw
-  flush: function()
-  notify: function(string, string)
-  keymap: Keymap
-  frontend: Frontend
-  ui: Ui
-end
-local paw = (_G as {string:Paw}).paw
+-- What this module reads of `paw`, which paw/init.lua makes: the parts of
+-- the modules in Lua that their doc comments type (runtime/types/paw.d.tl
+-- cannot be named here, as it requires this module).
+local paw = (_G as {string:partial.Paw}).paw
 
 local record M
   type Change = Change

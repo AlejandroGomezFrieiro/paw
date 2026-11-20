@@ -241,6 +241,7 @@ M.fields = {}
 --- Add a field to a kind of node: `get(node)` returns its value (a number,
 --- text, a boolean, or a list of texts any of which may match).
 ---   paw.query.field("note", "channel", function(node) return node.data.meta.channel end)
+--- @type function(kind: string, name: string, get: contracts.QueryField)
 function M.field(kind, name, get)
   assert(KIND[kind] or kind == "*", "no kind of node `" .. tostring(kind) .. "`")
   M.fields[kind] = M.fields[kind] or {}

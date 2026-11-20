@@ -868,6 +868,7 @@ paw.seats.keep("frontend.recently_chosen", function() return recently_chosen end
   function(r) recently_chosen = r end, function() return nil end)
 
 --- The ids of the chosen clips, in order.
+--- @type function(): {integer}
 function M.chosen_clips()
   local keymap = paw.keymap
   -- Another kind of selection is open: that is what the keys act on.
@@ -2213,6 +2214,7 @@ local function chosen_map(clip)
 end
 
 --- Every chosen note of the clips the roll edits, as `{ clip, place }`.
+--- @type function(): {{integer}}
 function M.chosen_refs()
   local out = {}
   local active = paw.roll_clips.active()

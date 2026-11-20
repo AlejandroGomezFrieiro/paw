@@ -37,58 +37,17 @@ local record Info
 end
 
 --- `paw.opt`: the options the runtime defines, by their types, and any
---- other by its name.
-local record Opt
-  leader: string
-  localleader: string
-  timeoutlen: number
-  hint_delay: number
-  hints: boolean
-  keys: string
-  keybar: boolean
-  ripple: boolean
-  autosave: number
-  reopen_last: boolean
-  threads: integer
-  device_sleep: boolean
-  octave: integer
-  grid: number
-  zoom: number
-  track_height: integer | string
-  header_width: integer | string
-  termcolors: string | number
-  ascii: boolean
-  braille: boolean
-  curve_glyphs: string
-  wave_scale: string
-  mouse: boolean
-  graphics: boolean
-  follow: boolean
-  fps: number
-  clip_length: number
-  count_in: integer
-  pre_roll: integer
-  pre_roll_seconds: number
-  midi_record: string
-  click_level: number
-  click_accent: boolean
-  click_output: integer
-  velocity: integer
-  send_level: number
-  midi_follows_selection: boolean
-  note_grid: number
-  note_snap: boolean
-  note_zoom: number
-  message_time: number
-  media_stream: number
-  media_cache: number
-  ffmpeg: string
-  undo_steps: integer
-  undo_memory: number
-  --- paw/limit.tl defines it.
-  lua_limit: number
-  metamethod __index: function(Opt, string): Value
-  metamethod __newindex: function(Opt, string, Value)
+--- other by its name. tools/apidoc.lua makes the record from the options
+--- that the runtime defines (`runtime/types/paw/opts.d.tl`).
+local type Opt = require("paw.opts")
+
+--- An option that an extension defines, by the type of its default:
+--- `local lanes = paw.option.define("lanes", 4)`, then `lanes:get()` is an
+--- integer and `lanes:set(8)` takes one.
+local record Option<T>
+  name: string
+  get: function(self: Option<T>): T
+  set: function(self: Option<T>, value: T)
 end
 
 local record M
@@ -97,6 +56,7 @@ local record M
   type Definition = Definition
   type Info = Info
   type Opt = Opt
+  type Option<T> = Option<T>
   opt: Opt
 end
 
@@ -343,10 +303,16 @@ local opt: Opt = setmetatable({} as Opt, {
 ---   paw.option.define("lanes", 4, { min = 1, max = 16, integer = true })
 ---   paw.option.define("look", "plain", { values = { "plain", "fancy" } })
 ---   paw.option.define("size", "auto", { type = { "number", "string" }, min = 1, values = { "auto" } })
-function M.define(name: string, default: Value, spec?: Spec)
-  defaults[name] = default
+--- It gives a handle with the type of the default: `get()` and `set(value)`.
+function M.define<T>(name: string, default: T, spec?: Spec): Option<T>
+  defaults[name] = default as Value
   specs[name] = spec or specs[name]
-  definitions[name] = { default = default, spec = specs[name] }
+  definitions[name] = { default = default as Value, spec = specs[name] }
+  return {
+    name = name,
+    get = function(_: Option<T>): T return opt[name] as T end,
+    set = function(_: Option<T>, value: T) opt[name] = value as Value end,
+  }
 end
 
 --- Each option given a default by `paw.option.define`, by name: what it
@@ -372,6 +338,12 @@ function M.undefine(name: string, was?: Definition)
     paw.emit("option.changed", { name = name, old = old })
     api.ui_redraw()
   end
+end
+
+--- What option `name` takes besides its default's type (`min`, `max`,
+--- `integer`, `type`, `values`), or nil.
+function M.spec(name: string): Spec
+  return specs[name]
 end
 
 --- Every option that has a default, by name: { name, default }.

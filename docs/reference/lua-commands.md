@@ -188,4 +188,9 @@ The third argument of `paw.option.define`:
 | `values` | the only strings or booleans that the option takes |
 | `type` | a list of types, for an option such as `track_height` that is a number or `"auto"` |
 
+`paw.option.define` gives a handle of the option: `handle:get()` gives
+the value and `handle:set(value)` sets it. In Teal, the handle has the
+type of the default. `paw.option.spec(name)` gives the third argument of
+an option.
+
 `paw.option.check(name, value)` checks a value and does not set it.

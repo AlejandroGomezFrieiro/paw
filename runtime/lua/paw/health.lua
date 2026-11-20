@@ -19,6 +19,7 @@ local STYLES = { ok = "DiffAdd", info = "Normal", warn = "Warn", error = "Error"
 
 --- Register a check under `name`. It replaces a check with the same name.
 --- `fn(h)` reports through `h`. `opts.desc` tells in a few words what it checks.
+--- @type function(name: string, fn: contracts.HealthCheck, opts?: contracts.HealthOptions)
 function M.register(name, fn, opts)
   assert(type(name) == "string" and type(fn) == "function", "usage: paw.health.register(name, function(h) ... end)")
   M.checks[name] = { name = name, fn = fn, desc = opts and opts.desc, ext = paw.commands.owner() }

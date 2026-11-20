@@ -66,10 +66,14 @@ paw can load each of these through the same registry of languages
   makes or reads the table.
 - **The global `paw`.** `runtime/types/paw.d.tl` gives `paw.api`, and each
   module of the runtime that is in Teal with the types of its own code. A
-  module that is still in Lua is not described: it has the type
-  `paw.Untyped`. A Teal file can call it, and casts what it keeps:
-  `paw.cursor.track_id() as integer`. When the module moves to Teal, its
-  types replace `paw.Untyped`.
+  module that is still in Lua gives types only for the functions and
+  values that its doc comments type: a `--- @type function(...)` line
+  over a function, one line for each form, and a `--- @type T` line over
+  a value (`M.views = {}`). `runtime/types/paw/partial.d.tl` collects
+  these types, one record for each module. All the other parts of a
+  module in Lua have the type `paw.Untyped`. A Teal file can call them,
+  and casts what it keeps: `paw.cursor.track_id() as integer`. When the
+  module moves to Teal, its types replace `paw.Untyped`.
 - **A module of the runtime and the global `paw`.** The declaration of
   the global `paw` requires each module of the runtime that is in Teal.
   So such a module cannot use the types of the global: the checker
@@ -78,14 +82,46 @@ paw can load each of these through the same registry of languages
   `require`. For the modules that are still in Lua, it takes the global
   as `Untyped`, the type in `runtime/types/paw/untyped.d.tl`:
   `local paw = (_G as {string:Untyped}).paw`. `paw.Untyped` is the same
-  type. Better, it declares a record of the parts of `paw` that it reads
-  and takes the global as that record:
-  `local paw = (_G as {string:Paw}).paw`. The modules of the core services
-  do this.
+  type. Better, it takes the global as `partial.Paw`, the parts that the
+  modules in Lua type (`local type partial = require("paw.partial")`).
+  It can add the parts that it reads of the modules in Teal:
+  `local record Paw is partial.Paw`. `paw.hooks` and `paw.commands` do
+  this.
 - **Other names of a value.** `paw.on` is `paw.events.on`, and `paw.opt`
   is `paw.option.opt`. `tools/apidoc.lua` gives such a name the type of the
   value in its module: the signature of the function in the source, or the
   type of the field in the record of the module.
+
+## The contracts
+
+An extension gives tables to paw. Examples are a view, a buffer type, a
+kind of text buffer, a kind of track, a role and a picker. A status line
+component, a query field, a source of grep and a health check are tables
+too.
+
+These tables are the
+contracts between paw and the extensions. `runtime/lua/paw/contracts.tl`
+gives a type to each one, with the fields that the runtime reads. The
+module has only types, and it requires only `paw.types`. So the modules in
+Lua name the contracts in their `@type` lines before they move to Teal,
+and a module in Teal can require it.
+
+In an extension, the contracts are `paw.contracts.View`,
+`paw.contracts.PickSource<T>` and the others. The functions that take a
+contract (`paw.ui.view`, `paw.buftype`, `paw.textbuf.kind`,
+`paw.track_kinds.define`, `paw.roles.define`, `paw.statusline.component`,
+`paw.query.field`, `paw.grep.source`, `paw.health.register`, `paw.pick`
+and `paw.pick.sources`) take it with its type. So the checker finds a
+field with a wrong name, for example `on_keys` for `on_key`. A picker is
+generic: the type of its items goes to `format`, `on_choose` and the other
+functions.
+
+The options have types too. `runtime/types/paw/opts.d.tl` gives the type
+of each option that the runtime defines, from its default and its rules:
+`paw.opt.zoom` is a number with no cast. `tools/apidoc.lua` makes the file.
+`paw.option.define` gives a handle with the type of the default:
+`local lanes = paw.option.define("lanes", 4)`, then `lanes:get()` is a
+number.
 
 ## The rule for `any`
 
@@ -97,7 +133,10 @@ the extension.
 `runtime/types/any-allowed.txt` lists each `any` and each `paw.Untyped`
 of the declarations, by name, with the reason. The `any` of the records in
 `types.tl` are on the list too, as `types.Record.field`: an `any` that moves
-from a function into a record is still one. `tools/apidoc.lua check`
+from a function into a record is still one.
+
+The records of `contracts.tl` count in the same way, as
+`contracts.Record.field`. `tools/apidoc.lua check`
 fails on one that is not on the list. When the comments of `api.rs` give a
 type, or a module moves to Teal, `tools/apidoc.lua` lowers the count. A
 person adds an entry only by hand, with a real reason. So the count only
@@ -129,6 +168,7 @@ work of one agent. The areas of one wave do not depend on each other.
 | Done | Core services | `util`, `events`, `options`, `limit`, `hooks`, `seats`, `commands`, `lang`: 15 fewer `paw.Untyped` entries | 1,700 | none |
 | Done | File formats | `xml`, `zip`, `markdown`, `formats`, `midifile`: 2,356 lines of Teal, 5 fewer `paw.Untyped` entries | 1,800 | none |
 | Done | Kernel types | the `// @return` of `api.rs` and the other files that add to `paw.api`, and records in `types.tl`: 343 `any` of `paw.api` down to 20, and 5 in the records, each with its reason | 270 functions | none |
+| Done | Contracts, Lua side | `contracts.tl`, the `@type` lines of the modules in Lua (`partial.d.tl`) and the types of the options (`opts.d.tl`): 880 lines of Teal, 12 fewer `paw.Untyped` entries | 10 functions that register | wave 1 |
 | 2 | The project | `objects`, `cursor`, `edit`, `address`, `tempo`, `tempolane`, `markers`, `locators` | 3,400 | wave 1 |
 | 2 | Music on the project | `harmony`, `structure`, `takes`, `groups`, `vca`, `lanes`, `curves`, `audition` | 3,100 | wave 1 |
 | 3 | Queries and lists | `query`, `grep`, `qf`, `diagnostic`, `complete`, `snippet` | 3,900 | wave 2 |
@@ -201,3 +241,18 @@ entries.
   attributes are text or numbers. An element of `paw.xml` has methods,
   and an attribute can also be true or false, which `xml_encode` writes.
   `paw.xml` casts between the two types where it calls the kernel.
+
+## What the checker found in the contracts
+
+- Teal compares a method of a record with the method that the record
+  declares. So a method of a view in Teal has each parameter of
+  `paw.contracts.View`, also a parameter that it does not use. A function
+  in a table can have fewer: the contracts make such parameters optional.
+- `paw.pick.sources` holds pickers of items of different types. The map
+  holds `paw.contracts.PickInfo`, the fields that each picker has, and a
+  picker of an extension is a `PickSource` of its own items.
+- `paw.ext.current` and `paw.ui.float` are nil until something sets them,
+  so a module that reads the table does not find them. `tools/apidoc.lua`
+  reads the `@type` line over the line that sets each one.
+- The checker found no error that changed what the code does: the tests
+  pass with no change.

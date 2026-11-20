@@ -47,6 +47,9 @@ paw.commands = {}
 ---@class paw.complete
 paw.complete = {}
 
+---@class paw.contracts
+paw.contracts = {}
+
 ---@class paw.controls
 paw.controls = {}
 
@@ -5359,6 +5362,7 @@ function paw.option.check(name, value) end
 ---   paw.option.define("lanes", 4, { min = 1, max = 16, integer = true })
 ---   paw.option.define("look", "plain", { values = { "plain", "fancy" } })
 ---   paw.option.define("size", "auto", { type = { "number", "string" }, min = 1, values = { "auto" } })
+--- It gives a handle with the type of the default: `get()` and `set(value)`.
 ---@param name any
 ---@param default any
 ---@param spec any
@@ -5382,6 +5386,11 @@ function paw.option.read(name, text) end
 --- An option's value as text: a list is its items with commas between.
 ---@param value any
 function paw.option.show(value) end
+
+--- What option `name` takes besides its default's type (`min`, `max`,
+--- `integer`, `type`, `values`), or nil.
+---@param name any
+function paw.option.spec(name) end
 
 --- Remove the definition of an option and its value (the extension that
 --- defined it unloaded). `paw.opt[name]` is nil again. With `was`, the

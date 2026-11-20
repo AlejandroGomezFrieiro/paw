@@ -1022,3 +1022,27 @@ test("guide: write an extension in Teal", function()
   keys(":scale.notes C4 dorian<CR>")
   eq(paw.ui.message and paw.ui.message.text, "C4 D4 D#4 F4 G4 A4 A#4 C5", "the command says the notes")
 end)
+
+test("guide: write an extension in Teal, with the contracts and an option", function()
+  start()
+  local dir = T.scratch .. "/howto-teal-contracts"
+  api.fs_mkdir(dir)
+  -- The guide's option, view and picker, as they are on the page.
+  local page = T.read_file("docs/how-to/write-an-extension-in-teal.md")
+  local option = page:match("```lua\n(local steps = .-)```")
+  local view = page:match("```lua\n   (local record Tally.-)   ```"):gsub("\n   ", "\n")
+  local picker = page:match("```lua\n   (local record Fruit.-)   ```"):gsub("\n   ", "\n")
+  local file = dir .. "/tally.tl"
+  T.write_file(file, option .. view .. picker)
+  eq(#paw.lang.check({ file }), 0, "its types are correct")
+  keys(':lua paw.ext.load("' .. file .. '")<CR>')
+  T.after(function() paw.ext.unload("tally") end)
+  eq(paw.opt.euclid_steps, 32, "the option's handle set it")
+  keys(":e tally<CR>")
+  eq(paw.ui.focused, "tally", "the view shows")
+  eq(paw.pick.sources.fruit.desc, "Fruit", "the picker is a source")
+  -- A field with a wrong name is an error.
+  T.write_file(file, option .. view:gsub('title = "Tally"', 'title = "Tally", on_keys = 1') .. picker)
+  local found = paw.lang.check({ file })
+  eq(found[1] and found[1].msg:find("unknown field on_keys", 1, true) ~= nil, true, "the misspelled field")
+end)
