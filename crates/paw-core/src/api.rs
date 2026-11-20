@@ -813,6 +813,8 @@ pub fn install(lua: &Lua, shared: &Rc<Shared>) -> mlua::Result<()> {
         fn track_meter(_, sh, id => Id) { Ok(sh.session.borrow().meter(id)) }
         // The milliseconds that the attribute map of the track moves a note with
         // `attr` (below 0: earlier). 0 when the track has no attribute map.
+        // @param attr? types.NoteAttr
+        // @return number
         fn track_attr_delay(lua, sh, (id, attr) => (Id, LuaValue)) {
             let attr = attr_from_lua(lua, attr)?.map_or(paw_engine::Attr::NONE, Into::into);
             sh.session.borrow().attr_delay(id, attr).lua()
@@ -2110,6 +2112,8 @@ pub fn install(lua: &Lua, shared: &Rc<Shared>) -> mlua::Result<()> {
 
         // Base64 of bytes. `opts.url` uses the URL alphabet (`-_`), and
         // `opts.pad = false` leaves out the `=` at the end.
+        // @param opts? types.Base64Options
+        // @return string
         fn base64_encode(_, _sh, (data, opts) => (LuaString, Option<Table>)) {
             let url = opts.as_ref().and_then(|o| o.get::<Option<bool>>("url").ok().flatten()).unwrap_or(false);
             let pad = opts.as_ref().and_then(|o| o.get::<Option<bool>>("pad").ok().flatten()).unwrap_or(true);
@@ -2118,6 +2122,7 @@ pub fn install(lua: &Lua, shared: &Rc<Shared>) -> mlua::Result<()> {
         // The bytes of base64 text, either alphabet, with or without its
         // padding; spaces and line ends are left out. Nil and the reason
         // when it is not base64.
+        // @return string, string
         fn base64_decode(lua, _sh, text => LuaString) {
             bytes_or_why(lua, crate::codec::base64_decode(&text.as_bytes()))
         }
