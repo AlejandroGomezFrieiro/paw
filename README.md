@@ -8,8 +8,8 @@
 
 ![The demo song plays. 3>ic moves the melody, . moves it again and u undoes it. :%s/e5/g5/g changes it, with a preview while it is typed](docs/images/tui-arrange.gif)
 
-paw is a digital audio workstation (DAW) for musicians who use Vim or
-Neovim. They write ten lines of Lua before they wait for a feature. You
+paw is a digital audio workstation (DAW) for terminal nerds, and for people
+who spend more time in their config files than in the program. You
 record, edit, mix and render songs in the terminal, with motions,
 operators, counts, `.` and Ex commands. The same views also open in a
 [graphical window](crates/paw-gui/README.md) for the mouse. Each view,
