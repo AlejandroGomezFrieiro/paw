@@ -10,7 +10,7 @@
 -- other voice down: the triad as root, fifth, tenth), "spread" (the root an
 -- octave under a close chord), and "smooth": whichever of those leads best.
 --
--- Written in Teal (paw/lang.lua): the build compiles it to Lua.
+-- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 
 --- The options of `voice` and `candidates`.
 local record Options

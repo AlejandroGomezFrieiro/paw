@@ -1,6 +1,6 @@
 -- Note names and a few scales, for scripts that would rather say "C4" than 60.
 --
--- Written in Teal (paw/lang.lua): the build compiles it to Lua.
+-- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 
 --- A pitch as typed in a query or a range: one pitch, or a pitch class.
 local record PitchWord

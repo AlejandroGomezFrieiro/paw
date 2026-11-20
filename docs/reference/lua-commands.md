@@ -166,7 +166,7 @@ view.grid.extent = function(row, beat) return beat + 1 end
 ## Options
 
 ```lua
-paw.opt.grid = 0.5                            -- every option is in runtime/lua/paw/options.lua
+paw.opt.grid = 0.5                            -- every option is in runtime/lua/paw/options.tl
 paw.option.define("my_option", 42)
 paw.option.define("lanes", 4, { min = 1, max = 16, integer = true })
 paw.option.define("look", "plain", { values = { "plain", "fancy" } })

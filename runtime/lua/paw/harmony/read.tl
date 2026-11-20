@@ -18,7 +18,7 @@
 -- twelve tonics; a key holds over bars unless another fits better by more
 -- than a modulation costs.
 --
--- Written in Teal (paw/lang.lua): the build compiles it to Lua.
+-- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 
 --- A chord quality: steps above the root, its names, and what it costs.
 local record Quality

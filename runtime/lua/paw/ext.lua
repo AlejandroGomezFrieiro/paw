@@ -5,7 +5,7 @@
 --   extensions/euclid/lua/...       on the `require` path
 --   extensions/scratch.lua          a one-file extension, run at startup
 --
--- Any of these files may be in a language that compiles to Lua (paw/lang.lua):
+-- Any of these files may be in a language that compiles to Lua (paw/lang.tl):
 -- `init.tl`, `lua/euclid/rhythm.tl` and `scratch.tl` are Teal, which paw
 -- compiles as it loads them. An extension may mix the languages.
 --

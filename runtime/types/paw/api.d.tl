@@ -6,6 +6,7 @@ local type types = require("paw.types")
 
 local record api
    version: string
+   limit_async: boolean
    audio_devices: function(): types.AudioDevices
    audio_reconnect: function(): boolean
    audio_test_device: function(opts?: types.TestDeviceOptions)

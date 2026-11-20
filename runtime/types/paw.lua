@@ -9263,7 +9263,7 @@ function paw.api.undo_name(name, id) end
 
 --- `undo_pending` is true if the edits of this turn will close as a step.
 --- `undo_discard` puts back what they changed, and no step closes
---- (`edit.before`, paw/hooks.lua).
+--- (`edit.before`, paw/hooks.tl).
 function paw.api.undo_pending() end
 
 --- A state's project as a project file holds it (the current state's

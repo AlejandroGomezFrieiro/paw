@@ -502,7 +502,7 @@ A new seat starts at the cursor of paw, with the panels of paw, in normal
 mode. It closes with its connection. The edits of two seats are steps in
 the one undo history. The options (`paw.opt`) are shared. In Lua,
 `paw.seats.current` is the seat of the current turn. See
-`runtime/lua/paw/seats.lua` for how a module keeps state for each seat.
+`runtime/lua/paw/seats.tl` for how a module keeps state for each seat.
 
 ## Files
 

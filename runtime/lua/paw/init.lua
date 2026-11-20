@@ -17,7 +17,9 @@ function paw.failure(err)
   local text = tostring(err)
   local short = text:match("^(.-)\n*stack traceback:") or text
   short = short:gsub("%s+$", "")
+  -- A module in Lua or in Teal (`paw/x.tl:12:`).
   local file, line, rest = short:match("^[^\n]-([%w_%-]+%.lua):(%d+): (.*)$")
+  if not file then file, line, rest = short:match("^[^\n]-([%w_%-]+%.tl):(%d+): (.*)$") end
   if file then
     -- An error raised by the code itself (`attempt to index a nil value`)
     -- says where; one raised on purpose says what to do, and that is enough.
@@ -48,7 +50,7 @@ paw.events = events
 local options = require("paw.options")
 paw.opt, paw.option = options.opt, options
 paw.limit = require("paw.limit")
--- Edits, undo, saving and keys heard of (paw/hooks.lua): before anything
+-- Edits, undo, saving and keys heard of (paw/hooks.tl): before anything
 -- keeps the kernel's undo and save functions of its own.
 paw.hooks = require("paw.hooks")
 -- Before anything that keeps state of its own for each terminal and window.
@@ -191,7 +193,7 @@ end
 paw.undo, paw.redo = api.undo, api.redo
 paw.cursor = require("paw.cursor")
 paw.edit = require("paw.edit")
--- Files in languages that compile to Lua (Teal, ...): paw/lang.lua.
+-- Files in languages that compile to Lua (Teal, ...): paw/lang.tl.
 paw.lang = require("paw.lang")
 paw.ext = require("paw.ext")
 paw.vca = require("paw.vca")

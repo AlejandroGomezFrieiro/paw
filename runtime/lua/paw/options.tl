@@ -5,9 +5,117 @@
 -- range (`specs` below, or what `paw.option.define` was given): a value
 -- that is not is refused with an error that says what it takes, and the
 -- option keeps what it had.
-local M = {}
+--
+-- Written in Teal (paw/lang.tl): the build compiles it to Lua.
+local api = require("paw.api")
 
-local defaults = {
+--- What an option holds: text, a number, true or false, or a list.
+local type Value = string | number | boolean | {string | number}
+
+--- What an option takes besides its default's type: `type` (a type or
+--- a list of them), `min` and `max` for a number, `integer`, and
+--- `values`, the only strings or booleans it takes.
+local record Spec
+  type: string | {string}
+  min: number
+  max: number
+  integer: boolean
+  values: {string | boolean}
+end
+
+--- What `paw.option.define` was given.
+local record Definition
+  default: Value
+  spec: Spec
+end
+
+--- An option in `paw.option.list`.
+local record Info
+  name: string
+  default: Value
+  takes: string
+end
+
+--- `paw.opt`: the options the runtime defines, by their types, and any
+--- other by its name.
+local record Opt
+  leader: string
+  localleader: string
+  timeoutlen: number
+  hint_delay: number
+  hints: boolean
+  keys: string
+  keybar: boolean
+  ripple: boolean
+  autosave: number
+  reopen_last: boolean
+  threads: integer
+  device_sleep: boolean
+  octave: integer
+  grid: number
+  zoom: number
+  track_height: integer | string
+  header_width: integer | string
+  termcolors: string | number
+  ascii: boolean
+  braille: boolean
+  curve_glyphs: string
+  wave_scale: string
+  mouse: boolean
+  graphics: boolean
+  follow: boolean
+  fps: number
+  clip_length: number
+  count_in: integer
+  pre_roll: integer
+  pre_roll_seconds: number
+  midi_record: string
+  click_level: number
+  click_accent: boolean
+  click_output: integer
+  velocity: integer
+  send_level: number
+  midi_follows_selection: boolean
+  note_grid: number
+  note_snap: boolean
+  note_zoom: number
+  message_time: number
+  media_stream: number
+  media_cache: number
+  ffmpeg: string
+  undo_steps: integer
+  undo_memory: number
+  --- paw/limit.tl defines it.
+  lua_limit: number
+  metamethod __index: function(Opt, string): Value
+  metamethod __newindex: function(Opt, string, Value)
+end
+
+local record M
+  type Value = Value
+  type Spec = Spec
+  type Definition = Definition
+  type Info = Info
+  type Opt = Opt
+  opt: Opt
+end
+
+--- The payload of `option.changed`.
+local record Changed
+  name: string
+  value: Value
+  old: Value
+end
+
+-- What this module reads of `paw`, which paw/init.lua makes. A module of the
+-- runtime in Teal does not see the global `paw`: runtime/types/paw.d.tl
+-- declares it from these modules.
+local record Paw
+  emit: function(string, Changed)
+end
+local paw = (_G as {string:Paw}).paw
+
+local defaults: {string:Value} = {
   leader = ",",            -- what `<leader>` means in key mappings
   localleader = "\\",      -- what `<localleader>` means: the leader of one view's own keys (the notation popovers)
   timeoutlen = 800,        -- ms to wait for the rest of a key sequence
@@ -20,7 +128,7 @@ local defaults = {
   ripple = false,          -- deleting time closes the gap, pasting makes room
   -- Seconds between safety copies of unsaved work; 0 for none. Off when
   -- started with --clean, which is how tests and experiments run.
-  autosave = require("paw.api").env().clean and 0 or 60,
+  autosave = api.env().clean and 0 or 60,
   reopen_last = false,     -- start with the project that was open last, when none is named
   threads = 0,            -- threads to process tracks on; 0 for one per core
   device_sleep = true,     -- devices at rest sleep through silence; the sound is the same
@@ -70,10 +178,8 @@ local defaults = {
   undo_memory = 1024,
 }
 
--- What an option takes besides its default's type: `type` (a type or a
--- list of them), `min` and `max` for a number, `integer`, and `values`,
--- the only strings or booleans it takes.
-local specs = {
+-- What an option takes besides its default's type (M.Spec).
+local specs: {string:Spec} = {
   timeoutlen = { min = 0, max = 10000 },
   hint_delay = { min = 0, max = 10000 },
   threads = { min = 0, max = 256, integer = true },
@@ -105,27 +211,28 @@ local specs = {
   undo_memory = { min = 16, max = 1048576 },
 }
 
-local function has(list, value)
+local function has<T>(list: {T}, value: T): boolean
   for _, v in ipairs(list) do
     if v == value then return true end
   end
   return false
 end
 
-local function show(value)
-  return type(value) == "string" and string.format("%q", value) or tostring(value)
+local function show(value: Value): string
+  return value is string and string.format("%q", value) or tostring(value)
 end
 
-local function types_of(name)
-  local spec = specs[name] or {}
-  if type(spec.type) == "table" then return spec.type end
-  return { spec.type or type(defaults[name]) }
+local function types_of(name: string): {string}
+  local spec: Spec = specs[name] or {}
+  local t = spec.type
+  if t is {string} then return t end
+  return { t or type(defaults[name]) }
 end
 
 --- What an option takes, in words: `a whole number from 1 to 12, or "auto"`.
-local function takes(name)
-  local spec = specs[name] or {}
-  local words = {}
+local function takes(name: string): string
+  local spec: Spec = specs[name] or {}
+  local words: {string} = {}
   for _, t in ipairs(types_of(name)) do
     if t == "number" then
       local what = spec.integer and "a whole number" or "a number"
@@ -149,16 +256,16 @@ end
 
 --- Tells if option `name` accepts `value`: true, or nil and an error that
 --- tells what it accepts. An option with no default accepts any value.
-function M.check(name, value)
+function M.check(name: string, value: Value): boolean, string
   if defaults[name] == nil or value == nil then return true end
-  local spec = specs[name] or {}
+  local spec: Spec = specs[name] or {}
   local ok = has(types_of(name), type(value))
-  if ok and type(value) == "number" then
+  if ok and value is number then
     ok = value == value and value > -math.huge and value < math.huge
       and (not spec.min or value >= spec.min) and (not spec.max or value <= spec.max)
       and (not spec.integer or value % 1 == 0)
-  elseif ok and spec.values and (type(value) == "string" or type(value) == "boolean") then
-    ok = has(spec.values, value)
+  elseif ok and spec.values and (value is string or value is boolean) then
+    ok = has(spec.values, value as string | boolean)
   end
   if ok then return true end
   return nil, string.format("%s takes %s, not %s", name, takes(name), show(value))
@@ -166,8 +273,8 @@ end
 
 --- A list typed as text: `Surge, Vital` is { "Surge", "Vital" }, and a
 --- number in it is a number.
-local function list_of(text)
-  local out = {}
+local function list_of(text: Value): {string | number}
+  local out: {string | number} = {}
   for part in tostring(text):gmatch("[^,]+") do
     part = part:match("^%s*(.-)%s*$")
     if part ~= "" then out[#out + 1] = tonumber(part) or part end
@@ -176,9 +283,9 @@ local function list_of(text)
 end
 
 --- An option's value as text: a list is its items with commas between.
-function M.show(value)
-  if type(value) ~= "table" then return tostring(value) end
-  local parts = {}
+function M.show(value: Value): string
+  if not value is {string | number} then return tostring(value) end
+  local parts: {string} = {}
   for i, v in ipairs(value) do parts[i] = tostring(v) end
   return table.concat(parts, ",")
 end
@@ -187,20 +294,20 @@ end
 --- number, the text, or a list for an option that takes one: `a,b`), or
 --- nil and an error that says what it takes. A value that is not text is
 --- checked as it is.
-function M.read(name, text)
+function M.read(name: string, text: Value): Value, string
   local value = text
   if text == "true" or text == "on" then
     value = true
   elseif text == "false" or text == "off" then
     value = false
-  elseif type(text) == "string" then
+  elseif text is string then
     value = tonumber(text) or text
   end
   -- `set ffmpeg=7` keeps the text, for an option that takes text.
   if not M.check(name, value) and M.check(name, tostring(text)) then value = tostring(text) end
   -- An option that takes a list reads text with commas, or nothing, or
   -- what it takes in no other form, as one.
-  if type(text) ~= "table" and has(types_of(name), "table")
+  if not text is {string | number} and has(types_of(name), "table")
     and (tostring(text):find(",", 1, true) or tostring(text) == "" or not M.check(name, value)) then
     value = list_of(text)
   end
@@ -209,24 +316,24 @@ function M.read(name, text)
   return value
 end
 
-local values = {}
+local values: {string:Value} = {}
 -- What `M.define` was given, by name.
-local definitions = {}
+local definitions: {string:Definition} = {}
 
-local opt = setmetatable({}, {
-  __index = function(_, name)
+local opt: Opt = setmetatable({} as Opt, {
+  __index = function(_: Opt, name: string): Value
     local v = values[name]
     if v == nil then return defaults[name] end
     return v
   end,
-  __newindex = function(self, name, value)
+  __newindex = function(self: Opt, name: string, value: Value)
     local ok, err = M.check(name, value)
     if not ok then error(err, 2) end
     local old = self[name]
     values[name] = value
     if old ~= value then
       paw.emit("option.changed", { name = name, value = value, old = old })
-      paw.api.ui_redraw()
+      api.ui_redraw()
     end
   end,
 })
@@ -236,7 +343,7 @@ local opt = setmetatable({}, {
 ---   paw.option.define("lanes", 4, { min = 1, max = 16, integer = true })
 ---   paw.option.define("look", "plain", { values = { "plain", "fancy" } })
 ---   paw.option.define("size", "auto", { type = { "number", "string" }, min = 1, values = { "auto" } })
-function M.define(name, default, spec)
+function M.define(name: string, default: Value, spec?: Spec)
   defaults[name] = default
   specs[name] = spec or specs[name]
   definitions[name] = { default = default, spec = specs[name] }
@@ -244,8 +351,8 @@ end
 
 --- Each option given a default by `paw.option.define`, by name: what it
 --- was given, `{ default, spec }`, the same table until defined again.
-function M.definitions()
-  local out = {}
+function M.definitions(): {string:Definition}
+  local out: {string:Definition} = {}
   for name, d in pairs(definitions) do out[name] = d end
   return out
 end
@@ -254,7 +361,7 @@ end
 --- defined it unloaded). `paw.opt[name]` is nil again. With `was`, the
 --- value that `paw.option.definitions` gave before, that definition
 --- returns, and the value stays.
-function M.undefine(name, was)
+function M.undefine(name: string, was?: Definition)
   if was then
     defaults[name], specs[name], definitions[name] = was.default, was.spec, was
     return
@@ -263,15 +370,15 @@ function M.undefine(name, was)
   defaults[name], specs[name], definitions[name], values[name] = nil, nil, nil, nil
   if old ~= nil then
     paw.emit("option.changed", { name = name, old = old })
-    paw.api.ui_redraw()
+    api.ui_redraw()
   end
 end
 
 --- Every option that has a default, by name: { name, default }.
-function M.list()
-  local out = {}
+function M.list(): {Info}
+  local out: {Info} = {}
   for name, default in pairs(defaults) do out[#out + 1] = { name = name, default = default, takes = takes(name) } end
-  table.sort(out, function(a, b) return a.name < b.name end)
+  table.sort(out, function(a: Info, b: Info): boolean return a.name < b.name end)
   return out
 end
 

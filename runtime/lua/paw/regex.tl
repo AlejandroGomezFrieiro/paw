@@ -10,7 +10,7 @@
 -- group alternatives that do not repeat. Lower case matches either case;
 -- a capital letter makes the whole expression match case, as 'smartcase'.
 --
--- Written in Teal (paw/lang.lua): the build compiles it to Lua.
+-- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 
 --- What `compile` takes: `case` true matches case, false ignores it.
 local record Options

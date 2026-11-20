@@ -66,7 +66,14 @@ paw can load each of these through the same registry of languages
   `require`. For the modules that are still in Lua, it takes the global
   as `Untyped`, the type in `runtime/types/paw/untyped.d.tl`:
   `local paw = (_G as {string:Untyped}).paw`. `paw.Untyped` is the same
-  type.
+  type. Better, it declares a record of the parts of `paw` that it reads
+  and takes the global as that record:
+  `local paw = (_G as {string:Paw}).paw`. The modules of the core services
+  do this.
+- **Other names of a value.** `paw.on` is `paw.events.on`, and `paw.opt`
+  is `paw.option.opt`. `tools/apidoc.lua` gives such a name the type of the
+  value in its module: the signature of the function in the source, or the
+  type of the field in the record of the module.
 
 ## The rule for `any`
 
@@ -107,7 +114,7 @@ work of one agent. The areas of one wave do not depend on each other.
 | Wave | Area | Files | Lines of Lua | Depends on |
 |---|---|---|---|---|
 | Done | Music data | `music`, `bytes`, `attr`, `regex`, `harmony/read`, `harmony/voice`, `types` | 1,100 | `paw.api` |
-| 1 | Core services | `util`, `events`, `options`, `limit`, `hooks`, `seats`, `commands`, `lang` | 1,600 | none |
+| Done | Core services | `util`, `events`, `options`, `limit`, `hooks`, `seats`, `commands`, `lang`: 15 fewer `paw.Untyped` entries | 1,700 | none |
 | Done | File formats | `xml`, `zip`, `markdown`, `formats`, `midifile`: 2,356 lines of Teal, 5 fewer `paw.Untyped` entries | 1,800 | none |
 | Done | Kernel types | the `// @return` of `api.rs` and the other files that add to `paw.api`, and records in `types.tl`: 343 `any` of `paw.api` down to 20, and 5 in the records, each with its reason | 270 functions | none |
 | 2 | The project | `objects`, `cursor`, `edit`, `address`, `tempo`, `tempolane`, `markers`, `locators` | 3,400 | wave 1 |
@@ -138,6 +145,31 @@ entries.
   The port gives each one a name.
 - The checker found no error that changed what the code does: the tests
   of these modules pass with no change.
+
+## What the checker found in the core services
+
+- Teal has no generic list of arguments of different types. The functions
+  that call another function with its arguments (`paw.limit.guard`,
+  `paw.seats.within`, `paw.seats.keep`) take arguments of one type. Code
+  in Teal that has more gives a closure or a record.
+- A function type with no results is not the type of a function with
+  results. An event handler in Teal can return nothing, so `paw.on` takes
+  `function(P, string)`. The module keeps the handler as the type that
+  can refuse, with `false, reason`.
+- `unpack`, `table.maxn`, `loadstring` and `jit` are not in Teal's list
+  of the library of Lua 5.1. A record of these names casts `_G` one time.
+- The build and the loader compile without the checker. Without it,
+  `value is Fn`, where `Fn` is a name of a function type, became a test
+  for a table. The tests found two such tests: completion by a function
+  and the time limit around a wait did not work. A test with `is` names
+  the type itself (`is function`), or a record.
+- An error in a module in Teal names its `.tl` file. `paw.failure` moves
+  the place in a `.tl` file to the end of the message, as it does for a
+  `.lua` file.
+- The compiler of Teal in paw has no declarations of its own, so
+  `paw.lang` declares the parts that it calls.
+- The checker found no error that changed what the code does: the tests
+  pass with no change.
 
 ## What the checker found in the file formats
 

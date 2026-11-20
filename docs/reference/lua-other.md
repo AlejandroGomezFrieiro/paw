@@ -99,5 +99,5 @@ paw.seats.fields("mymod.view", view, { "scroll", "hover", "drag" }, { scroll = 0
   `paw.seats.within(id, fn, ...)` runs `fn` in another seat, then returns
   to the current seat.
 
-See `runtime/lua/paw/seats.lua` and [About
+See `runtime/lua/paw/seats.tl` and [About
 seats](../explanation/about-seats.md).
