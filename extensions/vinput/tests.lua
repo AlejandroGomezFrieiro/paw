@@ -241,6 +241,8 @@ test("vinput: the panel shows each input's chain and is worked with the keys", f
   keys("t")
   eq(paw.tracks()[1].midi_input.port, "Guitar", "t makes a track that takes the input")
   paw.ui.focus("vinput")
+  keys("gR")
+  eq(paw.ui.message.text, "looking for audio ports", "gR looks for the ports again")
   keys("D")
   eq(#vinput.inputs, 0, "D takes the input away")
   keys("<Esc>")

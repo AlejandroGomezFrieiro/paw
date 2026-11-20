@@ -123,7 +123,7 @@ its state, with its settings under it.
 | `ga` | takes the gain that the tracker asked for |
 | `a`, `D` | adds an input. Removes this input |
 | `t` | makes a track that takes the input, with an instrument, armed |
-| `r`, `R` | starts the tracker again. Finds the audio ports again |
+| `r`, `gR` | starts the tracker again. Finds the audio ports again |
 | `Esc` | cancels. The panel stays |
 | `Ctrl-w p` | returns to the window before |
 

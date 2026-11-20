@@ -92,7 +92,7 @@ window.
 | The preset, or the caret | A menu of the presets: load one, save one, make one the default. |
 | `⧉` `↑` `↓` `×` | Show the window of the plugin, move the device up or down the chain, remove it. |
 | `outs`, `key` | A menu of where the further outputs play, or of the track that the device listens to. |
-| `offline: o`, `stopped: R restarts` | Puts the plugin online again, or starts it again. |
+| `offline: o`, `stopped: gR restarts` | Puts the plugin online again, or starts it again. |
 | `A`, `L` | Automates the parameter, as the menu does. Learns a MIDI controller for it. |
 | `+ add a device` | Opens the picker of devices, as `a` does. |
 | The output, `+ send` | A menu of the tracks to play into, or to send to. |
