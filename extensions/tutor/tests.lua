@@ -386,6 +386,13 @@ end)
 
 test("tutor: every key in docs/reference/keys.md is a key paw has", function()
   ext()
+  -- keys.md also lists the keys of these extensions.
+  for _, name in ipairs({ "launcher", "sections" }) do
+    if not paw.ext.loaded[name] then
+      paw.ext.load("extensions/" .. name)
+      T.after(function() paw.ext.unload(name) end)
+    end
+  end
   local keymap = paw.keymap
   local known, operators, chars = {}, {}, {}
   for _, mode in ipairs({ "n", "x", "o", "i" }) do
