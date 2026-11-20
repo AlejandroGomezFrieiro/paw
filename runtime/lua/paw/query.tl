@@ -145,7 +145,14 @@ local record NoteMeta
   articulation: string | {string}
 end
 
+--- paw/frontend.tl, as far as this module calls it: the frontend names
+--- the types of this module, and two modules cannot name each other's types.
+local record Frontend
+  choose_notes: function(clip: integer, places: {integer:boolean})
+  choose_clips: function(set: {integer:boolean})
+end
 local record Paw is partial.Paw
+  frontend: Frontend
   ex: Ex
   scope: Scope
   markers: MarkersModule

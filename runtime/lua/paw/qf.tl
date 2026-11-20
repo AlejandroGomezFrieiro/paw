@@ -162,7 +162,7 @@ local record OptionChanged
   value: options.Value
 end
 
---- A value of the options of a render (paw/render.lua), which this module
+--- A value of the options of a render (paw/render.tl), which this module
 --- passes on.
 local record RenderValue
 end

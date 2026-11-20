@@ -237,7 +237,7 @@ work of one agent. The areas of one wave do not depend on each other.
 | Done | Drawing | `buf`, `draw`, `canvas`, `roles`, `scene`, `theme`, `plot`, `statusline`: 4,740 lines of Teal, 6 fewer entries on the allow-list, and no `any` or `paw.Untyped` in these modules | 3,700 | wave 2 |
 | 4 | Windows | `ui`, `layout`, `panes`, `mouse`, the menus | 4,500 | wave 3 |
 | 4 | Editors | `ex`, `textbuf`, `pick` and `pick/`, `help`, `lsp/` | 9,000 | wave 3 |
-| 4 | The frontend | `frontend`, `remote`, `render`, `media` | 3,800 | wave 3 |
+| Done | The frontend | `frontend`, `remote`, `render`, `media`: 5,290 lines of Teal, 9 fewer entries on the allow-list, and no `any` or `paw.Untyped` in these modules | 3,800 | wave 3 |
 | 5 | Keys and views | `keymap`, `keyrule`, `keybar`, `defaults/`, `views/`, `roles/` | 15,000 | wave 4, and the work on the keys that runs now |
 | 5 | Extensions | one agent for each: `notation` (20,000), `utau` (8,000), `plugstate` (5,700), `interop` (4,000), the others (under 3,200 each) | 60,000 | the modules of paw that each uses |
 
@@ -465,3 +465,49 @@ entries.
   uses the types of `paw.query` now.
 - The checker found no error that changed what the code does: the tests
   pass with no change.
+
+## What the checker found in the frontend
+
+- The gesture `act.glue_clips` kept the error of a glue of audio clips and
+  the result of the glue in one variable. When the glue failed, the message
+  said "false" and not the error. The port keeps the error in a variable of
+  its own, so the message gives it. A test makes sure of this.
+- `paw.frontend.state` is what the window reads. It has records now:
+  `paw.frontend.State`, with `Modal`, `ProjectState`, `TrackState`,
+  `ClipState`, `DeviceState` and `Routing`. `paw.remote` sends the parts
+  of the state by these records.
+- The prompt of the modal state holds the candidates that show, but
+  `paw.views.cmdline` gives a list of all the candidates. The port gives the
+  prompt of the state a record of its own, over the same table.
+- The window sends some flags as `true` or `1`, and the mode of a choice as
+  a number or a word. The gestures take these forms
+  (`free?: boolean | integer`, `mode: integer | string`).
+- `act.set_velocity` gave the place of the note for one note, and nothing
+  for several notes. Its type says so now: an integer, or nil.
+- `paw.render` was a function, with the module of the render out of
+  reach. Now `paw.render` is the module, and a call of it renders:
+  `paw.render(path, opts)` is `paw.render.render(path, opts)`. The other
+  names (`paw.render_stems`, `paw.render_status` and the others) are the
+  functions of the module, so they have its types. `paw.render_ranges` is
+  the table of the ranges itself, not a table that passes each key on.
+- The options of `paw.render` are the kernel's options, and also the
+  options that only Lua knows: `range`, `rate`, `channels` as a word,
+  `background` and `format`. They are a record of their own,
+  `paw.render.Options`. `render.before` and `render.finished` have
+  descriptors (`paw.render.before`, `paw.render.finished`).
+- `paw.media.glue` takes a list of clips, or one clip without a list. Teal
+  cannot give two table types to one parameter, so its type is the list.
+  Lua can give one clip as before.
+- `paw.mouse.hint_text` and `paw.takes.count` were called two times for one
+  value. The port calls each one time.
+- `paw.lanes`, `paw.curves` and `paw.query` call `paw.frontend`, and
+  `paw.frontend` names their types. So these modules declare the part of
+  `paw.frontend` that they call.
+- The checker found no other error that changed what the code does: the
+  other tests pass with no change.
+- The frontend is as fast as before. With 16 tracks, the state that a
+  window gets for each frame takes 16.4 µs before and 16.6 µs after, in
+  the spread of six runs of each. It makes 2.1 KB of garbage before and
+  after. A key with its frame,
+  `bench/redraw.lua` and the state after an edit give the same median, in
+  the spread of the runs.

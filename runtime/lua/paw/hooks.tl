@@ -57,7 +57,11 @@ local type KernelFn = function(...: Value): Value
 -- What this module reads of `paw`, which paw/init.lua makes: the parts of
 -- the modules in Lua that their doc comments type (runtime/types/paw.d.tl
 -- cannot be named here, as it requires this module).
-local paw = (_G as {string:partial.Paw}).paw
+local type FrontendModule = require("paw.frontend")
+local record Paw is partial.Paw
+  frontend: FrontendModule
+end
+local paw = (_G as {string:Paw}).paw
 
 local record M
   type Change = Change
