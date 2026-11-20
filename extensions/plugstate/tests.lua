@@ -68,11 +68,12 @@ test("plugstate: the sfizz state codec reads and writes back", function()
   -- A state as paw keeps it: version 5, an empty SFZ path, then settings;
   -- then a controller state.
   local component = "\5\0\0\0\0\0\0\0" .. paw.bytes.le32(1) .. "\0" .. "SETTINGS"
-  local state = paw.bytes.base64(codec.join(component, "CTRL"))
+  local vst3 = require("plugstate.vst3state")
+  local state = paw.bytes.base64(vst3.join(component, "CTRL"))
   eq(codec.path(state), "", "no file yet")
   local with = codec.with_path(state, "/sfz/strings.sfz")
   eq(codec.path(with), "/sfz/strings.sfz", "the file is written in")
-  local c, ctrl = codec.split(paw.bytes.unbase64(with))
+  local c, ctrl = vst3.split(paw.bytes.unbase64(with))
   eq(c:sub(-8), "SETTINGS", "the settings after it stay")
   eq(ctrl, "CTRL", "and the controller's state")
   T.fails(function() codec.path(paw.bytes.base64("\1\0")) end, "not a VST3 state", "a state of another kind")

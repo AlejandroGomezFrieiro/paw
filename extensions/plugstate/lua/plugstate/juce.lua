@@ -18,6 +18,7 @@
 -- whose property has the value. `@name` at the end names a property.
 local ffi = require("ffi")
 local bit = require("bit")
+local vst3 = require("plugstate.vst3state")
 
 local M = {}
 
@@ -646,11 +647,10 @@ function M.open(state64, format)
       return paw.bytes.base64(before .. M.encode64(data) .. after)
     end
   elseif format == "vst3" then
-    local size = paw.bytes.u32(raw, 1)
-    if not size or 4 + size > #raw then error("not a VST3 state", 0) end
-    local component, rest = raw:sub(5, 4 + size), raw:sub(5 + size)
+    local component, controller = vst3.split(raw)
+    if not component then error(controller, 0) end
     return component, function(data)
-      return paw.bytes.base64(paw.bytes.le32(#data) .. data .. rest)
+      return paw.bytes.base64(vst3.join(data, controller))
     end
   end
   return raw, function(data) return paw.bytes.base64(data) end

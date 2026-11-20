@@ -29,6 +29,8 @@ local ffi = require("ffi")
 local juce = require("plugstate.juce")
 local bytes = require("plugstate.bytes")
 local jsonspan = require("plugstate.jsonspan")
+local jucestate = require("plugstate.jucestate")
+local vst3 = require("plugstate.vst3state")
 
 local M = { readers = {} }
 
@@ -76,19 +78,16 @@ end
 --- The plugin's data in a state, and how to put new data back: for VST3
 --- the component's part (the controller's stays), else the bytes as they are.
 function M.outer(raw, format)
-  if format == "vst3" then
-    local size = paw.bytes.u32(raw, 1)
-    if size and 4 + size <= #raw then
-      local data, rest = raw:sub(5, 4 + size), raw:sub(5 + size)
-      local csize = paw.bytes.u32(rest, 1)
-      return {
-        format = format, data = data, controller = csize and rest:sub(5, 4 + csize) or "",
-        wrap = function(new)
-          if new == data then return raw end
-          return paw.bytes.le32(#new) .. new .. rest
-        end,
-      }
-    end
+  local data, controller = nil, nil
+  if format == "vst3" then data, controller = vst3.split(raw) end
+  if data then
+    return {
+      format = format, data = data, controller = controller,
+      wrap = function(new)
+        if new == data then return raw end
+        return vst3.join(new, controller)
+      end,
+    }
   end
   return { format = format, data = raw, wrap = function(new) return new end }
 end
@@ -97,12 +96,9 @@ end
 --- `template` state of that format (raw bytes, optional) has around it.
 function M.wrap(data, format, template)
   if format == "vst3" then
-    local rest = paw.bytes.le32(0)
-    if template then
-      local size = paw.bytes.u32(template, 1)
-      if size and 4 + size <= #template then rest = template:sub(5 + size) end
-    end
-    return paw.bytes.le32(#data) .. data .. rest
+    local component, controller = nil, nil
+    if template then component, controller = vst3.split(template) end
+    return vst3.join(data, component and controller or "")
   end
   if format == "lv2" then error("an LV2 state is Turtle text: a state of another format does not go into it", 0) end
   return data
@@ -131,31 +127,11 @@ end
 
 -- --- the document --------------------------------------------------------------------
 
-local Doc = {}
+-- A JUCE document's paths, `param`, `write`, `dump` and `diff`; the
+-- parameters, the data and the conversion are a reader's.
+local Doc = setmetatable({}, { __index = jucestate.Doc })
 Doc.__index = Doc
 M.Doc = Doc
-
-local function named(self, path)
-  local paths = self.plugin and self.plugin.paths
-  return paths and paths[path] or path
-end
-
-function Doc:get(path) return (juce.find(self.root, named(self, path))) end
-function Doc:query(path) return juce.query(self.root, named(self, path)) end
-function Doc:set(path, v, kind, opts)
-  self.changed = true
-  return juce.set_path(self.root, named(self, path), v, kind, opts)
-end
-function Doc:remove(path)
-  self.changed = true
-  return juce.remove_path(self.root, named(self, path))
-end
-function Doc:insert(path, tree, index)
-  self.changed = true
-  return juce.insert_path(self.root, named(self, path), tree, index)
-end
-function Doc:dump(opts) return juce.dump(self.root, opts) end
-function Doc:diff(other) return juce.diff(self.root, other.root or other) end
 
 --- The node of the parameters.
 function Doc:param_holder()
@@ -176,12 +152,6 @@ function Doc:params()
   return out
 end
 
-function Doc:param(id)
-  for _, p in ipairs(self:params()) do
-    if p.id == id then return p.value end
-  end
-end
-
 --- Set a parameter by its name. A parameter that is not there is an error.
 function Doc:set_param(id, v)
   if self.reader_set_param then return self.reader_set_param(self, id, v) end
@@ -199,8 +169,6 @@ function Doc:data()
   if juce.write(self.root) == self.original then return self.outer.data end
   return self.close(self.root)
 end
-
-function Doc:write() return paw.bytes.base64(self.outer.wrap(self:data())) end
 
 --- The state for another format of the same plugin. Only the formats
 --- whose data is the same (CLAP and VST3) take it; `template64` is a state
@@ -1108,7 +1076,6 @@ function M.open(state64, format, opts)
   opts = opts or {}
   local raw = paw.bytes.unbase64(state64)
   local ctx = { hint = opts.hint, param_info = opts.param_info, desc = opts.desc, version = opts.version }
-  local jucestate = require("plugstate.jucestate")
   local outer = M.outer(raw, format)
   local tried = {}
   for _, r in ipairs(M.readers) do
@@ -1144,7 +1111,7 @@ function M.open_device(id, state64)
   local d = api.device_get(id)
   if not d.plugin then error(d.name .. " is not a plugin", 0) end
   local hint, version = M.markers(M.binary_of(d.plugin))
-  local desc = require("plugstate.jucestate").plugin_of(d)
+  local desc = jucestate.plugin_of(d)
   return M.open(state64 or api.device_state(id), d.plugin.format,
     { hint = hint or nil, version = version, param_info = d.param_info, desc = desc })
 end
@@ -1157,19 +1124,18 @@ end
 --- preset's base (else `current`) with the edits.
 function M.generate(preset, format, current, opts)
   opts = opts or {}
-  local js = require("plugstate.jucestate")
   local base, base_format = preset.base, preset.format
   if not base then base, base_format = current, format end
   if not base then error("the preset has no base state, and there is no state of the device", 0) end
   local framework = preset.framework
   if framework == nil or framework == "juce" or framework == "hise" then
     -- A JUCE state goes into each format of the plugin.
-    local ok, out = pcall(js.generate, preset, format, current, opts)
+    local ok, out = pcall(jucestate.generate, preset, format, current, opts)
     if ok then return out end
     if framework then error(out, 0) end
   end
   local doc = M.open(base, base_format, { param_info = opts.param_info, hint = opts.hint })
-  js.apply(doc, preset.edits)
+  jucestate.apply(doc, preset.edits)
   if base_format == format then return doc:write() end
   return doc:write_as(format, current)
 end

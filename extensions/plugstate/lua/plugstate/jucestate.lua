@@ -21,6 +21,7 @@
 local juce = require("plugstate.juce")
 local xml = require("plugstate.jucexml")
 local bytes = require("plugstate.bytes")
+local vst3 = require("plugstate.vst3state")
 
 local M = { plugins = {} }
 
@@ -59,11 +60,8 @@ end
 --- text), "vst3" (two parts after their lengths) or "clap".
 function M.guess_format(raw)
   if raw:find("StateString>", 1, true) and raw:match("^%s*[@<]") then return "lv2" end
-  local size = paw.bytes.u32(raw, 1)
-  if size and 4 + size + 4 <= #raw then
-    local rest = paw.bytes.u32(raw, 5 + size)
-    if rest and 8 + size + rest == #raw then return "vst3" end
-  end
+  local component, controller = vst3.split(raw)
+  if component and vst3.join(component, controller) == raw then return "vst3" end
   return "clap"
 end
 
@@ -94,20 +92,16 @@ end
 function M.unwrap(raw, format)
   format = format or M.guess_format(raw)
   if format == "vst3" then
-    local size = paw.bytes.u32(raw, 1)
-    if not size or 4 + size > #raw then error("not a VST3 state", 0) end
-    local component, rest = raw:sub(5, 4 + size), raw:sub(5 + size)
+    local component, controller = vst3.split(raw)
+    if not component then error(controller, 0) end
     -- In a VstW chunk, the private data is inside the chunk: it stays there.
     local data, trailer, private = component, nil, nil
     if component:sub(1, 4) ~= "VstW" then data, trailer, private = M.split_private(component) end
-    local csize = paw.bytes.u32(rest, 1)
-    local controller = csize and rest:sub(5, 4 + csize) or ""
     return {
       format = format, data = data, trailer = trailer, private = private, controller = controller,
       wrap = function(new)
         if new == data then return raw end
-        local c = new .. (trailer or "")
-        return paw.bytes.le32(#c) .. c .. rest
+        return vst3.join(new .. (trailer or ""), controller)
       end,
     }
   elseif format == "lv2" then
@@ -132,8 +126,7 @@ end
 function M.wrap(data, format, template, opts)
   if template and template.format == format then return template.wrap(data) end
   if format == "vst3" then
-    local c = data .. M.private_trailer(nil)
-    return paw.bytes.le32(#c) .. c .. paw.bytes.le32(0)
+    return vst3.join(data .. M.private_trailer(nil), "")
   elseif format == "lv2" then
     local uri = opts and opts.uri
     if not uri then error("an LV2 state needs the plugin's URI", 0) end
@@ -289,6 +282,7 @@ end
 
 local Doc = {}
 Doc.__index = Doc
+M.Doc = Doc
 
 --- A state of a JUCE plugin (paw's base64) as a document: `doc.root` the
 --- tree, `doc.layers` what holds it (names in `doc:layer_names()`),
