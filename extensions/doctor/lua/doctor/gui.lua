@@ -8,22 +8,13 @@ local view = require("doctor.panel")
 local c = require("paw.canvas").palette
 local PAD, ROW, TOP = 16, 30, 52
 
-local hits = {}
-
-local function hit(x, y, w, h, down)
-  hits[#hits + 1] = { x = x, y = y, w = w, h = h, down = down }
-end
-
-local function text_width(text, size) return api.str_width(text) * (size or 12) * 0.58 end
+-- The buttons and rows of the last paint, for the pointer.
+view.hits = paw.canvas.hit_list()
 
 --- A button, drawn and remembered for the pointer. Returns where the next goes.
 local function button(g, x, y, label, action, opts)
   opts = opts or {}
-  local w = text_width(label) + 22
-  g:rect(x, y, w, 26, { fill = opts.fill or c.control, radius = 5 })
-  g:text(x + w / 2, y + 6, label, { color = opts.color or c.text, align = "center", width = w })
-  hit(x, y, w, 26, action)
-  return x + w + 8
+  return (paw.canvas.button(g, view.hits, x, y, label, action, { fill = opts.fill, color = opts.color, height = 26 }))
 end
 
 local colours = { ok = c.play_on, warn = c.warn, fail = c.error, skip = c.text_3 }
@@ -31,7 +22,7 @@ local colours = { ok = c.play_on, warn = c.warn, fail = c.error, skip = c.text_3
 function view:paint(g, ctx)
   local w, h = ctx.width, ctx.height
   local model = view.model()
-  hits = {}
+  view.hits:clear()
   g:rect(0, 0, w, h, { fill = c.surface })
   g:rect(0, 0, w, TOP, { fill = c.panel })
   local x = PAD
@@ -52,7 +43,7 @@ function view:paint(g, ctx)
     g:text(PAD + 22, y + 7, string.format("%d. %s", row.index, row.check.name), { color = c.text, bold = chosen, width = 220 })
     g:text(PAD + 250, y + 7, row.summary, { color = row.mark == "fail" and c.error or c.text_2, width = w - PAD * 2 - 250 })
     local index = row.index
-    hit(PAD - 8, y, w - 2 * PAD + 16, ROW - 2, function()
+    view.hits:add(g, PAD - 8, y, w - 2 * PAD + 16, ROW - 2, function()
       view.row = index
       if not model.running then doctor.start({ only = { index } }) end
     end)
@@ -72,7 +63,7 @@ function view:paint(g, ctx)
   if model.meters and #model.meters > 0 then
     for ch, level in ipairs(model.meters) do
       local mx = PAD + (ch - 1) * 120
-      local db = level > 1e-6 and 20 * math.log10(level) or -120
+      local db = math.max(-120, require("paw.dsp").db(level))
       local at = util.clamp((db + 60) / 60, 0, 1)
       g:rect(mx, by + 12, 100, 6, { fill = c.well, radius = 3 })
       g:rect(mx, by + 12, math.max(2, 100 * at), 6, { fill = at > 0.9 and c.error or c.meter_low, radius = 3 })
@@ -93,17 +84,6 @@ function view:paint(g, ctx)
   else
     if model.report then g:text(PAD, by + 40, "report: " .. model.report, { color = c.text, width = w - 2 * PAD }) end
     if model.problem then g:text(PAD, by + 62, model.problem, { color = c.error, width = w - 2 * PAD }) end
-  end
-end
-
-function view:pointer(e)
-  if e.kind ~= "down" or e.button ~= "left" then return end
-  for index = #hits, 1, -1 do
-    local on = hits[index]
-    if e.x >= on.x and e.x < on.x + on.w and e.y >= on.y and e.y < on.y + on.h then
-      on.down(e)
-      return
-    end
   end
 end
 

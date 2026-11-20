@@ -119,6 +119,39 @@ impl TempoMap {
         map
     }
 
+    /// A map from points placed in seconds, as other programs keep them
+    /// (`(seconds, bpm, ramp)` and `(seconds, num, den)`): each point's beat
+    /// follows from the stretch before it, held or ramped. Points are put
+    /// in time order; with none at 0 s, the first tempo holds from the start.
+    pub fn from_seconds(tempos: &[(f64, f64, bool)], sigs: &[(f64, u32, u32)]) -> Self {
+        let mut points: Vec<(f64, f64, bool)> = tempos
+            .iter()
+            .filter(|p| p.0.is_finite() && p.1.is_finite())
+            .map(|&(t, bpm, ramp)| (t.max(0.0), bpm.clamp(MIN_BPM, MAX_BPM), ramp))
+            .collect();
+        points.sort_by(|a, b| a.0.total_cmp(&b.0));
+        let mut beats: Vec<TempoPoint> = Vec::with_capacity(points.len());
+        let mut last = 0.0;
+        for (t, bpm, ramp) in points {
+            let beat = match beats.last() {
+                None => 0.0,
+                // The tempo changes linearly in time over a ramp, so the
+                // beats are the time by the mean of its two tempos.
+                Some(prev) => prev.beat + (t - last) * if prev.ramp { (prev.bpm + bpm) / 120.0 } else { prev.bpm / 60.0 },
+            };
+            let point = TempoPoint { beat: if t <= EPS { 0.0 } else { beat }, bpm, ramp };
+            match beats.last_mut() {
+                Some(prev) if point.beat - prev.beat <= EPS => *prev = point,
+                _ => beats.push(point),
+            }
+            // The first holds from the start, wherever it is.
+            last = if beats.len() == 1 && beats[0] == point { 0.0 } else { t };
+        }
+        let map = TempoMap::new(&beats, &[]);
+        let sigs: Vec<SigPoint> = sigs.iter().map(|&(t, num, den)| SigPoint { beat: map.beat(t.max(0.0)), num, den }).collect();
+        TempoMap::new(&beats, &sigs)
+    }
+
     /// Replace the points, reusing the map's memory.
     pub fn set(&mut self, tempos: &[TempoPoint], sigs: &[SigPoint]) {
         let clean = |b: f64| if b.is_finite() { b.max(0.0) } else { 0.0 };
@@ -412,6 +445,16 @@ fn dedup_last<T: Copy>(items: &mut Vec<T>, key: impl Fn(&T) -> f64) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn points_in_seconds_land_where_the_map_plays_them() {
+        // 120 held for 2 s, then a ramp from 60 to 120 over 2 s.
+        let map = TempoMap::from_seconds(&[(2.0, 60.0, true), (0.0, 120.0, false), (4.0, 120.0, false)], &[(0.0, 4, 4), (2.0, 3, 4)]);
+        let beats: Vec<f64> = map.tempos().map(|p| p.beat).collect();
+        assert_eq!(beats, vec![0.0, 4.0, 7.0]);
+        assert!((map.seconds(7.0) - 4.0).abs() < 1e-9, "the core's own math agrees");
+        assert_eq!(map.signatures().last().map(|s| (s.beat, s.num)), Some((4.0, 3)));
+    }
 
     fn t(beat: f64, bpm: f64, ramp: bool) -> TempoPoint {
         TempoPoint { beat, bpm, ramp }

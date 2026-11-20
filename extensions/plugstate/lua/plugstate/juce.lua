@@ -18,7 +18,7 @@
 -- whose property has the value. `@name` at the end names a property.
 local ffi = require("ffi")
 local bit = require("bit")
-local vst3 = require("plugstate.vst3state")
+local vst3 = { split = paw.bytes.vst3_split, join = paw.bytes.vst3_join }
 
 local M = {}
 

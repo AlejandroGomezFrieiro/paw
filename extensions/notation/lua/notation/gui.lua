@@ -30,7 +30,7 @@ local EPS = 1e-6
 local INFO = 26
 
 -- bar_h is the toolbar's height: it grows a row for every row the buttons wrap to.
-local gui = { bar_h = 44, scroll = 0, hscroll = 0, drag = nil, buttons = {}, heads = {}, accidental = nil, rest = false, measures = {} }
+local gui = { bar_h = 44, scroll = 0, hscroll = 0, drag = nil, hits = paw.canvas.hit_list(), buttons = {}, heads = {}, accidental = nil, rest = false, measures = {} }
 view.gui = gui
 view.space = nil       -- the staff space chosen by zooming, in px; nil: by the size of a cell
 view.galley = false    -- one endless system, scrolled sideways
@@ -519,7 +519,7 @@ local function button(g, x, y, b)
     -- Centred text is centred on the `x` it is given, not started there.
     g:text(x + b.w / 2, y + (BTN - 12) / 2 - 1, b.label, { color = ink2, bold = b.on or b.fill ~= nil, align = "center", width = b.w })
   end
-  if b.action then gui.buttons[#gui.buttons + 1] = { x = x, y = y, w = b.w, h = BTN, action = b.action, label = b.label } end
+  if b.action then gui.hits:add(g, x, y, b.w, BTN, b.action).label = b.label end
 end
 
 --- A glyph of the music font for the toolbar, at a staff space of 5 px.
@@ -651,7 +651,8 @@ end
 function view:paint(g, ctx)
   local w, h = ctx.width, ctx.height
   local chrome = not ctx.surface
-  gui.buttons = {}
+  gui.hits:clear()
+  gui.buttons = gui.hits.list
   gui.heads = {}
   gui.size = { w = w, h = h, chrome = chrome }
   if chrome then g:rect(0, 0, w, h, { fill = ctx.bg or c.surface }) end
@@ -908,9 +909,8 @@ function view:pointer(e)
     return
   end
   if chrome and e.kind == "down" and e.y < gui.bar_h then
-    for _, b in ipairs(gui.buttons) do
-      if e.x >= b.x and e.x < b.x + b.w and e.y >= b.y and e.y < b.y + b.h then return b.action() end
-    end
+    local b = gui.hits:under(e.x, e.y)
+    if b then return b.down() end
     return
   end
   local inserting = paw.keymap.mode == "i"

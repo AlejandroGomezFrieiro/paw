@@ -32,7 +32,7 @@ The tutor opens a practice project for this lesson. It checks each step when you
    - ✓ paw keeps each change that you undo. `g-` and `g+` move through time, across branches.
 5. mixdiag measures the mix and shows problems. Type `:tutor.try mixdiag` and `<CR>`. Then press `,xa` to measure the song.
    - ✓ mixdiag measures in the background. The message line shows the loudness when it is complete, and `,xx` shows the problems that it found.
-6. rpp opens and writes REAPER projects. Type `:tutor.try rpp` and `<CR>`. Then type `:rpp.export tutor-song.rpp` and `<CR>`. A list of the items that REAPER cannot use opens. Press `q` to close it.
+6. interop opens and writes REAPER projects and DAWproject files. Type `:tutor.try interop` and `<CR>`. Then type `:export tutor-song.rpp` and `<CR>`. A list of the items that REAPER cannot use opens. Press `q` to close it.
    - ✓ tutor-song.rpp is in the folder where you started paw. As the list told you, the file does not contain the built-in devices.
 7. utau sings notes with lyrics through the engines of OpenUtau. Type `:tutor.try utau` and `<CR>`. Press `o` to add a track. Then type `:utau.voice` and `<CR>` to make it a vocal track.
    - ✓ The track is a vocal track. It sings when you install `paw-utau-engine` and a voicebank (see extensions/utau/README.md). Then `,v` adds a vocal track and asks for its singer in one step.
@@ -41,6 +41,6 @@ The tutor opens a practice project for this lesson. It checks each step when you
 
 ## What we did
 
-We tried one feature of pattern, musicops, sections, undotree, mixdiag, rpp and utau. Their READMEs tell the rest.
+We tried one feature of pattern, musicops, sections, undotree, mixdiag, interop and utau. Their READMEs tell the rest.
 
 Previous: [Make paw your own: options, keys, commands](15-your-own.md) · [All lessons](README.md) · Next: [Ranges, :s and :g: edit by line](17-ranges.md)

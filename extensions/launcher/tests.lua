@@ -566,8 +566,8 @@ test("launcher: an export to REAPER or DAWproject reports the clips of the slots
   local t = synth("Lead", 0)
   launcher.add(t.id, 3, { length = 4 })
   for _, ext in ipairs({ "rpp", "dawproject" }) do
-    if not paw.ext.loaded[ext] then paw.ext.load("extensions/" .. ext) end
-    local result = require(ext).export(T.scratch .. "/launcher-export." .. (ext == "rpp" and "rpp" or "dawproject"))
+    if not paw.ext.loaded.interop then paw.ext.load("extensions/interop") end
+    local result = require("interop." .. ext).export(T.scratch .. "/launcher-export." .. (ext == "rpp" and "rpp" or "dawproject"))
     local found
     for _, g in ipairs(result.report:data()) do
       if g.name:find("clip launcher", 1, true) then found = g end

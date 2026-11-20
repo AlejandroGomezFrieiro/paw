@@ -38,7 +38,7 @@ end
 
 local function write(kind, name, data)
   local path = M.path(kind, name)
-  os.execute("mkdir -p '" .. (path:match("^(.*)/[^/]*$")):gsub("'", "'\\''") .. "'")
+  pcall(paw.api.fs_mkdir, (path:match("^(.*)/[^/]*$")))
   local file = io.open(path, "w")
   if not file then error("cannot write " .. path, 3) end
   file:write(paw.json.encode({ version = 1, kind = kind, name = file_name(name), data = data }, true), "\n")

@@ -196,3 +196,43 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
     )?;
     Ok(())
 }
+
+/// `paw.api.tempo_from_seconds`.
+pub fn from_seconds(lua: &Lua, tempos: &Table, sigs: Option<&Table>) -> mlua::Result<Table> {
+    let mut points = Vec::new();
+    for p in tempos.sequence_values::<Table>() {
+        let p = p?;
+        points.push((p.get::<Option<f64>>("seconds")?.unwrap_or(0.0), p.get::<f64>("bpm")?, p.get::<Option<bool>>("ramp")?.unwrap_or(false)));
+    }
+    let mut signatures = Vec::new();
+    if let Some(sigs) = sigs {
+        for p in sigs.sequence_values::<Table>() {
+            let p = p?;
+            signatures.push((p.get::<Option<f64>>("seconds")?.unwrap_or(0.0), p.get::<u32>("num")?, p.get::<u32>("den")?));
+        }
+    }
+    let map = std::rc::Rc::new(TempoMap::from_seconds(&points, &signatures));
+    let out = lua.create_table()?;
+    let list = lua.create_table()?;
+    for p in map.tempos() {
+        let t = lua.create_table()?;
+        t.set("beat", p.beat)?;
+        t.set("bpm", p.bpm)?;
+        t.set("ramp", p.ramp)?;
+        list.push(t)?;
+    }
+    out.set("tempos", list)?;
+    let list = lua.create_table()?;
+    for p in map.signatures() {
+        let t = lua.create_table()?;
+        t.set("beat", p.beat)?;
+        t.set("num", p.num)?;
+        t.set("den", p.den)?;
+        list.push(t)?;
+    }
+    out.set("signatures", list)?;
+    let m = map.clone();
+    out.set("beat", lua.create_function(move |_, seconds: f64| Ok(m.beat(seconds)))?)?;
+    out.set("seconds", lua.create_function(move |_, beat: f64| Ok(map.seconds(beat)))?)?;
+    Ok(out)
+}

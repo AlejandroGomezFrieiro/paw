@@ -252,7 +252,7 @@ end
 
 -- Writing ------------------------------------------------------------------------------
 
-local function exists(path) return api.fs_stat(path) ~= nil end
+local exists = api.fs_exists
 
 --- Make a folder and the ones above it that are missing, noting each for undoing.
 local function make_dirs(path, state)
@@ -389,6 +389,8 @@ local function plan(ch, ctx)
   end
   for _, c in ipairs(copies) do
     steps[#steps + 1] = { text = "copy " .. shown(c.from, root) .. " → " .. shown(c.to, root), run = function(state)
+      local from = api.fs_stat(c.from)
+      if from and from.dir then error(c.from .. " is a directory: only files are copied", 0) end
       make_dirs(dirname(c.to), state)
       api.fs_copy(c.from, c.to)
       table.insert(state.undo, function() os.remove(c.to) end)

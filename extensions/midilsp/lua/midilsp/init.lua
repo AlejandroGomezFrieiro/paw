@@ -26,10 +26,7 @@ local function words(text)
   return out
 end
 
-local function on_path(program)
-  local found = io.popen("command -v " .. program .. " 2>/dev/null"):read("*l")
-  return found and found ~= "" and found or nil
-end
+local on_path = paw.api.which
 
 --- The engine's command, without the transport: `paw.opt.midilsp_cmd`
 --- (words, or a list), else `$MIDI_LSP_ENGINE`, else `reaper-midi-lsp`

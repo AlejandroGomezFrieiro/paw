@@ -5,7 +5,8 @@ Most commercial plugins use the JUCE library. The
 state of a JUCE plugin as a tree, and writes it back. This page describes
 the forms that it reads, the paths, the descriptions of plugins and the
 presets. The modules are `plugstate.jucestate` (the layer),
-`plugstate.juce` (trees and paths) and `plugstate.jucexml` (XML). For the
+`plugstate.juce` (trees and paths) and `plugstate.jucexml` (XML, read
+and written by the core's `paw.xml`). For the
 other frameworks, see [The saved state of plugins](plugin-state.md).
 
 ## The layers of a state
@@ -32,7 +33,8 @@ gives it, and finds these layers by themselves, from the outside in.
 - When nothing changes, `doc:write()` gives the same bytes as the state
   that was opened. Each layer keeps the bytes of the parts that do not
   change, also the text between the elements of XML.
-- A changed XML element is written as JUCE writes it on one line. Changed
+- A changed XML element is written on one line, its numbers as JUCE
+  writes them. Changed
   gzip and zlib data is compressed again (deflate, `paw.api.deflate`).
 - A CLAP state is the data of the plugin as it is. A JUCE plugin gives
   the same data in each format.

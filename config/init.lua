@@ -32,7 +32,7 @@ for _, name in ipairs({
   "musicops",   -- humanize, strum, arpeggiate, scales and the project's key
   "mixdiag",    -- the mix measured: loudness, true peak, phase (`,x…`)
   "undotree",   -- the undo tree, named checkpoints, A/B listening (`,u…`)
-  "rpp",        -- opening and writing REAPER projects
+  "interop",    -- opening and writing the projects of REAPER and of DAWproject programs (`:e song.rpp`, `:import`, `:export`)
   "tutor",      -- the course: `:tutor` starts it
   "doctor",     -- a guided check of the hardware, with a written report (`:doctor`, `paw doctor`)
   "luafx",      -- devices written in Lua: gain and pan, drive, chords, sine (and how to write your own)

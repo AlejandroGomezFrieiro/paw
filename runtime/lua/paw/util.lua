@@ -69,6 +69,15 @@ function M.round(v, step)
   return math.floor(v / step + 0.5) * step
 end
 
+--- A deep copy of a value: tables are copied all the way down (their
+--- metatables are not), anything else is given back as it is.
+function M.copy(value)
+  if type(value) ~= "table" then return value end
+  local out = {}
+  for k, v in pairs(value) do out[k] = M.copy(v) end
+  return out
+end
+
 --- Shallow copy with the fields of `extra` laid over it.
 function M.merge(base, extra)
   local out = {}

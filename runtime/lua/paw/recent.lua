@@ -40,7 +40,7 @@ local function read()
 end
 
 local function write(list)
-  os.execute("mkdir -p '" .. (M.file:match("^(.*)/[^/]*$") or "."):gsub("'", "'\\''") .. "'")
+  pcall(paw.api.fs_mkdir, (M.file:match("^(.*)/[^/]*$") or "."))
   local handle = io.open(M.file .. ".tmp", "wb")
   if not handle then return end
   handle:write(api.json_encode(list, true))
@@ -48,11 +48,7 @@ local function write(list)
   os.rename(M.file .. ".tmp", M.file)
 end
 
-local function exists(path)
-  local handle = io.open(path, "rb")
-  if handle then handle:close() end
-  return handle ~= nil
-end
+local exists = paw.api.fs_exists
 
 local function place(entry)
   return entry.path:match("^(.*)/[^/]*$") or "."

@@ -7,11 +7,7 @@ local api = paw.api
 
 local M = {}
 
-local function exists(path)
-  local f = io.open(path, "rb")
-  if f then f:close() end
-  return f ~= nil
-end
+local exists = paw.api.fs_exists
 
 --- Where `paw-ara.so` is: the `ara_bridge` option, `lib/` beside the
 --- extension (where its Nix package puts it), or `$PAW_ARA_BRIDGE`.
@@ -38,16 +34,13 @@ end
 
 --- Whether a kind of device says it is an ARA plugin (its CLAP features).
 --- nil when paw does not know: a plugin file read by an older paw.
-function M.is_ara_kind(kind)
-  for _, t in ipairs(api.device_types()) do
-    if t.kind == kind then
-      local features = t.features or {}
-      if #features == 0 then return nil end
-      for _, f in ipairs(features) do
-        if f == "ara:supported" or f == "ara:required" then return true end
-      end
-      return false
-    end
+function M.is_ara_kind(kind, t)
+  t = t or api.device_find({ kind = kind })
+  if not t then return false end
+  local features = t.features or {}
+  if #features == 0 then return nil end
+  for _, f in ipairs(features) do
+    if f == "ara:supported" or f == "ara:required" then return true end
   end
   return false
 end
@@ -55,8 +48,8 @@ end
 --- The device kinds of the ARA plugins that paw knows.
 function M.kinds()
   local out = {}
-  for _, t in ipairs(api.device_types()) do
-    if t.format == "clap" and M.is_ara_kind(t.kind) then out[#out + 1] = t end
+  for _, t in ipairs(api.device_find({ format = "clap", all = true }) or {}) do
+    if M.is_ara_kind(t.kind, t) then out[#out + 1] = t end
   end
   table.sort(out, function(a, b) return a.name:lower() < b.name:lower() end)
   return out

@@ -25,11 +25,9 @@ function M.target(opts)
   return data .. "/OpenUtau"
 end
 
-local function quote(s) return "'" .. tostring(s):gsub("'", "'\\''") .. "'" end
-
 local function is_dir(path)
-  local r = os.execute("test -d " .. quote(path))
-  return r == 0 or r == true
+  local stat = paw.api.fs_stat(path)
+  return stat ~= nil and stat.dir
 end
 
 --- Ask the running engine to look for singers again.
@@ -49,9 +47,10 @@ function M.install(path, opts)
     local singers = target .. "/Singers"
     local dest = singers .. "/" .. path:match("([^/]+)$")
     if is_dir(dest) then error(path:match("([^/]+)$") .. " is installed already", 0) end
-    os.execute("mkdir -p " .. quote(singers))
-    if not os.execute("cp -r " .. quote(path) .. " " .. quote(dest)) or not is_dir(dest) then
-      error("could not copy " .. path .. " to " .. singers, 0)
+    pcall(paw.api.fs_mkdir, singers)
+    local copied, why = pcall(paw.api.fs_copy, path, dest)
+    if not copied or not is_dir(dest) then
+      error("could not copy " .. path .. " to " .. singers .. ": " .. tostring(why), 0)
     end
     installed[1] = { kind = "folder", path = dest }
   else

@@ -177,7 +177,7 @@ function M.stems(dir, opts)
   opts = opts or {}
   local ext = opts.format or "wav"
   check(dir .. "/stem." .. ext)
-  os.execute("mkdir -p '" .. dir:gsub("'", "'\\''") .. "'")
+  pcall(paw.api.fs_mkdir, dir)
   local out, used = {}, {}
   local tracks = opts.tracks
   if not tracks then

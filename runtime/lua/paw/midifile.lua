@@ -24,7 +24,7 @@
 -- counted in `skipped` and said when the file is opened.
 --
 -- The reader and the writer (`parse`, `encode`) need nothing of the
--- program, so extensions read MIDI files with them too (extensions/rpp).
+-- program, so extensions read MIDI files with them too (extensions/interop).
 local M = {}
 
 M.extensions = { "mid", "midi", "smf", "kar" }

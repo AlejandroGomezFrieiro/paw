@@ -178,7 +178,7 @@ function M.render_regions(dir, opts)
   opts = opts or {}
   local regions = M.regions()
   if #regions == 0 then error("there are no regions to render: `:region name` makes one", 0) end
-  os.execute("mkdir -p '" .. dir:gsub("'", "'\\''") .. "'")
+  pcall(paw.api.fs_mkdir, dir)
   local files = {}
   for i, region in ipairs(regions) do
     local each = {}

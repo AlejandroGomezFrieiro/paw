@@ -97,7 +97,7 @@ Type `:art.check`. The problems of the notes go to the quickfix list.
   **downgrade map** of the track (`track.attr_map`). It sends the
   keyswitch, controller or program of each note before the note, to an
   instrument that does not take the attribute.
-- The core never reads the TOML.
+- The core does not use the map. The extension reads the TOML of the map with `paw.toml`.
 - The extension also reads an attribute in `note.meta.art`, where older
   versions kept it.
 

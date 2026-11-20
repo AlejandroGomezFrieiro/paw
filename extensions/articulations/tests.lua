@@ -53,28 +53,6 @@ end
 
 -- Reading ------------------------------------------------------------------------------
 
-test("articulations: the TOML reader reads tables, arrays, inline tables and strings, and says the line of an error", function()
-  local toml = load().toml
-  local t = assert(toml.parse([==[
-# a comment
-a = 1
-b = "x\ty"   # after a value
-[t.u]
-c = [1, 2,
-  3, ]
-d = { e = 'lit', f = true, g.h = 0x1F }
-[[arr]]
-x = 1
-[[arr]]
-x = 2.5
-]==]))
-  eq(paw.json.encode(t), '{"a":1,"arr":[{"x":1},{"x":2.5}],"b":"x\\ty","t":{"u":{"c":[1,2,3],"d":{"e":"lit","f":true,"g":{"h":31}}}}}', "the table")
-  eq(table.concat(toml.keys(t.t.u.d), ","), "e,f,g", "keys in the order written")
-  eq(select(2, toml.parse("a = 1\na = 2")), "line 2: `a` is defined twice", "a key twice")
-  eq(select(2, toml.parse('x = 1\ny = "open\n')), "line 2: a string that does not end on its line", "a string left open")
-  eq(select(2, toml.parse("d = 1979-05-27")), "line 1: `1979-05-27` is not a value (a date? dates are not read)", "no dates")
-end)
-
 test("articulations: M2-123 codes are read and written, with the profile's fallback and the words libraries use", function()
   local m2 = load().m2
   local a = m2.parse("11.A")

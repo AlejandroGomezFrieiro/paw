@@ -27,7 +27,7 @@ Then type `:tutor` in paw. The tutor makes these pages from its lessons, so the 
 | 13 | [Save and render](13-saving.md) | We saved with `:w`, saw `[+]` for changes that are not saved, rendered with `:render name.wav tail=2` and read `:messages`. |
 | 14 | [Find a command or a key](14-finding.md) | We used key hints, `?`, `:commands`, Tab on the command line, `,,`, the `,f` pickers and `K`. |
 | 15 | [Make paw your own: options, keys, commands](15-your-own.md) | We made an option, a mapping and a command with `:lua`, and found where to keep them. |
-| 16 | [The bundled extensions](16-extensions.md) | We tried one feature of pattern, musicops, sections, undotree, mixdiag, rpp and utau. Their READMEs tell the rest. |
+| 16 | [The bundled extensions](16-extensions.md) | We tried one feature of pattern, musicops, sections, undotree, mixdiag, interop and utau. Their READMEs tell the rest. |
 | 17 | [Ranges, :s and :g: edit by line](17-ranges.md) | We used `:2,3d`, `:t2 4d`, `:t* volume -=3`, `:%s/c4/d4/g` and `:g/name:b/mute`: a range, then a command, one undo step for each. |
 
 Lessons 1 to 4 are the base: the screen, the cursor, and how to make tracks and notes. Lessons 5 to 8 are the grammar of the keys, which all of paw uses. Lessons 9 to 13 are the studio: devices, the mix, loops, recordings, and how to save and render. Lessons 14 to 16 help you find keys, make paw your own, and use the extensions. Lesson 17 edits by line, as Ex does in Vim: ranges of bars and tracks, `:s` and `:g`.

@@ -31,6 +31,7 @@ mod editing;
 mod project;
 mod tracks;
 mod devices;
+pub use devices::DeviceQuery;
 mod clips;
 mod automation;
 mod transport;

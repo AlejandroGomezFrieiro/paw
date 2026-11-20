@@ -45,11 +45,7 @@ local function list_dir(dir)
   return ok and items or {}
 end
 
-local function exists(path)
-  local f = io.open(path, "r")
-  if f then f:close() end
-  return f ~= nil
-end
+local exists = paw.api.fs_exists
 
 --- A path without `.` and `..`, made absolute from the current directory.
 local function normalize(path)
@@ -293,6 +289,11 @@ function M.sources()
     end
   end
   for _, extra in ipairs(M.extra) do out[#out + 1] = extra end
+  -- The formats registered now (paw/formats.lua), a page made from them.
+  if docs then
+    out[#out + 1] = { path = docs .. "/reference/formats.generated.md", text = paw.formats.help_text, name = "formats.md",
+      aliases = { "formats" }, prefix = "formats", group = "added" }
+  end
   return out
 end
 
@@ -550,7 +551,7 @@ local function build()
     -- docs/README.md orders the contents.
     if source.readme then signature[#signature + 1] = read_file(source.readme) or "" end
     if not source.index then
-      local text = read_file(source.path) or ""
+      local text = source.text and source.text() or read_file(source.path) or ""
       local cached = parsed[source.path]
       if not (cached and cached.text == text) then
         cached = { text = text, blocks = md.parse(text) }

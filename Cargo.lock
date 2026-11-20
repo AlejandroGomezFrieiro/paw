@@ -2743,6 +2743,7 @@ dependencies = [
  "paw-proto",
  "paw-raster",
  "paw-scene",
+ "quick-xml",
  "rcgen",
  "realfft",
  "rtrb",
@@ -2751,6 +2752,7 @@ dependencies = [
  "serde",
  "serde_json",
  "toml",
+ "toml_edit",
  "unicode-width",
 ]
 
@@ -4071,6 +4073,7 @@ dependencies = [
  "indexmap",
  "toml_datetime",
  "toml_parser",
+ "toml_writer",
  "winnow",
 ]
 

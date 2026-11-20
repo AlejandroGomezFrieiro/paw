@@ -106,12 +106,7 @@ end
 
 --- A deep copy of a value. A new seat starts from the values of seat 0 with
 --- it, and does not share them.
-function M.copy(value)
-  if type(value) ~= "table" then return value end
-  local out = {}
-  for k, v in pairs(value) do out[k] = M.copy(v) end
-  return out
-end
+M.copy = require("paw.util").copy
 
 --- True if `id` has its own seat.
 function M.has(id)

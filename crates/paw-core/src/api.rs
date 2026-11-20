@@ -820,6 +820,24 @@ pub fn install(lua: &Lua, shared: &Rc<Shared>) -> mlua::Result<()> {
 
         // --- devices ---
         fn device_types(lua, sh, () => ()) { to_lua(lua, &sh.session.borrow().device_types()) }
+        // The kind of device installed that answers `query`, `{ kind, format,
+        // id, name, vendor }` (each optional), as an entry of `device_types`;
+        // nil when none does. It looks by `kind` (an old name too), else by
+        // the plugin's own `id` (a CLAP id, a VST3 class id in either case,
+        // an LV2 URI), else by `name` with the `vendor` (a kind without a
+        // vendor answers any), else by `name` in any case; `format` ("clap",
+        // "vst3", "lv2", "builtin") keeps to one format. With `all = true`,
+        // the list of all that answer the first test that finds one. The
+        // list of all kinds is not made, so it is quick with many plugins.
+        fn device_find(lua, sh, query => LuaValue) {
+            let q: crate::session::DeviceQuery = from_lua(lua, query)?;
+            let found = sh.session.borrow().device_find(&q);
+            if q.all {
+                to_lua(lua, &found)
+            } else {
+                found.into_iter().next().map_or(Ok(LuaValue::Nil), |v| to_lua(lua, &v))
+            }
+        }
         fn device_get(lua, sh, id => Id) {
             // A device's parameters are those of the instance the engine
             // runs, so bring the engine up to date first: right after an undo
@@ -2000,6 +2018,94 @@ pub fn install(lua: &Lua, shared: &Rc<Shared>) -> mlua::Result<()> {
                 Err(err) => Ok((LuaValue::Nil, LuaValue::String(lua.create_string(format!("{err}"))?))),
             }
         }
+        // --- XML and TOML, for the files of other programs ---
+
+        // The root element of an XML text, or nil and what is wrong (with the
+        // byte). An element is `{ name, attr, order, children, text }`:
+        // `attr` maps each attribute to its text, `order` lists them as
+        // written, `children` holds the child elements, `text` the text and
+        // CDATA directly in it (nil when there is none). References are
+        // read; an entity a DTD defines is kept as it is written. UTF-16
+        // with a byte order mark is read too. `opts.spans` gives each element
+        // `span = { from, open, close, to, lead, tail }`, the bytes it takes
+        // in the text, so that `xml_encode` can write what is not changed
+        // byte for byte. `opts.meta` is set as the metatable of each element.
+        fn xml_decode(lua, _sh, (text, opts) => (LuaString, Option<Table>)) {
+            let spans = opts.as_ref().and_then(|o| o.get::<Option<bool>>("spans").ok().flatten()).unwrap_or(false);
+            let meta = opts.as_ref().and_then(|o| o.get::<Option<Table>>("meta").ok().flatten());
+            Ok(match crate::xml::decode(lua, &text.as_bytes(), spans, meta)? {
+                Ok(root) => (LuaValue::Table(root), LuaValue::Nil),
+                Err(why) => (LuaValue::Nil, LuaValue::String(lua.create_string(why)?)),
+            })
+        }
+        // The XML text of an element (as `xml_decode` gives them, or made
+        // with the same fields). Attributes are written in `order`, then the
+        // others by name; numbers as the shortest text that reads back the
+        // same, or with at most `opts.digits` digits after the point.
+        // `opts.indent` puts each element on a line, indented by it.
+        // `opts.declaration` is written first (true: the usual one).
+        // `opts.source` is the text the tree was read from with `spans`:
+        // what did not change is written as it was, byte for byte, and the
+        // text around the root element too.
+        fn xml_encode(_, _sh, (root, opts) => (Table, Option<Table>)) {
+            let get = |k: &str| opts.as_ref().map_or(Ok(LuaValue::Nil), |o| o.get::<LuaValue>(k));
+            let source = match get("source")? { LuaValue::String(s) => Some(s.as_bytes().to_vec()), _ => None };
+            let enc = crate::xml::EncodeOpts {
+                indent: match get("indent")? { LuaValue::String(s) => Some(s.to_string_lossy()), _ => None },
+                digits: match get("digits")? { LuaValue::Integer(n) => Some(n as usize), LuaValue::Number(n) => Some(n as usize), _ => None },
+                source,
+            };
+            let body = crate::xml::encode(&root, &enc)?;
+            let mut out = String::new();
+            match get("declaration")? {
+                LuaValue::Boolean(true) => out.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"),
+                LuaValue::String(s) => out.push_str(&s.to_string_lossy()),
+                _ => {}
+            }
+            let span: Option<Table> = root.get("span")?;
+            match (&enc.source, span) {
+                (Some(src), Some(span)) if out.is_empty() => {
+                    let (from, to): (usize, usize) = (span.get("from")?, span.get("to")?);
+                    if from >= 1 && to <= src.len() {
+                        out.push_str(&String::from_utf8_lossy(&src[..from - 1]));
+                        out.push_str(&body);
+                        out.push_str(&String::from_utf8_lossy(&src[to..]));
+                        return Ok(out);
+                    }
+                    out.push_str(&body);
+                }
+                _ => {
+                    out.push_str(&body);
+                    if enc.indent.is_some() {
+                        out.push('\n');
+                    }
+                }
+            }
+            Ok(out)
+        }
+        // The table of a TOML text, or nil and what is wrong (`line 4: ...`).
+        // Each table keeps the order of its keys in its metatable,
+        // `getmetatable(t).__keys`. A date or a time is its text.
+        fn toml_decode(lua, _sh, text => String) {
+            Ok(match crate::toml_api::decode(lua, &text)? {
+                Ok(v) => (v, LuaValue::Nil),
+                Err(why) => (LuaValue::Nil, LuaValue::String(lua.create_string(why)?)),
+            })
+        }
+        // The TOML text of a table; with `inline`, of any value on one line
+        // (`{ a = 1, b = "x" }`). The keys of a table come in the order of
+        // its metatable's `__keys`, then the others by name. A list of
+        // tables is an array of tables.
+        fn toml_encode(_, _sh, (value, inline) => (LuaValue, Option<bool>)) {
+            crate::toml_api::encode(&value, inline.unwrap_or(false))
+        }
+        // Mark a table (a new one without `t`) as a JSON array, so that
+        // `json_encode` writes it as `[]` when it is empty. Returns it.
+        fn json_array(lua, _sh, t => Option<Table>) {
+            let t = match t { Some(t) => t, None => lua.create_table()? };
+            t.set_metatable(Some(lua.array_metatable()))?;
+            Ok(t)
+        }
         // --- bytes, for the file formats extensions read and write ---
 
         // Base64 of bytes. `opts.url` uses the URL alphabet (`-_`), and
@@ -2033,6 +2139,65 @@ pub fn install(lua: &Lua, shared: &Rc<Shared>) -> mlua::Result<()> {
         fn crc32(_, _sh, data => LuaString) {
             Ok(crate::codec::crc32(&data.as_bytes()))
         }
+        // --- tempo maps of other programs ---
+
+        // A tempo map from points placed in seconds, as other programs keep
+        // them: `tempos` is `{ { seconds, bpm, ramp } }`, `signatures` is
+        // `{ { seconds, num, den } }`. Each point's beat follows from the
+        // stretch before it, held, or ramped linearly in time. Returns
+        // `{ tempos, signatures, beat, seconds }`: the points in beats, as
+        // `tempo_set_points` takes them, and two functions that convert
+        // with this map, `beat(seconds)` and `seconds(beat)`.
+        fn tempo_from_seconds(lua, _sh, (tempos, signatures) => (Table, Option<Table>)) {
+            crate::tempo_api::from_seconds(lua, &tempos, signatures.as_ref())
+        }
+        // --- sound files, programs ---
+
+        // The levels of a sound file, any format the engine plays: `{ rate,
+        // channels, frames, seconds, peaks, peak, onset, blocks }`, levels
+        // as linear gain. `peaks` holds the loudest sample of each channel,
+        // `peak` the loudest of all. `onset(level, from)` gives the time in
+        // seconds of the first frame, at `from` seconds or later, where a
+        // channel is louder than `level` (nil when none is). `blocks(from,
+        // to, ms)` gives the loudest sample of each block of `ms`
+        // milliseconds (default 1) between two times in seconds.
+        fn sound_envelope(lua, _sh, path => String) { crate::ext_api::sound_envelope(lua, &path) }
+        // Write a WAV file: `opts` is `{ rate, channels (2), bits (16, 24,
+        // or 32 for float) }`. `samples` is the interleaved samples as bytes
+        // of 32-bit floats in the order of the machine (`ffi.string` of a
+        // `float[?]`), or a function `(frame, count)` that gives them one
+        // piece at a time and nil at the end. Returns the number of frames.
+        fn sound_write(_, _sh, (path, opts, samples) => (String, Table, LuaValue)) {
+            crate::ext_api::sound_write(&path, &opts, samples)
+        }
+        // Where a program is on `PATH`, as `command -v` says; nil when it
+        // is not there. A name with a `/` is checked as it is.
+        fn which(_, _sh, program => String) { Ok(crate::ext_api::which(&program)) }
+        // Remove a file, or a directory with all it holds: only for what paw
+        // or an extension made for itself, a cache or a temporary folder.
+        // The files of the user go to the trash (`fs_trash`) instead.
+        // Nothing there is no error.
+        fn fs_remove(_, _sh, path => String) {
+            let p = Path::new(&path);
+            let Ok(meta) = p.symlink_metadata() else { return Ok(()) };
+            let done = if meta.is_dir() { std::fs::remove_dir_all(p) } else { std::fs::remove_file(p) };
+            done.map_err(|e| mlua::Error::runtime(format!("{path}: {e}")))
+        }
+        // The space of the disk that holds a path: `{ free, total }` in
+        // bytes (free: what a program that is not root can use).
+        fn fs_space(lua, _sh, path => String) {
+            let c = std::ffi::CString::new(path.clone()).map_err(|e| mlua::Error::runtime(format!("{e}")))?;
+            let mut st: libc::statvfs = unsafe { std::mem::zeroed() };
+            if unsafe { libc::statvfs(c.as_ptr(), &mut st) } != 0 {
+                return Err(mlua::Error::runtime(format!("{path}: {}", std::io::Error::last_os_error())));
+            }
+            let t = lua.create_table()?;
+            t.set("free", st.f_bavail as f64 * st.f_frsize as f64)?;
+            t.set("total", st.f_blocks as f64 * st.f_frsize as f64)?;
+            Ok(t)
+        }
+        // True when a file or directory is there (a link that leads nowhere is not).
+        fn fs_exists(_, _sh, path => String) { Ok(Path::new(&path).exists()) }
         fn warnings(_, sh, () => ()) { Ok(std::mem::take(&mut sh.session.borrow_mut().warnings)) }
         fn env(lua, sh, () => ()) {
             let env = lua.create_table()?;

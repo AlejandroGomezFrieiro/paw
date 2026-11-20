@@ -10,11 +10,7 @@ M.KIND = "clap:dev.paw.sampler"
 --- The files it reads.
 M.FORMATS = { sfz = "SFZ", dspreset = "Decent Sampler" }
 
-local function exists(path)
-  local f = io.open(path, "rb")
-  if f then f:close() end
-  return f ~= nil
-end
+local exists = paw.api.fs_exists
 
 --- Where `paw-sampler.clap` is: the `sampler_plugin_dir` option, else
 --- `clap/` beside the extension (where its Nix package, and
@@ -27,12 +23,7 @@ function M.plugin_dir()
 end
 
 --- Whether the plugin can be made: it is among the device types.
-function M.available()
-  for _, t in ipairs(api.device_types()) do
-    if t.kind == M.KIND then return true end
-  end
-  return false
-end
+function M.available() return api.device_find({ kind = M.KIND }) ~= nil end
 
 --- The track's sampler device, or nil.
 function M.device_of(track_id)

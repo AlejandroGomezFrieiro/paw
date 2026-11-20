@@ -31,8 +31,6 @@ local function cache_root()
   return base .. "/paw/utau-voices"
 end
 
-local function quote(path) return "'" .. path:gsub("'", "'\\''") .. "'" end
-
 local dir
 
 --- The directory this process keeps its phrases in, made the first time.
@@ -43,16 +41,16 @@ function M.dir()
   for _, item in ipairs(api.read_dir(root)) do
     local pid = tonumber(item.name)
     if item.is_dir and pid and #api.read_dir("/proc/" .. pid) == 0 then
-      os.execute("rm -rf " .. quote(root .. "/" .. item.name))
+      pcall(api.fs_remove, root .. "/" .. item.name)
     end
   end
   dir = root .. "/" .. api.env().pid
-  os.execute("mkdir -p " .. quote(dir))
+  pcall(paw.api.fs_mkdir, dir)
   return dir
 end
 
 paw.on("exit", function()
-  if dir then os.execute("rm -rf " .. quote(dir)) end
+  if dir then pcall(api.fs_remove, dir) end
 end)
 
 --- A new file holding `raw`, named so that no file a device has mapped is

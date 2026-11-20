@@ -191,7 +191,7 @@ function M.to_surface(target, event)
     end
   end
   local view = surface and paw.ui.views[surface.name]
-  if not (view and view.pointer) then
+  if not (view and (view.pointer or view.hits)) then
     state.surface = nil
     return false
   end
@@ -224,9 +224,9 @@ function M.to_surface(target, event)
   else
     e.kind = kind
   end
-  paw.limit.named("the mouse", view.pointer, view, e)
+  paw.limit.named("the mouse", paw.canvas.view_pointer, view, e)
   if kind == "down" and event.double then
-    paw.limit.named("the mouse", view.pointer, view, paw.util.merge(e, { kind = "double" }))
+    paw.limit.named("the mouse", paw.canvas.view_pointer, view, paw.util.merge(e, { kind = "double" }))
   end
   api.ui_redraw()
   return true

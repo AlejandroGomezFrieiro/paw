@@ -42,7 +42,7 @@ end
 
 local function remember(path, data)
   local dir = M.project_dir(path)
-  os.execute("mkdir -p '" .. dir:gsub("'", "'\\''") .. "'")
+  pcall(paw.api.fs_mkdir, dir)
   local file = io.open(memory_file(path), "wb")
   if not file then return end
   file:write(api.json_encode(data, true))

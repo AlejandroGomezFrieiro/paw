@@ -52,7 +52,7 @@ function M.dir()
   return dir
 end
 
-local function mkdir(path) os.execute("mkdir -p '" .. path:gsub("'", "'\\''") .. "'") end
+local function mkdir(path) api.fs_mkdir(path) end
 
 local function id_of(check) return check.id or tostring(check.name):lower():gsub("[^%w]+", "-") end
 
@@ -309,7 +309,8 @@ end
 local function finish(run)
   local ok, err = pcall(close_scratch, run)
   if not ok then run.problem = "the project that was open could not be put back: " .. tostring(err) end
-  if run.tmp then os.execute("rm -rf '" .. run.tmp:gsub("'", "'\\''") .. "'") end
+  -- The run's own temporary folder, made by `ctx:dir()`: removed, not trashed.
+  if run.tmp then pcall(api.fs_remove, run.tmp) end
   paw.opt.autosave = run.autosave
   if run.timer then paw.cancel(run.timer) end
   run.timer = nil
