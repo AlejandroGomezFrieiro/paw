@@ -31,10 +31,21 @@ local record M
   type OnOptions = OnOptions
 end
 
--- `paw.try` and `paw.limit.named` as this module calls them. paw.try is in
--- paw/init.lua, which is Lua.
 local type Named = function(string, Listener, Payload, string): boolean, string
 local type Try = function(Named, string, Listener, Payload, string): boolean, boolean, string
+
+-- What this module reads of `paw`, which paw/init.lua makes. A module of the
+-- runtime in Teal does not see the global `paw`: runtime/types/paw.d.tl
+-- declares it from these modules.
+-- `paw.try` and `paw.limit.named` as this module calls them.
+local record Limit
+  named: Named
+end
+local record Paw
+  try: Try
+  limit: Limit
+end
+local paw = (_G as {string:Paw}).paw
 
 local handlers: {string:{Handler}} = {} -- pattern -> list of { id, fn, once }
 local next_id = 0
@@ -89,7 +100,7 @@ local function run(list: {Handler}, name: string, payload: Payload)
   for i = 1, #list do copy[i] = list[i] end
   for _, h in ipairs(copy) do
     if h.once then M.off(h.id) end
-    local ok, answer, why = (paw.try as Try)(paw.limit.named as Named, "a handler of `" .. name .. "`", h.fn as Listener, payload, name)
+    local ok, answer, why = paw.try(paw.limit.named, "a handler of `" .. name .. "`", h.fn as Listener, payload, name)
     if ok and answer == false and not refused then refused, reason = true, why end
   end
 end

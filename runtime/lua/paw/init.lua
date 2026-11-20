@@ -17,7 +17,9 @@ function paw.failure(err)
   local text = tostring(err)
   local short = text:match("^(.-)\n*stack traceback:") or text
   short = short:gsub("%s+$", "")
+  -- A module in Lua or in Teal (`paw/x.tl:12:`).
   local file, line, rest = short:match("^[^\n]-([%w_%-]+%.lua):(%d+): (.*)$")
+  if not file then file, line, rest = short:match("^[^\n]-([%w_%-]+%.tl):(%d+): (.*)$") end
   if file then
     -- An error raised by the code itself (`attempt to index a nil value`)
     -- says where; one raised on purpose says what to do, and that is enough.

@@ -133,11 +133,6 @@ end
 
 local made: {string:boolean} = {}   -- cache directories made in this run
 
--- What the kernel says of how it runs.
-local record Env
-  pid: integer
-end
-
 --- Statistics of this run: files compiled and files taken from the cache.
 M.stats = { compiled = 0, cached = 0 }
 
@@ -176,7 +171,7 @@ function M.compile(path: string, source?: string): string, string
   end
   -- Written beside, then moved: two programs that start together never
   -- read half a file.
-  local tmp = cached .. "." .. (api.env() as Env).pid
+  local tmp = cached .. "." .. api.env().pid
   local file = io.open(tmp, "wb")
   if file then
     file:write(code)

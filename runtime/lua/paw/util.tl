@@ -3,6 +3,17 @@
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
 
+-- What this module reads of `paw`, which paw/init.lua makes. A module of the
+-- runtime in Teal does not see the global `paw`: runtime/types/paw.d.tl
+-- declares it from these modules.
+local record Draw
+  g: {string:string}
+end
+local record Paw
+  draw: Draw
+end
+local paw = (_G as {string:Paw}).paw
+
 local record M
   --- Data as Lua holds it: text, a number, a boolean, or a table of them.
   type Data = string | number | boolean | {Data:Data}
@@ -102,17 +113,17 @@ function M.merge<K, V>(base: {K:V}, extra: {K:V}): {K:V}
 end
 
 --- Cut or pad text to exactly `width` columns.
-function M.fit(value: string | number, width: integer): string
-  local text = tostring(value)
-  local have = api.str_width(text)
-  if have <= width then return text .. string.rep(" ", width - have) end
+function M.fit(text: string | number, width: integer): string
+  local str = tostring(text)
+  local have = api.str_width(str)
+  if have <= width then return str .. string.rep(" ", width - have) end
   local out, used = {}, 0
-  for ch in text:gmatch("[%z\1-\127\194-\244][\128-\191]*") do
+  for ch in str:gmatch("[%z\1-\127\194-\244][\128-\191]*") do
     local w = api.str_width(ch)
     if used + w > width - 1 then break end
     out[#out + 1], used = ch, used + w
   end
-  local ellipsis = paw.draw and paw.draw.g.ellipsis as string or "…"
+  local ellipsis = paw.draw and paw.draw.g.ellipsis or "…"
   return table.concat(out) .. ellipsis .. string.rep(" ", width - used - 1)
 end
 

@@ -50,16 +50,6 @@ local interface Pane
   name: string
 end
 
---- A state of the undo tree.
-local record UndoState
-  id: integer
-  label: string
-end
-
-local record UndoTree
-  states: {UndoState}
-end
-
 --- The payload of `undo` and `redo`.
 local record Move
   from: integer
@@ -73,6 +63,31 @@ local record Value
 end
 
 local type KernelFn = function(...: Value): Value
+
+-- What this module reads of `paw`, which paw/init.lua makes. A module of the
+-- runtime in Teal does not see the global `paw`: runtime/types/paw.d.tl
+-- declares it from these modules.
+local record Keymap
+  selection: function(): Region
+  mode: string
+end
+local record Frontend
+  chosen_clips: function(): {integer}
+  chosen_refs: function(): {{integer}}
+end
+local record Ui
+  focused: string
+  arrange: function(): {Pane}
+  float: Pane
+end
+local record Paw
+  flush: function()
+  notify: function(string, string)
+  keymap: Keymap
+  frontend: Frontend
+  ui: Ui
+end
+local paw = (_G as {string:Paw}).paw
 
 local record M
   type Change = Change
@@ -122,7 +137,7 @@ local function finish_edit(): boolean
   for _, c in ipairs(changes) do list[#list + 1] = c end
   changes = {}
   api.undo_checkpoint()
-  events.emit("edit.after", { changes = list, state = api.undo_current() as integer })
+  events.emit("edit.after", { changes = list, state = api.undo_current() })
   -- Edits made in answer to it are an edit of their own.
   paw.flush()
   return #changes > 0
@@ -145,13 +160,13 @@ end
 --- clips selected with the pointer. Also the selected notes of the clips that
 --- the piano roll edits.
 function M.selection(): Selection
-  local region = paw.keymap.selection() as Region
-  local clips = paw.frontend.chosen_clips() as {integer}
+  local region = paw.keymap.selection()
+  local clips = paw.frontend.chosen_clips()
   -- The roll's clip may be gone (undone, or a new project): no notes then.
-  local ok, got = pcall(paw.frontend.chosen_refs as function(): {{integer}})
+  local ok, got = pcall(paw.frontend.chosen_refs)
   local notes: {{integer}} = ok and got or {}
   local kind = region and "region" or #clips > 0 and "clips" or #notes > 0 and "notes" or nil
-  return { view = paw.ui.focused as string, kind = kind, region = region, clips = clips, notes = notes }
+  return { view = paw.ui.focused, kind = kind, region = region, clips = clips, notes = notes }
 end
 
 local function selection_changes()
@@ -168,10 +183,10 @@ end
 --- The names of the views on screen.
 function M.views_shown(): {string:boolean}
   local out: {string:boolean} = {}
-  for _, rect in ipairs(paw.ui.arrange() as {Pane}) do
+  for _, rect in ipairs(paw.ui.arrange()) do
     if rect.name then out[rect.name] = true end
   end
-  local float = paw.ui.float as Pane
+  local float = paw.ui.float
   if float then out[float.name] = true end
   return out
 end
@@ -209,7 +224,7 @@ end
 --- handler took it, and the keymap is not to have it.
 function M.key(key: string): boolean
   if not events.listened("key.pre") then return true end
-  local ok = events.emit("key.pre", { key = key, mode = paw.keymap.mode as string, view = paw.ui.focused as string })
+  local ok = events.emit("key.pre", { key = key, mode = paw.keymap.mode, view = paw.ui.focused })
   return ok ~= false
 end
 
@@ -220,7 +235,7 @@ end
 -- undo tree and each save is heard of.
 
 local function label_of(id: integer): string
-  for _, state in ipairs((api.undo_tree() as UndoTree).states) do
+  for _, state in ipairs(api.undo_tree().states) do
     if state.id == id then return state.label end
   end
 end
@@ -229,9 +244,9 @@ local function moving(fn: KernelFn, how: string): KernelFn
   return function(...: Value): Value
     -- A step still open is closed first, so that `from` is the state it made.
     api.undo_checkpoint()
-    local from = api.undo_current() as integer
+    local from = api.undo_current()
     local result = fn(...)
-    local to = api.undo_current() as integer
+    local to = api.undo_current()
     if to ~= from then
       local name = how == "undo" and "undo" or how == "redo" and "redo" or (to < from and "undo" or "redo")
       if events.listened(name) then
@@ -248,10 +263,10 @@ for name, how in pairs({ undo = "undo", redo = "redo", undo_goto = "goto", undo_
   kernel[name] = moving(kernel[name], how)
 end
 
-local save = api.project_save as function(string): Value...
+local save = api.project_save
 --- `project.saving` before a project is written, which may refuse it;
 --- `project.saved` comes after, as a change event.
-api.project_save = function(path?: string): Value...
+api.project_save = function(path?: string): string
   local ok, why = events.emit("project.saving", { path = path or api.project_get("path") as string })
   if ok == false then error("not saved: " .. tostring(why or "an extension refused"), 2) end
   return save(path)

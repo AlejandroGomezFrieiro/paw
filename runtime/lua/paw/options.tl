@@ -100,10 +100,20 @@ local record M
   opt: Opt
 end
 
--- What the kernel says of how it runs.
-local record Env
-  clean: boolean
+--- The payload of `option.changed`.
+local record Changed
+  name: string
+  value: Value
+  old: Value
 end
+
+-- What this module reads of `paw`, which paw/init.lua makes. A module of the
+-- runtime in Teal does not see the global `paw`: runtime/types/paw.d.tl
+-- declares it from these modules.
+local record Paw
+  emit: function(string, Changed)
+end
+local paw = (_G as {string:Paw}).paw
 
 local defaults: {string:Value} = {
   leader = ",",            -- what `<leader>` means in key mappings
@@ -118,7 +128,7 @@ local defaults: {string:Value} = {
   ripple = false,          -- deleting time closes the gap, pasting makes room
   -- Seconds between safety copies of unsaved work; 0 for none. Off when
   -- started with --clean, which is how tests and experiments run.
-  autosave = (api.env() as Env).clean and 0 or 60,
+  autosave = api.env().clean and 0 or 60,
   reopen_last = false,     -- start with the project that was open last, when none is named
   threads = 0,            -- threads to process tracks on; 0 for one per core
   device_sleep = true,     -- devices at rest sleep through silence; the sound is the same

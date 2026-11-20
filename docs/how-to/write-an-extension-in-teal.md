@@ -104,6 +104,12 @@ each value that you keep to its type:
 `local id = paw.cursor.track_id() as integer`. When the module is in
 Teal, the cast is not necessary.
 
+**Tests with `is`.** paw compiles a file without the checker. Without
+the checker, the compiler does not know the names that you give to types.
+It reads `value is Name` as a test for a table. So in an `is` test, write
+the type itself: `fn is function`, `name is string`. A record is a table,
+so `opts is Options` is correct.
+
 ## Use another language
 
 paw compiles other languages to Lua too. Tell paw the command that

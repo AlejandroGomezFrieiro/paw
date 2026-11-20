@@ -2331,7 +2331,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.undo_label(text)`: Give a name to the open step. The first name wins. nil removes a name given while the step changed nothing.
 - `paw.api.undo_limits(steps, bytes)`: How many steps the history keeps, and about how many bytes of what they changed: `paw.opt.undo_steps` and `undo_memory` set these.
 - `paw.api.undo_name(name, id)`
-- `paw.api.undo_pending()`: `undo_pending` is true if the edits of this turn will close as a step. `undo_discard` puts back what they changed, and no step closes (`edit.before`, paw/hooks.lua).
+- `paw.api.undo_pending()`: `undo_pending` is true if the edits of this turn will close as a step. `undo_discard` puts back what they changed, and no step closes (`edit.before`, paw/hooks.tl).
 - `paw.api.undo_project(id)`: A state's project as a project file holds it (the current state's by default), and the text of a project file for a project given as data: see extensions/projdiff.
 - `paw.api.undo_reset()`: Make the project as it is now the start of its undo history, and unchanged: a MIDI file opened as a project (paw/midifile.lua).
 - `paw.api.undo_step(n)`

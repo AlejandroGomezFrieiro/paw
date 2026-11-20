@@ -60,6 +60,19 @@ local record Lua51
 end
 local unpack = (_G as Lua51).unpack
 
+--- The payload of `seat.opened` and `seat.closing`.
+local record SeatEvent
+  seat: integer
+end
+
+-- What this module reads of `paw`, which paw/init.lua makes. A module of the
+-- runtime in Teal does not see the global `paw`: runtime/types/paw.d.tl
+-- declares it from these modules.
+local record Paw
+  emit: function(string, SeatEvent)
+end
+local paw = (_G as {string:Paw}).paw
+
 local record M
   current: integer
   copy: function<T>(T): T
@@ -212,11 +225,13 @@ end
 -- A timer runs in the seat that started it: a key that waits for the next
 -- (`timeoutlen`), a message to clear, a deferred redraw.
 local start = api.timer_start
-api.timer_start = function(ms: number, repeat_: boolean, fn: function(...: Value): Value...): integer
+-- The kernel calls a timer with no arguments, and does not read what it
+-- returns.
+api.timer_start = function(ms: number, repeat_: boolean, fn: function()): integer
   local seat = M.current
   if seat ~= 0 and fn is function then
     local inner = fn
-    fn = function(...: Value): Value... return M.within(seat, inner, ...) end
+    fn = function() M.within(seat, inner) end
   end
   return start(ms, repeat_, fn)
 end

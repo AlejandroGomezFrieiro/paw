@@ -6,10 +6,18 @@
 local type Api = require("paw.api")
 local type AttrModule = require("paw.attr")
 local type BytesModule = require("paw.bytes")
+local type CommandsModule = require("paw.commands")
+local type EventsModule = require("paw.events")
 local type HarmonyReadModule = require("paw.harmony.read")
 local type HarmonyVoiceModule = require("paw.harmony.voice")
+local type HooksModule = require("paw.hooks")
+local type LangModule = require("paw.lang")
+local type LimitModule = require("paw.limit")
 local type MusicModule = require("paw.music")
+local type OptionModule = require("paw.options")
 local type RegexModule = require("paw.regex")
+local type SeatsModule = require("paw.seats")
+local type UtilModule = require("paw.util")
 
 global record paw
    api: Api
@@ -75,9 +83,9 @@ global record paw
    cancel: Untyped
    canvas: Untyped
    clip: Untyped
-   cmd: Untyped
+   cmd: function<C is CommandsModule.Context>(name: string, args?: CommandsModule.Args, ctx?: C): CommandsModule.Result
    command: Untyped
-   commands: Untyped
+   commands: CommandsModule
    complete: Untyped
    controls: Untyped
    cursor: Untyped
@@ -89,8 +97,8 @@ global record paw
    diagnostic: Untyped
    draw: Untyped
    edit: Untyped
-   emit: Untyped
-   events: Untyped
+   emit: function<P>(name: string, payload?: P): boolean, string
+   events: EventsModule
    every: Untyped
    ex: Untyped
    ext: Untyped
@@ -106,9 +114,9 @@ global record paw
    groups: Untyped
    health: Untyped
    help: Untyped
-   hooks: Untyped
+   hooks: HooksModule
    import_audio: Untyped
-   inspect: Untyped
+   inspect: function<T>(value: T, indent?: string, seen?: {UtilModule.Data:boolean}): string
    is_audio_file: Untyped
    is_chain_file: Untyped
    json: Untyped
@@ -116,11 +124,11 @@ global record paw
    keyrule: Untyped
    lane: Untyped
    lanes: Untyped
-   lang: Untyped
+   lang: LangModule
    layout: Untyped
    layouts: Untyped
    learn: Untyped
-   limit: Untyped
+   limit: LimitModule
    loading: Untyped
    lsp: Untyped
    luadev: Untyped
@@ -134,13 +142,13 @@ global record paw
    mouse: Untyped
    music: MusicModule
    notify: Untyped
-   off: Untyped
-   on: Untyped
-   once: Untyped
+   off: function(id: integer)
+   on: function<P>(pattern: string, fn: function(P, string), opts?: EventsModule.OnOptions): integer
+   once: function<P>(pattern: string, fn: function(P, string)): integer
    open: Untyped
    open_chain: Untyped
-   opt: Untyped
-   option: Untyped
+   opt: OptionModule.Opt
+   option: OptionModule
    panes: Untyped
    params: Untyped
    pick: Untyped
@@ -169,7 +177,7 @@ global record paw
    routes: Untyped
    scene: Untyped
    scope: Untyped
-   seats: Untyped
+   seats: SeatsModule
    snippet: Untyped
    state: Untyped
    statusline: Untyped
@@ -190,7 +198,7 @@ global record paw
    try: Untyped
    ui: Untyped
    undo: Untyped
-   util: Untyped
+   util: UtilModule
    vca: Untyped
    version: Untyped
    wait: Untyped

@@ -62,6 +62,14 @@ local record M
   wrapped: boolean
 end
 
+-- What this module reads of `paw`, which paw/init.lua makes. A module of the
+-- runtime in Teal does not see the global `paw`: runtime/types/paw.d.tl
+-- declares it from these modules.
+local record Paw
+  try: Fn
+end
+local paw = (_G as {string:Paw}).paw
+
 local CHECK_EVERY = 100000  -- instructions between looks at the clock
 
 local deadline: number     -- when the running callback must have returned, or nil
@@ -177,8 +185,10 @@ local kernel = api as {string:Fn}
 for _, name in ipairs({ "wait", "render", "project_load", "project_save", "device_add", "device_restart",
   "device_editor", "engine_restart", "import_audio", "clip_import" }) do
   local inner = kernel[name]
-  if inner is Fn then
-    kernel[name] = function(...: Value): Value... return M.unhurried(inner, ...) end
+  -- `is function`, not `is Fn`: the build compiles without the checker,
+  -- and without it a name of a function type reads as a table.
+  if inner is function then
+    kernel[name] = function(...: Value): Value... return M.unhurried(inner as Fn, ...) end
   end
 end
 

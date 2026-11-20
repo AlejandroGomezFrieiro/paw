@@ -127,7 +127,9 @@ local record M
   completers: {string:Completer}
 end
 
--- The parts of paw.ext that this module reads (paw/ext.lua is Lua).
+-- What this module reads of `paw`, which paw/init.lua makes. A module of the
+-- runtime in Teal does not see the global `paw`: runtime/types/paw.d.tl
+-- declares it from these modules. Most of these modules are Lua.
 local record Extension
   name: string
 end
@@ -137,6 +139,77 @@ local record Ext
   caller: function(): string
   bundled: function(): {string}
 end
+local record State
+  command_uses: {string:integer}
+end
+--- The payload of `command.pre` and `command.post`.
+local record Ran
+  name: string
+  command: string
+  args: Args
+end
+local record Ex
+  range: function(string): Range, string
+  exec: function(string, Context): Result...
+  complete_range: function(string): {Entry}
+  complete_pattern: function(string): {Entry}
+end
+local record Files
+  here: function(): string
+end
+local record DeviceType
+  kind: string
+  name: string
+  format: string
+end
+local record DeviceInfo
+  kind: string
+  name: string
+end
+local record Device
+  get: function(Device): DeviceInfo
+end
+local record Track
+  devices: function(Track): {Device}
+end
+local record Cursor
+  track: function(): Track
+end
+local record View
+  focusable: boolean
+end
+local record Ui
+  views: {string:View}
+end
+local record Source
+  desc: string
+end
+local record Pick
+  sources: {string:Source | function}
+end
+local record Format
+  project: boolean
+  extensions: {string}
+end
+local record Formats
+  extensions: function(string): {string}
+  list: function(): {Format}
+end
+local type LimitModule = require("paw.limit")
+local record Paw
+  ext: Ext
+  state: State
+  emit: function(string, Ran)
+  limit: LimitModule
+  ex: Ex
+  files: Files
+  device_types: function(): {DeviceType}
+  cursor: Cursor
+  ui: Ui
+  pick: Pick
+  formats: Formats
+end
+local paw = (_G as {string:Paw}).paw
 
 local registry: {string:Spec} = {}
 
@@ -198,14 +271,14 @@ function M.used(name: string)
   local spec = registry[name]
   name = spec and spec.alias_of or name
   if not registry[name] then return end
-  local uses = paw.state.command_uses as {string:integer} or {}
+  local uses = paw.state.command_uses or {}
   uses[name] = math.min((uses[name] or 0) + 1, 1000)
-  (paw.state as {string:{string:integer}}).command_uses = uses
+  paw.state.command_uses = uses
 end
 
 --- The number of times that `used` counted a command.
 function M.uses(name: string): integer
-  local uses = paw.state.command_uses as {string:integer}
+  local uses = paw.state.command_uses
   return uses is {string:integer} and uses[name] or 0
 end
 
@@ -227,9 +300,9 @@ end
 
 --- What to say about a name that is no command: the commands that start
 --- with it, if there are any.
-function M.unknown(typed: string): string
-  local name = tostring(typed)
-  local ext = paw.ext as Ext
+function M.unknown(name: string): string
+  name = tostring(name)
+  local ext = paw.ext
   local stem = name:match("^[^.]+")
   if ext and stem and not ext.loaded[stem] then
     for _, bundled in ipairs(ext.bundled()) do
@@ -262,7 +335,7 @@ function M.run<C is Context>(name: string, args?: Args, ctx?: C): Result
   -- command it stands for, which is what a listener usually cares about.
   local command = spec.alias_of or name
   paw.emit("command.pre", { name = name, command = command, args = c.args })
-  local result = paw.limit.named("the command `" .. name .. "`", spec.run, c) as Result
+  local result = paw.limit.named("the command `" .. name .. "`", spec.run, c)
   paw.emit("command.post", { name = name, command = command, args = c.args })
   return result
 end
@@ -340,7 +413,7 @@ end
 --- the rest. The range is nil when there is no range. When the range names
 --- nothing, an error message replaces the rest.
 function M.range(line: string): Range, string
-  return (paw.ex.range as function(string): (Range, string))(line)
+  return paw.ex.range(line)
 end
 
 --- Functions that may take a whole line before it is read as a command:
@@ -353,7 +426,7 @@ function M.exec(line: string, ctx?: Context): Result...
   for _, handler in ipairs(M.line_handlers) do
     if handler(line, ctx) then return end
   end
-  return (paw.ex.exec as function(string, Context): (Result...))(line, ctx)
+  return paw.ex.exec(line, ctx)
 end
 
 -- Completion ------------------------------------------------------------------
@@ -373,12 +446,6 @@ end
 
 local function item(text: string, desc?: string): Item return { text = text, desc = desc } end
 
---- A file or a directory that `paw.api.read_dir` lists.
-local record DirEntry
-  name: string
-  is_dir: boolean
-end
-
 --- Files and directories that start with what is typed, directories ending
 --- in `/`. `extensions` (a set) keeps only files with those endings.
 local function files(word: string, extensions?: {string:boolean}): {Item}
@@ -386,10 +453,10 @@ local function files(word: string, extensions?: {string:boolean}): {Item}
   local typed_dir, stem = word:match("^(.*/)([^/]*)$")
   typed_dir, stem = typed_dir or "", stem or word
   -- Relative names are in the folder that `:cd` set, or beside the project.
-  local here = paw.files and paw.files.here() as string or "."
+  local here = paw.files and paw.files.here() or "."
   local dir = typed_dir == "" and here or typed_dir:gsub("^~/", home .. "/")
   if dir:sub(1, 1) ~= "/" then dir = here .. "/" .. dir end
-  local ok, entries = pcall(api.read_dir as function(string): ({DirEntry}), dir)
+  local ok, entries = pcall(api.read_dir, dir)
   if not ok then return {} end
   local out: {Item} = {}
   for _, entry in ipairs(entries) do
@@ -416,27 +483,6 @@ local function set_of(list: {string}): {string:boolean}
   return out
 end
 
--- What the completers read of the modules that are still Lua.
-local record DeviceType
-  kind: string
-  name: string
-  format: string
-end
-local record DeviceInfo
-  kind: string
-  name: string
-end
-local record View
-  focusable: boolean
-end
-local record Source
-  desc: string
-end
-local record Format
-  project: boolean
-  extensions: {string}
-end
-
 local function sorted(out: {Item}): {Item}
   table.sort(out, function(a: Item, b: Item): boolean return a.text < b.text end)
   return out
@@ -456,7 +502,7 @@ M.completers = {
   end,
   devices = function(): {Item}
     local out: {Item} = {}
-    for _, info in ipairs(paw.device_types() as {DeviceType}) do
+    for _, info in ipairs(paw.device_types()) do
       out[#out + 1] = item(info.kind, info.name ~= info.kind and info.name or info.format)
     end
     return sorted(out)
@@ -464,8 +510,8 @@ M.completers = {
   track_devices = function(): {Item}
     local out: {Item} = {}
     local track = paw.cursor.track()
-    for _, device in ipairs(track and track:devices() as {paw.Untyped} or {}) do
-      local d = device:get() as DeviceInfo
+    for _, device in ipairs(track and track:devices() or {}) do
+      local d = device:get()
       out[#out + 1] = item(d.kind, d.name)
     end
     return out
@@ -477,14 +523,14 @@ M.completers = {
   end,
   views = function(): {Item}
     local out: {Item} = {}
-    for name, view in pairs(paw.ui.views as {string:View}) do
+    for name, view in pairs(paw.ui.views) do
       if view.focusable ~= false then out[#out + 1] = item(name) end
     end
     return sorted(out)
   end,
   pickers = function(): {Item}
     local out: {Item} = {}
-    for name, source in pairs(paw.pick.sources as {string:Source | function}) do
+    for name, source in pairs(paw.pick.sources) do
       out[#out + 1] = item(name, source is Source and source.desc or nil)
     end
     return sorted(out)
@@ -493,17 +539,17 @@ M.completers = {
   -- Sound files, and the files of the formats that read (paw/formats.lua).
   audio_files = function(word: string): {Item}
     local ext = set_of({ "wav", "wave", "aif", "aiff", "flac", "mp3", "ogg", "oga" })
-    for _, e in ipairs(paw.formats.extensions("import") as {string}) do ext[e] = true end
+    for _, e in ipairs(paw.formats.extensions("import")) do ext[e] = true end
     return files(word, ext)
   end,
   -- What `import` takes: sound files and the files of the formats that read.
   importable = function(word: string): {Item} return M.completers.audio_files(word) end,
   -- What `export` writes: the files of the formats that write.
-  exportable = function(word: string): {Item} return files(word, set_of(paw.formats.extensions("export") as {string})) end,
+  exportable = function(word: string): {Item} return files(word, set_of(paw.formats.extensions("export"))) end,
   -- Projects, and the files of formats that hold whole projects.
   projects = function(word: string): {Item}
     local ext = set_of({ "json" })
-    for _, f in ipairs(paw.formats.list() as {Format}) do
+    for _, f in ipairs(paw.formats.list()) do
       if f.project then
         for _, e in ipairs(f.extensions) do ext[e] = true end
       end
@@ -515,7 +561,7 @@ M.completers = {
   -- projects) and sound files.
   openable = function(word: string): {Item}
     local ext = set_of({ "json", "wav", "wave", "aif", "aiff", "flac", "mp3", "ogg", "oga" })
-    for _, e in ipairs(paw.formats.extensions("import") as {string}) do ext[e] = true end
+    for _, e in ipairs(paw.formats.extensions("import")) do ext[e] = true end
     return files(word, ext)
   end,
 }
@@ -529,8 +575,10 @@ local function candidates(spec: Spec, rest: string, info: Info): {Item}, boolean
     local fn = M.completers[how]
     return fn and fn(info.word, info) or {}, true
   end
-  if not how is CompleteFn then return {} end
-  local ok, got = pcall(how, rest, info)
+  -- `is function`, not `is CompleteFn`: the build compiles without the
+  -- checker, and without it a name of a function type reads as a table.
+  if not how is function then return {} end
+  local ok, got = pcall(how as CompleteFn, rest, info)
   if not ok or not got is {string | Candidate} then return {} end
   local list = got as Candidates
   local out: {Item} = {}
@@ -546,7 +594,7 @@ local function starts(text: string, stem: string): boolean return text:sub(1, #s
 ---   paw.commands.complete("track.co")   --> { { text = "track.color", label = "track.color", desc = ... } }
 function M.complete(line: string): {Entry}
   -- Marks after `'`, tracks after `t/`, fields in a pattern.
-  local special = (paw.ex.complete_range(line) or paw.ex.complete_pattern(line)) as {Entry}
+  local special = paw.ex.complete_range(line) or paw.ex.complete_pattern(line)
   if special then return special end
   -- A range in front stays as it is; what follows it is completed.
   local range, after = M.range(line)
