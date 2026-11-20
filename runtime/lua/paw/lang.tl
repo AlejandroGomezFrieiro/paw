@@ -8,22 +8,27 @@
 --
 -- Teal (`.tl`, https://teal-language.org) is one entry of the registry, the
 -- one that comes with paw: its compiler (runtime/lua/tl.lua) is in the
--- program. Loading does not check the types (as a TypeScript transpiler
--- does not): `paw.lang.check` does, and the test suite runs it over every
--- `.tl` file of the source tree.
+-- program. Loading checks the types, with the declarations built into the
+-- program, as `tl gen` does: in some places the Lua depends on them
+-- (`x is F`, where `F` names a function type). A file with type errors
+-- loads all the same (as TypeScript's compiler gives its output on an
+-- error): paw says the errors once, when it compiles the file, and
+-- `:checkhealth teal` lists them.
 --
 -- This module is written in Teal too: the build compiles it to Lua, so it
 -- does not need itself to load.
 local api = require("paw.api")
+local limit = require("paw.limit")
 
 --- A language: `compile(source, path)` gives the Lua of a file's text, or
---- nil and an error; or `command` is a shell command that writes the Lua,
---- with `%s` for the file. `name` names it in errors, and `version` goes
---- into the cache's key.
+--- nil and an error; and a list of problems that do not stop the file
+--- (type errors) as a third value. Or `command` is a shell command that
+--- writes the Lua, with `%s` for the file. `name` names it in errors, and
+--- `version` goes into the cache's key.
 local record Spec
   name: string
   version: string
-  compile: function(string, string): string, string
+  compile: function(string, string): string, string, {string}
   command: string
 end
 
@@ -70,6 +75,7 @@ local record M
 
   compilers: {string:Spec}
   stats: Stats
+  problems: {string:{string}}
 end
 
 --- The languages by the extension of their files, without the dot: each
@@ -136,6 +142,28 @@ local made: {string:boolean} = {}   -- cache directories made in this run
 --- Statistics of this run: files compiled and files taken from the cache.
 M.stats = { compiled = 0, cached = 0 }
 
+--- The problems of each file loaded in this run that did not stop it (type
+--- errors), by its path: each `line:col: message`. The cache keeps them
+--- with the Lua.
+M.problems = {}
+
+-- What the cache keeps after the Lua: a comment with the problems.
+local PROBLEMS = "\n--[==[paw.lang problems\n"
+
+local record Paw
+  notify: function(string, string)
+end
+
+-- Keep the problems of `path`, and say them when they are new.
+local function problems(path: string, list: {string}, new: boolean)
+  M.problems[path] = #list > 0 and list or nil
+  local paw = (_G as {string:Paw}).paw
+  if new and #list > 0 and paw and paw.notify then
+    paw.notify(string.format("%s: %d type error%s, the first %s (:checkhealth teal)", path, #list,
+      #list == 1 and "" or "s", list[1]), "warn")
+  end
+end
+
 --- The Lua of a file in a registered language, compiled or from the cache.
 --- `source` is the file's text when it is read already. Returns the Lua,
 --- or nil and an error that names the file.
@@ -151,12 +179,21 @@ function M.compile(path: string, source?: string): string, string
   local code = read(cached)
   if code then
     M.stats.cached = M.stats.cached + 1
+    local at = code:find(PROBLEMS, 1, true)
+    local list: {string} = {}
+    if at then
+      for line in code:sub(at + #PROBLEMS):gmatch("[^\n]+") do
+        if line ~= "]==]" then list[#list + 1] = line end
+      end
+    end
+    problems(path, list, false)
     return code
   end
   local err: string
+  local found: {string} = {}
   if spec.compile then
-    local ok, got, why = pcall(spec.compile, source, path)
-    if ok then code, err = got, why else err = got end
+    local ok, got, why, more = pcall(spec.compile, source, path)
+    if ok then code, err, found = got, why, more or {} else err = got end
   else
     local pipe = io.popen(spec.command:gsub("%%s", (shell_quote(path):gsub("%%", "%%%%"))) .. " 2>&1")
     local out = pipe and pipe:read("*a") or ""
@@ -165,6 +202,10 @@ function M.compile(path: string, source?: string): string, string
   end
   if not code then return nil, path .. ": " .. tostring(err or "does not compile") end
   M.stats.compiled = M.stats.compiled + 1
+  problems(path, found, true)
+  if #found > 0 then
+    code = code .. PROBLEMS .. (table.concat(found, "\n"):gsub("%]==%]", "] ==]")) .. "\n]==]\n"
+  end
   if not made[dir] then
     os.execute("mkdir -p " .. shell_quote(dir))
     made[dir] = true
@@ -243,7 +284,15 @@ table.insert(package.loaders as {function(string): (function | string)}, searche
 -- The compiler is a Lua file with no declarations of its own here.
 local record Node
 end
+local record Opaque
+end
 local record TealEnv
+  modules: {string:Opaque}
+  module_filenames: {string:string}
+  loaded: {string:CheckResult}
+  loaded_order: {string}
+  globals: {string:Opaque}
+  defaults: EnvDefaults
 end
 local record TealError
   filename: string
@@ -262,9 +311,14 @@ local record EnvOptions
   predefined_modules: {string}
 end
 local record CheckResult
+  ast: Node
   syntax_errors: {TealError}
   type_errors: {TealError}
   warnings: {TealError}
+end
+local record File
+  read: function(File, string): string
+  close: function(File)
 end
 local record TL
   path: string
@@ -272,6 +326,8 @@ local record TL
   generate: function(Node, string): string, string
   new_env: function(EnvOptions): TealEnv, string
   check_file: function(string, TealEnv): CheckResult, string
+  check_string: function(string, TealEnv, string): CheckResult
+  search_module: function(string, boolean): string, File
 end
 
 local tl: TL   -- the compiler, loaded the first time a `.tl` file is not in the cache
@@ -288,18 +344,99 @@ local record Gen
 end
 local GEN: Gen = { gen_target = "5.1", gen_compat = "off" }
 
+-- Where a check finds a module: along `package.path` (an extension's own
+-- modules, the user's), then in the runtime built into the program, which
+-- has the declarations of runtime/types. In the order of `tl`: declarations
+-- (`.d.tl`) first, then `.tl`, then Lua (which has no types).
+local function search(name: string, all: boolean): string, File
+  local slashed = name:gsub("%.", "/")
+  local function built(file: string): string, File
+    local text = api.runtime_file(file)
+    if not text then return nil end
+    local f: File = { read = function(): string return text end, close = function() end }
+    return "runtime/" .. file, f
+  end
+  for _, kind in ipairs(all and { ".d.tl", ".tl", ".lua" } or { ".tl" }) do
+    for template in package.path:gmatch("[^;]+") do
+      local file = template:gsub("%.lua$", kind):gsub("%?", slashed)
+      local f = io.open(file, "rb")
+      if f then return file, f as File end
+    end
+    local dir = kind == ".d.tl" and "types/" or "lua/"
+    local file, f = built(dir .. slashed .. kind)
+    if not file then file, f = built(dir .. slashed .. "/init" .. kind) end
+    if file then return file, f end
+  end
+  return nil
+end
+
+-- Run `fn` with `search` as the compiler's way to find modules.
+local function searching<T>(compiler: TL, fn: function(): T): T
+  local saved = compiler.search_module
+  compiler.search_module = search
+  local ok, got = pcall(fn)
+  compiler.search_module = saved
+  if not ok then error(got, 0) end
+  return got as T
+end
+
+local base: TealEnv   -- the global `paw` and the runtime's modules, checked once in a run
+
+-- An environment for one file: a copy of `base`, so that what one file
+-- declares does not stay for the next.
+local function environment(compiler: TL): TealEnv
+  base = base or searching(compiler, function(): TealEnv
+    return assert(compiler.new_env({
+      defaults = { feat_lax = "off", feat_arity = "on", gen_target = GEN.gen_target, gen_compat = GEN.gen_compat },
+      predefined_modules = { "paw" },
+    }))
+  end)
+  local function copy<K, V>(t: {K:V}): {K:V}
+    local out: {K:V} = {}
+    for k, v in pairs(t) do out[k] = v end
+    return out
+  end
+  local order: {string} = {}
+  for i, f in ipairs(base.loaded_order) do order[i] = f end
+  return {
+    modules = copy(base.modules),
+    module_filenames = copy(base.module_filenames),
+    loaded = copy(base.loaded),
+    loaded_order = order,
+    globals = copy(base.globals),
+    defaults = base.defaults,
+  }
+end
+
+local function at(e: TealError): string
+  return string.format("%d:%d: %s", e.y, e.x, e.msg)
+end
+
 M.add("tl", {
   name = "teal",
-  -- The version of runtime/lua/tl.lua; and of what this file asks of it.
-  version = "0.24.8/1",
-  compile = function(source: string, path: string): string, string
+  -- The version of runtime/lua/tl.lua, of what this file asks of it, and
+  -- of the types of the runtime that a check reads.
+  version = "0.24.8/2/" .. tostring(api.env().teal_types),
+  compile = function(source: string, path: string): string, string, {string}
     local compiler = teal()
-    local ast, errors = compiler.parse(source, path)
-    if #errors > 0 then
-      local e = errors[1]
-      return nil, string.format("%d:%d: %s", e.y, e.x, e.msg)
+    -- The first check in a run reads the types of the whole runtime (half a
+    -- second): work that ends, so not counted in the time limit.
+    local ok, result = pcall(limit.unhurried, function(): CheckResult
+      local env = environment(compiler)
+      return searching(compiler, function(): CheckResult return compiler.check_string(source, env, path) end)
+    end)
+    if not ok then
+      -- No check (the declarations do not load): the Lua without the types.
+      local ast, errors = compiler.parse(source, path)
+      if #errors > 0 then return nil, at(errors[1]) end
+      local code, err = compiler.generate(ast, GEN.gen_target)
+      return code, err, { "1:1: the types were not checked: " .. tostring(result) }
     end
-    return compiler.generate(ast, GEN.gen_target)
+    if #result.syntax_errors > 0 then return nil, at(result.syntax_errors[1]) end
+    local code, err = compiler.generate(result.ast, GEN.gen_target)
+    local found: {string} = {}
+    for i, e in ipairs(result.type_errors) do found[i] = at(e) end
+    return code, err, found
   end,
 })
 

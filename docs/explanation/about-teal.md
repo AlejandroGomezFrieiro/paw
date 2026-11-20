@@ -38,9 +38,21 @@ paw can load each of these through the same registry of languages
   Lua in `~/.cache/paw/lang`, by the contents of the file, so a file
   compiles one time. paw loads the compiler only when a file is not in the
   cache.
-- **The loader does not check types.** It only compiles, as a
-  compiler of TypeScript that removes the types does. `tl check`, `paw.lang.check` and the test suite
-  check the types.
+- **The build and the loader check the types.** In some places, the Lua
+  that Teal makes depends on the types: `value is Fn`, where `Fn` is a
+  name of a function type, is a test for a function. So the build and
+  the loader compile as `tl gen` does, after a check. The build stops at
+  a type error in the runtime. A file of an extension or of the
+  configuration with type errors loads all the same, as the compiler of
+  TypeScript gives its output on an error. paw shows the errors one time,
+  when it compiles the file, and `:checkhealth teal` lists them.
+- **What a check reads.** The program contains the declarations of
+  `runtime/types` and the modules of the runtime in Teal
+  (`paw.api.runtime_file`). The first check in a run reads the types of
+  all of these, in about half a second. This time is not part of the
+  time limit on Lua. The cache key of a file includes a hash of these
+  types, so a file compiles again when the types of paw change. A file in
+  the cache costs no check.
 - **The functions in Rust.** `runtime/types/paw/api.d.tl` declares
   `paw.api`, the functions of the kernel. `tools/apidoc.lua` makes it from
   the comments of `crates/paw-core/src/api.rs` and of the other files that
@@ -158,11 +170,11 @@ entries.
   can refuse, with `false, reason`.
 - `unpack`, `table.maxn`, `loadstring` and `jit` are not in Teal's list
   of the library of Lua 5.1. A record of these names casts `_G` one time.
-- The build and the loader compile without the checker. Without it,
+- The build and the loader compiled without the checker. Without it,
   `value is Fn`, where `Fn` is a name of a function type, became a test
   for a table. The tests found two such tests: completion by a function
-  and the time limit around a wait did not work. A test with `is` names
-  the type itself (`is function`), or a record.
+  and the time limit around a wait did not work. Now the build and the
+  loader check the types before they compile.
 - An error in a module in Teal names its `.tl` file. `paw.failure` moves
   the place in a `.tl` file to the end of the message, as it does for a
   `.lua` file.

@@ -571,10 +571,8 @@ local function candidates(spec: Spec, rest: string, info: Info): {Item}, boolean
     local fn = M.completers[how]
     return fn and fn(info.word, info) or {}, true
   end
-  -- `is function`, not `is CompleteFn`: the build compiles without the
-  -- checker, and without it a name of a function type reads as a table.
-  if not how is function then return {} end
-  local ok, got = pcall(how as CompleteFn, rest, info)
+  if not how is CompleteFn then return {} end
+  local ok, got = pcall(how, rest, info)
   if not ok or not got is {string | Candidate} then return {} end
   local list = got as Candidates
   local out: {Item} = {}

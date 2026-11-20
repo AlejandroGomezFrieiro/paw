@@ -54,6 +54,33 @@ test("teal: an extension in Teal compiles once, then comes from the cache", func
   eq(paw.lang.stats.cached, cached + 1, "taken from the cache")
 end)
 
+test("teal: the loader compiles with the types: `is` a name of a function type tests for a function", function()
+  local file = T.scratch .. "/teal/alias.tl"
+  write(file, 'local type Fn = function(): string\n'
+    .. 'local function call(x: Fn | string): string\n  if x is Fn then return x() end\n  return x\nend\n'
+    .. 'return call(function(): string return "called" end)\n')
+  eq(assert(paw.lang.loadfile(file))(), "called", "the function is called")
+end)
+
+test("teal: a file with a type error loads, and its errors stay known from the cache", function()
+  local file = T.scratch .. "/teal/typo.tl"
+  write(file, 'local n: integer = "one"\nreturn 1\n')
+  local chunk = paw.lang.loadfile(file)
+  eq(chunk and chunk(), 1, "it loads and runs")
+  local function said()
+    local items = paw.health.run("teal").items
+    for _, item in ipairs(items) do
+      if item.text:find(file, 1, true) then return item.level .. " " .. table.concat(item.advice or {}, "\n") end
+    end
+  end
+  eq((said() or ""):match("^warn 1:"), "warn 1:", ":checkhealth teal shows the error and its line")
+  paw.lang.problems[file] = nil
+  local cached = paw.lang.stats.cached
+  paw.lang.loadfile(file)
+  eq(paw.lang.stats.cached, cached + 1, "taken from the cache")
+  eq((said() or ""):match("^warn 1:"), "warn 1:", "the error comes back with it")
+end)
+
 test("teal: an error in a Teal file names the file and its line", function()
   local file = T.scratch .. "/teal/broken.tl"
   write(file, 'local x = 1\nlocal function (\n')

@@ -40,7 +40,16 @@ paw uses Teal.
 
 ## Check the types
 
-Do one of these:
+paw checks the types of the file when it compiles it. A file with type
+errors loads all the same. When paw compiles the file, the message line
+shows the number of errors and the first error. To see all of the
+errors, type `:checkhealth teal`.
+
+The first check after you change a file or update paw takes about half a
+second. In that time, paw reads the types of its own modules. paw keeps
+the result, so the next start takes no time for the file.
+
+To check the types before you load the file, do one of these:
 
 - In paw, type `:lua print(#paw.lang.check({ "/path/to/scale.tl" }))`.
   The function returns a list of errors, with the file, the line and the
@@ -104,11 +113,6 @@ each value that you keep to its type:
 `local id = paw.cursor.track_id() as integer`. When the module is in
 Teal, the cast is not necessary.
 
-**Tests with `is`.** paw compiles a file without the checker. Without
-the checker, the compiler does not know the names that you give to types.
-It reads `value is Name` as a test for a table. So in an `is` test, write
-the type itself: `fn is function`, `name is string`. A record is a table,
-so `opts is Options` is correct.
 
 ## Use another language
 

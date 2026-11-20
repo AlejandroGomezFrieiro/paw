@@ -58,6 +58,8 @@ extensions/scale.tl             an extension in one file, in Teal
 Each Lua file can also be a file of Teal (`init.tl`, `lua/euclid/rhythm.tl`,
 `scale.tl`) or of another language that `paw.lang.add` registers. paw
 compiles it when it loads it, and keeps the Lua in `~/.cache/paw/lang`.
+paw checks the types of a file of Teal when it compiles it. A file with
+type errors loads, and `:checkhealth teal` lists the errors.
 `manifest.lua` stays Lua. See
 [How to write an extension in Teal](../how-to/write-an-extension-in-teal.md).
 
@@ -66,6 +68,7 @@ compiles it when it loads it, and keeps the Lua in `~/.cache/paw/lang`.
 | `paw.lang.add(ext, spec)` | registers a language whose files end in `.ext`: `spec.compile(source, path)` or `spec.command` (`"fennel --compile %s"`) makes the Lua |
 | `paw.lang.loadfile(path)` | loads a file of Lua or of a registered language |
 | `paw.lang.check(files)` | checks the types of `.tl` files, with `tlconfig.lua`, and returns the errors |
+| `paw.lang.problems` | the type errors of each file in Teal that paw loaded, by its path |
 
 Files in `~/.config/paw/lua/` replace the built-in modules with the same
 name. So any part of the runtime can be replaced.
@@ -252,6 +255,7 @@ advice under it. `:checkhealth audio ffmpeg` runs only those checks.
 | `window` | the OpenGL renderer of the graphical window: the graphics card or the processor, and what to do about the processor |
 | `fonts` | the fonts that the graphical window uses when its own font has no glyph |
 | `extensions` | the extensions, their versions and their requirements |
+| `teal` | the type errors of the configuration and the extensions in Teal |
 
 The utau extension checks its engine. The sampler extension checks its
 plugin. An extension adds its own check:

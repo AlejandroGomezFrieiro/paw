@@ -8819,6 +8819,14 @@ function paw.api.rpc_push(client, event, payload) end
 
 function paw.api.rpc_version() end
 
+--- The text of a file of the runtime that is built into the program,
+--- by its path under `runtime`: a module (`lua/paw/util.tl`) or a
+--- declaration of Teal (`types/paw.d.tl`). Nil when the program has
+--- no such file. The loader checks the types of a file in Teal with
+--- these.
+---@param path string
+function paw.api.runtime_file(path) end
+
 --- Start a scene `w` by `h` units big, for `scene_draw` and
 --- `scene_picture` to put nodes in.
 ---@param w number
