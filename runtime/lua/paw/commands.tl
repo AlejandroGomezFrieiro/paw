@@ -6,40 +6,14 @@ local api = require("paw.api")
 local type contracts = require("paw.contracts")
 local options = require("paw.options")
 
---- An argument as the command line reads it: text, a number, true or false.
-local type Arg = string | number | boolean
-
---- A command's arguments: positional ones in order, named ones by name
---- (`track.add Bass volume=-6` is `{ "Bass", volume = -6 }`).
-local record Args
-  {Arg}
-  metamethod __index: function(Args, string): Arg
-  metamethod __newindex: function(Args, string, Arg)
-end
-
---- A range before a command (paw/ex.lua): of bars and beats, of tracks, or
---- the visual selection.
-local record Range
-  bars: {integer}
-  from: number
-  to: number
-  tracks: {integer}
-  selection: boolean
-end
-
---- What a command's function gets. The one who runs it may add fields of
---- its own, which a command in Teal reads with a record of its own.
-local interface Context
-  args: Args
-  name: string
-  count: integer
-  range: Range
-  line: string
-end
-
---- What a command gives back to the one who runs it: its own data.
-local record Result
-end
+-- The types that a command's function and options have are contracts
+-- (paw/contracts.tl), so that `paw.command` is typed for the modules in
+-- Lua as well.
+local type Arg = contracts.CommandArg
+local type Args = contracts.CommandArgs
+local type Range = contracts.CommandRange
+local type Context = contracts.CommandContext
+local type Result = contracts.CommandResult
 
 --- A candidate of completion: `text`, and what it is (`desc`).
 local record Item
@@ -47,22 +21,8 @@ local record Item
   desc: string
 end
 
---- Where the word being completed is: `word`, its `index` among the
---- arguments (from 1), the `words` before it and the whole `line`.
-local record Info
-  word: string
-  index: integer
-  words: {string}
-  line: string
-end
-
---- What a function of `complete` may give for each candidate: a table with
---- `text` (or the text first) and `desc`.
-local record Candidate
-  {string}
-  text: string
-  desc: string
-end
+local type Info = contracts.CompleteInfo
+local type Candidate = contracts.CompleteCandidate
 
 --- What a function of `complete` gives: candidates, and `ranked = true`
 --- when they are in their order already.
@@ -72,13 +32,12 @@ local record Candidates
 end
 
 local type Completer = function(string, ? Info): {Item}
-local type CompleteFn = function(string, Info): {string | Candidate}
+local type CompleteFn = contracts.CompleteFn
+local type Complete = contracts.Complete
 
---- How a command completes its arguments: a completer's name, a name for
---- each argument, or a function.
-local type Complete = string | {string} | CompleteFn
-
---- A command, as `paw.command` makes it.
+--- A command, as `paw.command` makes it. `ex` marks a command of Ex,
+--- which takes its text whole after a range, and `items` one that also
+--- works on the matches that `:g` hands it (paw/ex.tl).
 local record Spec
   name: string
   run: function(Context): Result
@@ -89,17 +48,11 @@ local record Spec
   range: boolean
   alias_of: string
   ext: string
+  ex: boolean
+  items: boolean
 end
 
---- What `paw.command` takes besides the name and the function.
-local record Options
-  desc: string
-  raw: boolean
-  complete: Complete
-  label: string
-  range: boolean
-  ext: string
-end
+local type Options = contracts.CommandOptions
 
 --- A completion of a command line: the whole line it makes (`text`), the
 --- part shown (`label`), and what it is.
@@ -145,7 +98,8 @@ local record Ran
   command: string
   args: Args
 end
---- paw/ex.lua, as far as it reads this module's own types.
+--- paw/ex.tl, as far as this module calls it: paw/ex.tl requires this
+--- module, so this one names only the part it calls.
 local record Ex
   range: function(string): Range, string
   exec: function(string, Context): Result...
@@ -352,7 +306,7 @@ end
 --
 -- A command line may start with a range, as in Vim: of time (`:5,8`, `%`,
 -- `.`, `$`, `'a,'b`, `'<,'>`) and of tracks (`:t2,t4`, `t*`, `t/Drums/`).
--- `paw.ex` (runtime/lua/paw/ex.lua) reads them, runs its own commands on
+-- `paw.ex` (runtime/lua/paw/ex.tl) reads them, runs its own commands on
 -- them (`:5,8d`, `:%s/c4/d4/`, `:g/vel<20/d`), and gives the range to a
 -- command defined with `range = true` as `ctx.range`: `{ bars = { first,
 -- last }, from, to }` for time, `from` and `to` in beats of the song, the
@@ -369,7 +323,7 @@ end
 
 --- Functions that may take a whole line before it is read as a command:
 --- `fn(line, ctx)` returns true when it ran it. A text buffer takes `:w`,
---- `:s/a/b/` and its ranges of lines this way (paw/textbuf.lua).
+--- `:s/a/b/` and its ranges of lines this way (paw/textbuf.tl).
 M.line_handlers = {}
 
 --- Run a command line, as typed after `:`, with a range in front if it has one.

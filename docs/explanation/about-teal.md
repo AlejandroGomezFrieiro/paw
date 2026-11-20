@@ -236,7 +236,8 @@ work of one agent. The areas of one wave do not depend on each other.
 | Done | Queries and lists | `query`, `grep`, `qf`, `diagnostic`, `complete`, `snippet`: 5,601 lines of Teal, 6 fewer entries on the allow-list, and no `any` in these modules | 3,900 | wave 2 |
 | Done | Drawing | `buf`, `draw`, `canvas`, `roles`, `scene`, `theme`, `plot`, `statusline`: 4,740 lines of Teal, 6 fewer entries on the allow-list, and no `any` or `paw.Untyped` in these modules | 3,700 | wave 2 |
 | 4 | Windows | `ui`, `layout`, `panes`, `mouse`, the menus | 4,500 | wave 3 |
-| 4 | Editors | `ex`, `textbuf`, `pick` and `pick/`, `help`, `lsp/` | 9,000 | wave 3 |
+| Done | Editors: Ex and text buffers | `ex`, `textbuf`: 4,817 lines of Teal, `paw.ex` and `paw.command` typed (the types of commands are contracts now), 3 fewer entries on the allow-list, and no `any` or `paw.Untyped` in these modules | 4,100 | wave 3 |
+| 4 | Editors: pickers and help | `pick` and `pick/`, `help`, `lsp/` | 4,900 | wave 3 |
 | Done | The frontend | `frontend`, `remote`, `render`, `media`: 5,290 lines of Teal, 9 fewer entries on the allow-list, and no `any` or `paw.Untyped` in these modules | 3,800 | wave 3 |
 | 5 | Keys and views | `keymap`, `keyrule`, `keybar`, `defaults/`, `views/`, `roles/` | 15,000 | wave 4, and the work on the keys that runs now |
 | 5 | Extensions | one agent for each: `notation` (20,000), `utau` (8,000), `plugstate` (5,700), `interop` (4,000), the others (under 3,200 each) | 60,000 | the modules of paw that each uses |
@@ -382,8 +383,10 @@ entries.
   quicker than the whole table. Teal does not see these forms. The ports
   keep them, with a cast of the function, because `paw.groups.rows` and
   `paw.harmony.fresh` run each time that paw draws.
-- The function that `paw.command` gets must give a `commands.Result`. A
-  command in Teal that gives nothing declares `: commands.Result`.
+- The function that `paw.commands.define` gets must give a
+  `commands.Result`. A command in Teal that gives nothing declares
+  `: commands.Result`. The function that `paw.command` gets
+  (`contracts.Command`) can give nothing.
 - `paw.harmony.read` gives its types now (`read.Note`, `read.Chord`), and
   `read.Note` is an interface, so the notes of the song (`paw.harmony.notes`,
   with their track and clip) go to `read.chords` with no cast.
@@ -426,6 +429,53 @@ entries.
   pass with no change. A frame on the screen takes the same time as
   before: `bench/redraw.lua` with 16 tracks gives the same median, in the
   spread of six runs of each.
+
+## What the checker found in Ex and the text buffers
+
+- `paw.command` was `paw.Untyped`. The types of a command (its context,
+  range and result) were in `paw/commands.tl`, and `partial.d.tl`, which
+  types the modules in Lua, cannot require that module: the two require
+  each other. These types are contracts now (`paw.contracts.CommandContext`,
+  `CommandRange`, `CommandResult`, `CommandOptions` and the others), so
+  `paw.command` has the type `paw.contracts.Command`. The function that it
+  gets can give nothing.
+- The range of a command had five fields in the types. `paw.ex` gives it
+  eleven more (the region of a selection, its pitches, the matches of
+  `:g`, the clips of a view). `paw.contracts.CommandRange` has all of
+  them. The items, the fields of patterns and the views of ranges are
+  contracts too (`ExItem`, `ExField`, `ExChange`, `ExView`), and
+  `paw.query` uses them in place of records of its own.
+- The piano roll told Ex its track with `clip.track`. On a `paw.Clip`,
+  `track` is a method, so the piano roll gave a function, not a track.
+  `:mute` with no range in the piano roll failed. It gives the id now,
+  and a test types `:mute` there.
+- `paw.time.signature_at` gives two numbers, but Ex also read a table
+  from it. The port reads the numbers only.
+- `:transpose` took any number. A part of a semitone made a pitch that is
+  not a whole number. It takes whole numbers only now.
+- A place of a mark was `{string:number}` in `contracts.Grid`. The arrange
+  view keeps `{ track, beat }`, and a text buffer keeps its row, its
+  column and the name of the buffer. `paw.contracts.GridMark` has them.
+- `ctx.kind` of the functions and keys of a kind of text buffer had the
+  type `string` in the contracts. paw gives the kind itself, and the
+  files' kinds read `ctx.kind.tree`. Its type is
+  `paw.contracts.TextKindInfo` now.
+- The second argument of the `status` of a kind of text buffer had the
+  type `string`. It is the context of the status line
+  (`paw.contracts.StatusContext`).
+- `paw.textbuf.changes` gives the lines that do not read, the row
+  of each line, and `moved`, true when the lines moved. `contracts.TextChanges` and
+  `contracts.TextLine` have these fields now. The fields of a region of
+  the keymap that a text buffer reads (`visual`, `object`, `unstretched`)
+  and the clips of a selection in the arrange view are in
+  `contracts.Region`.
+- The text made its methods read-only: it put new methods in their place when it loaded.
+  Teal cannot type that, so each method that changes the text asks first.
+- A kind's functions run in `pcall`, which gives no types. The port calls
+  them in a closure that keeps their results.
+- `paw.textbuf.plan` gave the changes as a third value when it found a
+  plan. Nothing read it, and Teal cannot give a value of two types in one
+  place, so it gives the plan only.
 
 ## What the checker found in the queries and lists
 

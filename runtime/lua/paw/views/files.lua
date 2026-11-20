@@ -1,5 +1,5 @@
 -- The file manager, edited as text after oil.nvim and fyler.nvim
--- (paw/textbuf.lua says how text buffers work):
+-- (paw/textbuf.tl says how text buffers work):
 --
 --   :e some/folder         paw://files/home/me/music    a folder a line, in this window
 --   :Files                 paw://tree/home/me/music     the folder as a tree, in a split

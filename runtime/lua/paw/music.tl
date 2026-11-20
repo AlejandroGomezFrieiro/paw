@@ -9,6 +9,7 @@ local record PitchWord
 end
 
 local record M
+  type PitchWord = PitchWord
   scales: {string:{integer}}
 end
 

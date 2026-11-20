@@ -33,6 +33,7 @@ local type contracts = require("paw.contracts")
 local type types = require("paw.types")
 local type partial = require("paw.partial")
 local type objects = require("paw.objects")
+local type TextbufModule = require("paw.textbuf")
 local type CursorModule = require("paw.cursor")
 local type DrawModule = require("paw.draw")
 local type TempoModule = require("paw.tempo")
@@ -69,10 +70,8 @@ end
 local record Lister
   status: function(): StatusText
 end
-local record Textbuf
-  buf: function(): contracts.LayoutBuffer
-end
 local record Paw is partial.Paw
+  textbuf: TextbufModule
   audio: Audio
   cursor: CursorModule
   diagnostic: Lister
@@ -540,7 +539,7 @@ end })
 -- The text buffer with the keys, with its name.
 spec("buffer", { rank = 4, fn = function(ctx: Context): StatusText
   if paw.ui.focused ~= "textbuf" then return nil end
-  local buf = (paw.textbuf as Textbuf).buf()
+  local buf = paw.textbuf.buf()
   if not buf then return nil end
   -- A long address keeps its end, where the name is.
   local name = buf.name

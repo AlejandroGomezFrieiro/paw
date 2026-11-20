@@ -39,10 +39,6 @@ local record partial
       metamethod __call: function<T>(Pick, spec: string | contracts.PickSource<T>, extra?: contracts.PickExtra)
       metamethod __index: function(Pick, string): Untyped
    end
-   record Textbuf
-      kind: function<I is contracts.TextItem, F>(name: string, spec: contracts.TextKind<I, F>): contracts.TextKind<I, F>
-      metamethod __index: function(Textbuf, string): Untyped
-   end
    record TrackKinds
       define: function(name: string, spec: contracts.TrackKind): contracts.TrackKind
       metamethod __index: function(TrackKinds, string): Untyped
@@ -65,6 +61,7 @@ local record partial
    interface Paw
       buftype: function<B is contracts.Buftype>(name: string, def: B): B
       cancel: function(handle: integer)
+      command: contracts.Command
       defer: function(fn: function(), ms?: number): integer
       device_types: function(): {types.DeviceType}
       every: function(ms: number, fn: function()): integer
@@ -80,7 +77,6 @@ local record partial
       pick: Pick
       render_cancel: function(): boolean
       render_tags: function(set?: types.RenderTags): types.RenderTags
-      textbuf: Textbuf
       timers: {integer:function()}
       track_kinds: TrackKinds
       ui: Ui
