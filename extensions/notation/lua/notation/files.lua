@@ -272,14 +272,6 @@ local function import_command(path, tempo)
   return done
 end
 
-local function open_command(path)
-  if not paw.project.guard("open", paw.project.discarding()) then return end
-  local ok, done = pcall(F.open, path)
-  if not ok then return paw.notify("could not open " .. path .. ": " .. tostring(done):gsub("^[^:]*:%d+: ", ""), "error") end
-  paw.notify("opened " .. F.said(path, done) .. " (`:w` asks where to save it)")
-  return done
-end
-
 --- The path of a raw command line, and a `tempo=` at its end.
 local function path_and_tempo(line)
   local path, tempo = tostring(line or ""), nil
@@ -294,25 +286,34 @@ paw.command("notation.import", function(ctx)
   return import_command(path, tempo or ctx.args.tempo)
 end, { raw = true, desc = "Bring a MusicXML score in: a track for each part at the cursor, each a MIDI clip with its notation: `notation.import song.musicxml`, `song.mxl tempo=yes` (its tempo marks and time signatures too)", complete = "files" })
 
--- `:open`, `:edit` and `:import` of a MusicXML file come here; other files
--- go to the commands as they were.
-local function hook(name, run)
-  local spec = paw.commands.get(name)
-  if not spec or spec.musicxml_hooked then return end
-  local original = spec.run
-  paw.command(name, function(ctx)
-    local path, tempo = path_and_tempo(ctx.args and ctx.args[1])
-    if path ~= "" and mx.is_file(path) then return run(path, tempo or ctx.args.tempo) end
-    return original(ctx)
-  end, { desc = spec.desc .. " (or a MusicXML score: .musicxml, .mxl)", raw = spec.raw, complete = spec.complete, range = spec.range })
-  paw.commands.get(name).musicxml_hooked = true
-end
+-- MusicXML is a format of `paw.formats`: `:import song.musicxml` brings
+-- its parts in at the cursor (`tempo=yes`: its tempo marks too), `:open`
+-- makes a new project of it, `:export song.musicxml` writes the first
+-- clip of each track. LilyPond is written only.
+local function heading() return require("notation.page").heading(paw.project.get().name or "score") end
 
-hook("open", open_command)
-hook("edit", open_command)
-hook("import", import_command)
--- An alias keeps the command it was made for.
-if paw.commands.get("e") then paw.command.alias("e", "edit") end
+paw.formats.register({
+  name = "musicxml", desc = "MusicXML scores (MuseScore, Dorico, Sibelius, Finale)", extensions = mx.extensions,
+  import = function(path, opts)
+    local tempo = opts.args.tempo
+    if opts.merge then return "imported " .. F.said(path, F.import(path, { tempo = tempo == true or tempo == "yes" or tempo == "on" })) end
+    return "opened " .. F.said(path, F.open(path)) .. " (`:w` asks where to save it)"
+  end,
+  export = function(path)
+    local title, composer = heading()
+    local n = F.export(path, F.all_clips(), { title = title, composer = composer })
+    return string.format("wrote %d part%s to %s", n, n == 1 and "" or "s", path)
+  end,
+})
+
+paw.formats.register({
+  name = "lilypond", desc = "LilyPond scores", extensions = { "ly" },
+  export = function(path)
+    local title, composer = heading()
+    local n = F.export(path, F.all_clips(), { title = title, composer = composer })
+    return string.format("wrote %d part%s to %s", n, n == 1 and "" or "s", path)
+  end,
+})
 
 view.files = F
 return F

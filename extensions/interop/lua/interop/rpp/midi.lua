@@ -3,7 +3,7 @@
 --
 -- Both give notes in ticks from the start of the source, plus counts of what
 -- is not a note, so an import can say what it left out.
-local fmt = require("rpp.format")
+local fmt = require("interop.rpp.format")
 local smf = require("paw.midifile")
 local M = {}
 

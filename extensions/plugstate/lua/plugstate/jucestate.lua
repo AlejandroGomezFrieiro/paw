@@ -21,7 +21,7 @@
 local juce = require("plugstate.juce")
 local xml = require("plugstate.jucexml")
 local bytes = require("plugstate.bytes")
-local vst3 = require("plugstate.vst3state")
+local vst3 = { split = paw.bytes.vst3_split, join = paw.bytes.vst3_join }
 
 local M = { plugins = {} }
 

@@ -336,7 +336,7 @@
 
       devShells = forAll (pkgs: {
         default = pkgs.mkShell {
-          # xmllint checks the files of extensions/dawproject against the
+          # xmllint checks the DAWproject files of extensions/interop against the
           # format's XML schema.
           nativeBuildInputs = with pkgs; [ cargo rustc clippy rustfmt rust-analyzer pkg-config rustPlatform.bindgenHook ffmpeg-headless sccache cargo-sweep (lib.getBin libxml2) ];
           # Every git worktree has a `target/` of its own, and cargo shares

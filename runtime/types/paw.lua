@@ -86,6 +86,9 @@ paw.external = {}
 ---@class paw.files
 paw.files = {}
 
+---@class paw.formats
+paw.formats = {}
+
 ---@class paw.freeze
 paw.freeze = {}
 
@@ -1249,6 +1252,18 @@ function paw.bytes.u32(data, at) end
 --- line ends passed over). Raises when the text is not base64.
 ---@param text any
 function paw.bytes.unbase64(text) end
+
+--- A VST3 plugin's state as paw keeps it, from its component's part and
+--- its controller's part.
+---@param component any
+---@param controller any
+function paw.bytes.vst3_join(component, controller) end
+
+--- The component's part and the controller's part of a VST3 plugin's
+--- state as paw keeps it (each after its length, 32 bits, little-endian),
+--- or nil and why. A state without a controller part gives "" for it.
+---@param raw any
+function paw.bytes.vst3_split(raw) end
 
 --- Give the keyboard back to the main window from a view in a separate
 --- window. It goes to the window that had it before the view went there,
@@ -2688,6 +2703,54 @@ function paw.files.sound_info(path, stat) end
 
 --- Start to watch the cursor, when a files buffer exists.
 function paw.files.watch() end
+
+--- Write the project with the format of a file. Says what it did.
+---@param path any
+---@param opts any
+function paw.formats.export(path, opts) end
+
+--- The extensions of the files that a side takes, for lists and completion.
+---@param side any
+function paw.formats.extensions(side) end
+
+--- The format that takes `path` for `side` ("import" or "export"): one
+--- whose `detect` says yes, else one of the file's extension. Nil when
+--- none does.
+---@param path any
+---@param side any
+function paw.formats.for_path(path, side) end
+
+--- The format of a name, or nil.
+---@param name any
+function paw.formats.get(name) end
+
+--- The page of `:help formats`, in Markdown: what each format reads and
+--- writes, and how to add one.
+function paw.formats.help_text() end
+
+--- Bring a file in with its format: `opts.merge` adds to the project,
+--- else it opens in place of the project. Says what it did; returns what
+--- the format returned, or nil when it could not.
+---@param path any
+---@param opts any
+function paw.formats.import(path, opts) end
+
+--- The formats, by name: `{ name, desc, extensions, project, import, export }` each.
+function paw.formats.list() end
+
+--- Register a format of files (see the top of paw/formats.lua). A format
+--- of the same name is replaced. Returns the name.
+---@param spec any
+function paw.formats.register(spec) end
+
+--- The path at the start of a command line and the `key=value` words at
+--- its end: `song.rpp instrument=synth` is `"song.rpp", { instrument = "synth" }`.
+---@param line any
+function paw.formats.split_args(line) end
+
+--- Take a format away again.
+---@param name any
+function paw.formats.unregister(name) end
 
 --- Freeze a track or a group: render it, and play the file from now on.
 --- `opts.tail` is the seconds rendered after the song's end (2). One undo

@@ -1,6 +1,6 @@
 -- Reading a REAPER project into paw.
 --
---   local result = require("rpp.import").file("song.rpp")
+--   local result = require("interop.rpp.import").file("song.rpp")
 --   print(result.report:text())     -- what could not be carried over, grouped
 --
 -- Times in a project file are in seconds; here they become beats by the
@@ -9,18 +9,17 @@
 -- quarter note, so it becomes beats directly, except in sources that ignore
 -- the project tempo, which run at a tempo of their own.
 local api = paw.api
-local fmt = require("rpp.format")
-local midi = require("rpp.midi")
-local fx = require("rpp.fx")
-local reports = require("rpp.report")
+local fmt = require("interop.rpp.format")
+local midi = require("interop.rpp.midi")
+local fx = require("interop.rpp.fx")
+local reports = require("interop.report")
 
 local M = {}
 
 local SUPPORTED_AUDIO = { wav = true, wave = true, aif = true, aiff = true, flac = true, mp3 = true, ogg = true }
 
 --- A gain as decibels, from -120 to 24.
-local function db(gain) return paw.util.clamp(require("paw.dsp").db(gain or 0), -120, 24) end
-M.db = db
+local db = require("interop").db
 
 local exists = paw.api.fs_exists
 

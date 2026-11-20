@@ -14,10 +14,8 @@ local function r64(data, at) return (b64.u32(data, at) or 0) + (b64.u32(data, at
 
 --- A .vstpreset from paw's state of a plugin, with its class id when known.
 function M.preset(state, class)
-  local cs = b64.u32(state, 1) or 0
-  local comp = state:sub(5, 4 + cs)
-  local ctrl_size = b64.u32(state, 5 + cs) or 0
-  local ctrl = state:sub(9 + cs, 8 + cs + ctrl_size)
+  local comp, ctrl = paw.bytes.vst3_split(state)
+  comp, ctrl = comp or "", ctrl or ""
   local cid = (class or ""):upper():gsub("[^%x]", "")
   cid = (cid .. string.rep("0", 32)):sub(1, 32)
   local head = 4 + 4 + 32 + 8
@@ -42,7 +40,7 @@ function M.state(preset)
   end
   if not chunks.Comp then return nil, "the .vstpreset has no component state" end
   local ctrl = chunks.Cont or ""
-  return b64.le32(#chunks.Comp) .. chunks.Comp .. b64.le32(#ctrl) .. ctrl, class
+  return paw.bytes.vst3_join(chunks.Comp, ctrl), class
 end
 
 return M

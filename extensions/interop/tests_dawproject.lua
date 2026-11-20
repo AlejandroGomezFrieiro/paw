@@ -4,14 +4,14 @@ local paw = require("paw")
 local api = paw.api
 local test, eq, near = T.test, T.eq, T.near
 
-local HERE = "extensions/dawproject"
-local FIXTURES = HERE .. "/fixtures/"
+local HERE = "extensions/interop"
+local FIXTURES = HERE .. "/fixtures/dawproject/"
 
 local dp
 local function load()
   if not dp then
     paw.ext.load(HERE)
-    dp = require("dawproject")
+    dp = require("interop.dawproject")
   end
   return dp
 end
@@ -418,55 +418,9 @@ end)
 
 -- Commands -------------------------------------------------------------------------------
 
-test("dawproject: commands, and edit and write on .dawproject files", function()
-  load()
-  local dir = scratch_dir()
-  local file = dir .. "/studio.dawproject"
-  T.write_file(file, T.read_file(FIXTURES .. "studio.dawproject"))
-  paw.project.new()
-  paw.cmd("dawproject.import", { file })
-  eq(#paw.tracks(), 4, "dawproject.import")
-  paw.project.new()
-  paw.commands.exec("e " .. file)
-  eq(#paw.tracks(), 4, "e song.dawproject")
-  paw.commands.exec("dawproject.import " .. file .. " merge=true")
-  eq(#paw.tracks(), 8, "merge adds the tracks")
-  paw.commands.exec("dawproject.import! " .. file)
-  eq(#paw.tracks(), 4, "dawproject.import! replaces the project")
-  paw.commands.exec("dawproject.export " .. dir .. "/out.dawproject")
-  eq(T.read_file(dir .. "/out.dawproject"):sub(1, 2), "PK", "dawproject.export")
-  paw.commands.exec("w " .. dir .. "/out2.dawproject")
-  eq(T.read_file(dir .. "/out2.dawproject"):sub(1, 2), "PK", "w song.dawproject")
-  paw.commands.exec("dawproject.export " .. dir .. "/ref.dawproject embed=false")
-  local files = paw.zip.read(T.read_file(dir .. "/ref.dawproject"))
-  eq(files["audio/loop.wav"], nil, "embed=false leaves the audio out")
-  eq(files["project.xml"]:find('external="true"', 1, true) ~= nil, true, "and refers to it")
-  paw.commands.exec("w " .. dir .. "/song")
-  eq(#T.read_file(dir .. "/song/project.toml") > 0, true, "w song saves as before")
-  T.write_file(dir .. "/broken.dawproject", "not a zip")
-  paw.commands.exec("dawproject.import! " .. dir .. "/broken.dawproject")
-  eq(#paw.tracks(), 4, "a broken file leaves the project alone")
-end)
-
-test("dawproject: the README names every command of the extension", function()
-  local readme = T.read_file(HERE .. "/README.md")
-  local source = T.read_file(HERE .. "/init.lua")
-  local names = {}
-  for name in source:gmatch('paw%.command%("([^"]+)"') do names[#names + 1] = name end
-  for name, alias in source:gmatch('hook%("([^"]+)", "([^"]+)"') do
-    names[#names + 1] = name
-    names[#names + 1] = alias
-  end
-  eq(#names, 6, "the commands and the hooked ones")
-  for _, name in ipairs(names) do
-    eq(readme:find("`:" .. name .. " ", 1, true) ~= nil, true, "README names :" .. name)
-  end
-  eq(source:find("paw.keymap.set", 1, true), nil, "no keys of its own, as the README says")
-end)
-
 test("dawproject: a plugin's id of a parameter is written signed, as DAWs write it", function()
   load()
-  local own = require("dawproject.export").own_param_id
+  local own = require("interop.dawproject.export").own_param_id
   eq(own({ id = "12" }), 12, "a small id as it is")
   eq(own({ id = "2683833795" }), -1611133501, "one of 2^31 and above below 0")
   eq(own({ id = "wet" }), nil, "the host's own parameters have none")

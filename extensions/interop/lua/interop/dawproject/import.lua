@@ -1,23 +1,24 @@
 -- Reading a DAWproject file into paw.
 --
---   local result = require("dawproject.import").file("song.dawproject")
+--   local result = require("interop.dawproject.import").file("song.dawproject")
 --   print(result.report:text())     -- what could not be carried over, grouped
 --
 -- The tracks of <Structure> become paw's tracks in the same order (a
 -- nested track goes into its folder); <Arrangement> gives their clips and
 -- automation. Audio in the archive is copied into a folder beside it.
 local api = paw.api
-local xml = require("dawproject.xmlio")
+local xml = require("interop.dawproject.xmlio")
 local b64 = paw.bytes
-local vst3 = require("dawproject.vst3")
-local reports = require("dawproject.report")
+local vst3 = require("interop.dawproject.vst3")
+local reports = require("interop.report")
 
 local M = {}
 
 local INF = math.huge
 
 --- A gain as decibels, from -120 to 24.
-local function db(gain) return paw.util.clamp(require("paw.dsp").db(gain or 0), -120, 24) end
+local interop = require("interop")
+local db = interop.db
 
 local function num(v, default)
   local n = tonumber(v)
@@ -49,10 +50,10 @@ end
 local PLUGINS = { ClapPlugin = true, Vst3Plugin = true, Vst2Plugin = true, AuPlugin = true, Device = true,
   BuiltinDevice = true, Equalizer = true, Compressor = true, NoiseGate = true, Limiter = true }
 
-local function installed(kind) return api.device_find({ kind = kind }) end
+local installed = interop.installed
 
 local function find_vst3(name, vendor, class)
-  return api.device_find({ format = "vst3", id = class, name = name, vendor = vendor })
+  return interop.find_plugin({ format = "vst3", id = class, name = name, vendor = vendor })
 end
 
 --- The paw key of a parameter element of a device: by the plugin's own id

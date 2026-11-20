@@ -2,15 +2,14 @@
 
 This guide shows you how to move a song between paw and another DAW, in
 both directions. Bitwig Studio, PreSonus Studio One and Steinberg Cubase
-read and write DAWproject files (`.dawproject`). The `dawproject`
-extension does this for paw. For each command, and for a list of what
-comes across, see the
-[dawproject README](../../extensions/dawproject/README.md). For REAPER,
+read and write DAWproject files (`.dawproject`). The `interop` extension
+does this for paw. For a list of what comes across, see the
+[interop README](../../extensions/interop/README.md). For REAPER,
 see [How to move a song between paw and REAPER](open-a-reaper-project.md).
 
 ## Load the extension
 
-Type `:ext.load dawproject`. To load it at each start, see
+Type `:ext.load interop`. To load it at each start, see
 [How to load an extension](load-an-extension.md).
 
 ## Open a song from another DAW
@@ -25,7 +24,7 @@ Type `:ext.load dawproject`. To load it at each start, see
 4. To keep the song, save it as a project of paw: `:w song`.
 
 To add the tracks of the file to the open project, type
-`:dawproject.import song.dawproject merge=true`.
+`:import song.dawproject`.
 
 ## Save a song for another DAW
 
@@ -36,7 +35,7 @@ To add the tracks of the file to the open project, type
 3. In the other DAW, open `song.dawproject`.
 
 The file can be large, because it holds the audio. To refer to the audio
-files where they are, type `:dawproject.export song.dawproject embed=false`.
+files where they are, type `:export song.dawproject embed=false`.
 Then keep the file and the audio files on the same computer.
 
 `:w song.dawproject` does not change the project file of paw. The project

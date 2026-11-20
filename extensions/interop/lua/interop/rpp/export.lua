@@ -1,6 +1,6 @@
 -- Writing paw's project as a REAPER project.
 --
---   local result = require("rpp.export").file("song.rpp")
+--   local result = require("interop.rpp.export").file("song.rpp")
 --   print(result.report:text())     -- what could not be written, grouped
 --
 -- The file is laid out the way REAPER 7 writes its own: the same lines in the
@@ -8,10 +8,10 @@
 -- Beats become seconds by the project's tempo map, which is written as
 -- REAPER's tempo envelope (TEMPOENVEX) when it has more than one point.
 local api = paw.api
-local fmt = require("rpp.format")
-local midi = require("rpp.midi")
-local fx = require("rpp.fx")
-local reports = require("rpp.report")
+local fmt = require("interop.rpp.format")
+local midi = require("interop.rpp.midi")
+local fx = require("interop.rpp.fx")
+local reports = require("interop.report")
 
 local M = {}
 
@@ -158,7 +158,7 @@ local function fx_chain(name, track, t, ctx, label)
   chain:add(fmt.line("DOCKED", 0))
   local count = 0
   -- The kinds of device, looked up as they are met.
-  local types = setmetatable({}, { __index = function(t, kind) local v = api.device_find({ kind = kind }) or false rawset(t, kind, v) return v end })
+  local types = require("interop").device_types()
   local function add(block, bypass)
     chain:add(fmt.line("BYPASS", bypass and 1 or 0, 0, 0))
     chain:add(block)

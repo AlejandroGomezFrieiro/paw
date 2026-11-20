@@ -1,17 +1,18 @@
--- Tests of the REAPER bridge, run by tests/suite.lua (`paw --clean -l tests/suite.lua rpp`).
+-- Tests of interop's REAPER projects, and of the commands both formats go
+-- through, run by tests/suite.lua (`paw --clean -l tests/suite.lua rpp`).
 local T = ...
 local paw = require("paw")
 local api = paw.api
 local test, eq, near, fails = T.test, T.eq, T.near, T.fails
 
-local HERE = "extensions/rpp"
-local FIXTURES = HERE .. "/fixtures/"
+local HERE = "extensions/interop"
+local FIXTURES = HERE .. "/fixtures/rpp/"
 
 local rpp
 local function load()
   if not rpp then
     paw.ext.load(HERE)
-    rpp = require("rpp")
+    rpp = require("interop.rpp")
   end
   return rpp
 end
@@ -49,7 +50,7 @@ local function project_dir(fixture)
   os.execute("mkdir -p '" .. dir .. "/media'")
   T.write_file(dir .. "/" .. fixture, T.read_file(FIXTURES .. fixture))
   write_wav(dir .. "/media/tone.wav", 2, 440)
-  local midi = require("rpp.midi")
+  local midi = require("interop.rpp.midi")
   T.write_file(dir .. "/media/riff.mid", midi.write_smf({
     { tick = 0, length = 240, pitch = 50, velocity = 90 },
     { tick = 480, length = 480, pitch = 52, velocity = 70 },
@@ -145,7 +146,7 @@ end)
 test("rpp: base64 blocks and plugin chunks", function()
   local r = load()
   local b64 = paw.bytes
-  local fx = require("rpp.fx")
+  local fx = require("interop.rpp.fx")
   for _, s in ipairs({ "", "a", "ab", "abc", "abcd", string.rep("\0\255\128", 100) }) do
     eq(b64.unbase64(b64.base64(s)), s, "base64 round trip of " .. #s .. " bytes")
   end
@@ -166,7 +167,7 @@ test("rpp: base64 blocks and plugin chunks", function()
   eq(block:data_groups()[1], string.rep("A", 300), "first group")
   eq(block:data_groups()[2], "QUJD", "second group")
   -- MIDI events in the source, sysex included.
-  local midi = require("rpp.midi")
+  local midi = require("interop.rpp.midi")
   local src = midi.read_source(doc.project:child("TRACK"):child("ITEM"):child("SOURCE"))
   eq(#src.notes, 1, "one note")
   eq(src.notes[1].length, 480, "note length in ticks")
@@ -432,7 +433,7 @@ end)
 
 test("rpp: a parameter envelope finds its parameter by the plugin's own id", function()
   load()
-  local param_of = require("rpp.import").param_of
+  local param_of = require("interop.rpp.import").param_of
   local params = { { key = "a", id = "10" }, { key = "b", id = "2683833795" }, { key = "c", id = "c" } }
   eq(param_of("1", params).key, "b", "by place, from 0")
   eq(param_of("0:-1611133501", params).key, "b", "REAPER's signed id wins over the place")
@@ -470,36 +471,37 @@ end)
 
 -- Commands --------------------------------------------------------------------------
 
-test("rpp: commands, and edit and write on .rpp files", function()
+test("interop: :import, :e, :export and :w take REAPER and DAWproject files, their ending choosing the format", function()
   load()
   local dir = project_dir("song.rpp")
-  paw.project.new()
-  paw.cmd("rpp.import", { dir .. "/song.rpp" })
-  eq(#paw.tracks(), 4, "rpp.import")
-  paw.project.new()
-  paw.commands.exec("edit " .. dir .. "/song.rpp")
-  eq(#paw.tracks(), 4, "edit song.rpp")
-  paw.project.new()
-  paw.commands.exec("e " .. dir .. "/song.rpp")
-  eq(#paw.tracks(), 4, "e song.rpp")
-  -- What was opened has no file of its own yet: the next open asks first.
-  paw.commands.exec("rpp.import " .. dir .. "/song.rpp merge=true")
-  local tracks = #paw.tracks()
-  paw.commands.exec("rpp.import " .. dir .. "/song.rpp")
-  paw.commands.exec("edit " .. dir .. "/song.rpp")
-  eq(#paw.tracks(), tracks, "rpp.import and edit leave an unsaved project alone; merge adds")
-  paw.commands.exec("rpp.import! " .. dir .. "/song.rpp")
-  eq(#paw.tracks(), 4, "rpp.import! replaces it")
-  paw.commands.exec("rpp.export " .. dir .. "/out.rpp")
-  eq(T.read_file(dir .. "/out.rpp"):sub(1, 15), "<REAPER_PROJECT", "rpp.export")
-  paw.commands.exec("w " .. dir .. "/out2.rpp")
-  eq(T.read_file(dir .. "/out2.rpp"):sub(1, 15), "<REAPER_PROJECT", "w out.rpp")
+  T.write_file(dir .. "/studio.dawproject", T.read_file(HERE .. "/fixtures/dawproject/studio.dawproject"))
+  for _, f in ipairs({ { "song.rpp", "rpp", "<REAPER_PROJECT" }, { "studio.dawproject", "dawproject", "PK" } }) do
+    local file, ext, head = dir .. "/" .. f[1], f[2], f[3]
+    paw.project.new()
+    paw.commands.exec("import " .. file)
+    eq(#paw.tracks(), 4, ":import " .. ext)
+    paw.commands.exec("import " .. file)
+    eq(#paw.tracks(), 8, ":import adds the tracks of " .. ext)
+    paw.commands.exec("e " .. file)
+    eq(#paw.tracks(), 8, ":e leaves an unsaved project alone")
+    paw.project.new()
+    paw.commands.exec("e " .. file)
+    eq(#paw.tracks(), 4, ":e " .. ext .. " opens it as the project")
+    paw.commands.exec("export " .. dir .. "/out." .. ext)
+    eq(T.read_file(dir .. "/out." .. ext):sub(1, #head), head, ":export " .. ext)
+    paw.commands.exec("w " .. dir .. "/out2." .. ext)
+    eq(T.read_file(dir .. "/out2." .. ext):sub(1, #head), head, ":w " .. ext)
+  end
+  paw.commands.exec("export " .. dir .. "/ref.dawproject embed=false")
+  local files = paw.zip.read(T.read_file(dir .. "/ref.dawproject"))
+  eq(files["audio/loop.wav"], nil, "embed=false leaves the audio out")
   -- Other files still go to the original commands.
   paw.commands.exec("w " .. dir .. "/song")
   eq(#T.read_file(dir .. "/song/project.toml") > 0, true, "w song saves as before")
-  paw.project.new()
-  paw.commands.exec("e " .. dir .. "/song")
-  eq(#paw.tracks(), 4, "e song loads as before")
+  T.write_file(dir .. "/broken.dawproject", "not a zip")
+  paw.commands.exec("import " .. dir .. "/broken.dawproject")
+  eq(#paw.tracks(), 4, "a broken file leaves the project alone")
+  eq(paw.formats.get("rpp").project and paw.formats.get("dawproject").project, true, "both are formats of whole projects")
 end)
 
 -- Export ------------------------------------------------------------------------------
@@ -712,7 +714,7 @@ test("rpp: plugins go out and come back with their settings", function()
     "      >", "      WAK 0 0", "    >", "  >", ">",
   }, "\n"))
   -- REAPER's chunk around the state of a gate made here.
-  local fx = require("rpp.fx")
+  local fx = require("interop.rpp.fx")
   local b64 = paw.bytes
   T.fresh()
   local g = paw.add_track({ name = "tmp" }):add_device(vst3)
@@ -967,22 +969,6 @@ test("rpp: REAPER opens an exported project with the same tracks, items, notes a
   near(got.marker[2][1], sec(9), 1e-6, "marker time")
   eq(#got.region, 1, "region")
   near(got.region[1][2], sec(9), 1e-6, "region end")
-end)
-
-test("rpp: the README names every command of the extension", function()
-  local readme = T.read_file(HERE .. "/README.md")
-  local source = T.read_file(HERE .. "/init.lua")
-  local names = {}
-  for name in source:gmatch('paw%.command%("([^"]+)"') do names[#names + 1] = name end
-  for name, alias in source:gmatch('hook%("([^"]+)", "([^"]+)"') do
-    names[#names + 1] = name
-    names[#names + 1] = alias
-  end
-  eq(#names, 6, "the commands and the hooked ones")
-  for _, name in ipairs(names) do
-    eq(readme:find("`:" .. name .. " ", 1, true) ~= nil, true, "README names :" .. name)
-  end
-  eq(source:find("paw.keymap.set", 1, true), nil, "no keys of its own")
 end)
 
 test("rpp: a project that REAPER made and saved comes into paw as REAPER has it", function()

@@ -30,7 +30,7 @@ local juce = require("plugstate.juce")
 local bytes = require("plugstate.bytes")
 local jsonspan = require("plugstate.jsonspan")
 local jucestate = require("plugstate.jucestate")
-local vst3 = require("plugstate.vst3state")
+local vst3 = { split = paw.bytes.vst3_split, join = paw.bytes.vst3_join }
 
 local M = { readers = {} }
 

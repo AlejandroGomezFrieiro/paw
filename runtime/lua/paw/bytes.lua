@@ -7,6 +7,7 @@
 --   paw.bytes.unbase64(text)     -- the bytes; raises when it is not base64
 --   paw.bytes.u32(data, at)      -- the number at `at` (from 1), nil past the end
 --   paw.bytes.le32(n)            -- four bytes
+--   paw.bytes.vst3_split(state)  -- a VST3 state's component and controller parts
 local api = require("paw.api")
 
 local M = {}
@@ -46,6 +47,22 @@ end
 function M.le32(n)
   n = n % 4294967296
   return string.char(n % 256, math.floor(n / 256) % 256, math.floor(n / 65536) % 256, math.floor(n / 16777216) % 256)
+end
+
+--- The component's part and the controller's part of a VST3 plugin's
+--- state as paw keeps it (each after its length, 32 bits, little-endian),
+--- or nil and why. A state without a controller part gives "" for it.
+function M.vst3_split(raw)
+  local size = M.u32(raw, 1)
+  if not size or 4 + size > #raw then return nil, "not a VST3 state" end
+  local csize = M.u32(raw, 5 + size)
+  return raw:sub(5, 4 + size), csize and raw:sub(9 + size, 8 + size + csize) or ""
+end
+
+--- A VST3 plugin's state as paw keeps it, from its component's part and
+--- its controller's part.
+function M.vst3_join(component, controller)
+  return M.le32(#component) .. component .. M.le32(#controller) .. controller
 end
 
 return M

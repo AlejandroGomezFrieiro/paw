@@ -107,7 +107,7 @@ function paw.open(path, opts)
   if paw.is_audio_file(path) then return paw.import_audio(path, { start = 0 }) end
   if paw.is_chain_file(path) then return paw.open_chain(path) end
   if paw.midifile.is_clip_file(path) then return paw.midifile.open_clip(path) end
-  if paw.midifile.is_midi_file(path) then return paw.midifile.open(path) end
+  if paw.formats.for_path(path, "import") then return paw.formats.import(path, { merge = false, args = opts and opts.args or {} }) end
   return paw.loading.open(path, opts)
 end
 
@@ -119,8 +119,41 @@ local function midi_said(path, done)
   return text
 end
 
+-- Standard MIDI files, a format as any other (paw/formats.lua). `:import`
+-- puts the file's tracks at the cursor (`tempo=yes`: its tempo map too),
+-- `:open` makes a new project of it; `:export song.mid clip` or
+-- `selection` writes less than the whole project.
+paw.formats.register({
+  name = "midi", desc = "Standard MIDI files", extensions = paw.midifile.extensions,
+  import = function(path, opts)
+    if not opts.merge then
+      return "opened " .. midi_said(path, paw.midifile.open(path)) .. " (`:w` asks where to save it)"
+    end
+    local tempo = opts.args.tempo
+    return "imported " .. midi_said(path, paw.midifile.import(path, { tempo = tempo == true or tempo == "yes" or tempo == "on" }))
+  end,
+  export = function(path, opts)
+    local what = opts.args[2] and tostring(opts.args[2])
+    local midi_opts = {}
+    if what == "clip" then
+      local clip = cursor.clip()
+      if not clip or clip.kind ~= "midi" then error("no MIDI clip at the cursor", 0) end
+      midi_opts.clips = { clip.id }
+    elseif what == "selection" then
+      local region = paw.keymap.selection()
+      if not region then error("nothing is selected", 0) end
+      midi_opts.tracks = edit.arrange.tracks(region)
+    elseif what then
+      error("export what: `clip`, `selection`, or nothing for the whole project", 0)
+    end
+    local notes = paw.midifile.export(path, midi_opts)
+    local lost = paw.midifile.lost_text()
+    return string.format("exported %d notes to %s%s", notes, path, lost and "; MIDI 1.0 " .. lost or "")
+  end,
+})
+
 command("import", function(ctx)
-  local tempo = ctx.args.tempo
+  local args
   local function bring(path)
     -- A track folder (one with a track.json): a track that refers to it.
     local folder = path:gsub("/+$", ""):gsub("/track%.json$", "")
@@ -147,68 +180,63 @@ command("import", function(ctx)
       if not ok then return paw.notify("could not import " .. path .. ": " .. tostring(clip):gsub("^[^:]*:%d+: ", ""), "error") end
       return paw.notify(string.format("imported %s: %d notes on track “%s”; it refers to the file until you edit it", path:match("([^/]+)$") or path, clip.note_count or #clip:notes(), track.name))
     end
-    if paw.midifile.is_midi_file(path) then
-      local ok, done = pcall(paw.midifile.import, path, { tempo = tempo == true or tempo == "yes" or tempo == "on" })
-      if not ok then return paw.notify("could not import " .. path .. ": " .. tostring(done):gsub("^[^:]*:%d+: ", ""), "error") end
-      return paw.notify("imported " .. midi_said(path, done))
-    end
+    -- A file of another program: its format (paw/formats.lua).
+    if paw.formats.for_path(path, "import") then return paw.formats.import(path, { merge = true, args = args }) end
     local ok, clip = pcall(paw.import_audio, path, { track = ctx.args.track })
     if not ok then return paw.notify("could not import " .. path .. ": " .. tostring(clip), "error") end
     paw.notify(string.format("imported %s: %.1f beats on track “%s”", path:match("([^/]+)$") or path, clip.length, clip:track().name))
   end
-  local path = ctx.args[1]
-  -- `tempo=yes` at the end of the line, the path being the rest.
-  if path then
-    local rest, word = path:match("^(.-)%s+tempo=(%S+)%s*$")
-    if rest then path, tempo = rest, word end
+  -- `tempo=yes` and other `key=value` words at the end of the line, the
+  -- path being the rest.
+  local path
+  path, args = paw.formats.split_args(ctx.args[1])
+  for k, v in pairs(ctx.args) do
+    if type(k) == "string" then args[k] = v end
   end
-  if path and path ~= "" then return bring(paw.files.path(path)) end
+  if path ~= "" then return bring(paw.files.path(path)) end
   local endings = {}
-  for _, list in ipairs({ audio_extensions, paw.midifile.extensions }) do
+  for _, list in ipairs({ audio_extensions, paw.formats.extensions("import") }) do
     for _, ext in ipairs(list) do endings[#endings + 1] = ext end
   end
   paw.pick.file({ title = "Import", extensions = endings, on_choose = bring })
-end, { desc = "Bring a sound file in on a new track, or a MIDI file's tracks at the cursor: `import take.mp3`, `import song.mid`, `import song.mid tempo=yes` (its tempo map too); alone, choose it from a list", raw = true, complete = "audio_files" })
+end, { desc = "Bring a file in: a sound file on a new track, a MIDI file's tracks at the cursor, a project of another program's tracks (`:help formats`): `import take.mp3`, `import song.mid`, `import song.mid tempo=yes` (its tempo map too); alone, choose it from a list", raw = true, complete = "importable" })
 
 command("open", function(ctx)
   local force = paw.project.discarding()
+  local args = {}
+  for k, v in pairs(ctx.args) do
+    if type(k) == "string" then args[k] = v end
+  end
   local function go(path)
     if not paw.is_audio_file(path) and not paw.project.guard("open", force) then return end
+    -- A file of another program says itself what it opened (paw/formats.lua).
+    if paw.formats.for_path(path, "import") then return paw.formats.import(path, { merge = false, args = args }) end
     local ok, err = pcall(paw.open, path)
     if not ok then return paw.notify("could not open " .. path .. ": " .. tostring(err):gsub("^[^:]*:%d+: ", ""), "error") end
-    if paw.midifile.is_midi_file(path) then return paw.notify("opened " .. midi_said(path, err) .. " (`:w` asks where to save it)") end
     if paw.midifile.is_clip_file(path) then return paw.notify("opened " .. (path:match("([^/]+)$") or path) .. " alone: `:w` writes it back, `:w song` saves a project of it") end
     if paw.is_chain_file(path) then return paw.notify("opened the chain " .. path .. " alone: `:w` writes it back, `:w song` saves a project of it") end
     paw.notify("opened " .. path)
   end
   local path = ctx.args[1]
+  -- `key=value` words at the end are for the format of the file.
+  if path and path ~= "" and not plain_folder(path) and not paw.files.is_dir(path) then
+    local words
+    path, words = paw.formats.split_args(path)
+    for k, v in pairs(words) do args[k] = v end
+  end
   if plain_folder(path) then return paw.files.open(path, { here = true }) end
   if path and path ~= "" then return go(paw.files.path(path)) end
   paw.pick.file({ title = "Open", on_choose = go })
-end, { desc = "Open a project, a MIDI file as a new project, or a sound file on a new track: `open song`, `open song.mid`, `open take.wav`; alone, choose it from a list", raw = true, complete = "files" })
+end, { desc = "Open a project, a MIDI file or a project of another program as a new project (`:help formats`), or a sound file on a new track: `open song`, `open song.mid`, `open take.wav`; alone, choose it from a list", raw = true, complete = "files" })
 
 command("export", function(ctx)
-  local path, what = ctx.args[1] and tostring(ctx.args[1]), ctx.args[2] and tostring(ctx.args[2])
-  if not path or not paw.midifile.is_midi_file(path) then
-    return paw.notify("usage: export <song.mid> [clip|selection]; `:render` makes sound files", "warn")
+  local path = ctx.args[1] and tostring(ctx.args[1])
+  if not path or not paw.formats.for_path(path, "export") then
+    local ends = table.concat(paw.formats.extensions("export"), " .")
+    return paw.notify("usage: export <file> (." .. ends .. "); `:render` makes sound files", "warn")
   end
-  path = paw.files.path(path)
-  local opts = {}
-  if what == "clip" then
-    local clip = cursor.clip()
-    if not clip or clip.kind ~= "midi" then return paw.notify("no MIDI clip at the cursor", "warn") end
-    opts.clips = { clip.id }
-  elseif what == "selection" then
-    local region = paw.keymap.selection()
-    if not region then return paw.notify("nothing is selected", "warn") end
-    opts.tracks = edit.arrange.tracks(region)
-  elseif what then
-    return paw.notify("export what: `clip`, `selection`, or nothing for the whole project", "warn")
-  end
-  local notes = paw.midifile.export(path, opts)
-  local lost = paw.midifile.lost_text()
-  paw.notify(string.format("exported %d notes to %s%s", notes, path, lost and "; MIDI 1.0 " .. lost or ""))
-end, { desc = "Write a MIDI file of the project, of the clip at the cursor, or of the selection's tracks: `export song.mid`, `export riff.mid clip`, `export part.mid selection`", complete = { "files", function() return { "clip", "selection" } end } })
+  return paw.formats.export(paw.files.path(path), { args = ctx.args })
+end, { desc = "Write the project to a file of another program, its ending choosing the format (`:help formats`): `export song.mid`, `export riff.mid clip`, `export part.mid selection` (a MIDI file of the clip at the cursor, or of the selection's tracks)", complete = { "exportable", function() return { "clip", "selection" } end } })
 
 command("set", function(ctx)
   local name, value = ctx.args[1], ctx.args[2]

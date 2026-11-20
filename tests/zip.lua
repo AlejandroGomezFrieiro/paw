@@ -10,7 +10,7 @@ test("zip: archives written and read again, and one the zip program deflated", f
   eq(table.concat(names, ","), "a.txt,dir/b.bin", "names in order")
   eq(files["a.txt"], "hello", "a file back")
   eq(files["dir/b.bin"], string.rep("\0\255", 1000), "binary back")
-  local fixtures = "extensions/dawproject/fixtures/"
+  local fixtures = "extensions/interop/fixtures/dawproject/"
   local made = paw.zip.read(T.read_file(fixtures .. "studio.dawproject"))
   eq(made["project.xml"], T.read_file(fixtures .. "studio/project.xml"), "deflated XML")
   eq(made["audio/loop.wav"], T.read_file(fixtures .. "studio/audio/loop.wav"), "deflated audio")

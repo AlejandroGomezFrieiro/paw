@@ -321,15 +321,33 @@ M.completers = {
     return out
   end,
   files = function(word) return files(word) end,
-  -- What `import` takes: sound files and MIDI files.
+  -- Sound files, and the files of the formats that read (paw/formats.lua).
   audio_files = function(word)
-    return files(word, set_of({ "wav", "wave", "aif", "aiff", "flac", "mp3", "ogg", "oga", "mid", "midi", "smf", "kar" }))
+    local ext = set_of({ "wav", "wave", "aif", "aiff", "flac", "mp3", "ogg", "oga" })
+    for _, e in ipairs(paw.formats.extensions("import")) do ext[e] = true end
+    return files(word, ext)
   end,
-  projects = function(word) return files(word, set_of({ "json", "rpp" })) end,
+  -- What `import` takes: sound files and the files of the formats that read.
+  importable = function(word) return M.completers.audio_files(word) end,
+  -- What `export` writes: the files of the formats that write.
+  exportable = function(word) return files(word, set_of(paw.formats.extensions("export"))) end,
+  -- Projects, and the files of formats that hold whole projects.
+  projects = function(word)
+    local ext = set_of({ "json" })
+    for _, f in ipairs(paw.formats.list()) do
+      if f.project then
+        for _, e in ipairs(f.extensions) do ext[e] = true end
+      end
+    end
+    return files(word, ext)
+  end,
   dirs = function(word) return files(word, {}) end,
-  -- What `edit` opens: projects, MIDI files (as projects) and sound files.
+  -- What `edit` opens: projects, the files of the formats that read (as
+  -- projects) and sound files.
   openable = function(word)
-    return files(word, set_of({ "json", "rpp", "mid", "midi", "smf", "kar", "wav", "wave", "aif", "aiff", "flac", "mp3", "ogg", "oga" }))
+    local ext = set_of({ "json", "wav", "wave", "aif", "aiff", "flac", "mp3", "ogg", "oga" })
+    for _, e in ipairs(paw.formats.extensions("import")) do ext[e] = true end
+    return files(word, ext)
   end,
 }
 

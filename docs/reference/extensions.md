@@ -15,8 +15,8 @@ made by the scenes in its `images/make` (`docs/images/make/make.sh <name>`).
 | --- | --- |
 | [`articulations`](../../extensions/articulations/README.md) | the articulation of each note as its MIDI 2.0 attribute, with names for each instrument from `.art.toml` maps, and keyswitches for MIDI 1.0 instruments. Maps from SFZ, Decent Sampler, folders and Reaticulate banks, and maps of plugins (MODO BASS 2, SINE Player) that bind themselves |
 | [`continue`](../../extensions/continue/README.md) | a small completion source: how the phrase before the cursor in the piano roll can continue |
-| [`dawproject`](../../extensions/dawproject/README.md) | opens and writes DAWproject files, the format of Bitwig Studio, Studio One and Cubase for a song |
 | [`doctor`](../../extensions/doctor/README.md) | a guided check of the hardware (audio, MIDI, recording, plugins), with a written report, also from the shell |
+| [`interop`](../../extensions/interop/README.md) | opens and writes REAPER projects and DAWproject files (Bitwig Studio, Studio One, Cubase) with `:e`, `:import` and `:export`; the example of how to add a format of files |
 | [`drums`](../../extensions/drums/README.md) | drum tracks in one step, and a grid of the pieces of the kit by name |
 | [`luafx`](../../extensions/luafx/README.md) | devices written in Lua, to use and to copy |
 | [`midilsp`](../../extensions/midilsp/README.md) | MIDI LSP, the language server for music, in `paw.lsp`: diagnostics of voice leading with fixes, the chords it hears, suggestions |
@@ -27,7 +27,6 @@ made by the scenes in its `images/make` (`docs/images/make/make.sh <name>`).
 | [`pattern`](../../extensions/pattern/README.md) | clips written as patterns of text, as in TidalCycles |
 | [`plugstate`](../../extensions/plugstate/README.md) | the models, impulse responses and instrument files of plugins, set without their windows, and snapshots of the state of a device |
 | [`projdiff`](../../extensions/projdiff/README.md) | the changes between two versions of a project, and three-way merges for git |
-| [`rpp`](../../extensions/rpp/README.md) | opens and writes REAPER projects |
 | [`sampler`](../../extensions/sampler/README.md) | the sample player of paw, a CLAP plugin written in Rust |
 | [`sections`](../../extensions/sections/README.md) | named sections of the song as text objects, and edits by section |
 | [`snippets`](../../extensions/snippets/README.md) | a set of snippets to start with: chords, parts and voices |

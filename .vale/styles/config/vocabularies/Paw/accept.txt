@@ -51,6 +51,7 @@ projdiff
 luafx
 vinput
 rpp
+interop
 utau
 tutor
 msgpack

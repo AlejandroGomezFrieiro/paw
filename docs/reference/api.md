@@ -309,6 +309,8 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.bytes.u16(data, at)`: The unsigned 16-bit little-endian number at `at` (from 1), or nil past the end.
 - `paw.bytes.u32(data, at)`: The unsigned 32-bit little-endian number at `at` (from 1), or nil past the end.
 - `paw.bytes.unbase64(text)`: The bytes of base64 text (either alphabet, padded or not, spaces and line ends passed over). Raises when the text is not base64.
+- `paw.bytes.vst3_join(component, controller)`: A VST3 plugin's state as paw keeps it, from its component's part and its controller's part.
+- `paw.bytes.vst3_split(raw)`: The component's part and the controller's part of a VST3 plugin's state as paw keeps it (each after its length, 32 bits, little-endian), or nil and why. A state without a controller part gives "" for it.
 
 ## Module paw.canvas
 
@@ -670,6 +672,19 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   ```
 - `paw.files.sound_info(path, stat)`: What a sound file's header says: `{ rate, channels, seconds }`, or nil for a file that is not one that can be read.
 - `paw.files.watch()`: Start to watch the cursor, when a files buffer exists.
+
+## Module paw.formats
+
+- `paw.formats.export(path, opts)`: Write the project with the format of a file. Says what it did.
+- `paw.formats.extensions(side)`: The extensions of the files that a side takes, for lists and completion.
+- `paw.formats.for_path(path, side)`: The format that takes `path` for `side` ("import" or "export"): one whose `detect` says yes, else one of the file's extension. Nil when none does.
+- `paw.formats.get(name)`: The format of a name, or nil.
+- `paw.formats.help_text()`: The page of `:help formats`, in Markdown: what each format reads and writes, and how to add one.
+- `paw.formats.import(path, opts)`: Bring a file in with its format: `opts.merge` adds to the project, else it opens in place of the project. Says what it did; returns what the format returned, or nil when it could not.
+- `paw.formats.list()`: The formats, by name: `{ name, desc, extensions, project, import, export }` each.
+- `paw.formats.register(spec)`: Register a format of files (see the top of paw/formats.lua). A format of the same name is replaced. Returns the name.
+- `paw.formats.split_args(line)`: The path at the start of a command line and the `key=value` words at its end: `song.rpp instrument=synth` is `"song.rpp", { instrument = "synth" }`.
+- `paw.formats.unregister(name)`: Take a format away again.
 
 ## Module paw.freeze
 

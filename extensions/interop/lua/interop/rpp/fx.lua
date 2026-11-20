@@ -16,7 +16,7 @@
 --          for an LV2 plugin are the same symbols. A `<STATE` block (state
 --          beyond the ports) is not carried over.
 -- Everything else (VST2, JSFX, AU, DX, containers) stays behind as a note.
-local fmt = require("rpp.format")
+local fmt = require("interop.rpp.format")
 local b64 = paw.bytes
 local M = {}
 
@@ -50,17 +50,13 @@ function M.vst3_state_from_reaper(data)
   local comp = data:sub(9, 8 + cs)
   local ctrl_size = b64.u32(data, 9 + cs)
   if 16 + cs + ctrl_size ~= #data then return nil, "the state's sizes do not add up" end
-  local ctrl = data:sub(17 + cs, 16 + cs + ctrl_size)
-  return b64.le32(#comp) .. comp .. b64.le32(#ctrl) .. ctrl
+  return paw.bytes.vst3_join(comp, data:sub(17 + cs, 16 + cs + ctrl_size))
 end
 
 --- paw's VST3 state to REAPER's state part.
 function M.vst3_state_to_reaper(state)
-  local cs = b64.u32(state, 1)
-  if not cs or 4 + cs + 4 > #state then return nil end
-  local comp = state:sub(5, 4 + cs)
-  local ctrl_size = b64.u32(state, 5 + cs) or 0
-  local ctrl = state:sub(9 + cs, 8 + cs + ctrl_size)
+  local comp, ctrl = paw.bytes.vst3_split(state)
+  if not comp then return nil end
   return b64.le32(#comp) .. b64.le32(1) .. comp .. b64.le32(#ctrl) .. b64.le32(0) .. ctrl
 end
 
@@ -80,12 +76,13 @@ end
 
 -- Import -----------------------------------------------------------------------------
 
-local function installed(kind) return paw.api.device_find({ kind = kind }) end
+local interop = require("interop")
+local installed = interop.installed
 
 --- The VST3 plugin installed here: by its class id (`{...}` in REAPER's
 --- line), else by name and vendor.
 local function find_vst3(name, vendor, class)
-  return paw.api.device_find({ format = "vst3", id = class, name = name, vendor = vendor })
+  return interop.find_plugin({ format = "vst3", id = class, name = name, vendor = vendor })
 end
 
 --- Describe a plugin block: { format, display, kind (if it can map), ... }.

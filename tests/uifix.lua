@@ -43,17 +43,17 @@ test("focus only ever goes to a view that is drawn", function()
 end)
 
 test("a command of a bundled extension that is not loaded says how to load it, and :ext.load does", function()
-  if paw.ext.loaded.rpp then return "rpp is loaded already" end
-  local ok, err = pcall(paw.commands.exec, "rpp.open")
+  if paw.ext.loaded.pattern then return "pattern is loaded already" end
+  local ok, err = pcall(paw.commands.exec, "pattern.open")
   eq(ok, false, "no command yet")
   eq(err:find("bundled extension that isn't loaded", 1, true) ~= nil, true, err)
-  eq(err:find(":ext.load rpp", 1, true) ~= nil, true, "it names the command: " .. err)
+  eq(err:find(":ext.load pattern", 1, true) ~= nil, true, "it names the command: " .. err)
   local names = {}
-  for _, c in ipairs(paw.commands.complete("ext.load rp")) do names[#names + 1] = c.text end
-  eq(names[1], "ext.load rpp", "bundled names complete: " .. table.concat(names, ","))
-  paw.commands.exec("ext.load rpp")
-  eq(paw.ext.loaded.rpp ~= nil and paw.ext.loaded.rpp.ok, true, "loaded")
-  eq(paw.commands.get("rpp.import") ~= nil, true, "its commands exist")
+  for _, c in ipairs(paw.commands.complete("ext.load patt")) do names[#names + 1] = c.text end
+  eq(names[1], "ext.load pattern", "bundled names complete: " .. table.concat(names, ","))
+  paw.commands.exec("ext.load pattern")
+  eq(paw.ext.loaded.pattern ~= nil and paw.ext.loaded.pattern.ok, true, "loaded")
+  eq(paw.commands.get("pattern.set") ~= nil, true, "its commands exist")
   paw.commands.exec("ext.load nonesuch")
   eq(last_message():find("no bundled extension", 1, true) ~= nil, true, last_message())
 end)

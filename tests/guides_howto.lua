@@ -978,3 +978,32 @@ test("guide: use articulations with a plugin instrument", function()
   keys(":drums.map mt-powerdrumkit<CR>")
   eq(require("drums").info(kit).map, "mt-powerdrumkit", "the notes of the kit have names")
 end)
+
+test("guide: write an importer or exporter", function()
+  start()
+  local dir = T.scratch .. "/howto-formats"
+  api.fs_mkdir(dir)
+  T.write_file(dir .. "/song.notes", "60 0 1\n64 1 1\n67 2 2\n")
+  -- The guide's code, as it is on the page.
+  local page = T.read_file("docs/how-to/write-an-importer-or-exporter.md")
+  local code = page:match("```lua\n(paw%.formats%.register.-)```")
+  assert(loadstring(code))()
+  T.after(function() paw.formats.unregister("notes") end)
+  keys(":import " .. dir .. "/song.notes<CR>")
+  eq(#paw.tracks(), 1, ":import adds a track")
+  eq(#paw.tracks()[1]:clips()[1]:notes(), 3, "with the notes of the file")
+  keys(":export " .. dir .. "/copy.notes<CR>")
+  eq(T.read_file(dir .. "/copy.notes"), "60 0 1\n64 1 1\n67 2 2\n", ":export writes them")
+  local names = {}
+  for _, c in ipairs(paw.commands.complete("import " .. dir .. "/so")) do names[#names + 1] = c.text end
+  eq(table.concat(names, " "):find("song.notes", 1, true) ~= nil, true, ":import completes the files of the format")
+  keys(":help formats<CR>")
+  shows("help://formats.md", ":help formats opens the page of the formats")
+  local _, _, text = paw.textbuf.here()
+  local listed = false
+  for row = 0, 40 do listed = listed or (text:line(row) or ""):find("Lists of notes", 1, true) ~= nil end
+  eq(listed, true, "which lists it")
+  keys(":q<CR>")
+  keys(':lua paw.formats.unregister("notes")<CR>')
+  eq(paw.formats.get("notes"), nil, "and it goes")
+end)

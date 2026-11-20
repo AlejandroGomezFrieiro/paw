@@ -243,6 +243,9 @@ M.registries = {
       paw.ui.layer(view, part, name, value and value.order, value and value.paint)
     end },
   keyed("health", "health checks", function() return paw.health and paw.health.checks end),
+  keyed("formats", "file formats", function() return paw.formats and paw.formats.registry end, function(key, value)
+    if value then paw.formats.register(value) else paw.formats.unregister(key) end
+  end, function(key) return key end),
   { kind = "hooks", title = "hooks", snapshot = function()
       local out = {}
       for id, h in pairs(require("paw.events").handlers()) do out[id] = h end

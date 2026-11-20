@@ -449,7 +449,7 @@ mod tests {
     #[test]
     fn points_in_seconds_land_where_the_map_plays_them() {
         // 120 held for 2 s, then a ramp from 60 to 120 over 2 s.
-        let map = TempoMap::from_seconds(&[(2.0, 60.0, true), (0.0, 120.0, false), (4.0, 120.0, false)], &[(2.0, 3, 4)]);
+        let map = TempoMap::from_seconds(&[(2.0, 60.0, true), (0.0, 120.0, false), (4.0, 120.0, false)], &[(0.0, 4, 4), (2.0, 3, 4)]);
         let beats: Vec<f64> = map.tempos().map(|p| p.beat).collect();
         assert_eq!(beats, vec![0.0, 4.0, 7.0]);
         assert!((map.seconds(7.0) - 4.0).abs() < 1e-9, "the core's own math agrees");

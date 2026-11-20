@@ -2,17 +2,17 @@
 -- project.xml, metadata.xml, the plugin states (plugins/) and the audio
 -- files (audio/).
 --
---   local result = require("dawproject.export").file("song.dawproject")
+--   local result = require("interop.dawproject.export").file("song.dawproject")
 --   print(result.report:text())     -- what could not be written, grouped
 --
 -- Times are in beats on the arrangement (timeUnit="beats"); audio clips
 -- play their files in seconds (contentTimeUnit="seconds").
 local api = paw.api
-local xml = require("dawproject.xmlio")
-local media = require("dawproject.media")
+local xml = require("interop.dawproject.xmlio")
+local interop = require("interop")
 local b64 = paw.bytes
-local vst3 = require("dawproject.vst3")
-local reports = require("dawproject.report")
+local vst3 = require("interop.dawproject.vst3")
+local reports = require("interop.report")
 
 local M = {}
 
@@ -278,8 +278,12 @@ local function audio_file(path, ctx, label)
   if not entry then
     local data = read(path)
     local ok, probe = pcall(api.fs_sound, path)
+    -- A header without the length (an MP3's) is decoded for it.
+    if ok and not probe.seconds then
+      local ok2, env = pcall(api.sound_envelope, path)
+      probe.seconds = ok2 and env.seconds or nil
+    end
     local info = ok and probe.seconds and { channels = probe.channels, rate = probe.rate, seconds = probe.seconds }
-      or (data and media.info(data))
     if not data then
       ctx.report:add("Missing audio files (written as a reference to where they were)", label .. ": " .. path)
     end
@@ -384,7 +388,7 @@ function M.build(opts)
       return "id" .. n
     end,
     report = reports.new("Not written to " .. (opts.name or "the DAWproject file") .. ":"),
-    types = setmetatable({}, { __index = function(t, kind) local v = api.device_find({ kind = kind }) or false rawset(t, kind, v) return v end }), params = {}, track_params = {}, channel = {}, track_el = {}, files = {}, media = {}, taken = {},
+    types = interop.device_types(), params = {}, track_params = {}, channel = {}, track_el = {}, files = {}, media = {}, taken = {},
     plugins = 0, embed = opts.embed ~= false,
   }
   local p = api.project_get()

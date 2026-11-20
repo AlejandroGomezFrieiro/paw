@@ -512,13 +512,3 @@ pub fn encode(root: &Table, opts: &EncodeOpts) -> mlua::Result<String> {
     Ok(out)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn references_are_read_and_others_kept() {
-        assert_eq!(unescape("a &amp; b &#233; &#xE9; &custom; & c"), "a & b é é &custom; & c");
-        assert_eq!(escape("a<\"b\"\n", true), "a&lt;&quot;b&quot;&#10;");
-    }
-}

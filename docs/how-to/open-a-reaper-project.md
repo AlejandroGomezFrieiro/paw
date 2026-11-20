@@ -1,15 +1,15 @@
 # How to move a song between paw and REAPER
 
 This guide shows you how to move a song between REAPER and paw, in both
-directions. The `rpp` extension reads and writes REAPER projects (`.rpp`
-files). For each command, and for a list of what comes across, see the
-[rpp README](../../extensions/rpp/README.md). For Bitwig Studio, Studio One
+directions. The `interop` extension reads and writes REAPER projects
+(`.rpp` files). For a list of what comes across, see the
+[interop README](../../extensions/interop/README.md). For Bitwig Studio, Studio One
 and Cubase, see
 [How to move a song between paw and other DAWs](move-a-song-to-another-daw.md).
 
 ## Load the extension
 
-Type `:ext.load rpp`. To load it at each start, see
+Type `:ext.load interop`. To load it at each start, see
 [How to load an extension](load-an-extension.md).
 
 ## Open a REAPER project
@@ -21,11 +21,11 @@ Type `:ext.load rpp`. To load it at each start, see
 3. To keep the project, save it as a project of paw: `:w song`.
 
 If the MIDI tracks are silent because their instrument stayed in REAPER,
-type `:rpp.import song.rpp instrument=synth`. paw gives each of these
-tracks a `synth`.
+type `:e song.rpp instrument=synth`. paw gives each of these tracks a
+`synth`.
 
 To add the tracks of a REAPER project to the open project, type
-`:rpp.import song.rpp merge=true`.
+`:import song.rpp`.
 
 ## Save a project for REAPER
 

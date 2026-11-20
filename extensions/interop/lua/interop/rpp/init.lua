@@ -1,12 +1,13 @@
--- The REAPER bridge: read and write REAPER projects (.rpp).
+-- REAPER projects (.rpp), read and written: a format of `paw.formats`
+-- (`import` and `export`), and the file as a tree for scripts.
 --
---   local rpp = require("rpp")
+--   local rpp = require("interop.rpp")
 --   local doc = rpp.read("song.rpp")            -- the file as a tree
 --   doc.project:set("TEMPO", 96, 4, 4, 0)
 --   rpp.save(doc, "song.rpp")                   -- unchanged lines are written as read
 --   local result = rpp.import("song.rpp")       -- into paw; result.report lists what stayed behind
 --   rpp.export("out.rpp")                       -- paw's project as a REAPER project
-local format = require("rpp.format")
+local format = require("interop.rpp.format")
 
 local M = {
   format = format,
@@ -21,16 +22,9 @@ local M = {
 
 --- Import a .rpp file. Options: `merge` (add to the current project),
 --- `instrument` (a device kind for MIDI tracks left without one).
-function M.import(path, opts) return require("rpp.import").file(path, opts) end
+function M.import(path, opts) return require("interop.rpp.import").file(path, opts) end
 
 --- Write the current project to a .rpp file.
-function M.export(path, opts) return require("rpp.export").file(path, opts) end
-
---- Show a report in a page, and a one-line summary.
-function M.show(report, summary)
-  paw.notify(summary .. (report:empty() and "" or "; see the list of what was not carried over"),
-    report:empty() and "info" or "warn")
-  if not report:empty() then pcall(paw.ui.page, "REAPER bridge", report:lines(30)) end
-end
+function M.export(path, opts) return require("interop.rpp.export").file(path, opts) end
 
 return M

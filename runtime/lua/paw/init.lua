@@ -223,6 +223,9 @@ paw.zip = require("paw.zip")
 -- keeps the order of its keys in `getmetatable(t).__keys`.
 paw.xml = require("paw.xml")
 paw.toml = { encode = api.toml_encode, decode = api.toml_decode }
+-- The files of other programs that `:import`, `:open` and `:export` take
+-- (paw/formats.lua): MIDI files here, others from extensions.
+paw.formats = require("paw.formats")
 
 -- Values kept by the kernel, so they survive `:reload`.
 paw.state = setmetatable({}, {
