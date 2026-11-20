@@ -199,7 +199,7 @@ Found with grep at a72467cf. Each refactor part that owns the file fixes it.
   the numbers agree.
 - **Real-time tools:** the `no_alloc.rs` tests of paw-engine and the
   sampler (own allocators), `backend.rs` `no_denormals`, the atomic `f32`
-  in `devices/dsp.rs` and `engine.rs`, and the thread priority in
+  in `devices/dsp.rs` and `engine/shared.rs`, and the thread priority in
   `pool.rs` and `sandbox.rs`.
 - **CLAP host:** `paw-plugins/src/clap.rs` calls `clap-sys` directly.
   Clack's host crate gives safe wrappers. If it is not on crates.io,
