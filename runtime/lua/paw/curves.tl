@@ -105,7 +105,13 @@ local record Params
   fraction: function(p: types.ParamInfo, value: number): number
   from_fraction: function(p: types.ParamInfo, fraction: number): number
 end
+--- paw/frontend.tl, as far as this module calls it: the frontend names
+--- the types of this module, and two modules cannot name each other's types.
+local record Frontend
+  format_value: function(param: types.ParamInfo, value: number): string
+end
 local record Paw is partial.Paw
+  frontend: Frontend
   lanes: LanesModule
   music: MusicModule
   address: AddressModule
@@ -195,7 +201,7 @@ local function param_target(parts: Parts, uri: string): Target, string
     step = #p.choices > 0 and 1 or (p.max - p.min) / 100,
   }
   t.name = function(): string return api.device_get(parts.device).name .. " › " .. p.name end
-  t.format = function(v: number): string return paw.frontend.format_value(p, v) as string end
+  t.format = function(v: number): string return paw.frontend.format_value(p, v) end
   t.points = function(): {Point} return {} end
   t.flat = function(): number return api.device_get(parts.device).params[parts.param] end
   t.write = function(points: {Point})

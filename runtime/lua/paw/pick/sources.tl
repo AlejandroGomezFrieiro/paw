@@ -20,6 +20,7 @@ local type AuditionModule = require("paw.audition")
 local type MidifileModule = require("paw.midifile")
 local type MusicModule = require("paw.music")
 local type AddressModule = require("paw.address")
+local type FrontendModule = require("paw.frontend")
 
 local opt = options.opt
 
@@ -152,11 +153,6 @@ local record Message
   text: string
 end
 
---- The parameters' values in words (paw/frontend.lua, in Lua).
-local record Frontend
-  format_value: function(info: types.ParamInfo, value: number): string
-end
-
 --- What `paw.ui.input` takes.
 local record InputOptions
   prompt: string
@@ -174,6 +170,7 @@ local record Paw is partial.Paw
   address: AddressModule
   time: objects.Time
   project: objects.Project
+  frontend: FrontendModule
   scope: Scope
   panes: Panes
   fx: Fx
@@ -865,7 +862,7 @@ local function make(pick: Pick): Sources
       local lines: {string | contracts.PageLine} = { { text = info.name, style = "Title" }, "", "kind   " .. info.kind, "" }
       for i, p in ipairs(info.param_info) do
         if i > 40 then break end
-        lines[#lines + 1] = string.format("%-18s %s", p.name, (paw.frontend as Frontend).format_value(p, info.params[p.key]))
+        lines[#lines + 1] = string.format("%-18s %s", p.name, paw.frontend.format_value(p, info.params[p.key]))
       end
       return lines
     end,

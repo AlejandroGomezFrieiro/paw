@@ -40,6 +40,7 @@ local type MusicModule = require("paw.music")
 local type CursorModule = require("paw.cursor")
 local type DocumentModule = require("paw.lsp.document")
 local type PickModule = require("paw.pick")
+local type FrontendModule = require("paw.frontend")
 
 local type Payload = rpc.Payload
 local type Location = contracts.Location
@@ -66,8 +67,7 @@ local record State
   lsp_procs: {integer}
 end
 
---- The gestures of the window (paw/frontend.lua, in Lua): the one this
---- module gives.
+--- The gestures of the window (paw/frontend.tl) that this module adds.
 local record Act
   note_hover: function(clip: integer, place: integer)
 end
@@ -82,6 +82,7 @@ local record Paw is partial.Paw
   music: MusicModule
   cursor: CursorModule
   pick: PickModule
+  frontend: FrontendModule
   time: objects.Time
   version: string
   wait: function(ms: number)

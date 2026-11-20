@@ -262,7 +262,7 @@ local record PartLayer
   param: string
 end
 
---- The gestures of the window (paw/frontend.lua) that this module adds.
+--- The gestures of the window (paw/frontend.tl) that this module adds.
 local record Acts
   note_action: function(clip: integer, place: integer, n: integer)
 end
@@ -287,6 +287,7 @@ end
 
 local record Paw is partial.Paw
   pick: Pick
+  frontend: Frontend
   draw: DrawModule
   qf: Qf
   time: objects.Time
@@ -1052,7 +1053,7 @@ local roll = paw.ui.views.pianoroll as Roll
 roll.layer("diagnostics", 30, function(p: RollLayer) M.paint_roll(p) end)
 
 -- The window's menu on a note: the `n`th of its fixes, as `actions` lists them.
-local frontend = paw.frontend as Frontend
+local frontend = paw.frontend
 frontend.act.note_action = function(clip: integer, place: integer, n: integer)
   local action = M.actions(clip, place)[n]
   if action then action.run() end

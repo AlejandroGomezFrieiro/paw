@@ -23,6 +23,7 @@ local type DrawModule = require("paw.draw")
 local type EditModule = require("paw.edit")
 local type EventsModule = require("paw.events")
 local type FormatsModule = require("paw.formats")
+local type FrontendModule = require("paw.frontend")
 local type GrepModule = require("paw.grep")
 local type GroupsModule = require("paw.groups")
 local type HarmonyModule = require("paw.harmony")
@@ -34,6 +35,7 @@ local type LimitModule = require("paw.limit")
 local type LspModule = require("paw.lsp")
 local type MarkdownModule = require("paw.markdown")
 local type MarkersModule = require("paw.markers")
+local type MediaModule = require("paw.media")
 local type MidifileModule = require("paw.midifile")
 local type MusicModule = require("paw.music")
 local type ObjectsModule = require("paw.objects")
@@ -43,6 +45,8 @@ local type PlotModule = require("paw.plot")
 local type QfModule = require("paw.qf")
 local type QueryModule = require("paw.query")
 local type RegexModule = require("paw.regex")
+local type RemoteModule = require("paw.remote")
+local type RenderModule = require("paw.render")
 local type RolesModule = require("paw.roles")
 local type SceneModule = require("paw.scene")
 local type SeatsModule = require("paw.seats")
@@ -99,7 +103,7 @@ global record paw
    flush: function()
    formats: FormatsModule
    freeze: Untyped
-   frontend: Partial.Frontend
+   frontend: FrontendModule
    fx: Untyped
    grep: GrepModule
    groups: GroupsModule
@@ -127,7 +131,7 @@ global record paw
    markdown: MarkdownModule
    markers: MarkersModule
    master: ObjectsModule.Track
-   media: Untyped
+   media: MediaModule
    midi: ObjectsModule.Midi
    midifile: MidifileModule
    mixer_rows: Untyped
@@ -153,13 +157,13 @@ global record paw
    reconnect: Untyped
    redo: function(): boolean
    regex: RegexModule
-   remote: Untyped
-   render: Untyped
-   render_cancel: Untyped
-   render_ranges: Untyped
-   render_status: Untyped
-   render_stems: Untyped
-   render_tags: Untyped
+   remote: RemoteModule
+   render: RenderModule
+   render_cancel: function(): boolean
+   render_ranges: {string: RenderModule.Range}
+   render_status: function(): RenderModule.Status
+   render_stems: function(dir: string, opts?: RenderModule.Options): {string}
+   render_tags: function(set?: types.RenderTags): types.RenderTags
    restore_clip: function(snap: ObjectsModule.ClipSnapshot, track: integer | ObjectsModule.Track): ObjectsModule.Clip
    restore_device: function(snap: ObjectsModule.DeviceSnapshot, track: integer | ObjectsModule.Track, index?: integer): ObjectsModule.Device
    restore_track: function(snap: ObjectsModule.TrackSnapshot, index?: integer): ObjectsModule.Track

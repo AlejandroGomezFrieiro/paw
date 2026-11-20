@@ -47,11 +47,10 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.open(path, opts)`: Open what a path names: a folder that is no project as a list of its files, a sound file as a new track, anything else as a project, with plugins offline as `opts` says (see `paw.loading.open`).
 - `paw.open_chain(path)`: Open a chain file (a `devices.json`) alone, as a new project with no file: one track with its devices, and the device panel on it. `:w` writes the chain back to its file. Returns the track.
 - `paw.redo`: the same as `paw.api.redo`.
-- `paw.render(path, opts)`: Render the project to a file, and render stems. See `paw/render.lua` for the options. `paw.render_status()` and `paw.render_cancel()` control a render that runs in the background. `paw.render_ranges` contains the named ranges that a render can use.
-- `paw.render_cancel()`: Stop the render that runs in the background.
-- `paw.render_status()`: The render that runs in the background (`{ path, fraction, seconds }`), or nil.
-- `paw.render_stems(dir, opts)`: Render each track to a file of its own in `dir` (see `paw/render.lua` for `opts`).
-- `paw.render_tags(set)`: The tags of the project's rendered files: `paw.render_tags()`, `paw.render_tags({ artist = "Me" })`.
+- `paw.render_cancel()`: Stop the render in the background, and the renders that wait after it. paw does not write its file. Returns true if a render ran.
+- `paw.render_status()`: The render in the background: `{ path, fraction, seconds, cancelling, stage, queued }`, or nil. `stage` is "rendering", or "encoding" when ffmpeg makes a lossy file from the render. Then `fraction` tells how far the encoding is.
+- `paw.render_stems(dir, opts)`: Render each track on its own into a directory, one file per track named after it: stems. A track is rendered with what it passes through on the way to the master, as when it is soloed, so that the stems add up to the mix. `opts` is as for `paw.render`, plus `tracks` to choose which (all that are not muted, by default) and `format` ("wav", "flac", "mp3", "ogg" or "opus"). With `background`, they are rendered one after another. Returns the files.
+- `paw.render_tags(set)`: What the project's rendered files are tagged with (`project.meta.tags`): `paw.render_tags()` gives `{ title, artist, album, track, year, genre, comment, cover }` as far as set; `paw.render_tags({ artist = "Me" })` sets those fields and keeps the others, an empty string takes one out. A relative `cover` is from the project's directory.
 - `paw.restore_clip(snap, track)`: Add a clip from a snapshot to a track.
 - `paw.restore_device(snap, track, index)`: Add a device from a snapshot to a track, at the end of the chain or at the 1-based `index`.
 - `paw.restore_track(snap, index)`: Make a track from a snapshot, at a 1-based position in the track list.
@@ -1266,7 +1265,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.media.collect()`: Copy every file from outside the project's folder into `media` beside it and point the clips at the copies. One undo step. Returns `{ copied, missing, dir }`.
 - `paw.media.edits(clip)`: An audio clip's edit list: `{ { kind, ... } }`.
 - `paw.media.gain_part(clip, from, to, db)`: A gain of `db` on a part of an audio clip, from `from` to `to` seconds of what it plays, in its edit list. Returns how many edits it has.
-- `paw.media.glue(clips)`: Join audio clips of one track into one clip that plays a new file. With a list, join the given clips. With one clip, join it and each audio clip that touches or overlaps it. Returns { id, file, glued }.
+- `paw.media.glue(clips)`: Join audio clips of one track into one clip that plays a new file: the clips of the list, by id or as clips. A list of one clip joins it and each audio clip that touches or overlaps it. Lua can also give one clip without a list. Returns { id, file, glued }.
 - `paw.media.list()`: Every file the project plays: `{ path, missing, inside }`.
 - `paw.media.missing()`: Files the project's clips play that are not there, once each.
 - `paw.media.normalize(clip, level)`: Bring the loudest sample an audio clip plays to `level` dB (0) by its gain. Returns the new gain.
@@ -1559,6 +1558,43 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.remote.touch()`: A turn had input: a key, the pointer, a call. What the frontends show can be different.
 - `paw.remote.turn()`: After each turn of the kernel: push now what its input or its edits changed, at most once in 8 ms.
 - `paw.remote.wake()`: Something started to move (the song, a note played): push at the pace from now.
+
+## Module paw.render
+
+- `paw.render.cancel`: the same as `paw.render_cancel`.
+- `paw.render.default_path()`: The file a render writes when no file is named: the project's name, beside it.
+- `paw.render.render(path, opts)`: Render the project to a file: WAV or FLAC, or MP3, Ogg Vorbis or Opus when ffmpeg is installed (`paw.opt.ffmpeg` says where it is, if not on the PATH), by the file's extension. A lossy file is rendered to a temporary WAV, which ffmpeg then encodes. `opts` (all optional):
+
+  ```lua
+  range       "song" (the default), "loop", "selection", or a name in `paw.render_ranges`
+  start, end  beats, instead of a range (`end` defaults to the end of the last clip)
+  tail        seconds after the end, for reverbs and delays to ring out (1)
+  sample_rate (or rate) Hz; the engine's by default
+  bits        16, 24 or 32 (float; WAV only); 24 by default
+  channels    2 (or "stereo") or 1 (or "mono")
+  dither      true to add dither when writing 16 or 24 bits
+  quality     for MP3, Ogg Vorbis and Opus: "low", "medium", "high" (the
+              default) or "best"; `bitrate` (kbit/s) instead of it for a number
+  tags        { title, artist, album, track, year, genre, comment, cover } written into
+              the file, over the project's own (`paw.render_tags`); `cover` is a PNG or
+              JPEG file (a WAV holds no cover); the title of a lossy file is the project's name by default
+  normalize   bring the loudest sample to this level in dB, such as -1
+  loudness    bring the integrated loudness to this level in LUFS, such as -14;
+              with `normalize` too, the peak level is a ceiling
+  tracks      { id, ... }: only these, with what they pass through (a stem)
+  master      false to leave out the master track's devices, fader and pan
+  threads     threads to render on
+  background  true to return at once and render on a thread of its own:
+              `render.progress` ({ path, fraction, seconds }) follows now
+              and then, and `render.done` (what is returned below),
+              `render.failed` ({ path, error }) or `render.cancelled` at the end;
+              a render in the foreground emits `render.finished` with what it returns
+  ```
+
+  When it is done, it returns `types.RenderResult`. This has the path, the frames, the seconds, the peak, the gain and the loudness. It also has the format, the bits (nil for a lossy format) and the channels. paw emits `render.before` first. Its handlers run before the render starts, so an extension that makes audio of its own can complete it. paw refuses a file that it cannot write before it renders. When a render fails or stops, no file has the name that you gave.
+- `paw.render.status`: the same as `paw.render_status`.
+- `paw.render.stems`: the same as `paw.render_stems`.
+- `paw.render.tags`: the same as `paw.render_tags`.
 
 ## Module paw.roles
 
