@@ -1023,6 +1023,10 @@ test("guide: write an extension in Teal", function()
     .. page:match("```lua\n(local track: paw.Track.-)```") .. "print(volume)\n"
   T.write_file(dir .. "/events.tl", events)
   eq(#paw.lang.check({ dir .. "/events.tl" }), 0, "the examples of events, setters and objects check")
+  -- The example of the library of Lua 5.3 checks, and its asserts hold.
+  T.write_file(dir .. "/lib.tl", page:match("```lua\n(local function note_on.-)```"))
+  eq(#paw.lang.check({ dir .. "/lib.tl" }), 0, "the example of the library checks")
+  assert(paw.lang.loadfile(dir .. "/lib.tl"))()
   keys(':lua paw.ext.load("' .. dir .. '/scale.tl")<CR>')
   T.after(function() paw.ext.unload("scale") end)
   keys(":scale.notes C4 dorian<CR>")
