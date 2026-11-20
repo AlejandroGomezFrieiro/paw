@@ -193,7 +193,7 @@ test("sections: moving a section past its neighbour, on every track, as one undo
   eq(layout(a), "i@0+8 v@8+8 o@16+8 c@24+8", "with its clips")
   paw.undo()
   paw.cursor.set_beat(0)
-  keys("2,SL")
+  keys("2<localleader>SL")
   eq(names(S), "Verse@0 Chorus@8 Intro@16 Outro@24", "a count moves it further")
   keys(".")
   eq(names(S), "Verse@0 Chorus@8 Outro@16 Intro@24", ". does it again")
