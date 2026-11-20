@@ -55,6 +55,7 @@ comment next to the code:
 | Job | Use | Not |
 |---|---|---|
 | Lua, LuaJIT | `mlua` | raw `lua_*` FFI |
+| MCP servers | `rmcp`, the official SDK (<https://github.com/modelcontextprotocol/rust-sdk>) | own JSON-RPC and tool tables |
 | Command line of a binary | `clap` (derive) | a loop over `std::env::args` |
 | Errors of a library crate | `thiserror` | `Result<_, String>` |
 | Errors of a binary | `anyhow` | `Box<dyn Error>` |
@@ -133,6 +134,8 @@ Found with grep at a72467cf. Each refactor part that owns the file fixes it.
   `extensions/sampler/native/src/bin/paw-sampler.rs`. Use clap with derive
   and subcommands. Keep every flag, its short form and its meaning, and keep
   `docs/reference` in step.
+- **MCP:** `paw-mcp` writes its own protocol, tool list and dispatch. Use
+  `rmcp`.
 - **SHA-256:** `paw-proto/src/lib.rs:261`. Use `ring::digest`.
 - **Hex:** five `fn hex` (paw-plugins vst3.rs, paw-proto, paw-gui theme.rs,
   paw-raster vector.rs, paw-scene cells.rs). One color type with
