@@ -115,7 +115,7 @@ test("tags are found for keys, commands, options, Lua modules, sections and page
     local tag = H.lookup(topic)
     return tag and tag.source.name .. " " .. tag.name or "none"
   end
-  eq(where("gU"), "keys.md gU", "a key: its row in the key table")
+  eq(where("gL"), "keys.md gL", "a key: its row in the key table")
   eq(where(":s"), "ex.md :s", "a command")
   eq(where("'timebind'"), "options.md 'timebind'", "an option")
   eq(where("paw.qf"), "lua-addresses.md paw.qf", "a Lua module")
