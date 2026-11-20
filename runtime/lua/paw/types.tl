@@ -11,6 +11,8 @@
 -- it names that code. A field can be nil, as in every Teal record: a view
 -- leaves out what does not apply.
 
+local type role_props = require("paw.role_props")
+
 local record types
   --- How `paw.api.base64_encode` writes: `url` for the URL alphabet (`-_`),
   --- `pad = false` for no `=` at the end.
@@ -1503,12 +1505,20 @@ local record types
     y: SceneAxis
   end
 
-  --- What `scene_open` takes (`scene.rs` `OpenOpts`). `props` and `hit`
-  --- are the view's own data, given to the frontend and back as they are.
+  --- A hit region's action (`paw.roles`): its `kind` names the view's
+  --- gesture for it, `view.gestures[kind]`. A view's own kind of hit adds
+  --- what that gesture needs (`record FaderHit is types.Hit`).
+  interface Hit
+    kind: string
+  end
+
+  --- What `scene_open` takes (`scene.rs` `OpenOpts`). `props` is what the
+  --- role shows (runtime/types/paw/role_props.d.tl, from the props that
+  --- the window reads); `hit` comes back as it was in `scene_hit`.
   record SceneOpenOptions
     role: string
-    props: any
-    hit: any
+    props: role_props.Props
+    hit: Hit
     bind: string
     key: string
     clip: Rect
@@ -1528,7 +1538,7 @@ local record types
   --- What `scene_hit` finds: `hit` is what `scene_open` was given.
   record SceneHit
     key: string
-    hit: any
+    hit: Hit
     at: Point
     rect: Rect
   end

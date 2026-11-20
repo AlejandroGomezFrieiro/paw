@@ -66,6 +66,16 @@ paw can load each of these through the same registry of languages
   The records of the data that crosses `paw.api` are in
   `runtime/lua/paw/types.tl`. Each record agrees with the Rust code that
   makes or reads the table.
+- **The records that Rust makes.** Some data has its shape in a Rust
+  type, and `tools/apidoc.lua` makes the Teal records from that type.
+  `crates/paw-core/src/events.rs` gives each event of the kernel and its
+  payload: the tool makes `paw.events.kernel`, with a record for each
+  payload and a descriptor for each event
+  (`paw.on(kernel.project_saved, function(p: kernel.Saved) ... end)`).
+  `crates/paw-scene/src/props.rs` gives the props of each role that the
+  window paints: the tool makes `runtime/types/paw/role_props.d.tl`. The
+  window reads the props with the same Rust types, so the records agree
+  with what the window reads.
 - **The global `paw`.** `runtime/types/paw.d.tl` gives `paw.api`, and each
   module of the runtime that is in Teal with the types of its own code. A
   module that is still in Lua is not described: it has the type
@@ -131,6 +141,7 @@ work of one agent. The areas of one wave do not depend on each other.
 | Done | Core services | `util`, `events`, `options`, `limit`, `hooks`, `seats`, `commands`, `lang`: 15 fewer `paw.Untyped` entries | 1,700 | none |
 | Done | File formats | `xml`, `zip`, `markdown`, `formats`, `midifile`: 2,356 lines of Teal, 5 fewer `paw.Untyped` entries | 1,800 | none |
 | Done | Kernel types | the `// @return` of `api.rs` and the other files that add to `paw.api`, and records in `types.tl`: 343 `any` of `paw.api` down to 20, and 5 in the records, each with its reason | 270 functions | none |
+| Done | Contracts of the kernel | the events of the kernel as a Rust type, with a descriptor and a record for each; the setters take a table of changes (`track_set(id, patch)`), and `device_find_all` is separate from `device_find`; the props of the roles that the window paints as Rust types: 13 fewer `any` entries | 45 events, 7 functions, 21 roles | none |
 | 2 | The project | `objects`, `cursor`, `edit`, `address`, `tempo`, `tempolane`, `markers`, `locators` | 3,400 | wave 1 |
 | 2 | Music on the project | `harmony`, `structure`, `takes`, `groups`, `vca`, `lanes`, `curves`, `audition` | 3,100 | wave 1 |
 | 3 | Queries and lists | `query`, `grep`, `qf`, `diagnostic`, `complete`, `snippet` | 3,900 | wave 2 |
@@ -184,6 +195,22 @@ entries.
   `paw.lang` declares the parts that it calls.
 - The checker found no error that changed what the code does: the tests
   pass with no change.
+
+## What the contracts of the kernel found
+
+- The kernel sent the payload of `project.saved` in two shapes: with the
+  files written when it saves a folder, and with the path only for a
+  file. The record `kernel.Saved` has both, and the files are optional.
+- The kernel sent a key of a piano (`labels` of the `keyboard` role) as
+  `{ pitch, name, style }`, and the window read only the first two. The
+  record says so. A curve's `values` holds `false` where there is no
+  value, not nil.
+- A setter that takes a table cannot clear a field, because a table has
+  no entry for nil. The key form stays for that, and Teal sees it only
+  with `nil` as its value.
+- What the code does is the same. Two tests changed: they used the forms
+  that Teal does not see now (`track_get(id, key)`, `device_find` with
+  `all = true`).
 
 ## What the checker found in the file formats
 

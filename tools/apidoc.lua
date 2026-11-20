@@ -751,14 +751,15 @@ local function field_teal(rust, structs)
     local t = field_teal(vec, structs)
     return t and "{" .. t .. "}"
   end
-  local pair = rust:match("^%((.*)%)$")
-  if pair then
-    local parts = split_top(pair)
-    local first = field_teal(parts[1], structs)
-    for _, p in ipairs(parts) do
-      if field_teal(p, structs) ~= first then return nil end
+  -- A tuple is a list of its parts in Lua: a tuple of Teal too.
+  local tuple = rust:match("^%((.*)%)$")
+  if tuple then
+    local parts = {}
+    for i, p in ipairs(split_top(tuple)) do
+      parts[i] = field_teal(p, structs)
+      if not parts[i] then return nil end
     end
-    return first and "{" .. first .. "}"
+    return "{" .. table.concat(parts, ", ") .. "}"
   end
   local name = rust:match("^([%w_]+)") or rust
   if structs[name] then return name end
@@ -770,7 +771,7 @@ end
 --- `{ name, rust, doc, type, serde }`, by the enum's name.
 function M.rust_records(path)
   local structs, enums, order = {}, {}, {}
-  local doc, serde = {}, nil
+  local doc, serde, derive = {}, nil, ""
   local current, enum
   for _, line in ipairs(lines_of(path) or {}) do
     local comment = line:match("^%s*///%s?(.*)$")
@@ -778,13 +779,17 @@ function M.rust_records(path)
       doc[#doc + 1] = comment
     elseif line:match("^%s*#%[") then
       serde = line:match('rename%s*=%s*"([^"]+)"') or serde
+      derive = line:match("^%s*#%[derive%((.*)%)%]") or derive
     else
       local name, rest = line:match("^pub struct ([%w_]+)[^{]*{(.*)$")
       local ename = line:match("^pub enum ([%w_]+)")
       if name then
+        -- Only what crosses to Lua: a struct that serde writes or reads.
         current = { name = name, doc = doc, fields = {} }
-        structs[name] = current
-        order[#order + 1] = current
+        if derive:match("Serialize") or derive:match("Deserialize") then
+          structs[name] = current
+          order[#order + 1] = current
+        end
         if rest:match("}") then current = nil end
       elseif ename then
         enum = {}
@@ -793,12 +798,13 @@ function M.rust_records(path)
         current, enum = nil, nil
       elseif current then
         local fname, rust = line:match("^%s+pub ([%w_]+): (.-),?%s*$")
-        if fname then current.fields[#current.fields + 1] = { name = fname, rust = rust, doc = doc } end
+        if fname then current.fields[#current.fields + 1] = { name = serde or fname, rust = rust, doc = doc } end
       elseif enum then
         local vname, rust = line:match("^%s+([%w_]+)%((.-)%),%s*$")
         if vname then enum[#enum + 1] = { name = vname, rust = rust, doc = doc, serde = serde } end
       end
       doc, serde = {}, nil
+      if not line:match("^%s*$") then derive = "" end
     end
   end
   -- What a `/// @type T` line names, else the type the Rust type has.
@@ -846,13 +852,11 @@ function M.kernel_events()
     "   --- edits with edits leaves alone.",
     "   interface Payload", "      restored: boolean", "   end" }
   for _, s in ipairs(structs) do
-    if s.name ~= "ModelEvent" then
-      out[#out + 1] = ""
-      for _, line in ipairs(s.doc) do out[#out + 1] = "   --- " .. line end
-      out[#out + 1] = "   record " .. s.name .. " is Payload"
-      record_fields(out, s, "      ", M.EVENTS_RS)
-      out[#out + 1] = "   end"
-    end
+    out[#out + 1] = ""
+    for _, line in ipairs(s.doc) do out[#out + 1] = "   --- " .. line end
+    out[#out + 1] = "   record " .. s.name .. " is Payload"
+    record_fields(out, s, "      ", M.EVENTS_RS)
+    out[#out + 1] = "   end"
   end
   out[#out + 1] = ""
   out[#out + 1] = "   --- An event as `paw.api.events_take` gives it."
@@ -878,6 +882,29 @@ function M.kernel_events()
   return table.concat(out, "\n")
 end
 
+--- The text of runtime/types/paw/role_props.d.tl: the props of each role
+--- that the window paints, as it reads them.
+function M.role_props()
+  local structs = M.rust_records(M.PROPS_RS)
+  local out = { "-- " .. HEADER, "-- Made from " .. M.PROPS_RS .. ": the props of each role that the",
+    "-- window paints, as it reads them (`paw.api.scene_open`'s `props`).", "",
+    "local record role_props",
+    "   --- The props of a role: each record of this file is one.",
+    "   interface Props", "   end" }
+  for _, s in ipairs(structs) do
+    out[#out + 1] = ""
+    for _, line in ipairs(s.doc) do out[#out + 1] = "   --- " .. line end
+    out[#out + 1] = "   record " .. s.name .. " is Props"
+    record_fields(out, s, "      ", M.PROPS_RS)
+    out[#out + 1] = "   end"
+  end
+  out[#out + 1] = "end"
+  out[#out + 1] = ""
+  out[#out + 1] = "return role_props"
+  out[#out + 1] = ""
+  return table.concat(out, "\n")
+end
+
 --- What is out of date: a list of the files whose text differs.
 function M.stale()
   local out = {}
@@ -889,6 +916,7 @@ function M.stale()
   if read(M.TEAL_UNTYPED) ~= untyped then out[#out + 1] = M.TEAL_UNTYPED end
   if read(M.ANY) ~= M.lowered(anys) then out[#out + 1] = M.ANY end
   if read(M.EVENTS_TL) ~= M.kernel_events() then out[#out + 1] = M.EVENTS_TL end
+  if read(M.PROPS_TL) ~= M.role_props() then out[#out + 1] = M.PROPS_TL end
   return out
 end
 
@@ -896,7 +924,8 @@ function M.write()
   os.execute("mkdir -p runtime/types/paw runtime/lua/paw/events")
   local teal, kernel, anys, untyped = M.teal()
   for path, text in pairs({ [M.META] = M.meta(), [M.PAGE] = M.page(), [M.TEAL] = teal, [M.TEAL_API] = kernel,
-    [M.TEAL_UNTYPED] = untyped, [M.ANY] = M.lowered(anys), [M.EVENTS_TL] = M.kernel_events() }) do
+    [M.TEAL_UNTYPED] = untyped, [M.ANY] = M.lowered(anys), [M.EVENTS_TL] = M.kernel_events(),
+    [M.PROPS_TL] = M.role_props() }) do
     local f = assert(io.open(path, "w"))
     f:write(text)
     f:close()
@@ -916,6 +945,6 @@ if mode == "check" then
 else
   M.write()
   print("wrote " .. M.META .. ", " .. M.PAGE .. ", " .. M.TEAL .. ", " .. M.TEAL_API .. ", " .. M.TEAL_UNTYPED .. ", "
-    .. M.EVENTS_TL .. " and " .. M.ANY)
+    .. M.EVENTS_TL .. ", " .. M.PROPS_TL .. " and " .. M.ANY)
   api.quit(0)
 end

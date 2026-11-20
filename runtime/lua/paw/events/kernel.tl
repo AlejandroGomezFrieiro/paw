@@ -155,7 +155,7 @@ local record kernel
       path: string
       written: {string}
       unused: {string}
-      moved: {{string}}
+      moved: {{string, string}}
    end
 
    --- The sound files a project names that are not where it says, and how
