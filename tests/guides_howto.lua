@@ -1014,7 +1014,7 @@ test("guide: write an extension in Teal", function()
   api.fs_mkdir(dir)
   -- The guide's extension, as it is on the page.
   local page = T.read_file("docs/how-to/write-an-extension-in-teal.md")
-  local code = page:match("```lua\n   (local record Args.-)   ```"):gsub("\n   ", "\n")
+  local code = page:match("```lua\n   (paw.command%(\"scale.notes\".-)   ```"):gsub("\n   ", "\n")
   T.write_file(dir .. "/scale.tl", code)
   eq(#paw.lang.check({ dir .. "/scale.tl" }), 0, "its types are correct")
   -- The examples of events and setters are correct Teal too.

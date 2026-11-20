@@ -466,7 +466,7 @@ command("cmdline", function(ctx)
     history = "cmdline",
     -- Command names, then what each command says its arguments are.
     complete = function(text) return paw.commands.complete(text) end,
-    -- What the line would act on, shown as it is typed: paw/ex.lua.
+    -- What the line would act on, shown as it is typed: paw/ex.tl.
     preview = function(text) return paw.ex.preview(text) end,
   }, function(line)
     -- A number alone is a bar to go to, as it is a line in an editor.
