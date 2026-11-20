@@ -5,7 +5,7 @@ local undotree = require("undotree")
 local view = require("undotree.view")
 require("undotree.paint")
 
-paw.option.define("undotree_ab_key", "\\")   -- the one key that switches between A and B; "" for none
+paw.option.define("undotree_ab_key", "")   -- one more key that switches between A and B; "" for none
 
 local command, map = paw.command, paw.keymap.set
 paw.keymap.group("<leader>u", "undo tree")
