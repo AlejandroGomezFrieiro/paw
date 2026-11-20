@@ -284,11 +284,10 @@ end
 --- instance, which is the only place they are known.
 function Device:info()
   local d = api.device_get(self.id)
-  for _, info in ipairs(api.device_types()) do
-    if info.kind == d.kind then
-      info.params = d.param_info
-      return info
-    end
+  local info = api.device_find({ kind = d.kind })
+  if info then
+    info.params = d.param_info
+    return info
   end
 end
 

@@ -157,8 +157,8 @@ local function fx_chain(name, track, t, ctx, label)
   chain:add(fmt.line("LASTSEL", 0))
   chain:add(fmt.line("DOCKED", 0))
   local count = 0
-  local types = {}
-  for _, info in ipairs(api.device_types()) do types[info.kind] = info end
+  -- The kinds of device, looked up as they are met.
+  local types = setmetatable({}, { __index = function(t, kind) local v = api.device_find({ kind = kind }) or false rawset(t, kind, v) return v end })
   local function add(block, bypass)
     chain:add(fmt.line("BYPASS", bypass and 1 or 0, 0, 0))
     chain:add(block)

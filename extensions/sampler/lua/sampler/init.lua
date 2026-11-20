@@ -23,12 +23,7 @@ function M.plugin_dir()
 end
 
 --- Whether the plugin can be made: it is among the device types.
-function M.available()
-  for _, t in ipairs(api.device_types()) do
-    if t.kind == M.KIND then return true end
-  end
-  return false
-end
+function M.available() return api.device_find({ kind = M.KIND }) ~= nil end
 
 --- The track's sampler device, or nil.
 function M.device_of(track_id)

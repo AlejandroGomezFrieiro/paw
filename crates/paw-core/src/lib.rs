@@ -29,9 +29,11 @@ pub mod stretch;
 pub mod stretched;
 pub mod sync;
 pub mod tempo_api;
+pub mod toml_api;
 pub mod tls;
 pub mod upload;
 pub mod warp;
 pub mod watchdog;
+pub mod xml;
 
 pub use kernel::{Frontend, InputEvent, Kernel, KernelMsg, KernelOpts};

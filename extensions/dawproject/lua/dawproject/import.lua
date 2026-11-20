@@ -49,22 +49,10 @@ end
 local PLUGINS = { ClapPlugin = true, Vst3Plugin = true, Vst2Plugin = true, AuPlugin = true, Device = true,
   BuiltinDevice = true, Equalizer = true, Compressor = true, NoiseGate = true, Limiter = true }
 
-local function installed(kind)
-  for _, t in ipairs(api.device_types()) do
-    if t.kind == kind then return t end
-  end
-end
+local function installed(kind) return api.device_find({ kind = kind }) end
 
 local function find_vst3(name, vendor, class)
-  for _, t in ipairs(api.device_types()) do
-    if t.format == "vst3" and class and t.id ~= "" and t.id == class:upper() then return t end
-  end
-  for _, t in ipairs(api.device_types()) do
-    if t.format == "vst3" and t.name == name and (not vendor or t.vendor == "" or t.vendor == vendor) then return t end
-  end
-  for _, t in ipairs(api.device_types()) do
-    if t.format == "vst3" and t.name:lower() == (name or ""):lower() then return t end
-  end
+  return api.device_find({ format = "vst3", id = class, name = name, vendor = vendor })
 end
 
 --- The paw key of a parameter element of a device: by the plugin's own id

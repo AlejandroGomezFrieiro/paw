@@ -2,22 +2,78 @@
 
 use super::*;
 
+/// What `paw.api.device_find` looks for; each part is optional.
+#[derive(Default, serde::Deserialize)]
+#[serde(default)]
+pub struct DeviceQuery {
+    pub kind: Option<String>,
+    pub format: Option<String>,
+    pub id: Option<String>,
+    pub name: Option<String>,
+    pub vendor: Option<String>,
+    pub all: bool,
+}
+
+fn type_json(info: &paw_engine::DeviceInfo) -> Value {
+    let params: Vec<Value> = info.params.iter().map(param_json).collect();
+    json!({
+        "kind": info.kind, "name": info.name, "category": info.category,
+        "format": info.format, "vendor": info.vendor, "params": params,
+        "id": info.id, "version": info.version, "features": info.features,
+    })
+}
+
 impl Session {
     pub fn device_types(&self) -> Value {
-        let types: Vec<Value> = self
-            .registry
-            .iter()
-            .map(|f| {
-                let info = f.info();
-                let params: Vec<Value> = info.params.iter().map(param_json).collect();
-                json!({
-                    "kind": info.kind, "name": info.name, "category": info.category,
-                    "format": info.format, "vendor": info.vendor, "params": params,
-                    "id": info.id, "version": info.version, "features": info.features,
-                })
-            })
-            .collect();
-        Value::Array(types)
+        Value::Array(self.registry.iter().map(|f| type_json(f.info())).collect())
+    }
+
+    /// The kinds of device that answer a query, best first: by kind (an
+    /// old name of a kind too), else by the plugin's own id, else by name
+    /// and vendor, else by name in any case. Each test looks only at the
+    /// kinds of `format` when it is given. The list of all kinds is not
+    /// made, so this is quick with many plugins.
+    pub fn device_find(&self, q: &DeviceQuery) -> Vec<Value> {
+        let format = q.format.as_deref().map(|f| match f.to_ascii_lowercase().as_str() {
+            "vst" | "vst2" => "vst".to_string(),
+            "built in" | "built-in" => "builtin".to_string(),
+            other => other.to_string(),
+        });
+        let in_format = |info: &paw_engine::DeviceInfo| format.as_deref().is_none_or(|f| info.format == f);
+        if let Some(kind) = &q.kind {
+            return self
+                .registry
+                .get(kind)
+                .map(|f| f.info())
+                .filter(|i| in_format(i))
+                .map(|i| vec![type_json(i)])
+                .unwrap_or_default();
+        }
+        let infos = || self.registry.iter().map(|f| f.info()).filter(|i| in_format(i));
+        let mut out: Vec<Value> = Vec::new();
+        if let Some(id) = q.id.as_deref().filter(|id| !id.is_empty()) {
+            // A VST3 class id is written in either case.
+            out.extend(infos().filter(|i| !i.id.is_empty() && i.id.eq_ignore_ascii_case(id)).map(type_json));
+        }
+        if out.is_empty()
+            && let Some(name) = q.name.as_deref()
+        {
+            let vendor = q.vendor.as_deref().filter(|v| !v.is_empty());
+            out.extend(
+                infos()
+                    .filter(|i| {
+                        i.name == name && (vendor.is_none() || i.vendor.is_empty() || Some(i.vendor.as_str()) == vendor)
+                    })
+                    .map(type_json),
+            );
+            if out.is_empty() {
+                out.extend(infos().filter(|i| i.name.eq_ignore_ascii_case(name)).map(type_json));
+            }
+        }
+        if q.id.is_none() && q.name.is_none() {
+            out.extend(infos().map(type_json));
+        }
+        out
     }
 
     pub fn device_view(&self, id: Id) -> Result<Value> {

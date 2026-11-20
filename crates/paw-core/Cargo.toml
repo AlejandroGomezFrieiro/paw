@@ -22,6 +22,10 @@ base64 = "0.22"
 flate2 = "1"
 # project.toml, the settings of a project folder.
 toml = "1.1"
+# paw.api.toml_decode/toml_encode: TOML that keeps the order of its keys.
+toml_edit = "0.25"
+# paw.api.xml_decode/xml_encode, for the XML of other programs.
+quick-xml = "0.41"
 rtrb = "0.4"
 libc = "0.2"
 # Pure Rust FLAC encoder, for renders to .flac.

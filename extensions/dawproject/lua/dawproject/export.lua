@@ -384,10 +384,9 @@ function M.build(opts)
       return "id" .. n
     end,
     report = reports.new("Not written to " .. (opts.name or "the DAWproject file") .. ":"),
-    types = {}, params = {}, track_params = {}, channel = {}, track_el = {}, files = {}, media = {}, taken = {},
+    types = setmetatable({}, { __index = function(t, kind) local v = api.device_find({ kind = kind }) or false rawset(t, kind, v) return v end }), params = {}, track_params = {}, channel = {}, track_el = {}, files = {}, media = {}, taken = {},
     plugins = 0, embed = opts.embed ~= false,
   }
-  for _, info in ipairs(api.device_types()) do ctx.types[info.kind] = info end
   local p = api.project_get()
   local list = {}
   for i, id in ipairs(api.track_list()) do list[i] = api.track_get(id) end

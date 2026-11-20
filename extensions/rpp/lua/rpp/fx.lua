@@ -80,24 +80,12 @@ end
 
 -- Import -----------------------------------------------------------------------------
 
-local function installed(kind)
-  for _, t in ipairs(paw.api.device_types()) do
-    if t.kind == kind then return t end
-  end
-end
+local function installed(kind) return paw.api.device_find({ kind = kind }) end
 
 --- The VST3 plugin installed here: by its class id (`{...}` in REAPER's
 --- line), else by name and vendor.
 local function find_vst3(name, vendor, class)
-  for _, t in ipairs(paw.api.device_types()) do
-    if t.format == "vst3" and class and t.id == class:upper() then return t end
-  end
-  for _, t in ipairs(paw.api.device_types()) do
-    if t.format == "vst3" and t.name == name and (not vendor or t.vendor == "" or t.vendor == vendor) then return t end
-  end
-  for _, t in ipairs(paw.api.device_types()) do
-    if t.format == "vst3" and t.name:lower() == name:lower() then return t end
-  end
+  return paw.api.device_find({ format = "vst3", id = class, name = name, vendor = vendor })
 end
 
 --- Describe a plugin block: { format, display, kind (if it can map), ... }.
