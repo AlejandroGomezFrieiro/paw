@@ -11,6 +11,10 @@
 # the whole output is in target/test-scratch/suite.out.
 . "$(dirname "$0")/env.sh"
 cd "$ROOT" || exit 1
+# The stub plugin that some tests load is a cargo example, which a plain
+# `cargo build` does not make: build it here, so that a test never loads a
+# stub that an older checkout left in target/.
+cargo build --release -q -p paw-plugins --example stub_clap || exit 1
 out=$SCRATCH/suite.out
 case "$1" in
   plugins)
