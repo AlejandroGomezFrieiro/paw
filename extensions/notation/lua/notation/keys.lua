@@ -388,8 +388,8 @@ command("notation.export", function(ctx)
 end, { desc = "Write the clip's score as MusicXML (`.mxl` zipped), LilyPond, or engraved pages: `notation.export song.musicxml`, `notation.export score.mxl all` (every track), `notation.export lead.ly track`, `notation.export pdf`, `notation.export tune.svg`", complete = { "files", function() return { "all", "track" } end } })
 
 -- Reaching it from the arrange view and the window's clip menu.
-map("<leader>n", "notation", { view = "arrange", desc = "Show the clip as notation" })
-map("<leader>n", "notation", { view = "pianoroll", desc = "Show this clip as notation" })
+map("<localleader>n", "notation", { view = "arrange", desc = "Show the clip as notation" })
+map("<localleader>n", "notation", { view = "pianoroll", desc = "Show this clip as notation" })
 if paw.frontend and paw.frontend.menus then
   table.insert(paw.frontend.menus.clip, { label = "Open as notation", command = "notation.open", only = "midi" })
 end
@@ -414,9 +414,9 @@ local function guarded(rhs)
     return rhs(...)
   end)
 end
-local READ = { gh = true, gp = true, zi = true, zo = true, zg = true, zp = true, ["]d"] = true, ["[d"] = true, gK = true, ["<Esc>"] = true, ["<leader>n"] = true, ZZ = true, gd = true, gR = true, zS = true, ["<Tab>"] = true }
+local READ = { gh = true, gp = true, zi = true, zo = true, zg = true, zp = true, ["]d"] = true, ["[d"] = true, gK = true, ["<Esc>"] = true, ["<localleader>n"] = true, ZZ = true, gd = true, gR = true, zS = true, ["<Tab>"] = true }
 -- Keys that leave the view, or open another clip, work with no clip shown.
-local ANYWAY = { ["<Esc>"] = true, ["<leader>n"] = true, zS = true }
+local ANYWAY = { ["<Esc>"] = true, ["<localleader>n"] = true, zS = true }
 local function nmap(lhs, rhs, desc, opts)
   if not (opts and opts.motion) and not READ[lhs] and not lhs:match("^g%d$") then rhs = guarded(rhs)
   elseif not ANYWAY[lhs] then rhs = present(rhs) end
@@ -647,11 +647,11 @@ local escaped_at = -math.huge
 nmap("<Esc>", function()
   local now = api.now()
   if now - escaped_at < 2000 then
-    paw.notify("normal mode: " .. keymap.human("<leader>n") .. " goes back to the window before, :q or ZZ closes the notation")
+    paw.notify("normal mode: " .. keymap.human("<localleader>n") .. " goes back to the window before, :q or ZZ closes the notation")
   end
   escaped_at = now
 end, "Stay in the view (,n leaves)", { repeatable = false })
-nmap("<leader>n", function()
+nmap("<localleader>n", function()
   if not paw.layout.back() then paw.notify("the notation is the only window here: `:e arrange` shows the arrange view in it", "warn") end
 end, "Back to the window before")
 nmap("ZZ", "close", "Close the notation")
@@ -1219,7 +1219,7 @@ if paw.ui.keybar then
   paw.ui.keybar.set("notation", "n", {
     -- `+` `-` as in every view (docs/reference/keys.md); `Ctrl-a` `Ctrl-x` are the same with a count.
     { "i", "enter" }, { "<CR>", "note" }, { "x", "delete" }, { "+", "sharp" }, { "-", "flat" },
-    { "<A-l>", "longer" }, { "<A-h>", "shorter" }, { "g5", "quarter" }, { "gd", "dot" }, { "<leader>n", "back" },
+    { "<A-l>", "longer" }, { "<A-h>", "shorter" }, { "g5", "quarter" }, { "gd", "dot" }, { "<localleader>n", "back" },
   })
   paw.ui.keybar.set("notation", "i", {
     { "c", "C..B", "a-g" }, { "C", "chord", "A-G" }, { "<A-3>", "+3rd", "Alt-2…8" }, { "5", "value", "2-7" }, { ".", "dot" },

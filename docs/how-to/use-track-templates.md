@@ -13,19 +13,19 @@ Type `:ext.load templates`. To load it at each start, see
 ## Save a template
 
 1. Put the cursor on the track.
-2. Press `,Ts`. Type a name, for example `Lead vocal`, and press `Enter`.
+2. Press `\Ts`. Type a name, for example `Lead vocal`, and press `Enter`.
    paw saves the track with its devices, their settings, the level, the
    pan, the color and the input.
 
 To save a group with all its tracks, put the cursor on the track of the
-group and press `,Ts`.
+group and press `\Ts`.
 
-To save only the devices, as a chain, press `,Tf` and type a name.
+To save only the devices, as a chain, press `\Tf` and type a name.
 
 ## Use a template
 
 1. Put the cursor on a track. The new track goes below it.
-2. Press `,Tl`. Type a part of the name, for example `lead`, and press
+2. Press `\Tl`. Type a part of the name, for example `lead`, and press
    `Enter`. The track appears with its devices.
 
 A chain goes onto the end of the devices of the cursor track.

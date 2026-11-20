@@ -228,7 +228,7 @@ test("utau: a vocal track is a kind of track: made, shown, described and opened 
   T.fresh()
   load()
   paw.ui.focus("arrange")
-  T.keys(",Vt")
+  T.keys("<localleader>Vt")
   while paw.ui.float do paw.ui.close() end
   local track = paw.tracks()[#paw.tracks()]
   eq(paw.track_kinds.of(track.id), "vocal", "the key makes a vocal track")

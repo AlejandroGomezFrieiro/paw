@@ -63,11 +63,18 @@ A key of one view must not use a key of the global leader.
 `:lua =paw.keyrule.broken()` lists the keys that do. `:map` and the key
 hints show both leaders as you type them.
 
-Some views also have keys of their own after the leader, on keys that no
-global mapping uses. The arrange view has the most: the automation
-(`,a`), groups and VCAs (`,g` `,v`), sends and outputs (`,s` `,o`), and
-the keys of extensions (`,S` sections, `,t` patterns, `,k` drums). The
-device panel saves presets with `,w` `,W`.
+The keys of an extension for one view are on the local leader. In the
+arrange view: `\S` sections, `\T` templates, `\t` patterns, `\k` drums,
+`\V` vocal tracks, `\i` virtual inputs and `\n` notation. The keys of an
+extension after the leader work from every view (`,u`, `,x`, `,l`).
+`:lua =paw.keyrule.broken()` lists a key of an extension for one view
+that is on the leader.
+
+The core keeps some keys of its own views after the leader, on keys that
+no global mapping uses. In the arrange view, these are the automation
+(`,a`), groups and VCAs (`,g` `,v`), sends and outputs (`,s` `,o`) and
+fades (`,cf`). In the device panel, they are the presets (`,w` `,W`).
+`,ca` gives the fixes and actions in each view.
 
 ## The classic keys
 

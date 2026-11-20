@@ -97,7 +97,7 @@ Type `:vinput.set split E3:2`. Notes from E3 up go on channel 2.
 
 ### The panel
 
-`<leader>i` (`:vinput`) shows the inputs. Each input shows its chain and
+`<localleader>i` (`:vinput`) shows the inputs. Each input shows its chain and
 its state, with its settings under it.
 
 | Setting | Effect |

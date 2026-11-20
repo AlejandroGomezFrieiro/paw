@@ -183,7 +183,7 @@ end, { desc = "What every virtual input is doing" })
 
 -- Keys ------------------------------------------------------------------------------
 
-map("<leader>i", "vinput", { view = "arrange", desc = "Virtual inputs (guitar to MIDI)" })
+map("<localleader>i", "vinput", { view = "arrange", desc = "Virtual inputs (guitar to MIDI)" })
 
 local function pmap(lhs, rhs, desc, opts) map(lhs, rhs, paw.util.merge({ view = "vinput", desc = desc }, opts)) end
 local function move(by) return function(ctx)

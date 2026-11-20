@@ -191,9 +191,9 @@ end, {
 
 -- The arrange view --------------------------------------------------------------
 
-keymap.group("<leader>k", "drums", { view = "arrange" })
-map("<leader>kn", "drums.track", { view = "arrange", desc = "Add a drum track" })
-map("<leader>km", "drums.map", { view = "arrange", desc = "Choose the track's drum map" })
+keymap.group("<localleader>k", "drums", { view = "arrange" })
+map("<localleader>kn", "drums.track", { view = "arrange", desc = "Add a drum track" })
+map("<localleader>km", "drums.map", { view = "arrange", desc = "Choose the track's drum map" })
 
 -- A drum track is a kind of track (`paw.track_kinds`): `:track.add drums`,
 -- `:track.new` and the window's menus that make a track offer it, the

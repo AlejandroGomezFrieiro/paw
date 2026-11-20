@@ -330,6 +330,14 @@ test("an extension that maps a key another one mapped wins, and checkhealth says
   eq(said and said.level, "warn", "checkhealth extensions warns of it")
 end)
 
+test("the key rule: an extension's key of one view goes on the local leader, not the leader", function()
+  write(dir("viewlead") .. "/init.lua", 'paw.keymap.set("<leader>Zq", function() end, { view = "arrange", desc = "One view" })\n'
+    .. 'paw.keymap.set("<localleader>Zq", function() end, { view = "arrange", desc = "One view" })')
+  paw.ext.load(dir("viewlead"))
+  T.after(function() paw.ext.unload("viewlead") end)
+  eq(table.concat(paw.keyrule.broken(), "\n"), "arrange n <leader>Zq: a key of one view on the leader: use `<localleader>`", "the one on the leader")
+end)
+
 test("checkhealth says when an extension gives a key of the core another meaning, not when it wraps it", function()
   write(dir("rekey") .. "/init.lua", 'paw.keymap.set("]s", function() end, { view = "arrange", motion = true, desc = "Something else" })\n'
     .. 'paw.keymap.set("<CR>", "clip.edit", { view = "arrange", desc = "Edit the clip\'s notes" })')

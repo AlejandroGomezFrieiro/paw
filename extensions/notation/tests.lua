@@ -439,7 +439,7 @@ test("notation: :notation opens the clip under the cursor, with the keyboard", f
   eq(found and found.only, "midi", "the clip menu offers it for MIDI clips")
   local mapped
   for _, m in ipairs(paw.keymap.list("n", "arrange")) do
-    if m.lhs == "<leader>n" then mapped = m.rhs end
+    if m.lhs == "<localleader>n" then mapped = m.rhs end
   end
   eq(mapped, "notation", "and the arrange view has a key for it")
 end)
@@ -1830,8 +1830,8 @@ test("notation: Esc stays in the view; ,n, ZZ and :q leave it", function()
   keys("d<Esc>")
   eq(paw.keymap.mode, "n", "and a pending operator")
   eq(paw.ui.focused, "notation", "staying")
-  keys("<leader>n")
-  eq(paw.ui.focused, "arrange", ",n goes back to the arrange view")
+  keys("<localleader>n")
+  eq(paw.ui.focused, "arrange", "\\n goes back to the arrange view")
   view:edit(view:clip())
   keys("ZZ")
   eq(paw.ui.focused, "arrange", "ZZ closes the notation")

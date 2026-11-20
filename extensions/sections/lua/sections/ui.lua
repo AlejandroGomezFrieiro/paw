@@ -49,7 +49,7 @@ end
 --- otherwise by typing its name (Tab completes).
 function M.choose(title, fn)
   local list = S.list()
-  if #list == 0 then return paw.notify("no sections yet: `<leader>Sa` adds one at the cursor", "warn") end
+  if #list == 0 then return paw.notify("no sections yet: `<localleader>Sa` adds one at the cursor", "warn") end
   if paw.pick then
     local items = {}
     for i, s in ipairs(list) do items[i] = { text = M.describe(s), start = s.start, section = s } end
@@ -248,20 +248,20 @@ keymap.textobject("is", function(ctx) return section_region(ctx, false) end,
 keymap.textobject("as", function(ctx) return section_region(ctx, true) end,
   { view = "arrange", desc = "The section widened to whole bars, on every track" })
 
-keymap.group("<leader>S", "sections", { view = "arrange" })
-amap("<leader>Sa", "section.add", "Add a section at the cursor")
-amap("<leader>Sr", "section.rename", "Rename the section")
-amap("<leader>Sx", "section.remove", "Remove the section marker, keeping the timeline")
-amap("<leader>Ss", "section.goto", "Go to a section from the list")
-amap("<leader>Sl", "section.list", "List the sections")
-amap("<leader>SL", function(ctx) paw.cmd("section.move", { by = 1 }, { count = ctx.count }) end, "Move the section later, past the next")
-amap("<leader>SH", function(ctx) paw.cmd("section.move", { by = -1 }, { count = ctx.count }) end, "Move the section earlier, past the one before")
-amap("<leader>S&", function(ctx) paw.cmd("section.duplicate", {}, { count = ctx.count }) end, "Repeat the section after itself")
-amap("<leader>Sd", function(ctx) paw.cmd("section.delete", {}, { register = ctx.register }) end, "Delete the section and close the gap")
-amap("<leader>Sy", function(ctx) paw.cmd("section.yank", {}, { register = ctx.register }) end, "Yank the section with its marker and automation")
-amap("<leader>Sp", function(ctx) paw.cmd("section.put", {}, { register = ctx.register, count = ctx.count }) end, "Insert the register after this section")
-amap("<leader>SP", function(ctx) paw.cmd("section.put", { before = true }, { register = ctx.register, count = ctx.count }) end, "Insert the register before this section")
-amap("<leader>Sc", "section.copy", "Insert a copy of a section before this one")
+keymap.group("<localleader>S", "sections", { view = "arrange" })
+amap("<localleader>Sa", "section.add", "Add a section at the cursor")
+amap("<localleader>Sr", "section.rename", "Rename the section")
+amap("<localleader>Sx", "section.remove", "Remove the section marker, keeping the timeline")
+amap("<localleader>Ss", "section.goto", "Go to a section from the list")
+amap("<localleader>Sl", "section.list", "List the sections")
+amap("<localleader>SL", function(ctx) paw.cmd("section.move", { by = 1 }, { count = ctx.count }) end, "Move the section later, past the next")
+amap("<localleader>SH", function(ctx) paw.cmd("section.move", { by = -1 }, { count = ctx.count }) end, "Move the section earlier, past the one before")
+amap("<localleader>S&", function(ctx) paw.cmd("section.duplicate", {}, { count = ctx.count }) end, "Repeat the section after itself")
+amap("<localleader>Sd", function(ctx) paw.cmd("section.delete", {}, { register = ctx.register }) end, "Delete the section and close the gap")
+amap("<localleader>Sy", function(ctx) paw.cmd("section.yank", {}, { register = ctx.register }) end, "Yank the section with its marker and automation")
+amap("<localleader>Sp", function(ctx) paw.cmd("section.put", {}, { register = ctx.register, count = ctx.count }) end, "Insert the register after this section")
+amap("<localleader>SP", function(ctx) paw.cmd("section.put", { before = true }, { register = ctx.register, count = ctx.count }) end, "Insert the register before this section")
+amap("<localleader>Sc", "section.copy", "Insert a copy of a section before this one")
 
 -- The ruler ---------------------------------------------------------------------------
 

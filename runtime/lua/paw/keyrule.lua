@@ -52,10 +52,21 @@ function M.broken()
       leader[map.mode .. table.concat(map.keys)] = true
     end
   end
+  -- The leader starts keys that work from every view: an extension's keys
+  -- of one view go on `<localleader>` (`\S` sections, `\k` drums), unless
+  -- the core has the same keys in its views (`,ca`, fixes and actions).
+  local core_view = {}
+  for _, map in ipairs(keymap.every()) do
+    if map.scope ~= "global" and not map.ext then core_view[map.mode .. table.concat(map.keys)] = true end
+  end
   for _, map in ipairs(keymap.every()) do
     if map.scope ~= "global" and (map.mode == "n" or map.mode == "x") then
       local keys = table.concat(map.keys)
-      if leader["n" .. keys] or leader[map.mode .. keys] then bad(map, "shadows a global leader key: use `<localleader>`") end
+      if leader["n" .. keys] or leader[map.mode .. keys] then
+        bad(map, "shadows a global leader key: use `<localleader>`")
+      elseif map.ext and map.lhs:lower():find("^<leader>") and not core_view[map.mode .. keys] then
+        bad(map, "a key of one view on the leader: use `<localleader>`")
+      end
     end
   end
   -- `+` and `Ctrl-a` go together, as do `-` and `Ctrl-x`: the second with a count.

@@ -13,7 +13,7 @@ paw.ext.load("/path/to/paw/extensions/drums")
 ## Try it
 
 1. Type `:ext.load drums`.
-2. Press `,kn`. A new drum track appears below the cursor track, and its
+2. Press `\kn`. A new drum track appears below the cursor track, and its
    clip opens in the grid.
 3. Type `/snare` and press Enter. The cursor goes to the row of the snare.
 4. Press `l` four times, then Enter. A hit appears on the second beat, and
@@ -27,7 +27,7 @@ paw.ext.load("/path/to/paw/extensions/drums")
 
 ### How to make a drum track
 
-- Press `,kn`, or type `:drums.track Drums bars=2`. The new track has the
+- Press `\kn`, or type `:drums.track Drums bars=2`. The new track has the
   built-in `drums` kit and the General MIDI map.
 - To play a folder of samples, type `:drums.track Drums kit=~/samples/808`.
 
@@ -81,8 +81,8 @@ cursor on its row and type `:drums.pad level=-3 pan=0.2`.
 
 | Command | Keys | Effect |
 | --- | --- | --- |
-| `drums.track [name] [map=] [kit=] [bars=]` | `,kn` | makes a track below the cursor track, with the built-in `drums` kit, the General MIDI map, a name, a color and a bar to program, and opens it in the grid. `kit=<folder>` plays samples |
-| `drums.map [name]` | `,km` | makes the track under the cursor a drum track with a map, with any instrument. Without a name, you choose. `drums.map off` makes it an ordinary track |
+| `drums.track [name] [map=] [kit=] [bars=]` | `\kn` | makes a track below the cursor track, with the built-in `drums` kit, the General MIDI map, a name, a color and a bar to program, and opens it in the grid. `kit=<folder>` plays samples |
+| `drums.map [name]` | `\km` | makes the track under the cursor a drum track with a map, with any instrument. Without a name, you choose. `drums.map off` makes it an ordinary track |
 | `drums.edit` | `Enter` | opens the clip under the cursor in the grid. `Enter` (`clip.edit`) does this on the clips of a drum track, and opens the piano roll on other clips |
 | `drums.kit <folder>` | | plays the drum track (or a new track) from a folder of sound files, by their names |
 | `drums.pad level= pan= tune= group= file=` | | changes the sample of the row of the grid |
