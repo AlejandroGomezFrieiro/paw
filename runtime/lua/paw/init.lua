@@ -48,7 +48,7 @@ paw.events = events
 local options = require("paw.options")
 paw.opt, paw.option = options.opt, options
 paw.limit = require("paw.limit")
--- Edits, undo, saving and keys heard of (paw/hooks.lua): before anything
+-- Edits, undo, saving and keys heard of (paw/hooks.tl): before anything
 -- keeps the kernel's undo and save functions of its own.
 paw.hooks = require("paw.hooks")
 -- Before anything that keeps state of its own for each terminal and window.
@@ -191,7 +191,7 @@ end
 paw.undo, paw.redo = api.undo, api.redo
 paw.cursor = require("paw.cursor")
 paw.edit = require("paw.edit")
--- Files in languages that compile to Lua (Teal, ...): paw/lang.lua.
+-- Files in languages that compile to Lua (Teal, ...): paw/lang.tl.
 paw.lang = require("paw.lang")
 paw.ext = require("paw.ext")
 paw.vca = require("paw.vca")

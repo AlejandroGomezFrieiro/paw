@@ -9,7 +9,7 @@
 --   paw.bytes.le32(n)            -- four bytes
 --   paw.bytes.vst3_split(state)  -- a VST3 state's component and controller parts
 --
--- Written in Teal (paw/lang.lua): the build compiles it to Lua.
+-- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
 local type types = require("paw.types")
 

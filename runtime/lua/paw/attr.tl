@@ -26,7 +26,7 @@
 -- `attr_map` (docs/reference/lua-objects.md). Names here are the profile's, short
 -- tags for the piano roll; an articulation map may name them its own way.
 --
--- Written in Teal (paw/lang.lua): the build compiles it to Lua.
+-- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local type types = require("paw.types")
 local type Attr = types.NoteAttr
 local api = require("paw.api")

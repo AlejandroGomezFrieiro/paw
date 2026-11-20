@@ -50,7 +50,7 @@ pub struct Timer {
 /// Everything the kernel and the Lua API functions both reach into.
 pub struct Shared {
     pub session: RefCell<Session>,
-    /// The screen of the seat whose turn it is (see runtime/lua/paw/seats.lua),
+    /// The screen of the seat whose turn it is (see runtime/lua/paw/seats.tl),
     /// as big as that seat's terminal: `sizes`, by connection, 0 for the
     /// program's own.
     pub grid: RefCell<Grid>,
@@ -1532,7 +1532,7 @@ pub fn install(lua: &Lua, shared: &Rc<Shared>) -> mlua::Result<()> {
         }
         // `undo_pending` is true if the edits of this turn will close as a step.
         // `undo_discard` puts back what they changed, and no step closes
-        // (`edit.before`, paw/hooks.lua).
+        // (`edit.before`, paw/hooks.tl).
         // @return boolean
         fn undo_pending(_, sh, () => ()) { Ok(sh.session.borrow().undo_pending()) }
         // @return boolean

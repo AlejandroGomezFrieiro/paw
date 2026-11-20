@@ -420,13 +420,55 @@ function M.teal_modules()
   for _, mod in ipairs(M.modules()) do
     local file = mod.module and "runtime/lua/" .. mod.module:gsub("%.", "/")
     for _, candidate in ipairs({ file and file .. ".tl", file and file .. "/init.tl" }) do
-      if read(candidate) and mod.name == "paw." .. mod.module:gsub("^paw%.", "") then
+      -- Under any name: `paw.option` is the module paw.options.
+      if read(candidate) then
         out[#out + 1] = { name = mod.name, module = mod.module, file = candidate }
         break
       end
     end
   end
   table.sort(out, function(a, b) return a.name < b.name end)
+  return out
+end
+
+--- The Teal type of each value that a module written in Teal gives, by the
+--- value, for the names that are another way to it (`paw.on` is
+--- `paw.events.on`, `paw.opt` is `paw.option.opt`): the function's
+--- signature in its source, or the field's type in the module's record, with
+--- the types that the module gives (`type Handler = Handler`) named as
+--- `Alias.Handler`.
+local function teal_values(mods, alias_of)
+  local out = {}
+  for _, mod in ipairs(mods) do
+    local text = read(mod.file) or ""
+    local alias = alias_of(mod)
+    local exported = {}
+    for name in text:gmatch("\n%s+type ([%w_]+) =") do exported[name] = true end
+    local function qualify(t)
+      return (t:gsub("%f[%w_.][%a_][%w_]*%f[^%w_]", function(word)
+        return exported[word] and alias .. "." .. word or word
+      end))
+    end
+    local record = text:match("\nlocal record M\n(.-)\nend\n") or ""
+    local value = package.loaded[mod.module]
+    for name, v in pairs(type(value) == "table" and value or {}) do
+      if type(name) == "string" then
+        local t
+        if type(v) == "function" then
+          local rest = text:match("\nfunction M%." .. name .. "(%f[^%w_][^\n]*)")
+          local generics = rest and rest:match("^<[^>]*>") or ""
+          local sig = rest and rest:sub(#generics + 1):match("^(%b().-)%s*$")
+          -- A signature alone: not a function written on one line.
+          if sig and not sig:find("%f[%w_]return%f[^%w_]") and not sig:find("%f[%w_]end%f[^%w_]") then
+            t = "function" .. generics .. sig
+          end
+        else
+          t = record:match("\n%s+" .. name .. ": ([^\n]+)") or record:match("^%s+" .. name .. ": ([^\n]+)")
+        end
+        if t and not out[v] then out[v] = qualify(t) end
+      end
+    end
+  end
   return out
 end
 
@@ -449,8 +491,12 @@ function M.teal()
   local mods = M.teal_modules()
   out[#out + 1] = "local type Api = require(\"paw.api\")"
   local tree = { children = {}, order = {}, lines = {} }
+  local function alias_of(mod)
+    return (mod.name:gsub("^paw%.", ""):gsub("[._](%l)", string.upper):gsub("^%l", string.upper)) .. "Module"
+  end
+  local values = teal_values(mods, alias_of)
   for _, mod in ipairs(mods) do
-    local alias = mod.name:gsub("^paw%.", ""):gsub("[._](%l)", string.upper):gsub("^%l", string.upper) .. "Module"
+    local alias = alias_of(mod)
     out[#out + 1] = "local type " .. alias .. " = require(\"" .. mod.module .. "\")"
     local node = tree
     local parts = {}
@@ -506,7 +552,9 @@ function M.teal()
       if type(k) == "string" and k:match("^%a[%w_]*$") and not KEYWORDS[k] and not taken[k] then keys[#keys + 1] = k end
     end
     for _, k in ipairs(keys) do
-      node.lines[#node.lines + 1] = count(path .. "." .. k, k .. ": Untyped")
+      -- Another name of a value of a module in Teal has its type.
+      local typed = values[value[k]]
+      node.lines[#node.lines + 1] = typed and k .. ": " .. typed or count(path .. "." .. k, k .. ": Untyped")
     end
   end
   local function emit(node, depth, path, value)

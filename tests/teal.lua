@@ -1,4 +1,4 @@
--- Languages that compile to Lua (paw/lang.lua), Teal first: the types of
+-- Languages that compile to Lua (paw/lang.tl), Teal first: the types of
 -- every Teal file of the source tree, and files in such languages that load
 -- as extensions and modules, compiled once and then taken from the cache.
 -- Loaded by tests/suite.lua with its helpers.
