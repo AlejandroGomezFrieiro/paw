@@ -88,7 +88,7 @@ These keys obey the key rule.
 | `]u` | arrange | Down into a group, to its first track. `[u` is the same as `[{`. |
 | `ig` `ag` | arrange | The tracks of the group of the cursor. With the group track. |
 | `]n` `[n` | piano roll | The next or the previous note of the same pitch. |
-| `]]` `[[` `]s` `[s` `[{` `]}` | notation, in a score | The next or the previous instrument. In its group. The first and the last of the group. See the notation README, "The score". |
+| `]]` `[[` `]s` `[s` `[{` `]}` | notation, in a score | The next or the previous instrument. In its group. The first and the last of the group. See [Scores](../../extensions/notation/doc/reference.md#scores) in the reference of notation. |
 
 They take a count, and they are motions for the operators: `d]c` deletes
 up to the next clip of the kind. `]c`, `[c`, `]n`, `[n`, `]]`, `[[`, `[{`

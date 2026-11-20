@@ -177,10 +177,10 @@ test("help: a key's entry is its row in the key table, and the help split takes 
     L.restore(initial)
     paw.ui.focus("arrange")
   end)
-  paw.help.open("gU")
+  paw.help.open("gL")
   local _, buf, t, s = paw.textbuf.here()
   eq(buf.name, "help://keys.md", "the key table's page")
-  eq(t:line(s.row):match("^%s*|") ~= nil or t:line(s.row):match("gU") ~= nil, true, "on a line that names the key")
+  eq(t:line(s.row):match("^%s*|") ~= nil or t:line(s.row):match("gL") ~= nil, true, "on a line that names the key")
   eq(#t:line(s.row) < 120, true, "a one-line entry, not a paragraph")
   local _, height = paw.ui.size()
   for _, r in ipairs(paw.ui.arrange()) do

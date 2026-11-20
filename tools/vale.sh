@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Run Vale on paw's documentation with the project's styles:
 #
-#   tools/vale.sh                      every page (docs/, READMEs)
+#   tools/vale.sh                      every page (docs/, READMEs, doc/, bench/)
 #   tools/vale.sh docs/how-to/*.md     some pages
 #   tools/vale.sh --minAlertLevel=suggestion docs/README.md
 #
@@ -37,6 +37,7 @@ for a in "$@"; do
   case "$a" in -*) opts+=("$a") ;; *) files+=("$a") ;; esac
 done
 if [ ${#files[@]} -eq 0 ]; then
-  files=(README.md AGENTS.md docs crates/*/README.md extensions/*/README.md)
+  # bench/RESULTS.md is not checked: it is a dated log of measurements.
+  files=(README.md AGENTS.md docs crates/*/README.md extensions/*/README.md extensions/*/doc bench/README.md bench/DAWS.md)
 fi
 "$vale_bin" --config "$root/.vale.ini" "${opts[@]}" "${files[@]}"

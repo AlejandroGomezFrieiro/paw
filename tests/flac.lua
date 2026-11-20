@@ -13,7 +13,7 @@ end
 test("the demo song rendered to FLAC is no larger than the same song as a WAV", function()
   fresh()
   api.engine_restart({ backend = "null" })
-  dofile("examples/demo.lua")
+  dofile("tests/fixtures/render-song.lua")
   for _, bits in ipairs({ 16, 24 }) do
     local flac = paw.render(T.scratch .. "/demo" .. bits .. ".flac", { bits = bits, tail = 0, ["end"] = 4 })
     local wav = paw.render(T.scratch .. "/demo" .. bits .. ".wav", { bits = bits, tail = 0, ["end"] = 4 })

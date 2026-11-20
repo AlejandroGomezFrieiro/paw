@@ -10,20 +10,20 @@ toolchain and the PipeWire libraries.
 2. To open a demo song in the terminal interface, run this command:
 
    ```sh
-   cargo run -- -e 'dofile("examples/demo.lua")'
+   cargo run -- -e 'dofile("examples/demo-song.lua")'
    ```
 
 3. To open the graphical window on the same song, run this command:
 
    ```sh
-   cargo run -p paw-gui -- -e 'dofile("examples/demo.lua")'
+   cargo run -p paw-gui -- -e 'dofile("examples/demo-song.lua")'
    ```
 
 ## Variations
 
-- To use the example configuration, run `cargo run -- --config examples/config`.
+- To use the example configuration, run `cargo run -- --config config`.
 - To build the demo song and render it to a file without a UI, run
-  `cargo run -- -l examples/demo.lua demo.wav`.
+  `cargo run -- -l examples/demo-song.lua song.wav`.
 - To open specified audio devices, give a part of their names:
   `cargo run -- --output UR22 --input UR22`.
 - To check the audio, the plugins and the environment, run

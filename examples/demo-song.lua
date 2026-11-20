@@ -81,3 +81,10 @@ drums:send(verb, -24)
 paw.transport.loop_start, paw.transport.loop_end = 0, 32
 paw.cursor.set_track(keys)
 paw.flush()
+
+-- Given a path, render the song to it: `paw -l examples/demo-song.lua song.wav`.
+local out = ...
+if out then
+  local info = paw.render(out, { tail = 2 })
+  print(string.format("wrote %s: %.1f s, peak %.1f dB", out, info.seconds, 20 * math.log10(info.peak)))
+end

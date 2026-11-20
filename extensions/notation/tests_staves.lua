@@ -347,7 +347,7 @@ end)
 test(":help notation-scores finds the score's section, and :help :score the command", function()
   load()
   local tag = paw.help.lookup("notation-scores")
-  eq(tag and (tag.source.name .. " " .. tag.name), "notation/README.md notation-scores", "the README's section")
+  eq(tag and (tag.source.name .. " " .. tag.name), "notation/doc/reference.md notation-scores", "the reference's section")
   eq(paw.help.lookup(":score") ~= nil, true, "the command")
 end)
 

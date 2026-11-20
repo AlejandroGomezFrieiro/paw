@@ -138,6 +138,7 @@ crates/*/README.md           the crate's landing page, same rules in small
 extensions/<name>/README.md  the extension's landing page: one-paragraph what, then sections
                              by kind in this order — Try it (a 5-step tutorial), How to …
                              (goals), Reference (keys, commands, options tables), About (why)
+extensions/<name>/doc/*.md   more pages of :help; a long reference goes in doc/reference.md
 ```
 
 Each page is one kind. A landing/contents page only introduces and links;
@@ -152,7 +153,7 @@ Rules specific to paw:
   first column of a table or at the start of a list item. Other pages
   mention it as code and link to it.
 - **Tests read the docs**: a test checks every command and key an extension
-  registers appears in its README; tutor tests check the course matches
+  registers appears in its README or its doc/*.md; tutor tests check the course matches
   the lessons; tests/apidoc.lua checks api.md is current. Run
   `nix develop -c tests/tools/suite.sh` after any move.
 - **Links**: relative Markdown links; after moving a page, grep the whole
