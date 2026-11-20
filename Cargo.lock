@@ -2800,8 +2800,10 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "cpal",
+ "hound",
  "paw-proto",
  "serde_json",
+ "tempfile",
 ]
 
 [[package]]
@@ -2850,6 +2852,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "base64",
+ "hex",
+ "ring",
  "rustls",
  "serde_json",
 ]

@@ -10,3 +10,6 @@ anyhow.workspace = true
 serde_json.workspace = true
 rustls.workspace = true
 base64 = "0.22"
+hex.workspace = true
+# SHA-256 for proofs and fingerprints, at the version rustls links.
+ring = "0.17"
