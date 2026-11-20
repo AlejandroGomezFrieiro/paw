@@ -177,11 +177,6 @@ local record Analysed
   client: string
 end
 
---- What `:lsp` gets.
-local record CommandContext
-  args: {string}
-end
-
 --- What a page of `:lsp` shows: text, or text in a style.
 local type Line = string | contracts.PageLine
 
@@ -1422,8 +1417,9 @@ function M.info_lines(): {Line}
 end
 
 --- `:lsp [info|start|stop|restart|log] [name]`.
-function M.command(ctx: CommandContext)
-  local verb, name = ctx.args[1] or "info", ctx.args[2]
+function M.command(ctx: contracts.CommandContext)
+  local verb = ctx.args[1] as string or "info"
+  local name = ctx.args[2] as string
   if verb == "info" then
     paw.ui.page("Language servers", M.info_lines())
   elseif verb == "log" then

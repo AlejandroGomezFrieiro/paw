@@ -14,13 +14,8 @@ paw uses Teal.
 2. Write the extension. This extension adds the command `:scale.notes`:
 
    ```lua
-   local record Args
-     {string}
-   end
-
-   paw.command("scale.notes", function(ctx: paw.Untyped)
-     local args = ctx.args as Args
-     local root, scale = args[1] or "C4", args[2] or "major"
+   paw.command("scale.notes", function(ctx: paw.contracts.CommandContext)
+     local root, scale = tostring(ctx.args[1] or "C4"), tostring(ctx.args[2] or "major")
      local names: {string} = {}
      for degree = 1, #paw.music.scales[scale] + 1 do
        names[#names + 1] = paw.music.name(paw.music.degree(root, scale, degree))

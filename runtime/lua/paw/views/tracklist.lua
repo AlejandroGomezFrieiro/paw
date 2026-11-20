@@ -1,4 +1,4 @@
--- The listings of the project that are edited as text (paw/textbuf.lua):
+-- The listings of the project that are edited as text (paw/textbuf.tl):
 --
 --   paw://tracks             a track a line: name, volume, pan, flags, output, group, colour, devices
 --   paw://sends              a send a line: from, to, level, before or after the fader

@@ -94,6 +94,11 @@ paw.ex.field("lyric", { level = "note", type = "text", desc = "the sung syllable
   set = function(item, value, change) change.meta = paw.util.merge(item.note.meta or {}, { lyric = value }) end })
 ```
 
+In an extension in Teal, a command's `ctx` is a
+`paw.contracts.CommandContext`, its range a `paw.contracts.CommandRange`,
+an item a `paw.contracts.ExItem`, the spec of a field a
+`paw.contracts.ExField` and its `change` a `paw.contracts.ExChange`.
+
 ### Ranges in a view of an extension
 
 `paw.ex.view(name, spec)` tells ranges about a view whose beats are not the
@@ -104,6 +109,8 @@ paw.ex.view("myview", { song = function(col) return clip_start + col end,
   clips = function() return { clip_id } end, track = function() return track_id end,
   go = function(beat) end })                -- put the cursor at a beat of the song
 ```
+
+The spec is a `paw.contracts.ExView`.
 
 ## `paw.keymap`
 

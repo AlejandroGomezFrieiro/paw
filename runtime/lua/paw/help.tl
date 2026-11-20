@@ -37,6 +37,7 @@ local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
 local type QfModule = require("paw.qf")
 local type FormatsModule = require("paw.formats")
+local type TextbufModule = require("paw.textbuf")
 
 --- A kind of page of the manual: its folder of docs/ and its heading.
 local record Kind
@@ -185,31 +186,6 @@ local record Layout
   split: function(opts: SplitOptions): contracts.Window, string
 end
 
---- The cursor of a text buffer's window.
-local record TextCursor
-  row: integer
-  col: integer
-end
-
---- A text buffer: its lines.
-local record Text
-  line: function(self: Text, row: integer): string
-end
-
---- The text buffers (paw/textbuf.lua, in Lua): what this module calls of them.
-local record Textbuf
-  here: function(): contracts.Window, contracts.LayoutBuffer, Text, TextCursor
-  buf: function(): contracts.LayoutBuffer
-end
-
---- The state of a text buffer: its kind.
-local record TextState
-  record KindName
-    name: string
-  end
-  kind: KindName
-end
-
 --- The lines of the key line of a view and mode: `{ keys, what }` each, or
 --- a function that gives them.
 local type KeyRows = {{string}}
@@ -240,11 +216,12 @@ local type UiSize = function(): integer, integer
 local record Paw is partial.Paw
   qf: QfModule
   formats: FormatsModule
+  textbuf: TextbufModule
 end
 local paw = (_G as {string:Paw}).paw
 local layout = paw.layout as Layout
 local keymap = paw.keymap as Keymap
-local textbuf = paw.textbuf as Textbuf
+local textbuf = paw.textbuf
 local ext = paw.ext as Ext
 
 local record M
@@ -1035,7 +1012,7 @@ function M.lookup(topic: string): Tag return M.find(topic, 1)[1] end
 --- True if a buffer is a page of help.
 function M.is_help(buf: contracts.LayoutBuffer): boolean
   if not (buf and buf.type == "textbuf" and buf.state) then return false end
-  local kind = (buf.state as TextState).kind
+  local kind = (buf as TextbufModule.TextBuffer).state.kind
   return kind and kind.name == "help" or false
 end
 local is_help = M.is_help
@@ -1182,7 +1159,8 @@ end
 
 --- What is under the cursor of a help window: a link, code, or a word.
 local function under_cursor(): Here
-  local win, buf, t, s = textbuf.here()
+  local win, text_buf, t, s = textbuf.here()
+  local buf = text_buf as contracts.LayoutBuffer
   if not (win and is_help(buf)) then return nil end
   local source = source_of(buf)
   local line = source and source.doc.lines[s.row]
@@ -1224,7 +1202,7 @@ end
 function M.keyword()
   local win, buf, t, s = textbuf.here()
   if not win then return end
-  local here = is_help(buf) and under_cursor() or { word = word_at(t:line(s.row), s.col) }
+  local here = is_help(buf as contracts.LayoutBuffer) and under_cursor() or { word = word_at(t:line(s.row), s.col) }
   local text = here.code or here.word
   if not text then return end
   local tag = lookup_word(text)
@@ -1326,7 +1304,7 @@ A.scheme("help", {
 keymap.set("<C-]>", M.follow, { view = "textbuf", desc = "Help: follow the link, or look up the word, under the cursor", repeatable = false })
 keymap.set("<C-t>", function(ctx?: contracts.KeyContext) M.back(ctx.count or 1) end, { view = "textbuf", desc = "Help: back to where the last link was followed from", repeatable = false })
 keymap.set("K", function()
-  if is_help(textbuf.buf()) then return M.keyword() end
+  if is_help(textbuf.buf() as contracts.LayoutBuffer) then return M.keyword() end
   commands.run("info")
 end, { view = "textbuf", role = "describe", desc = "Look up the word under the cursor in help (`:help`)", repeatable = false })
 
@@ -1426,7 +1404,7 @@ end
 local keybar = paw.ui.keybar as Keybar
 local text_keys = keybar.lines.textbuf and keybar.lines.textbuf.n
 keybar.set("textbuf", "n", function(): KeyRows
-  if is_help(textbuf.buf()) then
+  if is_help(textbuf.buf() as contracts.LayoutBuffer) then
     return {
       { "<C-]>", "follow" }, { "<C-t>", "back" }, { "K", "look up" }, { "-", "contents" }, { "v", "select" }, { "y", "yank" },
       { "?", "keys" },
@@ -1454,7 +1432,7 @@ end
 --- The topic of help for a view, for the key line: its `help` field, a
 --- section of the manual, or the page of its extension.
 function M.topic_of(view: string): string
-  if view == "textbuf" and is_help(textbuf.buf()) then return "help" end
+  if view == "textbuf" and is_help(textbuf.buf() as contracts.LayoutBuffer) then return "help" end
   local v = paw.ui.views[view]
   if v and v.help then return v.help end
   return M.view_topics[view] or (paw.ext.loaded[view] and view) or nil
