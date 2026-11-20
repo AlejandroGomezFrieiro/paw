@@ -8,7 +8,7 @@ In this lesson, we load seven of the extensions that come with paw, and we try o
 
 Extensions give much of what paw can do. An extension is a folder of Lua in `extensions/` next to the program. It uses the same `paw` module as your `init.lua`. `:tutor.try` loads an extension for this session only. To load an extension each time, link its folder into `~/.config/paw/extensions`.
 
-The README.md of each extension tells all that it does. Each extension has its keys under its own prefix. These are `]s` `[s` and `,S` (sections), `gz` (musicops) and `,t` (pattern). They are also `,x` and `]d` `[d` (mixdiag), `,u` `g-` `g+` (undotree) and `,V` (utau).
+The README.md of each extension tells all that it does. Each extension has its keys under its own prefix. These are `]]` `[[` and `,S` (sections), `gz` (musicops) and `,t` (pattern). They are also `,x` and `]d` `[d` (mixdiag), `,u` `g-` `g+` (undotree) and `,V` (utau).
 
 ## The idea
 
@@ -27,7 +27,7 @@ The tutor opens a practice project for this lesson. It checks each step when you
 2. musicops adds musical operators under `gz`. Type `:tutor.try musicops` and `<CR>`. Press `j` to go to Keys. Press `gzkic` to move each note of the clip one step up the scale.
    - ✓ The tune is D E F A F E D now. It moved in C major. `gzh` humanizes, `gzs` strums, and `.` repeats them.
 3. sections gives names to the parts of a song. Type `:tutor.try sections` and `<CR>`. Press `,Sa`, type `Verse` and press `<CR>` to mark a section at the cursor.
-   - ✓ Verse shows on the ruler. `is` is now a text object: `yis` yanks the section on all tracks, and `]s` goes to the next section.
+   - ✓ Verse shows on the ruler. `is` is now a text object: `yis` yanks the section on all tracks, and `]]` goes to the next section.
 4. undotree shows each state of the project. Type `:tutor.try undotree` and `<CR>`. Press `,uu` to open the undo tree. Look at it, then press `q` to close it.
    - ✓ paw keeps each change that you undo. `g-` and `g+` move through time, across branches.
 5. mixdiag measures the mix and shows problems. Type `:tutor.try mixdiag` and `<CR>`. Then press `,xa` to measure the song.

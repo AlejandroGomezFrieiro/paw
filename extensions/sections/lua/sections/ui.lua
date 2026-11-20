@@ -224,8 +224,10 @@ local function to_section(dir) return function(ctx)
   cursor.set_beat(beat)
 end end
 
-amap("]s", to_section(1), "Start of the next section", { motion = true, jump = true })
-amap("[s", to_section(-1), "Start of this section, or the one before", { motion = true, jump = true })
+-- `]]` `[[` as in Vim: the next and the previous of the kind. `]s` `[s` stay the
+-- core's, the tracks of a group.
+amap("]]", to_section(1), "Start of the next section", { motion = true, jump = true })
+amap("[[", to_section(-1), "Start of this section, or the one before", { motion = true, jump = true })
 
 --- The sections from the one at the cursor, `count` of them, on every track.
 local function section_region(ctx, whole_bars)

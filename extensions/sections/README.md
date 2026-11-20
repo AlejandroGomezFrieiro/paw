@@ -14,7 +14,7 @@ applies to every track, as one undo step.
 paw.ext.load("extensions/sections")   -- or put it in ~/.config/paw/extensions
 ```
 
-![The demo song named Intro and Verse with ,Sa, [s and ]s going between them, ,S& repeats the verse after itself on every track, and u](images/tui-sections.gif)
+![The demo song named Intro and Verse with ,Sa, [[ and ]] going between them, ,S& repeats the verse after itself on every track, and u](images/tui-sections.gif)
 
 ## Try it
 
@@ -22,7 +22,7 @@ paw.ext.load("extensions/sections")   -- or put it in ~/.config/paw/extensions
 2. Put the cursor on bar 1. Press `,Sa`, type `Intro` and press Enter. The
    name `Intro` appears on a second row of the ruler.
 3. Move the cursor to bar 5. Press `,Sa`, type `Verse` and press Enter.
-4. Press `[s`, then `]s`. The cursor goes to the start of each section.
+4. Press `[[`, then `]]`. The cursor goes to the start of each section.
 5. Press `,S&`. The verse repeats after itself on every track. Press `u` to
    undo it.
 
@@ -76,7 +76,7 @@ In the arrange view.
 
 | Keys | Effect |
 | --- | --- |
-| `]s` `[s` | the start of the next section. The start of this section, or of the section before. A count goes further. After the last section, `]s` goes to the end of the project. They are motions: `d]s`, `y[s`, `v]s` |
+| `]]` `[[` | the start of the next section. The start of this section, or of the section before. A count goes further. After the last section, `]]` goes to the end of the project. They are motions: `d]]`, `y[[`, `v]]` |
 | `is` | text object: the section under the cursor, on every track. `2is` that section and the next |
 | `as` | the same, made wider to full bars (for a section that starts with a pickup) |
 | `<leader>Sa` | adds a section at the cursor. It asks for a name. Tab offers the usual names |

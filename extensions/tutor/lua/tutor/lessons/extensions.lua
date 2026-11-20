@@ -6,7 +6,7 @@ end
 return {
   id = "extensions",
   title = "The bundled extensions",
-  intro = [[
+  intro = [=[
 In this lesson, we load seven of the extensions that come with paw, and we
 try one feature of each.
 
@@ -16,9 +16,9 @@ Extensions give much of what paw can do. An extension is a folder of Lua in
 extension each time, link its folder into `~/.config/paw/extensions`.
 
 The README.md of each extension tells all that it does. Each extension has
-its keys under its own prefix. These are `]s` `[s` and `,S` (sections), `gz`
+its keys under its own prefix. These are `]]` `[[` and `,S` (sections), `gz`
 (musicops) and `,t` (pattern). They are also `,x` and `]d` `[d` (mixdiag),
-`,u` `g-` `g+` (undotree) and `,V` (utau).]],
+`,u` `g-` `g+` (undotree) and `,V` (utau).]=],
   idea = [[
 An extension adds commands, keys, text objects, operators and views with the
 functions of lesson 15. So its additions obey the grammar that you know.
@@ -67,7 +67,7 @@ extensions.]],
           if s.name == "Verse" then return true end
         end
       end,
-      done = "Verse shows on the ruler. `is` is now a text object: `yis` yanks the section on all tracks, and `]s` goes to the next section.",
+      done = "Verse shows on the ruler. `is` is now a text object: `yis` yanks the section on all tracks, and `]]` goes to the next section.",
     },
     {
       say = "undotree shows each state of the project. Type `:tutor.try undotree` and `<CR>`. Press `,uu` to open the undo tree. Look at it, then press `q` to close it.",

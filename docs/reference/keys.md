@@ -268,7 +268,8 @@ See [Snippets](snippets.md) and [Completion](completion.md).
 | `:vimgrep /pizz/` | every text in the project that matches, in the quickfix list |
 | `:select clip[name~=pizz] > note[pitch>=C5]` | choose what a query finds; `:query` lists it |
 | `]c` `[c` | next, previous clip of the same kind on the track (R: `]n` `[n`, note of the same pitch) |
-| `]s` `[s` | next, previous track in the group (in a score, instrument in the group). With the sections extension, the next and previous section in A |
+| `]s` `[s` | next, previous track in the group (in a score, instrument in the group) |
+| `]]` `[[` | with the sections extension, the next and previous section in A (in a score, the next and previous instrument) |
 | `[{` `]}` | up to the group the track is in; its last track (in a score, the group's first and last instrument); `[u` is `[{` too |
 | `]u` | down into the group: its first track |
 | `ig` `ag` | the group's tracks; with the group track |
