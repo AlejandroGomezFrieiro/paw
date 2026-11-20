@@ -324,7 +324,12 @@ impl Instance {
 
 /// One parameter of a device, described the same way for every kind of
 /// device: built-in, CLAP, VST3, LV2 or a Lua device.
-#[derive(Clone, Debug, Default, PartialEq)]
+///
+/// It goes between processes as JSON, by the names of its fields (see the
+/// plugin sandbox); a field left out takes its default, and `automatable`
+/// is then true.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct ParamInfo {
     /// The identifier used in projects and scripts. Unique within a device.
     pub key: String,
@@ -355,12 +360,17 @@ pub struct ParamInfo {
     /// the device writes them (see [`Controller::value_text`]).
     pub enumeration: bool,
     /// The host may automate it (most parameters).
+    #[serde(default = "yes")]
     pub automatable: bool,
     /// The device shows it, but does not take values for it.
     pub read_only: bool,
     /// The format lets it take a different value for each note (CLAP's
     /// per-note automation or modulation).
     pub per_note: bool,
+}
+
+fn yes() -> bool {
+    true
 }
 
 impl ParamInfo {
@@ -981,6 +991,23 @@ pub const CLIPS: &str = "paw.clips";
 mod tests {
     use super::*;
 
+
+    #[test]
+    fn a_parameter_goes_through_json_as_it_is() {
+        let param = ParamInfo {
+            id: "7".into(),
+            group: "Osc 1".into(),
+            steps: 3,
+            read_only: true,
+            per_note: true,
+            ..ParamInfo::choice("Wave", &["Sine", "Saw", "Square", "Noise"], 1)
+        };
+        let json = serde_json::to_value(&param).unwrap();
+        assert_eq!(json["read_only"], true, "the fields keep their names");
+        assert_eq!(serde_json::from_value::<ParamInfo>(json).unwrap(), param);
+        let bare: ParamInfo = serde_json::from_str("{}").unwrap();
+        assert!(bare.automatable, "a parameter that does not say is automatable");
+    }
 
     #[test]
     fn a_parameter_says_what_kind_of_value_it_takes() {

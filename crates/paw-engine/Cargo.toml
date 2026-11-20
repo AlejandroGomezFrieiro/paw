@@ -24,5 +24,6 @@ alsa-sys = { version = "0.4", optional = true }
 libc = "0.2"
 
 [dev-dependencies]
+serde_json.workspace = true
 rtrb = "0.4"
 alsa-sys = "0.4"
