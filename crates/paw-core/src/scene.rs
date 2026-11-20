@@ -352,6 +352,7 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
     let sh = shared.clone();
     // Start a scene `w` by `h` units big, for `scene_draw` and
     // `scene_picture` to put nodes in.
+    // @return nil
     api.set(
         "scene_begin",
         lua.create_function(move |_, (w, h): (f32, f32)| {
@@ -369,8 +370,11 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
     // (`{ x = axis, y = axis }`, each `{ domain, from, per }`, see
     // `paw_scene::Axis`) it is a plane, whose kids are placed in its domain;
     // with `into` (the key a plane was made with) it goes into that plane,
-    // `rect` in the plane's domain. False when no scene is being drawn, or
+    // `rect` in the plane's domain. False when paw draws no scene now, or
     // there is no such plane, with nothing to close.
+    // @param rect types.Rect
+    // @param opts? types.SceneOpenOptions
+    // @return boolean
     api.set(
         "scene_open",
         lua.create_function(move |lua, (rect, opts): (LuaValue, LuaValue)| {
@@ -380,6 +384,7 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
         })?,
     )?;
     let sh = shared.clone();
+    // @return nil
     api.set(
         "scene_close",
         lua.create_function(move |_, ()| {
@@ -390,6 +395,7 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
     let sh = shared.clone();
     // The roles `client` draws itself: in what it is sent from now on,
     // such a role goes without the cells that draw it for a terminal.
+    // @return nil
     api.set(
         "scene_roles",
         lua.create_function(move |_, (client, roles): (u64, Vec<String>)| {
@@ -401,6 +407,7 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
     // What is under the point `x, y` (units) of what `client` has of the
     // window `id`: `{ key, hit, at = { x, y }, rect = { x, y, w, h } }`
     // (see `paw_scene::Scene::hit`), or nil.
+    // @return types.SceneHit
     api.set(
         "scene_hit",
         lua.create_function(move |lua, (client, id, x, y): (u64, String, f32, f32)| {
@@ -417,7 +424,8 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
     let sh = shared.clone();
     // Draw a view by itself, `cols` by `rows` cells, as a window shows it:
     // its writes are the scene's runs and fills, its cursor and its theme's
-    // colours the scene's.
+    // colors the scene's.
+    // @return nil
     api.set(
         "scene_draw",
         lua.create_function(move |lua, (name, cols, rows): (String, u16, u16)| {
@@ -446,6 +454,9 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
     // A drawing (`paw.canvas` operations) over a rectangle of the scene:
     // `opts` `ops`, `px` (`{ w, h }` it was drawn at), `under` (the cells
     // drawn there go over it), `clip` (the part that shows).
+    // @param rect types.Rect
+    // @param opts types.ScenePictureOptions
+    // @return nil
     api.set(
         "scene_picture",
         lua.create_function(move |lua, (rect, opts): (LuaValue, LuaValue)| {
@@ -468,6 +479,7 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
     // patch (JSON) that brings what it had up to it, pushed to it as a
     // `scene.patch` event (unless it is 0, the instance's own); nil when
     // nothing changed. A second result false: the connection is gone.
+    // @return string, boolean
     api.set(
         "scene_end",
         lua.create_function(move |_, (client, id): (u64, String)| {
@@ -483,6 +495,7 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
     let sh = shared.clone();
     // Forget what `client` was sent of the window `id`, or of all of them:
     // its next scene of one is sent whole.
+    // @return nil
     api.set(
         "scene_forget",
         lua.create_function(move |_, (client, id): (u64, Option<String>)| {
@@ -493,6 +506,7 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
     let sh = shared.clone();
     // What `client` has of the window `id`, lowered to cells: as
     // `ui_view_snapshot` gives a view, rows of runs of one style.
+    // @return types.ViewSnapshot
     api.set(
         "scene_cells",
         lua.create_function(move |lua, (client, id): (u64, String)| {
@@ -509,7 +523,8 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
         })?,
     )?;
     let sh = shared.clone();
-    // A drawing `client` was sent by its content key.
+    // A drawing that `client` got from paw, by its content key.
+    // @return {types.CanvasOp}
     api.set(
         "scene_blob",
         lua.create_function(move |lua, (client, key): (u64, String)| {

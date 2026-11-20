@@ -52,20 +52,12 @@ local record M
     attr: Attr
   end
 
-  --- What a control is.
-  enum ControlType
-    "cc"
-    "bend"
-    "pressure"
-    "program"
-  end
-
   --- A control: a controller move (`cc`, with `number`), a pitch bend (0
   --- to 16383, 8192 in the middle), a pressure (with `key` for one
   --- note's) or a program change (with `program`).
   record Control
     tick: number
-    type: ControlType
+    type: types.ControlType
     value: number
     channel: integer
     number: integer
@@ -133,50 +125,14 @@ local record M
     controls: {Control}
   end
 
-  -- The shape of a clip, in beats, as the project keeps it.
+  -- A clip is in beats, as the project keeps it (types.Note, types.Control,
+  -- types.ClipOptions).
 
   --- What a note of a clip keeps for this module in its `meta`: its
   --- channel (from 1; nil for channel 1) and its lyric.
   record NoteMeta
     channel: integer
     lyric: string
-  end
-
-  --- A note of a clip, in beats from the clip's start.
-  record ClipNote
-    start: number
-    length: number
-    pitch: integer
-    velocity: integer
-    meta: NoteMeta
-    attr: Attr
-  end
-
-  --- A control of a clip, in beats from the clip's start; its value from
-  --- 0 to 1 (from -1 to 1 for a bend).
-  record ClipControl
-    start: number
-    type: ControlType
-    value: number
-    number: integer
-    key: integer
-    program: integer
-  end
-
-  --- A clip as `track:add_clip` takes it.
-  record ClipSpec
-    start: number
-    length: number
-    name: string
-    notes: {ClipNote}
-    controls: {ClipControl}
-  end
-
-  --- What `api.midi2_read` gives: a clip file's notes, controls and length.
-  record ClipFile
-    length: number
-    notes: {ClipNote}
-    controls: {ClipControl}
   end
 
   --- The clip file open alone: its path and its clip, and `opening` while
@@ -244,13 +200,6 @@ end
 local record State
   pick_dir: string
 end
-local record ClipInfo
-  kind: string
-  muted: boolean
-  start: number
-  length: number
-  control_count: integer
-end
 local record Device
   kind: string
 end
@@ -282,8 +231,8 @@ M.document = nil
 --- Open a MIDI 2.0 clip file alone, as a new project with no file: one
 --- track that plays it on the default instrument, the clip, and the piano
 --- roll on it. `:w` writes the clip back to its file. Returns the clip.
-function M.open_clip(path: string): Untyped, M.ClipFile
-  local read = api.midi2_read(path) as M.ClipFile
+function M.open_clip(path: string): Untyped, types.Midi2Clip
+  local read = api.midi2_read(path)
   local name: string = (path:match("([^/]+)$") or path):gsub("%.[^.]+$", "")
   api.project_new()
   api.project_set("name", name)
@@ -304,8 +253,8 @@ end
 --- Write the clip open alone back to its file. Returns its path.
 function M.write_clip(): string
   local doc = M.document
-  local clip = api.clip_get(doc.clip) as ClipInfo
-  api.midi2_write(doc.path, { notes = api.clip_notes(doc.clip, nil), controls = api.clip_controls(doc.clip), length = clip.length })
+  local clip = api.clip_get(doc.clip)
+  api.midi2_write(doc.path, { notes = api.clip_notes(doc.clip), controls = api.clip_controls(doc.clip), length = clip.length })
   api.project_mark_saved()
   return doc.path
 end
@@ -856,7 +805,7 @@ end
 
 --- A clip (as `track:add_clip` takes it) from a part, its file beats moved
 --- by `at`: whole bars of the file from the first event to the last.
-local function clip_of(file: File, part: Part, at: number): M.ClipSpec
+local function clip_of(file: File, part: Part, at: number): types.ClipOptions
   local ppq = file.ppq
   local first, last: number, number = math.huge, 0
   for _, n in ipairs(part.notes) do
@@ -865,10 +814,10 @@ local function clip_of(file: File, part: Part, at: number): M.ClipSpec
   for _, c in ipairs(part.controls) do first, last = math.min(first, c.tick), math.max(last, c.tick) end
   local from = bar_of(file, first / ppq)
   local _, to = bar_of(file, math.max(first / ppq, last / ppq - 1e-6))
-  local notes: {M.ClipNote} = {}
-  local controls: {M.ClipControl} = {}
+  local notes: {types.Note} = {}
+  local controls: {types.Control} = {}
   for i, n in ipairs(part.notes) do
-    local note_meta: M.NoteMeta
+    local note_meta: types.Meta
     if n.channel ~= 0 or n.lyric then note_meta = { channel = n.channel ~= 0 and n.channel + 1 or nil, lyric = n.lyric } end
     notes[i] = {
       start = n.tick / ppq - from, length = n.length / ppq, pitch = n.pitch,
@@ -876,7 +825,7 @@ local function clip_of(file: File, part: Part, at: number): M.ClipSpec
     }
   end
   for i, c in ipairs(part.controls) do
-    local control: M.ClipControl = { start = c.tick / ppq - from, type = c.type }
+    local control: types.Control = { start = c.tick / ppq - from, type = c.type }
     if c.type == "cc" then
       control.number, control.value = c.number, c.value / 127
     elseif c.type == "bend" then
@@ -1057,12 +1006,12 @@ local function export_track(track: Untyped, only: {integer:boolean}, lost: M.Los
   local channel = default_channel(track)
   local last: number = 0
   for _, clip in ipairs(track:clips() as {Untyped}) do
-    local c = clip:get() as ClipInfo
+    local c = clip:get() as types.Clip
     if c.kind == "midi" and not c.muted and (not only or only[clip.id as integer]) then
-      for _, n in ipairs(clip:notes() as {M.ClipNote}) do
+      for _, n in ipairs(clip:notes() as {types.Note}) do
         if n.start >= -1e-9 and n.start < c.length - 1e-9 then
           local length = math.min(n.length, c.length - n.start)
-          local note_meta: M.NoteMeta = n.meta or {}
+          local note_meta = (n.meta or {}) as M.NoteMeta
           out.notes[#out.notes + 1] = {
             tick = (c.start + n.start) * EXPORT_PPQ, length = length * EXPORT_PPQ, pitch = n.pitch,
             velocity = n.velocity, channel = tonumber(note_meta.channel) and note_meta.channel - 1 or channel,
@@ -1072,7 +1021,7 @@ local function export_track(track: Untyped, only: {integer:boolean}, lost: M.Los
           if between((c.start + n.start) * EXPORT_PPQ) or between(length * EXPORT_PPQ) then lost.times = lost.times + 1 end
         end
       end
-      for _, k in ipairs(c.control_count > 0 and clip:controls() as {M.ClipControl} or {}) do
+      for _, k in ipairs(c.control_count > 0 and clip:controls() as {types.Control} or {}) do
         if k.start >= -1e-9 and k.start < c.length - 1e-9 then
           local raw: Control = { tick = (c.start + k.start) * EXPORT_PPQ, type = k.type, channel = channel, key = k.key, number = k.number, program = k.program }
           if k.type == "cc" or k.type == "pressure" then

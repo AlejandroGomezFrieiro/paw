@@ -10,6 +10,7 @@
 --
 -- Written in Teal (paw/lang.lua): the build compiles it to Lua.
 local api = require("paw.api")
+local type types = require("paw.types")
 
 local record M
   --- The value of an attribute: `decode` gives text; `encode` writes a
@@ -19,14 +20,7 @@ local record M
 
   --- Where an element is in the text it was read from (`decode` with
   --- `spans`), in bytes from 1.
-  record Span
-    from: integer
-    open: integer
-    close: integer
-    to: integer
-    lead: integer
-    tail: integer
-  end
+  type Span = types.XmlSpan
 
   --- An element: its name, its attributes (written in `order` first, then
   --- the others by name), its child elements, and the text directly in it
@@ -53,13 +47,7 @@ local record M
     spans: boolean
   end
 
-  --- What `encode` takes (see `paw.api.xml_encode`).
-  record EncodeOptions
-    declaration: boolean | string
-    indent: string
-    digits: integer
-    source: string
-  end
+  type EncodeOptions = types.XmlEncodeOptions
 end
 
 local type Element = M.Element
@@ -77,12 +65,14 @@ end
 --- keeps where each element is in the text, for `encode` with
 --- `opts.source` (see `paw.api.xml_decode`).
 function M.decode(text: string, opts?: M.DecodeOptions): Element, string
-  return api.xml_decode(text, { spans = opts and opts.spans, meta = metatable_of_element }) as (Element, string)
+  -- The kernel sets the metatable of the elements' methods on each.
+  local meta = metatable_of_element as metatable<types.XmlElement>
+  return api.xml_decode(text, { spans = opts and opts.spans, meta = meta }) as (Element, string)
 end
 
 --- The XML text of an element: see `paw.api.xml_encode` for `opts`.
 function M.encode(root: Element, opts?: M.EncodeOptions): string
-  return (api.xml_encode as function(Element, M.EncodeOptions): string)(root, opts)
+  return api.xml_encode(root as types.XmlElement, opts)
 end
 
 --- Text made safe for XML, in text and in an attribute's quotes.

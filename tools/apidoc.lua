@@ -111,7 +111,70 @@ local function params_of(fn)
   return out
 end
 
---- The `paw.api` functions as api.rs has them: name -> `{ params, types, doc }`.
+-- The other files that add functions to `paw.api`, each with `api.set("name",
+-- lua.create_function(|lua, args: Types| ...))` (or tempo_api.rs's `reader`)
+-- under its `//` comment.
+M.KERNEL_FILES = {
+  "crates/paw-core/src/fs_api.rs", "crates/paw-core/src/tempo_api.rs", "crates/paw-core/src/luadev_api.rs",
+  "crates/paw-core/src/scene.rs", "crates/paw-core/src/measure/mod.rs",
+}
+
+--- Split `text` at the commas that are not inside `()` or `<>`.
+local function split_top(text)
+  local list, depth, cur = {}, 0, ""
+  for ch in text:gmatch(".") do
+    if ch == "<" or ch == "(" then depth = depth + 1 elseif ch == ">" or ch == ")" then depth = depth - 1 end
+    if ch == "," and depth == 0 then list[#list + 1] = cur cur = "" else cur = cur .. ch end
+  end
+  if cur:match("%S") then list[#list + 1] = cur end
+  return list
+end
+
+--- A kernel function's entry from its argument pattern (`(a, b)`, `a`, `()`)
+--- and their Rust types (`(String, f64)`, `String`).
+local function kernel_entry(args, types, comment)
+  local params = {}
+  if args ~= "()" then
+    for p in args:gsub("^%(", ""):gsub("%)$", ""):gmatch("[%w_]+") do params[#params + 1] = p end
+  end
+  local inner = types:match("^%((.*)%)$") or types
+  return { params = params, types = split_top(inner), doc = comment }
+end
+
+--- The functions a file of `M.KERNEL_FILES` adds, into `out`.
+local function kernel_file(path, out)
+  local lines = lines_of(path) or {}
+  for i, line in ipairs(lines) do
+    local name = line:match('^%s*"([%w_]+)",%s*$') or line:match('^%s*reader%(lua, api, shared, "([%w_]+)"')
+    if name and type(api[name]) == "function" and not out[name] then
+      -- The closure's arguments: the last one, `pattern: Types`.
+      local text = table.concat(lines, " ", i, math.min(i + 3, #lines))
+      local closure = text:match('"' .. name .. '",.-|([^|]*)|')
+      local args, types = "()", "()"
+      local last = closure and split_top(closure)
+      last = last and last[#last]
+      if last and last:find(":") then
+        args, types = last:match("^%s*(.-)%s*:%s*(.-)%s*$")
+      end
+      -- The comment over it, past the lines that start the call.
+      local n = i - 1
+      while n > 0 and (lines[n]:match("^%s*api%.set%($") or lines[n]:match("^%s*reader%($")
+        or lines[n]:match("^%s*lua,%s*$") or lines[n]:match("^%s*api,%s*$") or lines[n]:match("^%s*shared,%s*$")
+        or lines[n]:match("^%s*let .*;%s*$")) do
+        n = n - 1
+      end
+      local comment = {}
+      while n > 0 and lines[n]:match("^%s*//") and not lines[n]:match("^%s*//!") do
+        table.insert(comment, 1, (lines[n]:gsub("^%s*// ?", "")))
+        n = n - 1
+      end
+      out[name] = kernel_entry(args, types, comment)
+    end
+  end
+end
+
+--- The `paw.api` functions as api.rs and `M.KERNEL_FILES` have them:
+--- name -> `{ params, types, doc }`.
 function M.kernel_functions()
   local out = {}
   local lines = lines_of("crates/paw-core/src/api.rs") or {}
@@ -119,19 +182,7 @@ function M.kernel_functions()
   for _, line in ipairs(lines) do
     local name, args, types = line:match("^%s+fn ([%w_]+)%([%w_]+, [%w_]+, (.-) => (.-)%)%s*{")
     if name then
-      local params = {}
-      if args ~= "()" then
-        for p in args:gsub("^%(", ""):gsub("%)$", ""):gmatch("[%w_]+") do params[#params + 1] = p end
-      end
-      local list = {}
-      local inner = types:match("^%((.*)%)$") or types
-      local depth, cur = 0, ""
-      for ch in inner:gmatch(".") do
-        if ch == "<" then depth = depth + 1 elseif ch == ">" then depth = depth - 1 end
-        if ch == "," and depth == 0 then list[#list + 1] = cur cur = "" else cur = cur .. ch end
-      end
-      if cur:match("%S") then list[#list + 1] = cur end
-      out[name] = { params = params, types = list, doc = comment }
+      out[name] = kernel_entry(args, types, comment)
       comment = {}
     elseif line:match("^%s+//") then
       comment[#comment + 1] = (line:gsub("^%s+// ?", ""))
@@ -139,6 +190,7 @@ function M.kernel_functions()
       comment = {}
     end
   end
+  for _, path in ipairs(M.KERNEL_FILES) do kernel_file(path, out) end
   return out
 end
 
@@ -396,10 +448,15 @@ end
 local KEYWORDS = {}
 for word in ("and break do else elseif end false for function goto if in local nil not or repeat return then true until while"):gmatch("%a+") do KEYWORDS[word] = true end
 
---- The Teal type of a kernel function, from api.rs.
+--- The Teal types of a kernel function, from api.rs: a list, of one type,
+--- or of each `// @type function(...)` line of its comment, which give the
+--- whole type of each form of a function whose result follows from its
+--- arguments (`track_get(id)` and `track_get(id, key)`).
 local function kernel_sig(k)
-  local typed, rets = {}, nil
+  local typed, rets, forms = {}, nil, {}
   for _, line in ipairs(k.doc) do
+    local form = line:match("^@type%s+(function.+)$")
+    if form then forms[#forms + 1] = form end
     local name, opt, t = line:match("^@param%s+([%w_]+)(%??)%s+(.+)$")
     if name then typed[name] = { t = t, optional = opt == "?" } end
     local r = line:match("^@return%s+(.+)$")
@@ -415,8 +472,9 @@ local function kernel_sig(k)
     end
     params[#params + 1] = (KEYWORDS[p] and p .. "_" or p) .. (opt and "?: " or ": ") .. t
   end
+  if #forms > 0 then return forms end
   local ret = rets == nil and ": any..." or (rets == "nil" and "" or ": " .. rets)
-  return "function(" .. table.concat(params, ", ") .. ")" .. ret
+  return { "function(" .. table.concat(params, ", ") .. ")" .. ret }
 end
 
 --- The modules of the runtime written in Teal, by name: `{ name, module, file }`.
@@ -490,8 +548,32 @@ function M.teal()
   end
   table.sort(names)
   for _, name in ipairs(names) do
-    local sig = kernel[name] and kernel_sig(kernel[name]) or "function(...: any): any..."
-    kout[#kout + 1] = "   " .. count("paw.api." .. name, name .. ": " .. sig)
+    local sigs = kernel[name] and kernel_sig(kernel[name]) or { "function(...: any): any..." }
+    for _, sig in ipairs(sigs) do
+      kout[#kout + 1] = "   " .. count("paw.api." .. name, name .. ": " .. sig)
+    end
+  end
+  -- The records of the data that crosses `paw.api` count too: an `any`
+  -- moved from a signature into a record is still one.
+  local stack = {}
+  for _, line in ipairs(lines_of("runtime/lua/paw/types.tl") or {}) do
+    local code = line:gsub("%-%-.*$", "")
+    local record = code:match("^%s*record%s+([%w_]+)") or code:match("^%s*local%s+record%s+([%w_]+)")
+    if record then
+      stack[#stack + 1] = record
+    elseif code:match("^%s*enum%s") then
+      stack[#stack + 1] = false
+    elseif code:match("^%s*end%s*$") then
+      stack[#stack] = nil
+    else
+      local field = code:match("^%s*type%s+([%w_]+)%s*=") or code:match("^%s*%[?\"?([%w_]+)\"?%]?%s*:")
+      if field then
+        local path = {}
+        for i = 2, #stack do path[#path + 1] = stack[i] end
+        path[#path + 1] = field
+        count("types." .. table.concat(path, "."), code)
+      end
+    end
   end
   kout[#kout + 1] = "end"
   kout[#kout + 1] = ""

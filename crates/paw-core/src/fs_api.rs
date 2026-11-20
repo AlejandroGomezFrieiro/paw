@@ -158,7 +158,8 @@ fn trash(path: &Path) -> Result<PathBuf, String> {
 pub fn install(lua: &Lua, api: &Table) -> mlua::Result<()> {
     // `{ kind = "file" | "dir" | "link", dir, size, mtime }`, or nil when
     // nothing is there. A link is looked at, not followed, for its kind,
-    // and `dir` says whether it leads to a directory.
+    // and `dir` is true if it leads to a directory.
+    // @return types.FileStat
     api.set(
         "fs_stat",
         lua.create_function(|lua, path: String| {
@@ -179,6 +180,7 @@ pub fn install(lua: &Lua, api: &Table) -> mlua::Result<()> {
     // The format a sound file's header says: `{ rate, channels, seconds }`
     // (`seconds` nil when the header does not say); an error for a file
     // that is not one.
+    // @return types.SoundFormat
     api.set(
         "fs_sound",
         lua.create_function(|lua, path: String| {
@@ -192,6 +194,7 @@ pub fn install(lua: &Lua, api: &Table) -> mlua::Result<()> {
         })?,
     )?;
     // Make a directory and the ones above it that are missing.
+    // @return nil
     api.set(
         "fs_mkdir",
         lua.create_function(|_, path: String| {
@@ -199,6 +202,7 @@ pub fn install(lua: &Lua, api: &Table) -> mlua::Result<()> {
         })?,
     )?;
     // Make an empty file where there is none.
+    // @return nil
     api.set(
         "fs_create",
         lua.create_function(|_, path: String| {
@@ -211,6 +215,7 @@ pub fn install(lua: &Lua, api: &Table) -> mlua::Result<()> {
         })?,
     )?;
     // Move a file or directory; it is refused where `to` is there already.
+    // @return nil
     api.set(
         "fs_move",
         lua.create_function(|_, (from, to): (String, String)| {
@@ -218,6 +223,7 @@ pub fn install(lua: &Lua, api: &Table) -> mlua::Result<()> {
         })?,
     )?;
     // Copy a file, or a directory with all it holds, to where there is nothing.
+    // @return nil
     api.set(
         "fs_copy",
         lua.create_function(|_, (from, to): (String, String)| {
@@ -228,6 +234,7 @@ pub fn install(lua: &Lua, api: &Table) -> mlua::Result<()> {
         })?,
     )?;
     // Put a file or directory in the freedesktop trash; returns where it is.
+    // @return string
     api.set(
         "fs_trash",
         lua.create_function(|_, path: String| {
