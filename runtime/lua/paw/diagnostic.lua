@@ -419,6 +419,11 @@ function M.show(d)
   paw.notify(M.format(d), d.severity == 1 and "error" or d.severity == 2 and "warn" or "info")
 end
 
+-- Where the last jump went, and where it left the cursor: a view that cannot
+-- put its cursor exactly there (a finding about the master, in the arrange
+-- view) goes on from the diagnostic, not from the cursor.
+local last_jump
+
 --- The next (`dir` 1) or previous (-1) diagnostic that the focused view can
 --- show, from its cursor, `count` times, round the ends. The cursor goes
 --- there. Returns the diagnostic, or nil when the view has none.
@@ -442,6 +447,9 @@ function M.jump(dir, count)
     table.sort(placed, function(a, b) return before(a.at, b.at) end)
     if #placed > 0 then
       local here = loc.position()
+      if last_jump and last_jump.view == view and not before(here, last_jump.landed) and not before(last_jump.landed, here) then
+        here = last_jump.at
+      end
       for _ = 1, count or 1 do
         local pick
         if dir > 0 then
@@ -457,6 +465,7 @@ function M.jump(dir, count)
   end
   if not found then return paw.notify("no diagnostics here") end
   loc.go(found.location)
+  last_jump = { view = view, at = loc.place(found.location), landed = loc.position() }
   paw.notify(M.format(found), found.severity == 1 and "error" or found.severity == 2 and "warn" or "info")
   return found
 end

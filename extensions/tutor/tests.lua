@@ -447,3 +447,11 @@ test("tutor: every key in docs/reference/keys.md is a key paw has", function()
   end
   eq(checked > 150, true, "keys checked: " .. checked)
 end)
+
+test("tutor: the keys in a lesson follow the learner's leader and local leader", function()
+  local panel = require("tutor.panel")
+  local leader, localleader = paw.opt.leader, paw.opt.localleader
+  T.after(function() paw.opt.leader, paw.opt.localleader = leader, localleader end)
+  paw.opt.leader, paw.opt.localleader = "-", ";"
+  eq(panel.keys("Press `,hh`, then `\\Sa` and `\\`."), "Press `-hh`, then `;Sa` and `\\`.")
+end)

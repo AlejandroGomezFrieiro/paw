@@ -1150,7 +1150,6 @@ cmap("<C-x>", count(function(n) M.nudge_point(-n) end), "Lower the point under t
 cmap("]", count(function(n) M.tension(0.25 * n) end), "Bend the smooth stretch: move early", { role = "second+" })
 cmap("[", count(function(n) M.tension(-0.25 * n) end), "Bend the smooth stretch: move late", { role = "second-" })
 cmap("c", M.type_value, "Type the value of the point under the cursor")
-cmap("=", M.type_value, "Type the value of the point under the cursor")
 cmap("~", M.cycle_shape, "The next shape of the stretch from the point: straight, held, smooth")
 cmap("i", function() M.insert_start(false) end, "Draw: the cursor's moves put points, from its value")
 cmap("a", function() M.insert_start(true) end, "Draw from the curve's value at the cursor")

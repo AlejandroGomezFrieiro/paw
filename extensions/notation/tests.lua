@@ -439,7 +439,7 @@ test("notation: :notation opens the clip under the cursor, with the keyboard", f
   eq(found and found.only, "midi", "the clip menu offers it for MIDI clips")
   local mapped
   for _, m in ipairs(paw.keymap.list("n", "arrange")) do
-    if m.lhs == "<leader>n" then mapped = m.rhs end
+    if m.lhs == "<localleader>n" then mapped = m.rhs end
   end
   eq(mapped, "notation", "and the arrange view has a key for it")
 end)
@@ -576,10 +576,10 @@ test("score editing: voices, triplets, and writing again from the playing", func
   local _, model = load()
   eq(model.text(view:layout(), 1, 2), "h E4 hr", "the held E is a second voice")
   view:set(37, 0)
-  keys("gv")
+  keys("gV")
   eq(model.text(view:layout(), 1, 2), "h E4 hr", "voice 1 has other notes there: the E stays")
   view:set(43, 2)
-  keys("gv")
+  keys("gV")
   eq(model.text(view:layout(), 1, 1), "e G4 e A4 e B4 e C5 hr", "the D leaves voice 1")
   eq(model.text(view:layout(), 1, 2), "h E4 h D5", "for voice 2, where it was silent")
   -- An edit elsewhere: the voices stay as written.
@@ -587,9 +587,9 @@ test("score editing: voices, triplets, and writing again from the playing", func
   keys("<C-a>")
   eq(model.text(view:layout(), 1, 2), "h E4 h D5", "still in voice 2")
   view:set(41, 1)
-  keys("gt")
+  keys("<localleader>33<CR>")
   eq(model.text(view:layout(), 1, 1):find("3{", 1, true) ~= nil, true, "beat two in triplets")
-  keys("gt")
+  keys("<localleader>3off<CR>")
   eq(model.text(view:layout(), 1, 1):find("3{", 1, true), nil, "and not")
   paw.cmd("notation.retranscribe")
   api.undo_checkpoint()
@@ -787,7 +787,7 @@ test("several tracks: a staff each, the open clip's the one edited; lyrics under
   eq(ev.lyric, "la", "the note's lyric is written under it")
   local xml = require("notation.export").musicxml(view:layout(), {})
   eq(xml:find("<text>la</text>", 1, true) ~= nil, true, "and exported")
-  keys("gT")
+  keys("zS")
   local layout = view:frame().layout
   eq(#layout.staves, 2, "two staves: the clip's track and the bass")
   eq(layout.labels[1].full .. ", " .. layout.labels[2].full, "Bass, Lead", "each named, in the score's order")
@@ -800,7 +800,7 @@ test("several tracks: a staff each, the open clip's the one edited; lyrics under
   eq(#clip:notes(), 1, "x deletes the note under the cursor, in the active staff's clip")
   eq(#low:notes(), 2, "and nothing of the bass")
   keys("u")
-  keys("gT")
+  keys("zS")
   eq(view.parts, nil, "and back to the clip alone")
 end)
 
@@ -1830,8 +1830,8 @@ test("notation: Esc stays in the view; ,n, ZZ and :q leave it", function()
   keys("d<Esc>")
   eq(paw.keymap.mode, "n", "and a pending operator")
   eq(paw.ui.focused, "notation", "staying")
-  keys("<leader>n")
-  eq(paw.ui.focused, "arrange", ",n goes back to the arrange view")
+  keys("<localleader>n")
+  eq(paw.ui.focused, "arrange", "\\n goes back to the arrange view")
   view:edit(view:clip())
   keys("ZZ")
   eq(paw.ui.focused, "arrange", "ZZ closes the notation")

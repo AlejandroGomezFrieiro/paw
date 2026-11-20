@@ -50,7 +50,7 @@ The cursor is a beat and a value.
 | `A` | Adds a point on the curve at the cursor. |
 | `x` | Removes the point under the cursor. |
 | `+` `-` | Raise and lower the point. `Ctrl-a` `Ctrl-x` by the count. |
-| `c`, `=` | Types the value of the point. |
+| `c` | Types the value of the point. |
 | `~` | Gives the part after the point the next shape: straight, held, smooth. |
 | `]` `[` | Bend a smooth part. |
 | `i` | Draws: each move of the cursor (`h` `l` `j` `k` `J` `K`) puts a point where it stops. `Esc` writes the points over the curve, as one undo step. |

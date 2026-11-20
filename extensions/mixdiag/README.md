@@ -86,7 +86,8 @@ mixdiag.targets.album = { name = "my album", kind = "deliver", integrated = -16,
 | `<leader>xt` | `mix.target [name]` | the next delivery target, or the target with that name |
 | `<leader>xc` | `mix.clear` | removes the findings |
 | `<leader>xq` | `mix.cancel` | stops a measurement |
-| `]d` `[d` | `mix.next` `mix.prev` | in the arrange view: the next and the previous finding, with its message. A count goes further. They wrap. `<C-o>` returns. With no findings, they go to the other diagnostics, as in every view |
+| `]d` `[d` | | the next and the previous diagnostic, as in every view: the findings are diagnostics, with the other diagnostics of the project. A finding about the master leaves the cursor on its track |
+| | `mix.next` `mix.prev` | the next and the previous finding only, with its message. A count goes further. They wrap. `<C-o>` returns |
 | | `mix.file path` | measures an audio file |
 
 - When a measurement ends, its summary shows as a message.
@@ -216,7 +217,7 @@ mixdiag.findings      -- { severity, message, fix, beat, track, seconds, rule }
 mixdiag.result        -- the measurement (below)
 mixdiag.summary()     -- "LUFS -14.2  TP -1.3 dBTP  LRA 6.1 LU  …"
 mixdiag.marks()       -- { beat, severity, text, track } for a ruler
-mixdiag.step(1)       -- what ]d does
+mixdiag.step(1)       -- what :mix.next does
 mixdiag.list()  mixdiag.clear()  mixdiag.cancel()  mixdiag.stale()
 ```
 

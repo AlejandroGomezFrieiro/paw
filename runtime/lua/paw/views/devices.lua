@@ -256,7 +256,7 @@ local function heading(buf, y, w, index, d, devices, chosen)
   local mark = status == "loading" and { "loading", "Warn", nil, "circle" }
     or status == "offline" and { "offline: o", "Dim", "offline", "plugs" }
     or status == "missing" and { "not installed", "Error", nil, "warning" }
-    or (d.stopped or d.missing) and { "stopped: R restarts", "Error", "stopped", "warning" }
+    or (d.stopped or d.missing) and { "stopped: gR restarts", "Error", "stopped", "warning" }
   local at
   if mark then
     at = math.max(2, w - #mark[1] - 1)

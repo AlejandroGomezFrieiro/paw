@@ -171,7 +171,7 @@ smap("S", "launch.stop", "Stop the track's clip")
 smap("gS", "launch.stop all", "Stop every clip")
 smap("B", "launch.back", "Resume the track's timeline: stop its slot so the arranged clips play again")
 smap("gB", "launch.back all", "Every track back to its timeline")
-smap("n", "slot.new", "A new MIDI clip in the slot")
+smap("o", "slot.new", "A new MIDI clip in the slot")
 smap("i", "slot.edit", "Open the clip's notes, to enter some")
 for lhs, rhs in pairs({ s = "launch.stop", S = "launch.stop all", b = "launch.back", B = "launch.back all", e = "slot.edit" }) do
   keymap.classic(lhs, rhs, { view = "session" })
@@ -179,8 +179,8 @@ end
 smap("x", "slot.delete", "Empty the slot")
 smap("dd", "slot.delete", "Empty the slot")
 smap("gp", "slot.copy", "Copy the arrange view's clip into the slot")
-smap("m", "slot.mode", "Next launch mode: trigger, gate, toggle")
-smap("gl", "slot.legato", "Legato on or off")
+smap("~", "slot.mode", "Next launch mode: trigger, gate, toggle")
+smap("g~", "slot.legato", "Legato on or off")
 smap("grn", "scene.name", "Name the scene")
 smap("C", "launch.capture", "Capture what is launched into the timeline")
 smap("R", "slot.record", "Record into the empty slot, a bar (or a count of bars) from the next boundary")
@@ -204,8 +204,8 @@ end, "Paste a clip into the slot")
 -- The line of keys under the view.
 paw.ui.keybar.lines.session = {
   n = {
-    { "<CR>", "launch" }, { "L", "scene" }, { "S", "stop" }, { "B", "resume timeline" }, { "n", "new clip" },
-    { "i", "notes" }, { "m", "mode" }, { "<Space>", "play" }, { "?", "keys" },
+    { "<CR>", "launch" }, { "L", "scene" }, { "S", "stop" }, { "B", "resume timeline" }, { "o", "new clip" },
+    { "i", "notes" }, { "~", "mode" }, { "<Space>", "play" }, { "?", "keys" },
   },
 }
 

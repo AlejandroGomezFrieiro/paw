@@ -15,7 +15,7 @@ vocal:add_clip({ start = 0, length = 4, notes = {
 paw.render("vocal.wav")   -- waits until every phrase is sung at final quality
 ```
 
-![A vocal track added to the demo song with :track.add vocal, its singer chosen with ,V and its phonemizer with :utau.phonemizer, the melody pasted in, lyrics typed in romaji with :utau.lyrics and made kana with :utau.batch. The phrases turn green as the engine sings them](images/tui-utau.gif)
+![A vocal track added to the demo song with :track.add vocal, its singer chosen with \Vs and its phonemizer with :utau.phonemizer, the melody pasted in, lyrics typed in romaji with :utau.lyrics and made kana with :utau.batch. The phrases turn green as the engine sings them](images/tui-utau.gif)
 
 ![The vocal editor on the sung melody: the phonemes under the notes, ~ puts a vibrato on the long note, \]c and } raise its dynamics, r sings it again, and Space plays it](images/tui-utau-editor.gif)
 
@@ -25,7 +25,7 @@ paw.render("vocal.wav")   -- waits until every phrase is sung at final quality
    extension](#how-to-enable-the-extension)). Install a voicebank for
    OpenUtau.
 2. Type `:track.add vocal`. A vocal track appears, with `V` before its name.
-3. Press `,V` and choose a singer.
+3. Press `\Vs` and choose a singer.
 4. Put the cursor on an empty part of the track. Press `i` to make a clip,
    and press Enter. The vocal editor opens.
 5. Press `i` to add a note, then `c`, type `a` and press Enter. The phrase
@@ -111,10 +111,10 @@ Type `:utau.freeze`. To sing it again, type `:utau.unfreeze`.
 
 A vocal track is a kind of track (`paw.track_kinds`).
 
-- `:track.add vocal [singer]`, `<leader>v` (`:utau.track [singer]`) or
+- `:track.add vocal [singer]`, `<localleader>Vt` (`:utau.track [singer]`) or
   `:track.new` adds one. The graphical window offers "New vocal track"
   where it makes a track.
-- `<leader>V` (`:utau.singer`) chooses its singer from a list.
+- `<localleader>Vs` (`:utau.singer`) chooses its singer from a list.
 - The header shows `V` before the name of the track. `K` and the header in
   the graphical window tell who sings.
 - Enter on a clip of a vocal track opens the vocal editor, not the piano
@@ -137,10 +137,10 @@ A vocal track is a kind of track (`paw.track_kinds`).
 | `<C-c>`, `d` `x` | copy the selected notes (or the note), cut them. `p` `P` paste, with their pitches |
 | `]c` `[c`, `:utau.curve <abbr>` | the curve under the notes: next, previous, by name |
 | `}` `{` | raise or lower that curve at the cursor (the pitch by 10 cents, the others by their own step. A count multiplies) |
-| `=`, `<leader>=` | reset that curve to its default under the note, in the full clip |
-| `(` `)` | choose the previous or next phoneme (in the phoneme row and the bottom line). When the musicops extension loads after utau, as `config/init.lua` does, `(` `)` go by phrase instead |
+| `=` | an operator: reset that curve to its default over what it covers. `=in` under the note, `==` in the full clip, `=` on a selection |
+| `[p` `]p` | choose the previous or next phoneme (in the phoneme row and the bottom line) |
 | `[` `]` | that phoneme starts 5 ticks earlier or later |
-| `gr`, `gR` | type the phoneme to sing in its place. Restore it from the voicebank |
+| `grp`, `gR` | type the phoneme to sing in its place. Restore it from the voicebank |
 | `~`, `:utau.note key=value ...` | vibrato on or off. Set properties of the selected notes: `tuning`, `vibrato=on`, `length` `period` `depth` `in` `out` `shift` `drift` `vol_link`, `po` (phonemizer, `default` for the track's), `transition=default`, and any expression (`vel=120`) |
 | `Space`, `gh` | play from the cursor or stop. Hear the note under the cursor |
 | `S`, `s`, `r` | choose the singer, show the lyric sheet, render again |

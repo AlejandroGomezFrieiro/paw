@@ -2173,7 +2173,7 @@ tmap("-", function()
   if not up then return paw.notify("nothing above this buffer", "warn") end
   M.open(up, { here = true })
 end, "The buffer this one is part of: paw://tracks from a track's devices", { repeatable = false })
-tmap("gw", function()
+tmap("<C-w>f", function()
   local _, buf = here()
   if buf then M.open(buf.name, { window = true }) end
 end, "Show the buffer in a window of its own, in the graphical frontend", { repeatable = false })

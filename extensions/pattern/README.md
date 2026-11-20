@@ -12,16 +12,16 @@ bd*2 [~ sn] hh(5,8) # vel 1 0.7
 paw.ext.load("extensions/pattern")   -- or put the directory in ~/.config/paw/extensions
 ```
 
-![A pattern clip typed with ,tt into the lead's empty first half while the demo song plays, then edited again, and the clip changes with the text](images/tui-pattern.gif)
+![A pattern clip typed with \tt into the lead's empty first half while the demo song plays, then edited again, and the clip changes with the text](images/tui-pattern.gif)
 
 ## Try it
 
 1. Type `:ext.load pattern`.
 2. In the arrange view, put the cursor on an empty part of a drum track.
-3. Press `,tt`. Type `bd*2 [~ sn]` and press Enter. A clip appears, named
+3. Press `\tt`. Type `bd*2 [~ sn]` and press Enter. A clip appears, named
    `≈ bd*2 [~ sn]`.
 4. Press Space. You hear two kicks and a snare in each bar.
-5. Press `,tt` again. Change the text to `bd*2 [~ sn] hh*8` and press
+5. Press `\tt` again. Change the text to `bd*2 [~ sn] hh*8` and press
    Enter. The clip now has hats too, and you hear them in the next bar.
 
 ## How to
@@ -29,7 +29,7 @@ paw.ext.load("extensions/pattern")   -- or put the directory in ~/.config/paw/ex
 ### How to change a beat while the song plays
 
 1. Put the cursor on the pattern clip.
-2. Press `,tt`. The prompt shows the text of the clip.
+2. Press `\tt`. The prompt shows the text of the clip.
 3. Change the text and press Enter. The loop plays the new notes on its
    next pass.
 
@@ -38,7 +38,7 @@ the text and the error.
 
 ### How to roll the random choices again
 
-Press `,tr` for the next seed, or `,tR` for the previous seed. A count
+Press `\tr` for the next seed, or `\tR` for the previous seed. A count
 moves that many seeds.
 
 ### How to make a clip longer or shorter
@@ -48,7 +48,7 @@ a new clip of 8 cycles, type `8` before `:pattern.set`.
 
 ### How to edit the notes by hand
 
-1. Press `,td`. The clip no longer follows its text. Its notes stay.
+1. Press `\td`. The clip no longer follows its text. Its notes stay.
 2. Edit the notes in the piano roll.
 
 An edit of the notes by other means also detaches the clip, with a
@@ -62,17 +62,17 @@ In the arrange view, on the clip under the cursor:
 
 | Keys | Command | Effect |
 | --- | --- | --- |
-| `<leader>tt` | `pattern.edit` | edits the pattern of the clip on the command line, from its text. With no clip under the cursor, makes a new clip there |
-| `<leader>tn` | | makes a new pattern clip after the clip under the cursor, or at the cursor |
-| `<leader>tr`, `<leader>tR` | `pattern.seed` | the next or the previous seed: the random choices again. A count moves that many |
-| `<leader>tc` | `pattern.cycle` | asks for the number of beats in a cycle (`bar` for one bar) |
-| `<leader>ti` | `pattern.info` | shows the text, the seed and the length of a cycle |
-| `<leader>td` | `pattern.detach` | the clip no longer follows its pattern. Its notes stay |
+| `<localleader>tt` | `pattern.edit` | edits the pattern of the clip on the command line, from its text. With no clip under the cursor, makes a new clip there |
+| `<localleader>tn` | | makes a new pattern clip after the clip under the cursor, or at the cursor |
+| `<localleader>tr`, `<localleader>tR` | `pattern.seed` | the next or the previous seed: the random choices again. A count moves that many |
+| `<localleader>tc` | `pattern.cycle` | asks for the number of beats in a cycle (`bar` for one bar) |
+| `<localleader>ti` | `pattern.info` | shows the text, the seed and the length of a cycle |
+| `<localleader>td` | `pattern.detach` | the clip no longer follows its pattern. Its notes stay |
 
 | Command | Effect |
 | --- | --- |
 | `:pattern.set <text>` | gives the clip under the cursor this pattern, or makes a new clip at the cursor with it. The rest of the line is the text, with its spaces: `:pattern.set bd*2 [~ sn]`. A new clip is `pattern_cycles` cycles long (4), or the count |
-| `:pattern.edit` | as `<leader>tt` |
+| `:pattern.edit` | as `<localleader>tt` |
 | `:pattern.seed [n]` | sets the seed. With no number, the next seed. `by=-1` the previous seed |
 | `:pattern.cycle <beats>` | the beats in a cycle, or `bar` (the default: a cycle is one bar, with any time signature) |
 | `:pattern.info`, `:pattern.detach` | as the keys |
@@ -98,7 +98,7 @@ from 1: `col 4: unknown name zz: not a note, a number or a drum`.
 - **An edit of the notes by other means detaches the clip**: the piano
   roll, insert mode, transpose, snap, join, a script that calls
   `set_notes`. paw keeps the edit and shows a warning. The text goes to
-  `meta.pattern_detached`, so `<leader>tt` offers it again. If you submit
+  `meta.pattern_detached`, so `<localleader>tt` offers it again. If you submit
   it, it replaces the edits. Undo removes the edit and the detach together.
 - Undo and redo restore the text and the notes together. A saved project
   keeps both.

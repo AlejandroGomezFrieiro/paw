@@ -136,7 +136,6 @@ gets the function.
   - A selection across mixer strips with different devices or sends chooses rows by their kind (the fader, the second send). It skips a strip that does not have that row.
   - `]` and `[` wait a moment for `]d`, `]g` and similar keys before they run. Vim does the same when a longer mapping starts with a key.
   - `paw.opt.keys = "classic"` gives the old keys. It will go after a release.
-  - In the session view of the clip launcher, `m` is still the launch mode and `n` a new clip. They are not the mark and the next match of Vim.
 - Pictures in the terminal:
   - paw sends pictures only by the kitty graphics protocol, as direct
     placements. It does not use Sixel, the protocol of iTerm, or Unicode

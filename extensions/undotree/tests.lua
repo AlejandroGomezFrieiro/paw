@@ -255,12 +255,9 @@ test("undotree: A/B while playing keeps the transport going", function()
   end
   eq(t:meter() > 0, true, "the track is sounding")
   paw.transport.stop()
-  -- The single key does the same.
+  -- The key does the same.
   paw.ui.focus("arrange")
-  T.keys(paw.opt.undotree_ab_key)
-  -- The arrange view has keys of its own after `\` (the fades): the key
-  -- runs when the wait for more keys ends.
-  paw.wait(paw.opt.timeoutlen + 100)
+  T.keys(",ub")
   eq(api.undo_current(), a, "the A/B key")
   u.clear_ab()
 end)

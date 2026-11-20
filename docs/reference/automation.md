@@ -65,7 +65,7 @@ Each state has a `name` and one or more of these fields:
 | --- | --- |
 | `,al`, then `state` | Make the state lane of a device of the track, and show its row. |
 | `\s` on the lane's row, `:lane.state [name]` | Keep the device's state now (its saved state and its parameters) as a state of the lane, and give it from the cursor. The default name is the name of the device's preset, or the next free letter. |
-| `c` or `=` on the lane's row | Choose the state of the point under the cursor, or of a new point there, from a list. |
+| `c` on the lane's row | Choose the state of the point under the cursor, or of a new point there, from a list. |
 | `+` `-` | Give the point under the cursor the next or the previous state. |
 | `A`, `x`, `w`, `b` | Add a point with the state at the cursor, remove a point, go to the next or the previous point, as on each lane. |
 

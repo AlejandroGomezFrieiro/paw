@@ -14,32 +14,32 @@ applies to every track, as one undo step.
 paw.ext.load("extensions/sections")   -- or put it in ~/.config/paw/extensions
 ```
 
-![The demo song named Intro and Verse with ,Sa, [s and ]s going between them, ,S& repeats the verse after itself on every track, and u](images/tui-sections.gif)
+![The demo song named Intro and Verse with \Sa, [[ and ]] going between them, \S& repeats the verse after itself on every track, and u](images/tui-sections.gif)
 
 ## Try it
 
 1. Type `:ext.load sections`, and open a song.
-2. Put the cursor on bar 1. Press `,Sa`, type `Intro` and press Enter. The
+2. Put the cursor on bar 1. Press `\Sa`, type `Intro` and press Enter. The
    name `Intro` appears on a second row of the ruler.
-3. Move the cursor to bar 5. Press `,Sa`, type `Verse` and press Enter.
-4. Press `[s`, then `]s`. The cursor goes to the start of each section.
-5. Press `,S&`. The verse repeats after itself on every track. Press `u` to
+3. Move the cursor to bar 5. Press `\Sa`, type `Verse` and press Enter.
+4. Press `[[`, then `]]`. The cursor goes to the start of each section.
+5. Press `\S&`. The verse repeats after itself on every track. Press `u` to
    undo it.
 
 ## How to
 
 ### How to move a section
 
-- To move it past the next section, press `,SL`. To move it past the
-  section before, press `,SH`. A count moves it further.
-- To move it to any place, press `,Sd` on the section. Move the cursor to
-  the new place, and press `,SP`.
+- To move it past the next section, press `\SL`. To move it past the
+  section before, press `\SH`. A count moves it further.
+- To move it to any place, press `\Sd` on the section. Move the cursor to
+  the new place, and press `\SP`.
 
 ### How to repeat or copy a section
 
-- To repeat a section after itself, press `,S&`.
+- To repeat a section after itself, press `\S&`.
 - To put a copy of another section before the section at the cursor, press
-  `,Sc` and choose the section.
+  `\Sc` and choose the section.
 
 ### How to edit a full section with an operator
 
@@ -53,7 +53,7 @@ Use the text object `is` after the operator:
 ### In the graphical window
 
 - Click a section in the band under the ruler to go to its start.
-- Choose More ▸ Sections, or "Open in a window" on `<leader>Sl`, to open
+- Choose More ▸ Sections, or "Open in a window" on `<localleader>Sl`, to open
   the list in a window of its own.
 
 ## Reference
@@ -76,25 +76,25 @@ In the arrange view.
 
 | Keys | Effect |
 | --- | --- |
-| `]s` `[s` | the start of the next section. The start of this section, or of the section before. A count goes further. After the last section, `]s` goes to the end of the project. They are motions: `d]s`, `y[s`, `v]s` |
+| `]]` `[[` | the start of the next section. The start of this section, or of the section before. A count goes further. After the last section, `]]` goes to the end of the project. They are motions: `d]]`, `y[[`, `v]]` |
 | `is` | text object: the section under the cursor, on every track. `2is` that section and the next |
 | `as` | the same, made wider to full bars (for a section that starts with a pickup) |
-| `<leader>Sa` | adds a section at the cursor. It asks for a name. Tab offers the usual names |
-| `<leader>Sr` | renames the section at the cursor |
-| `<leader>Sx` | removes the marker of the section. The timeline does not change |
-| `<leader>Ss` | goes to a section, chosen from a list |
-| `<leader>Sl` | shows the list of sections |
-| `<leader>SL` `<leader>SH` | moves the section later, past the next section, or earlier, past the section before. A count moves it further |
-| `<leader>S&` | repeats the section after itself, and moves the rest of the song later |
-| `<leader>Sd` | deletes the section from every track and closes the gap. The section goes into the register |
-| `<leader>Sy` | yanks the section with its automation and marker |
-| `<leader>Sp` `<leader>SP` | inserts the register after or before the section at the cursor, on every track, and moves the rest later |
-| `<leader>Sc` | inserts a copy of a section, chosen from the list, before the section at the cursor |
+| `<localleader>Sa` | adds a section at the cursor. It asks for a name. Tab offers the usual names |
+| `<localleader>Sr` | renames the section at the cursor |
+| `<localleader>Sx` | removes the marker of the section. The timeline does not change |
+| `<localleader>Ss` | goes to a section, chosen from a list |
+| `<localleader>Sl` | shows the list of sections |
+| `<localleader>SL` `<localleader>SH` | moves the section later, past the next section, or earlier, past the section before. A count moves it further |
+| `<localleader>S&` | repeats the section after itself, and moves the rest of the song later |
+| `<localleader>Sd` | deletes the section from every track and closes the gap. The section goes into the register |
+| `<localleader>Sy` | yanks the section with its automation and marker |
+| `<localleader>Sp` `<localleader>SP` | inserts the register after or before the section at the cursor, on every track, and moves the rest later |
+| `<localleader>Sc` | inserts a copy of a section, chosen from the list, before the section at the cursor |
 
-- Registers (`"a<leader>Sy`), counts and `.` work as in all views.
-- `<leader>Ss` and `<leader>Sc` choose with `paw.pick`. Without it, they
+- Registers (`"a<localleader>Sy`), counts and `.` work as in all views.
+- `<localleader>Ss` and `<localleader>Sc` choose with `paw.pick`. Without it, they
   ask for a name on the command line (Tab completes).
-- `<leader>Sl` shows the list of sections over the views. From the list,
+- `<localleader>Sl` shows the list of sections over the views. From the list,
   you go to a section, rename it, add one at the cursor or remove one (see
   `section.list`).
 
@@ -131,7 +131,7 @@ matches exactly, then without case, then by its start (`chor`).
   value to the other. paw then removes points that change nothing.
 - Section markers move with what they mark. When a chorus moves, its name
   moves. A duplicate makes a second chorus. A delete removes the marker. A
-  section yanked with `<leader>Sy` or deleted with `<leader>Sd` brings its
+  section yanked with `<localleader>Sy` or deleted with `<localleader>Sd` brings its
   marker back when you insert it.
 - The tempo, the time signature, the loop and the playhead do not move.
 
