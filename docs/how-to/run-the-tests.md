@@ -52,12 +52,34 @@ the pointer and the keys. They find menu entries and buttons with
 tesseract, which reads a picture of the window. Then they ask the kernel
 what it holds.
 
+## Check the documentation
+
+1. To check the docs with Vale, run `tools/vale.sh`. Vale must report 0
+   errors.
+2. To check only the pages that you changed, give them:
+   `tools/vale.sh docs/how-to/run-the-tests.md`.
+3. To check the Lua API reference, run
+   `target/release/paw --clean --no-plugins -l tools/apidoc.lua check`.
+   It names each function that has no doc comment, and says if
+   `docs/reference/api.md` is out of date.
+4. If you changed a doc comment, make the API reference again:
+   `target/release/paw --clean --no-plugins -l tools/apidoc.lua`.
+5. If you changed a lesson of the tutor, make the course again:
+   `target/release/paw --clean --no-plugins -l extensions/tutor/make-docs.lua`.
+
+Vale checks `README.md`, `AGENTS.md`, `docs/`, the READMEs of the crates
+and the extensions, the `doc/` pages of the extensions, `bench/README.md`
+and `bench/DAWS.md`. It does not check `bench/RESULTS.md`, because that
+file is a log of measurements with their dates. The Lua suite checks that
+the API reference and the course agree with their sources.
+
 ## Run the checks of the flake
 
 Run `nix flake check`. This builds paw and runs these checks:
 
 - the Rust tests that need no display, audio device or Lua suite, with cargo-nextest (they must pass).
 - clippy and rustfmt, which report what they find and do not fail.
+- Vale on the documentation, which fails on an error.
 
 The Lua suite and the window tests do not run in the build. They need an X
 server, plugins and their own directories, which a build sandbox does not have.

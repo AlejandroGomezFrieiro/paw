@@ -6,7 +6,7 @@ tools that try to break the DAW. Results and the comparison are in
 against REAPER, Ardour and LMMS, is in [DAWS.md](DAWS.md), with its
 harness in [daws/](daws).
 
-## Running
+## Run the benchmarks
 
 ```sh
 nix develop -c cargo build --release -p paw-tui
@@ -23,7 +23,7 @@ built. Everything runs with `XDG_*` and, for Tracktion, `HOME` pointed into
 `$BENCH_TMP` (default `/tmp/paw-bench`), so neither program touches your real
 configuration, caches or recordings.
 
-Each script prints one JSON line per run; `summarize.lua` turns a results file
+Each script prints one JSON line per run. `summarize.lua` turns a results file
 into Markdown tables:
 
 ```sh
@@ -32,7 +32,7 @@ into Markdown tables:
 
 ## What each number means
 
-All times are wall-clock milliseconds on one machine; the DAW renders on one
+All times are wall-clock milliseconds on one machine. The DAW renders on one
 thread. Unless stated, 48 kHz, blocks of 512 frames, 120 BPM, 4/4.
 
 | Script | Workload | Numbers |
@@ -50,7 +50,7 @@ thread. Unless stated, 48 kHz, blocks of 512 frames, 120 BPM, 4/4.
 | `devices.lua [tracks] [seconds] [kind...]` | N tracks of audio rendered on one thread, without effects and then with one instance of each built-in effect on every track (with settings that keep it working). | `processing_ms` per render (best of three); `core_percent`, one instance's share of one core in real time. |
 | `startup.sh` | Start, run an empty script, exit. | Median of 10. With plugins: the dev shell's LSP Plugins and Surge XT, with an empty scan cache (cold) and a filled one (cached). |
 
-## Breaking it
+## Stress tests
 
 | Script | What it does |
 | --- | --- |

@@ -151,5 +151,6 @@ the user's real config, devices or display from tests.
 
 Your README is the user's page and `:help` reads it: a short intro, a keys
 table, commands, options, and what is not done. Mention every command and key
-you register (a test walks them). Add pictures with a scene script under
+you register (a test walks them). When the reference grows long, move it to
+`doc/reference.md` (also a page of `:help`) and link it from the README. Add pictures with a scene script under
 `images/make/` (see docs/images/make for the rig) so they can be made again.

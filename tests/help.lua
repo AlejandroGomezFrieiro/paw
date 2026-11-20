@@ -115,7 +115,7 @@ test("tags are found for keys, commands, options, Lua modules, sections and page
     local tag = H.lookup(topic)
     return tag and tag.source.name .. " " .. tag.name or "none"
   end
-  eq(where("gU"), "keys.md gU", "a key: its row in the key table")
+  eq(where("gL"), "keys.md gL", "a key: its row in the key table")
   eq(where(":s"), "ex.md :s", "a command")
   eq(where("'timebind'"), "options.md 'timebind'", "an option")
   eq(where("paw.qf"), "lua-addresses.md paw.qf", "a Lua module")
@@ -125,8 +125,8 @@ test("tags are found for keys, commands, options, Lua modules, sections and page
   eq(where("grammar"), "grammar.md grammar", "a page")
   eq(where("course-5"), "course/05-grammar.md course-5", "a lesson")
   eq(where("notation"), "notation/README.md notation", "an extension")
-  eq(where("notation-keys"), "notation/README.md notation-keys", "an extension's heading")
-  eq(where("notation-popovers"), "notation/README.md notation-popovers", "another")
+  eq(where("notation-keys"), "notation/doc/reference.md notation-keys", "an extension's heading, on a page of its doc/")
+  eq(where("notation-popovers"), "notation/doc/reference.md notation-popovers", "another")
   eq(where("ic"), "keys.md ic", "a text object: its row in the key table")
   eq(where("<C-w>o"), where("Ctrl-w o"), "a key written either way")
   -- Each lands on the line that names it.

@@ -342,25 +342,6 @@ text. `:w` shows the plan and `y` does it. Deleted files go to the trash.
 | `za` `zR` `zM` | in the tree: open or close a folder, all, none |
 | `cw` `dd` `yy` `p` `o` | rename (or move, with a path); trash; copy; new file (`name/` a folder) |
 
-## Launch clips (the session view, `,l`)
-
-With the clip launcher extension (`:ext.load launcher`). Its
-[README](../../extensions/launcher/README.md) has all of its keys.
-
-| Keys | |
-| --- | --- |
-| `h` `l` `j` `k` | previous, next track; next, previous slot (`gg` `G` first, last) |
-| `<CR>` `L` | launch the slot (an empty one stops the track), launch the row as a scene |
-| `S` `gS` | stop the track's clip, every clip |
-| `B` `gB` | the track back to its timeline, every track |
-| `s` `M` `r` | solo, mute, arm the track |
-| `n` `i` | a new MIDI clip in the slot, open its notes |
-| `x` `dd` `yy` `p` | empty the slot, yank its clip, paste a clip into it |
-| `gp` | copy the arrange view's clip into the slot |
-| `m` `gl` | the next launch mode (trigger, gate, toggle), legato on or off |
-| `R` `4R` | record a bar, or four, into the empty slot from the next boundary |
-| `grn` `C` | name the scene, capture what is launched into the timeline |
-
 ## Diagnostics and language servers
 
 | Keys | |
@@ -382,159 +363,7 @@ With the clip launcher extension (`:ext.load launcher`). Its
 | `:cdo` `:cfdo` `:cfix` | a command on every entry, on every track of them; make every fix (each one undo step) |
 | `:colder` `:cnewer` `:cdiag` | the list before, after; a list of the diagnostics |
 
-## The tutor
-
-| Keys | |
-| --- | --- |
-| `:tutor` `:tutor 5` | the course where you left off, lesson 5 |
-| `,hh` `,hn` `,hr` | a hint, skip the step, restart the lesson |
-| `,hl` `,hq` | the lessons, leave the tutor |
-
-## The doctor
-
-| Keys | |
-| --- | --- |
-| `:doctor` `:doctor all` `:doctor input` | open the hardware check, run every check, run one |
-| `j` `k` `<CR>` `A` `u` | on its page: choose a check, run it, run all, run those that need nobody |
-| `y` `n` `s` ... | answer the question it asks (the keys are listed under it); `s` skips |
-| `<Esc>` `q` | stop the run (the page stays), close the page |
-
-## Notation
-
-The notation extension (`,n` on a MIDI clip) has its own keys. They are in
-[its README](../../extensions/notation/README.md), and `?` in the view lists
-them. Notation is a view of the MIDI of the clip. Every edit in it is an
-edit of the notes. What it decides (a spelling, a voice, a dynamic) is kept
-next to the notes.
-
-Normal mode takes the grammar of the piano roll. Insert mode enters notes by
-letter:
-
-| Keys | In insert mode |
-| --- | --- |
-| a capital letter | adds the note to the chord |
-| Alt-2 to Alt-8 | add an interval above |
-| `~` | ties |
-| `t` | enters triplets |
-| `v` | enters in the other voice |
-| `R` | repeats the chord |
-| the numbers | choose the value (5 a quarter) |
-
-| Keys | In normal mode |
-| --- | --- |
-| <kbd>zg</kbd> | shows the engraved page as one long system |
-| <kbd>zp</kbd> | shows it on pages under the title (`:notation.export pdf` writes them) |
-| <kbd>zs</kbd> | starts a system at the bar under the cursor |
-| <kbd>zj</kbd> | joins the bar to the system before |
-
-The grammar in notation is about the score. Operators and text objects act
-on what is written. Each edit is one undo step that `.` repeats.
-
-- Objects:
-
-  | Keys | Object |
-  | --- | --- |
-  | `in` `an` | the note (with its ties) |
-  | `ic` `ac` | the chord (with grace notes and ties) |
-  | `i.` `a.` | the beat (`a.` in every voice) |
-  | `ib` `ab` | what the bar holds, the bar itself (`dab` removes it, `p` puts it back) |
-  | `ip` `ap` | the phrase |
-  | `iv` `av` | the voice |
-  | `is` `as` | the staff |
-  | `it` `at` | the tuplet |
-  | `il` `al` | the slur |
-  | `ie` | the clip (as in the piano roll) |
-- Operators:
-
-  | Keys | In notation |
-  | --- | --- |
-  | `gU` `gu` | up, down a step of the key (`3gUib` three steps) |
-  | `g+` `g-` | up, down a semitone |
-  | `g~` | respell |
-  | `g(` | slur (`g(ip`) |
-  | `g?` | retrograde (`2g?` inverts) |
-  | `gq` | tidy |
-  | `g@` | make the notes play as the marks say (a prompt shows it first) |
-  | `!` | filter (`!ib reverse`, `!ib tac`) |
-
-- Motions: `f` `F` `t` `T` and a letter, `;` `,` again (`,` waits a moment:
-  it is the leader), `)` `(` by phrase, `]v` `[v` by voice, `Ctrl-j`
-  `Ctrl-k` by staff.
-- Note entry: `I` moves the music after the cursor later (`Insert` toggles
-  it). `r` and a letter changes the pitch of a note. `R` changes pitches in
-  turn (it does not record here). In insert mode, `/` `//` is a grace note,
-  `Ctrl-t` a tuplet, `Ctrl-o` one normal command, `Ctrl-r` a register, and
-  `Tab` the suggestion.
-
-A popover writes everything that is not a note. The local leader (a
-backslash) and a letter opens a one-line prompt at the caret. In visual
-mode, the popover is for the selection. In insert mode, use it after
-`Ctrl-o`, and the note entry continues after it.
-
-In a popover, `Tab` completes, and `Up` gives the text typed before in that
-popover. The page shows the result in the accent color while you type.
-`Enter` writes it as one undo step, and `Esc` writes nothing. Each popover
-is an Ex command, so `.`, `@:` and `:5,8notation.dyn p` do the same.
-
-The popovers are keys of the notation view (its README has them all):
-
-| Popover | Keys | Accepts |
-| --- | --- | --- |
-| dynamics | `\d` | `mp`, `sfz`, `fp`, `p subito`, `mp<f`, `<`, `>`, `niente<` |
-| tempo | `\t` | `Allegro q=132`, `q.=60`, `rit.`, `accel.`, `a tempo` |
-| time signature | `\m` | `6/8`, `3+3+2/8`, `C`, `¢` |
-| key | `\k` | `Eb`, `f#m`, `D dorian` |
-| clef | `\C` | `bass`, `treble8`, `alto`, `tenor` |
-| barlines, repeats, endings | `\b` | `\|\|`, `\|.`, `\|:`, `:\|`, `1.`, `2.` |
-| text | `\X` | `dolce` |
-| rehearsal mark | `\r` | `A` (Enter alone: the next letter) |
-| chord symbols | `\q` | `Cmaj7`, `G/B`, `N.C.`; `Space` next beat |
-| lyrics | `\l` | syllables; `Space` next note, `-` hyphen, `_` extender; `verse=2 ` first |
-| intervals | `\i` | `3`, `-6`, `8`, `m3`, `P5` |
-| tuplets | `\3` | `3`, `5:4` |
-| voice | `\v` | `1` to `4` |
-| ornaments | `\o` | `tr`, `mordent`, `turn`, `fermata` |
-| playing techniques | `\p` | `pizz.`, `arco`, `con sord.` |
-| the last popover again, with its text | `\.` | |
-
-You edit a score of several tracks (`:help notation-scores`) where you read
-it. Each staff is a line, and every key writes to the track of the staff
-under the cursor.
-
-| Shows | Command |
-| --- | --- |
-| the tracks of the tab (or every track) | `:score` |
-| a group | `:score Strings` |
-| the selected tracks of the arrange view | `:score selection` |
-| the tracks over the time of the clip | `gT` |
-| the pages to check before export. This is the one view that you cannot edit. | `:score.check`, `zp` |
-
-| In a score | Keys |
-| --- | --- |
-| the cursor's pitch, as on one staff (note entry goes by it) | `j` `k` |
-| a staff down, up: a grand staff's two, then the next instrument | `<C-j>` `<C-k>` |
-| the next, previous instrument (a grand staff is one) | `]]` `[[` |
-| the next, previous instrument in the same group | `]s` `[s` |
-| the group's first, last instrument (again: the group before, after) | `[{` `]}` |
-| a block of bars by staves, which x, d, y, gU, >, a popover... act on, each staff's clip, one undo step | `<C-v>` then those |
-| whole staves | `V` then those |
-| on a condensed staff, the other player (voice 2 is the second's clip) | `]v` `[v` |
-| Ex over staves: s4, s2,s5, s. the cursor's, a group's name | `:5,8 s4 d`, `:5,8 Strings notation.dyn p` |
-
-`:set score_dim` dims the other staves, and `:set score_colors` tints them
-in the colors of their tracks.
-
-The full score and the parts (`:help notation-parts`) are on `\P`:
-
-| Shows or does | Keys |
-| --- | --- |
-| the score | `\Ps` |
-| the condensed score (two players to a staff) | `\Pc` |
-| the part of this track (letters typed in a transposed part are the written notes) | `\Pp` |
-| the next and the previous part | `\Pn` `\PN` |
-| the clip alone | `\Po` |
-| a system break in the part | `\Pb` `\Pj` |
-| export (`:part.export parts.pdf all`) | `\Pe` |
+## Other tracks in the piano roll
 
 In the piano roll, the notes of the other tracks show behind, in their
 colors (as the visible tracks of REAPER). `]t` `[t` make the next or the
@@ -542,20 +371,14 @@ previous of them the edited track. `<Tab>` `<S-Tab>` go round them. With no
 track shown, `<Tab>` is the next view. A click on a note behind makes its
 track the edited track.
 
-## Articulations
+## Keys of the extensions
 
-The articulations extension (`:ext.load articulations`) gives each note the
-way to play it, as its MIDI 2.0 attribute. The map of a track (`:art.map`)
-names the articulations and configures the piano roll. Its keys are keys of
-the piano roll. Its README has all of them:
+An extension adds its own keys. `?` in its view lists them, and its page
+describes them:
 
-| What | Keys |
-| --- | --- |
-| the articulation of the note, or of the selection, heard as you choose | `\a` |
-| a modifier (con sord.) over the note or the selection | `\A` |
-| the pen: what notes are entered with, in insert mode | `\a` |
-| the run of notes with the articulation under the cursor | `ia` `aa` |
-| the instrument's linked controllers (dynamics) as one curve | `\c` |
-
-`:'<,'>art stc`, `:5,8art pizz` and `:g/art=pz/art arco` do the same on
-ranges and matches.
+- [Notation](../../extensions/notation/doc/reference.md#keys): the score, note entry by letter, the popovers, scores and parts
+- [Articulations](../../extensions/articulations/README.md): the articulation of a note in the piano roll
+- [The clip launcher](../../extensions/launcher/README.md): the session view (`,l`)
+- [The tutor](../../extensions/tutor/README.md): the course (`:tutor`)
+- [The doctor](../../extensions/doctor/README.md): the check of the hardware (`:doctor`)
+- [Each other extension](extensions.md): the README of each one

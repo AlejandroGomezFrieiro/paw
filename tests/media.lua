@@ -235,7 +235,7 @@ local function u32(s, at) return u16(s, at) + u16(s, at + 2) * 65536 end
 test("a render gives the same samples as the renderer before it moved to a thread", function()
   -- The references were written by the renderer as it was when it ran on
   -- the main thread (commit 330df77), from the demo song: bit for bit.
-  dofile("examples/demo.lua")
+  dofile("tests/fixtures/render-song.lua")
   local info = paw.render(T.scratch .. "/same32.wav", { bits = 32, tail = 1 })
   eq(info.frames, 870858, "as many frames")
   eq(checksum(info.path), "6966864 29c4bee4", "the same float samples")
