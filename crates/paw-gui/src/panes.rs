@@ -101,7 +101,7 @@ impl View {
             self.panes.told = size;
             self.eval("paw.panes.area(...)", json!([size.0, size.1]));
         }
-        if self.menu.is_some() || self.text_focus || self.dialogs.open() {
+        if self.menu.is_some() || self.keyboard.text_focus || self.dialogs.open() {
             return;
         }
         let press = [egui::PointerButton::Primary, egui::PointerButton::Secondary, egui::PointerButton::Middle];
