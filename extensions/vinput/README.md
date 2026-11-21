@@ -192,6 +192,12 @@ also when you do not play. Turn the input off when you do not need it.
   the stages and their settings, the command to run, and how to read the
   output of the program. To add a kind, add a table.
 
+### Events
+
+| Event | Payload | When |
+| --- | --- | --- |
+| `vinput.changed` | `{}` | a virtual input changed: added, removed or set |
+
 ### Limits
 
 - No pitch bends and no vibrato: every note is a whole semitone. Two

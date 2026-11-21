@@ -167,11 +167,9 @@ What paw keeps as its own, and why:
 
 Found with grep at a72467cf. Each refactor part that owns the file fixes it.
 
-- **Command lines:** `paw-tui/src/main.rs` (`parse_args`, `doctor_args`,
-  the subcommands `doctor`, `clip`, `ctl`, `attach`, `plugin-host`,
-  `plugin-scan`), `paw-gui/src/main.rs`, `paw-mcp/src/main.rs`. Use clap with derive
-  and subcommands. Keep every flag, its short form and its meaning, and keep
-  `docs/reference` in step.
+- **Command lines:** done: `paw-tui/src/args.rs`, `paw-gui/src/args.rs` and
+  `paw-mcp/src/main.rs` use clap with derive and subcommands. Keep every
+  flag, its short form and its meaning, and keep `docs/reference` in step.
 - **I/O that waits, on threads:** (done: paw-core has one `tokio` runtime,
   `paw-core/src/io_runtime.rs`, on one thread, `paw-io`. The control
   socket and the network server, `paw-core/src/rpc.rs`, run on it with
@@ -188,22 +186,22 @@ Found with grep at a72467cf. Each refactor part that owns the file fixes it.
   shared memory and its process wire on the audio path, the ALSA MIDI
   thread, the terminal's input thread, the watchdog, and the render and
   stretch threads.
-- **SHA-256:** `paw-proto/src/lib.rs:261`. Use `ring::digest`.
+- **SHA-256:** done: `paw-proto/src/lib.rs` uses `ring::digest`.
 - **Hex:** five `fn hex` (paw-plugins vst3.rs, paw-proto, paw-gui theme.rs,
   paw-raster vector.rs, paw-scene cells.rs). One color type with
   `FromStr`/`Display` for colors, and one function for bytes.
-- **Signals:** `paw-tui/src/terminal.rs` (SIGTERM, SIGHUP), and
-  `paw-engine/src/record.rs` (SIGXFSZ).
-- **Memory maps:** `paw-engine/src/samples.rs`, `paw-engine/src/host.rs`,
-  `paw-plugins/src/sandbox/shm.rs`, `paw-raster/src/kitty.rs` (shared memory). Use
-  `memmap2` for files and `rustix` for shared memory. Keep the layouts.
+- **Signals:** `paw-engine/src/record.rs` (SIGXFSZ). (Done:
+  `paw-tui/src/terminal.rs` uses `signal-hook` for SIGTERM and SIGHUP.)
+- **Memory maps:** done: `paw-engine/src/samples.rs` and
+  `paw-engine/src/host.rs` use `memmap2`, `paw-plugins/src/sandbox/shm.rs`
+  and `paw-raster/src/kitty.rs` use `rustix` for shared memory.
 - **Bit flags:** `paw-plugins/src/vst3.rs` (the VST3 process-context flags),
   `paw-engine/src/midi.rs` (ALSA capabilities), the engine's faults.
 - **Dates:** `paw-core/src/fs_api.rs` `deletion_date`.
 - **Percent-encoding:** `paw-core/src/fs_api.rs` `percent_encode`.
-- **poll:** `paw-tui/src/terminal.rs`, `paw-engine/src/midi.rs`.
-- **Temporary folders in tests:** paw-mcp, paw-plugins `attach.rs`,
-  paw-gui, paw-tui tests.
+- **poll:** `paw-engine/src/midi.rs`. (Done: `paw-tui/src/terminal.rs` uses `rustix::event::poll`.)
+- **Temporary folders in tests:** paw-plugins `attach.rs`, paw-gui and
+  paw-tui tests. (Done: paw-mcp's tests use `tempfile`.)
 - **WAV writers:** `paw-engine/src/record.rs` (a take, header kept valid
   as it grows: `hound`'s `WavWriter::flush` does this),
   and `paw-listen/src/lib.rs`. (The sampler's `audio.rs` is on `hound` now.)

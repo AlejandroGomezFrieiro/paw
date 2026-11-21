@@ -11,11 +11,11 @@ project must hold after each step. For the commands, see
 
 ## Who runs them
 
-The scenarios are for the CI pipeline and for the release check before a
-tag. The short mode runs on each pull request, and the full mode runs
-each night. An agent that tests a change runs the Lua suite, not the
-scenarios. `tests/tools/suite.sh` and the default `nix flake check` do
-not run them.
+The scenarios are for a CI pipeline and for the release check before a
+tag. The short mode is for each pull request, and the full mode is for
+each night. The repository has no CI pipeline that runs them yet. An
+agent that tests a change runs the Lua suite, not the scenarios.
+`tests/tools/suite.sh` and the default `nix flake check` do not run them.
 
 ## A scenario is a sequence of days
 
