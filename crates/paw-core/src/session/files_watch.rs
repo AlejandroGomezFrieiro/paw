@@ -12,12 +12,17 @@
 
 use crate::events::{FilesChanged, KernelEvent as E};
 use std::collections::{BTreeSet, HashMap};
+use std::ffi::OsStr;
+use std::mem::MaybeUninit;
+use std::os::fd::OwnedFd;
+use std::os::unix::ffi::OsStrExt;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, bail};
+use rustix::fs::inotify;
 
 use super::folder::{self, PROJECT_FILE};
 use crate::model::{ClipContent, Project, Track};
@@ -40,7 +45,7 @@ fn hash_file(path: &Path) -> u64 {
 }
 
 pub(super) struct FileWatch {
-    fd: i32,
+    fd: Option<OwnedFd>,
     dirs: HashMap<i32, PathBuf>,
     by_dir: HashMap<PathBuf, i32>,
     /// The project's folder: every file in it but those of `unused/` counts.
@@ -58,7 +63,7 @@ pub(super) struct FileWatch {
 impl Default for FileWatch {
     fn default() -> Self {
         Self {
-            fd: -1,
+            fd: None,
             dirs: HashMap::new(),
             by_dir: HashMap::new(),
             root: None,
@@ -71,25 +76,18 @@ impl Default for FileWatch {
     }
 }
 
-impl Drop for FileWatch {
-    fn drop(&mut self) {
-        if self.fd >= 0 {
-            // SAFETY: the descriptor is ours and closed once.
-            unsafe { libc::close(self.fd) };
-        }
-    }
-}
-
 impl FileWatch {
     /// Watch these folders and no others.
     fn set_dirs(&mut self, dirs: BTreeSet<PathBuf>) {
-        if self.fd < 0 && !dirs.is_empty() {
-            // SAFETY: plain system call.
-            self.fd = unsafe { libc::inotify_init1(libc::IN_NONBLOCK | libc::IN_CLOEXEC) };
-            if self.fd < 0 {
-                return;
+        if self.fd.is_none() && !dirs.is_empty() {
+            match inotify::init(inotify::CreateFlags::NONBLOCK | inotify::CreateFlags::CLOEXEC) {
+                Ok(fd) => self.fd = Some(fd),
+                Err(_) => return,
             }
         }
+        let Some(fd) = &self.fd else {
+            return;
+        };
         let gone: Vec<PathBuf> = self
             .by_dir
             .keys()
@@ -99,27 +97,21 @@ impl FileWatch {
         for dir in gone {
             if let Some(wd) = self.by_dir.remove(&dir) {
                 self.dirs.remove(&wd);
-                // SAFETY: a watch of our descriptor.
-                unsafe { libc::inotify_rm_watch(self.fd, wd) };
+                // The watch may be gone already (its folder was removed).
+                let _ = inotify::remove_watch(fd, wd);
             }
         }
+        let mask = inotify::WatchFlags::CLOSE_WRITE
+            | inotify::WatchFlags::MOVED_TO
+            | inotify::WatchFlags::MOVED_FROM
+            | inotify::WatchFlags::CREATE
+            | inotify::WatchFlags::DELETE
+            | inotify::WatchFlags::ONLYDIR;
         for dir in dirs {
             if self.by_dir.contains_key(&dir) {
                 continue;
             }
-            use std::os::unix::ffi::OsStrExt;
-            let Ok(c) = std::ffi::CString::new(dir.as_os_str().as_bytes()) else {
-                continue;
-            };
-            let mask = libc::IN_CLOSE_WRITE
-                | libc::IN_MOVED_TO
-                | libc::IN_MOVED_FROM
-                | libc::IN_CREATE
-                | libc::IN_DELETE
-                | libc::IN_ONLYDIR;
-            // SAFETY: a C string and our descriptor.
-            let wd = unsafe { libc::inotify_add_watch(self.fd, c.as_ptr(), mask) };
-            if wd >= 0 {
+            if let Ok(wd) = inotify::add_watch(fd, &dir, mask) {
                 self.dirs.insert(wd, dir.clone());
                 self.by_dir.insert(dir, wd);
             }
@@ -161,37 +153,24 @@ impl FileWatch {
     /// Read what happened. Returns the files changed outside paw, once a
     /// burst of changes has settled.
     pub fn poll(&mut self) -> Option<Vec<PathBuf>> {
-        if self.fd < 0 {
-            return None;
-        }
-        let mut buf = [0u8; 8192];
-        loop {
-            // SAFETY: reading into a buffer we own, of its length.
-            let n = unsafe { libc::read(self.fd, buf.as_mut_ptr().cast(), buf.len()) };
-            if n <= 0 {
-                break;
+        let fd = self.fd.as_ref()?;
+        let mut buf = [MaybeUninit::<u8>::uninit(); 8192];
+        let mut events = inotify::Reader::new(fd, &mut buf);
+        // The descriptor does not block: an error ends the reading, and
+        // so does "nothing more to read".
+        while let Ok(event) = events.next() {
+            // An overflow (watch -1) and a watch we dropped match no folder.
+            let Some(dir) = self.dirs.get(&event.wd()) else {
+                continue;
+            };
+            if event.events().contains(inotify::ReadFlags::ISDIR) {
+                continue;
             }
-            let mut at = 0usize;
-            while at + std::mem::size_of::<libc::inotify_event>() <= n as usize {
-                // SAFETY: the kernel wrote whole events into the buffer.
-                let event: libc::inotify_event =
-                    unsafe { std::ptr::read_unaligned(buf.as_ptr().add(at).cast()) };
-                let head = std::mem::size_of::<libc::inotify_event>();
-                let name = &buf[at + head..at + head + event.len as usize];
-                let name = name.split(|b| *b == 0).next().unwrap_or(&[]);
-                at += head + event.len as usize;
-                let Some(dir) = self.dirs.get(&event.wd) else {
-                    continue;
-                };
-                use std::os::unix::ffi::OsStrExt;
-                let path = dir.join(std::ffi::OsStr::from_bytes(name));
-                if event.mask & libc::IN_ISDIR != 0 {
-                    continue;
-                }
-                if self.counts(&path) {
-                    self.pending.insert(path);
-                    self.last = Instant::now();
-                }
+            let name = event.file_name().map_or(&[][..], |n| n.to_bytes());
+            let path = dir.join(OsStr::from_bytes(name));
+            if self.counts(&path) {
+                self.pending.insert(path);
+                self.last = Instant::now();
             }
         }
         if self.pending.is_empty() || self.last.elapsed() < SETTLE {

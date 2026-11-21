@@ -41,7 +41,7 @@ rustls.workspace = true
 # server (rpc.rs) and the output of helper processes (io.rs), on one thread.
 tokio = { workspace = true, features = ["rt", "net", "io-util", "time", "sync", "macros", "process"] }
 # poll(2), for a write to a helper process or a socket to wait for room (io.rs).
-rustix = { version = "1", default-features = false, features = ["std", "event"] }
+rustix = { version = "1", default-features = false, features = ["std", "event", "fs"] }
 tokio-rustls.workspace = true
 # The self-signed certificate an instance listening on the network shows.
 rcgen = { version = "0.14", default-features = false, features = ["crypto", "ring"] }
