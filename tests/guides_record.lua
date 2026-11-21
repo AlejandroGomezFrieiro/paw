@@ -56,7 +56,7 @@ test("guide: record a guitar or a bass through an audio interface", function()
     return p and p.note == "A4"
   end, "the tuner to hear the A")
   keys("<Space>dd")
-  eq(paw.ui.focused, "arrange", "Space d hides the device panel again")
+  eq(paw.ui.focused, "arrange", "Space dd hides the device panel again")
   keys(":audio.buffer 128<CR>")
   keys("R")
   until_(function() return paw.transport.recording and paw.transport.playing end, "the recording")

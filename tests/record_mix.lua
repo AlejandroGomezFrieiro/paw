@@ -56,7 +56,7 @@ test("the cursor reaches the master: j after the last track, $ and l in the mixe
   -- In the mixer the master is the last strip.
   paw.cursor.set_track(a)
   keys("<leader>mm")
-  eq(paw.ui.focused, "mixer", "Space m shows the mixer")
+  eq(paw.ui.focused, "mixer", "Space mm shows the mixer")
   keys("$")
   eq(paw.cursor.track_id(), 0, "$ goes to the master's strip")
   keys("h")
