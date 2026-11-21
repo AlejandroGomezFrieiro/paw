@@ -91,6 +91,7 @@ not need the reply.
 | `scene.area` | A window, a width, a height in cell units | Tells the size of a window. 0 by 0 tells that the window does not show. |
 | `scene.input` | A window, a pointer event in cell units | Sends the pointer over a window. |
 | `scene.blob` | A content key | Replies the drawing of that key. |
+| `scene.pixels` | The key of a picture of pixels | Replies `{ "w", "h", "rgba" }`: its size, and its pixels as straight RGBA in base64, row by row. Replies null when paw does not keep it any more. |
 | `scene.unwatch` | | Stops the patches. |
 | `ui.attach` | A width and a height in cells, options | Makes the connection a terminal: `ui.grid` events from now on. See [A remote terminal](#a-remote-terminal). |
 | `ui.input` | One input event | Sends a key, a paste or the pointer to that terminal. |
@@ -322,6 +323,11 @@ it sends at most 30 patches a second.
 The attributes are 1 bold, 2 dim, 4 italic, 8 underline, 16 reverse and
 32 strike. Runs and fills are written onto cells in their order, as the
 terminal does. Reverse and dim are resolved with the cells.
+
+An `i` operation in a drawing is a picture of pixels: `["i", x, y, w, h,
+key, sx, sy, sw, sh]`. It stretches the part `sx, sy, sw, sh` of the
+picture (fractions of its size) over `x, y, w, h`. Ask `scene.pixels` for
+the key once.
 
 ### Roles
 

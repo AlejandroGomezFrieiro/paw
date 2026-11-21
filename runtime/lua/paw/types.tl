@@ -1529,6 +1529,14 @@ local record types
   --- texts (see `paw.canvas`).
   type CanvasOp = {string | number}
 
+  --- A picture of pixels as a window is sent it (`canvas_pixels`): its
+  --- size, and its pixels as straight RGBA in base64, row by row.
+  record PictureBlob
+    w: integer
+    h: integer
+    rgba: string
+  end
+
   --- A page of `canvas_export`, in pixels.
   record CanvasPage
     ops: {CanvasOp}
