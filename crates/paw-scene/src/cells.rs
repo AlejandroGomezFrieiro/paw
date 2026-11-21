@@ -270,7 +270,7 @@ pub fn rgb(color: Color, default: (u8, u8, u8)) -> (u8, u8, u8) {
 
 /// A colour as `#rrggbb`.
 pub fn hex((r, g, b): (u8, u8, u8)) -> String {
-    format!("#{r:02x}{g:02x}{b:02x}")
+    crate::color::Rgba::rgb(r, g, b).to_string()
 }
 
 /// A stretch of a row in one style, for a frontend that draws text rather

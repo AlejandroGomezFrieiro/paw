@@ -64,13 +64,8 @@ palette! {
 
 /// `#rrggbb` or `#rrggbbaa`.
 pub fn hex(text: &str) -> Option<Color32> {
-    let hex = text.trim_start_matches('#');
-    let channel = |at: usize| hex.get(at..at + 2).and_then(|h| u8::from_str_radix(h, 16).ok());
-    let (r, g, b) = (channel(0)?, channel(2)?, channel(4)?);
-    Some(match channel(6) {
-        Some(a) => Color32::from_rgba_unmultiplied(r, g, b, a),
-        None => Color32::from_rgb(r, g, b),
-    })
+    let c: paw_scene::color::Rgba = text.parse().ok()?;
+    Some(Color32::from_rgba_unmultiplied(c.r, c.g, c.b, c.a))
 }
 
 static THEME: OnceLock<Theme> = OnceLock::new();

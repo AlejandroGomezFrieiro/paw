@@ -3128,6 +3128,7 @@ dependencies = [
  "base64",
  "flate2",
  "libc",
+ "paw-scene",
  "serde_json",
  "tiny-skia",
  "ttf-parser",

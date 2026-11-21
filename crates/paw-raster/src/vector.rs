@@ -128,7 +128,7 @@ fn num(v: f32) -> String {
 }
 
 fn hex(c: Rgba) -> String {
-    format!("#{:02x}{:02x}{:02x}", c.0, c.1, c.2)
+    paw_scene::color::Rgba::rgb(c.0, c.1, c.2).to_string()
 }
 
 /// A drawing as an SVG document `width` by `height` pixels.
