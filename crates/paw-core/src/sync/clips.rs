@@ -269,7 +269,7 @@ const PIECE: usize = 256;
 /// compiled in); a short or looped clip in one piece. A piece of the very
 /// same runs as one of the clip `before` is not compiled again.
 fn pieces_of(clip: &Clip, before: Option<&SentClip>) -> Vec<Piece> {
-    let ClipContent::Midi { notes, controls } = &clip.content else {
+    let Some(ClipContent::Midi { notes, controls }) = clip.playable() else {
         return Vec::new();
     };
     // The very same clip: nothing to compile.
@@ -322,13 +322,13 @@ fn parts_of(
     let mut audio = Vec::new();
     let mut pieces = Vec::new();
     if !clip.muted {
-        match &clip.content {
-            ClipContent::Midi { .. } => pieces = pieces_of(clip, before),
-            ClipContent::Audio { file, offset, gain, .. } => {
+        // A custom clip plays its sound, if it has one, as its own.
+        match clip.playable() {
+            Some(ClipContent::Midi { .. }) => pieces = pieces_of(clip, before),
+            Some(ClipContent::Audio { file, offset, gain, .. }) => {
                 clip_audio(clip, (file, *offset, *gain), tempo, ctx, &mut audio)
             }
-            // A custom clip does not play its sound yet.
-            ClipContent::Custom(_) => {}
+            Some(ClipContent::Custom(_)) | None => {}
         }
     }
     let mut parts = Vec::with_capacity(pieces.len().max(1));
@@ -350,9 +350,9 @@ fn parts_of(
 
 /// How many orders a clip's parts take.
 fn orders_taken(clip: &Clip) -> u64 {
-    match &clip.content {
-        ClipContent::Midi { notes, .. } => notes.runs().len() as u64 + 1,
-        ClipContent::Audio { .. } | ClipContent::Custom(_) => 1,
+    match clip.playable() {
+        Some(ClipContent::Midi { notes, .. }) => notes.runs().len() as u64 + 1,
+        _ => 1,
     }
 }
 
@@ -576,8 +576,8 @@ pub(super) fn build_cues(
             continue;
         }
         let mut clips = ClipSet::default();
-        match &clip.content {
-            ClipContent::Midi { notes, controls } => {
+        match clip.playable() {
+            Some(ClipContent::Midi { notes, controls }) => {
                 let events = match cached.get(&clip.id) {
                     Some(was) if Arc::ptr_eq(&was.clip, clip) => was.events.clone(),
                     _ => compile_clip(clip, notes, controls),
@@ -586,10 +586,10 @@ pub(super) fn build_cues(
                 kept.insert(clip.id, CueEvents { clip: clip.clone(), events });
                 downgrade(track, &mut clips, tempo);
             }
-            ClipContent::Audio { file, offset, gain, .. } => {
+            Some(ClipContent::Audio { file, offset, gain, .. }) => {
                 clip_audio(clip, (file, *offset, *gain), tempo, ctx, &mut clips.audio)
             }
-            ClipContent::Custom(_) => {}
+            Some(ClipContent::Custom(_)) | None => {}
         }
         out[row] = Some(SlotClip {
             clips,

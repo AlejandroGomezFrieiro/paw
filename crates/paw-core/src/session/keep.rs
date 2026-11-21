@@ -46,7 +46,7 @@ impl Session {
                     continue;
                 }
                 for clip in &track.clips {
-                    if let ClipContent::Audio { file, .. } = &clip.content {
+                    if let Some(ClipContent::Audio { file, .. }) = clip.playable() {
                         keep.insert(file.clone());
                     }
                 }
