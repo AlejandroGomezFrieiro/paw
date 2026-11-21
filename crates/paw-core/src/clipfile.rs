@@ -510,11 +510,7 @@ pub fn decode(bytes: &[u8]) -> Result<Clip> {
         i += n;
         match kind {
             0x0 => reader.utility(w0),
-            0xF => {
-                if reader.stream(w0) {
-                    break;
-                }
-            }
+            0xF if reader.stream(w0) => break,
             0xD => reader.flex_data(packet),
             0x2 | 0x4 if reader.started => reader.channel_voice(kind, packet),
             0x3 | 0x5 => reader.skip("system exclusive messages"),
