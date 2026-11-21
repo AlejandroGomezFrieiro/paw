@@ -17,7 +17,7 @@ use std::time::{Duration, Instant};
 use anyhow::{Context, Result, bail};
 use serde_json::{Value, json};
 
-use super::{MAX_PEAKS, Session, de};
+use super::{ClipKind, MAX_PEAKS, Session, de};
 use crate::model::{Clip, ClipContent, Id, Project, Timebase, WarpMarker};
 use crate::peaks;
 use crate::stretch::{PITCH_RANGE, RATIO_RANGE};
@@ -40,12 +40,12 @@ const FIELDS: [&str; 10] = [
 
 /// Check how a new clip of `kind` is to play.
 pub(super) fn check_playing(
-    kind: &str,
+    kind: ClipKind,
     stretch: f64,
     pitch: f64,
     source_tempo: Option<f64>,
 ) -> Result<()> {
-    if kind != "audio" && (stretch != 1.0 || pitch != 0.0) {
+    if kind != ClipKind::Audio && (stretch != 1.0 || pitch != 0.0) {
         bail!("only audio clips are stretched or shifted");
     }
     check_ratio(stretch)?;
@@ -80,8 +80,8 @@ fn check_tempo(bpm: f64) -> Result<f64> {
 
 /// Check an audio clip's warp markers: in order of their moments of the
 /// file, and of where they play them.
-pub(super) fn check_warp(kind: &str, warp: &[WarpMarker]) -> Result<()> {
-    if kind != "audio" && !warp.is_empty() {
+pub(super) fn check_warp(kind: ClipKind, warp: &[WarpMarker]) -> Result<()> {
+    if kind != ClipKind::Audio && !warp.is_empty() {
         bail!("only audio clips have warp markers");
     }
     for m in warp {
@@ -208,7 +208,7 @@ impl Session {
                         Value::Object(map) if map.is_empty() => Vec::new(),
                         value => de(key, value)?,
                     };
-                    check_warp("audio", &markers)?;
+                    check_warp(ClipKind::Audio, &markers)?;
                     c.warp = markers;
                 }
                 "formants" => c.formants = de(key, value)?,

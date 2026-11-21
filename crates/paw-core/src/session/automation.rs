@@ -92,10 +92,14 @@ impl Session {
         if self.project.track(track).is_none() {
             bail!("no track {track}");
         }
-        let target = match opts.target.as_str() {
-            "volume" => Target::Volume,
-            "pan" => Target::Pan,
-            "param" => {
+        let kind = match opts.target {
+            Some(kind) => kind,
+            None => "".parse()?,
+        };
+        let target = match kind {
+            LaneKind::Volume => Target::Volume,
+            LaneKind::Pan => Target::Pan,
+            LaneKind::Param => {
                 let device = opts.device.context("parameter lanes need a `device`")?;
                 let name = opts
                     .param
@@ -109,14 +113,13 @@ impl Session {
                     param: self.param_info(device, name)?.key,
                 }
             }
-            "state" => {
+            LaneKind::State => {
                 let device = opts.device.context("state lanes need a `device`")?;
                 if self.project.find_device(device).map(|(t, _)| t) != Some(track) {
                     bail!("device {device} is not on track {track}");
                 }
                 Target::State { device }
             }
-            other => bail!("cannot automate `{other}`: use volume, pan, param or state"),
         };
         let states = opts
             .states

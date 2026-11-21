@@ -270,11 +270,72 @@ pub struct DeviceOpts {
     pub state: Option<String>,
 }
 
+/// What a new clip holds: `midi` or `audio` in Lua. A wrong word fails
+/// with the text of [`FromStr`](std::str::FromStr).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase", try_from = "String")]
+pub enum ClipKind {
+    Midi,
+    Audio,
+}
+
+impl std::str::FromStr for ClipKind {
+    type Err = anyhow::Error;
+
+    fn from_str(word: &str) -> Result<Self> {
+        Ok(match word {
+            "midi" => Self::Midi,
+            "audio" => Self::Audio,
+            other => bail!("unknown clip kind `{other}`"),
+        })
+    }
+}
+
+impl TryFrom<String> for ClipKind {
+    type Error = anyhow::Error;
+
+    fn try_from(word: String) -> Result<Self> {
+        word.parse()
+    }
+}
+
+/// What a new lane automates: `volume`, `pan`, `param` or `state` in Lua.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase", try_from = "String")]
+pub enum LaneKind {
+    Volume,
+    Pan,
+    Param,
+    State,
+}
+
+impl std::str::FromStr for LaneKind {
+    type Err = anyhow::Error;
+
+    fn from_str(word: &str) -> Result<Self> {
+        Ok(match word {
+            "volume" => Self::Volume,
+            "pan" => Self::Pan,
+            "param" => Self::Param,
+            "state" => Self::State,
+            other => bail!("cannot automate `{other}`: use volume, pan, param or state"),
+        })
+    }
+}
+
+impl TryFrom<String> for LaneKind {
+    type Error = anyhow::Error;
+
+    fn try_from(word: String) -> Result<Self> {
+        word.parse()
+    }
+}
+
 #[derive(Default, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct ClipOpts {
-    /// `midi` or `audio`. Inferred from `file` when absent.
-    pub kind: Option<String>,
+    /// Inferred from `file` when absent.
+    pub kind: Option<ClipKind>,
     pub name: Option<String>,
     pub start: f64,
     pub length: Option<f64>,
@@ -308,8 +369,8 @@ pub struct ClipOpts {
 #[derive(Default, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct LaneOpts {
-    /// `volume`, `pan`, `param` or `state`.
-    pub target: String,
+    /// Required: a missing target fails like an unknown one.
+    pub target: Option<LaneKind>,
     /// For `param`: the device, on the same track, and its parameter by key or name.
     pub device: Option<Id>,
     pub param: Option<String>,
