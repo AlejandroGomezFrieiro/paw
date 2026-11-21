@@ -61,7 +61,9 @@ pub fn pointer_events(ui: &Ui, rect: Rect, id: Id) -> Vec<Value> {
                     egui::PointerButton::Middle => "middle",
                     _ => "left",
                 };
-                if *pressed && (response.hovered() || (!response.contains_pointer() && over(*pos))) {
+                // Where the press was: the pointer at the end of the frame
+                // may be over another window.
+                if *pressed && visible.contains(*pos) && (response.hovered() || (!response.contains_pointer() && over(*pos))) {
                     out.push(pointer_event("down", at(*pos), name, *modifiers));
                     held = true;
                 } else if !*pressed && (held || response.hovered()) {

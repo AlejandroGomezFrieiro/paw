@@ -716,11 +716,16 @@ impl View {
             shown.draw(ui, id, rect, clip, cell, &self.scenes.live, &mut self.live);
         }
         let pointer = Id::unique(("scene-pointer", id));
-        // Whether the press that a release ends was in this window.
-        let pressed_here = ui.data(|d| d.get_temp::<bool>(pointer)).unwrap_or(false);
+        // Whether the press that a release ends was in this window: in an
+        // earlier frame, or in this one (a loaded machine draws few, and
+        // a click, even a double one, can come in one frame).
+        let mut pressed_here = ui.data(|d| d.get_temp::<bool>(pointer)).unwrap_or(false);
         for mut event in pointer_events(ui, rect, pointer) {
             event["x"] = json!(event["x"].as_f64().unwrap_or(0.0) / cell.0 as f64);
             event["y"] = json!(event["y"].as_f64().unwrap_or(0.0) / cell.1 as f64);
+            if event["kind"] == "down" {
+                pressed_here = true;
+            }
             if !pressed_here && event["kind"] == "up" && self.drop_clip(&mut event) {
                 self.call_later("scene.input", json!([id, event]));
                 continue;
