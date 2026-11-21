@@ -88,6 +88,10 @@ graphical window) lists all the inputs of a track:
   stopped moves the playhead to the cursor, and records from there, as
   `Shift-Enter` plays from the cursor. While the song plays, `R` records
   from the playhead. `paw.transport.record()` records from the playhead.
+- **What you hear while you record.** An armed track with an audio input
+  plays its input only, while the take records: its clips under the take
+  are silent, as on a tape machine. With a punch, its clips play before
+  the punch in and after the punch out. Other tracks play as usual.
 - **The end of a take.** A stop, or recording off, ends the take. A seek
   starts a new take. paw adds the clips of a take, audio and MIDI, as one
   undo step. Notes that are held at the end are cut there.

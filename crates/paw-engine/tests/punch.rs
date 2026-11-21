@@ -139,3 +139,68 @@ fn a_take_punched_from_inside_its_range_starts_at_once() {
     assert_eq!(frames, BEAT, "from where it began to the punch out");
     assert!((shared.start().unwrap() - 1.5).abs() < 1e-9, "at once");
 }
+
+/// A track whose audio clip plays a steady tone over the first four beats,
+/// with input channel 0 armed.
+fn armed_over_a_clip(handle: &mut EngineHandle) {
+    use paw_engine::{AudioData, AudioRegion, ClipSet, SchedEntry, Schedule, TrackRt, TrackSlot};
+    let steady = || vec![0.25f32; 44100 * 4].into();
+    let data = Arc::new(AudioData { sample_rate: 44100, channels: [steady(), steady()] });
+    let mut clips = ClipSet::default();
+    clips.audio.push(AudioRegion {
+        start: 0.0,
+        end: 4.0,
+        data,
+        offset: 0.0,
+        gain: 1.0,
+        fade_in: 0.0,
+        fade_out: 0.0,
+        declick_in: false,
+        declick_out: false,
+        hold: Default::default(),
+        direction: Default::default(),
+    });
+    for msg in [
+        Msg::InsertTrack { slot: TrackSlot(1), track: TrackRt::new() },
+        Msg::SetClips { track: TrackSlot(1), clips: Box::new(clips) },
+        Msg::SetInput { track: TrackSlot(1), first: 0, channels: 1, monitor: false, armed: true },
+        Msg::SetSchedule(Box::new(Schedule::new(
+            vec![
+                SchedEntry::new(TrackSlot(1), TrackSlot::MASTER),
+                SchedEntry::new(TrackSlot::MASTER, TrackSlot::NONE),
+            ],
+            0,
+        ))),
+    ] {
+        send(handle, msg);
+    }
+}
+
+/// Run with a silent input, so that what is heard is the track's clips.
+fn run_silent(engine: &mut Engine, frames: usize, block: usize) -> Vec<f32> {
+    let mut out = Vec::with_capacity(frames);
+    let input = vec![0.0f32; block];
+    let mut done = 0;
+    while done < frames {
+        let n = block.min(frames - done);
+        let (mut left, mut right) = (vec![0.0f32; n], vec![0.0f32; n]);
+        engine.process_input(&input[..n], 1, &mut left, &mut right);
+        out.extend_from_slice(&left);
+        done += n;
+    }
+    out
+}
+
+#[test]
+fn a_track_recording_its_input_does_not_play_its_clips_under_the_take() {
+    let (mut engine, mut handle) = Engine::new(SR);
+    armed_over_a_clip(&mut handle);
+    let (take, _ring, _shared) = take(Some((1.0, 2.5)));
+    send(&mut handle, Msg::SetTake(Some(Box::new(take))));
+    send(&mut handle, Msg::Play);
+    let out = run_silent(&mut engine, 4 * BEAT, 512);
+    let heard = |from: usize, to: usize| out[from..to].iter().any(|s| s.abs() > 0.01);
+    assert!(heard(BEAT / 4, BEAT - 600), "the clip plays before the punch in");
+    assert!(!heard(BEAT + 600, 5 * BEAT / 2 - 600), "and not while the take captures");
+    assert!(heard(5 * BEAT / 2 + 600, 4 * BEAT - 600), "and again after the punch out");
+}

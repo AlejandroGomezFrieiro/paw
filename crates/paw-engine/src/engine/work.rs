@@ -36,6 +36,9 @@ pub(super) struct Block<'a> {
     /// Devices at rest sleep through silent blocks.
     pub(super) sleep: bool,
     pub(super) meter_fall: f32,
+    /// A take captures in this block: an armed track with an audio input
+    /// plays its input only, not its clips, as a tape machine does.
+    pub(super) capturing: bool,
 }
 
 /// One group of tracks to process, and what they read while it is done.
@@ -148,9 +151,12 @@ impl Work<'_> {
         for kind in t.live.drain(..) {
             t.events.push(Event { frame: 0, kind });
         }
+        // A track that records its audio input hears that input, not what
+        // its clips already hold under the take.
+        let replaced = self.block.capturing && t.armed && t.input_channels > 0;
         if playing && !t.launcher.follows_arrangement() {
             self.play_slot(t);
-        } else if playing {
+        } else if playing && !replaced {
             self.play_clips(t);
         }
         if t.monitor {

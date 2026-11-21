@@ -384,6 +384,7 @@ impl Engine {
             restate: playing && std::mem::take(&mut self.restate),
             sleep: self.sleep,
             meter_fall: (-(n as f32) / (sr as f32 * METER_FALL_SECONDS)).exp(),
+            capturing: playing && self.take.as_ref().is_some_and(|take| take.captures_at(start)),
         }
     }
 
