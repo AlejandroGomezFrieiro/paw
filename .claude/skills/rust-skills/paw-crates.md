@@ -160,11 +160,13 @@ Found with grep at a72467cf. Each refactor part that owns the file fixes it.
   `plugin-scan`), `paw-gui/src/main.rs`, `paw-mcp/src/main.rs`. Use clap with derive
   and subcommands. Keep every flag, its short form and its meaning, and keep
   `docs/reference` in step.
-- **I/O that waits, on threads:** (done: `paw-core/src/rpc.rs`, the
-  control socket and the network server, runs on one tokio thread,
-  `paw-rpc`, with `tokio-rustls`.)
-  `paw-core/src/io.rs` (helper processes read on threads, sockets polled
-  from a timer), `paw-core/src/session/encode.rs` (ffmpeg jobs),
+- **I/O that waits, on threads:** (done: paw-core has one `tokio` runtime,
+  `paw-core/src/io_runtime.rs`, on one thread, `paw-io`. The control
+  socket and the network server, `paw-core/src/rpc.rs`, run on it with
+  `tokio-rustls`, and so do the readers of helper processes in
+  `paw-core/src/io.rs`. The sockets of `io.rs` stay polled from a timer,
+  because `paw.api` polls them.)
+  `paw-core/src/session/encode.rs` (ffmpeg jobs),
   `paw-proto` (the client: connect, TLS, a reader thread),
   `paw-mcp/src/kernel.rs`, `paw-luadev` (its helper process),
   `paw-gui/src/client.rs` and the attach path of `paw-tui`. Use `tokio`.

@@ -14,8 +14,8 @@
 //! that it knows the token without sending it (`hello`). TCP in the clear
 //! is only there when asked for, for a network you trust.
 //!
-//! Every connection is two tasks on one tokio runtime, on a thread of its
-//! own (see [`runtime`]): one reads requests and hands them to the kernel's
+//! Every connection is two tasks on the kernel's I/O runtime (see
+//! `crate::io_runtime`): one reads requests and hands them to the kernel's
 //! channel, the other writes what the kernel queued. The kernel's Lua loop
 //! never waits on them.
 
@@ -25,7 +25,7 @@ use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::mpsc::Sender;
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, Mutex};
 
 use anyhow::{Context, Result, bail};
 pub use paw_proto::tls::known_path;
@@ -34,7 +34,6 @@ use paw_proto::hex;
 use serde_json::{Value, json};
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream, UnixListener};
-use tokio::runtime::Handle;
 use tokio::sync::{mpsc, oneshot, watch};
 use tokio::time::timeout;
 
@@ -66,30 +65,6 @@ const TLS_ONLY: &str = "this instance takes network connections in TLS only (pro
 
 /// Where the kernel puts its answer to one call.
 pub type Reply = oneshot::Sender<Result<Value, String>>;
-
-/// The runtime every connection runs on: a current-thread runtime on one
-/// thread of its own, made when the first listener opens. It sleeps while
-/// no socket has anything to say and no time limit runs. I/O only: calls
-/// go to the kernel's channel, as they did from the threads before.
-fn runtime() -> Result<&'static Handle> {
-    static RUNTIME: OnceLock<Handle> = OnceLock::new();
-    static MAKING: Mutex<()> = Mutex::new(());
-    let _one_at_a_time = MAKING.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-    if let Some(handle) = RUNTIME.get() {
-        return Ok(handle);
-    }
-    let runtime = tokio::runtime::Builder::new_current_thread()
-        .enable_io()
-        .enable_time()
-        .build()
-        .context("starting the I/O of the control socket")?;
-    let handle = runtime.handle().clone();
-    std::thread::Builder::new()
-        .name("paw-rpc".into())
-        .spawn(move || runtime.block_on(std::future::pending::<()>()))
-        .context("starting the thread of the control socket")?;
-    Ok(RUNTIME.get_or_init(|| handle))
-}
 
 /// One connection's way out.
 struct Out {
@@ -183,7 +158,7 @@ pub fn serve(path: &Path, kernel: Sender<KernelMsg>, clients: Clients) -> Result
     let listener = std::os::unix::net::UnixListener::bind(path)
         .with_context(|| format!("listening on {}", path.display()))?;
     listener.set_nonblocking(true)?;
-    let runtime = runtime()?;
+    let runtime = crate::io_runtime::handle()?;
     let listener = {
         let _inside = runtime.enter();
         UnixListener::from_std(listener)?
@@ -220,7 +195,7 @@ pub fn serve_tcp(
         std::net::TcpListener::bind(address).with_context(|| format!("listening on {address}"))?;
     let bound = listener.local_addr()?;
     listener.set_nonblocking(true)?;
-    let runtime = runtime()?;
+    let runtime = crate::io_runtime::handle()?;
     let listener = {
         let _inside = runtime.enter();
         TcpListener::from_std(listener)?

@@ -2997,6 +2997,7 @@ dependencies = [
  "realfft",
  "rtrb",
  "rubato",
+ "rustix 1.1.6",
  "rustls",
  "serde",
  "serde_json",

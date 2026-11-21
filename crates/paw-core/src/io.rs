@@ -3,15 +3,16 @@
 //!
 //! Everything is addressed by number and moves as plain bytes, so `paw.api`
 //! stays plain data. Reads never block. A process started with pipes is read
-//! on a thread of its own, which wakes the kernel when bytes arrive, so that
-//! a script hears of them as an event instead of polling; sockets are polled
-//! from a timer. Handles live in the kernel, not in the Lua state, so they
+//! by a task on the kernel's I/O runtime (`crate::io_runtime`), which wakes
+//! the kernel when bytes arrive, so that a script hears of them as an event
+//! instead of polling; sockets are polled from a timer. Writes wait in
+//! `poll(2)` for room, with a time limit. Handles live in the kernel, not in the Lua state, so they
 //! survive `:reload`.
 
 use std::collections::{BTreeMap, HashMap};
 use std::fs::OpenOptions;
 use std::io::{ErrorKind, Read, Write};
-use std::os::fd::AsRawFd;
+use std::os::fd::{AsFd, AsRawFd};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::os::unix::process::CommandExt;
 use std::path::PathBuf;
@@ -20,8 +21,11 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, bail};
+use rustix::event::{PollFd, PollFlags, Timespec, poll};
 use serde::Deserialize;
 use serde_json::{Value, json};
+use tokio::io::{AsyncRead, AsyncReadExt};
+use tokio::task::AbortHandle;
 
 /// How long a write may wait for the other side to make room.
 const WRITE_TIMEOUT: Duration = Duration::from_secs(10);
@@ -39,7 +43,7 @@ pub struct SpawnOpts {
     pub pipe: bool,
 }
 
-/// Called from a reader thread when a piped process has written something.
+/// Called from the task reading a piped process's output when a piped process has written something.
 pub type Wake = Arc<dyn Fn() + Send + Sync>;
 
 /// What a piped process has written that has not been read yet.
@@ -56,6 +60,15 @@ struct Output {
 struct Pipe {
     input: Option<ChildStdin>,
     output: Arc<Mutex<Output>>,
+    /// The task reading `output`, stopped when the process is forgotten,
+    /// even if something the process started still holds its output open.
+    reading: AbortHandle,
+}
+
+impl Drop for Pipe {
+    fn drop(&mut self) {
+        self.reading.abort();
+    }
 }
 
 #[derive(Default)]
@@ -133,16 +146,21 @@ impl Io {
                 libc::fcntl(fd, libc::F_SETFL, libc::fcntl(fd, libc::F_GETFL) | libc::O_NONBLOCK);
             }
             let output = Arc::new(Mutex::new(Output::default()));
-            let read = reader(from, output.clone(), self.wake.clone());
-            if let Err(err) = std::thread::Builder::new()
-                .name(format!("proc {id} output"))
-                .spawn(read)
-            {
-                let _ = child.kill();
-                let _ = child.wait();
-                return Err(err).context("starting a thread to read the program's output");
-            }
-            self.pipes.insert(id, Pipe { input: Some(input), output });
+            let reading = crate::io_runtime::handle().and_then(|runtime| {
+                let _inside = runtime.enter();
+                let from = tokio::process::ChildStdout::from_std(from)?;
+                let read = reader(from, output.clone(), self.wake.clone());
+                Ok(runtime.spawn(read).abort_handle())
+            });
+            let reading = match reading {
+                Ok(reading) => reading,
+                Err(err) => {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return Err(err).context("starting to read the program's output");
+                }
+            };
+            self.pipes.insert(id, Pipe { input: Some(input), output, reading });
         }
         self.procs.insert(id, child);
         Ok(id)
@@ -322,7 +340,7 @@ impl Io {
 
 /// Write all of `data` to something that does not block, waiting for room
 /// for at most `WRITE_TIMEOUT`.
-fn write_all(to: &mut impl Write, data: &[u8], name: impl Fn() -> String) -> Result<()> {
+fn write_all(to: &mut (impl Write + AsFd), data: &[u8], name: impl Fn() -> String) -> Result<()> {
     let deadline = Instant::now() + WRITE_TIMEOUT;
     let mut rest = data;
     while !rest.is_empty() {
@@ -330,10 +348,11 @@ fn write_all(to: &mut impl Write, data: &[u8], name: impl Fn() -> String) -> Res
             Ok(0) => bail!("{} is closed", name()),
             Ok(n) => rest = &rest[n..],
             Err(err) if err.kind() == ErrorKind::WouldBlock => {
-                if Instant::now() > deadline {
+                let left = deadline.saturating_duration_since(Instant::now());
+                if left.is_zero() {
                     bail!("{} stopped taking data", name());
                 }
-                std::thread::sleep(Duration::from_millis(1));
+                wait_for_room(&*to, left)?;
             }
             Err(err) if err.kind() == ErrorKind::Interrupted => {}
             Err(err) if err.kind() == ErrorKind::BrokenPipe => bail!("{} is closed", name()),
@@ -343,35 +362,41 @@ fn write_all(to: &mut impl Write, data: &[u8], name: impl Fn() -> String) -> Res
     Ok(())
 }
 
-/// What the thread reading a piped process's output does: keep what arrives
+/// Wait until `fd` takes data, is closed or fails, or `within` has passed;
+/// the write that follows tells which.
+fn wait_for_room(fd: impl AsFd, within: Duration) -> Result<()> {
+    // `within` is at most WRITE_TIMEOUT, which a Timespec holds.
+    let within = Timespec::try_from(within).context("a time limit too long to wait")?;
+    let mut fds = [PollFd::new(&fd, PollFlags::OUT)];
+    match poll(&mut fds, Some(&within)) {
+        Ok(_) | Err(rustix::io::Errno::INTR) => Ok(()),
+        Err(err) => Err(std::io::Error::from(err).into()),
+    }
+}
+
+/// What the task reading a piped process's output does: keep what arrives
 /// until it is read, and wake the kernel.
-fn reader(
-    mut from: impl Read + Send + 'static,
-    to: Arc<Mutex<Output>>,
-    wake: Option<Wake>,
-) -> impl FnOnce() + Send + 'static {
-    move || {
-        let mut buf = vec![0u8; 1 << 16];
-        loop {
-            let n = match from.read(&mut buf) {
-                Err(err) if err.kind() == ErrorKind::Interrupted => continue,
-                Ok(n) => n,
-                Err(_) => 0,
-            };
-            {
-                let mut output = to.lock().unwrap();
-                if n == 0 {
-                    output.closed = true;
-                } else {
-                    output.bytes.extend_from_slice(&buf[..n]);
-                }
-            }
-            if let Some(wake) = &wake {
-                wake();
-            }
+async fn reader(mut from: impl AsyncRead + Unpin, to: Arc<Mutex<Output>>, wake: Option<Wake>) {
+    let mut buf = vec![0u8; 1 << 16];
+    loop {
+        let n = match from.read(&mut buf).await {
+            Err(err) if err.kind() == ErrorKind::Interrupted => continue,
+            Ok(n) => n,
+            Err(_) => 0,
+        };
+        {
+            let mut output = to.lock().unwrap();
             if n == 0 {
-                return;
+                output.closed = true;
+            } else {
+                output.bytes.extend_from_slice(&buf[..n]);
             }
+        }
+        if let Some(wake) = &wake {
+            wake();
+        }
+        if n == 0 {
+            return;
         }
     }
 }
@@ -458,6 +483,16 @@ mod tests {
         assert!(io.write_input(id, b"more").is_err(), "nothing goes into a closed input");
         io.kill(id);
         assert!(io.read_output(id, 1).is_err(), "a killed process is forgotten");
+    }
+
+    #[test]
+    fn a_write_waits_for_a_slow_reader_to_make_room() {
+        let (mut io, _) = counted();
+        let id = piped(&mut io, "sleep 0.3; wc -c");
+        io.write_input(id, &vec![b'x'; 1 << 20]).unwrap();
+        io.close_input(id).unwrap();
+        let count = String::from_utf8(read_to_end(&mut io, id)).unwrap();
+        assert_eq!(count.trim(), "1048576");
     }
 
     #[test]
