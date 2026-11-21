@@ -168,6 +168,11 @@ pub struct Written {
 /// the disk, so that a crash or a power cut loses no more than this.
 pub const HEADER_EVERY: Duration = Duration::from_secs(2);
 
+// paw does not use `hound` for takes (decided). For 32-bit float it writes a
+// 68-byte WAVE_FORMAT_EXTENSIBLE header, not 44 bytes, so takes would
+// change. It counts the bytes given to its writer, not the bytes the disk
+// took, which breaks keeping only whole frames on a full disk. It has no
+// fsync. Its sizes are u32.
 /// A 32-bit float WAV file written as it is recorded. The header always
 /// describes whole frames that are on the disk, up to the last update.
 pub struct TakeFile {
@@ -331,7 +336,6 @@ pub fn spawn_writer(
 mod tests {
     use super::*;
     use crate::clip::AudioData;
-    use std::os::unix::process::CommandExt;
     use std::process::Command;
 
     /// Feed one second at a time into a writer until it stops or `seconds` pass.
@@ -359,7 +363,7 @@ mod tests {
     }
 
     /// Run in a child process whose files may not grow past 300 kB, as on a
-    /// full disk: the write fails with EFBIG.
+    /// full disk: the write fails with EFBIG. The child sets the limit itself.
     #[test]
     fn a_write_error_keeps_what_was_written_as_a_whole_file() {
         let dir = std::env::temp_dir().join(format!("paw-record-{}", std::process::id()));
@@ -373,18 +377,6 @@ mod tests {
                 "--nocapture",
             ])
             .env("PAW_TAKE_LIMITED", &path);
-        // SAFETY: only async-signal-safe calls between fork and exec.
-        unsafe {
-            child.pre_exec(|| {
-                libc::signal(libc::SIGXFSZ, libc::SIG_IGN);
-                let limit = libc::rlimit {
-                    rlim_cur: 300_000,
-                    rlim_max: 300_000,
-                };
-                libc::setrlimit(libc::RLIMIT_FSIZE, &limit);
-                Ok(())
-            });
-        }
         let out = child.output().unwrap();
         let stdout = String::from_utf8_lossy(&out.stdout);
         assert!(
@@ -408,6 +400,22 @@ mod tests {
         let Some(path) = std::env::var_os("PAW_TAKE_LIMITED") else {
             return;
         };
+        // rustix cannot set a signal disposition and signal-hook cannot set
+        // SIG_IGN, so libc does it here. This is plain test code in the
+        // child, not a pre_exec hook. Without it SIGXFSZ kills the process
+        // instead of failing the write with EFBIG.
+        // SAFETY: signal with SIG_IGN has no handler and no preconditions.
+        unsafe {
+            libc::signal(libc::SIGXFSZ, libc::SIG_IGN);
+        }
+        rustix::process::setrlimit(
+            rustix::process::Resource::Fsize,
+            rustix::process::Rlimit {
+                current: Some(300_000),
+                maximum: Some(300_000),
+            },
+        )
+        .unwrap();
         let written = record(Path::new(&path), 10);
         let error = written.error.expect("the writer stopped on the error");
         assert!(error.contains("too large"), "{error}");
