@@ -7,7 +7,7 @@ use mlua::{Lua, LuaSerdeExt, Table, Value as LuaValue};
 use crate::model::{ClipContent, Control, Id, Note, NoteAttr};
 use crate::session::notes::{NoteChange, NoteRange, NotesEdit};
 
-use super::{LuaResult, Shared, changes, from_lua, options, to_lua};
+use super::{LuaResult, Shared, changes, from_lua, kind_data, options, to_lua};
 
 /// Notes as Lua tables: what `to_lua` makes of them, built directly. Views
 /// ask for a clip's notes every time they draw, so this is on a hot path.
@@ -232,7 +232,10 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // @param opts? types.ClipOptions
         // @return integer
         fn clip_add(lua, sh, (track, opts) => (Id, LuaValue)) {
-            sh.session.borrow_mut().clip_add(track, options(lua, opts)?).lua()
+            let (opts, data) = kind_data::split(lua, opts)?;
+            let mut opts: crate::session::ClipOpts = options(lua, opts)?;
+            opts.data = data.or(opts.data);
+            sh.session.borrow_mut().clip_add(track, opts).lua()
         }
         // The kinds of clip that extensions defined, by name (sorted).
         // @return {string}
@@ -246,18 +249,25 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         fn clip_kind_remove(_, sh, name => String) { sh.session.borrow_mut().clip_kind_remove(&name).lua() }
         // The content of a clip of a defined kind, as the project saves it:
         // `{ type, version?, timeline?, offset?, data, media?, sound?, signals? }`.
-        // `data` is `{ json = text }` or `{ text = { ext, text } }`: the text is
-        // kept exactly as it was given.
+        // `data` is `{ json = value }`, a plain value (tables, strings, numbers,
+        // booleans; a JSON null reads as nil), or `{ text = { ext, text } }`,
+        // UTF-8 text in the kind's own format.
         // @return types.CustomContent
         fn clip_custom(lua, sh, id => Id) { to_lua(lua, &sh.session.borrow().clip_custom(id).lua()?) }
         // Replace what a custom clip's kind compiled, as one undo step: `data`
         // (required), `media`, `sound` (a MIDI or audio content) and `signals`
         // are all replaced (absent: none); `version`, `timeline` and `offset`
-        // stay as they are when absent.
+        // stay as they are when absent. The data and the signals' bodies are
+        // plain values: a function, `userdata`, `cdata`, a table that holds itself,
+        // NaN, an infinite number or a string that is not UTF-8 is refused with
+        // where it is (`.frames[3]: a function is not data`), and so is data
+        // over 1 MB. Binary or big data goes in a media file.
         // @param set types.CustomSet
         // @return nil
         fn clip_set_custom(lua, sh, (id, set) => (Id, LuaValue)) {
-            let set: crate::session::CustomSet = from_lua(lua, set)?;
+            let (set, data) = kind_data::split(lua, set)?;
+            let mut set: crate::session::CustomSet = from_lua(lua, set)?;
+            set.data = data.or(set.data);
             sh.session.borrow_mut().clip_set_custom(id, set).lua()
         }
         // @return nil

@@ -36,7 +36,7 @@ use serde_json::{Map, Value, json};
 
 use super::BASE64;
 use crate::clipfile;
-use crate::model::{Clip, ClipContent, KindData, Notes, Project, RawJson, Target, Track};
+use crate::model::{Clip, ClipContent, KindData, Notes, Project, Target, Track};
 
 /// The file that makes a folder a project.
 pub const PROJECT_FILE: &str = "project.toml";
@@ -398,8 +398,9 @@ impl Writer<'_> {
     /// A custom clip as `track.json` holds it. Its data, its signals and its
     /// sound when that is MIDI are files of their own in `clips/`, named by
     /// the entry (`data.json_file`, `data.text_file`, `signals_file`,
-    /// `sound.file`): the data stays as the kind wrote it, so it reads in
-    /// `git diff`, and the entry keeps the rest.
+    /// `sound.file`): JSON data is pretty with sorted keys and text data is
+    /// as the kind wrote it, so a change reads in `git diff`, and the entry
+    /// keeps the rest.
     fn custom_clip(&mut self, clip: &Clip, folder: &Path, taken: &mut BTreeSet<String>) -> Result<Value> {
         let ClipContent::Custom(custom) = &clip.content else {
             bail!("clip {} is not a custom clip", clip.id);
@@ -409,7 +410,7 @@ impl Writer<'_> {
         let kind = format!(".{}", custom.kind);
         let (data, path) = match &custom.data {
             KindData::Json(json) => {
-                let bytes = json.get().as_bytes().to_vec();
+                let bytes = pretty(json.get());
                 let path = self.clip_file(folder, taken, &stem, &kind, "json", bytes);
                 (json!({ "json_file": path }), path)
             }
@@ -1003,18 +1004,16 @@ fn read_text(file: &str, dir: &Path) -> Result<String> {
 }
 
 /// Put the files that a custom clip's entry names back into it: its data,
-/// its signals and its sound when that is MIDI. The text of the data goes in
-/// as it is, so that it comes back byte for byte.
+/// its signals and its sound when that is MIDI. An error names the file and,
+/// for JSON, the line and column.
 fn take_custom_files(content: &mut Value, dir: &Path) -> Result<()> {
     let Some(map) = content.as_object_mut() else {
         return Ok(());
     };
     let data = map.get("data").and_then(Value::as_object);
     if let Some(file) = data.and_then(|d| d.get("json_file")).and_then(Value::as_str) {
-        let text = read_text(file, dir)?;
-        text.parse::<RawJson>()
-            .with_context(|| format!("{}", resolve(Path::new(file), dir).display()))?;
-        map.insert("data".into(), json!({ "json": text }));
+        let value = read_json(&resolve(Path::new(file), dir))?;
+        map.insert("data".into(), json!({ "json": value }));
     } else if let Some(file) = data.and_then(|d| d.get("text_file")).and_then(Value::as_str) {
         let ext = data.and_then(|d| d.get("ext")).cloned().unwrap_or(Value::Null);
         let text = read_text(file, dir)?;
@@ -1699,12 +1698,11 @@ mod tests {
     }
 
     #[test]
-    fn custom_clips_keep_their_files_byte_for_byte() {
+    fn custom_clips_save_their_data_in_one_canonical_form() {
         let dir = scratch("custom");
-        // Written by hand: the spaces, the order and the numbers must stay.
-        let data = "{ \"zeta\": 1.50,\r\n  \"alpha\" :[3,  2] }";
+        let data = json!({ "zeta": 1.5, "alpha": [3, 2], "cue": { "text": "one" } });
         let signals = json!([
-            { "at": 1.0, "to": { "kind": "kernel", "body": "{\"b\":1e3,\"a\":0}" } },
+            { "at": 1.0, "to": { "kind": "kernel", "body": { "b": 1000.0, "a": 0 } } },
             { "at": 2.0, "to": { "kind": "osc", "port": "qlc", "address": "/go", "args": [1, 0.5, "x"] } },
         ]);
         let video = json!({
@@ -1743,13 +1741,25 @@ mod tests {
             names,
             ["intro.signals.json", "intro.sound.midi2", "intro.video.json", "verse.lyrics.lrc"]
         );
-        assert_eq!(first.files[&clips.join("intro.video.json")], data.as_bytes());
+        // Pretty, with the keys sorted: one field is one line.
+        let text = String::from_utf8(first.files[&clips.join("intro.video.json")].clone()).unwrap();
+        assert_eq!(
+            text,
+            "{\n  \"alpha\": [\n    3,\n    2\n  ],\n  \"cue\": {\n    \"text\": \"one\"\n  },\n  \"zeta\": 1.5\n}\n"
+        );
+        let saved: Value = serde_json::from_slice(&first.files[&clips.join("intro.signals.json")]).unwrap();
+        assert_eq!(saved[0]["to"]["body"], json!({ "a": 0, "b": 1000.0 }), "a body is JSON, not a string");
         assert_eq!(first.files[&clips.join("verse.lyrics.lrc")], b"[00:01.00]one\n[00:02.00]two");
         assert_eq!(first.clip_files[&2], first.clip_files[&3], "the halves share a data file");
         commit(&dir, &first, None).unwrap();
-        // Read it back, with no kind defined anywhere: saved as it was read.
+        // Read it back, with no kind defined anywhere: the same value, and
+        // saved again as the same bytes.
         let read = read(&dir).unwrap();
         assert!(read.problems.is_empty(), "{:?}", read.problems);
+        let ClipContent::Custom(video) = &read.project.tracks[0].clips[0].content else {
+            panic!("a custom clip");
+        };
+        assert_eq!(video.data, KindData::Json(data.into()));
         let again = super::layout(&read.project, &json!({}), None, &dir).unwrap();
         assert_eq!(again.files, first.files);
         let ClipContent::Custom(c) = &read.project.tracks[0].clips[2].content else {
@@ -1757,15 +1767,15 @@ mod tests {
         };
         assert_eq!((c.version, c.timeline), (2, crate::model::Timeline::Seconds));
         assert!(commit(&dir, &again, None).unwrap().written.is_empty());
-        // A data file that is gone is said, not read as empty data.
-        std::fs::remove_file(dir.join(clips).join("intro.video.json")).unwrap();
+        // A data file that is not JSON is said with its name and the place.
+        std::fs::write(dir.join(clips).join("intro.video.json"), "{\n  \"a\": }").unwrap();
         let err = format!("{:#}", read_err(&dir));
-        assert!(err.contains("intro.video.json"), "{err}");
+        assert!(err.contains("intro.video.json") && err.contains("line 2 column 8"), "{err}");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
     fn read_err(dir: &Path) -> anyhow::Error {
-        read(dir).err().expect("the data file is missing")
+        read(dir).err().expect("the data file is not JSON")
     }
 
     #[test]
