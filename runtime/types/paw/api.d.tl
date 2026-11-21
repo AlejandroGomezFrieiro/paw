@@ -18,6 +18,8 @@ local record api
    base64_encode: function(data: string, opts?: types.Base64Options): string
    blocks: function(device?: integer): integer
    canvas_export: function(path: string, format: string, pages: {types.CanvasPage}, scale?: number)
+   canvas_image: function(bytes: string, w?: integer, h?: integer, format?: string): string, integer, integer
+   canvas_pixels: function(key: string): types.PictureBlob
    chain_write: function(track: integer, file: string): {string}
    checkpoint_delete: function(file: string)
    checkpoint_dir: function(): string
@@ -28,11 +30,15 @@ local record api
    clip_add_notes: function(id: integer, notes: {types.Note})
    clip_collect: function(): integer
    clip_controls: function(id: integer): {types.Control}
+   clip_custom: function(id: integer): types.CustomContent
    clip_edit_add: function(id: integer, edit: types.AudioEdit): integer
    clip_edits: function(id: integer): {types.AudioEdit}
    clip_edits_clear: function(id: integer): integer
    clip_get: function(id: integer): types.Clip
    clip_glue: function(ids: {integer}): types.ClipGlued
+   clip_kind_define: function(name: string)
+   clip_kind_remove: function(name: string)
+   clip_kinds: function(): {string}
    clip_list: function(track: integer): {types.Clip}
    clip_normalize: function(id: integer, level?: number): number
    clip_note_add: function(id: integer, note: types.Note): integer
@@ -47,6 +53,7 @@ local record api
    clip_set: function(id: integer, patch: types.Clip)
    clip_set: function(id: integer, key: string, value: nil)
    clip_set_controls: function(id: integer, controls: {types.Control})
+   clip_set_custom: function(id: integer, set: types.CustomSet)
    clip_set_notes: function(id: integer, notes: {types.Note})
    clip_source_length: function(id: integer): number
    clip_to_cues: function(id: integer, track: integer): integer
@@ -101,6 +108,7 @@ local record api
    fs_stat: function(path: string): types.FileStat
    fs_trash: function(path: string): string
    grid_fill: function(x: number, y: number, w: number, h: number, fill?: string, style: string | types.CellStyle, cx: number, cy: number, cw: number, ch: number)
+   grid_image: function(key: string, x: number, y: number, w: number, h: number, cx: number, cy: number, cw: number, ch: number): boolean
    grid_live_begin: function(x: number, y: number, w: number, h: number, cx: number, cy: number, cw: number, ch: number): integer
    grid_live_end: function(index: integer)
    grid_live_restore: function(): integer

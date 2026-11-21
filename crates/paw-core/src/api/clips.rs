@@ -227,10 +227,38 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // Beats of sound left in an audio clip's file from where the clip starts in it.
         // @return number
         fn clip_source_length(_, sh, id => Id) { sh.session.borrow_mut().clip_source_length(id).lua() }
+        // A clip of a defined kind: `kind` is its name, with `data` and `length`, and
+        // `version`, `timeline`, `offset`, `media`, `sound` and `signals` as `clip_custom` gives them.
         // @param opts? types.ClipOptions
         // @return integer
         fn clip_add(lua, sh, (track, opts) => (Id, LuaValue)) {
             sh.session.borrow_mut().clip_add(track, options(lua, opts)?).lua()
+        }
+        // The kinds of clip that extensions defined, by name (sorted).
+        // @return {string}
+        fn clip_kinds(lua, sh, () => ()) { to_lua(lua, &sh.session.borrow().clip_kinds()) }
+        // Let `clip_add` make clips of the kind `name`: a lowercase word that
+        // is not `midi`, `audio` or another built-in. `paw.clip_kinds.define` calls it.
+        // @return nil
+        fn clip_kind_define(_, sh, name => String) { sh.session.borrow_mut().clip_kind_define(&name).lua() }
+        // Stop making clips of the kind `name`. Clips of it that the project has stay.
+        // @return nil
+        fn clip_kind_remove(_, sh, name => String) { sh.session.borrow_mut().clip_kind_remove(&name).lua() }
+        // The content of a clip of a defined kind, as the project saves it:
+        // `{ type, version?, timeline?, offset?, data, media?, sound?, signals? }`.
+        // `data` is `{ json = text }` or `{ text = { ext, text } }`: the text is
+        // kept exactly as it was given.
+        // @return types.CustomContent
+        fn clip_custom(lua, sh, id => Id) { to_lua(lua, &sh.session.borrow().clip_custom(id).lua()?) }
+        // Replace what a custom clip's kind compiled, as one undo step: `data`
+        // (required), `media`, `sound` (a MIDI or audio content) and `signals`
+        // are all replaced (absent: none); `version`, `timeline` and `offset`
+        // stay as they are when absent.
+        // @param set types.CustomSet
+        // @return nil
+        fn clip_set_custom(lua, sh, (id, set) => (Id, LuaValue)) {
+            let set: crate::session::CustomSet = from_lua(lua, set)?;
+            sh.session.borrow_mut().clip_set_custom(id, set).lua()
         }
         // @return nil
         fn clip_remove(_, sh, id => Id) { sh.session.borrow_mut().clip_remove(id).lua() }

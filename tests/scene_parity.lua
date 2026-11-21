@@ -15,11 +15,12 @@ local SIZES = { { 80, 24 }, { 150, 45 } }
 local CELL = { w = 8, h = 17 }
 
 --- What a view writes to its buffers while it is drawn by itself at a
---- size, as calls of `api.grid_text` and `api.grid_fill` in the screen's
---- cells, and the snapshot it makes.
+--- size, as calls of `api.grid_text`, `api.grid_fill` and `api.grid_image`
+--- (`buf:image` in half blocks) in the screen's cells, and the snapshot it
+--- makes.
 local function record(name, width, height)
   local Buf = paw.ui.Buf
-  local text, fill = Buf.text, Buf.fill
+  local text, fill, image = Buf.text, Buf.fill, Buf.image
   local writes = {}
   Buf.text = function(self, x, y, s, style)
     writes[#writes + 1] = { "text", self.x + x, self.y + y, s, style, self.cx, self.cy, self.cw, self.ch }
@@ -29,8 +30,12 @@ local function record(name, width, height)
     writes[#writes + 1] = { "fill", self.x + x, self.y + y, w, h, char, style, self.cx, self.cy, self.cw, self.ch }
     return fill(self, x, y, w, h, char, style)
   end
+  Buf.image = function(self, x, y, w, h, key)
+    writes[#writes + 1] = { "image", key, self.x + x, self.y + y, w, h, self.cx, self.cy, self.cw, self.ch }
+    return image(self, x, y, w, h, key)
+  end
   local ok, snap = pcall(api.ui_view_snapshot, name, width, height)
-  Buf.text, Buf.fill = text, fill
+  Buf.text, Buf.fill, Buf.image = text, fill, image
   if not ok then error(snap, 0) end
   return writes, snap
 end
@@ -42,6 +47,8 @@ paw.ui.view("scene_parity_replay", {
     for _, w in ipairs(replay) do
       if w[1] == "text" then
         api.grid_text(unpack(w, 2, 9))
+      elseif w[1] == "image" then
+        api.grid_image(unpack(w, 2, 10))
       else
         api.grid_fill(unpack(w, 2, 11))
       end

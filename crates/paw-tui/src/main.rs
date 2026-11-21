@@ -215,6 +215,7 @@ fn attach(options: &Attach) -> Result<()> {
             Incoming::Sent(name, payload) => match name.as_str() {
                 "ui.grid" => {
                     let cursor = paw_core::remote::apply(&mut grid, &payload)?;
+                    fetch_pixels(&mut connection, &grid);
                     screen.present(&grid, cursor)?;
                 }
                 "ui.detached" => return Ok(()),
@@ -245,6 +246,22 @@ enum Incoming {
     Typed(paw_core::InputEvent),
     Sent(String, Value),
     Ended,
+}
+
+/// Ask the instance once for each picture of pixels (`paw.canvas.image`)
+/// that the strips name and this side does not keep: the pixels are made
+/// there, the drawing names them by key.
+fn fetch_pixels(connection: &mut rpc::Connection, grid: &paw_core::grid::Grid) {
+    use paw_raster::pixels;
+    for surface in &grid.surfaces {
+        for key in pixels::keys_in(&surface.ops) {
+            if pixels::get(key).is_none()
+                && let Some(pixmap) = connection.call("scene.pixels", serde_json::json!([key])).ok().as_ref().and_then(pixels::from_blob)
+            {
+                pixels::keep_as(key, pixmap);
+            }
+        }
+    }
 }
 
 /// Send the file a `file.wanted` event names, from this machine, and import

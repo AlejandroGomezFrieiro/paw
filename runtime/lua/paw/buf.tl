@@ -5,6 +5,7 @@
 --   buf:sub(x, y, w, h)                a buffer for part of this one
 --   buf:surface(x, y, w, h, name)      keep an area for a view's pixels
 --   buf:strip(x, y, w, h, opts)        keep an area for pixels a function draws
+--   buf:image(x, y, w, h, key)         a picture of pixels (`paw.canvas.image`)
 --   buf:mark(role, x, y, w, h, props)  a role there: a fader, a button (paw/roles.tl)
 --   buf:hit(x, y, w, h, action)        a region the pointer acts on
 --   buf:plane(x, y, w, h, opts)        an area placing what is marked in it by a domain (beats, pitches)
@@ -29,12 +30,16 @@ local type partial = require("paw.partial")
 -- `paw.ui.Buf` of paw/ui.tl: so its local has a name of its own. paw/ui.tl
 -- names this module's type, so this one declares only the part of it that
 -- it calls.
+local record Canvas
+  place: function(buf: Buf, x: number, y: number, w: number, h: number, key: string): boolean
+end
 local record Ui
   surface: function(buf: Buf, x: number, y: number, w: number, h: number, name?: string): boolean
   strip: function(buf: Buf, x: number, y: number, w: number, h: number, opts: contracts.StripOptions): boolean
 end
 local record Runtime is partial.Paw
   ui: Ui
+  canvas: Canvas
 end
 local runtime = (_G as {string:Runtime}).paw
 local unpack = (_G as {string:function({Buf}, integer, integer): Buf...}).unpack
@@ -110,6 +115,17 @@ end
 ---   })
 function Buf:strip(x: number, y: number, w: number, h: number, opts: contracts.StripOptions): boolean
   return runtime.ui.strip(self, x, y, w, h, opts)
+end
+
+--- Show the picture of pixels `key` (`paw.canvas.image`) stretched over
+--- the cells `x, y, w, h`: as an image where the terminal or the window
+--- shows images, else in half blocks, two pixels a cell. Returns true
+--- where it is an image, as `buf:strip` does. A key that paw does not keep
+--- (any more) shows nothing.
+---   local key = paw.canvas.image(png_bytes)
+---   buf:image(0, 0, buf.width, buf.height, key)
+function Buf:image(x: number, y: number, w: number, h: number, key: string): boolean
+  return runtime.canvas.place(self, x, y, w, h, key)
 end
 
 --- Buffers side by side across this buffer, each with a width from the

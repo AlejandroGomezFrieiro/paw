@@ -326,6 +326,13 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.canvas.focus(name)`: Give a view in a window the keyboard, as a click in it does.
 - `paw.canvas.glyph_outline(font, codepoint)`: A music font's glyph as commands and numbers in staff spaces from its origin, y down, from the fonts built into the kernel, or nil.
 - `paw.canvas.hit_list()`: A list of places that the pointer acts on (see `view.hits`).
+- `paw.canvas.image(bytes, w, h, format)`: Keep a picture of pixels for views to show (`g:image`, `buf:image`). `bytes` is a PNG file, or straight RGBA of `w` by `h` pixels row by row (`format` `"png"` or `"rgba"`; a PNG file is known without it). Returns its key, its width and its height. The key comes from the pixels: the same pixels have the same key, and a frontend that has the picture is not sent it again. paw keeps the pictures used last, up to 256 MB; keep a picture again to use it after a long time.
+
+  ```lua
+  local f = assert(io.open("cover.png", "rb"))
+  local key, w, h = paw.canvas.image(f:read("*a"))
+  f:close()
+  ```
 - `paw.canvas.key(name, keys)`: Keys typed in the window of a view. They go to the key mappings with that view focused (or to an open prompt), as when typed in the terminal. In its window, a view can give a key its own meaning, as other programs do (`view.window_keys`, for example Ctrl-A to select all notes). The terminal keeps the one rule of all views.
 - `paw.canvas.leave(name, pane)`: A view that will show in a separate window leaves the layout, so it does not show two times. Its windows in the tabs close and keep their place. Returns the window that had the keyboard, to give the keyboard back to it. A view that a frontend draws itself (the arrange view, the mixer and other views) also stays where it is. The separate window is a second view of it. A view with a state for each window leaves only the pane `pane` that it goes out of: its other windows stay.
 - `paw.canvas.open(name, opts)`: Show a view that paints in a graphical frontend, and give it the keyboard. When the view has a place in the layout (`paw.ui.dock`, or a window that shows it), it is docked, as the terminal shows it. If not, or with `window = true`, it is in a separate window. A view that is already in a separate window stays there. `opts`: `title`, `width`, `height` (the start size of a window), `window`.
@@ -355,6 +362,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
   `bars` comes from a frontend that shows a view in a separate window, away from the bottom of its main window. The view then draws the status line and the command line below it. The `paint` function of the view gets these in its context, as `cell`, `surface`, `fg` and `bg`. A view that draws cells gives `{ same = true }` when nothing changes.
 - `paw.canvas.paint_cells(name, window, width, height, opts)`: A view that draws cells, at a size in pixels: its snapshot (`paw.api.ui_view_snapshot`) as runs of text, one style for each run. paw draws it again only after a request for a redraw. It also draws it one time each second for the parts that change by themselves (times), and on each call while the song plays. The result is `{ same = true }` when the drawing is the same as the last drawing. `window` keeps the last drawing. The view in a separate window has a line below it for prompts, messages and the keys of the view. This is not so when the frontend draws a status line there itself (`opts.status`). paw sends the windows of a graphical frontend as scenes (`paw.ui.render_scene`).
+- `paw.canvas.place(buf, x, y, w, h, key)`: Show the picture `key` over the cells `x, y, w, h` of `buf`: see `buf:image`. In a terminal that shows images and in a window, it is a strip (`buf:strip`) under the cells, and the result is true; elsewhere half blocks, two pixels a cell.
 - `paw.canvas.pointer(name, event)`: Pass a pointer event from a frontend to a view, which then has the keyboard. It goes to its `pointer` function in pixels. For a view in cells, it goes to its `on_mouse` function, as from the terminal.
 - `paw.canvas.shown(name)`: True if a graphical frontend shows a view. The view is in a separate window, or docked where the screen of the seat is the main area of a frontend. That is a frontend that told its size to `paw.panes`, or the frontend of the instance when there is no terminal.
 - `paw.canvas.text_width(text, size)`: The width of a line of text in pixels, near enough, at `size` (12).
@@ -2008,6 +2016,12 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   ```
 - `paw.ui.Buf.fill(self, x, y, w, h, char, style)`: Fill a `w` by `h` area at `x`, `y` with `char` in `style`, clipped.
 - `paw.ui.Buf.hit`: the same as `paw.roles.hit`.
+- `paw.ui.Buf.image(self, x, y, w, h, key)`: Show the picture of pixels `key` (`paw.canvas.image`) stretched over the cells `x, y, w, h`: as an image where the terminal or the window shows images, else in half blocks, two pixels a cell. Returns true where it is an image, as `buf:strip` does. A key that paw does not keep (any more) shows nothing.
+
+  ```lua
+  local key = paw.canvas.image(png_bytes)
+  buf:image(0, 0, buf.width, buf.height, key)
+  ```
 - `paw.ui.Buf.mark`: the same as `paw.roles.mark`.
 - `paw.ui.Buf.plane`: the same as `paw.roles.plane`.
 - `paw.ui.Buf.root(width, height)`: The buffer that covers a whole screen of the given size.
@@ -2084,21 +2098,27 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.base64_encode(data, opts)`: Base64 of bytes. `opts.url` uses the URL alphabet (`-_`), and `opts.pad = false` leaves out the `=` at the end.
 - `paw.api.blocks(device)`: The number of audio blocks that the engine finished since it started. With a device id, the number of blocks that this device ran: the blocks that it slept through do not count. A change sent to the engine is in effect in the block after the next one that finishes, so wait until the count is two more (the test helper `T.next_block` does this). Nil for a device that the engine does not have.
 - `paw.api.canvas_export(path, format, pages, scale)`: Write drawings (the operations of `paw.canvas.paint`) to a file: `format` "pdf" (one page for each drawing), "svg" or "png" (the first). Each page is `{ ops, width, height }` in pixels. `scale` is the points for one pixel in a PDF (0.75: 96 pixels to the inch).
+- `paw.api.canvas_image(bytes, w, h, format)`: Keep a picture of pixels for drawings to name (`paw.canvas.image`): `bytes` a PNG file, or straight RGBA `w` by `h` pixels row by row; `format` `"png"` or `"rgba"` (a PNG file is known without it). Returns its content key, its width and its height.
+- `paw.api.canvas_pixels(key)`: A picture of pixels kept under `key`, as a window is sent it: its size and its pixels as straight RGBA in base64. Nil for a key not kept (any more).
 - `paw.api.chain_write(track, file)`: Write a track's devices as a chain file: `file` (a `devices.json`) and the `.state` files of the plugins beside it. Returns the files.
 - `paw.api.checkpoint_delete(file)`
 - `paw.api.checkpoint_dir()`
 - `paw.api.checkpoint_list()`
 - `paw.api.checkpoint_restore(file)`
 - `paw.api.checkpoint_write(name, id)`
-- `paw.api.clip_add(track, opts)`
+- `paw.api.clip_add(track, opts)`: A clip of a defined kind: `kind` is its name, with `data` and `length`, and `version`, `timeline`, `offset`, `media`, `sound` and `signals` as `clip_custom` gives them.
 - `paw.api.clip_add_notes(id, notes)`
 - `paw.api.clip_collect()`: Make every clip that refers to a MIDI clip file outside the project the project's own. Returns how many.
 - `paw.api.clip_controls(id)`: Controller, pitch wheel and pressure moves of a MIDI clip: { start, type = "cc" | "bend" | "pressure", number, value }.
+- `paw.api.clip_custom(id)`: The content of a clip of a defined kind, as the project saves it: `{ type, version?, timeline?, offset?, data, media?, sound?, signals? }`. `data` is `{ json = text }` or `{ text = { ext, text } }`: the text is kept exactly as it was given.
 - `paw.api.clip_edit_add(id, edit)`: Add an edit to an audio clip's edit list (`edits.rs`): `{ kind = "gain", from, to, db }` or `{ kind = "pencil", at, channel, values }`, in seconds from where the clip starts in its sound. Returns how many edits it has.
 - `paw.api.clip_edits(id)`: An audio clip's edit list, as `clip_edit_add` takes its edits (with times in seconds of its sound).
 - `paw.api.clip_edits_clear(id)`: Take away an audio clip's edit list. Returns how many edits it had.
 - `paw.api.clip_get(id)`
 - `paw.api.clip_glue(ids)`
+- `paw.api.clip_kind_define(name)`: Let `clip_add` make clips of the kind `name`: a lowercase word that is not `midi`, `audio` or another built-in. `paw.clip_kinds.define` calls it.
+- `paw.api.clip_kind_remove(name)`: Stop making clips of the kind `name`. Clips of it that the project has stay.
+- `paw.api.clip_kinds()`: The kinds of clip that extensions defined, by name (sorted).
 - `paw.api.clip_list(track)`: --- clips ---
 - `paw.api.clip_normalize(id, level)`
 - `paw.api.clip_note_add(id, note)`: One note at a time, by its place in the notes of the clip (from 1). The functions that add and change a note return its new place, because the notes stay in the order of their start.
@@ -2112,6 +2132,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.clip_reverse(id)`: Audio clip operations that leave the source file alone (session/clipops.rs).
 - `paw.api.clip_set(id, key, value)`: Change a clip: a table of the entries to change, as `clip_get` gives them, or one `key` and its value. Only the key form clears an entry (`nil`).
 - `paw.api.clip_set_controls(id, controls)`
+- `paw.api.clip_set_custom(id, set)`: Replace what a custom clip's kind compiled, as one undo step: `data` (required), `media`, `sound` (a MIDI or audio content) and `signals` are all replaced (absent: none); `version`, `timeline` and `offset` stay as they are when absent.
 - `paw.api.clip_set_notes(id, notes)`
 - `paw.api.clip_source_length(id)`: Beats of sound left in an audio clip's file from where the clip starts in it.
 - `paw.api.clip_to_cues(id, track)`: Copy a clip, with its `meta`, off the timeline of a track. Returns the copy's id.
@@ -2165,6 +2186,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.fs_stat(path)`: `{ kind = "file" | "dir" | "link", dir, size, mtime }`, or nil when nothing is there. A link is looked at, not followed, for its kind, and `dir` is true if it leads to a directory.
 - `paw.api.fs_trash(path)`: Put a file or directory in the freedesktop trash; returns where it is.
 - `paw.api.grid_fill(x, y, w, h, fill, style, cx, cy, cw, ch)`: Restyle the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, and overwrite its characters when `fill` is given.
+- `paw.api.grid_image(key, x, y, w, h, cx, cy, cw, ch)`: Draw the picture of pixels kept under `key` over the cells `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, two pixels a cell in half blocks (`▀`): what a terminal that shows no images shows of it. False for a key not kept (any more).
 - `paw.api.grid_live_begin(x, y, w, h, cx, cy, cw, ch)`: A live part of the screen is drawn over the cells `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`: what is under them is kept, to draw it again by itself (`paw.ui.render_live`). Returns its number for `grid_live_end`, or nil when no part of it is on the screen.
 - `paw.api.grid_live_end(index)`
 - `paw.api.grid_live_restore()`: Take the live parts off the frame drawn last, to draw them again. Returns how many there were.

@@ -8,12 +8,16 @@
 //!   { "p", path commands, stroke, stroke width, fill }
 //!   { "m", x, y, w, h, text, colour, background, attributes }
 //!   { "g", x, y, size, code point, colour, font }
+//!   { "i", x, y, w, h, key, sx, sy, sw, sh }
 //!   { "cut", x, top, bottom }
 //!   { "layer", name }
 //!
 //! `g` is a glyph of a SMuFL music font (Leland unless `font` names
 //! Bravura or Petaluma) with its origin at `x, y` and `size` pixels to the
-//! em (four staff spaces). `cut` marks where the drawing may be cut into
+//! em (four staff spaces). `i` is a picture of pixels kept under `key`
+//! ([`pixels`]), its part `sx, sy, sw, sh` (in fractions of it: 0, 0, 1, 1
+//! for all of it) stretched over `x, y, w, h`; a picture not kept is left
+//! out. `cut` marks where the drawing may be cut into
 //! pieces, a barline, between `top` and `bottom` (the whole height without
 //! them); it draws nothing. What follows `layer` belongs to that layer
 //! until the next: everything before the first, and the layer `base`, is
@@ -23,19 +27,23 @@
 //!
 //! Colours are `#rrggbb` or `#rrggbbaa`; an empty string is none.
 //!
-//! `vector` writes a drawing as SVG or PDF instead of pixels.
+//! `vector` writes a drawing as SVG or PDF instead of pixels (without its
+//! pictures of pixels).
 
 pub mod fonts;
 pub mod kitty;
+pub mod pixels;
 pub mod probe;
 pub mod tiles;
 pub mod vector;
 
 use std::hash::{Hash, Hasher};
+use std::sync::Arc;
 
 use serde_json::Value;
 use tiny_skia::{
-    Color, FillRule, LineCap, LineJoin, Paint, Path, PathBuilder, Pixmap, Rect, Stroke, Transform,
+    Color, FillRule, FilterQuality, LineCap, LineJoin, Paint, Path, PathBuilder, Pattern, Pixmap, Rect, SpreadMode,
+    Stroke, Transform,
 };
 
 pub use fonts::{Font, glyph_outline, smufl};
@@ -114,6 +122,16 @@ pub enum Op {
         codepoint: char,
         colour: Rgba,
         font: Font,
+    },
+    /// A picture of pixels: the part `src` of it (fractions of its width
+    /// and height: x, y, w, h) over the rectangle `x, y, w, h`.
+    Image {
+        x: f32,
+        y: f32,
+        w: f32,
+        h: f32,
+        src: [f32; 4],
+        pixmap: Arc<Pixmap>,
     },
 }
 
@@ -230,6 +248,17 @@ impl Drawing {
                         _ => None,
                     }
                 }
+                "i" => op[5].as_str().and_then(pixels::get).map(|pixmap| {
+                    let part = |i: usize, or: f32| if op[i].is_null() { or } else { number(&op[i]) };
+                    Op::Image {
+                        x: number(&op[1]),
+                        y: number(&op[2]),
+                        w: number(&op[3]),
+                        h: number(&op[4]),
+                        src: [part(6, 0.0), part(7, 0.0), part(8, 1.0), part(9, 1.0)],
+                        pixmap,
+                    }
+                }),
                 "cut" => {
                     drawing.cuts.push(Cut {
                         x: number(&op[1]),
@@ -362,6 +391,7 @@ fn bounds(op: &Op) -> [f32; 4] {
             [b.left() - pad, b.top() - pad, b.right() + pad, b.bottom() + pad]
         }
         Op::Mono { x, y, w, h, .. } => [*x, *y, x + w + 2.0, y + h],
+        Op::Image { x, y, w, h, .. } => [*x, *y, x + w, y + h],
         Op::Glyph { x, y, size, codepoint, font, .. } => {
             match font.face().glyph_index(*codepoint).and_then(|g| font.outline(g)) {
                 Some(path) => {
@@ -436,8 +466,28 @@ pub fn paint_with(pixmap: &mut Pixmap, items: &[Item], shift: Transform) {
                     pixmap.fill_path(&path, &colour.paint(), FillRule::Winding, at, None);
                 }
             }
+            Op::Image { x, y, w, h, src, pixmap: picture } => image(pixmap, shift, [*x, *y, *w, *h], *src, picture),
         }
     }
+}
+
+/// The part `src` of a picture (in fractions of it) stretched over `area`.
+fn image(pixmap: &mut Pixmap, shift: Transform, area: [f32; 4], src: [f32; 4], picture: &Pixmap) {
+    let [x, y, w, h] = area;
+    let Some(rect) = Rect::from_xywh(x, y, w, h) else { return };
+    let (pw, ph) = (picture.width() as f32, picture.height() as f32);
+    let (sw, sh) = (src[2] * pw, src[3] * ph);
+    if sw <= 0.0 || sh <= 0.0 {
+        return;
+    }
+    // From the picture's pixels to the drawing's.
+    let (kx, ky) = (w / sw, h / sh);
+    let at = Transform::from_row(kx, 0.0, 0.0, ky, x - src[0] * pw * kx, y - src[1] * ph * ky);
+    // Made bigger, its pixels show as they are (a spectrogram's bins);
+    // made smaller, they are mixed.
+    let quality = if kx >= 1.0 && ky >= 1.0 { FilterQuality::Nearest } else { FilterQuality::Bilinear };
+    let paint = Paint { shader: Pattern::new(picture.as_ref(), SpreadMode::Pad, quality, 1.0, at), ..Paint::default() };
+    pixmap.fill_rect(rect, &paint, shift, None);
 }
 
 #[allow(clippy::too_many_arguments)]

@@ -4,12 +4,14 @@
 -- then as what changed of it, pushed as it changes. The frontend says how
 -- big each window is in cell units (`scene.area`), sends the pointer back in
 -- the same units (`scene.input`), and asks once for each drawing sent by its
--- content key (`scene.blob`). docs/reference/protocol.md has the whole protocol.
+-- content key (`scene.blob`) and for each picture of pixels a drawing names
+-- (`scene.pixels`). docs/reference/protocol.md has the whole protocol.
 --
 --   scene.watch { cell = { w, h }, live = true }   scenes from now on
 --   scene.area  win w h                            a window's size in units
 --   scene.input win { kind, x, y, button, ... }    the pointer, in units
 --   scene.blob  key                                a drawing by its key
+--   scene.pixels key                               a picture of pixels by its key
 --   scene.unwatch
 --
 -- A window is named by a string: a window of the layout by its number
@@ -477,6 +479,10 @@ end
 
 methods["scene.blob"] = function(client: integer, key: string): {types.CanvasOp}
   return api.scene_blob(client, key)
+end as Method
+
+methods["scene.pixels"] = function(_client: integer, key: string): types.PictureBlob
+  return api.canvas_pixels(key)
 end as Method
 
 --- A connection closed or stopped to watch. paw keeps no more data for it.

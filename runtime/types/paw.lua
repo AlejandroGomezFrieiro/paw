@@ -1343,6 +1343,22 @@ function paw.canvas.glyph_outline(font, codepoint) end
 --- A list of places that the pointer acts on (see `view.hits`).
 function paw.canvas.hit_list() end
 
+--- Keep a picture of pixels for views to show (`g:image`, `buf:image`).
+--- `bytes` is a PNG file, or straight RGBA of `w` by `h` pixels row by
+--- row (`format` `"png"` or `"rgba"`; a PNG file is known without it).
+--- Returns its key, its width and its height. The key comes from the
+--- pixels: the same pixels have the same key, and a frontend that has the
+--- picture is not sent it again. paw keeps the pictures used last, up to
+--- 256 MB; keep a picture again to use it after a long time.
+---   local f = assert(io.open("cover.png", "rb"))
+---   local key, w, h = paw.canvas.image(f:read("*a"))
+---   f:close()
+---@param bytes any
+---@param w any
+---@param h any
+---@param format any
+function paw.canvas.image(bytes, w, h, format) end
+
 --- Keys typed in the window of a view. They go to the key mappings with
 --- that view focused (or to an open prompt), as when typed in the terminal.
 --- In its window, a view can give a key its own meaning, as other programs
@@ -1440,6 +1456,18 @@ function paw.canvas.paint(name, width, height, opts) end
 ---@param height any
 ---@param opts any
 function paw.canvas.paint_cells(name, window, width, height, opts) end
+
+--- Show the picture `key` over the cells `x, y, w, h` of `buf`: see
+--- `buf:image`. In a terminal that shows images and in a window, it is a
+--- strip (`buf:strip`) under the cells, and the result is true; elsewhere
+--- half blocks, two pixels a cell.
+---@param buf any
+---@param x any
+---@param y any
+---@param w any
+---@param h any
+---@param key any
+function paw.canvas.place(buf, x, y, w, h, key) end
 
 --- Pass a pointer event from a frontend to a view, which then has the
 --- keyboard. It goes to its `pointer` function in pixels. For a view in
@@ -7695,6 +7723,21 @@ function paw.ui.Buf.fill(self, x, y, w, h, char, style) end
 
 paw.ui.Buf.hit = paw.roles.hit
 
+--- Show the picture of pixels `key` (`paw.canvas.image`) stretched over
+--- the cells `x, y, w, h`: as an image where the terminal or the window
+--- shows images, else in half blocks, two pixels a cell. Returns true
+--- where it is an image, as `buf:strip` does. A key that paw does not keep
+--- (any more) shows nothing.
+---   local key = paw.canvas.image(png_bytes)
+---   buf:image(0, 0, buf.width, buf.height, key)
+---@param self any
+---@param x any
+---@param y any
+---@param w any
+---@param h any
+---@param key any
+function paw.ui.Buf.image(self, x, y, w, h, key) end
+
 paw.ui.Buf.mark = paw.roles.mark
 
 paw.ui.Buf.plane = paw.roles.plane
@@ -7970,6 +8013,22 @@ function paw.api.blocks(device) end
 ---@param scale number?
 function paw.api.canvas_export(path, format, pages, scale) end
 
+--- Keep a picture of pixels for drawings to name (`paw.canvas.image`):
+--- `bytes` a PNG file, or straight RGBA `w` by `h` pixels row by row;
+--- `format` `"png"` or `"rgba"` (a PNG file is known without it). Returns
+--- its content key, its width and its height.
+---@param bytes any
+---@param w integer?
+---@param h integer?
+---@param format string?
+function paw.api.canvas_image(bytes, w, h, format) end
+
+--- A picture of pixels kept under `key`, as a window is sent it: its
+--- size and its pixels as straight RGBA in base64. Nil for a key not
+--- kept (any more).
+---@param key string
+function paw.api.canvas_pixels(key) end
+
 --- Write a track's devices as a chain file: `file` (a `devices.json`)
 --- and the `.state` files of the plugins beside it. Returns the files.
 ---@param track integer
@@ -7990,6 +8049,8 @@ function paw.api.checkpoint_restore(file) end
 ---@param id integer?
 function paw.api.checkpoint_write(name, id) end
 
+--- A clip of a defined kind: `kind` is its name, with `data` and `length`, and
+--- `version`, `timeline`, `offset`, `media`, `sound` and `signals` as `clip_custom` gives them.
 ---@param track integer
 ---@param opts any
 function paw.api.clip_add(track, opts) end
@@ -8006,6 +8067,13 @@ function paw.api.clip_collect() end
 --- { start, type = "cc" | "bend" | "pressure", number, value }.
 ---@param id integer
 function paw.api.clip_controls(id) end
+
+--- The content of a clip of a defined kind, as the project saves it:
+--- `{ type, version?, timeline?, offset?, data, media?, sound?, signals? }`.
+--- `data` is `{ json = text }` or `{ text = { ext, text } }`: the text is
+--- kept exactly as it was given.
+---@param id integer
+function paw.api.clip_custom(id) end
 
 --- Add an edit to an audio clip's edit list (`edits.rs`): `{ kind =
 --- "gain", from, to, db }` or `{ kind = "pencil", at, channel, values }`,
@@ -8029,6 +8097,18 @@ function paw.api.clip_get(id) end
 
 ---@param ids integer[]
 function paw.api.clip_glue(ids) end
+
+--- Let `clip_add` make clips of the kind `name`: a lowercase word that
+--- is not `midi`, `audio` or another built-in. `paw.clip_kinds.define` calls it.
+---@param name string
+function paw.api.clip_kind_define(name) end
+
+--- Stop making clips of the kind `name`. Clips of it that the project has stay.
+---@param name string
+function paw.api.clip_kind_remove(name) end
+
+--- The kinds of clip that extensions defined, by name (sorted).
+function paw.api.clip_kinds() end
 
 --- --- clips ---
 ---@param track integer
@@ -8099,6 +8179,14 @@ function paw.api.clip_set(id, key, value) end
 ---@param id integer
 ---@param controls any
 function paw.api.clip_set_controls(id, controls) end
+
+--- Replace what a custom clip's kind compiled, as one undo step: `data`
+--- (required), `media`, `sound` (a MIDI or audio content) and `signals`
+--- are all replaced (absent: none); `version`, `timeline` and `offset`
+--- stay as they are when absent.
+---@param id integer
+---@param set any
+function paw.api.clip_set_custom(id, set) end
 
 ---@param id integer
 ---@param notes any
@@ -8375,6 +8463,21 @@ function paw.api.fs_trash(path) end
 ---@param cw number
 ---@param ch number
 function paw.api.grid_fill(x, y, w, h, fill, style, cx, cy, cw, ch) end
+
+--- Draw the picture of pixels kept under `key` over the cells `(x, y,
+--- w, h)`, clipped to `(cx, cy, cw, ch)`, two pixels a cell in half
+--- blocks (`▀`): what a terminal that shows no images shows of it.
+--- False for a key not kept (any more).
+---@param key string
+---@param x number
+---@param y number
+---@param w number
+---@param h number
+---@param cx number
+---@param cy number
+---@param cw number
+---@param ch number
+function paw.api.grid_image(key, x, y, w, h, cx, cy, cw, ch) end
 
 --- A live part of the screen is drawn over the cells `(x, y, w, h)`,
 --- clipped to `(cx, cy, cw, ch)`: what is under them is kept, to draw

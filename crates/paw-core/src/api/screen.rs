@@ -304,6 +304,27 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
                 None => Ok(LuaValue::Nil),
             }
         }
+        // Keep a picture of pixels for drawings to name (`paw.canvas.image`):
+        // `bytes` a PNG file, or straight RGBA `w` by `h` pixels row by row;
+        // `format` `"png"` or `"rgba"` (a PNG file is known without it). Returns
+        // its content key, its width and its height.
+        // @return string, integer, integer
+        fn canvas_image(_, _sh, (bytes, w, h, format) => (LuaString, Option<u32>, Option<u32>, Option<String>)) {
+            let pixmap = paw_raster::pixels::decode(&bytes.as_bytes(), format.as_deref(), w.zip(h))
+                .map_err(|e| mlua::Error::runtime(e.to_string()))?;
+            let (w, h) = (pixmap.width(), pixmap.height());
+            Ok((paw_raster::pixels::keep(pixmap), w, h))
+        }
+        // A picture of pixels kept under `key`, as a window is sent it: its
+        // size and its pixels as straight RGBA in base64. Nil for a key not
+        // kept (any more).
+        // @return types.PictureBlob
+        fn canvas_pixels(lua, _sh, key => String) {
+            match paw_raster::pixels::get(&key) {
+                Some(pixmap) => to_lua(lua, &paw_raster::pixels::to_blob(&pixmap)),
+                None => Ok(LuaValue::Nil),
+            }
+        }
         // Write drawings (the operations of `paw.canvas.paint`) to a file:
         // `format` "pdf" (one page for each drawing), "svg" or "png" (the first).
         // Each page is `{ ops, width, height }` in pixels. `scale` is the points
@@ -433,6 +454,35 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             // Kept as a node too while a view is drawn for a scene.
             sh.scenes.borrow_mut().text(clip, cell(x), cell(y), &text, style);
             Ok(sh.grid.borrow_mut().text(clip, cell(x), cell(y), &text, style))
+        }
+        // Draw the picture of pixels kept under `key` over the cells `(x, y,
+        // w, h)`, clipped to `(cx, cy, cw, ch)`, two pixels a cell in half
+        // blocks (`▀`): what a terminal that shows no images shows of it.
+        // False for a key not kept (any more).
+        // @return boolean
+        fn grid_image(_, sh, (key, x, y, w, h, cx, cy, cw, ch) => (String, f64, f64, f64, f64, f64, f64, f64, f64)) {
+            let Some(pixmap) = paw_raster::pixels::get(&key) else { return Ok(false) };
+            let clip = Rect { x: cell(cx), y: cell(cy), w: cell(cw), h: cell(ch) };
+            let area = Rect { x: cell(x), y: cell(y), w: cell(w), h: cell(h) };
+            if area.w <= 0 || area.h <= 0 {
+                return Ok(true);
+            }
+            let colour = |c: Option<paw_raster::Rgba>| c.map_or(Color::Default, |c| Color::Rgb(c.0, c.1, c.2));
+            let halves = paw_raster::pixels::half_blocks(&pixmap, area.w as u32, area.h as u32);
+            let (mut grid, mut scenes) = (sh.grid.borrow_mut(), sh.scenes.borrow_mut());
+            for (i, [top, bottom]) in halves.into_iter().enumerate() {
+                let (col, row) = (area.x + i as i32 % area.w, area.y + i as i32 / area.w);
+                // The half that has a colour is the character's.
+                let (ch, fg, bg) = match (top, bottom) {
+                    (Some(_), _) => ("▀", top, bottom),
+                    (None, Some(_)) => ("▄", bottom, None),
+                    (None, None) => (" ", None, None),
+                };
+                let style = Style { fg: Some(colour(fg)), bg: Some(colour(bg)), ..Style::default() };
+                scenes.text(clip, col, row, ch, style);
+                grid.text(clip, col, row, ch, style);
+            }
+            Ok(true)
         }
         // Restyle the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, and
         // overwrite its characters when `fill` is given.
