@@ -35,6 +35,9 @@ rubato = "0.16"
 # FFTs for the phase vocoder that stretches clips (stretch.rs).
 realfft = "3.5"
 rustls.workspace = true
+# The control socket and the network server (rpc.rs): one I/O thread.
+tokio = { workspace = true, features = ["rt", "net", "io-util", "time", "sync", "macros"] }
+tokio-rustls.workspace = true
 # The self-signed certificate an instance listening on the network shows.
 rcgen = { version = "0.14", default-features = false, features = ["crypto", "ring"] }
 
