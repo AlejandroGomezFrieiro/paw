@@ -214,8 +214,9 @@ answer.
 
 ### The report
 
-The report is `<state directory>/doctor/<year-month-day-time>.md`. A
-`.json` file beside it holds the same data, for the next report.
+The report is `<state directory>/doctor/<year-month-day-time>.md`.
+`paw.opt.doctor_dir` names another folder. A `.json` file beside it holds
+the same data, for the next report.
 
 - At the top are the facts of the machine: the program, the kernel, the
   system, the processor, the memory and the sound system. Then the

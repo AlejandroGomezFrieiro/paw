@@ -310,14 +310,21 @@ applies to it.
 | Path | Contents |
 | --- | --- |
 | `~/.local/share/OpenUtau/Singers` | the voicebanks. `utau_openutau_dir` or `$PAW_UTAU_OPENUTAU_DIR` names another folder |
-| `~/.local/share/paw/utau/openutau-data` | the data of the engine |
-| `~/.cache/paw/utau` | the render cache, with the AI pitch takes |
+| `~/.local/share/paw/utau/openutau-data` | the data of the engine. `utau_data_dir` names another folder |
+| `~/.cache/paw/utau` | the render cache, with the AI pitch takes. `utau_cache_dir` names another folder |
 | `~/.cache/paw/utau-voices/<pid>` | the rendered phrases as files. paw removes them when it stops |
 
 paw finds the engine through the `utau_engine` option, `$PAW_UTAU_ENGINE`,
 `bin/paw-utau-engine` beside the extension (where the package puts it), or
 `paw-utau-engine` on the `PATH`. Without the engine, the device and the
 editor work, but nothing sings, and an offline render tells you.
+
+| Option | Default | Effect |
+| --- | --- | --- |
+| `utau_drafts` | `true` | sings a quick draft of each DiffSinger phrase before the final quality |
+| `utau_final_delay` | `1500` | the milliseconds without an edit before the engine sings the final quality |
+| `utau_render_timeout` | `600` | the seconds that an offline render waits for the singing |
+| `utau_log_level` | `info` | the log level of the engine (`--log-level`) |
 
 ### How it works
 
