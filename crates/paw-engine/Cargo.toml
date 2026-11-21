@@ -24,7 +24,7 @@ alsa-sys = { version = "0.4", optional = true }
 libc = "0.2"
 bitflags.workspace = true
 # The sequencer's poll.
-rustix = { version = "1", default-features = false, features = ["std", "event"] }
+rustix = { version = "1", default-features = false, features = ["std", "event", "process"] }
 
 [dev-dependencies]
 serde_json.workspace = true
