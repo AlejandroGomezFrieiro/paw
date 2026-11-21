@@ -62,7 +62,7 @@ impl Key {
     /// What `clip` plays at `rate` with the song's tempo `map`, if it is an
     /// audio clip stretched, warped or shifted, or with an edit list.
     pub fn of(clip: &Clip, rate: u32, map: &TempoMap) -> Option<Self> {
-        let ClipContent::Audio { file, edits, .. } = &clip.content else {
+        let Some(ClipContent::Audio { file, edits, .. }) = clip.playable() else {
             return None;
         };
         let warp = warp::of(clip, map);

@@ -196,3 +196,84 @@ fn parameters_keep_the_keys_the_project_knows_them_by() {
     rekey(&mut params, &ids);
     assert_eq!(params[0].key, "distortion");
 }
+
+/// A project of one track, with a synth when it has MIDI, and one clip.
+fn with_clip(content: Value, synth: bool) -> Project {
+    let devices = if synth {
+        json!([{ "id": 2, "kind": "synth", "bypass": false, "params": {} }])
+    } else {
+        json!([])
+    };
+    let track = |id: u64, devices: Value, clips: Value| {
+        json!({ "id": id, "name": "T", "volume": 0.0, "pan": 0.0, "mute": false, "solo": false,
+            "armed": false, "output": null, "sends": [], "color": null,
+            "devices": devices, "clips": clips })
+    };
+    let clip = json!({ "id": 7, "name": "", "start": 0.0, "length": 4.0, "muted": false,
+        "content": content });
+    serde_json::from_value(json!({
+        "name": "t", "tempo": 120.0, "sig_num": 4, "sig_den": 4,
+        "master": track(0, json!([]), json!([])),
+        "tracks": [track(1, devices, json!([clip]))],
+    }))
+    .unwrap()
+}
+
+/// A custom clip of a kind nothing knows, with `sound`.
+fn custom(sound: Value) -> Value {
+    json!({ "kind": "custom", "type": "idea", "data": { "json": "{}" }, "sound": sound })
+}
+
+fn played(project: &Project) -> Vec<f32> {
+    let (mut engine, mut handle, _) = engine(&[project]);
+    play(&mut engine, &mut handle, 0.0)
+}
+
+/// A custom clip plays its sound as the clip of that sound does: MIDI to
+/// the track's instrument.
+#[test]
+fn a_custom_clip_plays_its_midi_sound() {
+    let midi = json!({ "kind": "midi", "notes": [
+        { "start": 0.0, "length": 1.0, "pitch": 60, "velocity": 100 },
+        { "start": 1.0, "length": 1.0, "pitch": 64, "velocity": 100 },
+    ] });
+    let own = played(&with_clip(midi.clone(), true));
+    assert!(own.iter().any(|s| *s != 0.0), "the MIDI clip sounds");
+    assert!(own == played(&with_clip(custom(midi), true)), "the custom clip sounds the same");
+    let none = json!({ "kind": "custom", "type": "idea", "data": { "json": "{}" } });
+    assert!(
+        played(&with_clip(none, true)).iter().all(|s| *s == 0.0),
+        "a custom clip with no sound is silent"
+    );
+}
+
+/// A custom clip with an audio sound is scheduled as the audio clip is.
+#[test]
+fn a_custom_clip_plays_its_audio_sound() {
+    let dir = std::env::temp_dir().join(format!("paw-sync-test-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("tone.wav");
+    let samples: Vec<i16> = (0..24000)
+        .map(|i| ((i as f32 * 0.05).sin() * 12000.0) as i16)
+        .collect();
+    let mut wav = Vec::new();
+    let data = (samples.len() * 2) as u32;
+    wav.extend(b"RIFF");
+    wav.extend((36 + data).to_le_bytes());
+    wav.extend(b"WAVEfmt ");
+    wav.extend(16u32.to_le_bytes());
+    wav.extend([1, 0, 1, 0]);
+    wav.extend(48000u32.to_le_bytes());
+    wav.extend(96000u32.to_le_bytes());
+    wav.extend([2, 0, 16, 0]);
+    wav.extend(b"data");
+    wav.extend(data.to_le_bytes());
+    wav.extend(samples.iter().flat_map(|s| s.to_le_bytes()));
+    std::fs::write(&file, wav).unwrap();
+    let audio = json!({ "kind": "audio", "file": file, "offset": 0.1, "gain": -3.0 });
+    let own = played(&with_clip(audio.clone(), false));
+    let wrapped = played(&with_clip(custom(audio), false));
+    std::fs::remove_dir_all(&dir).unwrap();
+    assert!(own.iter().any(|s| *s != 0.0), "the audio clip sounds");
+    assert!(own == wrapped, "the custom clip sounds the same");
+}

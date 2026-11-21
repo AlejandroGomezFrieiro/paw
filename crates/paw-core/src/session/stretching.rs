@@ -38,6 +38,19 @@ const FIELDS: [&str; 10] = [
     "formants",
 ];
 
+/// The refusal of an audio-only field (`what` is `have ...`) on a clip that
+/// has no audio sound: for a custom clip, it says what the clip has.
+pub(super) fn not_audio(clip: &Clip, what: &str) -> anyhow::Error {
+    match &clip.content {
+        ClipContent::Custom(custom) => anyhow::anyhow!(
+            "clip {} is a clip of the kind `{}` with no audio sound: only clips that play audio {what}",
+            clip.id,
+            custom.kind
+        ),
+        _ => anyhow::anyhow!("only audio clips {what}"),
+    }
+}
+
 /// Check how a new clip of `kind` is to play.
 pub(super) fn check_playing(
     kind: ClipKind,
@@ -127,9 +140,9 @@ impl Session {
             .clip(id)
             .with_context(|| format!("no clip {id}"))?
             .clone();
-        let audio = matches!(clip.content, ClipContent::Audio { .. });
+        let audio = matches!(clip.playable(), Some(ClipContent::Audio { .. }));
         if !audio && !key.starts_with("loop") {
-            bail!("only audio clips have `{key}`");
+            return Err(not_audio(&clip, &format!("have `{key}`")));
         }
         let tempo = self.project.tempo_map().tempo(clip.start);
         // What a loop turned on repeats unless it was given a length: a
@@ -298,7 +311,7 @@ impl Session {
             bail!("a beat is a number");
         }
         let map = self.project.tempo_map().clone();
-        let ClipContent::Audio { offset, .. } = clip.content else {
+        let Some(&ClipContent::Audio { offset, .. }) = clip.playable() else {
             unreachable!("an audio clip")
         };
         let end = warp::source_at(&clip, &map, clip.start + clip.length);
@@ -356,8 +369,8 @@ impl Session {
             .project
             .clip(id)
             .with_context(|| format!("no clip {id}"))?;
-        if !matches!(clip.content, ClipContent::Audio { .. }) {
-            bail!("only audio clips have warp markers");
+        if !matches!(clip.playable(), Some(ClipContent::Audio { .. })) {
+            return Err(not_audio(clip, "have warp markers"));
         }
         Ok(clip.clone())
     }
@@ -444,8 +457,8 @@ impl Session {
     /// its file squeezed or spread in time until then), and repeated as a
     /// looped clip repeats.
     pub(super) fn playing_peaks(&mut self, clip: &Clip, n: usize) -> Result<Vec<[f32; 3]>> {
-        let ClipContent::Audio { file, offset, .. } = &clip.content else {
-            bail!("clip {} is not an audio clip", clip.id);
+        let Some(ClipContent::Audio { file, offset, .. }) = clip.playable() else {
+            return Err(not_audio(clip, "have a waveform"));
         };
         let map = self.project.tempo_map().clone();
         let seconds = map.seconds_between(clip.start, clip.start + clip.length);

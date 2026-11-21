@@ -67,7 +67,7 @@ pub fn clips_json(project: &Project, track: &Track) -> Value {
         .clips
         .iter()
         .filter_map(|clip| {
-            let ClipContent::Audio { file, offset, gain, .. } = &clip.content else {
+            let Some(ClipContent::Audio { file, offset, gain, .. }) = clip.playable() else {
                 return None;
             };
             let start = map.seconds(clip.start);
