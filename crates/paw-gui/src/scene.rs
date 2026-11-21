@@ -21,7 +21,7 @@ use unicode_width::UnicodeWidthChar;
 
 use crate::app::View;
 use crate::panes::pointer_events;
-use crate::roles;
+use crate::roles::{self, Role};
 use crate::theme::{hex, mono, mono_medium};
 
 /// The size of the monospace font cells are drawn in.
@@ -103,6 +103,15 @@ fn pieces(items: &[paw_raster::Item]) -> Vec<Piece> {
         .collect()
 }
 
+/// A role node this window paints, where it is and what it is cut to, in
+/// units (left, top, right, bottom).
+struct Placed {
+    node: Node,
+    role: Role,
+    at: [f64; 4],
+    cut: [f64; 4],
+}
+
 /// What the still part of a scene was painted for: its rectangle, its cut,
 /// the cell and scale, the roles that moved, and the clips' pictures made.
 type StillKey = (Rect, Rect, [f32; 3], Vec<usize>, u64);
@@ -114,9 +123,8 @@ pub struct Shown {
     /// The scene lowered to cells, as rows of runs.
     rows: Vec<Vec<Run>>,
     pictures: Vec<Picture>,
-    /// The roles painted here, where they are and what they are cut to, in
-    /// units (left, top, right, bottom).
-    roles: Vec<(Node, [f64; 4], [f64; 4])>,
+    /// The roles painted here.
+    roles: Vec<Placed>,
     /// The runs and fills drawn over those roles, painted over them again.
     over: Vec<(Node, [f64; 4], [f64; 4])>,
     /// The shapes of the cells' backgrounds and of their text, and where,
@@ -259,7 +267,7 @@ impl Shown {
             self.still = None;
             return;
         }
-        self.over = self.scene.over_roles(&|role| roles::KNOWN.contains(&role));
+        self.over = self.scene.over_roles(&|role| role.parse::<Role>().is_ok());
         // What is drawn over a role is painted over it; in the cells under
         // the roles it would be painted twice.
         let (fg, bg) = self.scene.colors();
@@ -273,10 +281,8 @@ impl Shown {
         self.take_pictures(blobs);
         let mut placed = Vec::new();
         self.scene.placed(&mut |node, rect, cut| {
-            if let Kind::Role { role, .. } = &node.kind
-                && roles::KNOWN.contains(&role.as_str())
-            {
-                placed.push((node.clone(), rect, cut));
+            if let Some(role) = Role::of(node) {
+                placed.push(Placed { node: node.clone(), role, at: rect, cut });
             }
         });
         self.roles = placed;
@@ -392,8 +398,8 @@ impl Shown {
         let grounds: Vec<[f64; 4]> = self
             .roles
             .iter()
-            .filter(|(node, _, _)| matches!(&node.kind, Kind::Role { role, .. } if roles::OPAQUE.contains(&role.as_str())))
-            .map(|(_, r, c)| [r[0].max(c[0]), r[1].max(c[1]), r[2].min(c[2]), r[3].min(c[3])])
+            .filter(|p| p.role.opaque())
+            .map(|Placed { at: r, cut: c, .. }| [r[0].max(c[0]), r[1].max(c[1]), r[2].min(c[2]), r[3].min(c[3])])
             .collect();
         let hidden = |x: f64, y: f64, w: f64| grounds.iter().any(|g| g[0] <= x && g[1] <= y && g[2] >= x + w && g[3] >= y + 1.0);
         ctx.fonts_mut(|fonts| {
@@ -468,7 +474,7 @@ impl Shown {
         // the pointer.
         let moving: Vec<usize> = (0..self.roles.len())
             .filter(|&i| {
-                let (node, at, _) = &self.roles[i];
+                let Placed { node, at, .. } = &self.roles[i];
                 node.bind.is_some() || ui.rect_contains_pointer(roles::rect_of(*at, rect.min, cell))
             })
             .collect();
@@ -484,7 +490,7 @@ impl Shown {
         } else {
             // What it says to a reader of the window, as when painted, and
             // the clips' pictures it shows, kept.
-            for (i, (node, at, _)) in self.roles.iter().enumerate() {
+            for (i, Placed { node, at, .. }) in self.roles.iter().enumerate() {
                 if !moving.contains(&i) {
                     roles::name(ui, Id::unique(("scene-role", id, &node.key)), node, roles::rect_of(*at, rect.min, cell));
                     crate::timeline::keep_picture(node);
@@ -502,7 +508,7 @@ impl Shown {
         for i in moving {
             // A role the live values move is a live part: painted again by
             // itself while only they change (crate::live).
-            let (node, at, _) = &self.roles[i];
+            let Placed { node, at, .. } = &self.roles[i];
             let part = node.bind.is_some().then(|| {
                 let under = ui.rect_contains_pointer(roles::rect_of(*at, rect.min, cell));
                 parts.begin(&painter, crate::live::Part::Role { win: id.to_string(), index: i, from: rect.min, cell, under })
@@ -518,10 +524,10 @@ impl Shown {
     /// `painter` as `role` painted it, with no `Ui`: `under` says whether
     /// the pointer was over it.
     pub fn role_live(&self, painter: &egui::Painter, i: usize, from: Pos2, cell: (f32, f32), live: &Value, under: bool) {
-        let Some((node, at, cut)) = self.roles.get(i) else { return };
+        let Some(Placed { node, role, at, cut }) = self.roles.get(i) else { return };
         let (cut, at) = (roles::rect_of(*cut, from, cell), roles::rect_of(*at, from, cell));
         let role_painter = if cut.contains_rect(at) { painter.clone() } else { painter.with_clip_rect(cut.intersect(painter.clip_rect())) };
-        roles::paint_live(&role_painter, node, at, cell, live, under);
+        roles::paint_live(&role_painter, node, *role, at, cell, live, under);
     }
 
     /// Paint what does not move of the scene with `still`: the ground, the
@@ -568,13 +574,13 @@ impl Shown {
     /// Paint the role `i` of the scene with `painter`, cut as it is.
     #[allow(clippy::too_many_arguments)]
     fn role(&self, ui: &Ui, painter: &egui::Painter, id: &str, i: usize, from: Pos2, cell: (f32, f32), live: &Value) {
-        let (node, at, cut) = &self.roles[i];
+        let Placed { node, role, at, cut } = &self.roles[i];
         let (cut, at) = (roles::rect_of(*cut, from, cell), roles::rect_of(*at, from, cell));
         // A role that shows whole is painted with the window's own cut:
         // shapes of one cut are drawn together, each cut costs a draw.
         let role_painter = if cut.contains_rect(at) { painter.clone() } else { painter.with_clip_rect(cut.intersect(painter.clip_rect())) };
         let salt = Id::unique(("scene-role", id, &node.key));
-        roles::paint(ui, &role_painter, salt, node, at, cell, live);
+        roles::paint(ui, &role_painter, salt, node, *role, at, cell, live);
     }
 
     /// Draw the pictures under the cells' text, or those over it, making
@@ -641,7 +647,7 @@ impl View {
         self.scenes.cell = Some((w, h));
         // The roles it paints come without their cells; the meters move
         // with the live values.
-        let watched = self.k.borrow_mut().call("scene.watch", json!([{ "cell": { "w": w, "h": h }, "roles": roles::KNOWN, "live": true }]));
+        let watched = self.k.borrow_mut().call("scene.watch", json!([{ "cell": { "w": w, "h": h }, "roles": Role::ALL.map(Role::name), "live": true }]));
         if let Err(err) = watched {
             self.show(&format!("{err:#}"), true);
         }

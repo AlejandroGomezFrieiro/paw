@@ -132,10 +132,78 @@ pub enum Purpose {
     Render,
 }
 
+/// A call of the kernel's to make at the end of the frame: a gesture
+/// passed on, or `!` for a failure to show.
+struct Act {
+    method: String,
+    params: Value,
+}
+
+impl Act {
+    fn new(method: &str, params: Value) -> Act {
+        Act { method: method.into(), params }
+    }
+}
+
+/// A message of the window's own (a failed call, a drop), with when it
+/// came.
+pub struct Note {
+    pub text: String,
+    pub error: bool,
+    at: Instant,
+}
+
+/// The messages shown: the window's own, and whether the kernel's still
+/// is.
+#[derive(Default)]
+pub struct Messages {
+    pub note: Option<Note>,
+    /// When the kernel's message was made, the one a key or a change of
+    /// mode put away, and the mode the last state had.
+    time: f64,
+    dismissed: f64,
+    last_mode: String,
+}
+
+/// The floating page the kernel draws (help, a list, a picker), and the
+/// size in characters it is drawn to.
+pub struct Float {
+    pub page: Option<FloatPage>,
+    pub size: (usize, usize),
+}
+
+/// A floating page as the kernel drew it: its title and its lines.
+#[derive(Clone)]
+pub struct FloatPage {
+    pub title: String,
+    pub lines: Vec<String>,
+}
+
+/// What a desktop's file dialog answered, and what for.
+type Answer = (Purpose, portal::Outcome);
+
+/// The desktop's own file dialogs (crate::portal). Each runs on a thread
+/// of its own; the answers come back here.
+pub struct Portal {
+    send: mpsc::Sender<Answer>,
+    answers: mpsc::Receiver<Answer>,
+    /// A dialog is being shown.
+    pub busy: bool,
+    /// The desktop has no portal: the kernel's own pickers are used.
+    absent: bool,
+}
+
+impl Portal {
+    fn new() -> Portal {
+        let (send, answers) = mpsc::channel();
+        Portal { send, answers, busy: false, absent: false }
+    }
+}
+
 pub struct View {
     pub k: RefCell<Box<dyn Kernel>>,
     /// Gestures to pass on at the end of the frame, as calls.
-    acts: RefCell<Vec<(String, Value)>>,
+    acts: RefCell<Vec<Act>>,
     /// The kernel this window talks to is its own child: its disk is ours.
     pub ours: bool,
     pub s: State,
@@ -147,13 +215,7 @@ pub struct View {
     /// typed there and not sent to the kernel.
     pub text_ids: RefCell<Vec<egui::Id>>,
     pub text_focus: bool,
-    /// A message of the window's own (a failed call, a drop), with when.
-    pub note: Option<(String, bool, Instant)>,
-    /// When the kernel's message was made, the one a key or a change of
-    /// mode put away, and the mode the last state had.
-    pub message_time: f64,
-    pub message_dismissed: f64,
-    pub last_mode: String,
+    pub messages: Messages,
     pub panes: panes::Panes,
     pub canvases: canvas::Canvases,
     pub scenes: scene::Scenes,
@@ -161,24 +223,19 @@ pub struct View {
     /// The kernel's menu last shown (`modal.menu`, how many it has opened).
     pub kernel_menu: i64,
     pub dialogs: dialogs::Dialogs,
-    /// The floating page the kernel draws (help, a list, a picker).
-    pub float: Option<(String, Vec<String>)>,
-    pub float_size: (usize, usize),
-    /// The desktop's file dialogs: answers come back here.
-    pub portal_answers: (mpsc::Sender<(Purpose, portal::Outcome)>, mpsc::Receiver<(Purpose, portal::Outcome)>),
-    pub portal_busy: bool,
-    pub portal_absent: bool,
+    pub float: Float,
+    pub portal: Portal,
     /// Something happened that a painted view may show.
     pub repaint: bool,
     /// The kernel's tick needs another frame soon (a peak falling, a message ending).
-    pub again: Option<Duration>,
+    again: Option<Duration>,
     pub gone: bool,
     pub listening: bool,
     pub ctx: Option<egui::Context>,
     /// OpenGL draws the window on the processor (llvmpipe).
     pub software: bool,
     /// The frames a second while the song plays, as last set.
-    pub fps: f64,
+    fps: f64,
     /// Whether a frame is drawn again only where it changed
     /// (`paw.opt.window_cache`), else whole (crate::runner).
     pub cache: bool,
@@ -200,21 +257,15 @@ impl View {
             hooked: false,
             text_ids: RefCell::new(Vec::new()),
             text_focus: false,
-            note: None,
-            message_time: 0.0,
-            message_dismissed: 0.0,
-            last_mode: String::new(),
+            messages: Messages::default(),
             panes: panes::Panes::default(),
             canvases: canvas::Canvases::default(),
             scenes: scene::Scenes::counting(std::env::var_os("PAW_GUI_STATS").is_some()),
             menu: None,
             kernel_menu: 0,
             dialogs: dialogs::Dialogs::default(),
-            float: None,
-            float_size: (120, 30),
-            portal_answers: mpsc::channel(),
-            portal_busy: false,
-            portal_absent: false,
+            float: Float { page: None, size: (120, 30) },
+            portal: Portal::new(),
             repaint: true,
             again: None,
             gone: false,
@@ -240,17 +291,17 @@ impl View {
     pub fn eval(&self, code: &str, args: Value) {
         let mut params = vec![json!(code)];
         params.extend(args.as_array().cloned().unwrap_or_default());
-        self.acts.borrow_mut().push(("eval".into(), Value::Array(params)));
+        self.acts.borrow_mut().push(Act::new("eval", Value::Array(params)));
     }
 
     /// Call a method of the kernel's, at the end of the frame.
     pub fn call_later(&self, method: &str, params: Value) {
-        self.acts.borrow_mut().push((method.into(), params));
+        self.acts.borrow_mut().push(Act::new(method, params));
     }
 
     /// Run a command line, as typed after `:` in the terminal.
     pub fn command(&self, line: &str) {
-        self.acts.borrow_mut().push(("cmd".into(), json!([line])));
+        self.acts.borrow_mut().push(Act::new("cmd", json!([line])));
     }
 
     /// Feed keys to the kernel's mappings.
@@ -266,7 +317,7 @@ impl View {
         match self.k.borrow_mut().call("eval", Value::Array(params)) {
             Ok(value) => value,
             Err(err) => {
-                self.acts.borrow_mut().push(("!".into(), json!(format!("{err:#}"))));
+                self.acts.borrow_mut().push(Act::new("!", json!(format!("{err:#}"))));
                 Value::Null
             }
         }
@@ -274,26 +325,26 @@ impl View {
 
     /// Send what was gathered in the frame.
     pub fn flush(&mut self) {
-        let acts: Vec<(String, Value)> = std::mem::take(&mut *self.acts.borrow_mut());
+        let acts: Vec<Act> = std::mem::take(&mut *self.acts.borrow_mut());
         self.send(acts);
     }
 
     /// Send what was gathered in the frame before the first release of a
     /// pointer button, which stays for the end of the frame.
     pub fn flush_before_release(&mut self) {
-        let early: Vec<(String, Value)> = {
+        let early: Vec<Act> = {
             let mut acts = self.acts.borrow_mut();
-            let release = acts.iter().position(|(m, p)| m == "scene.input" && p[1]["kind"] == "up").unwrap_or(acts.len());
+            let release = acts.iter().position(|a| a.method == "scene.input" && a.params[1]["kind"] == "up").unwrap_or(acts.len());
             acts.drain(..release).collect()
         };
         self.send(early);
     }
 
-    fn send(&mut self, acts: Vec<(String, Value)>) {
+    fn send(&mut self, acts: Vec<Act>) {
         if acts.is_empty() {
             return;
         }
-        for (method, params) in acts {
+        for Act { method, params } in acts {
             if method == "!" {
                 self.show(&text(&params), true);
                 continue;
@@ -311,7 +362,7 @@ impl View {
 
     /// A message of the window's own, in the toolbar.
     pub fn show(&mut self, message: &str, error: bool) {
-        self.note = (!message.is_empty()).then(|| (message.to_string(), error, Instant::now()));
+        self.messages.note = (!message.is_empty()).then(|| Note { text: message.to_string(), error, at: Instant::now() });
     }
 
     // ------------------------------------------------------------- the state
@@ -366,27 +417,30 @@ impl View {
         // A message stays until the next key or a change of mode, as well as
         // for the time the kernel gives it.
         let mode = text(&modal["mode"]);
-        self.message_time = modal["message"]["time"].as_f64().unwrap_or(0.0);
-        if mode != self.last_mode {
-            self.message_dismissed = self.message_time;
-            self.last_mode = mode;
+        let m = &mut self.messages;
+        m.time = modal["message"]["time"].as_f64().unwrap_or(0.0);
+        if mode != m.last_mode {
+            m.dismissed = m.time;
+            m.last_mode = mode;
         }
         self.s.modal = std::rc::Rc::new(modal.clone());
         // A floating page is drawn by the kernel as text.
-        self.float = if modal["float"].is_string() {
-            let page = self.ask("return paw.frontend.float(...)", json!([self.float_size.0, self.float_size.1]));
-            Some((text(&page["title"]), rows(&page["lines"]).iter().map(text).collect()))
-        } else {
-            None
-        };
+        self.float.page = modal["float"].is_string().then(|| self.ask_float());
         self.kernel_menu(modal);
+    }
+
+    /// The floating page, as the kernel draws it at the size it has.
+    pub fn ask_float(&self) -> FloatPage {
+        let (cols, lines) = self.float.size;
+        let page = self.ask("return paw.frontend.float(...)", json!([cols, lines]));
+        FloatPage { title: text(&page["title"]), lines: rows(&page["lines"]).iter().map(text).collect() }
     }
 
     /// The kernel's message to show, with its level (0 plain, 1 a warning,
     /// 2 an error), unless a key or a change of mode put it away.
     pub fn status_message(&self) -> Option<(String, i32)> {
         let message = &self.s.modal["message"];
-        if self.message_time == self.message_dismissed || !message.is_object() {
+        if self.messages.time == self.messages.dismissed || !message.is_object() {
             return None;
         }
         let level = match message["level"].as_str() {
@@ -411,13 +465,13 @@ impl View {
         self.poll();
         self.answers();
         self.listening = self.k.borrow().listening();
-        if let Some((_, _, at)) = &self.note
-            && at.elapsed() > MESSAGE_TIME
+        if let Some(note) = &self.messages.note
+            && note.at.elapsed() > MESSAGE_TIME
         {
-            self.note = None;
+            self.messages.note = None;
         }
-        if let Some((_, _, at)) = &self.note {
-            self.again = Some(MESSAGE_TIME.saturating_sub(at.elapsed()) + Duration::from_millis(20));
+        if let Some(note) = &self.messages.note {
+            self.again = Some(MESSAGE_TIME.saturating_sub(note.at.elapsed()) + Duration::from_millis(20));
         }
         // The title names the project, and says when it has changes.
         let title = format!("paw – {}{}", text(&self.s.project["name"]), if flag(&self.s.project["modified"]) { " •" } else { "" });
@@ -497,10 +551,10 @@ impl View {
             .collect();
         for keys in self.keys.notations(&events) {
             let keys = keys::window_keys(keys, in_roll);
-            self.message_dismissed = self.message_time;
+            self.messages.dismissed = self.messages.time;
             // A key closes a menu that was open, as a click elsewhere does.
             self.let_go_menu();
-            self.acts.borrow_mut().push(("keys".into(), json!([keys])));
+            self.acts.borrow_mut().push(Act::new("keys", json!([keys])));
         }
     }
 
@@ -604,10 +658,10 @@ impl View {
         // A sound file to import can come from this machine whatever the
         // kernel's is: it is sent there.
         let here = self.ours || matches!(purpose, Purpose::Import);
-        if !here || self.portal_absent {
+        if !here || self.portal.absent {
             return false;
         }
-        if self.portal_busy {
+        if self.portal.busy {
             return true;
         }
         let info = self.ask("return paw.frontend.dialog_info()", json!([]));
@@ -615,8 +669,8 @@ impl View {
             return false;
         }
         let ask = dialogs::portal_ask(purpose, &info, render_path, stems);
-        self.portal_busy = true;
-        let (sender, ctx) = (self.portal_answers.0.clone(), self.ctx.clone());
+        self.portal.busy = true;
+        let (sender, ctx) = (self.portal.send.clone(), self.ctx.clone());
         std::thread::spawn(move || {
             let outcome = portal::choose(&ask);
             let _ = sender.send((purpose, outcome));
@@ -629,12 +683,12 @@ impl View {
 
     /// What the desktop's dialogs answered.
     fn answers(&mut self) {
-        while let Ok((purpose, outcome)) = self.portal_answers.1.try_recv() {
-            self.portal_busy = false;
+        while let Ok((purpose, outcome)) = self.portal.answers.try_recv() {
+            self.portal.busy = false;
             match outcome {
                 portal::Outcome::Cancelled => {}
                 portal::Outcome::Unavailable => {
-                    self.portal_absent = true;
+                    self.portal.absent = true;
                     match purpose {
                         Purpose::Open => {
                             self.leave("open");
@@ -690,7 +744,7 @@ impl View {
     /// sound and MIDI files first.
     fn files_dropped(&mut self, ui: &Ui) {
         let (hovered, dropped) = ui.input(|i| (!i.raw.hovered_files.is_empty(), i.raw.dropped_files.clone()));
-        if hovered && self.note.as_ref().is_none_or(|n| !n.0.starts_with("Drop")) {
+        if hovered && self.messages.note.as_ref().is_none_or(|n| !n.text.starts_with("Drop")) {
             let message = if self.ours { "Drop to add the files to the project" } else { "Drop to send the sound and MIDI files to the instance and add them" };
             self.show(message, false);
         }
@@ -698,7 +752,7 @@ impl View {
         if paths.is_empty() {
             return;
         }
-        self.note = None;
+        self.messages.note = None;
         if !self.ours {
             let mut there = Vec::new();
             for path in &paths {
