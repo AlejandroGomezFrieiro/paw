@@ -367,6 +367,9 @@ end
 -- until insert mode ends (the clip `i` made, the notes drawn into it) is
 -- one undo step, as an insert is in Vim: the steps after the first join it.
 local insert_undo
+local insert_hint_at   -- when insert mode's keys show, in a view that lists them
+local key_serial = 0   -- counts the keys handled: what one key did together
+local left_insert      -- the insert that ended last: { undo, key }
 
 --- Change mode. When visual mode stops, the selection closes. `gv` opens it again.
 function M.set_mode(mode)
@@ -381,10 +384,24 @@ function M.set_mode(mode)
     M.visual = nil
   end
   if mode == old then return end
-  if mode == "i" then insert_undo = api.undo_current() end
+  if mode == "i" then
+    insert_undo = api.undo_current()
+    -- Insert mode that hands over to another view's in the same key (the
+    -- arrange view's `m` then Enter: the piano roll) is one insert still.
+    if left_insert and left_insert.key == key_serial then insert_undo = left_insert.undo end
+    -- A view whose insert mode is a choice of keys lists them after a moment.
+    local view = paw.ui.views[paw.ui.focused]
+    if view and view.insert_hints then
+      insert_hint_at = api.now() + paw.opt.hint_delay
+      paw.defer(api.ui_redraw, paw.opt.hint_delay + 1)
+    end
+  end
   M.mode = mode
   paw.emit("mode.changed", { mode = mode, old = old })
-  if old == "i" then insert_undo = nil end
+  if old == "i" then
+    left_insert = { undo = insert_undo, key = key_serial }
+    insert_undo = nil
+  end
   api.ui_redraw()
 end
 
@@ -1100,6 +1117,10 @@ handle = function(key)
   else
     local mode = M.mode
     reset()
+    local view = paw.ui.views[paw.ui.focused]
+    if mode == "i" and view and view.insert_hints and key ~= "<Esc>" then
+      return paw.notify(M.human({ key }) .. " inserts nothing here: K lists the keys, <Esc> ends insert mode", "warn")
+    end
     if mode ~= "n" then return end
     local view = paw.ui.views[paw.ui.focused]
     if key == "<Esc>" then
@@ -1132,6 +1153,7 @@ function M.dispatch(key)
     -- What they asked takes the next key; this one only brought it up.
     if paw.ui.grabber and paw.ui.grabber ~= grabber then return end
   end
+  key_serial = key_serial + 1
   if macro and depth == 0 then macro.keys[#macro.keys + 1] = key end
   -- A key of insert mode: its edits join the step the insert made first.
   if M.mode == "i" and insert_undo and api.undo_current() ~= insert_undo then api.undo_join(api.undo_current()) end
@@ -1247,9 +1269,28 @@ function M.group_name(keys)
   end
 end
 
+--- In insert mode of a view that sets `insert_hints` (the arrange view),
+--- its keys of insert mode, after a moment: what each key inserts.
+local function insert_hints()
+  local view = paw.ui.views[paw.ui.focused]
+  if not (view and view.insert_hints and insert_hint_at and api.now() >= insert_hint_at) then return nil end
+  local out = {}
+  for _, map in pairs(maps.i and maps.i[paw.ui.focused] or {}) do
+    if map.hint ~= false then out[#out + 1] = { key = map.lhs, desc = map.desc or "", order = map.order } end
+  end
+  if #out == 0 then return nil end
+  table.sort(out, function(a, b)
+    if (a.order or 1e9) ~= (b.order or 1e9) then return (a.order or 1e9) < (b.order or 1e9) end
+    return a.key:lower() .. a.key < b.key:lower() .. b.key
+  end)
+  for _, entry in ipairs(out) do entry.order = nil end
+  return out, "-- INSERT -- <CR> opens, <BS> takes back, <Esc> ends"
+end
+
 --- The keys that can come after the typed keys, when the user stops to
 --- type: a list of { key, desc }, and a title. Nil when there is nothing to show.
 function M.hints()
+  if M.mode == "i" and #pending == 0 and not op then return insert_hints() end
   if not hint_at or api.now() < hint_at then return nil end
   local seq, found = table.concat(pending), {}
   for _, scope in ipairs(scopes()) do

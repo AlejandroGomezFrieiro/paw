@@ -51,7 +51,7 @@ In the graphical window, the doctor page has a button for each answer.
 1. Press `o`. paw adds a track.
 2. Press `a`, type `synth` and press `Enter`. The built-in synth is now on the
    track.
-3. Press `i`, then `4l`, then `Esc`. paw writes a note of one beat into a new clip.
+3. Press `i` and `Enter`, then `4l`, then `Esc`. paw writes a note of one beat into a new clip.
 4. Press `gs` to move the playhead to the start.
 5. Press `<Space><Space>`. The note plays, and the meter of the track moves.
 

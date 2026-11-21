@@ -48,7 +48,17 @@ local limit = require("paw.limit")
 local events = require("paw.events")
 local kernel = require("paw.events.kernel")
 
-local runtime = (_G as {string:partial.Paw}).paw
+--- `paw.insert` (paw/insert.tl), the part of it this module calls: a
+--- kind with an `insert` key gets that key in the arrange view's insert mode.
+local record Insert
+   add: function(key: string, spec: contracts.InsertKind): contracts.InsertKind
+   remove: function(key: string)
+   get: function(key: string): contracts.InsertKind
+end
+local record Paw is partial.Paw
+   insert: Insert
+end
+local runtime = (_G as {string:Paw}).paw
 
 local record M
    --- A kind's data as this module keeps it: it gives it to the kind's
@@ -271,6 +281,13 @@ function M.define<D>(name: string, spec: contracts.ClipKind<D>): contracts.ClipK
    spec.timeline = spec.timeline or "beats"
    if not M.kinds[name] then M.order[#M.order + 1] = name end
    M.kinds[name] = spec as contracts.ClipKind<M.Data>
+   if spec.insert and runtime.insert then
+      local editor = spec.editor
+      runtime.insert.add(spec.insert, { kind = name, desc = "A " .. spec.title:sub(1, 1):lower() .. spec.title:sub(2),
+         open = editor and function(_: contracts.InsertContext, item: contracts.InsertedItem)
+            editor(objects.clip(item.id))
+         end or nil })
+   end
    if M.migrate(name) > 0 then api.undo_label(name .. ": data version " .. version) end
    return spec
 end
@@ -278,7 +295,12 @@ end
 --- Forget a kind: no new clips of it. The clips of it that the project
 --- has stay as they are, data and all, until something defines it again.
 function M.remove(name: string)
+   local spec = M.kinds[name]
    M.kinds[name] = nil
+   local key = spec and spec.insert
+   if key and runtime.insert and runtime.insert.get(key) and runtime.insert.get(key).kind == name then
+      runtime.insert.remove(key)
+   end
    for i = #M.order, 1, -1 do
       if M.order[i] == name then table.remove(M.order, i) end
    end

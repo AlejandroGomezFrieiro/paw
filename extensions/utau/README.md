@@ -26,8 +26,8 @@ paw.render("vocal.wav")   -- waits until every phrase is sung at final quality
    OpenUtau.
 2. Type `:track.add vocal`. A vocal track appears, with `V` before its name.
 3. Press `\Vs` and choose a singer.
-4. Put the cursor on an empty part of the track. Press `i` to make a clip,
-   and press Enter. The vocal editor opens.
+4. Put the cursor on an empty part of the track. Press `i`, then `u`, to
+   insert a vocal clip, and press Enter. The vocal editor opens.
 5. Press `i` to add a note, then `c`, type `a` and press Enter. The phrase
    in the ruler turns green when the engine has sung it. Press Space two
    times to hear it.
@@ -119,6 +119,10 @@ A vocal track is a kind of track (`paw.track_kinds`).
   the graphical window tell who sings.
 - Enter on a clip of a vocal track opens the vocal editor, not the piano
   roll.
+- In insert mode of the arrange view (`i`), `u` inserts a vocal clip at
+  the cursor, and Enter after it opens the vocal editor. On a track that
+  is not a vocal track, `u` tells so and inserts nothing. See [Insert
+  mode](../../docs/reference/insert-mode.md).
 - Without the extension, a vocal track is an ordinary MIDI track.
 
 ### Keys after the leader

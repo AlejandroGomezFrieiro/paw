@@ -118,7 +118,7 @@ test("guide: start paw the first time and hear sound", function()
   keys("synth<CR>")
   local t = paw.tracks()[1]
   eq(t:devices()[1].kind, "synth", "the synth is on the track")
-  keys("i")
+  keys("i<CR>")
   keys("4l")
   keys("<Esc>")
   local clip = t:clips()[1]
@@ -243,7 +243,7 @@ test("guide: add a track with a virtual instrument", function()
   eq(api.device_get(d.id).params.cutoff, 6000, "]p the next preset")
   keys("<C-w>p")
   eq(paw.ui.focused, "arrange", "back in the arrange view")
-  keys("i")
+  keys("i<CR>")
   keys("4l")
   keys("<Esc>")
   eq(notes(t:clips()[1]), "60@0+1 v100", "a note of one beat")
@@ -1113,4 +1113,59 @@ test("guide: personalize the track column and the ruler", function()
   keys(":set trackcolumn-=signs<CR>:set barlabel-=eight<CR>")
   text = table.concat(api.ui_snapshot(160, 30), "\n", 1, 4)
   eq(text:find("●", 1, true) == nil and text:find("·9", 1, true) == nil, true, ":set -= hides them:\n" .. text)
+end)
+
+test("guide: personalize insert mode", function()
+  fresh()
+  local r, m, f = paw.insert.get("r"), paw.insert.get("m"), paw.insert.get("f")
+  local shown = paw.opt.insertkeys
+  T.after(function()
+    paw.keymap.feed("<Esc>")
+    paw.insert.remove("M")
+    paw.insert.remove("n")
+    paw.insert.add("r", r)
+    paw.insert.add("m", m)
+    paw.insert.add("f", f)
+    paw.opt.insertkeys = shown
+  end)
+  paw.ui.focus("arrange")
+  local drums = paw.add_track({ name = "Drums" })
+  paw.cursor.set_track(drums)
+  paw.cursor.set_beat(0)
+  paw.markers.add(12, "Chorus")
+  api.undo_checkpoint()
+  -- The code of the guide, as it gives it.
+  paw.insert.set("r", { name = "Verse %d", length = "marker" })
+  paw.insert.set("m", { length = "1 bar" })
+  local notes = {}
+  for beat = 0, 7 do
+    notes[#notes + 1] = { pitch = 36, start = beat, length = 0.5 }
+    if beat % 2 == 1 then notes[#notes + 1] = { pitch = 38, start = beat, length = 0.5 } end
+  end
+  paw.insert.add("M", {
+    kind = "midi",
+    desc = "A two-bar drum clip",
+    length = "2 bars",
+    name = "Drums %d",
+    notes = notes,
+  })
+  keys("iMM<Esc>")
+  local clips = drums:clips()
+  table.sort(clips, function(a, b) return a.start < b.start end)
+  eq(#clips .. " " .. clips[2].start .. " " .. clips[2].name .. " " .. #clips[2]:notes(), "2 8 Drums 2 12",
+    "two drum clips, one after the other, with their notes")
+  keys("u")
+  eq(#drums:clips(), 0, "u removes both")
+  paw.cursor.set_beat(0)
+  keys("ir<Esc>")
+  local verse = paw.markers.region("Verse 1")
+  eq(verse and verse.beat .. "+" .. verse.length, "0+12", "the region goes to the next marker")
+  keys("im<Esc>")
+  eq(drums:clips()[1].length, 4, "the MIDI clip is one bar long")
+  paw.insert.set("m", { key = "n" })
+  paw.insert.remove("f")
+  local now = table.concat(paw.opt.insertkeys, ",")
+  eq(now:find("n,a,r,'", 1, true) ~= nil and now:find("f", 1, true) == nil, true, "n in place of m, and no f: " .. now)
+  paw.opt.insertkeys = { "n", "r", "'" }
+  eq(#paw.insert.list(), 3, "only the keys of paw.opt.insertkeys work")
 end)

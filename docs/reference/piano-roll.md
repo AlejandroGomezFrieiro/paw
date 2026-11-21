@@ -84,8 +84,9 @@ operators of musicops. The beats of the cursor are those of the active clip.
 
 <!-- tags: insert-mode -->
 
-Insert mode draws a note with the cursor. In the arrange view, `i` opens
-the clip under the cursor, or a new clip. In the piano roll, `i` starts at
+Insert mode draws a note with the cursor. In the arrange view, `i` and
+`Enter` open the clip under the cursor, or a new clip (see [Insert
+mode](insert-mode.md)). In the piano roll, `i` starts at
 the cursor, and `a` where the note under the cursor ends (one grid step on,
 if there is no note).
 

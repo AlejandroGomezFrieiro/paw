@@ -263,12 +263,11 @@ end)
 test("insert mode the keys way enters notes from the keyboard as from a piano", function()
   local t = three_clips()
   paw.opt.octave, paw.opt.velocity = 4, 100
-  -- Insert mode draws notes unless asked for the keys (tests/drawinsert.lua):
-  -- as `I` does in the piano roll, this once.
-  paw.roll_draw.keys_once()
+  -- Insert mode draws notes (tests/drawinsert.lua); `I` while drawing
+  -- makes the keys a piano.
   paw.cursor.set_beat(16)
-  keys("i")
-  eq(paw.ui.focused .. paw.keymap.mode, "pianorolli", "i in the arrange view opens a new clip for typing")
+  keys("i<CR>I")
+  eq(paw.ui.focused .. paw.keymap.mode, "pianorolli", "i Enter in the arrange view opens a new clip for typing")
   local clip = t:clips()[4]
   eq(clip.start .. "+" .. clip.length, "16+4", "at the cursor")
   local roll = paw.ui.views.pianoroll

@@ -52,8 +52,8 @@ end)
 test("the welcome page and the empty roll name the right keys", function()
   start()
   local lines = screen()
-  eq(lines:find("i%s+enter notes") ~= nil and lines:find("then I%s+type them") ~= nil, true,
-    "`i` enters notes, then `I` types them like a piano (`I` in the arrange view chooses the input)")
+  eq(lines:find("i Enter%s+enter notes") ~= nil and lines:find("then I%s+type them") ~= nil, true,
+    "`i` `Enter` enters notes, then `I` types them like a piano (`I` in the arrange view chooses the input)")
   paw.ui.show("pianoroll")
   local text = screen(140, 44)
   local at = text:find("press Enter", 1, true)

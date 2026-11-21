@@ -131,6 +131,9 @@ paw.help = {}
 ---@class paw.hooks
 paw.hooks = {}
 
+---@class paw.insert
+paw.insert = {}
+
 ---@class paw.keymap
 paw.keymap = {}
 
@@ -3904,6 +3907,60 @@ function paw.hooks.turn() end
 
 --- The names of the views on screen.
 function paw.hooks.views_shown() end
+
+--- Add a key, or put a new kind in place of the one on it. It goes into
+--- `paw.opt.insertkeys` (unless `hidden`), so it works at once.
+---   paw.insert.add("M", { kind = "midi", desc = "A 4-bar clip", length = "4 bars" })
+---@param key any
+---@param spec any
+function paw.insert.add(key, spec) end
+
+--- `<BS>`: take back the last thing inserted, and the cursor with it.
+function paw.insert.back() end
+
+--- The count typed so far in insert mode, or nil.
+function paw.insert.count() end
+
+--- What `K` says in insert mode: each key and what it inserts.
+function paw.insert.describe() end
+
+--- A digit typed in insert mode: a count for the next key.
+---@param d any
+function paw.insert.digit(d) end
+
+--- What a key inserts, or nil.
+---@param key any
+function paw.insert.get(key) end
+
+--- Insert what `key` inserts at the cursor, as if typed in insert mode
+--- (`count` times).
+---@param key any
+---@param count any
+function paw.insert.insert(key, count) end
+
+--- The keys that work, in the order of `paw.opt.insertkeys`, each with
+--- what it inserts.
+function paw.insert.list() end
+
+--- `<CR>`: open what was inserted last, and end insert mode; with nothing
+--- inserted, enter notes at the cursor, in a new clip if there is none.
+function paw.insert.open() end
+
+--- Take a key away, and out of `paw.opt.insertkeys`.
+---@param key any
+function paw.insert.remove(key) end
+
+--- Change what a key inserts, a built-in key too: only the fields of
+--- `patch` that are given. With `key`, the kind moves to that key (in the
+--- same place of `paw.opt.insertkeys`). The key gets a changed copy.
+---   paw.insert.set("r", { name = "Verse %d", length = "marker" })
+---   paw.insert.set("m", { length = "1 bar", key = "n" })
+---@param key any
+---@param patch any
+function paw.insert.set(key, patch) end
+
+--- Start insert mode in the arrange view.
+function paw.insert.start() end
 
 --- Run `fn` after paw gets and does the next whole command. Insert mode uses
 --- it for Ctrl-o, to return to insert mode after one command.

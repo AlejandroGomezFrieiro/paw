@@ -174,11 +174,31 @@ In the **curve editor**:
 | `:` | a command for the selection: the line starts `:'<,'>` |
 | `<Esc>` | back to normal mode |
 
+## Insert at the cursor (insert mode, A)
+
+`i` starts insert mode in A. Each key inserts one item at the cursor, and
+the cursor steps past it: `mmm` inserts three clips. Letters only insert.
+The arrows move. Insert mode never moves a clip. All from `i` to `<Esc>`
+is one undo step. See [Insert mode](insert-mode.md).
+
+| Keys | |
+| --- | --- |
+| `m` | a MIDI clip |
+| `a` | an automation point, on the lane row or on the volume |
+| `r` `'` | a region, a marker |
+| `f` | a sound or MIDI file, which paw asks for |
+| `u` | a vocal clip (the utau extension) |
+| `3m` | three of them |
+| `<CR>` | open what was inserted last (the piano roll); with nothing, enter notes here |
+| `<BS>` | take back what was inserted last |
+| `K` | what each key inserts |
+| `<Esc>` | back to normal mode |
+
 ## Draw notes (insert mode, R)
 
 | Keys | |
 | --- | --- |
-| `i` | draw a note from the cursor (in A: in the clip under the cursor, or a new one) |
+| `i` | draw a note from the cursor (in A: `i` `<CR>`, in the clip under the cursor, or a new one) |
 | `a` | draw from where the note under the cursor ends |
 | `l` `h` | the note a step longer, shorter; a count first: `4l` |
 | `k` `j` `<C-u>` `<C-d>` | the note up, down a semitone; an octave (`K` `J` too) |

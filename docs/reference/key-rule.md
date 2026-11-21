@@ -12,6 +12,11 @@ Buffers of text (`:e paw://tracks`) keep the keys of Vim for text. There,
 `Ctrl-a` adds to the number under the cursor. As in oil.nvim, `-` goes up
 to the buffer above. Their motions and operators obey the rule.
 
+The rule is for normal mode, visual mode and the motions after an
+operator. In insert mode, keys insert, as letters insert text in Vim.
+In the arrange view, `m` inserts a MIDI clip (see [Insert
+mode](insert-mode.md)). In the piano roll, `l` makes the note longer.
+
 For the reasons of the rule, see [About the key rule](../explanation/about-the-key-rule.md).
 
 ## The keys in every view

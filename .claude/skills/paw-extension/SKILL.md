@@ -131,6 +131,7 @@ paw.trackcolumn.add("euclid", { order = 25, width = 1, render = function(track, 
 paw.trackcolumn.sign("euclid", { priority = 10, render = function(track, ctx) end })      -- a sign in its `signs` part
 paw.trackcolumn.set("fold", { order = 5, glyphs = { open = "-" }, styles = { fold = "Dim" } })  -- change a built-in part
 paw.ruler.add("euclid", { order = 20, render = function(bar, ctx) end })            -- a part of each bar's label
+paw.insert.add("E", { kind = "midi", desc = "A Euclid clip", length = "2 bars", open = function(ctx, item) end })  -- a key of the arrange view's insert mode (docs/reference/insert-mode.md); `insert = "e"` on a clip kind does it too
 paw.query.field("note", "onset", function(note) end)  -- :select / :query fields
 paw.grep.source("euclid", function(add) end)           -- :vimgrep text
 paw.health.register("euclid", function(h) h.ok("ready") end, { desc = "Euclid" })

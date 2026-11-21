@@ -10,11 +10,11 @@ A track has clips on the timeline and a chain of devices. The first device is an
 
 ## The idea
 
-In normal mode, lowercase letters do an action on the item under the cursor. `o` opens a new track below, as `o` opens a new line in Vim. `a` adds a device, `i` adds notes, `x` deletes the clip and `&` repeats it. `u` undoes and `<C-r>` redoes. So each change that you make here is safe.
+In normal mode, lowercase letters do an action on the item under the cursor. `o` opens a new track below, as `o` opens a new line in Vim. `a` adds a device, `i` inserts clips and notes, `x` deletes the clip and `&` repeats it. `u` undoes and `<C-r>` redoes. So each change that you make here is safe.
 
 ## If you know Vim
 
-`o` and `O` add a track below and above, as for lines. `i` opens the clip under the cursor (or a new clip) in the piano roll, in insert mode. There, the cursor draws notes, not text. `grn` renames, as in the LSP keys of Neovim.
+`o` and `O` add a track below and above, as for lines. `i` starts insert mode, where each key inserts an item: `m` a MIDI clip, `r` a region, `'` a marker. `<CR>` opens the clip in the piano roll, in insert mode. There, the cursor draws notes, not text. `grn` renames, as in the LSP keys of Neovim.
 
 ## Steps
 
@@ -28,7 +28,7 @@ The tutor opens a practice project for this lesson. It checks each step when you
 3. A track makes no sound until it has an instrument. Press `a`, type `synth` and press `<CR>`.
    - *Hint:* `a` opens a list of all the devices. The text that you type makes the list shorter. `<CR>` selects the first item.
    - ✓ Bass has a synth.
-4. `i` makes a clip at the cursor and opens it in insert mode, where you draw notes. Press `i`.
+4. `i` starts insert mode. There, `m` inserts a MIDI clip at the cursor, and `<CR>` opens it in the piano roll, where you draw notes. Press `i`, `m` and `<CR>`.
    - ✓ The mode is INSERT. The piano roll is open on C4, and its title row shows the note that you draw.
 5. `l` makes the note one step longer, so `4l` makes one beat. `<CR>` keeps the note and starts the next note at its end. `2k` moves up two semitones. Press `4l`, `<CR>`, `2k`, `4l`, `<CR>`, `2k`, `4l` and `<Esc>`.
    - *Hint:* The notes that you draw are green, and `<Esc>` writes them. `h` makes a note shorter and `j` moves it down.
