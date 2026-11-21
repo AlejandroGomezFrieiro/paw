@@ -45,14 +45,16 @@ impl Session {
         }
         let mut opts = opts;
         let source = Self::read_midi_source(&mut opts)?;
-        let kind = opts.kind.unwrap_or(if opts.file.is_some() {
+        let kind = opts.kind.take().unwrap_or(if opts.file.is_some() {
             ClipKind::Audio
         } else {
             ClipKind::Midi
         });
-        let (content, natural, default_name) = self.clip_content(kind, &mut opts)?;
+        // What a custom clip may do besides (fade, stretch) its sound decides.
+        let playing = kind.playing(opts.sound.as_ref());
+        let (content, natural, default_name) = self.clip_content(&kind, &mut opts)?;
         let length = opts.length.unwrap_or(natural);
-        Self::check_clip_opts(kind, &opts, length)?;
+        Self::check_clip_opts(playing.clone(), &opts, length)?;
         let id = self.new_id();
         let cue = opts.cue;
         self.edit(|p| {
@@ -61,7 +63,7 @@ impl Session {
                 .with_context(|| format!("no track {track}"))?;
             let clip = Arc::new(Self::build_clip(
                 id,
-                kind,
+                playing,
                 opts,
                 content,
                 default_name,
@@ -108,7 +110,7 @@ impl Session {
     /// default name. Takes the notes, controls and file out of `opts`.
     fn clip_content(
         &mut self,
-        kind: ClipKind,
+        kind: &ClipKind,
         opts: &mut ClipOpts,
     ) -> Result<(ClipContent, f64, String)> {
         let tempo = self.project.tempo_map().clone();
@@ -152,6 +154,42 @@ impl Session {
                 };
                 Ok((content, natural, name.unwrap_or_else(|| "audio".into())))
             }
+            ClipKind::Custom(id) => {
+                if !self.clip_kinds.contains(id) {
+                    bail!(
+                        "no clip kind `{id}` is defined: an extension defines it with `paw.clip_kinds.define`"
+                    );
+                }
+                if !opts.notes.is_empty() || !opts.controls.is_empty() {
+                    bail!("a clip of the kind `{id}` has `data`, `sound` and `signals`, not notes");
+                }
+                if opts.file.is_some() {
+                    bail!("a clip of the kind `{id}` lists its files as `media`, not `file`");
+                }
+                let data = opts
+                    .data
+                    .take()
+                    .with_context(|| format!("a clip of the kind `{id}` needs `data`"))?;
+                let length = opts
+                    .length
+                    .with_context(|| format!("a clip of the kind `{id}` needs a `length`"))?;
+                if !opts.offset.is_finite() {
+                    bail!("a clip's offset is a number");
+                }
+                let version = custom_version(opts.version)?;
+                let signals = check_signals(std::mem::take(&mut opts.signals))?;
+                let content = CustomContent {
+                    kind: id.clone(),
+                    version,
+                    timeline: opts.timeline,
+                    offset: opts.offset,
+                    data,
+                    media: std::mem::take(&mut opts.media),
+                    sound: opts.sound.take(),
+                    signals,
+                };
+                Ok((ClipContent::Custom(Box::new(content)), length, id.to_string()))
+            }
         }
     }
 
@@ -166,7 +204,7 @@ impl Session {
             bail!("only audio clips fade");
         }
         let stretch = opts.stretch.unwrap_or(1.0);
-        stretching::check_playing(kind, stretch, opts.pitch, opts.source_tempo)?;
+        stretching::check_playing(kind.clone(), stretch, opts.pitch, opts.source_tempo)?;
         stretching::check_warp(kind, &opts.warp)?;
         if opts.loop_length.is_some_and(|l| !l.is_finite() || l <= 0.0)
             || !opts.loop_start.is_finite()
@@ -356,6 +394,10 @@ impl Session {
                 (Some(ClipField::Offset), ClipContent::Audio { offset, .. }) => {
                     *offset = de::<f64>(key, value)?.max(0.0);
                 }
+                // Slipping a custom clip: where it starts in its data.
+                (Some(ClipField::Offset), ClipContent::Custom(custom)) => {
+                    custom.offset = finite("offset", de(key, value)?)?;
+                }
                 (Some(ClipField::Gain), ClipContent::Audio { gain, .. }) => {
                     *gain = de::<f64>(key, value)?.clamp(-120.0, 24.0);
                 }
@@ -367,6 +409,59 @@ impl Session {
                 }
                 _ => bail!("{} clips have no settable field `{key}`", c.content.kind()),
             }
+            Ok(())
+        })
+    }
+
+    /// The kinds of clip that extensions defined, by name.
+    pub fn clip_kinds(&self) -> Vec<String> {
+        self.clip_kinds.iter().map(ToString::to_string).collect()
+    }
+
+    /// Let clips of the kind `name` be added (`paw.clip_kinds.define`). The
+    /// project keeps no list of kinds: its clips name theirs.
+    pub fn clip_kind_define(&mut self, name: &str) -> Result<()> {
+        self.clip_kinds.insert(name.parse()?);
+        Ok(())
+    }
+
+    /// Stop adding clips of the kind `name`. Clips of it that the project
+    /// has stay as they are, data and all.
+    pub fn clip_kind_remove(&mut self, name: &str) -> Result<()> {
+        self.clip_kinds.remove(&name.parse()?);
+        Ok(())
+    }
+
+    /// The content of a custom clip, as it is saved.
+    pub fn clip_custom(&self, id: Id) -> Result<Value> {
+        let clip = self.project.clip(id).with_context(|| format!("no clip {id}"))?;
+        match &clip.content {
+            ClipContent::Custom(custom) => Ok(serde_json::to_value(custom)?),
+            other => bail!("clip {id} is a {} clip, not a custom one", other.kind()),
+        }
+    }
+
+    /// Replace what a custom clip's kind compiled: data, media, sound and
+    /// signals together, as one edit.
+    pub fn clip_set_custom(&mut self, id: Id, set: CustomSet) -> Result<()> {
+        let data = set.data.context("a custom clip is set with its `data`")?;
+        let version = set.version.map(|v| custom_version(Some(v))).transpose()?;
+        if set.offset.is_some_and(|o| !o.is_finite()) {
+            bail!("a clip's offset is a number");
+        }
+        let signals = check_signals(set.signals)?;
+        self.edit(|p| {
+            let clip = p.clip_mut(id).with_context(|| format!("no clip {id}"))?;
+            let ClipContent::Custom(custom) = &mut clip.content else {
+                bail!("clip {id} is a {} clip, not a custom one", clip.content.kind());
+            };
+            custom.data = data;
+            custom.media = set.media;
+            custom.sound = set.sound;
+            custom.signals = signals;
+            custom.version = version.unwrap_or(custom.version);
+            custom.timeline = set.timeline.unwrap_or(custom.timeline);
+            custom.offset = set.offset.unwrap_or(custom.offset);
             Ok(())
         })
     }
@@ -439,6 +534,21 @@ impl Session {
             }
         })
     }
+}
+
+/// The version of a custom clip's data: 1 when not said.
+fn custom_version(version: Option<u32>) -> Result<u32> {
+    match version {
+        Some(0) => bail!("the version of a kind's data counts from 1"),
+        other => Ok(other.unwrap_or(1)),
+    }
+}
+
+fn check_signals(signals: Vec<Signal>) -> Result<Arc<[Signal]>> {
+    if signals.iter().any(|s| !s.at.is_finite()) {
+        bail!("a signal happens at a number of beats or seconds");
+    }
+    Ok(signals.into())
 }
 
 /// A field that [`Session::clip_set`] changes: the key that Lua gives,

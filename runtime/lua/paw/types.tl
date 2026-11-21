@@ -409,9 +409,8 @@ local record types
 
   -- Clips (session/clips.rs, session.rs clip_json) ---------------------------
 
-  enum ClipKind
-    "midi" "audio"
-  end
+  --- `midi`, `audio`, or the name of a kind that an extension defines.
+  type ClipKind = string
 
   enum Timebase
     "time" "beats" "stretch"
@@ -497,6 +496,76 @@ local record types
     loop_length: number
     loop_start: number
     cue: boolean
+    version: integer
+    timeline: Timeline
+    data: KindData
+    media: {MediaRef}
+    sound: ClipContentData
+    signals: {Signal}
+  end
+
+  enum Timeline
+    "beats" "seconds"
+  end
+
+  --- The data of a custom clip (`model::KindData`): `json` is the text of
+  --- JSON, `text` text in the kind's own format. Kept as given.
+  record KindData
+    json: string
+    text: KindText
+  end
+
+  record KindText
+    ext: string
+    text: string
+  end
+
+  --- A file that a custom clip uses (`model::MediaRef`), by the kind's word.
+  record MediaRef
+    role: string
+    path: string
+    derived: boolean
+  end
+
+  --- Where a custom clip's signal goes (`model::SignalTo`): `kind` is
+  --- `kernel` (with `body`, JSON text) or `osc` (`port`, `address`, `args`).
+  record SignalTo
+    kind: string
+    body: string
+    port: string
+    address: string
+    args: {number | string | boolean}
+  end
+
+  --- A timed message of a custom clip (`model::Signal`).
+  record Signal
+    at: number
+    lead_ms: integer
+    latch: string
+    to: SignalTo
+  end
+
+  --- What `paw.api.clip_custom` gives (`model::CustomContent`).
+  record CustomContent
+    type: string
+    version: integer
+    timeline: Timeline
+    offset: number
+    data: KindData
+    media: {MediaRef}
+    sound: ClipContentData
+    signals: {Signal}
+  end
+
+  --- What `paw.api.clip_set_custom` takes (`session::CustomSet`).
+  record CustomSet
+    data: KindData
+    version: integer
+    timeline: Timeline
+    offset: number
+    media: {MediaRef}
+    sound: ClipContentData
+    signals: {Signal}
   end
 
   enum AudioEditKind
