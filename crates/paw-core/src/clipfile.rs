@@ -124,54 +124,72 @@ pub fn encode<'a>(
     length: f64,
 ) -> Vec<u8> {
     let notes: Vec<&Note> = notes.into_iter().collect();
-    // Ids are written only when they are not what reading gives anyway.
-    let plain_ids = notes.iter().enumerate().all(|(i, n)| n.id == i as u64 + 1)
-        || notes.iter().all(|n| n.id == 0);
     let mut messages = Vec::new();
-    let mut seq = 0;
-    let mut push = |tick: i64, order: Order, words: Vec<u32>| {
-        messages.push(Message {
+    for c in controls {
+        if let Some(words) = ump::encode(0, c.event(0)) {
+            messages.push((ticks(c.start), Order::Control, words.to_vec()));
+        }
+    }
+    note_messages(&notes, &mut messages);
+    let messages: Vec<Message> = messages
+        .into_iter()
+        .enumerate()
+        .map(|(seq, (tick, order, words))| Message {
             tick,
             order,
             seq,
             words,
-        });
-        seq += 1;
-    };
-    for c in controls {
-        if let Some(words) = ump::encode(0, c.event(0)) {
-            push(ticks(c.start), Order::Control, words.to_vec());
-        }
+        })
+        .collect();
+    let mut bytes = Vec::new();
+    bytes.extend_from_slice(MAGIC);
+    for w in sequence_words(messages, length) {
+        bytes.extend_from_slice(&w.to_be_bytes());
     }
-    // Reading pairs a note-off with the first note on its key to start (or
-    // with one whose length the file gives that ends there). A note that
-    // would be paired wrongly that way has its length written.
-    let span = |n: &Note| {
-        let start = ticks(n.start);
-        (start, ticks(n.start + n.length).max(start + 1))
-    };
+    bytes
+}
+
+/// The start tick of a note and the tick where it ends (at least one later).
+fn span(n: &Note) -> (i64, i64) {
+    let start = ticks(n.start);
+    (start, ticks(n.start + n.length).max(start + 1))
+}
+
+/// Reading pairs a note-off with the first note on its key to start (or
+/// with one whose length the file gives that ends there). A note that
+/// would be paired wrongly that way has its length written: these are the
+/// notes (by place) that need it.
+fn notes_needing_length(notes: &[&Note]) -> Vec<bool> {
     let mut needs_length = vec![false; notes.len()];
-    {
-        let mut events: Vec<(i64, Order, usize)> = Vec::new();
-        for (i, n) in notes.iter().enumerate() {
-            let (start, end) = span(n);
-            events.push((start, Order::On, i));
-            events.push((end, Order::Off, i));
-        }
-        events.sort();
-        let mut open: HashMap<u8, Vec<usize>> = HashMap::new();
-        for (_, order, i) in events {
-            let queue = open.entry(notes[i].pitch).or_default();
-            if order == Order::On {
-                queue.push(i);
-                continue;
-            }
-            if queue.iter().find(|&&j| !needs_length[j]) != Some(&i) {
-                needs_length[i] = true;
-            }
-            queue.retain(|&j| j != i);
-        }
+    let mut events: Vec<(i64, Order, usize)> = Vec::new();
+    for (i, n) in notes.iter().enumerate() {
+        let (start, end) = span(n);
+        events.push((start, Order::On, i));
+        events.push((end, Order::Off, i));
     }
+    events.sort();
+    let mut open: HashMap<u8, Vec<usize>> = HashMap::new();
+    for (_, order, i) in events {
+        let queue = open.entry(notes[i].pitch).or_default();
+        if order == Order::On {
+            queue.push(i);
+            continue;
+        }
+        if queue.iter().find(|&&j| !needs_length[j]) != Some(&i) {
+            needs_length[i] = true;
+        }
+        queue.retain(|&j| j != i);
+    }
+    needs_length
+}
+
+/// The note-on (with its `paw:` text when it has one) and the note-off of
+/// each note, as `(tick, order, words)`.
+fn note_messages(notes: &[&Note], out: &mut Vec<(i64, Order, Vec<u32>)>) {
+    // Ids are written only when they are not what reading gives anyway.
+    let plain_ids = notes.iter().enumerate().all(|(i, n)| n.id == i as u64 + 1)
+        || notes.iter().all(|n| n.id == 0);
+    let needs_length = notes_needing_length(notes);
     for (i, n) in notes.iter().enumerate() {
         let (start, end) = span(n);
         let mut extra = Map::new();
@@ -194,13 +212,18 @@ pub fn encode<'a>(
         let attr = n.attr.map(|a| (a.kind, a.data)).unwrap_or((0, 0));
         words.push(4 << 28 | 0x9 << 20 | (n.pitch as u32 & 127) << 8 | attr.0 as u32);
         words.push(vel << 16 | attr.1 as u32);
-        push(start, Order::On, words);
-        push(
+        out.push((start, Order::On, words));
+        out.push((
             end,
             Order::Off,
             vec![4 << 28 | 0x8 << 20 | (n.pitch as u32 & 127) << 8, 0],
-        );
+        ));
     }
+}
+
+/// The words of the file after the magic: the header, Start of Clip, the
+/// messages in order with their clockstamps, and End of Clip.
+fn sequence_words(mut messages: Vec<Message>, length: f64) -> Vec<u32> {
     messages.sort_by_key(|m| (m.tick, m.order, m.seq));
     let origin = messages.first().map_or(0, |m| m.tick.min(0));
     let mut words = Vec::new();
@@ -223,12 +246,7 @@ pub fn encode<'a>(
     let end = ticks(length).max(at);
     clockstamps(&mut words, (end - at) as u64);
     words.extend(stream(0x21));
-    let mut bytes = Vec::with_capacity(8 + words.len() * 4);
-    bytes.extend_from_slice(MAGIC);
-    for w in words {
-        bytes.extend_from_slice(&w.to_be_bytes());
-    }
-    bytes
+    words
 }
 
 /// How many 32-bit words a packet of this message type takes.
@@ -252,6 +270,220 @@ struct Open {
     end: Option<i64>,
 }
 
+/// What reading a file has seen so far.
+struct Reader {
+    tpq: u32,
+    tick: i64,
+    origin: i64,
+    started: bool,
+    ended: Option<i64>,
+    clip: Clip,
+    open: HashMap<u8, Vec<Open>>,
+    done: Vec<(usize, Note)>,
+    count: usize,
+    text: String,
+    pending: Option<Map<String, Value>>,
+    skipped: HashMap<&'static str, usize>,
+}
+
+impl Reader {
+    fn new() -> Self {
+        Reader {
+            tpq: 96,
+            tick: 0,
+            origin: 0,
+            started: false,
+            ended: None,
+            clip: Clip::default(),
+            open: HashMap::new(),
+            done: Vec::new(),
+            count: 0,
+            text: String::new(),
+            pending: None,
+            skipped: HashMap::new(),
+        }
+    }
+
+    fn beat(&self, tick: i64) -> f64 {
+        tick as f64 / self.tpq as f64
+    }
+
+    fn skip(&mut self, what: &'static str) {
+        *self.skipped.entry(what).or_default() += 1;
+    }
+
+    /// A utility message: ticks to a beat, or a Delta Clockstamp.
+    fn utility(&mut self, w0: u32) {
+        match (w0 >> 20) & 15 {
+            0x3 => self.tpq = (w0 & 0xffff).max(1),
+            0x4 if self.started => self.tick += (w0 & 0xfffff) as i64,
+            _ => {}
+        }
+    }
+
+    /// A stream message: Start of Clip, or End of Clip (true).
+    fn stream(&mut self, w0: u32) -> bool {
+        match (w0 >> 16) & 0x3ff {
+            0x20 => {
+                self.started = true;
+                self.tick = self.origin;
+            }
+            0x21 => {
+                self.ended = Some(self.tick);
+                return true;
+            }
+            _ => {}
+        }
+        false
+    }
+
+    /// A Flex Data packet: text of `paw:` that goes before a note or the
+    /// clip's origin.
+    fn flex_data(&mut self, packet: &[u32]) {
+        let w0 = packet[0];
+        let form = (w0 >> 22) & 3;
+        let bank = (w0 >> 8) & 0xff;
+        if bank != 0x01 || w0 & 0xff != 0 {
+            return;
+        }
+        if form == 0 || form == 1 {
+            self.text.clear();
+        }
+        for w in &packet[1..] {
+            for b in w.to_be_bytes() {
+                if b != 0 {
+                    self.text.push(b as char);
+                }
+            }
+        }
+        if form == 0 || form == 3 {
+            if let Some(json) = self.text.strip_prefix("paw:")
+                && let Ok(Value::Object(map)) = serde_json::from_str::<Value>(json)
+            {
+                if !self.started {
+                    self.origin = map.get("origin").and_then(Value::as_i64).unwrap_or(0);
+                } else {
+                    self.pending = Some(map);
+                }
+            }
+            self.text.clear();
+        }
+    }
+
+    /// A MIDI 1.0 (kind 2) or MIDI 2.0 (kind 4) channel voice message.
+    fn channel_voice(&mut self, kind: u32, packet: &[u32]) {
+        let Some((_, event)) = ump::decode(packet) else {
+            self.skip("other channel messages");
+            return;
+        };
+        match event {
+            EventKind::NoteOn { key, attr, .. } => {
+                let vel = if kind == 4 {
+                    scale_down(packet[1] >> 16, 16, 7) as u8
+                } else {
+                    (packet[0] & 0x7f) as u8
+                };
+                self.note_on(key, vel, attr);
+            }
+            EventKind::NoteOff { key, .. } => self.note_off(key),
+            other => self.control(other),
+        }
+    }
+
+    fn note_on(&mut self, key: u8, vel: u8, attr: paw_engine::Attr) {
+        let extra = self.pending.take().unwrap_or_default();
+        let note = Note {
+            start: self.beat(self.tick),
+            length: 0.0,
+            pitch: key,
+            velocity: vel.clamp(1, 127),
+            meta: match extra.get("meta") {
+                Some(Value::Object(m)) => m.clone(),
+                _ => Map::new(),
+            },
+            id: extra.get("id").and_then(Value::as_u64).unwrap_or(0),
+            attr: NoteAttr::of(attr),
+        };
+        let end = extra
+            .get("len")
+            .and_then(Value::as_i64)
+            .map(|l| self.tick + l);
+        self.open.entry(key).or_default().push(Open {
+            seq: self.count,
+            tick: self.tick,
+            note,
+            end,
+        });
+        self.count += 1;
+    }
+
+    fn note_off(&mut self, key: u8) {
+        let tick = self.tick;
+        let queue = self.open.entry(key).or_default();
+        let pos = queue
+            .iter()
+            .position(|o| o.end == Some(tick))
+            .or_else(|| queue.iter().position(|o| o.end.is_none()));
+        if let Some(pos) = pos {
+            let mut o = queue.remove(pos);
+            o.note.length = self.beat(tick - o.tick);
+            self.done.push((o.seq, o.note));
+        }
+    }
+
+    fn control(&mut self, event: EventKind) {
+        let at = self.beat(self.tick);
+        match Control::from_event(at, event) {
+            Some(mut c) => {
+                // A note's registered controller is the control
+                // change of that number, kept on the note.
+                if c.key.is_some()
+                    && let ControlKind::Registered { index, .. } = c.what
+                {
+                    c.what = ControlKind::Cc { number: index };
+                }
+                c.value = shortest(c.value, matches!(c.what, ControlKind::Bend));
+                self.clip.controls.push(c);
+            }
+            None => self.skip("other channel messages"),
+        }
+    }
+
+    /// The clip, when every packet has been read.
+    fn finish(mut self) -> Clip {
+        // Notes still sounding at the end end there.
+        let end_tick = self.ended.unwrap_or(self.tick);
+        for (_, queue) in std::mem::take(&mut self.open) {
+            for o in queue {
+                let mut note = o.note;
+                let end = o.end.unwrap_or(end_tick);
+                note.length = self.beat(end - o.tick);
+                self.done.push((o.seq, note));
+            }
+        }
+        // In the order they started.
+        self.done.sort_by_key(|(seq, _)| *seq);
+        let length = self.beat(end_tick).max(0.0);
+        let mut clip = self.clip;
+        clip.notes = self.done.into_iter().map(|(_, n)| n).collect();
+        // A file that gives no ids has the ids 1, 2, 3 in order, as the
+        // session would give them: nothing is left to name after reading.
+        if clip.notes.iter().all(|n| n.id == 0) {
+            for (i, n) in clip.notes.iter_mut().enumerate() {
+                n.id = i as u64 + 1;
+            }
+        }
+        clip.length = length;
+        let mut skipped: Vec<_> = self.skipped.into_iter().collect();
+        skipped.sort();
+        clip.skipped = skipped
+            .into_iter()
+            .map(|(what, n)| format!("{n} {what}"))
+            .collect();
+        clip
+    }
+}
+
 /// Read a clip file.
 pub fn decode(bytes: &[u8]) -> Result<Clip> {
     if !is_clip_file(bytes) {
@@ -265,20 +497,8 @@ pub fn decode(bytes: &[u8]) -> Result<Clip> {
         .chunks_exact(4)
         .map(|c| u32::from_be_bytes([c[0], c[1], c[2], c[3]]))
         .collect();
-    let mut tpq = 96u32;
-    let mut tick: i64 = 0;
-    let mut origin: i64 = 0;
-    let mut started = false;
-    let mut ended: Option<i64> = None;
-    let mut clip = Clip::default();
-    let mut open: HashMap<u8, Vec<Open>> = HashMap::new();
-    let mut done: Vec<(usize, Note)> = Vec::new();
-    let mut count = 0usize;
-    let mut text = String::new();
-    let mut pending: Option<Map<String, Value>> = None;
-    let mut skipped: HashMap<&'static str, usize> = HashMap::new();
+    let mut reader = Reader::new();
     let mut i = 0;
-    let beat = |tick: i64, tpq: u32| tick as f64 / tpq as f64;
     while i < words.len() {
         let w0 = words[i];
         let kind = w0 >> 28;
@@ -289,148 +509,15 @@ pub fn decode(bytes: &[u8]) -> Result<Clip> {
         let packet = &words[i..i + n];
         i += n;
         match kind {
-            0x0 => match (w0 >> 20) & 15 {
-                0x3 => tpq = (w0 & 0xffff).max(1),
-                0x4 if started => tick += (w0 & 0xfffff) as i64,
-                _ => {}
-            },
-            0xF => match (w0 >> 16) & 0x3ff {
-                0x20 => {
-                    started = true;
-                    tick = origin;
-                }
-                0x21 => {
-                    ended = Some(tick);
-                    break;
-                }
-                _ => {}
-            },
-            0xD => {
-                let form = (w0 >> 22) & 3;
-                let bank = (w0 >> 8) & 0xff;
-                if bank != 0x01 || w0 & 0xff != 0 {
-                    continue;
-                }
-                if form == 0 || form == 1 {
-                    text.clear();
-                }
-                for w in &packet[1..] {
-                    for b in w.to_be_bytes() {
-                        if b != 0 {
-                            text.push(b as char);
-                        }
-                    }
-                }
-                if form == 0 || form == 3 {
-                    if let Some(json) = text.strip_prefix("paw:")
-                        && let Ok(Value::Object(map)) = serde_json::from_str::<Value>(json)
-                    {
-                        if !started {
-                            origin = map.get("origin").and_then(Value::as_i64).unwrap_or(0);
-                        } else {
-                            pending = Some(map);
-                        }
-                    }
-                    text.clear();
-                }
-            }
-            0x2 | 0x4 if started => {
-                let Some((_, event)) = ump::decode(packet) else {
-                    *skipped.entry("other channel messages").or_default() += 1;
-                    continue;
-                };
-                let at = beat(tick, tpq);
-                match event {
-                    EventKind::NoteOn { key, attr, .. } => {
-                        let vel = if kind == 4 {
-                            scale_down(packet[1] >> 16, 16, 7) as u8
-                        } else {
-                            (w0 & 0x7f) as u8
-                        };
-                        let extra = pending.take().unwrap_or_default();
-                        let note = Note {
-                            start: at,
-                            length: 0.0,
-                            pitch: key,
-                            velocity: vel.clamp(1, 127),
-                            meta: match extra.get("meta") {
-                                Some(Value::Object(m)) => m.clone(),
-                                _ => Map::new(),
-                            },
-                            id: extra.get("id").and_then(Value::as_u64).unwrap_or(0),
-                            attr: NoteAttr::of(attr),
-                        };
-                        let end = extra.get("len").and_then(Value::as_i64).map(|l| tick + l);
-                        open.entry(key).or_default().push(Open {
-                            seq: count,
-                            tick,
-                            note,
-                            end,
-                        });
-                        count += 1;
-                    }
-                    EventKind::NoteOff { key, .. } => {
-                        let queue = open.entry(key).or_default();
-                        let pos = queue
-                            .iter()
-                            .position(|o| o.end == Some(tick))
-                            .or_else(|| queue.iter().position(|o| o.end.is_none()));
-                        if let Some(pos) = pos {
-                            let mut o = queue.remove(pos);
-                            o.note.length = beat(tick - o.tick, tpq);
-                            done.push((o.seq, o.note));
-                        }
-                    }
-                    other => match Control::from_event(at, other) {
-                        Some(mut c) => {
-                            // A note's registered controller is the control
-                            // change of that number, kept on the note.
-                            if c.key.is_some()
-                                && let ControlKind::Registered { index, .. } = c.what
-                            {
-                                c.what = ControlKind::Cc { number: index };
-                            }
-                            c.value = shortest(c.value, matches!(c.what, ControlKind::Bend));
-                            clip.controls.push(c);
-                        }
-                        None => {
-                            *skipped.entry("other channel messages").or_default() += 1;
-                        }
-                    },
-                }
-            }
-            0x3 | 0x5 => *skipped.entry("system exclusive messages").or_default() += 1,
+            0x0 => reader.utility(w0),
+            0xF if reader.stream(w0) => break,
+            0xD => reader.flex_data(packet),
+            0x2 | 0x4 if reader.started => reader.channel_voice(kind, packet),
+            0x3 | 0x5 => reader.skip("system exclusive messages"),
             _ => {}
         }
     }
-    // Notes still sounding at the end end there.
-    let end_tick = ended.unwrap_or(tick);
-    for (_, queue) in open {
-        for o in queue {
-            let mut note = o.note;
-            let end = o.end.unwrap_or(end_tick);
-            note.length = beat(end - o.tick, tpq);
-            done.push((o.seq, note));
-        }
-    }
-    // In the order they started.
-    done.sort_by_key(|(seq, _)| *seq);
-    clip.notes = done.into_iter().map(|(_, n)| n).collect();
-    // A file that gives no ids has the ids 1, 2, 3 in order, as the
-    // session would give them: nothing is left to name after reading.
-    if clip.notes.iter().all(|n| n.id == 0) {
-        for (i, n) in clip.notes.iter_mut().enumerate() {
-            n.id = i as u64 + 1;
-        }
-    }
-    clip.length = beat(end_tick, tpq).max(0.0);
-    let mut skipped: Vec<_> = skipped.into_iter().collect();
-    skipped.sort();
-    clip.skipped = skipped
-        .into_iter()
-        .map(|(what, n)| format!("{n} {what}"))
-        .collect();
-    Ok(clip)
+    Ok(reader.finish())
 }
 
 /// The number with the fewest digits that is still the same 32-bit value:
