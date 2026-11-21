@@ -29,7 +29,7 @@
 use std::borrow::Cow;
 use std::cell::UnsafeCell;
 use std::io::{Read, Write};
-use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
+use std::os::fd::{AsRawFd, BorrowedFd, FromRawFd, OwnedFd, RawFd};
 use std::os::unix::net::UnixStream;
 use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
@@ -46,6 +46,9 @@ use paw_engine::device::{
     Rest, Starting,
 };
 use paw_engine::{Event, MAX_PAIRS, ProcessCtx, Registry};
+use rustix::mm;
+use rustix::process::Signal;
+use rustix::thread::futex;
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
 
@@ -338,17 +341,10 @@ impl Shm {
     /// A new block of memory, zeroed, for blocks of up to `max_block` frames.
     fn create(max_block: usize) -> Result<Self> {
         let len = Self::layout(max_block).len;
-        // SAFETY: a plain call with a valid C string; the result is checked.
-        let fd = unsafe { libc::memfd_create(c"paw-plugin".as_ptr(), libc::MFD_CLOEXEC) };
-        if fd < 0 {
-            bail!("no shared memory: {}", std::io::Error::last_os_error());
-        }
-        // SAFETY: `fd` was just opened, and nothing else owns it.
-        let fd = unsafe { OwnedFd::from_raw_fd(fd) };
-        // SAFETY: a plain call on the descriptor owned above.
-        if unsafe { libc::ftruncate(fd.as_raw_fd(), len as libc::off_t) } != 0 {
-            bail!("no shared memory: {}", std::io::Error::last_os_error());
-        }
+        let no_memory = |err| anyhow!("no shared memory: {}", std::io::Error::from(err));
+        let fd = rustix::fs::memfd_create(c"paw-plugin", rustix::fs::MemfdFlags::CLOEXEC)
+            .map_err(no_memory)?;
+        rustix::fs::ftruncate(&fd, len as u64).map_err(no_memory)?;
         let shm = Self::map(fd, max_block)?;
         let header = shm.base.as_ptr().cast::<Header>();
         // SAFETY: the memory is ours alone until the helper is started with
@@ -367,18 +363,16 @@ impl Shm {
         // SAFETY: a new shared mapping of a descriptor we own; the result is
         // checked, and it is unmapped only in `drop`.
         let base = unsafe {
-            libc::mmap(
+            mm::mmap(
                 std::ptr::null_mut(),
                 len,
-                libc::PROT_READ | libc::PROT_WRITE,
-                libc::MAP_SHARED,
-                fd.as_raw_fd(),
+                mm::ProtFlags::READ | mm::ProtFlags::WRITE,
+                mm::MapFlags::SHARED,
+                &fd,
                 0,
             )
-        };
-        if base == libc::MAP_FAILED {
-            bail!("mapping shared memory: {}", std::io::Error::last_os_error());
         }
+        .map_err(|err| anyhow!("mapping shared memory: {}", std::io::Error::from(err)))?;
         Ok(Self {
             base: NonNull::new(base.cast()).context("mapping shared memory: null")?,
             len,
@@ -494,39 +488,29 @@ impl Drop for Shm {
     fn drop(&mut self) {
         // SAFETY: mapped in `map` with this length, and no borrow of it
         // outlives `self`.
-        unsafe {
-            libc::munmap(self.base.as_ptr().cast(), self.len);
-        }
+        let _ = unsafe { mm::munmap(self.base.as_ptr().cast(), self.len) };
     }
 }
 
+// The futex word is in memory that two processes share, so the calls are
+// not FUTEX_PRIVATE. Each is one syscall, with no allocation or lock: the
+// audio thread wakes the helper with it.
+
+/// Wake every thread that waits on `word`.
 fn futex_wake(word: &AtomicU32) {
-    unsafe {
-        libc::syscall(
-            libc::SYS_futex,
-            word.as_ptr(),
-            libc::FUTEX_WAKE,
-            i32::MAX,
-            std::ptr::null::<libc::timespec>(),
-        );
-    }
+    // The kernel reads the count as an int: i32::MAX is "all".
+    let _ = futex::wake(word, futex::Flags::empty(), i32::MAX as u32);
 }
 
 /// Sleep until `word` is no longer `seen`, or `limit` has passed.
 fn futex_wait(word: &AtomicU32, seen: u32, limit: Duration) {
-    let time = libc::timespec {
-        tv_sec: limit.as_secs() as libc::time_t,
-        tv_nsec: limit.subsec_nanos() as libc::c_long,
+    let time = futex::Timespec {
+        tv_sec: limit.as_secs() as i64,
+        tv_nsec: limit.subsec_nanos().into(),
     };
-    unsafe {
-        libc::syscall(
-            libc::SYS_futex,
-            word.as_ptr(),
-            libc::FUTEX_WAIT,
-            seen,
-            &time,
-        );
-    }
+    // Woken, timed out, or the word had already changed: the caller looks
+    // at the word again in each case.
+    let _ = futex::wait(word, futex::Flags::empty(), seen, Some(&time));
 }
 
 // --- the DAW's side: the audio thread -------------------------------------------
@@ -610,6 +594,8 @@ impl Device for RemoteDevice {
         if !self.told_priority {
             self.told_priority = true;
             let mut policy = 0;
+            // libc, as rustix has no wrapper for the pthread scheduling
+            // calls (they act on a pthread, not a kernel thread id).
             let mut param: libc::sched_param = unsafe { std::mem::zeroed() };
             unsafe {
                 libc::pthread_getschedparam(libc::pthread_self(), &mut policy, &mut param);
@@ -1134,9 +1120,11 @@ impl RemoteController {
 
     /// End the helper and whatever it started.
     fn kill(&mut self) {
-        unsafe {
-            libc::kill(-(self.child.id() as libc::pid_t), libc::SIGKILL);
-        }
+        // The helper leads a process group of its own (see `spawn`).
+        let _ = rustix::process::kill_process_group(
+            rustix::process::Pid::from_child(&self.child),
+            rustix::process::Signal::KILL,
+        );
         let _ = self.child.kill();
         let _ = self.child.wait();
     }
@@ -1207,16 +1195,16 @@ fn process_time(pid: u32) -> Option<Duration> {
     let rest = &stat[stat.rfind(')')? + 2..];
     let fields: Vec<&str> = rest.split(' ').collect();
     let ticks = fields.get(11)?.parse::<u64>().ok()? + fields.get(12)?.parse::<u64>().ok()?;
-    let per_second = unsafe { libc::sysconf(libc::_SC_CLK_TCK) }.max(1) as u64;
+    let per_second = rustix::param::clock_ticks_per_second().max(1);
     Some(Duration::from_nanos(ticks * 1_000_000_000 / per_second))
 }
 
 fn describe(status: std::process::ExitStatus) -> String {
     use std::os::unix::process::ExitStatusExt;
     match (status.signal(), status.code()) {
-        (Some(libc::SIGSEGV), _) => "it crashed (a memory fault)".into(),
-        (Some(libc::SIGABRT), _) => "it crashed (it aborted)".into(),
-        (Some(libc::SIGKILL), _) => "it was killed".into(),
+        (Some(signal), _) if signal == Signal::SEGV.as_raw() => "it crashed (a memory fault)".into(),
+        (Some(signal), _) if signal == Signal::ABORT.as_raw() => "it crashed (it aborted)".into(),
+        (Some(signal), _) if signal == Signal::KILL.as_raw() => "it was killed".into(),
         (Some(signal), _) => format!("it crashed (signal {signal})"),
         (None, Some(code)) => format!("its process ended with code {code}"),
         _ => "its process ended".into(),
@@ -1517,16 +1505,23 @@ impl RemoteFactory {
         if let Some(cache) = CACHE.lock().unwrap().as_ref() {
             command.arg(cache);
         }
+        // SAFETY: the closure runs in the child between fork and exec, where
+        // only async-signal-safe calls may be made. Each call below is one
+        // syscall that allocates nothing and takes no lock; errors are
+        // ignored, as `Errno` is a plain number. The two descriptors stay
+        // open in this process until the child is spawned.
         unsafe {
             command.pre_exec(move || {
+                use rustix::io::{FdFlags, fcntl_setfd};
+                use rustix::process::{set_parent_process_death_signal, setpgid};
                 // The helper is handed the socket and the memory, and is
                 // told to finish if this program ends first.
-                libc::fcntl(sock_fd, libc::F_SETFD, 0);
-                libc::fcntl(shm_fd, libc::F_SETFD, 0);
-                libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGTERM);
+                let _ = fcntl_setfd(BorrowedFd::borrow_raw(sock_fd), FdFlags::empty());
+                let _ = fcntl_setfd(BorrowedFd::borrow_raw(shm_fd), FdFlags::empty());
+                let _ = set_parent_process_death_signal(Some(Signal::TERM));
                 // A group of its own, so that what the plugin starts in
                 // turn (a bridge to Wine) can be ended along with it.
-                libc::setpgid(0, 0);
+                let _ = setpgid(None, None);
                 Ok(())
             });
         }
@@ -1795,6 +1790,7 @@ fn audio_loop(shm: Arc<Shm>, mut device: Box<dyn Device>) {
         );
         if wanted != scheduling {
             scheduling = wanted;
+            // libc: rustix has no wrapper for pthread_setschedparam.
             let mut param: libc::sched_param = unsafe { std::mem::zeroed() };
             param.sched_priority = wanted.1 as i32;
             unsafe {

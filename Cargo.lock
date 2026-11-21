@@ -3096,6 +3096,7 @@ dependencies = [
  "lilv-sys",
  "paw-engine",
  "rtrb",
+ "rustix 1.1.6",
  "serde",
  "serde_json",
  "thiserror 2.0.21",
