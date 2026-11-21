@@ -19,7 +19,12 @@ For this reason, `b` is only a motion: the bypass in the device panel went to
 `gc`, as `gc` comments a line out in Vim. The "back to the timeline" of the
 session view went to `B` (`gB` for every track). `e` is only a motion too.
 The window of a plugin is `ge` in every view. The session view opens the
-notes of a slot with `i`, as `i` enters notes in a clip.
+notes of a slot with `i`, as `i` enters notes in the piano roll.
+
+In insert mode, the keys are not commands: they insert, as letters insert
+text in Vim. The rule is for normal and visual mode. In the insert mode of
+the arrange view, `m` inserts a MIDI clip and `r` a region, and only the
+arrow keys move.
 
 ## One key for the main value
 

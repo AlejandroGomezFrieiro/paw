@@ -105,8 +105,9 @@ paw records all that an extension registers while it loads:
 - picker sources, query fields, fields and views of `:s` and `:g`,
   completers, status line components, grep sources
 - the parts and signs of the track column and the parts of the bar
-  labels (`paw.trackcolumn`, `paw.ruler`), also the parts of paw that it
-  changes with `set`
+  labels (`paw.trackcolumn`, `paw.ruler`), and the keys of insert mode
+  in the arrange view (`paw.insert`), also the parts and the keys of paw
+  that it changes with `set`
 - curve providers, address schemes, completion sources, layers, health
   checks, hooks (`paw.on`), options, timers (`paw.every`, `paw.defer`)
 - its directory of devices written in Lua, and the plugin directories that
@@ -364,6 +365,7 @@ The kind tells how its data is saved. This is the job of the extension:
 | `describe(clip)` | a few words for `K` |
 | `look(clip, ctx)` | how the arrange view draws the clip: `{ label, marks, strip, color }` |
 | `editor(clip)` | opens the clip |
+| `insert` | a key of insert mode in the arrange view that inserts a clip of the kind. `Enter` after it calls `editor`. See [Insert mode](insert-mode.md) |
 | `on_signal`, `chase`, `chase_back`, `on_stop` | for the time when the project plays |
 
 The functions of a kind must be fast. Each one stops after

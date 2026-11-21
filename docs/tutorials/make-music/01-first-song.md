@@ -27,10 +27,10 @@ A key in normal mode does an action at the cursor. A command starts with
 3. Press `a`, type `drums` and press Enter.
    - `a` opens the list of devices. paw adds the built-in drum kit and
      says `added Drums to Drums`.
-4. Press `i`, then `<Esc>`.
-   - `i` makes an empty clip at the cursor and opens it in the piano roll.
-     `<Esc>` leaves insert mode, and the piano roll stays open below the
-     tracks.
+4. Press `i`, `m` and Enter, then `<Esc>`.
+   - `i` starts insert mode in the arrange view. `m` inserts an empty MIDI
+     clip at the cursor. Enter opens it in the piano roll. `<Esc>` leaves
+     insert mode, and the piano roll stays open below the tracks.
 
 ## Write the beat
 
@@ -68,9 +68,10 @@ changes the project is one undo step.
 2. Press `a`, type `synth` and press Enter.
    - The bass track has the built-in synth.
 3. Press `0` to put the cursor at the start of the song.
-4. Press `i`. Then press `J` and `3-`.
-   - Insert mode starts a note on C4. `J` moves it down one octave,
-     and `3-` three semitones, to A2.
+4. Press `i` and Enter. Then press `J` and `3-`.
+   - `i` and Enter make a clip at the cursor and open it in the piano
+     roll, in insert mode. Insert mode starts a note on C4. `J` moves it
+     down one octave, and `3-` three semitones, to A2.
 5. Press `16l`, then Enter.
    - The A2 is one bar long. Enter keeps it and starts the next note where
      it ends.
@@ -83,7 +84,7 @@ changes the project is one undo step.
 
 1. Press `o`. Press `grn` and `<C-u>`, type `Keys` and press Enter.
 2. Press `a`, type `synth` and press Enter. Press `0`.
-3. Press `i` and `3-` (down to A3).
+3. Press `i` and Enter, then `3-` (down to A3).
 4. Press `c`. Type `vi` and press Enter. Then press `16l` and Enter.
    - In insert mode, `c` makes the note a chord. `vi` is the sixth chord
      of the key, A minor in C major. Then `16l` makes all of the chord one

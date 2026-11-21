@@ -17,7 +17,7 @@ paw.render("vocal.wav")   -- waits until every phrase is sung at final quality
 
 ![A vocal track added to the demo song with :track.add vocal, its singer chosen with \Vs and its phonemizer with :utau.phonemizer, the melody pasted in, lyrics typed in romaji with :utau.lyrics and made kana with :utau.batch. The phrases turn green as the engine sings them](images/tui-utau.gif)
 
-![The vocal editor on the sung melody: the phonemes under the notes, ~ puts a vibrato on the long note, \]c and } raise its dynamics, r sings it again, and Space pressed twice plays it](images/tui-utau-editor.gif)
+![The vocal editor on the sung melody: the phonemes under the notes, ~ puts a vibrato on the long note, \]e and } raise its dynamics, r sings it again, and Space pressed twice plays it](images/tui-utau-editor.gif)
 
 ## Try it
 
@@ -26,8 +26,8 @@ paw.render("vocal.wav")   -- waits until every phrase is sung at final quality
    OpenUtau.
 2. Type `:track.add vocal`. A vocal track appears, with `V` before its name.
 3. Press `\Vs` and choose a singer.
-4. Put the cursor on an empty part of the track. Press `i` to make a clip,
-   and press Enter. The vocal editor opens.
+4. Put the cursor on an empty part of the track. Press `i`, then `u`, to
+   insert a vocal clip, and press Enter. The vocal editor opens.
 5. Press `i` to add a note, then `c`, type `a` and press Enter. The phrase
    in the ruler turns green when the engine has sung it. Press Space two
    times to hear it.
@@ -85,7 +85,7 @@ When the file of the device changes, paw loads it again
 ### How to shape the voice
 
 - To switch vibrato on a note, press `~`.
-- To choose the curve under the notes, press `]c` or `[c`. To raise or
+- To choose the curve under the notes, press `]e` or `[e`. To raise or
   lower it at the cursor, press `}` or `{`.
 - To apply a tuning preset, type `:utau.preset` and choose one.
 
@@ -119,6 +119,10 @@ A vocal track is a kind of track (`paw.track_kinds`).
   the graphical window tell who sings.
 - Enter on a clip of a vocal track opens the vocal editor, not the piano
   roll.
+- In insert mode of the arrange view (`i`), `u` inserts a vocal clip at
+  the cursor, and Enter after it opens the vocal editor. On a track that
+  is not a vocal track, `u` tells so and inserts nothing. See [Insert
+  mode](../../docs/reference/insert-mode.md).
 - Without the extension, a vocal track is an ordinary MIDI track.
 
 ### Keys after the leader
@@ -151,7 +155,7 @@ These keys work from every view. They are in the domain `<Space>u` (utau).
 | `+` `-` (`C-a` `C-x` with a count), `A-l` `A-h`, `H` `L` | up, down a semitone. Longer, shorter. Move. The selected notes, else the note under the cursor |
 | `gA`, `ip` `ap` | select every note. The phrase as a text object (`yip`, `vap`) |
 | `<C-c>`, `d` `x` | copy the selected notes (or the note), cut them. `p` `P` paste, with their pitches |
-| `]c` `[c`, `:utau.curve <abbr>` | the curve under the notes: next, previous, by name |
+| `]e` `[e`, `:utau.curve <abbr>` | the curve under the notes: next, previous, by name |
 | `}` `{` | raise or lower that curve at the cursor (the pitch by 10 cents, the others by their own step. A count multiplies) |
 | `=` | an operator: reset that curve to its default over what it covers. `=in` under the note, `==` in the full clip, `=` on a selection |
 | `[p` `]p` | choose the previous or next phoneme (in the phoneme row and the bottom line) |

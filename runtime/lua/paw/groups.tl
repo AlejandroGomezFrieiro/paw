@@ -44,9 +44,11 @@ local record RowOptions
 end
 
 -- What this module reads of `paw`, which paw/init.lua makes.
+-- paw/scope.tl names this module's types, so this one declares only the
+-- part of it that it reads.
 local record Scope
-  current: function(): integer
-  tracks: function(scope?: integer): {integer}
+  group: function(): integer
+  tracks: function(): {integer}
 end
 local record Paw is partial.Paw
   lanes: LanesModule
@@ -90,6 +92,10 @@ local function set_output(id: integer, output: integer)
   if output == nil then api.track_set(id, "output", nil) else api.track_set(id, { output = output }) end
 end
 
+-- `track_get(id, "id")`: one field, which fails when the track is gone,
+-- without the list of clips that the whole track has.
+local track_id_of = api.track_get as function(integer, string): integer
+
 --- True if a track is a group.
 function M.is_group(track: TrackRef): boolean
   return meta(id_of(track)).group_head == true
@@ -98,7 +104,7 @@ end
 --- The group a track belongs to (its id), or nil.
 function M.of(track: TrackRef): integer
   local group = meta(id_of(track)).group
-  if group and pcall(api.track_get, group) and M.is_group(group) then return group end
+  if group and pcall(track_id_of, group, "id") and M.is_group(group) then return group end
 end
 
 --- The tracks that belong to a group, in the order of the track list.
@@ -139,7 +145,7 @@ function M.hidden(track: TrackRef, top?: integer): boolean
 end
 
 --- The tracks that are drawn, in order: all but those folded away, and in
---- a narrowed tab only those of its group (`paw.scope`). Rows of the
+--- a narrowed tab only those of its scope (`paw.scope`). Rows of the
 --- arrange view and of a graphical frontend are places in this list.
 --- With `{ lanes = true }`, every row: `{ track = id }` for a track and
 --- `{ track = id, lane = id }` for an automation lane shown under it
@@ -147,8 +153,8 @@ end
 local function rows(opts?: RowOptions): {integer}
   if opts and opts.lanes then return paw.lanes.lines() as {integer} end
   local out, vcas: {integer}, {integer} = {}, {}
-  local scope = paw.scope and paw.scope.current()
-  for _, id in ipairs(paw.scope and paw.scope.tracks(scope) or api.track_list()) do
+  local scope = paw.scope and paw.scope.group()
+  for _, id in ipairs(paw.scope and paw.scope.tracks() or api.track_list()) do
     if not M.hidden(id, scope) then
       -- VCAs come after the tracks they move.
       local list = paw.vca.is_vca(id) and vcas or out

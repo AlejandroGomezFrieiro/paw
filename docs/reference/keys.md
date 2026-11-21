@@ -32,6 +32,7 @@ change.
 | `5\|` | bar 5 (also `:5`) | |
 | `gP` | cursor to the playhead | |
 | `]'` `['` | next marker or region, the one before | |
+| `)` `(` | | next phrase, start of this phrase or the one before |
 | `zz` `zh` `zl` | center the cursor, scroll a bar | |
 
 These keys only move, in every view. In **M**, `h` `l` are strips. `j` `k`
@@ -67,7 +68,7 @@ are rows, `w` `b` devices, `e` the last parameter of a device.
 | `gw` `gW` | put a warp marker on an audio clip at the cursor, take off the nearest | |
 | `<A-j>` `<A-k>` | move the track down, up | |
 | `M` `s` `r` | mute, solo, arm the track | |
-| `zn` `zw` | narrow to the group at the cursor, in a tab of its own; widen again | |
+| `zn` `zw` | narrow to the group at the cursor, in a tab of its own; widen one level (`:narrow Bridge` narrows to a region) | |
 | `<Space>tv` `<Space>ta` `<Space>tr` `<Space>tx` `<Space>tl` | a new VCA over the selected tracks; put them under a VCA; take them out of their VCAs; take the VCA at the cursor away; link the faders of a group | |
 | `I` `<A-i>` | choose the input (audio, MIDI port and channel), monitor it | |
 | `a` | add a device | enter notes after the note |
@@ -151,14 +152,20 @@ In the **curve editor**:
 
 | Keys | A | R |
 | --- | --- | --- |
-| `ic` | the clip under the cursor | the notes that sound together at the cursor |
-| `ac` | the clip and the gap after it | the same and every note that overlaps them |
-| `ie` | the entire project | every note of the clip |
-| `in` | | the note under the cursor |
+| `ic` | the clip under the cursor | the chord: the notes that start together (`2ic` two chords) |
+| `ac` | the clip and the gap after it | the chord as the harmony reads it, also a broken chord |
+| `in` `an` | | the note under the cursor (`2in` and the next of its voice), with the rest after it |
+| `ip` `ap` | | the phrase, with the rest after it |
+| `iv` `av` | | the voice of the note: the top line, the bass or a line between, with its octave doublings |
+| `i=` `a=` | | every note of the pitch, of the pitch class |
 | `ib` | this bar (`2ib` two) | this bar |
+| `ir` | the region, on this track | the region (`2ir` the region around it) |
 | `il` | the loop | |
 | `it` | everything on the track | |
 | `ie` | the entire project | every note of the clip |
+
+In visual mode, the same text object again takes in one more: `vic` then
+`ic` selects two chords.
 
 ## Select (visual mode)
 
@@ -174,11 +181,31 @@ In the **curve editor**:
 | `:` | a command for the selection: the line starts `:'<,'>` |
 | `<Esc>` | back to normal mode |
 
+## Insert at the cursor (insert mode, A)
+
+`i` starts insert mode in A. Each key inserts one item at the cursor, and
+the cursor steps past it: `mmm` inserts three clips. Letters only insert.
+The arrows move. Insert mode never moves a clip. All from `i` to `<Esc>`
+is one undo step. See [Insert mode](insert-mode.md).
+
+| Keys | |
+| --- | --- |
+| `m` | a MIDI clip |
+| `a` | an automation point, on the lane row or on the volume |
+| `r` `'` | a region, a marker |
+| `f` | a sound or MIDI file, which paw asks for |
+| `u` | a vocal clip (the utau extension) |
+| `3m` | three of them |
+| `<CR>` | open what was inserted last (the piano roll); with nothing, enter notes here |
+| `<BS>` | take back what was inserted last |
+| `K` | what each key inserts |
+| `<Esc>` | back to normal mode |
+
 ## Draw notes (insert mode, R)
 
 | Keys | |
 | --- | --- |
-| `i` | draw from the cursor: on a note, take it at its start; else a new note (in A: in the clip under the cursor, or a new one) |
+| `i` | draw from the cursor: on a note, take it at its start; else a new note (in A: `i` `<CR>`, in the clip under the cursor, or a new one) |
 | `a` | take the note under the cursor, or the note that ends there (after `e`), at its end; else a new note a step on |
 | `l` `h` | the edge under the cursor a step right, left: at the end, longer, shorter; at the start, shorter, longer; a count first: `4l` |
 | `o` `^` `$` `0` | the other edge; the start; the end; the start |
@@ -311,7 +338,7 @@ the local leader `\`.
 | in a picker | Tab marks a line, Ctrl-q sends the marked (or all) to the quickfix list; Ctrl-v, Ctrl-x, Ctrl-t open it beside, below, in a tab; Ctrl-r steps fuzzy, exact, regex; Alt-d deletes; Ctrl-Up what was typed before |
 | `:vimgrep /pizz/` | every text in the project that matches, in the quickfix list |
 | `:select clip[name~=pizz] > note[pitch>=C5]` | choose what a query finds; `:query` lists it |
-| `]c` `[c` | next, previous clip of the same kind on the track (R: `]n` `[n`, note of the same pitch) |
+| `]c` `[c` | next, previous clip of the same kind on the track (R: next, previous chord; `]n` `[n`, note of the same pitch) |
 | `]s` `[s` | next, previous track in the group (in a score, instrument in the group) |
 | `]]` `[[` | with the sections extension, the next and previous section in A (in a score, the next and previous instrument) |
 | `[{` `]}` | up to the group the track is in; its last track (in a score, the group's first and last instrument); `[u` is `[{` too |

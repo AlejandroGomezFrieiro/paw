@@ -564,6 +564,13 @@ map("<CR>", function()
   end
   paw.cmd("clip.edit")
 end, { view = "arrange", desc = "Edit the clip's notes" })
+-- In the arrange view's insert mode, `u` inserts a vocal clip on a vocal
+-- track, and Enter after it opens the vocal editor (paw.insert).
+paw.insert.add("u", {
+  kind = "midi", desc = "A vocal clip, to sing; Enter opens the vocal editor", order = 15,
+  tracks = { "vocal" }, name = "Vocal %d",
+  open = function(_, item) editor:edit(item.id) end,
+})
 -- From every view, on the leader.
 paw.keymap.group("<leader>u", "utau")
 map("<leader>ut", "utau.track", { desc = "Add a vocal track" })

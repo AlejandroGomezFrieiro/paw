@@ -911,7 +911,7 @@ paw.ui.dock("utau", { side = "bottom", hidden = true })
 if paw.ui.keybar then
   paw.ui.keybar.set("utau", "n", {
     { "i", "note" }, { "c", "lyric" }, { "<Tab>", "next note" }, { "<A-l>", "longer" }, { "<A-h>", "shorter" },
-    { "}", "raise curve" }, { "]c", "curve" }, { "]p", "phoneme" }, { "~", "vibrato" }, { "<leader><Space>", "play" },
+    { "}", "raise curve" }, { "]e", "curve" }, { "]p", "phoneme" }, { "~", "vibrato" }, { "<leader><Space>", "play" },
     { "S", "singer" }, { "<C-w>p", "back" },
   })
 end

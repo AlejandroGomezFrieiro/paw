@@ -225,7 +225,7 @@ test("nohome: a roll on a clip that was undone keeps no clip: the project opens 
   local t = riff()
   api.undo_checkpoint()
   paw.cursor.set_beat(16)
-  keys("i")
+  keys("i<CR>")
   keys("4l<Esc>")
   keys("<C-w>p")
   keys("u")

@@ -20,7 +20,6 @@ define("musicops_ramp", 30)                 -- velocity added (or taken) by the 
 define("musicops_compress", 0.5)            -- `gzc` brings velocities this far to the average
 define("musicops_accent", 20)               -- velocity `gze` adds on the beat
 define("musicops_together", 1 / 16)         -- notes starting this close (beats) are one chord
-define("musicops_phrase_rest", 0.5)         -- a rest longer than this (beats) ends a phrase
 define("musicops_snap", "nearest")          -- where off-key notes go: nearest, up, down
 define("musicops_mirror_chromatic", false)  -- `gzm` mirrors in semitones rather than in the key
 define("musicops_scale_lock", false)        -- note entry and <C-a> <C-x> stay in the key

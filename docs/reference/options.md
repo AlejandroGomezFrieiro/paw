@@ -33,6 +33,7 @@ An extension adds options of its own with `paw.option.define(name, default, spec
 | --- | --- | --- |
 | `paw.opt.grid` | `1` | The step and snap of the arrange cursor, in beats. |
 | `paw.opt.note_grid` | `0.25` | The step and snap of the piano roll, in beats. |
+| `paw.opt.phrase_rest` | `0.5` | A rest in the piano roll longer than this, in beats, ends a phrase: for `ip`, `ap`, `(` and `)`. |
 | `paw.opt.note_snap` | `true` | Notes drawn with the pointer go on the grid of the piano roll. |
 | `paw.opt.ripple` | `false` | When `true`, to delete time closes the gap, and to paste moves the music after it. |
 | `paw.opt.clip_length` | `4` | The length of a new MIDI clip, in beats. |
@@ -80,7 +81,9 @@ clip. `:set undo_steps=200` removes the oldest steps at once.
 | `paw.opt.threads` | `0` | The threads that process tracks. `0` gives one for each core. |
 | `paw.opt.device_sleep` | `true` | A device at rest sleeps through silence: a reverb after its tail, a synth with no note that sounds. This saves processor time. The sound is the same with `false`. |
 | `paw.opt.audio_reconnect` | `true` | paw opens an audio device again when it returns. |
-| `paw.opt.scope_rest` | `"play"` | What the other tracks do in a narrowed tab: `"play"`, `"mute"` or `"frozen"`. |
+| `paw.opt.scope_rest` | `"play"` | What the tracks outside the scope do in a narrowed tab: `"play"`, `"mute"` or `"frozen"`. |
+| `paw.opt.scopebars` | `"both"` | The bar numbers in a scope with time: `"local"` (from 1 at its start), `"song"`, or `"both"` (from 1, and the bars of the song on a second row of the ruler). |
+| `paw.opt.scopeloop` | `true` | Loops the time of a scope while its tab is in front. |
 
 ## Media and render
 
@@ -106,6 +109,7 @@ clip. `:set undo_steps=200` removes the oldest steps at once.
 | `paw.opt.trackcolumn` | `number,signs,fold` | The parts of the track column that show. See [The track column](trackcolumn.md). |
 | `paw.opt.relativebar` (`rbar`) | `false` | Shows on the ruler how many `W` or `B` go to each bar. The bar of the cursor keeps its number. |
 | `paw.opt.barlabel` | `number` | The parts of the label of each bar on the ruler. |
+| `paw.opt.insertkeys` | `m,a,r,',f` | The keys of insert mode in the arrange view, in the order of its box of keys. See [Insert mode](insert-mode.md). |
 | `paw.opt.devices_width` | `36` | The columns of the device panel. |
 | `paw.opt.mixer_height` | `12` | The rows of the mixer. |
 | `paw.opt.pianoroll_height` | `0` | The rows of the piano roll. `0` shares the space. |

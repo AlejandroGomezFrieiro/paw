@@ -32,6 +32,7 @@ local type GroupsModule = require("paw.groups")
 local type HarmonyModule = require("paw.harmony")
 local type HelpModule = require("paw.help")
 local type HooksModule = require("paw.hooks")
+local type InsertModule = require("paw.insert")
 local type LanesModule = require("paw.lanes")
 local type LangModule = require("paw.lang")
 local type LayoutModule = require("paw.layout")
@@ -57,6 +58,7 @@ local type RolesModule = require("paw.roles")
 local type RollDrawModule = require("paw.roll_draw")
 local type RulerModule = require("paw.ruler")
 local type SceneModule = require("paw.scene")
+local type ScopeModule = require("paw.scope")
 local type SeatsModule = require("paw.seats")
 local type SnippetModule = require("paw.snippet")
 local type StatuslineModule = require("paw.statusline")
@@ -125,6 +127,7 @@ global record paw
    help: HelpModule
    hooks: HooksModule
    import_audio: Untyped
+   insert: InsertModule
    inspect: function<T>(value: T, indent?: string, seen?: {UtilModule.Data:boolean}): string
    is_audio_file: Untyped
    is_chain_file: Untyped
@@ -186,7 +189,7 @@ global record paw
    routes: Untyped
    ruler: RulerModule
    scene: SceneModule
-   scope: Untyped
+   scope: ScopeModule
    seats: SeatsModule
    snippet: SnippetModule
    state: Untyped

@@ -48,6 +48,12 @@ take out what your extension adds. An extension's README follows
    "The leader keys"); a new domain names its group with `paw.keymap.group`.
    `tests/fixtures/keys_walk.lua` fails on a leader key outside a domain.
    Motions are declared `motion = true` so operators and visual mode work.
+   A musical object of the piano roll is a text object
+   (`paw.keymap.textobject`), not a new selection key: return the region of
+   its notes, with `notes` (note ids by clip id) when other notes lie
+   between them, as `require("paw.note_objects").region(notes)` makes it.
+   The core objects are in docs/reference/grammar.md ("Objects of the
+   piano roll"); do not map their letters again.
    `tests/keys_constitution.lua` and `paw.keyrule.broken()` check it.
 3. **Terminal first, both frontends from one code path.** Draw views in
    cells with `buf:text`/`buf:fill`; the window renders the same scene (see
@@ -131,6 +137,7 @@ paw.trackcolumn.add("euclid", { order = 25, width = 1, render = function(track, 
 paw.trackcolumn.sign("euclid", { priority = 10, render = function(track, ctx) end })      -- a sign in its `signs` part
 paw.trackcolumn.set("fold", { order = 5, glyphs = { open = "-" }, styles = { fold = "Dim" } })  -- change a built-in part
 paw.ruler.add("euclid", { order = 20, render = function(bar, ctx) end })            -- a part of each bar's label
+paw.insert.add("E", { kind = "midi", desc = "A Euclid clip", length = "2 bars", open = function(ctx, item) end })  -- a key of the arrange view's insert mode (docs/reference/insert-mode.md); `insert = "e"` on a clip kind does it too
 paw.query.field("note", "onset", function(note) end)  -- :select / :query fields
 paw.grep.source("euclid", function(add) end)           -- :vimgrep text
 paw.health.register("euclid", function(h) h.ok("ready") end, { desc = "Euclid" })

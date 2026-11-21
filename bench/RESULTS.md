@@ -7,6 +7,45 @@ How to run everything: [README.md](README.md). Raw numbers:
 matrix before it). The processor time of the whole program while it plays,
 against REAPER, Ardour and LMMS, is in [DAWS.md](DAWS.md).
 
+## 2026-11-21: paw in the terminal, profiled
+
+A profile of the kernel and the terminal frontend, with the tools that
+[profile.md](profile.md) names. The project: 64 tracks with a synth each, 2 000
+MIDI clips and 50 000 notes, in a 187×56 terminal, `--audio null`. All
+numbers were measured under external load (load average 2 to 28): a range
+is the spread of the runs. The time of a key is the processor time of the
+kernel's main thread.
+
+| Scenario | Result |
+| --- | --- |
+| Start without a project | first frame 1 035 ms (1 032 to 1 037) before, 35 ms (33 to 47) after: the first frame is drawn before the kernel waits |
+| Start with the large project | first frame 113 ms; resident memory 88 MB; Lua heap 47 MB |
+| Idle for 30 s | kernel 0 %, no frames; the audio thread of the null backend 1.8 % of a core |
+| Idle with an armed track on a steady input | kernel 6.7 %, for 0.07 frames per second sent to the terminal |
+| Playing | kernel 6.7 to 9 %, audio 16 to 18 %; 58.5 frames per second, 117 bytes per frame (largest 2.1 kB), 15 kB/s |
+| Recording | kernel 7.9 % |
+| Moves (`j k w b h l`, `<C-d>`, `<C-u>`) | 7 to 12 ms of kernel time, 7 to 11 ms to the frame |
+| `G`, `gg` | 11 to 55 ms, 31 to 33 kB per frame |
+| An edit and its undo (`x`, `u`) | 1 450 ms (1 317 to 2 585) before, 693 ms (663 to 696) after: the chord reading is 2.1 times faster, with the same readings |
+| Open the piano roll | 28 to 47 ms |
+| `<leader>fg` | 74 to 86 ms |
+| `:help` | 6 to 9 ms |
+| 10 minutes of editing and playing | resident memory 121 to 128 MB, flat after the first minute: no leak |
+| Allocations while playing | about 1 400 per frame |
+
+What is left, in order of what the user feels:
+
+1. Each edit reads the chords of the whole song again. Even after the fix
+   it costs about 0.6 s on this project, and the next key waits for it.
+   Without it, an edit costs 35 to 90 ms.
+2. A full frame costs 7 to 12 ms: the clip list is made again as JSON on each
+   frame.
+3. The live ticker draws 60 frames per second when an armed input changes
+   nothing on the screen.
+4. The files picker walks the whole folder tree (up to 10 s).
+5. About 1 400 allocations per frame while playing, half of them for
+   strings passed from Lua.
+
 ## Since then: several threads, and one note at a time
 
 The two largest weaknesses below were taken up after these results were

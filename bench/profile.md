@@ -1,0 +1,99 @@
+# Profile of paw in the terminal
+
+The scripts in [profile/](profile) measure paw as a person uses it in a
+terminal. They show where the processor time, the latency and the memory
+go. They measure the kernel (the Rust program with its Lua runtime) and
+the terminal frontend. They do not measure the graphical window.
+
+## What you need
+
+- A profiling build. It is the release build with line tables and
+  symbols, for `perf` and `heaptrack`:
+  `nix develop -c cargo build --profile profiling -p paw-tui`.
+  The scripts use the newer of `target/profiling/paw` and
+  `target/release/paw`.
+- The profile shell: `nix develop .#profile`. It adds `perf`, `samply`,
+  `inferno` (flame graphs), `heaptrack`, `valgrind` and `hyperfine` to
+  the default shell.
+- `perf` without root needs `kernel.perf_event_paranoid` at 2 or less.
+  At 2, `perf` samples only the user space of your own processes. The
+  scripts use the events `cycles:u` and `instructions:u` and
+  `--user-callchains` for this reason.
+
+## How to run a scenario
+
+```sh
+nix develop .#profile -c bench/profile/run.sh <scenario> [options]
+```
+
+`run.sh` takes the shared lock (`flock`) and runs on the processors 16 to
+23 (`taskset`). `CORES` and `LOCK` change them. The driver is
+[profile/drive.py](profile/drive.py). It starts paw in a private
+pseudo-terminal with `--clean --no-plugins --audio null`, scratch `XDG_*`
+folders and `HOME`, and a control socket of its own. It answers the
+terminal probe, writes the keys and reads what paw draws. A frame is
+what paw writes between the start and the end of a synchronized update.
+
+The first run makes the large project with
+[profile/project.lua](profile/project.lua). It has 64 tracks with a synth
+each, 2 000 MIDI clips and 50 000 notes. Each fourth track has a volume
+lane.
+The results go to `$BENCH_TMP/profile` (`BENCH_TMP` is `/tmp/paw-bench`
+when it is not set), one JSON line for each measurement in
+`results.jsonl`.
+
+| Scenario | What it does | What it measures |
+| --- | --- | --- |
+| `startup` | Starts paw empty, then with the large project, `--reps` times each. | The time from the start to the first frame, the memory and the Lua heap after the start. |
+| `idle` | The large project open, nothing moves, `--secs` seconds (60). | The processor share of each thread, frames and bytes, memory. |
+| `idle-armed` | As `idle`, with a track armed on the test input of the null backend. | As `idle`. |
+| `keys` | Each key of a list in the large project: moves, scrolls, edits, undo, the piano roll, the mixer, pickers, help. | For each key: the processor time of the kernel thread, the time to the first frame and to the last frame, the bytes. A move is measured `--reps` times (5): the median, smallest and largest value. |
+| `play` | The large project plays in a loop for `--secs` seconds. | As `idle`, and the frames that the kernel drew (whole, live, unchanged). |
+| `record` | A take on a new armed track from the test input. | As `play`. |
+| `long` | Edits, keys and playback in turns for `--secs` seconds (600). | Resident memory and the Lua heap every five rounds; the heap after a full collection; the undo history. |
+| `repeat` | The keys of `--keys` (comma-separated, with Python escapes), `--times` times. | The processor time of the kernel for each round. Use it with the probes to profile one key. |
+
+The thread named `kernel` is the main thread: Lua, the views, the
+drawing and the terminal output. The thread of the null backend
+processes the audio. It has the name `paw` and its number.
+
+### The probes
+
+These options add a probe to `idle`, `idle-armed`, `play`, `record` and
+`repeat`:
+
+- `--perf SECS`: `perf stat` for each thread: instructions, cycles,
+  processor time, context switches, page faults. Instructions do not
+  change with the load of the machine.
+- `--record SECS`: `perf record` with DWARF call graphs, then a flame
+  graph (`<label>-<scenario>.perf.svg`) and its folded stacks.
+- `--luaprof`: the sampling tool of LuaJIT (`jit.profile`) in the
+  kernel. It gives the Lua functions that cost the most, as a flame graph
+  (`<label>-<scenario>.lua.svg`). A stack that ends in `[C]` is time in
+  Rust, `[N]` in compiled Lua, `[I]` in the interpreter, `[G]` in the
+  garbage collector. LuaJIT counts time in Rust at the next Lua line
+  that runs, so use `--record` for the Rust side.
+- `--wrap "heaptrack -o <file>"`: runs paw under `heaptrack`. To get the
+  allocations of the steady state, run the scenario twice with different
+  `--secs`, and give both files to
+  `heaptrack_print -f <long> -d <short>`.
+- `--setup LUA`: Lua that the kernel runs after the start. For example,
+  `--setup "paw.harmony.provide('builtin', nil)"` stops the chord
+  analysis.
+
+## The other tools
+
+| Script | What it does |
+| --- | --- |
+| [profile/top.py](profile/top.py) `<file.folded> [n] [--thread NAME] [--under FRAME]` | The functions with the most samples in a folded stack file: their own share and the share with what they call. |
+| [profile/calls.py](profile/calls.py) | Counts the calls of each `paw.api` function, and the line that calls it, per frame while paw plays (or with `--press j,k`, per key). |
+| [profile/compare.py](profile/compare.py) `<paw A> <paw B> <pairs> <scenario> [options]` | Two builds in turns, A B A B, and the median, smallest and largest value of each measure. |
+| [profile/harmony.lua](profile/harmony.lua) | The time to read the chords and keys of a project again, with a hash of the result to compare two builds. Run it with [profile/headless.py](profile/headless.py), which gives paw scratch folders. |
+
+## Numbers on a shared machine
+
+The machine runs other work. The processor time of the same work goes up
+with the load. Give the load average with each number. Run before and
+after in turns with `compare.py`. A difference smaller than
+the spread is no measurable difference. Instructions (`--perf`) are the
+measure that the load does not change.

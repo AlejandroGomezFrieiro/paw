@@ -130,7 +130,10 @@ keys that apply in every view.
 
 An operator gets a region: rows `r0` to `r1`, beats `c0` to `c1`, and a
 kind, `"char"`, `"line"` or `"block"`. Counts, text objects, visual mode,
-`.` and macros then work with the operator.
+`.` and macros then work with the operator. In the piano roll, a region
+can also have `notes`, the ids of its notes by the id of their clip. Then
+only those notes of the block are in it, as for the voice of `iv`.
+`paw.edit.roll.inside(note, region, clip_id)` tells if a note is in a region.
 
 ```lua
 paw.keymap.operator("gR", function(region, ctx)

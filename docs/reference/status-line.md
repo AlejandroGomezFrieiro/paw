@@ -42,7 +42,7 @@ name of the project before it removes a component.
 | `cursor` | The track and the clip under the cursor. |
 | `buffer` | The text buffer that has the keys. |
 | `keys` | The keys typed until now. |
-| `scope` | The group of a narrowed tab: `narrowed Strings`. |
+| `scope` | The path of the scope of a narrowed tab: `Song › Strings`. In a scope with time, also the place of the cursor in its bars and in the bars of the song: `Song › Bridge 3.2 (19.2)`. |
 | `project` | The name of the project, with an amber dot if it has changes that are not saved. |
 | `engine` | The audio engine. |
 | `cpu` | The load of the engine, and the dropouts, if there are any: `xrun 3`. |

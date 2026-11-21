@@ -27,6 +27,8 @@ A motion moves the cursor. A count repeats it: `3W` moves three bars.
 | `W` `B` | the next and the previous bar | the same |
 | `0` `^` `$` | the start of the project, the first clip of the track, the end of its last clip | the start of the clip, the first note, the end of the clip |
 | `gg` `G`, `5G` | the first and the last track, track 5 | the highest and the lowest note |
+| `)` `(` | | the next phrase, the start of this phrase or the one before |
+| `]c` `[c` | | the next chord, the chord before: where two or more notes start together |
 | `9\|`, `:9` | bar 9 | |
 | `/name`, `n` `N`, `*` | finds a clip or track by name, the next match, the previous match, the next clip with the name of this clip | finds a note by its pitch name (`/c4`) |
 | `gP` | the playhead | |
@@ -69,15 +71,48 @@ A text object names a part of the project.
 
 | Keys | Arrange view | Piano roll |
 | --- | --- | --- |
-| `ic` | the clip under the cursor | the notes that sound together at the cursor |
-| `ac` | the clip and the gap after it | those notes and every note that overlaps them |
+| `ic` | the clip under the cursor | the chord at the cursor |
+| `ac` | the clip and the gap after it | the chord as the harmony reads it |
 | `ib` | this bar (`2ib` two bars) | this bar |
 | `il` | the loop | |
-| `ir` | the region that the cursor is in, on this track | |
-| `ar` | the region that the cursor is in, on every track | |
+| `ir` | the region that the cursor is in, on this track | the region that the cursor is in |
+| `ar` | the region that the cursor is in, on every track | the same |
 | `it` | everything on the track | |
 | `ie` | the entire project | every note of the clip |
-| `in` | | the note under the cursor |
+
+In visual mode, the same text object again takes in one more, as `iw` does
+in Vim: `vic` then `ic` selects this chord and the next.
+
+### Objects of the piano roll
+
+In the piano roll, the text objects are the objects of the music. `i`
+names the object, and `a` the object with what is around it. A count
+takes more of the same object. Each operator acts on each object: `div`
+deletes a voice, `>ic` moves a chord later, `yip` copies a phrase, and
+`vi=` then `+` transposes every note of a pitch.
+
+| Keys | `i`: the object | `a`: with what is around it | A count |
+| --- | --- | --- | --- |
+| `in` `an` | the note under the cursor | the note and the rest after it, up to the next note of its voice | `3in`: the note and the next two notes of its voice |
+| `ic` `ac` | the chord: the notes that start with the note under the cursor. Away from a note, the notes that sound at the cursor | the chord as [the harmony](harmony.md) reads it: every note of its phrase that starts while that chord holds, also the notes of a broken chord. Where the harmony reads no chord, the notes that sound with the chord | `2ic`: the chord and the next place where two or more notes start together |
+| `ip` `ap` | the phrase: the notes with no rest between them longer than `paw.opt.phrase_rest` (half a beat). From a rest, the next phrase | the phrase and the rest after it | `2ip`: two phrases |
+| `iv` `av` | the voice of the note: the bass if the note is the lowest of the notes that sound with it, else the line at its place from the top (the top line, the second line) | the voice and the notes that double it, on the same pitch class, at the same time | |
+| `i=` `a=` | every note of the pitch | every note of the pitch class, in every octave | |
+| `ib` `ab` | the bar | the same | `2ib`: two bars |
+| `ir` `ar` | the region of the song that the cursor is in | the same | `2ir`: the region around it |
+| `ie` `ae` | every note of the clip, or of the clips that the roll edits | the same | |
+
+A note that sounds alone is in the top line and in the bass. Two notes can
+overlap for less than an eighth of a beat. Then they are legato: the
+first note is not a second voice.
+
+A voice, a pitch class or a chord can leave other notes between its
+notes. The object names its notes, and an operator does not touch the
+other notes. In visual mode, such a selection shows on its notes.
+
+`)` and `(` go to the next phrase and to the start of this phrase, as
+Vim's sentences. Extensions add objects with `paw.keymap.textobject`: the
+articulations extension adds `ia` (the notes with the same articulation).
 
 ## Visual mode
 

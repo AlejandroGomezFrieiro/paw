@@ -559,7 +559,7 @@ local function welcome(buf)
   local lines = {
     { "o", "add a track" },
     { "a", "put an instrument on it" },
-    { "i", "enter notes: a clip opens to draw them" },
+    { "i Enter", "enter notes: a clip opens to draw them (i alone: insert mode)" },
     { "then I", "type them: a s d f g h j k are a scale" },
     { paw.keymap.human("<leader><Space>"), "play, and stop" },
     { paw.keymap.human("<leader>f:"), "find any command" },
@@ -863,7 +863,9 @@ function view:render(buf, ctx)
     end
   end
   self.seen_beat = cursor.beat
-  self.scroll = math.max(0, self.scroll)
+  -- In a scope with time, the view starts no earlier than the bar it starts in.
+  local scope_from, scope_to = paw.scope.span()
+  self.scroll = math.max(scope_from and paw.time.bar_floor(scope_from) or 0, self.scroll)
   local th = L.th
   self.geometry = { hw = hw, th = th, rows = #L.rows, zoom = zoom, span = span, layout = L }
   local function col(beat) return math.floor((beat - self.scroll) * zoom + 0.5) end
@@ -885,7 +887,7 @@ function view:render(buf, ctx)
   local ruler = buf:sub(hw, 0, tw, 1)
   ruler:fill(0, 0, tw, 1, " ", "Ruler")
   if hw >= 12 then
-    local pos = paw.time.format(cursor.beat)
+    local pos = paw.scope.format(cursor.beat)
     if hw - 2 >= #pos + 5 then
       buf:mark("label", 1, 0, 3, 1, { text = "cur", style = "RulerCornerLabel", font = "sans", tone = "text_3" })
       buf:text(5, 0, pos, "RulerCorner")
@@ -1022,6 +1024,13 @@ function view:render(buf, ctx)
         end
       end
     end
+  end
+
+  -- The time outside a scope, dimmed: it is not part of what the tab shows.
+  if scope_from then
+    local a, b = math.max(0, col(scope_from)), math.min(tw, col(scope_to))
+    if a > 0 then lanes:fill(0, L.ruler_rows, a, L.master.y - L.ruler_rows, nil, "ScopeOutside") end
+    if b < tw then lanes:fill(math.max(0, b), L.ruler_rows, tw - math.max(0, b), L.master.y - L.ruler_rows, nil, "ScopeOutside") end
   end
 
   -- The master track is pinned to the bottom, with its level on both sides.

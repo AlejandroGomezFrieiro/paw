@@ -74,10 +74,23 @@ M.lines.default = {
 }
 M.lines.arrange = {
   n = {
-    { "<leader><Space>", "play" }, { "o", "track" }, { "a", "device" }, { "i", "notes" }, { "<CR>", "open clip" },
+    { "<leader><Space>", "play" }, { "o", "track" }, { "a", "device" }, { "i", "insert" }, { "<CR>", "open clip" },
     { "<leader>mm", "mixer" }, { "x", "delete" }, { "u", "undo" }, { "<leader>f:", "commands" }, { "?", "keys" },
   },
   x = { { "d", "delete" }, { "y", "copy" }, { ">", "later" }, { "<lt>", "earlier" }, { "gl", "loop" }, { "<Esc>", "done" } },
+  -- Insert mode: the count typed, then the keys that insert (paw/insert.tl).
+  i = function()
+    local out = {}
+    local count = paw.insert and paw.insert.count()
+    if count then out[1] = { "", "times", tostring(count) } end
+    for _, spec in ipairs(paw.insert and paw.insert.list() or {}) do
+      out[#out + 1] = { spec.key, (spec.desc:match("^An? ([^;:,]+)") or spec.desc):lower() }
+    end
+    for _, entry in ipairs({ { "<CR>", "open" }, { "<BS>", "back" }, { "K", "keys" }, { "<Esc>", "done" } }) do
+      out[#out + 1] = entry
+    end
+    return out
+  end,
 }
 M.lines.pianoroll = {
   n = {

@@ -42,6 +42,7 @@ local record Opts
    header_width: integer | string
    hint_delay: number
    hints: boolean
+   insertkeys: {string | number}
    keybar: boolean
    keys: string
    layout: string
@@ -65,6 +66,7 @@ local record Opts
    number: boolean
    octave: integer
    on_external_change: string
+   phrase_rest: number
    pianoroll_height: number
    pre_roll: integer
    pre_roll_seconds: number
@@ -80,6 +82,8 @@ local record Opts
    roll_context_max: number
    roll_insert: string
    scope_rest: string
+   scopebars: string
+   scopeloop: boolean
    send_level: number
    splitbelow: boolean
    splitright: boolean

@@ -5,7 +5,9 @@
 The piano roll shows the notes of a MIDI clip: pitches as rows, time as
 columns. `Enter` on a clip in the arrange view opens it, and `<Space>vp` shows it.
 The keys that it shares with the arrange view are in
-[Motions, operators and modes](grammar.md).
+[Motions, operators and modes](grammar.md). Its text objects name the
+objects of the music: the note, the chord, the phrase, the voice and the
+pitch. See [Objects of the piano roll](grammar.md#objects-of-the-piano-roll).
 
 ## Keys
 
@@ -85,8 +87,8 @@ operators of musicops. The beats of the cursor are those of the active clip.
 <!-- tags: insert-mode pencil -->
 
 Insert mode is a pencil. It draws a new note, or it changes the note
-under the cursor. In the arrange view, `i` opens the clip under the
-cursor, or a new clip.
+under the cursor. In the arrange view, `i` and `Enter` open the clip
+under the cursor, or a new clip (see [Insert mode](insert-mode.md)).
 
 - On an empty place, `i` starts a new note at the cursor, with no length.
   `a` starts it one grid step after the cursor.

@@ -836,7 +836,7 @@ function P.view_layout(v)
   -- A score that follows the scope shows the tracks the tab is narrowed to.
   local tracks = shown.tracks
   local scope = shown.scope and rawget(paw, "scope")
-  if scope and scope.current() then tracks = scope.tracks() end
+  if scope and scope.limits_tracks() then tracks = scope.tracks() end
   local p = api.project_get()
   local stamp = { shown.kind, tostring(shown.track), tostring(shown.condensed), tostring(paw.opt.notation_grid),
     table.concat(tracks or {}, ","), tostring(shown.from), tostring(shown.to) }

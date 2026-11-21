@@ -22,10 +22,10 @@ All keys start with `gz`.
 
 1. Type `:ext.load musicops`.
 2. Open a clip with chords in the piano roll. Put the cursor on a chord.
-3. Type `gzsih`. The notes of the chord now start one after the other: a
+3. Type `gzsic`. The notes of the chord now start one after the other: a
    strum.
 4. Press `u`. The chord is as before.
-5. Type `gzpih`. The chord becomes an arpeggio, for its full length.
+5. Type `gzpic`. The chord becomes an arpeggio, for its full length.
 
 ## How to
 
@@ -90,8 +90,8 @@ steps, `vip50gzq` quantizes half way.
 | Keys | Effect | Count in visual mode | Views | Example |
 | --- | --- | --- | --- | --- |
 | `gzh` | humanize: moves starts and velocities at random, with a seed | timing in 1/100 beat, and velocity range | all | `gzhip` loosens the phrase |
-| `gzs` `gzS` | strum each chord up, down: notes start `musicops_strum` beats apart and end together | step in 1/100 beat | roll, arrange | `gzsih` strums the chord at the cursor |
-| `gzp` `gzP` | arpeggiate each chord up, down, for its full length | steps for each beat (4: sixteenths) | roll, arrange | `gzpih`, `vah4gzP` |
+| `gzs` `gzS` | strum each chord up, down: notes start `musicops_strum` beats apart and end together | step in 1/100 beat | roll, arrange | `gzsic` strums the chord at the cursor |
+| `gzp` `gzP` | arpeggiate each chord up, down, for its full length | steps for each beat (4: sixteenths) | roll, arrange | `gzpic`, `vac4gzP` |
 | `gzb` `gzB` | arpeggiate up and down. In the order that the notes were played | steps for each beat | roll, arrange | `gzBic` the full clip |
 | `gzl` | legato: hold each note to the next | | all | `gzlip` |
 | `gzt` | staccato: shorten each note to `musicops_staccato` of its length | percent of the length that stays | all | `vip25gzt` a quarter |
@@ -103,7 +103,7 @@ steps, `vip50gzq` quantizes half way.
 | `gze` | accent: louder notes on the beat (`musicops_accent`) | velocity added | roll, arrange | `gzeic` |
 | `gzr` | reverse the passage in time (retrograde) | | all | `gzrip` |
 | `gzd` `gzD` | double time, half time, from the first note | | all | `gzdip` |
-| `gzu` `gzU` | invert each chord up (the lowest note goes an octave up), down | the number of inversions | roll, arrange | `gzuih`, `vah2gzU` |
+| `gzu` `gzU` | invert each chord up (the lowest note goes an octave up), down | the number of inversions | roll, arrange | `gzuic`, `vac2gzU` |
 | `gzk` `gzj` | up, down a step of the scale of the project | scale steps | all | `gzkip`, `vip3gzj` |
 | `gzn` | snap notes outside the key into it (`musicops_snap`) | | all | `gznic` |
 | `gzm` | mirror the melody around its first note, in scale steps | | all | `gzmip` |
@@ -123,21 +123,19 @@ steps, `vip50gzq` quantizes half way.
 
 ### Text objects and motions
 
-In the piano roll and the vocal editor:
+The operators take paw's text objects of the piano roll: `ic` the chord,
+`ip` the phrase, `iv` the voice, and the others that
+[Motions, operators and modes](../../docs/reference/grammar.md#objects-of-the-piano-roll)
+lists. `gzsic` strums the chord at the cursor, `gzkip` moves the phrase a
+step up the scale.
+
+In the vocal editor, musicops gives these:
 
 | Keys | What it selects |
 | --- | --- |
-| `ip` | the phrase at the cursor: notes with no rest longer than `musicops_phrase_rest` beats (half a beat) between them. From a rest, the next phrase. `2ip` two phrases |
+| `ip` | the phrase at the cursor: notes with no rest longer than `paw.opt.phrase_rest` beats (half a beat) between them. From a rest, the next phrase. `2ip` two phrases |
 | `ap` | the phrase and the rest after it, to the next phrase |
-| `ih` | the chord that sounds at the cursor: its notes, as a block from their lowest to their highest pitch |
-| `ah` | the chord and each note that starts while it sounds |
 | `)` `(` | motions: the start of the next phrase. The start of this phrase, or of the previous phrase. With a count, that many |
-
-In the vocal editor too, `(` and `)` move by phrase. `[p` `]p` choose
-the phonemes there.
-
-`dip` deletes a phrase. `yap` yanks it with the rest after it. `vih`
-selects the chord, and `gzsih` strums it. `d)` deletes to the next phrase.
 
 ### Key and scale
 
@@ -259,7 +257,6 @@ views, fn)` adds an operator of your own in the same way.
 | `musicops_compress` | 0.5 | `gzc` |
 | `musicops_accent` | 20 | `gze` |
 | `musicops_together` | 1/16 | notes that start this close are one chord |
-| `musicops_phrase_rest` | 0.5 | a rest longer than this ends a phrase |
 | `musicops_snap` | "nearest" | where `gzn` and the scale lock send notes outside the key: "nearest", "up", "down" |
 | `musicops_mirror_chromatic` | false | `gzm` mirrors in semitones |
 | `musicops_scale_lock` | false | the entry and `<C-a>` `<C-x>` stay in the key |

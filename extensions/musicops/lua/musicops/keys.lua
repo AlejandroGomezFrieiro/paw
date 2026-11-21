@@ -1,5 +1,6 @@
--- The keys of musicops: operators under `gz`, the phrase and chord text
--- objects, the phrase motions, the key commands, and the scale lock.
+-- The keys of musicops: operators under `gz`, the phrase text objects and
+-- motions of the vocal editor, the key commands, and the scale lock. The
+-- piano roll's text objects (`ip`, `ic` and the rest) are paw's own.
 --
 -- Operators act in the piano roll and the vocal editor on the notes of the
 -- region (as `d` and `>` do), and in the arrange view on the notes of the
@@ -91,7 +92,7 @@ function M.apply(view, region, fn, skip)
     for i, part in ipairs(parts) do
       if not (skip and skip(part.clip)) then
         local mine = paw.util.merge(region, { c0 = region.c0 - part.offset, c1 = region.c1 - part.offset })
-        count = count + M.apply_to_clip(part.clip, function(n) return edit.roll.inside(n, mine) end,
+        count = count + M.apply_to_clip(part.clip, function(n) return edit.roll.inside(n, mine, part.clip.id) end,
           function(notes) return fn(notes, i) end)
       end
     end
@@ -99,7 +100,7 @@ function M.apply(view, region, fn, skip)
   end
   local clip = M.view_clip(view)
   if not clip or (skip and skip(clip)) then return 0 end
-  return M.apply_to_clip(clip, function(n) return edit.roll.inside(n, region) end, function(notes) return fn(notes, 1) end)
+  return M.apply_to_clip(clip, function(n) return edit.roll.inside(n, region, clip.id) end, function(notes) return fn(notes, 1) end)
 end
 
 -- Operators ---------------------------------------------------------------------
@@ -236,7 +237,7 @@ op("gzx", "Remove overlapping notes of a pitch", ALL, function(notes) return mo.
 -- Text objects and motions ------------------------------------------------------------
 
 local function phrases(clip)
-  return mo.phrases(clip:notes(), opt("phrase_rest"))
+  return mo.phrases(clip:notes(), paw.opt.phrase_rest)
 end
 
 --- The phrase at the cursor (or the next one, from a rest) and `count - 1`
@@ -257,25 +258,6 @@ function M.phrase_region(view, count, around)
   local c0, c1 = list[first].start, list[last].finish
   if around then c1 = list[last + 1] and list[last + 1].start or math.max(c1, clip.length) end
   return { view = view, kind = "char", r0 = v.pitch, r1 = v.pitch, c0 = c0, c1 = c1 }
-end
-
---- The chord sounding at the cursor: its notes, as a block from the first
---- of them to start to just past the last; with `around` everything that
---- starts while it sounds.
-function M.chord_region(view, around)
-  local clip, v = M.view_clip(view)
-  if not clip then return end
-  local chord = mo.sounding(clip:notes(), v.beat)
-  if #chord == 0 then return end
-  local lo, hi, s0, s1, e0, e1 = 127, 0, math.huge, -math.huge, math.huge, -math.huge
-  for _, n in ipairs(chord) do
-    lo, hi = math.min(lo, n.pitch), math.max(hi, n.pitch)
-    s0, s1 = math.min(s0, n.start), math.max(s1, n.start)
-    e0, e1 = math.min(e0, n.start + n.length), math.max(e1, n.start + n.length)
-  end
-  if around then return { view = view, kind = "char", r0 = v.pitch, r1 = v.pitch, c0 = s0, c1 = e1 } end
-  local c1 = math.max(s1 + 1e-6, math.min(e0, s1 + paw.opt.note_grid))
-  return { view = view, kind = "block", r0 = lo, r1 = hi, c0 = s0, c1 = c1 }
 end
 
 --- Go to the start of the next (`dir` 1) or previous (-1) phrase.
@@ -310,12 +292,11 @@ function M.phrase_motion(view, dir, count)
   v.grid.set(pitch, beat)
 end
 
-for _, view in ipairs(NOTES) do
+-- The vocal editor's phrases; the piano roll has paw's own (`ip`, `(` `)`).
+for _, view in ipairs({ "utau" }) do
   local function object(lhs, fn, desc) keymap.textobject(lhs, fn, { view = view, desc = desc }) end
   object("ip", function(ctx) return M.phrase_region(view, ctx.count, false) end, "The phrase: notes with no long rest between them")
   object("ap", function(ctx) return M.phrase_region(view, ctx.count, true) end, "The phrase and the rest after it")
-  object("ih", function() return M.chord_region(view, false) end, "The chord sounding at the cursor")
-  object("ah", function() return M.chord_region(view, true) end, "The chord and what starts while it sounds")
   keymap.set(")", function(ctx) M.phrase_motion(view, 1, ctx.count) end, { view = view, motion = true, jump = true, desc = "Next phrase" })
   keymap.set("(", function(ctx) M.phrase_motion(view, -1, ctx.count) end, { view = view, motion = true, jump = true, desc = "Start of this phrase, or the previous one" })
 end

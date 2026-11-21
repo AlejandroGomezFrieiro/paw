@@ -56,3 +56,10 @@ debug = false
 
 [profile.release]
 lto = "thin"
+
+# `cargo build --profile profiling`: the release build with line tables and
+# symbols, for perf, samply and heaptrack (bench/profile.md).
+[profile.profiling]
+inherits = "release"
+debug = "line-tables-only"
+strip = false
