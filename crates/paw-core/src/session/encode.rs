@@ -316,11 +316,11 @@ pub fn run(
         .kill_on_drop(true);
     // As with any helper: not to outlive the program.
     #[cfg(target_os = "linux")]
-    // SAFETY: the closure runs between fork and exec and calls only `prctl`, which is
+    // SAFETY: the closure runs between fork and exec and calls only `prctl` (through rustix), which is
     // async-signal-safe; it takes no lock and does not allocate.
     unsafe {
         command.pre_exec(|| {
-            libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGTERM);
+            let _ = rustix::process::set_parent_process_death_signal(Some(rustix::process::Signal::TERM));
             Ok(())
         });
     }

@@ -58,14 +58,8 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // bytes (free: what a program that is not root can use).
         // @return types.DiskSpace
         fn fs_space(lua, _sh, path => String) {
-            let c = std::ffi::CString::new(path.clone()).map_err(|e| mlua::Error::runtime(format!("{e}")))?;
-            // SAFETY: statvfs is plain integers, for which all zeros is a valid value.
-            let mut st: libc::statvfs = unsafe { std::mem::zeroed() };
-            // SAFETY: `c` is a NUL-terminated string that outlives the call, and `st` is a
-            // valid struct that statvfs fills.
-            if unsafe { libc::statvfs(c.as_ptr(), &mut st) } != 0 {
-                return Err(mlua::Error::runtime(format!("{path}: {}", std::io::Error::last_os_error())));
-            }
+            let st = rustix::fs::statvfs(path.as_str())
+                .map_err(|e| mlua::Error::runtime(format!("{path}: {}", std::io::Error::from(e))))?;
             let t = lua.create_table()?;
             t.set("free", st.f_bavail as f64 * st.f_frsize as f64)?;
             t.set("total", st.f_blocks as f64 * st.f_frsize as f64)?;
