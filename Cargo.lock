@@ -3025,6 +3025,7 @@ dependencies = [
  "paw-proto",
  "paw-raster",
  "paw-scene",
+ "percent-encoding",
  "quick-xml",
  "rcgen",
  "realfft",
