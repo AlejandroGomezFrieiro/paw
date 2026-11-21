@@ -3,6 +3,7 @@
 //! into the kernel's units (MIDI note numbers, beats) before it is sent.
 
 use anyhow::{Context, Result, bail};
+use arrayvec::ArrayVec;
 use serde_json::{Value, json};
 
 /// Signature changes a [`Meter`] keeps after the first; later ones are
@@ -12,13 +13,21 @@ const MAX_CHANGES: usize = 31;
 /// The project's time signatures, which `bar.beat` positions depend on: the
 /// one at the start, and where it changes along the song (each change
 /// starting a bar, as paw's tempo map has them).
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Meter {
     pub num: u32,
     pub den: u32,
-    /// (beat, numerator, denominator, index of the bar it starts).
-    changes: [(f64, u32, u32, i64); MAX_CHANGES],
-    count: usize,
+    changes: ArrayVec<Change, MAX_CHANGES>,
+}
+
+/// One signature change: where it is, the signature and the bar it starts.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Change {
+    beat: f64,
+    num: u32,
+    den: u32,
+    /// Index of the bar the change starts.
+    bar: i64,
 }
 
 impl Default for Meter {
@@ -32,8 +41,7 @@ impl Meter {
         Self {
             num: num.max(1),
             den: den.max(1),
-            changes: [(0.0, 4, 4, 0); MAX_CHANGES],
-            count: 0,
+            changes: ArrayVec::new(),
         }
     }
 
@@ -57,22 +65,26 @@ impl Meter {
 
     /// A signature change starting a bar at `beat`, after those added before.
     pub fn add(&mut self, beat: f64, num: u32, den: u32) {
-        if self.count == MAX_CHANGES {
+        if self.changes.is_full() {
             return;
         }
         let (start, sig_num, sig_den, bar) = self.segment_at_beat(beat);
         let len = sig_num as f64 * 4.0 / sig_den as f64;
         let bars = ((beat - start) / len - 1e-9).ceil().max(1.0) as i64;
-        self.changes[self.count] = (beat, num.max(1), den.max(1), bar + bars);
-        self.count += 1;
+        self.changes.push(Change {
+            beat,
+            num: num.max(1),
+            den: den.max(1),
+            bar: bar + bars,
+        });
     }
 
     /// The stretch of one signature a beat is in: (start, num, den, first bar).
     fn segment_at_beat(&self, beat: f64) -> (f64, u32, u32, i64) {
         let mut seg = (0.0, self.num, self.den, 0);
-        for c in &self.changes[..self.count] {
-            if c.0 <= beat + 1e-9 {
-                seg = *c;
+        for c in &self.changes {
+            if c.beat <= beat + 1e-9 {
+                seg = (c.beat, c.num, c.den, c.bar);
             }
         }
         seg
@@ -80,9 +92,9 @@ impl Meter {
 
     fn segment_at_bar(&self, bar: i64) -> (f64, u32, u32, i64) {
         let mut seg = (0.0, self.num, self.den, 0);
-        for c in &self.changes[..self.count] {
-            if c.3 <= bar {
-                seg = *c;
+        for c in &self.changes {
+            if c.bar <= bar {
+                seg = (c.beat, c.num, c.den, c.bar);
             }
         }
         seg
@@ -138,7 +150,7 @@ pub fn num(value: f64) -> String {
 /// A position: a JSON number is beats from the start (of the project, or of
 /// the clip for notes); a string is `bar`, `bar.beat` or `bar.beat.hundredths`
 /// counting from 1 (or with colons, `bar:beat`), or beats written as `"6b"`.
-pub fn position(value: &Value, meter: Meter, what: &str) -> Result<f64> {
+pub fn position(value: &Value, meter: &Meter, what: &str) -> Result<f64> {
     let beats = match value {
         Value::Number(n) => n.as_f64().context("not a number")?,
         Value::String(text) => parse_position(text.trim(), meter)
@@ -152,7 +164,7 @@ pub fn position(value: &Value, meter: Meter, what: &str) -> Result<f64> {
 }
 
 /// `bar 5`, `bar 5 beat 2`, `bar 5, beat 2.5`: the words some models write.
-fn parse_spoken(text: &str, meter: Meter) -> Option<f64> {
+fn parse_spoken(text: &str, meter: &Meter) -> Option<f64> {
     let lower = text.to_ascii_lowercase().replace(',', " ");
     let mut words = lower.split_whitespace();
     if words.next()? != "bar" {
@@ -168,7 +180,7 @@ fn parse_spoken(text: &str, meter: Meter) -> Option<f64> {
     words.next().is_none().then_some(start + (beat - 1.0) * 4.0 / den as f64)
 }
 
-fn parse_position(text: &str, meter: Meter) -> Option<f64> {
+fn parse_position(text: &str, meter: &Meter) -> Option<f64> {
     if text.len() > 3 && text[..3].eq_ignore_ascii_case("bar") && text[3..].starts_with([' ', ',']) {
         return parse_spoken(text, meter);
     }
@@ -208,7 +220,7 @@ fn parse_position(text: &str, meter: Meter) -> Option<f64> {
 /// A length: a JSON number is beats; a string is beats (`"3b"`), bars
 /// (`"2 bars"`, `"1bar"`) or a note value as a fraction of a whole note
 /// (`"1/8"` is half a beat, `"3/16"`, `"1/4."` dotted).
-pub fn length(value: &Value, meter: Meter, what: &str) -> Result<f64> {
+pub fn length(value: &Value, meter: &Meter, what: &str) -> Result<f64> {
     let beats = match value {
         Value::Number(n) => n.as_f64().context("not a number")?,
         Value::String(text) => parse_length(text.trim(), meter).with_context(|| {
@@ -222,7 +234,7 @@ pub fn length(value: &Value, meter: Meter, what: &str) -> Result<f64> {
     Ok(beats)
 }
 
-fn parse_length(text: &str, meter: Meter) -> Option<f64> {
+fn parse_length(text: &str, meter: &Meter) -> Option<f64> {
     let lower = text.to_ascii_lowercase();
     for (suffix, scale) in [
         ("bars", meter.bar()),
@@ -322,7 +334,7 @@ pub fn pitches(value: &Value) -> Result<Vec<u8>> {
 /// `"pitch start length [velocity]"` such as `"C4+E4 1:3 1/8 90"`, where the
 /// start is beats ("2.5") or bar:beat within the clip ("1:3").
 /// A note with no length is one beat long.
-pub fn notes(value: &Value, meter: Meter) -> Result<Vec<Value>> {
+pub fn notes(value: &Value, meter: &Meter) -> Result<Vec<Value>> {
     let items = match value {
         Value::Array(items) => items,
         Value::Null => return Ok(Vec::new()),
@@ -335,7 +347,7 @@ pub fn notes(value: &Value, meter: Meter) -> Result<Vec<Value>> {
     Ok(out)
 }
 
-fn note(item: &Value, meter: Meter, out: &mut Vec<Value>) -> Result<()> {
+fn note(item: &Value, meter: &Meter, out: &mut Vec<Value>) -> Result<()> {
     let (pitch, start, len, velocity) = match item {
         Value::String(text) => {
             let words: Vec<&str> = text.split_whitespace().collect();
@@ -399,7 +411,7 @@ fn note(item: &Value, meter: Meter, out: &mut Vec<Value>) -> Result<()> {
 
 /// A note's start inside its clip. As a string, `bar.beat` counts from the
 /// clip's own first bar: "1.1" is the clip's start.
-pub fn note_start(value: &Value, meter: Meter) -> Result<f64> {
+pub fn note_start(value: &Value, meter: &Meter) -> Result<f64> {
     position(value, meter, "start")
 }
 
@@ -437,33 +449,33 @@ mod tests {
     #[test]
     fn positions_and_lengths() {
         let m = Meter::default();
-        assert_eq!(position(&json!(2.5), m, "p").unwrap(), 2.5);
-        assert_eq!(position(&json!("1.1"), m, "p").unwrap(), 0.0);
-        assert_eq!(position(&json!("3"), m, "p").unwrap(), 8.0);
-        assert_eq!(position(&json!("2.3"), m, "p").unwrap(), 6.0);
-        assert_eq!(position(&json!("2:3"), m, "p").unwrap(), 6.0);
-        assert_eq!(position(&json!("2.3.50"), m, "p").unwrap(), 6.5);
-        assert_eq!(position(&json!("6b"), m, "p").unwrap(), 6.0);
-        assert_eq!(position(&json!("bar 5"), m, "p").unwrap(), 16.0);
-        assert_eq!(position(&json!("bar 5 beat 2"), m, "p").unwrap(), 17.0);
-        assert_eq!(position(&json!("Bar 2, beat 3.5"), m, "p").unwrap(), 6.5);
-        assert!(position(&json!("bar 2 beat 5"), m, "p").is_err());
-        assert!(position(&json!("bar"), m, "p").is_err());
-        assert!(position(&json!("0.1"), m, "p").is_err());
-        assert!(position(&json!("2.5"), m, "p").is_err());
+        assert_eq!(position(&json!(2.5), &m, "p").unwrap(), 2.5);
+        assert_eq!(position(&json!("1.1"), &m, "p").unwrap(), 0.0);
+        assert_eq!(position(&json!("3"), &m, "p").unwrap(), 8.0);
+        assert_eq!(position(&json!("2.3"), &m, "p").unwrap(), 6.0);
+        assert_eq!(position(&json!("2:3"), &m, "p").unwrap(), 6.0);
+        assert_eq!(position(&json!("2.3.50"), &m, "p").unwrap(), 6.5);
+        assert_eq!(position(&json!("6b"), &m, "p").unwrap(), 6.0);
+        assert_eq!(position(&json!("bar 5"), &m, "p").unwrap(), 16.0);
+        assert_eq!(position(&json!("bar 5 beat 2"), &m, "p").unwrap(), 17.0);
+        assert_eq!(position(&json!("Bar 2, beat 3.5"), &m, "p").unwrap(), 6.5);
+        assert!(position(&json!("bar 2 beat 5"), &m, "p").is_err());
+        assert!(position(&json!("bar"), &m, "p").is_err());
+        assert!(position(&json!("0.1"), &m, "p").is_err());
+        assert!(position(&json!("2.5"), &m, "p").is_err());
         let six8 = Meter::new(6, 8);
         let mut changing = Meter::default();
         changing.add(32.0, 6, 8);
-        assert_eq!(position(&json!("9.4"), changing, "p").unwrap(), 33.5);
-        assert_eq!(position(&json!("10"), changing, "p").unwrap(), 35.0);
+        assert_eq!(position(&json!("9.4"), &changing, "p").unwrap(), 33.5);
+        assert_eq!(position(&json!("10"), &changing, "p").unwrap(), 35.0);
         assert_eq!(changing.format(33.5), "9.4");
         assert_eq!(changing.format(31.0), "8.4");
-        assert_eq!(position(&json!("2.4"), six8, "p").unwrap(), 4.5);
-        assert_eq!(length(&json!("1/8"), m, "l").unwrap(), 0.5);
-        assert_eq!(length(&json!("1/4."), m, "l").unwrap(), 1.5);
-        assert_eq!(length(&json!("2 bars"), m, "l").unwrap(), 8.0);
-        assert_eq!(length(&json!("3b"), m, "l").unwrap(), 3.0);
-        assert!(length(&json!(0), m, "l").is_err());
+        assert_eq!(position(&json!("2.4"), &six8, "p").unwrap(), 4.5);
+        assert_eq!(length(&json!("1/8"), &m, "l").unwrap(), 0.5);
+        assert_eq!(length(&json!("1/4."), &m, "l").unwrap(), 1.5);
+        assert_eq!(length(&json!("2 bars"), &m, "l").unwrap(), 8.0);
+        assert_eq!(length(&json!("3b"), &m, "l").unwrap(), 3.0);
+        assert!(length(&json!(0), &m, "l").is_err());
         assert_eq!(m.format(6.5), "2.3.50");
         assert_eq!(m.format(0.0), "1.1");
         assert_eq!(num(0.5), "0.5");
@@ -475,7 +487,7 @@ mod tests {
         let m = Meter::default();
         let n = notes(
             &json!(["C4 1:2 1/8 90", {"pitch": "E4", "start": 2}, "G4+B4 3 2", "D4 0.5"]),
-            m,
+            &m,
         )
         .unwrap();
         assert_eq!(n.len(), 5);
@@ -488,7 +500,7 @@ mod tests {
         assert_eq!(n[1]["length"], json!(1.0));
         assert_eq!(n[2]["start"], json!(3.0));
         assert_eq!(n[3]["pitch"], json!(71));
-        assert!(notes(&json!(["C4"]), m).is_err());
-        assert!(notes(&json!([{"pitch": "C4", "velocity": 200}]), m).is_err());
+        assert!(notes(&json!(["C4"]), &m).is_err());
+        assert!(notes(&json!([{"pitch": "C4", "velocity": 200}]), &m).is_err());
     }
 }

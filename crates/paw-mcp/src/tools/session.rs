@@ -61,12 +61,12 @@ impl Tools {
         let mut args = a.clone();
         for key in ["position", "loop_start", "loop_end"] {
             if let Some(v) = a.get(key) {
-                args.insert(key.into(), json!(music::position(v, meter, key)?));
+                args.insert(key.into(), json!(music::position(v, &meter, key)?));
             }
         }
         let r = self.lua("transport", Value::Object(args))?;
-        let out = format!("Transport: {}\n", format::transport(&r["transport"], meter));
-        Ok(Self::reply(out, &r, meter))
+        let out = format!("Transport: {}\n", format::transport(&r["transport"], &meter));
+        Ok(Self::reply(out, &r, &meter))
     }
 
     fn undo(&mut self, a: &Map<String, Value>) -> Outcome {
@@ -90,7 +90,7 @@ impl Tools {
                     let _ = writeln!(out, "  {}", h["label"].as_str().unwrap_or(""));
                 }
             }
-            return Ok(Self::reply(out, &r, meter));
+            return Ok(Self::reply(out, &r, &meter));
         }
         let redo = a.get("redo") == Some(&json!(true));
         let steps = a.get("steps").and_then(Value::as_u64).unwrap_or(1);
@@ -109,7 +109,7 @@ impl Tools {
             let _ = writeln!(out, "(That was all there was to {noun}: you asked for {steps}.)");
         }
         out.push_str("get_project shows the project now.\n");
-        Ok(Self::reply(out, &r, meter))
+        Ok(Self::reply(out, &r, &meter))
     }
 
     fn project_file(&mut self, a: &Map<String, Value>) -> Outcome {
@@ -163,6 +163,6 @@ impl Tools {
                 Meter::from_project(&r["project"]),
             ),
         };
-        Ok(Self::reply(out, &r, meter))
+        Ok(Self::reply(out, &r, &meter))
     }
 }

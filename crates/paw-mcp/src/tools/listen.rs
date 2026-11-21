@@ -66,7 +66,7 @@ impl Tools {
         args.insert("path".into(), json!(path));
         for key in ["start", "end"] {
             if let Some(v) = a.get(key) {
-                args.insert(key.into(), json!(music::position(v, meter, key)?));
+                args.insert(key.into(), json!(music::position(v, &meter, key)?));
             }
         }
         args.remove("max_segments");
@@ -86,8 +86,8 @@ impl Tools {
                 "Rendered {} stem{} of beats {} to {} (+{tail} s tail) into {}",
                 files.len(),
                 if files.len() == 1 { "" } else { "s" },
-                format::at(start, meter),
-                format::at(end, meter),
+                format::at(start, &meter),
+                format::at(end, &meter),
                 path.display()
             );
             for f in files.iter().filter_map(Value::as_str) {
@@ -104,8 +104,8 @@ impl Tools {
             let _ = writeln!(
                 out,
                 "Rendered beats {} to {} (+{tail} s tail) to {}",
-                format::at(start, meter),
-                format::at(end, meter),
+                format::at(start, &meter),
+                format::at(end, &meter),
                 path.display()
             );
             if let Some(length) = info["project_length"].as_f64()
@@ -134,7 +134,7 @@ impl Tools {
                 out.push_str("(level per bar, stereo and spectrum are measured on WAV files; render a WAV to see them)\n");
             }
         }
-        let mut reply = Self::reply(out, &r, meter);
+        let mut reply = Self::reply(out, &r, &meter);
         reply.data["path"] = json!(path.display().to_string());
         Ok(reply)
     }
@@ -162,6 +162,6 @@ impl Tools {
         if let Some(line) = format::loudness(&r["loudness"]) {
             out.push_str(&line);
         }
-        Ok(Self::reply(out, &r, Meter::default()))
+        Ok(Self::reply(out, &r, &Meter::default()))
     }
 }

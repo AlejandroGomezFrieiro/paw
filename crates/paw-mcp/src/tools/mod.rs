@@ -82,7 +82,7 @@ const LISTS: [&str; 24] = [
 
 /// The data a result carries for a program: empty lists as lists, and where
 /// there is a position or a pitch, how a musician writes it.
-fn enrich(value: &mut Value, meter: Meter) {
+fn enrich(value: &mut Value, meter: &Meter) {
     match value {
         Value::Array(list) => list.iter_mut().for_each(|v| enrich(v, meter)),
         Value::Object(map) => {
@@ -146,7 +146,7 @@ pub enum Effect {
 }
 
 /// Turns a writing tool's arguments into the kernel's units.
-type Prepare = fn(&Tools, &Args, Meter) -> Result<Args, ToolError>;
+type Prepare = fn(&Tools, &Args, &Meter) -> Result<Args, ToolError>;
 
 /// How a tool runs.
 pub enum Run {
@@ -155,7 +155,7 @@ pub enum Run {
     /// A change a `batch` can run too: its arguments in the kernel's units
     /// (as they are when there is no `prepare`), then the kernel side's
     /// tool of the same name as one undo step, then its answer as text.
-    Write { prepare: Option<Prepare>, show: fn(&Value, Meter) -> String },
+    Write { prepare: Option<Prepare>, show: fn(&Value, &Meter) -> String },
     /// Code of the model's choosing: offered only with `--allow-eval`.
     Escape(fn(&mut Tools, &Args) -> Outcome),
 }
@@ -262,7 +262,7 @@ impl Tools {
     }
 
     /// A writing tool's arguments in the kernel's units.
-    fn prepare(&self, tool: &Tool, a: &Args, meter: Meter) -> Result<Args, ToolError> {
+    fn prepare(&self, tool: &Tool, a: &Args, meter: &Meter) -> Result<Args, ToolError> {
         match tool.run {
             Run::Write { prepare: Some(prepare), .. } => prepare(self, a, meter),
             _ => Ok(a.clone()),
@@ -270,7 +270,7 @@ impl Tools {
     }
 
     /// The answer of a writing tool, as text and as data.
-    fn show(tool: &Tool, r: &Value, meter: Meter) -> Reply {
+    fn show(tool: &Tool, r: &Value, meter: &Meter) -> Reply {
         let text = match tool.run {
             Run::Write { show, .. } => show(r, meter),
             _ => String::new(),
@@ -281,9 +281,9 @@ impl Tools {
     /// A writing tool called alone: one undo step.
     fn write(&mut self, tool: &Tool, a: &Args) -> Outcome {
         let meter = self.meter()?;
-        let args = self.prepare(tool, a, meter)?;
+        let args = self.prepare(tool, a, &meter)?;
         let r = self.lua_as(tool.name, Value::Object(args), Some(&undo_label(tool.name, a)))?;
-        Ok(Self::show(tool, &r, meter))
+        Ok(Self::show(tool, &r, &meter))
     }
 
     // --- plumbing ------------------------------------------------------------
@@ -308,7 +308,7 @@ impl Tools {
 
     /// The text with what paw said while the call ran, and the data in the
     /// shape a program wants.
-    fn reply(mut text: String, r: &Value, meter: Meter) -> Reply {
+    fn reply(mut text: String, r: &Value, meter: &Meter) -> Reply {
         format::messages(&mut text, &r["messages"]);
         let mut data = r.clone();
         enrich(&mut data, meter);
@@ -493,7 +493,7 @@ mod tests {
                      "notes": [{"id": 3, "pitch": 70, "start": 2.0, "length": 1.0, "velocity": 90}]},
             "marker": {"id": 1, "beat": 16.0, "region": true},
         });
-        enrich(&mut v, Meter::default());
+        enrich(&mut v, &Meter::default());
         assert_eq!(v["tracks"], json!([]));
         assert_eq!(v["clip"]["at"], "3.1");
         assert_eq!(v["clip"]["notes"][0]["name"], "A#4");
