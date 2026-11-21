@@ -917,9 +917,13 @@ end
 
 --- A single staff whose clef the track leaves to the notes becomes a
 --- grand staff when a note is entered more than three ledger lines outside
---- it (a bass under a melody, a melody over a bass).
-function view:make_room(sc, pitch)
-  if #sc.staves ~= 1 then return end
+--- it (a bass under a melody, a melody over a bass), from the cursor put
+--- there. A note that `continues` a line entered on the staff (its octave
+--- the one nearest the note before) stays on it, on ledger lines, and
+--- replaces what its voice had there as the user sees it: on a new staff it
+--- would stand beside that note, and the notes after it there too.
+function view:make_room(sc, pitch, continues)
+  if #sc.staves ~= 1 or continues then return end
   local clip = self:clip()
   if not clip or view.track_clef(clip:get().track) then return end
   local clef = sc.staves[1].clef
@@ -935,11 +939,12 @@ end
 --- the entry voice on its staff: what was written there in that voice gives
 --- way (in no other voice or staff). With `chord`, it joins the chord the
 --- voice has starting there. Entering triplets makes or fills a tuplet.
+--- `continues`: the note goes on a line entered just before (see `make_room`).
 --- Returns the note's id, or nil and why not.
-function view:put(sc, note, beat, length, chord)
+function view:put(sc, note, beat, length, chord, continues)
   local mi, at = where(sc, beat)
   D.ensure(sc, mi)
-  self:make_room(sc, D.pitch(note))
+  self:make_room(sc, D.pitch(note), continues)
   local staff = self:staff_id(sc, D.pitch(note))
   local v = self.voice or 1
   if chord then
@@ -993,12 +998,12 @@ end
 --- Put a note in as it is written, `length` long from `beat`, in the entry
 --- voice: what is written there in that voice gives way. `keep` (a chord
 --- being built) makes it join the chord there. `spell` is how to write it.
---- Returns the note's id.
-function view:place(pitch, beat, length, keep, spell)
+--- `continues` as `put` takes it. Returns the note's id.
+function view:place(pitch, beat, length, keep, spell, continues)
   local id
   self:write(function(sc)
     local why
-    id, why = self:put(sc, spelled(util.clamp(pitch, 0, 127), spell), beat, length, keep)
+    id, why = self:put(sc, spelled(util.clamp(pitch, 0, 127), spell), beat, length, keep, continues)
     if not id then
       paw.notify(why or "nothing written", "warn")
       return false
@@ -1657,6 +1662,7 @@ function view:enter(letter, advance)
   local clip = self:clip()
   if not clip then return end
   local fifths = view.key()
+  local continues = self.last ~= nil
   local from = self.last and self.last.step or self.step
   local l = LETTER_STEP[letter]
   local step = math.floor(from / 7) * 7 + l
@@ -1667,7 +1673,7 @@ function view:enter(letter, advance)
   local building = self.chord and math.abs(self.chord.beat - self.beat) < EPS
   if not building then self.chord = { beat = self.beat, pitches = {} } end
   self.chord.pitches[pitch] = true
-  local id = self:place(pitch, self.beat, self:entry_length(), building)
+  local id = self:place(pitch, self.beat, self:entry_length(), building, nil, continues)
   if not id then return end
   self:audition(pitch)
   self.last = { id = id, step = step, pitch = pitch, beat = self.beat }

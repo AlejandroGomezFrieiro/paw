@@ -487,7 +487,7 @@ days[11] = function(E)
       end
     end })
   -- A stem for each track that sounds: not muted, with clips. Its name is
-  -- the track's, in "<project> stems" inside the project's folder.
+  -- the track's, in renders/stems inside the project's folder.
   E:act({ name = "render a stem for each track", keys = { ":render stems tracks<CR>", "y" }, slow = true,
     check = function(self)
       local want = {}
@@ -495,7 +495,7 @@ days[11] = function(E)
         if not t.mute and (t.clips == M.ANY or #t.clips > 0) then want[#want + 1] = t.name .. ".wav" end
       end
       table.sort(want)
-      local dir = self.workdir .. "/project/project stems"
+      local dir = self.workdir .. "/project/renders/stems"
       local got
       self:until_(function()
         got = {}

@@ -181,7 +181,7 @@ end
 --- longer mappings run at once, without the wait for more keys. Each key
 --- with `role` "second+" or "second-" (the `[` and `]` of a view) does so. The same key again is a second press. Another key soon after it
 --- that makes a longer mapping (`]g`, `]q`) takes back its change and runs
---- that mapping.
+--- that mapping. On a selection, the selection opens again for that mapping.
 function M.set(lhs, rhs, opts)
   opts = opts or {}
   local default = opts.motion and { "n", "x", "o" } or { "n" }
@@ -966,10 +966,26 @@ handle = function(key)
     eager = nil
     stop_timer()
     local exact, longer
+    -- A key that ran on a selection closed it: the longer mapping is looked
+    -- for, and runs, on the selection open again (`v]n` after `]`).
+    local reopened
+    if first.visual and M.mode ~= "x" then
+      local g = grid()
+      reopened = { last = M.last_visual, cursor = g and { g.get() } }
+      M.visual_restore()
+      if M.mode ~= "x" then reopened = nil end
+    end
     -- The same key again is a second step (`]]` pans twice), unless the
     -- view maps the pair itself (`]]` to the next section).
     exact, longer = lookup(first.key .. key)
     if key == first.key and not exact then exact, longer = nil, nil end
+    if reopened and not (exact or longer) then
+      -- Closed again as the key left it.
+      M.set_mode("n")
+      M.last_visual = reopened.last
+      local g = grid()
+      if g and reopened.cursor then g.set(reopened.cursor[1], reopened.cursor[2]) end
+    end
     if exact or longer then
       if first.after ~= first.before and api.project_get("edits") == first.after then paw.undo() end
       if track.keys then track.edits = api.project_get("edits") end
@@ -1039,10 +1055,11 @@ handle = function(key)
       -- It runs now; the wait is only for a key that makes a longer one.
       -- Its change is a step of its own, so that one undo takes it back.
       api.undo_checkpoint()
-      local before, typed_count, typed_register = api.project_get("edits"), count, register
+      local before, typed_count, typed_register, visual = api.project_get("edits"), count, register, M.mode == "x"
       take(exact)
       pending = { key }
-      eager = { key = key, before = before, after = api.project_get("edits"), count = typed_count, register = typed_register }
+      eager = { key = key, before = before, after = api.project_get("edits"), count = typed_count, register = typed_register,
+        visual = visual }
       timer = api.timer_start(paw.opt.timeoutlen, false, function()
         timer = nil
         if not eager then return end

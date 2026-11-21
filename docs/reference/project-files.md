@@ -31,6 +31,7 @@ song/
 │       └── clips/verse.lyrics.lrc   the data of a custom clip that is text
 ├── media/take1.wav         sound files
 │   └── derived/            files that a kind of clip makes from other files
+├── renders/                the files that a render with no name writes (not saved, never moved)
 └── unused/                 files that the project does not use now
 ```
 
