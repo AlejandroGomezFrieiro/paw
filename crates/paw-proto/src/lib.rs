@@ -9,7 +9,7 @@
 //! answer, and what the kernel pushes waits in a channel until it is taken.
 
 pub mod monitor;
-mod runtime;
+pub mod runtime;
 pub mod tls;
 
 use std::io::Read;
