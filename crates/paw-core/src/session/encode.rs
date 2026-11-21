@@ -1,16 +1,16 @@
 //! Lossy formats (MP3, Ogg Vorbis, Opus), made by `ffmpeg` when it is
 //! installed. No encoder for them is linked into the program: a render of
 //! one of these writes a WAV first, and this module has ffmpeg turn it into
-//! the file asked for. It runs on the render's own thread, so the main loop
-//! never waits for it.
+//! the file asked for. The render's own thread starts it and takes its
+//! reports; ffmpeg itself runs as a task on the kernel's I/O runtime, so the
+//! main loop never waits for it.
 
 use std::collections::{HashMap, HashSet};
-use std::io::{BufRead, BufReader, Read};
-use std::os::unix::process::CommandExt;
 use std::path::Path;
 use std::process::{Command, Stdio};
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader as AsyncBufReader};
 use std::sync::Mutex;
-use std::sync::mpsc::{RecvTimeoutError, channel};
+use std::sync::mpsc::{RecvTimeoutError, Sender, channel};
 use std::time::Duration;
 
 use anyhow::{Context, Result, anyhow, bail};
@@ -110,6 +110,7 @@ fn encoders(program: &str) -> Result<HashSet<String>, String> {
     if let Some(set) = known.get_or_insert_default().get(program) {
         return Ok(set.clone());
     }
+    // A short blocking probe, cached after the first answer: kept as a plain process.
     let out = Command::new(program)
         .args(["-hide_banner", "-encoders"])
         .stdin(Stdio::null())
@@ -235,69 +236,57 @@ impl Job<'_> {
     }
 }
 
-/// Run the encode and wait for it, reporting how far it is (0 to 1) to
-/// `progress` and giving up, with ffmpeg stopped, when `cancelled` says so.
-pub fn run(
-    job: &Job,
-    progress: &dyn Fn(f64),
-    cancelled: &dyn Fn() -> bool,
+/// What the encoder's task tells the render's thread.
+enum Event {
+    /// How far the encode is, 0 to 1.
+    Progress(f64),
+    /// The encode ended: ffmpeg's exit, or why it could not run.
+    Done(Result<()>),
+}
+
+/// ffmpeg's run, as the task on the kernel's I/O runtime does it.
+async fn encode(
+    mut command: tokio::process::Command,
+    program: String,
+    seconds: f64,
+    events: &Sender<Event>,
+    mut cancel: tokio::sync::oneshot::Receiver<()>,
 ) -> Result<()> {
-    job.prepare()?;
-    let mut command = Command::new(job.program);
-    command
-        .args(job.args())
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
-    // As with any helper: not to outlive the program.
-    #[cfg(target_os = "linux")]
-    unsafe {
-        command.pre_exec(|| {
-            libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGTERM);
-            Ok(())
-        });
-    }
     let mut child = command
         .spawn()
-        .with_context(|| format!("starting {}", job.program))?;
+        .with_context(|| format!("starting {program}"))?;
     let stdout = child.stdout.take().context("ffmpeg's output")?;
     let mut stderr = child.stderr.take().context("ffmpeg's errors")?;
-    let (lines, progress_lines) = channel();
-    std::thread::spawn(move || {
-        for line in BufReader::new(stdout).lines().map_while(Result::ok) {
-            if lines.send(line).is_err() {
-                break;
-            }
-        }
-    });
-    let errors = std::thread::spawn(move || {
-        let mut text = String::new();
-        let _ = stderr.read_to_string(&mut text);
-        text
-    });
-    loop {
-        if cancelled() {
-            let _ = child.kill();
-            let _ = child.wait();
-            bail!("the render was cancelled");
-        }
-        match progress_lines.recv_timeout(Duration::from_millis(50)) {
-            Ok(line) => {
-                // `out_time_ms` is, in spite of its name, in microseconds.
-                let micros = line
-                    .strip_prefix("out_time_us=")
-                    .or_else(|| line.strip_prefix("out_time_ms="))
-                    .and_then(|v| v.trim().parse::<f64>().ok());
-                if let Some(micros) = micros {
-                    progress((micros / 1e6 / job.seconds.max(1e-9)).clamp(0.0, 1.0));
+    let reading = async {
+        let mut lines = AsyncBufReader::new(stdout).lines();
+        while let Ok(Some(line)) = lines.next_line().await {
+            // `out_time_ms` is, in spite of its name, in microseconds.
+            let micros = line
+                .strip_prefix("out_time_us=")
+                .or_else(|| line.strip_prefix("out_time_ms="))
+                .and_then(|v| v.trim().parse::<f64>().ok());
+            if let Some(micros) = micros {
+                let done = (micros / 1e6 / seconds.max(1e-9)).clamp(0.0, 1.0);
+                if events.send(Event::Progress(done)).is_err() {
+                    break;
                 }
             }
-            Err(RecvTimeoutError::Timeout) => {}
-            Err(RecvTimeoutError::Disconnected) => break,
         }
-    }
-    let status = child.wait()?;
-    let text = errors.join().unwrap_or_default();
+    };
+    let errors = async {
+        let mut text = String::new();
+        let _ = stderr.read_to_string(&mut text).await;
+        text
+    };
+    let both = async { tokio::join!(reading, errors).1 };
+    let text = tokio::select! {
+        text = both => text,
+        _ = &mut cancel => {
+            let _ = child.kill().await;
+            bail!("the render was cancelled");
+        }
+    };
+    let status = child.wait().await?;
     if !status.success() {
         let why = text.lines().rev().find(|l| !l.trim().is_empty());
         return Err(anyhow!(
@@ -306,6 +295,55 @@ pub fn run(
         ));
     }
     Ok(())
+}
+
+/// Run the encode and wait for it, reporting how far it is (0 to 1) to
+/// `progress` and giving up, with ffmpeg stopped, when `cancelled` says so.
+/// ffmpeg runs as a task on the kernel's I/O runtime; this thread, the
+/// render's, takes its reports and sends the cancel.
+pub fn run(
+    job: &Job,
+    progress: &dyn Fn(f64),
+    cancelled: &dyn Fn() -> bool,
+) -> Result<()> {
+    job.prepare()?;
+    let mut command = tokio::process::Command::new(job.program);
+    command
+        .args(job.args())
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .kill_on_drop(true);
+    // As with any helper: not to outlive the program.
+    #[cfg(target_os = "linux")]
+    unsafe {
+        command.pre_exec(|| {
+            libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGTERM);
+            Ok(())
+        });
+    }
+    let (events, reports) = channel();
+    let (stop, cancel) = tokio::sync::oneshot::channel();
+    let (program, seconds) = (job.program.to_owned(), job.seconds);
+    crate::io_runtime::handle()?.spawn(async move {
+        let result = encode(command, program, seconds, &events, cancel).await;
+        let _ = events.send(Event::Done(result));
+    });
+    let mut stop = Some(stop);
+    loop {
+        if cancelled() {
+            // The task kills ffmpeg and answers with the cancel.
+            if let Some(stop) = stop.take() {
+                let _ = stop.send(());
+            }
+        }
+        match reports.recv_timeout(Duration::from_millis(50)) {
+            Ok(Event::Progress(done)) => progress(done),
+            Ok(Event::Done(result)) => return result,
+            Err(RecvTimeoutError::Timeout) => {}
+            Err(RecvTimeoutError::Disconnected) => bail!("ffmpeg's task ended"),
+        }
+    }
 }
 
 #[cfg(test)]
