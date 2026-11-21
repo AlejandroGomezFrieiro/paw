@@ -21,8 +21,8 @@ and the markers. The message says how many notes it wrote.
    the next track.
 2. Type `:export /home/ana/Music/part.mid selection`.
 
-paw writes a standard MIDI file of format 1. Audio clips are not in the
-file. To send the sound, render it (see
+paw writes a standard MIDI file of format 1. Audio clips and muted clips
+are not in the file. To send the sound, render it (see
 [How to export a song as WAV, FLAC or MP3](export-a-song.md)).
 
 To bring a MIDI file into paw, see

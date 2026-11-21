@@ -46,11 +46,11 @@ local function run()
   end
   run.step = 0
   local messages = #paw.ui.messages
-  local start_state = E.snapshot()
+  local start_state, start_id = E.snapshot(), api.undo_current()
   scenario.days[day](run)
   -- The checks of the day, before the save that ends it.
   run.step = run.step + 1
-  run:check_undo(start_state)
+  run:check_undo(start_state, start_id)
   run:check_errors(messages)
   local worst = run:check_keys(100)
   run:check_health()

@@ -42,9 +42,10 @@ parts. Each part covers what the other parts cannot cover.
 
 ### A reference model, for the data of the project
 
-`tests/e2e/model.lua` is a small model of a project. It holds the tempo
-and the markers. For each track, it holds the name, color, volume, pan,
-mute, solo, devices, sends, clips and notes. Each action of a scenario gives two
+`tests/e2e/model.lua` is a small model of a project. It holds the tempo,
+the markers and the regions. For each track, it holds the name, color,
+volume, pan, mute, solo, devices, sends, clips, notes and the points of
+its automation lanes. Each action of a scenario gives two
 things:
 
 - the keys that the person types, and
@@ -81,7 +82,10 @@ Some checks need no model, because two ways to do one thing must give
 the same result:
 
 - Undo of each change of the day gives the state of the start of the
-  day. Redo of each change gives the state of the end of the day.
+  day. Redo of each change gives the state of the end of the day. The
+  harness presses `u` until the undo state is the state of the start of
+  the day, then `<C-r>` the same number of times. So a day that ends with
+  an undo does not redo that change too.
 - A save, an open in a new process and a save again write the same
   bytes. A known bug can make one file an exception, with its reason. The
   run prints the reason each time, until the fix removes it.
@@ -131,15 +135,44 @@ the failed day, as it was at the failure.
 
 ## What the scenarios cover now, and next
 
-The scenario `song` has three days. Day 1 is a sketch. Day 2 brings
-material from outside: a public-domain MIDI file and a CC0 sample. Day 3
-is a first mix with a send, a tempo change and exports as WAV and MIDI.
+The scenario `song` has 14 days:
+
+| Day | The work |
+| --- | --- |
+| 1 | A sketch: a tempo, a lead and a bass drawn, a bar drawn and undone, a marker, the mixer and the help. |
+| 2 | Material from outside: a public-domain MIDI file and a CC0 sample, synths, names, colors, a repeated bar, levels. |
+| 3 | A first mix: a reverb track with sends, pan and level in the mixer, a faster tempo, exports as WAV and MIDI. |
+| 4 | The piano roll: a transpose tried, undone and tried again, the velocity, a quantize, the bass an octave down. |
+| 5 | A take played on the test MIDI port of the null backend, recorded from bar 5 and quantized to the beat. |
+| 6 | Automation: volume points typed with `:lane.add` and `A`, a pan lane, a solo tried in the mixer. |
+| 7 | A time stretch of the sample, a region over a loop, a marker named when asked. |
+| 8 | A voice deleted and brought back with `u`, another deleted for good. |
+| 9 | The files buffer puts the sample on a new track. The pickers find a track and a marker. |
+| 10 | The undo tree: two ideas on two branches, `g-` to the first. |
+| 11 | `:media.collect`, and a stem for each track. |
+| 12 | Rework: a new bass, a bar of lead deleted, a slower tempo. |
+| 13 | The lead's bar repeated, its last copy muted. |
+| 14 | The last levels, the help of `:render`, the final mix and a MIDI file. |
+
+The recorded take of day 5 shows how the model deals with time on a
+loaded machine. There, the notes come late, by up to half a beat. The
+model holds the played notes as they must be after a quantize to the
+beat, and the scenario quantizes the take before the comparison.
 
 The scenario `interop` has the first two days of `song`. On its third
 day, it writes the song as a REAPER project and as a DAWproject file, and
 opens each again.
 
-Later slices add days up to two weeks: the piano roll, automation, a
-recorded take, a time stretch and stems. They also add scenarios for the
-other extensions. `tests/e2e/assets/LICENSES.md` lists the sounds and
-MIDI files with their sources and licenses.
+The scenario `notation` imports a public-domain chorale, writes a melody
+over a sketch in the score, and corrects notes there. After each edit,
+the model checks the MIDI notes: the notes are the truth. Then it writes
+MusicXML and LilyPond, reads the MusicXML with its own small reader, and
+imports the file again to compare the notes. On the last day it moves a
+note of the chorale in the score.
+
+`--seeds` runs each scenario with several seeds, for the run of each
+night. Each seed has its own approved renders.
+
+Later slices add scenarios for the other extensions.
+`tests/e2e/assets/LICENSES.md` lists the sounds and MIDI files with their
+sources and licenses.
