@@ -30,7 +30,7 @@ use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy}
 use winit::raw_window_handle::{HasDisplayHandle as _, HasWindowHandle as _, RawDisplayHandle};
 use winit::window::{Window, WindowId};
 
-use crate::damage::Damage;
+use crate::damage::{Damage, Px};
 
 /// What the loop runs: the program's window.
 pub trait App {
@@ -446,39 +446,8 @@ impl Runner {
             let screen = monitor.size().to_logical::<f32>(monitor.scale_factor());
             builder.inner_size = Some(egui::vec2(size.x.min(screen.width), size.y.min(screen.height)));
         }
-        let attributes = egui_winit::create_winit_window_attributes(&self.ctx, builder.clone());
-        let template = ConfigTemplateBuilder::new().prefer_hardware_accelerated(None).with_depth_size(0).with_stencil_size(0).with_transparency(false);
-        // EGL first: it says how old a buffer is and shows only what changed.
-        // On X11 on the processor GLX first: it copies the changed parts to
-        // the window through shared memory (GLX_MESA_copy_sub_buffer), where
-        // Mesa's EGL puts the whole window to the X server each frame.
-        let x11 = matches!(event_loop.display_handle()?.as_raw(), RawDisplayHandle::Xlib(_) | RawDisplayHandle::Xcb(_));
-        let software = std::env::var_os("LIBGL_ALWAYS_SOFTWARE").is_some_and(|v| !v.is_empty() && v != "0");
-        let preference = if x11 && software { glutin_winit::ApiPreference::FallbackEgl } else { glutin_winit::ApiPreference::PreferEgl };
-        let (window, config) = glutin_winit::DisplayBuilder::new()
-            .with_preference(preference)
-            .with_window_attributes(Some(attributes))
-            .build(event_loop, template, |mut configs| configs.next().expect("an OpenGL configuration"))
-            .map_err(|err| anyhow!("{err}"))?;
-        let window = window.context("no window")?;
-        egui_winit::apply_viewport_builder_to_window(&self.ctx, &window, &builder);
-        let handle = Some(window.window_handle()?.as_raw());
-        let tries = [
-            ContextAttributesBuilder::new().build(handle),
-            ContextAttributesBuilder::new().with_context_api(ContextApi::Gles(None)).build(handle),
-            ContextAttributesBuilder::new().with_profile(GlProfile::Compatibility).build(handle),
-        ];
-        let mut context = Err(anyhow!("no OpenGL context"));
-        for attributes in &tries {
-            match unsafe { config.display().create_context(&config, attributes) } {
-                Ok(made) => {
-                    context = Ok(made);
-                    break;
-                }
-                Err(err) => context = Err(anyhow!("{err}")),
-            }
-        }
-        let context = context?;
+        let (window, config) = self.open_window(event_loop, &builder)?;
+        let context = Self::create_context(&config, &window)?;
         // On Wayland the compositor's calls to draw pace the frames; a
         // swap that waits would only hang a hidden window.
         let wayland = matches!(event_loop.display_handle()?.as_raw(), RawDisplayHandle::Wayland(_));
@@ -554,6 +523,48 @@ impl Runner {
         self.app = Some(make(&self.ctx, &info)?);
         self.next.insert(ViewportId::ROOT, Instant::now());
         Ok(())
+    }
+
+    /// The main window and the OpenGL configuration it was made with.
+    fn open_window(&self, event_loop: &ActiveEventLoop, builder: &ViewportBuilder) -> Result<(Window, Config)> {
+        let attributes = egui_winit::create_winit_window_attributes(&self.ctx, builder.clone());
+        let template = ConfigTemplateBuilder::new().prefer_hardware_accelerated(None).with_depth_size(0).with_stencil_size(0).with_transparency(false);
+        // EGL first: it says how old a buffer is and shows only what changed.
+        // On X11 on the processor GLX first: it copies the changed parts to
+        // the window through shared memory (GLX_MESA_copy_sub_buffer), where
+        // Mesa's EGL puts the whole window to the X server each frame.
+        let x11 = matches!(event_loop.display_handle()?.as_raw(), RawDisplayHandle::Xlib(_) | RawDisplayHandle::Xcb(_));
+        let software = std::env::var_os("LIBGL_ALWAYS_SOFTWARE").is_some_and(|v| !v.is_empty() && v != "0");
+        let preference = if x11 && software { glutin_winit::ApiPreference::FallbackEgl } else { glutin_winit::ApiPreference::PreferEgl };
+        let (window, config) = glutin_winit::DisplayBuilder::new()
+            .with_preference(preference)
+            .with_window_attributes(Some(attributes))
+            .build(event_loop, template, |mut configs| configs.next().expect("an OpenGL configuration"))
+            .map_err(|err| anyhow!("{err}"))?;
+        let window = window.context("no window")?;
+        egui_winit::apply_viewport_builder_to_window(&self.ctx, &window, builder);
+        Ok((window, config))
+    }
+
+    /// An OpenGL context for the window: the desktop's, else GLES, else the compatibility profile.
+    fn create_context(config: &Config, window: &Window) -> Result<NotCurrentContext> {
+        let handle = Some(window.window_handle()?.as_raw());
+        let tries = [
+            ContextAttributesBuilder::new().build(handle),
+            ContextAttributesBuilder::new().with_context_api(ContextApi::Gles(None)).build(handle),
+            ContextAttributesBuilder::new().with_profile(GlProfile::Compatibility).build(handle),
+        ];
+        let mut context = Err(anyhow!("no OpenGL context"));
+        for attributes in &tries {
+            match unsafe { config.display().create_context(&config, attributes) } {
+                Ok(made) => {
+                    context = Ok(made);
+                    break;
+                }
+                Err(err) => context = Err(anyhow!("{err}")),
+            }
+        }
+        context
     }
 
     /// A pass of the main window, and its frame where it changed.
@@ -687,11 +698,18 @@ impl Runner {
         self.stats.ages[(age as usize).min(3)] += 1;
         let rects = self.damage.to_draw(age);
         let changed = self.damage.changed();
+        self.draw_rects(gl, screen, ppp, &rects, clear, delta);
+        self.stats.changed_px += changed.iter().map(|r| ((r[2] - r[0]) * (r[3] - r[1])) as u64).sum::<u64>();
+        self.show(gl, &window, screen, all, changed);
+    }
+
+    /// Clear each rectangle and draw into it the shapes that reach it.
+    fn draw_rects(&mut self, gl: &mut Gl, screen: [u32; 2], ppp: f32, rects: &[Px], clear: [f32; 4], delta: &mut egui::TexturesDelta) {
         let raw = gl.painter.gl().clone();
         // The rectangles do not overlap: each is cleared, and each gets the
         // shapes that reach into it, cut to it; all are drawn at once.
         let mut primitives = Vec::new();
-        for rect in &rects {
+        for rect in rects {
             unsafe {
                 raw.enable(glow::SCISSOR_TEST);
                 raw.scissor(rect[0], screen[1] as i32 - rect[3], rect[2] - rect[0], rect[3] - rect[1]);
@@ -710,7 +728,11 @@ impl Runner {
             self.stats.rects += 1;
         }
         gl.painter.paint_and_update_textures(screen, ppp, &primitives, delta);
-        self.stats.changed_px += changed.iter().map(|r| ((r[2] - r[0]) * (r[3] - r[1])) as u64).sum::<u64>();
+    }
+
+    /// Show what changed of the buffer, where the platform lets it say so,
+    /// else the whole of it.
+    fn show(&mut self, gl: &mut Gl, window: &Window, screen: [u32; 2], all: bool, changed: Vec<Px>) {
         // Shown: only what changed, where the platform lets it say so.
         if let Some(copy) = &gl.copy_sub {
             let h = screen[1] as i32;

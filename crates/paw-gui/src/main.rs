@@ -99,7 +99,7 @@ fn find_authority(runtime: Option<&std::path::Path>, home: Option<&std::path::Pa
 /// Call it before any other thread starts, while nothing else can read or
 /// write the environment at the same time.
 unsafe fn repair_display_env() {
-    let runtime = std::env::var_os("XDG_RUNTIME_DIR").map(PathBuf::from);
+    let runtime = paw_proto::dirs::runtime();
     // The same for Wayland: a name with no compositor behind it would be
     // tried, fail, and leave no window at all. Without the name, X is used.
     if let Some(name) = std::env::var_os("WAYLAND_DISPLAY") {
@@ -151,8 +151,8 @@ impl runner::App for Window {
     /// has them: they are taken here, before egui would move its focus
     /// with Tab or press a button with Space.
     fn raw_input_hook(&mut self, _ctx: &egui::Context, raw: &mut egui::RawInput) {
-        self.view.hooked = true;
-        if self.view.text_focus {
+        self.view.keyboard.hooked = true;
+        if self.view.keyboard.text_focus {
             return;
         }
         let (keys, rest): (Vec<egui::Event>, Vec<egui::Event>) = raw.events.drain(..).partition(|e| {
@@ -164,7 +164,7 @@ impl runner::App for Window {
             raw.events.push(egui::Event::Key { key: egui::Key::Escape, physical_key: None, pressed: true, repeat: false, modifiers: egui::Modifiers::NONE });
             return;
         }
-        self.view.pending_keys.extend(keys.into_iter().map(|e| match e {
+        self.view.keyboard.pending.extend(keys.into_iter().map(|e| match e {
             // Ctrl and c, x and v are keys like any other here.
             egui::Event::Copy => key_event(egui::Key::C),
             egui::Event::Cut => key_event(egui::Key::X),

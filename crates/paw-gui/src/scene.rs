@@ -114,7 +114,14 @@ struct Placed {
 
 /// What the still part of a scene was painted for: its rectangle, its cut,
 /// the cell and scale, the roles that moved, and the clips' pictures made.
-type StillKey = (Rect, Rect, [f32; 3], Vec<usize>, u64);
+#[derive(PartialEq)]
+struct StillKey {
+    rect: Rect,
+    cut: Rect,
+    cell_scale: [f32; 3],
+    moving: Vec<usize>,
+    pictures: u64,
+}
 
 /// A window's scene, and what is drawn of it.
 #[derive(Default)]
@@ -480,7 +487,7 @@ impl Shown {
             .collect();
         // The rest is painted once, and its shapes are given again while
         // nothing of it changes: no layout, no painting of roles.
-        let still_key = (rect, painter.clip_rect(), [cell.0, cell.1, ppp], moving.clone(), crate::timeline::pictures_made());
+        let still_key = StillKey { rect, cut: painter.clip_rect(), cell_scale: [cell.0, cell.1, ppp], moving: moving.clone(), pictures: crate::timeline::pictures_made() };
         if self.still.as_ref().is_none_or(|(key, _)| *key != still_key) {
             let kept = egui::LayerId::new(painter.layer_id().order, Id::unique(("scene-still", id)));
             let still = egui::Painter::new(ui.ctx().clone(), kept, painter.clip_rect());

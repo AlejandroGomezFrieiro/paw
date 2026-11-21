@@ -13,14 +13,30 @@ use crate::model::{flag, int, number, rows, text};
 use crate::theme::{T_BASE, T_CLOCK, T_MICRO, T_SMALL, T_TITLE, alpha, mix, mode_colour, mono, mono_medium, sans, semi, th};
 use crate::widgets::{self, Look};
 
+/// The height of the controls in the transport bar.
+const TRANSPORT_H: f32 = 28.0;
+
 impl View {
     /// The transport bar.
     pub fn transport(&mut self, ui: &mut Ui, bar: Rect) {
-        let t = th();
-        ui.painter().rect_filled(bar, CornerRadius::ZERO, t.panel);
-        let (top, h) = (bar.top() + 6.0, 28.0);
-        let row = |x: f32, w: f32| Rect::from_min_size(pos2(x, top), vec2(w, h));
+        ui.painter().rect_filled(bar, CornerRadius::ZERO, th().panel);
+        let top = bar.top() + 6.0;
         let mut x = bar.left() + 12.0;
+        x = self.transport_project(ui, top, x);
+        x = self.transport_buttons(ui, top, x);
+        x = self.transport_clock(ui, top, x);
+        x = self.transport_tempo(ui, top, x);
+        x = self.transport_signature(ui, top, x);
+        x = self.transport_edit(ui, top, x);
+        let views_end = self.transport_views(ui, top, x);
+        self.transport_engine(ui, bar, top, views_end);
+    }
+
+    /// The project's name, with a dot while it has changes to save; its file menu. Gives the x after it.
+    fn transport_project(&mut self, ui: &mut Ui, top: f32, mut x: f32) -> f32 {
+        let t = th();
+        let h = TRANSPORT_H;
+        let row = |x: f32, w: f32| Rect::from_min_size(pos2(x, top), vec2(w, h));
         // The project, and whether it has changes to save.
         let name = format!("{}  ▾", text(&self.s.project["name"]));
         let name_w = widgets::text_width(ui, &name, semi(T_TITLE)).min(180.0 - 12.0);
@@ -36,6 +52,14 @@ impl View {
             self.open_menu("file", json!([]), project.left_bottom() + vec2(0.0, 4.0));
         }
         x = project.right() + 8.0 + 4.0;
+        x
+    }
+
+    /// The transport's buttons, together.
+    fn transport_buttons(&mut self, ui: &mut Ui, top: f32, mut x: f32) -> f32 {
+        let t = th();
+        let h = TRANSPORT_H;
+        let row = |x: f32, w: f32| Rect::from_min_size(pos2(x, top), vec2(w, h));
         // The transport's buttons, together.
         let counting = int(&self.s.tick["counting"]);
         let armed = flag(&self.s.tick["armed"]);
@@ -78,6 +102,14 @@ impl View {
             x += h + 2.0;
         }
         x += 6.0;
+        x
+    }
+
+    /// Where the playhead is: bars and beats, then minutes and seconds.
+    fn transport_clock(&mut self, ui: &mut Ui, top: f32, mut x: f32) -> f32 {
+        let t = th();
+        let h = TRANSPORT_H;
+        let row = |x: f32, w: f32| Rect::from_min_size(pos2(x, top), vec2(w, h));
         // Where the playhead is: bars and beats, then minutes and seconds.
         let clock = row(x, 168.0);
         ui.painter().rect_filled(clock, CornerRadius::same(4), t.well);
@@ -85,6 +117,14 @@ impl View {
         self.clock(ui.painter(), clock);
         self.live.end(ui.painter(), part);
         x = clock.right() + 8.0;
+        x
+    }
+
+    /// Tempo: the wheel changes it, or a drag up and down; a double click types it.
+    fn transport_tempo(&mut self, ui: &mut Ui, top: f32, mut x: f32) -> f32 {
+        let t = th();
+        let h = TRANSPORT_H;
+        let row = |x: f32, w: f32| Rect::from_min_size(pos2(x, top), vec2(w, h));
         // Tempo: the wheel changes it, or a drag up and down; a double click types it.
         let tempo = row(x, 64.0);
         let response = ui.interact(tempo, Id::unique("tempo"), Sense::click_and_drag());
@@ -113,11 +153,26 @@ impl View {
             self.command(if step > 0.0 { "tempo by=1" } else { "tempo by=-1" });
         }
         x = tempo.right() + 8.0;
+        x
+    }
+
+    /// The time signature.
+    fn transport_signature(&mut self, ui: &mut Ui, top: f32, mut x: f32) -> f32 {
+        let t = th();
+        let h = TRANSPORT_H;
+        let row = |x: f32, w: f32| Rect::from_min_size(pos2(x, top), vec2(w, h));
         let signature = row(x, 48.0);
         ui.painter().rect_filled(signature, CornerRadius::same(4), t.well);
         let sig = self.s.tick["signature"].as_str().map(String::from).unwrap_or_else(|| text(&self.s.project["signature"]));
         ui.painter().text(signature.center(), Align2::CENTER_CENTER, sig, mono_medium(T_BASE), t.text);
         x = signature.right() + 16.0;
+        x
+    }
+
+    /// Undo and redo, and a new track: at once, or from a list when extensions have kinds of track of their own to offer.
+    fn transport_edit(&mut self, ui: &mut Ui, top: f32, mut x: f32) -> f32 {
+        let h = TRANSPORT_H;
+        let row = |x: f32, w: f32| Rect::from_min_size(pos2(x, top), vec2(w, h));
         for (name, shape) in [("undo", icons::ARROW_COUNTER_CLOCKWISE), ("redo", icons::ARROW_CLOCKWISE)] {
             if widgets::button(ui, row(x, h), Id::unique(("transport", name)), Some(shape), "", Look::quiet()).clicked() {
                 self.command(name);
@@ -133,6 +188,13 @@ impl View {
             self.open_menu("add_track", json!([]), add.left_bottom() + vec2(0.0, 2.0));
         }
         x = add.right() + 8.0;
+        x
+    }
+
+    /// Which views show: one segmented switch. Gives the x where it ends.
+    fn transport_views(&mut self, ui: &mut Ui, top: f32, x: f32) -> f32 {
+        let t = th();
+        let h = TRANSPORT_H;
         // Which views show: one segmented switch.
         let roll_open = rows(&self.s.modal["panes"]["panes"]).iter().any(|p| p["view"] == "pianoroll");
         let lanes_open = self.s.track(self.s.selected).is_some_and(|t| !t.lane_rows.is_empty());
@@ -162,8 +224,14 @@ impl View {
             }
             vx += w + 2.0;
         }
-        // How hard the engine is working; a click chooses the devices.
-        let engine_w = 220.0f32.min((bar.right() - 12.0 - segment.right() - 16.0).max(48.0));
+        segment.right()
+    }
+
+    /// How hard the engine is working; a click chooses the devices.
+    fn transport_engine(&mut self, ui: &mut Ui, bar: Rect, top: f32, views_end: f32) {
+        let t = th();
+        let h = TRANSPORT_H;
+        let engine_w = 220.0f32.min((bar.right() - 12.0 - views_end - 16.0).max(48.0));
         let engine = Rect::from_min_size(pos2(bar.right() - 12.0 - engine_w, top), vec2(engine_w, h));
         let response = ui.interact(engine, Id::unique("engine"), Sense::click());
         widgets::name(&response, "engine");
@@ -185,8 +253,7 @@ impl View {
         };
         let room = engine.width() - 6.0 - 40.0 - 8.0;
         let shown = widgets::elide(ui, &said, sans(T_SMALL), room);
-        ui.painter().text(pos2(meter.left() - 8.0, engine.center().y), Align2::RIGHT_CENTER, shown, sans(T_SMALL), colour);
-    }
+        ui.painter().text(pos2(meter.left() - 8.0, engine.center().y), Align2::RIGHT_CENTER, shown, sans(T_SMALL), colour);    }
 
     /// The clock's words: where the playhead is, in bars and beats and in
     /// minutes and seconds; while counting in, the beats left.

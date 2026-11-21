@@ -208,13 +208,10 @@ pub struct View {
     pub ours: bool,
     pub s: State,
     pub keys: keys::Keys,
-    /// Keys taken from the frame's input before egui saw them.
-    pub pending_keys: Vec<egui::Event>,
-    pub hooked: bool,
+    pub keyboard: Keyboard,
     /// The text boxes of the window: while one has the keyboard, keys are
     /// typed there and not sent to the kernel.
     pub text_ids: RefCell<Vec<egui::Id>>,
-    pub text_focus: bool,
     pub messages: Messages,
     pub panes: panes::Panes,
     pub canvases: canvas::Canvases,
@@ -245,6 +242,18 @@ pub struct View {
     pub live: crate::live::Parts,
 }
 
+/// Where the window's keys go.
+#[derive(Default)]
+pub struct Keyboard {
+    /// Keys taken from the frame's input before egui saw them.
+    pub pending: Vec<egui::Event>,
+    /// The input hook has run: keys come from `pending`.
+    pub hooked: bool,
+    /// A text box of the window's has the keyboard: keys are typed there
+    /// and not sent to the kernel.
+    pub text_focus: bool,
+}
+
 impl View {
     pub fn new(kernel: Box<dyn Kernel>, ours: bool) -> View {
         View {
@@ -253,10 +262,8 @@ impl View {
             ours,
             s: State { revision: -1, selected: -1, ..State::default() },
             keys: keys::Keys::default(),
-            pending_keys: Vec::new(),
-            hooked: false,
+            keyboard: Keyboard::default(),
             text_ids: RefCell::new(Vec::new()),
-            text_focus: false,
             messages: Messages::default(),
             panes: panes::Panes::default(),
             canvases: canvas::Canvases::default(),
@@ -523,14 +530,14 @@ impl View {
     /// Where keys go: to a text box of the window's while one has them, else
     /// to the kernel's mappings, the window keeping a few of its own (zoom).
     fn keyboard(&mut self, ui: &mut Ui) {
-        let events: Vec<egui::Event> = if self.hooked {
-            std::mem::take(&mut self.pending_keys)
-        } else if self.text_focus {
+        let events: Vec<egui::Event> = if self.keyboard.hooked {
+            std::mem::take(&mut self.keyboard.pending)
+        } else if self.keyboard.text_focus {
             Vec::new()
         } else {
             ui.input(|i| i.events.clone())
         };
-        if self.text_focus || self.dialogs.open() {
+        if self.keyboard.text_focus || self.dialogs.open() {
             return;
         }
         self.window_keys(&events);
@@ -583,7 +590,7 @@ impl View {
         {
             ctx.memory_mut(|m| m.surrender_focus(id));
         }
-        self.text_focus = focused.is_some_and(|id| ids.contains(&id));
+        self.keyboard.text_focus = focused.is_some_and(|id| ids.contains(&id));
     }
 
     // ------------------------------------------------------- leaving, files

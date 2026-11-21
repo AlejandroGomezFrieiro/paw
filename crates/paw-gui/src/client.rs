@@ -237,9 +237,7 @@ impl Client {
 
 /// Start a kernel without a UI and connect to it.
 pub fn start_kernel(args: &[String]) -> Result<(Client, Child)> {
-    let runtime = std::env::var_os("XDG_RUNTIME_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(std::env::temp_dir);
+    let runtime = paw_proto::dirs::runtime().unwrap_or_else(std::env::temp_dir);
     let socket = runtime.join(format!("paw-gui-{}.sock", std::process::id()));
     // The `paw` binary beside this one, else whichever is on the path.
     let beside = std::env::current_exe()
