@@ -8049,6 +8049,8 @@ function paw.api.checkpoint_restore(file) end
 ---@param id integer?
 function paw.api.checkpoint_write(name, id) end
 
+--- A clip of a defined kind: `kind` is its name, with `data` and `length`, and
+--- `version`, `timeline`, `offset`, `media`, `sound` and `signals` as `clip_custom` gives them.
 ---@param track integer
 ---@param opts any
 function paw.api.clip_add(track, opts) end
@@ -8065,6 +8067,13 @@ function paw.api.clip_collect() end
 --- { start, type = "cc" | "bend" | "pressure", number, value }.
 ---@param id integer
 function paw.api.clip_controls(id) end
+
+--- The content of a clip of a defined kind, as the project saves it:
+--- `{ type, version?, timeline?, offset?, data, media?, sound?, signals? }`.
+--- `data` is `{ json = text }` or `{ text = { ext, text } }`: the text is
+--- kept exactly as it was given.
+---@param id integer
+function paw.api.clip_custom(id) end
 
 --- Add an edit to an audio clip's edit list (`edits.rs`): `{ kind =
 --- "gain", from, to, db }` or `{ kind = "pencil", at, channel, values }`,
@@ -8088,6 +8097,18 @@ function paw.api.clip_get(id) end
 
 ---@param ids integer[]
 function paw.api.clip_glue(ids) end
+
+--- Let `clip_add` make clips of the kind `name`: a lowercase word that
+--- is not `midi`, `audio` or another built-in. `paw.clip_kinds.define` calls it.
+---@param name string
+function paw.api.clip_kind_define(name) end
+
+--- Stop making clips of the kind `name`. Clips of it that the project has stay.
+---@param name string
+function paw.api.clip_kind_remove(name) end
+
+--- The kinds of clip that extensions defined, by name (sorted).
+function paw.api.clip_kinds() end
 
 --- --- clips ---
 ---@param track integer
@@ -8158,6 +8179,14 @@ function paw.api.clip_set(id, key, value) end
 ---@param id integer
 ---@param controls any
 function paw.api.clip_set_controls(id, controls) end
+
+--- Replace what a custom clip's kind compiled, as one undo step: `data`
+--- (required), `media`, `sound` (a MIDI or audio content) and `signals`
+--- are all replaced (absent: none); `version`, `timeline` and `offset`
+--- stay as they are when absent.
+---@param id integer
+---@param set any
+function paw.api.clip_set_custom(id, set) end
 
 ---@param id integer
 ---@param notes any

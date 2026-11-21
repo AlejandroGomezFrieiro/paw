@@ -22,8 +22,8 @@ use serde_json::{Map, Value, json};
 
 use crate::history::{self, History};
 use crate::model::{
-    Clip, ClipContent, Control, DeviceInst, Id, Lane, LaneState, MASTER_ID, MidiInput, Note, NoteAttr, Notes, Project, Segment,
-    Send, Shape, StretchMode, Target, Timebase, Track, WarpMarker, parse_input,
+    Clip, ClipContent, ClipKindId, Control, CustomContent, DeviceInst, KindData, MediaRef, Signal, Timeline, Id, Lane, LaneState, MASTER_ID, MidiInput, Note, NoteAttr, Notes, Project, Segment,
+    Send, Shape, Sound, StretchMode, Target, Timebase, Track, WarpMarker, parse_input,
 };
 use crate::sync::{AudioCache, LiveDevices, Mapper, ModelEvent, SyncCtx, sync};
 
@@ -270,13 +270,28 @@ pub struct DeviceOpts {
     pub state: Option<String>,
 }
 
-/// What a new clip holds: `midi` or `audio` in Lua. A wrong word fails
-/// with the text of [`FromStr`](std::str::FromStr).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase", try_from = "String")]
+/// What a new clip holds: `midi`, `audio` or the name of a kind that an
+/// extension defines, in Lua. A word that is no name fails with the text of
+/// [`FromStr`](std::str::FromStr); whether an extension defined it is known
+/// where the clip is added (`Session::clip_kinds`).
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[serde(try_from = "String")]
 pub enum ClipKind {
     Midi,
     Audio,
+    Custom(ClipKindId),
+}
+
+impl ClipKind {
+    /// The built-in kind that decides how the clip may play: its own, or
+    /// that of the sound of a custom clip (MIDI when it has none).
+    pub(crate) fn playing(&self, sound: Option<&Sound>) -> ClipKind {
+        match (self, sound.map(Sound::content)) {
+            (ClipKind::Custom(_), Some(ClipContent::Audio { .. })) => ClipKind::Audio,
+            (ClipKind::Custom(_), _) => ClipKind::Midi,
+            (built_in, _) => built_in.clone(),
+        }
+    }
 }
 
 impl std::str::FromStr for ClipKind {
@@ -286,7 +301,7 @@ impl std::str::FromStr for ClipKind {
         Ok(match word {
             "midi" => Self::Midi,
             "audio" => Self::Audio,
-            other => bail!("unknown clip kind `{other}`"),
+            other => Self::Custom(other.parse::<ClipKindId>()?),
         })
     }
 }
@@ -364,6 +379,30 @@ pub struct ClipOpts {
     pub loop_start: f64,
     /// Keep it off the timeline, among the track's cues (`session/cues.rs`).
     pub cue: bool,
+    /// A clip of a kind that an extension defines: its content (`data` is
+    /// required, `length` too; `offset` is in the kind's timeline).
+    pub version: Option<u32>,
+    pub timeline: Timeline,
+    pub data: Option<KindData>,
+    pub media: Vec<MediaRef>,
+    pub sound: Option<Sound>,
+    pub signals: Vec<Signal>,
+}
+
+/// What [`Session::clip_set_custom`] gives a custom clip: what its kind
+/// compiled, replacing data, media, sound and signals together, so that it
+/// is one edit. `version`, `timeline` and `offset` stay as they are when
+/// absent.
+#[derive(Default, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct CustomSet {
+    pub data: Option<KindData>,
+    pub version: Option<u32>,
+    pub timeline: Option<Timeline>,
+    pub offset: Option<f64>,
+    pub media: Vec<MediaRef>,
+    pub sound: Option<Sound>,
+    pub signals: Vec<Signal>,
 }
 
 #[derive(Default, Deserialize)]
@@ -472,6 +511,9 @@ pub struct Session {
     /// The running engine and how it was started: see `session/engine.rs`.
     engine: engine::EngineLink,
     pub registry: Registry,
+    /// The kinds of clip that extensions defined (`paw.clip_kinds.define`):
+    /// a clip of another custom kind is not added. Not part of the project.
+    clip_kinds: BTreeSet<ClipKindId>,
     audio: AudioCache,
     /// Checkpoints counted for [`Session::trim_audio_now_and_then`].
     trims: u32,
@@ -589,6 +631,7 @@ impl Session {
             next_id: MASTER_ID + 1,
             engine: engine::EngineLink { handle, map: Mapper::new(), stream, threads: 0, sleep: true, backend: opts.clone() },
             registry,
+            clip_kinds: BTreeSet::new(),
             audio: AudioCache::default(),
             trims: 0,
             live: LiveDevices::new(),

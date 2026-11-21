@@ -2106,15 +2106,19 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.checkpoint_list()`
 - `paw.api.checkpoint_restore(file)`
 - `paw.api.checkpoint_write(name, id)`
-- `paw.api.clip_add(track, opts)`
+- `paw.api.clip_add(track, opts)`: A clip of a defined kind: `kind` is its name, with `data` and `length`, and `version`, `timeline`, `offset`, `media`, `sound` and `signals` as `clip_custom` gives them.
 - `paw.api.clip_add_notes(id, notes)`
 - `paw.api.clip_collect()`: Make every clip that refers to a MIDI clip file outside the project the project's own. Returns how many.
 - `paw.api.clip_controls(id)`: Controller, pitch wheel and pressure moves of a MIDI clip: { start, type = "cc" | "bend" | "pressure", number, value }.
+- `paw.api.clip_custom(id)`: The content of a clip of a defined kind, as the project saves it: `{ type, version?, timeline?, offset?, data, media?, sound?, signals? }`. `data` is `{ json = text }` or `{ text = { ext, text } }`: the text is kept exactly as it was given.
 - `paw.api.clip_edit_add(id, edit)`: Add an edit to an audio clip's edit list (`edits.rs`): `{ kind = "gain", from, to, db }` or `{ kind = "pencil", at, channel, values }`, in seconds from where the clip starts in its sound. Returns how many edits it has.
 - `paw.api.clip_edits(id)`: An audio clip's edit list, as `clip_edit_add` takes its edits (with times in seconds of its sound).
 - `paw.api.clip_edits_clear(id)`: Take away an audio clip's edit list. Returns how many edits it had.
 - `paw.api.clip_get(id)`
 - `paw.api.clip_glue(ids)`
+- `paw.api.clip_kind_define(name)`: Let `clip_add` make clips of the kind `name`: a lowercase word that is not `midi`, `audio` or another built-in. `paw.clip_kinds.define` calls it.
+- `paw.api.clip_kind_remove(name)`: Stop making clips of the kind `name`. Clips of it that the project has stay.
+- `paw.api.clip_kinds()`: The kinds of clip that extensions defined, by name (sorted).
 - `paw.api.clip_list(track)`: --- clips ---
 - `paw.api.clip_normalize(id, level)`
 - `paw.api.clip_note_add(id, note)`: One note at a time, by its place in the notes of the clip (from 1). The functions that add and change a note return its new place, because the notes stay in the order of their start.
@@ -2128,6 +2132,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.clip_reverse(id)`: Audio clip operations that leave the source file alone (session/clipops.rs).
 - `paw.api.clip_set(id, key, value)`: Change a clip: a table of the entries to change, as `clip_get` gives them, or one `key` and its value. Only the key form clears an entry (`nil`).
 - `paw.api.clip_set_controls(id, controls)`
+- `paw.api.clip_set_custom(id, set)`: Replace what a custom clip's kind compiled, as one undo step: `data` (required), `media`, `sound` (a MIDI or audio content) and `signals` are all replaced (absent: none); `version`, `timeline` and `offset` stay as they are when absent.
 - `paw.api.clip_set_notes(id, notes)`
 - `paw.api.clip_source_length(id)`: Beats of sound left in an audio clip's file from where the clip starts in it.
 - `paw.api.clip_to_cues(id, track)`: Copy a clip, with its `meta`, off the timeline of a track. Returns the copy's id.

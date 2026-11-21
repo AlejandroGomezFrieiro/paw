@@ -30,11 +30,15 @@ local record api
    clip_add_notes: function(id: integer, notes: {types.Note})
    clip_collect: function(): integer
    clip_controls: function(id: integer): {types.Control}
+   clip_custom: function(id: integer): types.CustomContent
    clip_edit_add: function(id: integer, edit: types.AudioEdit): integer
    clip_edits: function(id: integer): {types.AudioEdit}
    clip_edits_clear: function(id: integer): integer
    clip_get: function(id: integer): types.Clip
    clip_glue: function(ids: {integer}): types.ClipGlued
+   clip_kind_define: function(name: string)
+   clip_kind_remove: function(name: string)
+   clip_kinds: function(): {string}
    clip_list: function(track: integer): {types.Clip}
    clip_normalize: function(id: integer, level?: number): number
    clip_note_add: function(id: integer, note: types.Note): integer
@@ -49,6 +53,7 @@ local record api
    clip_set: function(id: integer, patch: types.Clip)
    clip_set: function(id: integer, key: string, value: nil)
    clip_set_controls: function(id: integer, controls: {types.Control})
+   clip_set_custom: function(id: integer, set: types.CustomSet)
    clip_set_notes: function(id: integer, notes: {types.Note})
    clip_source_length: function(id: integer): number
    clip_to_cues: function(id: integer, track: integer): integer
