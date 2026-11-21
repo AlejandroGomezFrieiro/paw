@@ -27,7 +27,7 @@ use serde_json::{Value, json};
 
 use super::{FILE_VERSION, Session};
 use crate::history::{self, History, StateId};
-use crate::model::{Clip, ClipContent, DeviceInst, Id, Lane, Note, Notes, Project, Target, Track};
+use crate::model::{Clip, ClipContent, CustomContent, DeviceInst, Id, Lane, Note, Notes, Project, Target, Track};
 
 /// Readable lines in a diff, at most.
 const DIFF_ITEMS: usize = 200;
@@ -644,6 +644,13 @@ impl Part for Clip {
                 d.notes.removed += n.removed;
                 d.notes.changed += n.changed;
             }
+            (ClipContent::Custom(was), ClipContent::Custom(now)) if was.kind == now.kind => {
+                let changed = custom_changes(was, now);
+                if !changed.is_empty() {
+                    fields.push(format!("kind {}: {}", now.kind.as_str(), changed.join(", ")));
+                }
+            }
+            (was, now) if was.kind() != now.kind() => fields.push(format!("kind {} to {}", was.kind(), now.kind())),
             (was, now) if !same(was, now) => fields.push("audio".into()),
             _ => {}
         }
@@ -677,6 +684,21 @@ impl Part for Lane {
                 || prev.target != self.target);
         differs.then(Vec::new)
     }
+}
+
+/// Which parts of a custom clip differ, by name: its data, sound, signals
+/// and media, never the data itself.
+fn custom_changes(was: &CustomContent, now: &CustomContent) -> Vec<&'static str> {
+    [
+        ("data", !same(&was.data, &now.data)),
+        ("sound", !same(&was.sound, &now.sound)),
+        ("signals", !same(&was.signals, &now.signals)),
+        ("media", !same(&was.media, &now.media)),
+        ("timeline", was.timeline != now.timeline || was.offset != now.offset),
+    ]
+    .into_iter()
+    .filter_map(|(part, differs)| differs.then_some(part))
+    .collect()
 }
 
 /// "moved from track X" when a device or clip changed tracks.
@@ -1007,6 +1029,13 @@ mod tests {
             source: None,
             origin: None,
         }));
+        let custom: Clip = serde_json::from_value(json!({
+            "id": 9, "name": "cue", "start": 8.0, "length": 2.0, "muted": false,
+            "content": { "kind": "custom", "type": "comment",
+                "data": { "json": "{\"text\":\"one\"}" } },
+        }))
+        .unwrap();
+        track.clips.push(Arc::new(custom));
         let mut eq = (*track.devices[0]).clone();
         eq.id = 6;
         eq.kind = "eq".into();
@@ -1046,6 +1075,11 @@ mod tests {
             notes.remove(2); // removed
             notes.push(note(3.0, 67)); // added
             notes.push(note(3.5, 69)); // added
+            let cue = Arc::make_mut(&mut t.clips[1]);
+            let ClipContent::Custom(custom) = &mut cue.content else {
+                unreachable!()
+            };
+            custom.data = serde_json::from_value(json!({ "json": "{\"text\":\"two\"}" })).unwrap();
         }
         let d = diff(&a, &b);
         assert_eq!(
@@ -1055,7 +1089,7 @@ mod tests {
                 "project": ["tempo"],
                 "tracks": {"added": 1, "removed": 0, "changed": 1},
                 "devices": {"added": 0, "removed": 1, "changed": 1},
-                "clips": {"added": 0, "removed": 0, "changed": 1},
+                "clips": {"added": 0, "removed": 0, "changed": 2},
                 "notes": {"added": 2, "removed": 1, "changed": 1},
                 "lanes": {"added": 1, "removed": 0, "changed": 1},
                 "items": [
@@ -1065,6 +1099,7 @@ mod tests {
                     "~ device synth on track Low: cutoff",
                     "- device eq on track Bass",
                     "~ clip verse on track Low: 2 notes added, 1 note removed, 1 note changed",
+                    "~ clip cue on track Low: kind comment: data",
                     "~ volume automation on track Low",
                     "+ pan automation on track 4",
                 ],
@@ -1081,6 +1116,7 @@ mod tests {
                 "~ device synth on track Bass: cutoff",
                 "+ device eq on track Bass",
                 "~ clip verse on track Bass: 1 note added, 2 notes removed, 1 note changed",
+                "~ clip cue on track Bass: kind comment: data",
                 "~ volume automation on track Bass",
                 "- pan automation on track 4",
             ])
