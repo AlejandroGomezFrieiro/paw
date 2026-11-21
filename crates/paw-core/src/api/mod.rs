@@ -214,6 +214,7 @@ mod project;
 mod tracks;
 mod devices;
 mod clips;
+mod kind_data;
 mod automation;
 mod transport;
 mod midi;

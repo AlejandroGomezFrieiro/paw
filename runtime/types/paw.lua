@@ -8070,8 +8070,9 @@ function paw.api.clip_controls(id) end
 
 --- The content of a clip of a defined kind, as the project saves it:
 --- `{ type, version?, timeline?, offset?, data, media?, sound?, signals? }`.
---- `data` is `{ json = text }` or `{ text = { ext, text } }`: the text is
---- kept exactly as it was given.
+--- `data` is `{ json = value }`, a plain value (tables, strings, numbers,
+--- booleans; a JSON null reads as nil), or `{ text = { ext, text } }`,
+--- UTF-8 text in the kind's own format.
 ---@param id integer
 function paw.api.clip_custom(id) end
 
@@ -8183,7 +8184,11 @@ function paw.api.clip_set_controls(id, controls) end
 --- Replace what a custom clip's kind compiled, as one undo step: `data`
 --- (required), `media`, `sound` (a MIDI or audio content) and `signals`
 --- are all replaced (absent: none); `version`, `timeline` and `offset`
---- stay as they are when absent.
+--- stay as they are when absent. The data and the signals' bodies are
+--- plain values: a function, `userdata`, `cdata`, a table that holds itself,
+--- NaN, an infinite number or a string that is not UTF-8 is refused with
+--- where it is (`.frames[3]: a function is not data`), and so is data
+--- over 1 MB. Binary or big data goes in a media file.
 ---@param id integer
 ---@param set any
 function paw.api.clip_set_custom(id, set) end

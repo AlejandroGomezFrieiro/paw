@@ -48,16 +48,25 @@ song/
 - Clips with the same notes, controller moves and length share one file.
 - A custom clip is a clip of a kind that an extension defines. `track.json`
   keeps its kind, its version, its timeline, its offset, its media and the
-  names of its files. Its data is a file of its own, as the kind wrote it:
-  `<clip>.<kind>.json` for JSON data and `<clip>.<kind>.<ext>` for text.
-  paw never changes the bytes of the data, so `git diff` shows what the
-  kind wrote. Its signals are `<clip>.signals.json`. Its sound is
-  `<clip>.sound.midi2` when it is MIDI, and a media file when it is audio.
-  Clips with the same data share one data file, as the two halves of a
-  split clip do.
+  names of its files. Its data is a file of its own:
+  `<clip>.<kind>.json` for a value and `<clip>.<kind>.<ext>` for text.
+  - The kind gives its data as a value: tables, strings, numbers and
+    booleans. paw writes the value as JSON on lines, with the keys in
+    alphabetical order. So a change of one field is one line in
+    `git diff`, and a value that does not change keeps the same bytes.
+  - The kind gives text data in its own format, for example `.lrc`. paw
+    writes the text with no change. The text is UTF-8.
+  - paw does not accept binary data or data over 1 MB in a clip. Put such
+    data in a media file of the clip.
+
+  Its signals are `<clip>.signals.json`, and the body of a signal is JSON
+  in that file. Its sound is `<clip>.sound.midi2` when it is MIDI, and a
+  media file when it is audio. Clips with the same data share one data
+  file, as the two halves of a split clip do.
 - paw opens a custom clip of a kind that no extension defines now, and
-  saves it again with the same bytes. A data file that is not there makes
-  `:e` fail, with the name of the file.
+  saves it again with the same bytes. A data file that is not there, or
+  that is not JSON, makes `:e` fail, with the name of the file and the
+  line and column of the error.
 - `.gitattributes` is written when the folder has none.
 
 ## Save

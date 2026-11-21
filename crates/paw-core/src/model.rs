@@ -18,8 +18,8 @@ mod custom;
 mod notes;
 pub use clips::Clips;
 pub use custom::{
-    ClipKindId, CustomContent, CustomError, KindData, MediaRef, MediaRole, OscAddress, OscArg,
-    PortName, RESERVED, RawJson, Signal, SignalTo, Sound, Timeline, Word,
+    ClipKindId, CustomContent, CustomError, DATA_LIMIT, KindData, KindValue, MediaRef, MediaRole,
+    OscAddress, OscArg, PortName, RESERVED, Signal, SignalTo, Sound, Timeline, Word,
 };
 pub use notes::Notes;
 
