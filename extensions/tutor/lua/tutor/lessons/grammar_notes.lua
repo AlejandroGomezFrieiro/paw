@@ -20,9 +20,10 @@ one beat long.]],
 Learn the grammar one time and use it in each view. The operators are the
 same (`d` `y` `c` `>` `<` `=` `gl`). The motions are the same keys (`w` `b`
 `e` `0` `$` `W` `B`, and `j` `k` by pitch). The text objects are `in` (the
-note), `ib` (the bar), `ie` (the whole clip) and `ic` (the chord). A note is
-part of the range where it starts. So `dw` from the middle of a gap deletes
-nothing.]],
+note), `ib` (the bar), `ie` (the whole clip) and `ic` (the chord). Longer
+songs also have `ip` (the phrase) and `iv` (the voice). `)` and `]c` go to
+the next phrase and the next chord. A note is part of the range where it
+starts. So `dw` from the middle of a gap deletes nothing.]],
   vim = [[
 `in` has the place of `iw`. `dd` selects a whole row, which is a pitch. `/d4`
 finds a pitch by its name, and `n` goes to the next match.]],
