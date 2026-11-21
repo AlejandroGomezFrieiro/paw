@@ -95,13 +95,13 @@ impl Helper {
             .kill_on_drop(true);
         #[cfg(target_os = "linux")]
         // SAFETY: the closure runs between fork and exec and makes only
-        // system calls (`prctl`, `setpriority`), which are async-signal-safe;
-        // it takes no lock and does not allocate.
+        // system calls (`prctl`, `setpriority`, through rustix), which are
+        // async-signal-safe; it takes no lock and does not allocate.
         unsafe {
             command.pre_exec(|| {
                 // Not to outlive paw, and to give way to it.
-                libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGTERM);
-                libc::setpriority(libc::PRIO_PROCESS, 0, 10);
+                let _ = rustix::process::set_parent_process_death_signal(Some(rustix::process::Signal::TERM));
+                super::native::lower_priority();
                 Ok(())
             });
         }
@@ -160,14 +160,9 @@ async fn lines(stream: impl AsyncRead + Unpin, task: &Task, progress: Option<&Pr
 
 /// SIGTERM, a second to end, then SIGKILL; reaped either way.
 async fn stop(child: &mut tokio::process::Child, pid: u32) {
-    if let Ok(pid) = i32::try_from(pid)
-        && pid > 0
-    {
-        // SAFETY: a signal to the helper's own process, which this task
-        // has not reaped yet, so its id names no other process.
-        unsafe {
-            libc::kill(pid, libc::SIGTERM);
-        }
+    // The helper's own process, not reaped yet: its id names no other.
+    if let Some(pid) = i32::try_from(pid).ok().and_then(rustix::process::Pid::from_raw) {
+        let _ = rustix::process::kill_process(pid, rustix::process::Signal::TERM);
     }
     if tokio::time::timeout(Duration::from_secs(1), child.wait()).await.is_err() {
         let _ = child.kill().await;

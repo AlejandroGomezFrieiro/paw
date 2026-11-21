@@ -56,11 +56,7 @@ impl Bake for Native {
 
 /// Nice 10 for the calling thread: bakes give way to the kernel and the
 /// window. (On Linux the nice value is per thread.)
-fn lower_priority() {
-    #[cfg(target_os = "linux")]
-    // SAFETY: a plain system call on the calling thread; its result is
-    // only a hint, and failing it changes nothing else.
-    unsafe {
-        libc::setpriority(libc::PRIO_PROCESS, 0, 10);
-    }
+pub(super) fn lower_priority() {
+    // Only a hint: failing it changes nothing else.
+    let _ = rustix::process::setpriority_process(None, 10);
 }
