@@ -2169,6 +2169,12 @@ fn the_session_view_launches_scenes_and_takes_clips_from_the_timeline() {
     w.type_text(":launch.back all");
     w.key("Return");
     w.expect("the timeline again", "next(require('launcher').state()) == nil");
+    // The scene set the song playing, and the timeline follows the playhead:
+    // on a loaded machine it has paged past the chorus before the drag.
+    // Stopped, and back at its start, the chorus stays where it is drawn.
+    w.ctl("paw.api.transport_stop()");
+    w.expect("the song stopped", "not paw.api.transport_get().playing");
+    w.ctl("paw.ui.views.arrange.scroll = 0; paw.api.ui_redraw()");
 
     // A clip dragged from the timeline onto an empty slot of the bass is
     // copied into it: the slot under the bass's clip, in the second row.
