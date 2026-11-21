@@ -25,21 +25,21 @@ impl Session {
     pub fn edit_named<R>(&mut self, f: impl FnOnce(&mut Project) -> Result<R>) -> Result<R> {
         let result = f(&mut self.project);
         if result.is_ok() {
-            self.history.edited();
+            self.undo.history.edited();
             self.dirty = true;
-            self.touched = true;
-            self.edits += 1;
-            self.sweep.edits += 1;
+            self.undo.touched = true;
+            self.undo.edits += 1;
+            self.undo.sweep.edits += 1;
         }
         result
     }
 
     /// Note that the edit just made moved a control: `key` names it.
     pub(super) fn swept(&mut self, key: String) {
-        self.sweep.moves += 1;
-        match &self.sweep.key {
-            None => self.sweep.key = Some(key),
-            Some(known) if *known != key => self.sweep.mixed = true,
+        self.undo.sweep.moves += 1;
+        match &self.undo.sweep.key {
+            None => self.undo.sweep.key = Some(key),
+            Some(known) if *known != key => self.undo.sweep.mixed = true,
             Some(_) => {}
         }
     }
@@ -52,7 +52,7 @@ impl Session {
 
     /// Send pending edits to the engine and queue their change events.
     pub fn flush(&mut self) {
-        self.handle.collect_garbage();
+        self.engine.handle.collect_garbage();
         self.drain_take();
         if !self.dirty {
             return;
@@ -64,17 +64,17 @@ impl Session {
             registry: &self.registry,
             audio: &mut self.audio,
             live: &mut self.live,
-            sample_rate: self.handle.sample_rate as f32,
+            sample_rate: self.engine.handle.sample_rate as f32,
             warnings: &mut self.warnings,
             offline: false,
         };
-        let handle = &mut self.handle;
+        let handle = &mut self.engine.handle;
         let mut send = |msg| handle.send(msg);
         let before = self.events.len();
         sync(
             &self.synced,
             &self.project,
-            &mut self.map,
+            &mut self.engine.map,
             &mut ctx,
             &mut send,
             &mut self.events,
@@ -84,7 +84,7 @@ impl Session {
         self.note_deferred();
         // Whoever answers edits with edits of their own (in the same undo
         // step) leaves alone a state that was put back: it holds the answer.
-        if std::mem::take(&mut self.restoring) {
+        if std::mem::take(&mut self.undo.restoring) {
             for event in &mut self.events[before..] {
                 event.restored = true;
             }
@@ -97,53 +97,53 @@ impl Session {
         if self.audition.trial.is_some() {
             return;
         }
-        let sweep = std::mem::take(&mut self.sweep);
-        let join = self.join.take();
-        if !self.touched {
-            self.history.clear_labels();
+        let sweep = std::mem::take(&mut self.undo.sweep);
+        let join = self.undo.join.take();
+        if !self.undo.touched {
+            self.undo.history.clear_labels();
             return;
         }
-        self.touched = false;
+        self.undo.touched = false;
         self.own_edited_references();
         // An edit not yet played has notes not yet named: the step keeps them named.
-        if self.project.name_notes(&self.checkpoint) {
+        if self.project.name_notes(&self.undo.checkpoint) {
             self.dirty = true;
         }
-        if join.is_some_and(|state| state == self.history.current() && self.history.can_extend()) {
+        if join.is_some_and(|state| state == self.undo.history.current() && self.undo.history.can_extend()) {
             // Asked for: what this turn did belongs to the step before.
-            self.checkpoint = self.project.clone();
-            self.history.amend(self.checkpoint.clone(), history::now());
-            self.last_sweep = None;
+            self.undo.checkpoint = self.project.clone();
+            self.undo.history.amend(self.undo.checkpoint.clone(), history::now());
+            self.undo.last_sweep = None;
             return;
         }
         // The one control this step moved, if that is all it did.
         let moved = sweep
             .key
             .filter(|_| sweep.moves == sweep.edits && !sweep.mixed);
-        if let (Some(key), Some((last, at, state))) = (&moved, &self.last_sweep)
+        if let (Some(key), Some((last, at, state))) = (&moved, &self.undo.last_sweep)
             && key == last
             && at.elapsed() < SWEEP_GAP
-            && *state == self.history.current()
-            && self.history.can_amend()
+            && *state == self.undo.history.current()
+            && self.undo.history.can_amend()
         {
             // Still the same move: the step made for it holds where it got to.
             let state = *state;
-            self.checkpoint = self.project.clone();
-            self.history.amend(self.checkpoint.clone(), history::now());
-            self.last_sweep = Some((key.clone(), Instant::now(), state));
+            self.undo.checkpoint = self.project.clone();
+            self.undo.history.amend(self.undo.checkpoint.clone(), history::now());
+            self.undo.last_sweep = Some((key.clone(), Instant::now(), state));
             return;
         }
-        let previous = std::mem::replace(&mut self.checkpoint, self.project.clone());
-        self.history.set_current_snapshot(previous);
-        let state = self.history.push(self.checkpoint.clone(), history::now());
-        if self.history.newly_pruned() {
+        let previous = std::mem::replace(&mut self.undo.checkpoint, self.project.clone());
+        self.undo.history.set_current_snapshot(previous);
+        let state = self.undo.history.push(self.undo.checkpoint.clone(), history::now());
+        if self.undo.history.newly_pruned() {
             self.warnings.push(format!(
                 "the undo history keeps {} steps and {} MB at most: its oldest steps are let go",
-                self.history.limit(),
-                self.history.byte_limit() >> 20
+                self.undo.history.limit(),
+                self.undo.history.byte_limit() >> 20
             ));
         }
-        self.last_sweep = moved.map(|key| (key, Instant::now(), state));
+        self.undo.last_sweep = moved.map(|key| (key, Instant::now(), state));
         self.trim_audio_now_and_then();
     }
 
@@ -161,7 +161,7 @@ impl Session {
     /// A track takes its clips from that folder with it.
     pub(super) fn own_edited_tracks(&mut self) {
         let before: HashMap<Id, &Arc<Track>> = self
-            .checkpoint
+            .undo.checkpoint
             .tracks
             .iter()
             .filter(|t| t.source.is_some() || t.chain_source.is_some())
@@ -233,7 +233,7 @@ impl Session {
     pub(super) fn own_edited_clips(&mut self) {
         // Only the clips of the tracks the step changed, and of those only
         // the stretch it changed, can have been edited.
-        let (old, new) = (&self.checkpoint, &self.project);
+        let (old, new) = (&self.undo.checkpoint, &self.project);
         let mut after = crate::model::ById::new(&new.tracks, |t: &Arc<Track>| t.id);
         let mut before: HashMap<Id, &Arc<Clip>> = HashMap::new();
         let mut changed: Vec<(&Arc<Track>, Option<&Arc<Track>>)> = Vec::new();
@@ -315,7 +315,7 @@ impl Session {
             }
         }
         if !ids.is_empty() {
-            self.touched = true;
+            self.undo.touched = true;
             self.dirty = true;
         }
         ids.len()
@@ -349,7 +349,7 @@ impl Session {
             }
         }
         if tracks + chains > 0 {
-            self.touched = true;
+            self.undo.touched = true;
             self.dirty = true;
         }
         (tracks, chains)

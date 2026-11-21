@@ -413,7 +413,7 @@ impl super::Session {
         self.files_watch.changed.clear();
         self.checkpoint();
         // What is on the disk now is what paw has: saved.
-        self.history.mark_saved(false);
+        self.undo.history.mark_saved(false);
         Ok(())
     }
 }

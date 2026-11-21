@@ -31,7 +31,7 @@ impl Session {
                 project: self.project.clone(),
                 transport: self.transport.clone(),
                 path: self.path.clone(),
-                modified: self.touched || !self.history.at_saved(),
+                modified: self.undo.touched || !self.undo.history.at_saved(),
             });
         }
     }

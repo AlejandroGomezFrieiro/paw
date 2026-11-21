@@ -62,20 +62,8 @@ mod tempo;
 mod undo;
 mod watch;
 mod write;
+use undo::{SWEEP_GAP, new_history};
 
-/// How many steps the undo history keeps until told otherwise
-/// (`paw.opt.undo_steps`).
-const UNDO_LIMIT: usize = 1000;
-/// And at most about this many bytes of what its steps changed
-/// (`paw.opt.undo_memory`): a step that changes one note of a big clip keeps
-/// a copy of the run of notes it changed (`model::Notes`).
-const UNDO_BYTES: usize = 1 << 30;
-
-/// An undo tree for a project, from `project` on, keeping at most `limit`
-/// steps and about `bytes` bytes.
-fn new_history(project: Project, (limit, bytes): (usize, usize)) -> History<Project> {
-    History::new(project, history::now(), limit).weigh_with(Project::weight_over, bytes)
-}
 const FILE_VERSION: u32 = 1;
 /// More points than any screen has columns.
 const MAX_PEAKS: usize = 1 << 16;
@@ -413,31 +401,15 @@ pub struct Session {
     /// The tracks (and the master) as the last edit left them, its notes
     /// named: the next edit looks for notes to name only where it differs.
     named: (Vec<Arc<Track>>, Arc<Track>),
-    /// The project at the last undo step.
-    checkpoint: Project,
-    /// Every undo step, as a tree: see [`crate::history`] and `session/undo.rs`.
-    history: History<Project>,
+    /// The project differs from what the engine last saw: the next
+    /// [`flush`](Self::flush) sends the difference.
     dirty: bool,
-    touched: bool,
-    /// What the open undo step is made of, to tell a control being moved
-    /// (a fader dragged, a knob turned on a controller) from other edits:
-    /// its moves become one undo step, not one each.
-    sweep: Sweep,
-    /// The control the last undo step moved, when it did nothing else.
-    last_sweep: Option<(String, Instant, history::StateId)>,
-    /// The next flush reports a state put back (undo, redo, a file opened)
-    /// rather than an edit: its events carry `restored = true`.
-    restoring: bool,
-    /// The undo state the edits of this turn join instead of making a step
-    /// of their own, set by `undo_join`.
-    join: Option<history::StateId>,
-    /// Counts every change to the project, undo and redo included.
-    edits: u64,
+    /// The undo tree and the open step: see `session/undo.rs`.
+    undo: undo::Undo,
     next_id: Id,
 
-    handle: EngineHandle,
-    map: Mapper,
-    stream: Stream,
+    /// The running engine and how it was started: see `session/engine.rs`.
+    engine: engine::EngineLink,
     pub registry: Registry,
     audio: AudioCache,
     /// Checkpoints counted for [`Session::trim_audio_now_and_then`].
@@ -446,12 +418,9 @@ pub struct Session {
     live: LiveDevices,
 
     pub transport: Transport,
-    playing: bool,
-    /// Beats of the count-in last asked of the engine: what is still to be
-    /// counted until the engine says otherwise.
-    count_sent: u32,
-    seeks: u32,
-    seek_target: f64,
+    /// Whether the song plays, and the seeks under way: see
+    /// `session/transport.rs`.
+    play: transport::Playback,
     pub path: Option<PathBuf>,
     /// The screen the project file keeps (`ProjectFile::screen`).
     pub screen: Option<Value>,
@@ -465,13 +434,6 @@ pub struct Session {
     midi: midi_in::MidiIo,
     /// Automation written by moving controls: see `session/write.rs`.
     writing: write::Writing,
-    /// Threads to process tracks on, or 0 for as many as the machine has cores.
-    threads: usize,
-    /// Devices at rest sleep through silent blocks (`paw.opt.device_sleep`).
-    sleep: bool,
-    /// What the engine was last started with, to start it again with a
-    /// device changed.
-    backend: BackendOptions,
     /// Where the devices chosen with [`audio_use`](Self::audio_use) are
     /// remembered, or `None` not to remember them.
     pub device_file: Option<PathBuf>,
@@ -515,19 +477,6 @@ pub struct AudioChoice {
     pub backend: Option<String>,
     pub rate: Option<u32>,
 }
-
-/// The edits of the open undo step: how many, how many of them moved a
-/// control, and which control if they all moved the same one.
-#[derive(Default)]
-struct Sweep {
-    edits: u32,
-    moves: u32,
-    key: Option<String>,
-    mixed: bool,
-}
-
-/// Moves of one control closer together than this are one undo step.
-const SWEEP_GAP: Duration = Duration::from_millis(1000);
 
 /// Free-form data from a script. An empty Lua table arrives as an empty
 /// list, and means an empty map here.
@@ -573,29 +522,17 @@ impl Session {
         let mut session = Self {
             synced: project.clone(),
             named: (project.tracks.clone(), project.master.clone()),
-            checkpoint: project.clone(),
-            history: new_history(project.clone(), (UNDO_LIMIT, UNDO_BYTES)),
+            undo: undo::Undo::new(&project),
             project,
             dirty: false,
-            touched: false,
-            sweep: Sweep::default(),
-            last_sweep: None,
-            restoring: false,
-            join: None,
-            edits: 0,
             next_id: MASTER_ID + 1,
-            handle,
-            map: Mapper::new(),
-            stream,
+            engine: engine::EngineLink { handle, map: Mapper::new(), stream, threads: 0, sleep: true, backend: opts.clone() },
             registry,
             audio: AudioCache::default(),
             trims: 0,
             live: LiveDevices::new(),
             transport: Transport::default(),
-            playing: false,
-            count_sent: 0,
-            seeks: 0,
-            seek_target: 0.0,
+            play: Default::default(),
             path: None,
             screen: None,
             events: Vec::new(),
@@ -603,9 +540,6 @@ impl Session {
             rec: Recorder::default(),
             midi: Default::default(),
             writing: write::Writing::default(),
-            threads: 0,
-            sleep: true,
-            backend: opts.clone(),
             device_file: None,
             render_job: None,
             state_given: Default::default(),
@@ -617,7 +551,7 @@ impl Session {
             shelf: None,
             audition: Default::default(),
         };
-        session.warnings.extend(session.stream.info.warning.clone());
+        session.warnings.extend(session.engine.stream.info.warning.clone());
         session.send_pool();
         session.send_transport();
         session.connect_midi();

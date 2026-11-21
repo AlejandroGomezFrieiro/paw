@@ -10,10 +10,10 @@ impl Session {
             "name": p.name, "tempo": p.tempo, "sig_num": p.sig_num, "sig_den": p.sig_den,
             "tempo_ramp": p.tempo_ramp, "tempo_changes": p.tempo_changes, "sig_changes": p.sig_changes,
             "key": p.key, "path": self.path, "length": p.end(), "meta": p.meta,
-            "modified": self.touched || !self.history.at_saved(),
+            "modified": self.undo.touched || !self.undo.history.at_saved(),
             // Goes up with every change: compare two readings to see whether
             // something in between edited the project.
-            "edits": self.edits,
+            "edits": self.undo.edits,
         })
     }
 
@@ -22,14 +22,14 @@ impl Session {
     pub fn project_field(&self, key: &str) -> Value {
         let p = &self.project;
         match key {
-            "edits" => json!(self.edits),
+            "edits" => json!(self.undo.edits),
             "name" => json!(p.name),
             "tempo" => json!(p.tempo),
             "sig_num" => json!(p.sig_num),
             "sig_den" => json!(p.sig_den),
             "key" => json!(p.key),
             "path" => json!(self.path),
-            "modified" => json!(self.touched || !self.history.at_saved()),
+            "modified" => json!(self.undo.touched || !self.undo.history.at_saved()),
             _ => self.project_view().get(key).cloned().unwrap_or(Value::Null),
         }
     }
@@ -84,14 +84,14 @@ impl Session {
         }
         self.capture_states();
         self.checkpoint();
-        self.history.set_current_snapshot(self.checkpoint.clone());
+        self.undo.history.set_current_snapshot(self.undo.checkpoint.clone());
         let fresh = Project::default();
-        let limits = (self.history.limit(), self.history.byte_limit());
-        let history = std::mem::replace(&mut self.history, new_history(fresh.clone(), limits));
+        let limits = (self.undo.history.limit(), self.undo.history.byte_limit());
+        let history = std::mem::replace(&mut self.undo.history, new_history(fresh.clone(), limits));
         self.shelf = Some(Shelf {
             project: self.project.clone(),
             history,
-            touched: self.touched,
+            touched: self.undo.touched,
             transport: self.transport.clone(),
             position: self.position(),
             path: self.path.clone(),
@@ -110,9 +110,9 @@ impl Session {
         let Some(shelf) = self.shelf.take() else {
             bail!("no project is put aside");
         };
-        let limits = (self.history.limit(), self.history.byte_limit());
-        self.history = shelf.history;
-        self.history.set_limits(limits.0, limits.1);
+        let limits = (self.undo.history.limit(), self.undo.history.byte_limit());
+        self.undo.history = shelf.history;
+        self.undo.history.set_limits(limits.0, limits.1);
         self.put_project(shelf.project, shelf.transport, shelf.path, Some(shelf.touched));
         self.seek(shelf.position);
         Ok(())
@@ -145,13 +145,13 @@ impl Session {
         self.seek(0.0);
         self.next_id = self.next_id.max(project.max_id() + 1);
         self.project = project;
-        self.checkpoint = self.project.clone();
+        self.undo.checkpoint = self.project.clone();
         if touched.is_none() {
-            self.history.reset(self.project.clone(), history::now());
+            self.undo.history.reset(self.project.clone(), history::now());
         }
-        self.touched = touched.unwrap_or(false);
+        self.undo.touched = touched.unwrap_or(false);
         self.dirty = true;
-        self.restoring = true;
+        self.undo.restoring = true;
         // The count-in is the user's, not the project's.
         let (count_in, pre_roll, pre_roll_seconds) = (
             self.transport.count_in,
@@ -187,13 +187,13 @@ impl Session {
     /// Count the project as it is now as saved, without writing it.
     pub fn mark_saved(&mut self) {
         self.checkpoint();
-        self.history.mark_saved(false);
+        self.undo.history.mark_saved(false);
     }
 
     pub fn undo_reset(&mut self) {
-        self.checkpoint = self.project.clone();
-        self.history.reset(self.project.clone(), history::now());
-        self.touched = false;
+        self.undo.checkpoint = self.project.clone();
+        self.undo.history.reset(self.project.clone(), history::now());
+        self.undo.touched = false;
     }
 
     pub fn project_load(&mut self, path: &Path) -> Result<()> {
@@ -214,7 +214,7 @@ impl Session {
         self.replace_project(file.project, file.transport, Some(path.to_path_buf()));
         self.screen = file.screen;
         // Files found elsewhere are a change the file does not have yet.
-        self.touched |= moved;
+        self.undo.touched |= moved;
         Ok(())
     }
 
@@ -277,8 +277,8 @@ impl Session {
         self.replace_project(file.project, file.transport, original);
         self.restore_take(&take);
         // It differs from what is on disk, if anything is.
-        self.touched = true;
-        self.edits += 1;
+        self.undo.touched = true;
+        self.undo.edits += 1;
         Ok(note)
     }
 
@@ -363,11 +363,11 @@ impl Session {
         if let Some(name) = named {
             // Not an edit to undo: the saved state is the named one.
             self.project.name = name.clone();
-            self.checkpoint.name = name;
-            self.history.set_current_snapshot(self.checkpoint.clone());
+            self.undo.checkpoint.name = name;
+            self.undo.history.set_current_snapshot(self.undo.checkpoint.clone());
             self.dirty = true;
         }
-        self.history.mark_saved(false);
+        self.undo.history.mark_saved(false);
         self.remember_for_panic();
         let saved = Saved { path: path.clone(), written: None, unused: None, moved: None };
         self.emit(E::ProjectSaved(saved));

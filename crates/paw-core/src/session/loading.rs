@@ -79,19 +79,19 @@ impl Session {
     /// they ask otherwise. Returns what it was.
     pub fn set_load_apart(&mut self, on: bool) -> bool {
         self.flush();
-        self.map.defer = on;
+        self.engine.map.defer = on;
         std::mem::replace(&mut self.loads.on, on)
     }
 
     /// Take note of the devices the last sync gave stand-ins, and forget
     /// those that are no longer in the engine. Called after every sync.
     pub(super) fn note_deferred(&mut self) {
-        for id in std::mem::take(&mut self.map.deferred) {
+        for id in std::mem::take(&mut self.engine.map.deferred) {
             // A device made again (restarted, or undone and done again)
             // starts over: dropping what was under way ends its helper.
             self.loads.devices.insert(id, Load::Queued);
         }
-        let map = &self.map;
+        let map = &self.engine.map;
         self.loads
             .devices
             .retain(|id, _| map.devices.contains_key(id));
@@ -150,13 +150,13 @@ impl Session {
                     registry: &self.registry,
                     audio: &mut self.audio,
                     live: &mut self.live,
-                    sample_rate: self.handle.sample_rate as f32,
+                    sample_rate: self.engine.handle.sample_rate as f32,
                     warnings: &mut self.warnings,
                     offline: false,
                 };
-                let handle = &mut self.handle;
+                let handle = &mut self.engine.handle;
                 let mut send = |msg| handle.send(msg);
-                install(&device, instance, &self.map, &mut ctx, &mut send);
+                install(&device, instance, &self.engine.map, &mut ctx, &mut send);
             }
             let track = self.project.find_device(id).map(|(track, _)| track);
             let name = self.device_name(&device.kind);
@@ -188,7 +188,7 @@ impl Session {
             (_, Some(Err(err))) => format!("its saved state is not base64: {err}"),
             (Some(factory), state) => {
                 let state = state.and_then(Result::ok);
-                match factory.start(self.handle.sample_rate as f32, MAX_BLOCK, state) {
+                match factory.start(self.engine.handle.sample_rate as f32, MAX_BLOCK, state) {
                     Some(starting) => {
                         self.loads.devices.insert(id, Load::Starting(starting));
                         return None;

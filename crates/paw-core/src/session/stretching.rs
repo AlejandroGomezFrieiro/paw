@@ -222,7 +222,7 @@ impl Session {
     /// and where its warp markers are, as beats of the song.
     pub(super) fn note_stretching(&self, clip: &Clip, view: &mut Value) {
         let map = self.project.tempo_map();
-        let key = Key::of(clip, self.handle.sample_rate as u32, map);
+        let key = Key::of(clip, self.engine.handle.sample_rate as u32, map);
         if let Some(key) = key.as_ref()
             && self.audio.renders.status(Some(key)) == Status::Making
         {
@@ -370,7 +370,7 @@ impl Session {
         if !renders.busy() && renders.finished.is_empty() {
             return;
         }
-        let rate = self.handle.sample_rate as u32;
+        let rate = self.engine.handle.sample_rate as u32;
         let store = self.audio.store.clone();
         self.audio
             .renders
@@ -423,7 +423,7 @@ impl Session {
             self.audio.stretched(key, &mut self.warnings);
         }
         let mut all = keys.clone();
-        all.extend(wanted(&self.project, self.handle.sample_rate as u32));
+        all.extend(wanted(&self.project, self.engine.handle.sample_rate as u32));
         let store = self.audio.store.clone();
         let deadline = Instant::now() + limit;
         while self.audio.renders.making(&keys) {
@@ -449,7 +449,7 @@ impl Session {
         };
         let map = self.project.tempo_map().clone();
         let seconds = map.seconds_between(clip.start, clip.start + clip.length);
-        let key = Key::of(clip, self.handle.sample_rate as u32, &map);
+        let key = Key::of(clip, self.engine.handle.sample_rate as u32, &map);
         let warp = warp::of(clip, &map).unwrap_or_else(|| warp::Warp::even(1.0));
         let audio = &mut self.audio;
         // `seconds` of what plays from `from`, in seconds of what plays.

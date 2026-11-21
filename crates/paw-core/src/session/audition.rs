@@ -122,15 +122,15 @@ impl Session {
         let Some(trial) = self.audition.trial.take() else {
             return false;
         };
-        if keep || !self.touched {
+        if keep || !self.undo.touched {
             return true;
         }
         // The step before holds the project as it was, but plugins keep
         // their state to themselves until asked: take what they hold now,
         // except where the trial loaded a preset.
-        let mut back = self.checkpoint.clone();
+        let mut back = self.undo.checkpoint.clone();
         let before: std::collections::HashMap<Id, &Option<String>> = self
-            .checkpoint
+            .undo.checkpoint
             .all_tracks()
             .flat_map(|t| &t.devices)
             .map(|d| (d.id, &d.state))
@@ -148,12 +148,12 @@ impl Session {
             }
         }
         self.project = back;
-        self.touched = false;
+        self.undo.touched = false;
         self.dirty = true;
-        self.restoring = true;
-        self.edits += 1;
-        self.sweep = Default::default();
-        self.history.clear_labels();
+        self.undo.restoring = true;
+        self.undo.edits += 1;
+        self.undo.sweep = Default::default();
+        self.undo.history.clear_labels();
         true
     }
 
@@ -178,7 +178,7 @@ impl Session {
         self.preview_stop();
         self.audition.preview_ids += 1;
         let id = self.audition.preview_ids;
-        let rate = self.handle.sample_rate as u32;
+        let rate = self.engine.handle.sample_rate as u32;
         // A file the project plays is decoded already.
         let stage = match self.audio.playing(file, rate) {
             Some(data) => self.preview_start(id, data.clone()),
@@ -205,11 +205,11 @@ impl Session {
         data.advise(0.0, 4.0);
         let voice = Preview::new(
             data.clone(),
-            self.handle.sample_rate,
+            self.engine.handle.sample_rate,
             paw_engine::db_to_gain(self.audition.preview_level),
             id,
         );
-        self.handle.send(Msg::SetPreview(Some(Box::new(voice))));
+        self.engine.handle.send(Msg::SetPreview(Some(Box::new(voice))));
         Stage::Playing {
             outline: outline(&data, OUTLINE),
             data,
@@ -221,14 +221,14 @@ impl Session {
     /// Stop the sound file heard on its own, fading it out.
     pub fn preview_stop(&mut self) {
         if self.audition.preview.take().is_some() {
-            self.handle.send(Msg::SetPreview(None));
+            self.engine.handle.send(Msg::SetPreview(None));
         }
     }
 
     /// The level of the sound file heard on its own, in dB.
     pub fn preview_set_level(&mut self, db: f64) {
         self.audition.preview_level = db.clamp(-120.0, 12.0);
-        self.handle
+        self.engine.handle
             .send(Msg::SetPreviewGain(paw_engine::db_to_gain(self.audition.preview_level)));
     }
 
@@ -254,7 +254,7 @@ impl Session {
                 Err(TryRecvError::Empty) => {}
             },
             Stage::Playing { data, heard, .. } => {
-                if let Some((playing, at)) = self.handle.shared.preview()
+                if let Some((playing, at)) = self.engine.handle.shared.preview()
                     && playing == id
                 {
                     *heard = true;
@@ -290,7 +290,7 @@ impl Session {
                 heard,
             } => {
                 let now = self
-                    .handle
+                    .engine.handle
                     .shared
                     .preview()
                     .filter(|(id, _)| *id == preview.id);

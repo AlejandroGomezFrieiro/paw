@@ -369,7 +369,7 @@ impl Session {
         let value = (value as f32).clamp(param.min, param.max) as f64;
         let touched = ParamTouched { device: id, param: key.clone(), id: param.stable_id().to_string(), from: "host".into(), value: None };
         self.emit(E::ParamTouched(touched));
-        if self.playing
+        if self.play.playing
             && let Some((track, _)) = self.project.find_device(id)
             && self.auto_mode(track).writes()
         {
@@ -484,7 +484,7 @@ impl Session {
         if let Some(controller) = controller {
             if let Some(bytes) = first.then(|| controller.save_state()).and_then(|s| s.ok().flatten()) {
                 let now = BASE64.encode(bytes);
-                for snapshot in [&mut self.project, &mut self.checkpoint, &mut self.synced] {
+                for snapshot in [&mut self.project, &mut self.undo.checkpoint, &mut self.synced] {
                     if let Some(device) = snapshot.device_mut(id) {
                         device.state = Some(now.clone());
                     }
@@ -574,16 +574,16 @@ impl Session {
                 registry: &self.registry,
                 audio: &mut self.audio,
                 live: &mut self.live,
-                sample_rate: self.handle.sample_rate as f32,
+                sample_rate: self.engine.handle.sample_rate as f32,
                 warnings: &mut self.warnings,
                 offline: false,
             };
-            let handle = &mut self.handle;
+            let handle = &mut self.engine.handle;
             let mut send = |msg| handle.send(msg);
             sync(
                 &self.synced,
                 &without,
-                &mut self.map,
+                &mut self.engine.map,
                 &mut ctx,
                 &mut send,
                 &mut quiet,
@@ -631,9 +631,9 @@ impl Session {
         for (id, live) in &mut self.live {
             // Any device, built in or not, that panicked or put out NaN or
             // infinity: the engine has bypassed or silenced it.
-            if let Some(&slot) = self.map.devices.get(id) {
+            if let Some(&slot) = self.engine.map.devices.get(id) {
                 let fault = self
-                    .handle
+                    .engine.handle
                     .shared
                     .fault(slot, paw_engine::guard::Fault::NOT_FINITE);
                 if fault.contains(paw_engine::guard::Fault::PANICKED) && live.stopped.is_none() {
@@ -719,7 +719,7 @@ impl Session {
         for (id, keys) in changed {
             // The plugin now holds a value the project did not set. Stop
             // overriding it: the plugin's own state is what carries it from here.
-            for snapshot in [&mut self.project, &mut self.checkpoint] {
+            for snapshot in [&mut self.project, &mut self.undo.checkpoint] {
                 let overridden = snapshot
                     .device(id)
                     .is_some_and(|d| keys.iter().any(|key| d.params.contains_key(key)));

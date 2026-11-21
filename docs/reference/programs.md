@@ -16,6 +16,7 @@ server for AI assistants). `--help` on each program prints its options.
 | `paw ctl [--json] <method> [params...]` | Calls a method of an instance that runs, through its socket. |
 | `paw attach` | Shows the terminal interface of an instance that runs, in this terminal. |
 | `paw doctor [options]` | Checks the audio, MIDI, plugins and environment, and prints a report. |
+| `paw clip cat <file.midi2>` | Prints a MIDI 2.0 clip file as text, one note to a line. Git uses it to show the changes of project folders. |
 
 | Option | Effect |
 | --- | --- |
@@ -40,6 +41,10 @@ server for AI assistants). `--help` on each program prints its options.
 | `--plugins-offline` | Opens the project with every plugin offline (see `:plugins.online`). |
 | `-h`, `--help` | Shows the help. |
 | `-V`, `--version` | Shows the version. |
+
+After `-l <script.lua>`, paw gives all the other arguments to the script,
+also those that start with `-`. A wrong option makes paw print the usage
+and stop with the exit code 2.
 
 ### Options of `paw ctl` and `paw attach`
 
