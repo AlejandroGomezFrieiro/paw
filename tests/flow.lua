@@ -357,6 +357,25 @@ test("an undo step is named by the key or command that made it", function()
   eq(current_label(), "Set T volume", "a value typed at a prompt")
 end)
 
+test("a choice in a picker names the step by what it changed", function()
+  start()
+  local t = paw.add_track({ name = "Lead" })
+  paw.cursor.set_track(t)
+  api.undo_checkpoint()
+  local function typed(list)
+    for _, key in ipairs(list) do
+      paw.keymap.feed(key)
+      paw.flush()
+      api.undo_checkpoint()
+    end
+  end
+  typed({ "a", "synth", "<CR>" })
+  eq(#t:devices(), 1, "a synth<CR> adds the synth")
+  eq(current_label(), "add Synth to Lead", "the device and the track")
+  typed({ "grC", "teal", "<CR>" })
+  eq(current_label(), "color of Lead", "grC names the track")
+end)
+
 test("u and Ctrl-r say what they undid and redid", function()
   start()
   local t = paw.add_track({ name = "T" })
