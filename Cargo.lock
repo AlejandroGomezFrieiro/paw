@@ -3139,7 +3139,9 @@ name = "paw-plugins"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bitflags 2.13.2",
  "clap-sys",
+ "hex",
  "hound",
  "libc",
  "libloading",

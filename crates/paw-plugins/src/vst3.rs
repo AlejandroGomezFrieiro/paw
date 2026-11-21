@@ -50,16 +50,36 @@ const NOTE_EXPRESSION: u16 = 4;
 fn note_id(key: u8, ch: u8) -> i32 {
     ch as i32 * 128 + key as i32
 }
-const PARAM_CAN_AUTOMATE: i32 = 1 << 0;
-const PARAM_READ_ONLY: i32 = 1 << 1;
-const PARAM_IS_LIST: i32 = 1 << 3;
-const PARAM_HIDDEN: i32 = 1 << 4;
-const PLAYING: u32 = 1 << 1;
-const MUSIC_TIME_VALID: u32 = 1 << 9;
-const TEMPO_VALID: u32 = 1 << 10;
-const BAR_VALID: u32 = 1 << 11;
-const TIME_SIG_VALID: u32 = 1 << 13;
-const PARAM_VALUES_CHANGED: i32 = 1 << 2;
+bitflags::bitflags! {
+    /// `ParameterInfo::flags`.
+    #[derive(Clone, Copy)]
+    struct ParamFlags: i32 {
+        const CAN_AUTOMATE = 1 << 0;
+        const READ_ONLY = 1 << 1;
+        const IS_LIST = 1 << 3;
+        const HIDDEN = 1 << 4;
+    }
+}
+
+bitflags::bitflags! {
+    /// `ProcessContext::state`.
+    #[derive(Clone, Copy)]
+    struct ProcessState: u32 {
+        const PLAYING = 1 << 1;
+        const MUSIC_TIME_VALID = 1 << 9;
+        const TEMPO_VALID = 1 << 10;
+        const BAR_VALID = 1 << 11;
+        const TIME_SIG_VALID = 1 << 13;
+    }
+}
+
+bitflags::bitflags! {
+    /// The flags of `IComponentHandler::restartComponent`.
+    #[derive(Clone, Copy)]
+    struct RestartFlags: i32 {
+        const PARAM_VALUES_CHANGED = 1 << 2;
+    }
+}
 const X11_EMBED: &std::ffi::CStr = c"X11EmbedWindowID";
 
 /// A loaded VST3 module. Never unloaded.
@@ -153,7 +173,7 @@ fn wide(text: &[TChar]) -> String {
 }
 
 fn hex(id: &TUID) -> String {
-    id.iter().map(|b| format!("{:02X}", *b as u8)).collect()
+    hex::encode_upper(id.map(|b| b as u8))
 }
 
 /// The name of each of the controller's units (its groups of
@@ -364,7 +384,7 @@ impl IComponentHandlerTrait for Host {
 
     unsafe fn restartComponent(&self, flags: i32) -> tresult {
         crate::debug_assert_main_thread();
-        if flags & PARAM_VALUES_CHANGED != 0 {
+        if RestartFlags::from_bits_retain(flags).contains(RestartFlags::PARAM_VALUES_CHANGED) {
             self.rescan.set(true);
         }
         OK
@@ -994,7 +1014,7 @@ impl DeviceFactory for Vst3Factory {
                 for index in 0..controller.getParameterCount() {
                     let mut info: ParameterInfo = std::mem::zeroed();
                     if controller.getParameterInfo(index, &mut info) != OK
-                        || info.flags & (PARAM_HIDDEN | PARAM_READ_ONLY) != 0
+                        || ParamFlags::from_bits_retain(info.flags).intersects(ParamFlags::HIDDEN | ParamFlags::READ_ONLY)
                     {
                         continue;
                     }
@@ -1010,9 +1030,9 @@ impl DeviceFactory for Vst3Factory {
                     param.unit = wide(&info.units);
                     param.id = info.id.to_string();
                     param.group = units.get(&info.unitId).cloned().unwrap_or_default();
-                    param.automatable = info.flags & PARAM_CAN_AUTOMATE != 0;
+                    param.automatable = ParamFlags::from_bits_retain(info.flags).contains(ParamFlags::CAN_AUTOMATE);
                     param.steps = info.stepCount.max(0) as u32;
-                    param.enumeration = info.flags & PARAM_IS_LIST != 0 && param.steps > 0;
+                    param.enumeration = ParamFlags::from_bits_retain(info.flags).contains(ParamFlags::IS_LIST) && param.steps > 0;
                     param.boolean = param.steps == 1 && !param.enumeration;
                     shared.params.push(param);
                 }
@@ -1332,11 +1352,12 @@ impl Device for Vst3Device {
             self.changes.used.set(used);
 
             let mut context: ProcessContext = std::mem::zeroed();
-            context.state = TEMPO_VALID
-                | TIME_SIG_VALID
-                | MUSIC_TIME_VALID
-                | BAR_VALID
-                | if ctx.playing { PLAYING } else { 0 };
+            context.state = (ProcessState::TEMPO_VALID
+                | ProcessState::TIME_SIG_VALID
+                | ProcessState::MUSIC_TIME_VALID
+                | ProcessState::BAR_VALID
+                | if ctx.playing { ProcessState::PLAYING } else { ProcessState::empty() })
+            .bits();
             context.sampleRate = self.sample_rate;
             context.projectTimeSamples = self.samples;
             context.continousTimeSamples = self.samples;
