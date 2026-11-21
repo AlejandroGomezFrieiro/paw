@@ -70,7 +70,10 @@ struct Module {
 }
 
 // Used from the main thread only.
+// SAFETY: The factory and the host object belong to a module that is never unloaded and sit in a
+// static list, so they are never dropped. By convention they are called from the main thread only.
 unsafe impl Send for Module {}
+// SAFETY: See `Send`: every call through the factory and the host is on the main thread by convention.
 unsafe impl Sync for Module {}
 
 /// The shared library inside a `.vst3` bundle.
@@ -91,6 +94,10 @@ fn load(bundle: &Path) -> Result<Arc<Module>> {
         return Ok(module.clone());
     }
     let path = library_path(bundle);
+    // SAFETY: The module is opened by `open_library` and its handle is never closed; `ModuleEntry` and
+    // `GetPluginFactory` are the symbols the VST3 ABI names and have the types given; the
+    // entry gets the module's own handle. The factory pointer is checked for null before use, and
+    // `ComPtr` owns one reference to it. Main thread, once per bundle (under the LOADED lock).
     let module = unsafe {
         let handle = crate::libs::open_library(&path)
             .with_context(|| format!("loading {}", path.display()))?
@@ -148,6 +155,8 @@ fn hex(id: &TUID) -> String {
 unsafe fn unit_paths(controller: &ComPtr<IEditController>) -> std::collections::HashMap<i32, String> {
     let mut parents = std::collections::HashMap::new();
     if let Some(units) = controller.cast::<IUnitInfo>() {
+        // SAFETY: `controller` is a live COM object; `getUnitCount`/`getUnitInfo` are called with an index
+        // below the count and a zeroed plain-data `UnitInfo` that the plugin fills. Main thread.
         unsafe {
             for index in 0..units.getUnitCount() {
                 let mut info: UnitInfo = std::mem::zeroed();
@@ -192,6 +201,8 @@ pub(crate) fn list_file(bundle: &Path) -> Result<Vec<Found>> {
 fn list(bundle: &Path) -> Result<Vec<Found>> {
     let module = load(bundle)?;
     let mut found = Vec::new();
+    // SAFETY: `module.factory` is a live COM object of a module that is never unloaded; each `info` is a
+    // zeroed plain-data struct that the factory fills for an index below `countClasses`.
     unsafe {
         let factory2 = module.factory.cast::<IPluginFactory2>();
         for index in 0..module.factory.countClasses() {
@@ -300,6 +311,7 @@ impl Class for Host {
 
 impl IHostApplicationTrait for Host {
     unsafe fn getName(&self, name: *mut String128) -> tresult {
+        // SAFETY: The plugin passes a non-null `String128` to write into, as the VST3 ABI requires.
         unsafe {
             for (slot, unit) in (*name).iter_mut().zip("paw\0".encode_utf16()) {
                 *slot = unit as TChar;
@@ -314,6 +326,7 @@ impl IHostApplicationTrait for Host {
         _iid: *mut TUID,
         obj: *mut *mut c_void,
     ) -> tresult {
+        // SAFETY: The plugin passes a non-null `obj` to write the result to, as the VST3 ABI requires.
         unsafe { *obj = ptr::null_mut() };
         NO_INTERFACE
     }
@@ -370,6 +383,8 @@ struct RunLoop(Rc<RefCell<Watches<Handler<IEventHandler>, Handler<ITimerHandler>
 
 impl RunLoop {
     fn add_fd(&self, handler: *mut IEventHandler, fd: i32) -> tresult {
+        // SAFETY: The plugin passes a pointer to an `IEventHandler` it owns, or null (handled by `from_raw`);
+        // `to_com_ptr` takes a counted reference, so the handler lives until it is unregistered.
         match unsafe { ComRef::from_raw(handler) } {
             Some(handler) => {
                 self.0
@@ -391,6 +406,8 @@ impl RunLoop {
     }
 
     fn add_timer(&self, handler: *mut ITimerHandler, milliseconds: u64) -> tresult {
+        // SAFETY: The plugin passes a pointer to an `ITimerHandler` it owns, or null (handled by `from_raw`);
+        // `to_com_ptr` takes a counted reference, so the handler lives until it is unregistered.
         match unsafe { ComRef::from_raw(handler) } {
             Some(handler) => {
                 self.0
@@ -416,6 +433,9 @@ impl RunLoop {
             let mut watches = self.0.borrow_mut();
             (watches.due_timers(), watches.ready_fds())
         };
+        // SAFETY: The handlers were registered by the plugin and are held by counted references, so they
+        // are live; they were collected first, so no borrow of `watches` is held while they run
+        // (a handler may register or remove others). Main thread.
         unsafe {
             for handler in due {
                 handler.0.onTimer();
@@ -469,6 +489,7 @@ impl Class for Frame {
 
 impl IPlugFrameTrait for Frame {
     unsafe fn resizeView(&self, _view: *mut IPlugView, size: *mut ViewRect) -> tresult {
+        // SAFETY: The plugin passes a pointer to a live `ViewRect` it owns for the call.
         let size = unsafe { &*size };
         self.resize.set(Some((
             (size.right - size.left).max(1) as u32,
@@ -509,6 +530,8 @@ impl IBStreamTrait for Stream {
         let data = self.data.borrow();
         let pos = self.pos.get().min(data.len());
         let n = (bytes.max(0) as usize).min(data.len() - pos);
+        // SAFETY: The plugin passes `buffer` with room for `bytes` bytes (`n <= bytes`); the source is
+        // inside `data` (`pos + n <= len`), and the two do not overlap.
         unsafe {
             ptr::copy_nonoverlapping(data.as_ptr().add(pos), buffer as *mut u8, n);
             if !read.is_null() {
@@ -525,6 +548,8 @@ impl IBStreamTrait for Stream {
         if data.len() < pos + n {
             data.resize(pos + n, 0);
         }
+        // SAFETY: `data` was grown to `pos + n` above, so the destination holds `n` bytes after `pos`; the
+        // plugin passes a `buffer` holding `bytes` readable bytes, in another allocation.
         unsafe {
             ptr::copy_nonoverlapping(buffer as *const u8, data.as_mut_ptr().add(pos), n);
             if !written.is_null() {
@@ -543,12 +568,14 @@ impl IBStreamTrait for Stream {
         };
         self.pos.set((base + pos).max(0) as usize);
         if !result.is_null() {
+            // SAFETY: `result` is null-checked above; the plugin owns it for the call.
             unsafe { *result = self.pos.get() as i64 };
         }
         OK
     }
 
     unsafe fn tell(&self, pos: *mut i64) -> tresult {
+        // SAFETY: The plugin passes a non-null `pos` to write to, as the `tell` contract of the ABI requires.
         unsafe { *pos = self.pos.get() as i64 };
         OK
     }
@@ -563,7 +590,9 @@ struct EventList {
     events: UnsafeCell<Vec<Event>>,
 }
 
+// SAFETY: The list is filled and read on the audio thread only, through `UnsafeCell`, one user at a time.
 unsafe impl Send for EventList {}
+// SAFETY: See `Send`: only the audio thread touches the list, so there is no sharing in fact.
 unsafe impl Sync for EventList {}
 
 impl Class for EventList {
@@ -572,10 +601,14 @@ impl Class for EventList {
 
 impl IEventListTrait for EventList {
     unsafe fn getEventCount(&self) -> i32 {
+        // SAFETY: The list is used on the audio thread only; the plugin calls this inside `process`, when
+        // `process` has finished filling it and does not touch it.
         unsafe { (&*self.events.get()).len() as i32 }
     }
 
     unsafe fn getEvent(&self, index: i32, event: *mut Event) -> tresult {
+        // SAFETY: The plugin calls this inside `process`, on the audio thread, when `process` is not
+        // changing the list; `event` is a plugin-owned `Event` to write into, distinct from the list's own.
         unsafe {
             let events = &*self.events.get();
             match events.get(index as usize) {
@@ -599,7 +632,10 @@ struct ParamQueue {
     value: Cell<f64>,
 }
 
+// SAFETY: A ParamQueue is written by the audio thread before `process` and read by the plugin
+// inside it, on that thread; the Cells are never touched from two threads at once.
 unsafe impl Send for ParamQueue {}
+// SAFETY: See `Send`: only the audio thread uses a queue.
 unsafe impl Sync for ParamQueue {}
 
 impl Class for ParamQueue {
@@ -619,6 +655,7 @@ impl IParamValueQueueTrait for ParamQueue {
         if index != 0 {
             return FALSE;
         }
+        // SAFETY: The plugin passes non-null `offset` and `value` to write to, as the ABI requires.
         unsafe {
             *offset = 0;
             *value = self.value.get();
@@ -638,7 +675,9 @@ struct ParamChanges {
     used: Cell<usize>,
 }
 
+// SAFETY: The queues are changed by the audio thread before `process` and read inside it, on that thread.
 unsafe impl Send for ParamChanges {}
+// SAFETY: See `Send`: only the audio thread uses the changes.
 unsafe impl Sync for ParamChanges {}
 
 impl Class for ParamChanges {
@@ -676,7 +715,9 @@ struct Discard {
 
 struct DiscardQueue;
 
+// SAFETY: Discard holds a queue that is stateless and used only inside `process`, on the audio thread.
 unsafe impl Send for Discard {}
+// SAFETY: See `Send`: it has no state to share.
 unsafe impl Sync for Discard {}
 
 impl Class for Discard {
@@ -702,6 +743,7 @@ impl IParameterChangesTrait for Discard {
         index: *mut i32,
     ) -> *mut IParamValueQueue {
         if !index.is_null() {
+            // SAFETY: `index` is null-checked above; the plugin owns it for the call.
             unsafe { *index = 0 };
         }
         self.queue
@@ -726,6 +768,7 @@ impl IParamValueQueueTrait for DiscardQueue {
 
     unsafe fn addPoint(&self, _offset: i32, _value: ParamValue, index: *mut i32) -> tresult {
         if !index.is_null() {
+            // SAFETY: `index` is null-checked above; the plugin owns it for the call.
             unsafe { *index = 0 };
         }
         OK
@@ -755,11 +798,18 @@ struct Shared {
 
 // `processor.process` is called from the audio thread; everything else, and
 // the drop, happens on the main thread.
+// SAFETY: The COM pointers are used under the VST3 threading rules (see the comment above):
+// `process` from the audio thread, the rest and the drop on the main thread.
 unsafe impl Send for Shared {}
+// SAFETY: What the two threads share is atomics and read-only fields; the COM pointers follow the
+// threading rules named above.
 unsafe impl Sync for Shared {}
 
 impl Drop for Shared {
     fn drop(&mut self) {
+        // SAFETY: The device has stopped and deactivated the component (`Vst3Device::drop`) before the last
+        // reference goes, and this runs on the main thread; the connection and terminate calls are
+        // made once, with live COM objects.
         unsafe {
             if self.separate
                 && let Some(controller) = &self.controller
@@ -791,6 +841,9 @@ struct Buses {
 
 impl Buses {
     unsafe fn new(component: &ComPtr<IComponent>, direction: i32, max_block: usize) -> Self {
+        // SAFETY: `component` is a live, initialized COM object; each `BusInfo` and `AudioBusBuffers` is a
+        // zeroed plain-data struct (zero is valid) that is then filled; bus indexes are below `getBusCount`.
+        // The buffers' pointers lead to `max_block` frames per channel for as long as `Buses` lives.
         unsafe {
             let mut key = None;
             let mut infos = Vec::new();
@@ -848,6 +901,10 @@ impl DeviceFactory for Vst3Factory {
 
     fn create(&self, sample_rate: f32, max_block: usize) -> Result<Instance> {
         let module = load(&self.bundle)?;
+        // SAFETY: The factory is live; every COM call is made in the order the VST3 ABI requires
+        // (createInstance, initialize, setComponentHandler, setupProcessing, setActive,
+        // setProcessing) on the main thread, before the processor is shared with the audio thread;
+        // the structs passed (`ProcessSetup`, zeroed plain data, `ParameterInfo`) live through each call.
         unsafe {
             let host = ComWrapper::new(Host::default());
             let context = host.as_com_ref::<IHostApplication>().unwrap().as_ptr() as *mut FUnknown;
@@ -1082,6 +1139,8 @@ struct Vst3Device {
 }
 
 // The buffers hold raw pointers into vectors the device owns.
+// SAFETY: The buffers hold raw pointers into vectors that the device owns and moves with itself.
+// The device is used from the audio thread only, after the main thread built it.
 unsafe impl Send for Vst3Device {}
 
 impl Device for Vst3Device {
@@ -1117,6 +1176,10 @@ impl Device for Vst3Device {
             self.keyed = crate::put_key(bus.as_mut_slice(), io.sidechain, self.keyed, n);
         }
 
+        // SAFETY: This is the audio thread, the only user of the event list, the queues and the buffers;
+        // the pointers in `data` lead to live buffers of `max_block` frames per channel (`n` is at most
+        // that) and to COM objects that the device owns, which live until `process` returns; the
+        // zeroed `Event`, `ProcessContext` and `ProcessData` are plain data, filled before use.
         unsafe {
             let events = &mut *self.events.events.get();
             events.clear();
@@ -1317,6 +1380,8 @@ impl Device for Vst3Device {
 impl Drop for Vst3Device {
     /// Runs on the main thread, after the audio thread has let go of the device.
     fn drop(&mut self) {
+        // SAFETY: The device is dropped on the main thread, after the audio thread let go of it, so
+        // stopping the processor does not race with `process`.
         unsafe {
             self.shared.processor.setProcessing(0);
             self.shared.component.setActive(0);
@@ -1357,6 +1422,8 @@ impl Vst3Controller {
             return;
         };
         let mut close = false;
+        // SAFETY: The editor's view is a live COM object and its window is ours; the calls are on the
+        // main thread, and `rect` is a live local the plugin reads or writes.
         unsafe {
             let fit = |editor: &mut Editor, width: u32, height: u32| {
                 let mut rect = ViewRect {
@@ -1417,6 +1484,8 @@ impl Controller for Vst3Controller {
         // The mode is part of the processing setup, which can only be
         // changed while the processor is stopped.
         let shared = &self.shared;
+        // SAFETY: The controller's calls are on the main thread. Unlike the CLAP device's `run` lock,
+        // nothing here keeps the audio thread out of `process` while the component is deactivated.
         unsafe {
             shared.processor.setProcessing(0);
             shared.component.setActive(0);
@@ -1442,6 +1511,7 @@ impl Controller for Vst3Controller {
         let id = *self.shared.param_ids.get(index)?;
         let controller = self.shared.controller.as_ref()?;
         let mut text: String128 = [0; 128];
+        // SAFETY: `controller` is live and `text` is a `String128` that the plugin fills; main thread.
         unsafe {
             (controller.getParamStringByValue(id, value, &mut text) == OK)
                 .then(|| wide(&text))
@@ -1455,6 +1525,7 @@ impl Controller for Vst3Controller {
         let mut units: Vec<TChar> = text.encode_utf16().map(|u| u as TChar).collect();
         units.push(0);
         let mut value = 0.0;
+        // SAFETY: `controller` is live; `units` is NUL-terminated and lives through the call.
         unsafe {
             (controller.getParamValueByString(id, units.as_mut_ptr(), &mut value) == OK)
                 .then_some(value)
@@ -1464,6 +1535,7 @@ impl Controller for Vst3Controller {
 
     fn value(&self, index: usize) -> Option<f64> {
         let id = *self.shared.param_ids.get(index)?;
+        // SAFETY: `controller` is a live COM object, called on the main thread.
         Some(unsafe { self.shared.controller.as_ref()?.getParamNormalized(id) })
     }
 
@@ -1471,6 +1543,7 @@ impl Controller for Vst3Controller {
         if let (Some(&id), Some(controller)) =
             (self.shared.param_ids.get(index), &self.shared.controller)
         {
+            // SAFETY: `controller` is a live COM object, called on the main thread.
             unsafe { controller.setParamNormalized(id, value) };
         }
     }
@@ -1488,6 +1561,8 @@ impl Controller for Vst3Controller {
             self.reread = None;
             if let Some(controller) = &self.shared.controller {
                 let edits = self.shared.host.edits.borrow().len();
+                // SAFETY: `component` and `controller` are live COM objects, called on the main thread; the
+                // streams live through the calls.
                 unsafe {
                     let state = Stream::new(Vec::new());
                     if self.shared.component.getState(stream_ptr(&state)) == OK {
@@ -1578,6 +1653,9 @@ impl Controller for Vst3Controller {
             .controller
             .as_ref()
             .context("this plugin has no editor")?;
+        // SAFETY: `controller` is live; the view is checked for null by `from_raw`; the frame and the
+        // window outlive the view (they are stored in `Editor`, and dropped after `removed`); the
+        // X11 window id is ours; the calls are made in the order of the ABI, on the main thread.
         unsafe {
             let view: ComPtr<IPlugView> =
                 ComPtr::from_raw(controller.createView(c"editor".as_ptr()))
@@ -1624,6 +1702,8 @@ impl Controller for Vst3Controller {
 
     fn close_editor(&mut self) {
         if let Some(editor) = self.editor.take() {
+            // SAFETY: `editor.view` is the live view that `open_editor` attached; `removed` and `setFrame(null)`
+            // are called once, before the view and the window are dropped.
             unsafe {
                 editor.view.removed();
                 editor.view.setFrame(ptr::null_mut());
@@ -1689,6 +1769,8 @@ impl Controller for Vst3Controller {
     /// The component's state, then the controller's, each prefixed by its length.
     fn save_state(&mut self) -> Result<Option<Vec<u8>>> {
         let mut out = Vec::new();
+        // SAFETY: `component` and `controller` are live COM objects called on the main thread; each
+        // stream lives through its call.
         unsafe {
             let component = Stream::new(Vec::new());
             if self.shared.component.getState(stream_ptr(&component)) != OK {
@@ -1722,6 +1804,8 @@ impl Controller for Vst3Controller {
         };
         let (component, controller) = (part()?, part()?);
         let before: Vec<Option<f64>> = (0..self.known.len()).map(|i| self.value(i)).collect();
+        // SAFETY: `component` and `controller` are live COM objects called on the main thread; the
+        // streams live through their calls.
         unsafe {
             let stream = Stream::new(component);
             if self.shared.component.setState(stream_ptr(&stream)) != OK {

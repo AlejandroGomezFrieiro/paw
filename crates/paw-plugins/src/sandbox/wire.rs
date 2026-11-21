@@ -87,7 +87,7 @@ pub(super) enum Request<'a> {
 }
 
 impl<'a> Request<'a> {
-    pub(super) fn op(&self) -> Op {
+    fn op(&self) -> Op {
         match self {
             Self::SetValue { .. } => Op::SetValue,
             Self::SaveState => Op::SaveState,
@@ -105,7 +105,7 @@ impl<'a> Request<'a> {
     }
 
     /// The request as one frame. A call's method ends in a 0 byte.
-    pub(super) fn frame(&self) -> Vec<u8> {
+    fn frame(&self) -> Vec<u8> {
         fn method(out: &mut Vec<u8>, name: &str) {
             out.extend_from_slice(name.as_bytes());
             out.push(0);
@@ -187,7 +187,7 @@ impl<'a> Request<'a> {
 }
 
 /// A call's method, up to its 0 byte, and the data after it.
-pub(super) fn split_method(payload: &[u8]) -> (Cow<'_, str>, &[u8]) {
+fn split_method(payload: &[u8]) -> (Cow<'_, str>, &[u8]) {
     let end = payload
         .iter()
         .position(|b| *b == 0)
@@ -198,7 +198,7 @@ pub(super) fn split_method(payload: &[u8]) -> (Cow<'_, str>, &[u8]) {
     )
 }
 
-pub(super) fn le_u32(bytes: &[u8]) -> Option<u32> {
+fn le_u32(bytes: &[u8]) -> Option<u32> {
     Some(u32::from_le_bytes(bytes.get(..4)?.try_into().ok()?))
 }
 
@@ -223,9 +223,9 @@ pub(super) fn from_optional(mut answer: Vec<u8>) -> Option<Vec<u8>> {
 }
 
 /// The first byte of an answer: the plugin did it.
-pub(super) const DONE: u8 = 0;
+const DONE: u8 = 0;
 /// The first byte of an answer: the plugin refused, and the rest says why.
-pub(super) const REFUSED: u8 = 1;
+const REFUSED: u8 = 1;
 
 pub(super) fn send(stream: &mut UnixStream, request: &Request) -> std::io::Result<()> {
     stream.write_all(&request.frame())
@@ -286,7 +286,7 @@ impl Hello {
     }
 }
 
-pub(super) fn params_null_as_zero<'de, D: Deserializer<'de>>(from: D) -> Result<Vec<ParamInfo>, D::Error> {
+fn params_null_as_zero<'de, D: Deserializer<'de>>(from: D) -> Result<Vec<ParamInfo>, D::Error> {
     let mut params = Vec::<Value>::deserialize(from)?;
     for param in &mut params {
         for key in ["min", "max", "default"] {
@@ -303,7 +303,7 @@ pub(super) fn params_null_as_zero<'de, D: Deserializer<'de>>(from: D) -> Result<
         .collect()
 }
 
-pub(super) fn values_null_as_zero<'de, D: Deserializer<'de>>(from: D) -> Result<Vec<f64>, D::Error> {
+fn values_null_as_zero<'de, D: Deserializer<'de>>(from: D) -> Result<Vec<f64>, D::Error> {
     let values = Vec::<Option<f64>>::deserialize(from)?;
     Ok(values.into_iter().map(|v| v.unwrap_or(0.0)).collect())
 }

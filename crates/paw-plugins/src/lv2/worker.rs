@@ -24,18 +24,21 @@ use super::*;
 /// Modeler then played some renders differently.)
 pub(super) struct Worker {
     /// Written by `schedule_work`, which the plugin calls from its `run`.
-    pub(super) requests: UnsafeCell<rtrb::Producer<u8>>,
+    requests: UnsafeCell<rtrb::Producer<u8>>,
     /// Read by the device after each `run`.
     pub(super) responses: UnsafeCell<rtrb::Consumer<u8>>,
     /// Rendering: the device waits after each block for the work it asked.
     pub(super) offline: AtomicBool,
     /// Pieces of work asked for and not done yet.
     pub(super) pending: Arc<AtomicU32>,
-    pub(super) stop: Arc<AtomicBool>,
-    pub(super) thread: Option<JoinHandle<()>>,
+    stop: Arc<AtomicBool>,
+    thread: Option<JoinHandle<()>>,
 }
 
-pub(super) unsafe extern "C" fn respond(queue: *mut c_void, size: u32, data: *const c_void) -> u32 {
+unsafe extern "C" fn respond(queue: *mut c_void, size: u32, data: *const c_void) -> u32 {
+    // SAFETY: `queue` is the `*mut Producer<u8>` that the worker thread passed to `work` (below), alive
+    // for the call and used only through this callback; the plugin gives `data` and `size` as a
+    // readable region it owns for the call, as the LV2 worker interface requires.
     unsafe {
         let queue = &mut *(queue as *mut rtrb::Producer<u8>);
         let data = std::slice::from_raw_parts(data as *const u8, size as usize);
@@ -43,7 +46,10 @@ pub(super) unsafe extern "C" fn respond(queue: *mut c_void, size: u32, data: *co
     }
 }
 
-pub(super) struct SendPtr<T>(*mut T);
+struct SendPtr<T>(*mut T);
+// SAFETY: The pointers sent are the plugin's static worker interface and the instance handle. LV2
+// allows `work` to run on a thread other than the one that runs the plugin, and `Worker`'s Drop
+// joins the thread before the instance is freed.
 unsafe impl<T> Send for SendPtr<T> {}
 
 pub(super) fn write_message(queue: &mut rtrb::Producer<u8>, data: &[u8]) -> bool {
@@ -97,6 +103,10 @@ impl Worker {
             while !stopped.load(Relaxed) {
                 while read_message(&mut incoming, &mut message) {
                     let mut outgoing = to_ui.lock().unwrap_or_else(|e| e.into_inner());
+                    // SAFETY: `interface` and `handle` belong to the plugin instance, which `Shared::drop` keeps alive
+                    // until this thread is joined (the worker is dropped before `lilv_instance_free`); `respond`
+                    // is the callback type `work` expects and `outgoing` lives through the call (the guard is held);
+                    // `message` is a live buffer of `message.len()` bytes.
                     unsafe {
                         ((*interface.0).work)(
                             handle.0,
@@ -147,6 +157,10 @@ impl Drop for Worker {
 }
 
 pub(super) unsafe extern "C" fn schedule_work(handle: *mut c_void, size: u32, data: *const c_void) -> u32 {
+    // SAFETY: `handle` is the `OnceLock<Worker>` slot that `host_data` gave the plugin as the schedule
+    // handle, which lives in the boxed HostData for as long as the plugin; the plugin calls this
+    // from `run` (the audio thread), the only user of `requests`, so the producer is unique, and
+    // `data`/`size` are a region it owns for the call.
     unsafe {
         // The handle is the slot the worker is put in once the plugin exists.
         let Some(worker) = (*(handle as *const OnceLock<Worker>)).get() else {

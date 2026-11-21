@@ -22,13 +22,13 @@ use super::worker::*;
 pub(super) struct HostData {
     pub(super) map: UridMap,
     pub(super) unmap: UridUnmap,
-    pub(super) schedule: WorkerSchedule,
+    schedule: WorkerSchedule,
     pub(super) options: [OptionsOption; 4],
-    pub(super) features: Vec<Feature>,
+    features: Vec<Feature>,
     pub(super) feature_list: Vec<*const Feature>,
-    pub(super) max_block: i32,
-    pub(super) min_block: i32,
-    pub(super) sample_rate: f32,
+    max_block: i32,
+    min_block: i32,
+    sample_rate: f32,
     pub(super) worker: OnceLock<Worker>,
 }
 
@@ -95,7 +95,13 @@ pub(super) enum UiKind {
 
 // The plugin's `run` and worker functions are called as LV2 allows; the rest
 // is used from the main thread only, which is also where this is dropped.
+// SAFETY: `Shared` owns raw pointers to the plugin instance and its interface. LV2 lets `run` and
+// the worker interface run on different threads, and the rest (the instance, the UnsafeCell
+// `scratch`, the queue consumers) is touched from the audio thread only or, for creation and
+// Drop, when no other thread has the value.
 unsafe impl Send for Shared {}
+// SAFETY: The state two threads share is atomics (`controls`, `wake`, `ui_open`) and the worker's
+// counters; the other fields are read-only after creation or used from one thread at a time.
 unsafe impl Sync for Shared {}
 
 impl Shared {
@@ -113,6 +119,8 @@ impl Shared {
     pub(super) fn working(&self) -> bool {
         self.host.worker.get().is_some_and(|worker| {
             worker.pending.load(std::sync::atomic::Ordering::Acquire) > 0
+                // SAFETY: `responses` is a consumer that only the audio thread uses, and `working` is called from
+                // there (`Device::resting`), so this shared borrow does not overlap a `&mut` from another thread.
                 || unsafe { (*worker.responses.get()).slots() } > 0
         })
     }
@@ -122,6 +130,8 @@ impl Drop for Shared {
     fn drop(&mut self) {
         // Stop the worker before the plugin it calls into goes away.
         drop(self.host.worker.take());
+        // SAFETY: `instance` was made by `lilv_instantiate` and is freed once, here; the worker thread that
+        // calls the plugin was joined by the line above.
         unsafe { lilv_instance_free(self.instance) };
     }
 }

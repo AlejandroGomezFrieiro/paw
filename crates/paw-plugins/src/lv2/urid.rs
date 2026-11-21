@@ -10,7 +10,7 @@ use crate::lv2_patch::PatchUrids;
 // --- URIDs -------------------------------------------------------------------
 
 /// Every URI any plugin or the host has asked a number for. Numbers start at 1.
-pub(super) static URIDS: Mutex<Vec<CString>> = Mutex::new(Vec::new());
+static URIDS: Mutex<Vec<CString>> = Mutex::new(Vec::new());
 
 pub(super) fn urid(uri: &CStr) -> u32 {
     let mut uris = URIDS.lock().unwrap();
@@ -24,6 +24,7 @@ pub(super) fn urid(uri: &CStr) -> u32 {
 }
 
 pub(super) unsafe extern "C" fn urid_map(_: *mut c_void, uri: *const c_char) -> u32 {
+    // SAFETY: The plugin passes a NUL-terminated URI that is valid for the call, as LV2's URID map requires.
     urid(unsafe { CStr::from_ptr(uri) })
 }
 

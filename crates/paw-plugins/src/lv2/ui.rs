@@ -45,7 +45,7 @@ pub(super) struct UiDescriptor {
     pub(super) extension_data: Option<unsafe extern "C" fn(*const c_char) -> *const c_void>,
 }
 
-pub(super) type WriteFn = unsafe extern "C" fn(*mut c_void, u32, u32, u32, *const c_void);
+type WriteFn = unsafe extern "C" fn(*mut c_void, u32, u32, u32, *const c_void);
 
 #[repr(C)]
 pub(super) struct UiResize {
@@ -67,6 +67,9 @@ pub(super) unsafe extern "C" fn ui_write(
     protocol: u32,
     buffer: *const c_void,
 ) {
+    // SAFETY: lv2 calls this with the `link` handle given at instantiation (a pointer to the Box<UiLink>
+    // that the controller owns and keeps alive until `cleanup`), and a `buffer` of `size` readable
+    // bytes for the protocol, on the main thread, which is where `to_plugin` and `changes` are used.
     unsafe {
         let link = &*(link as *const UiLink);
         let shared = &link.shared;
@@ -90,6 +93,8 @@ pub(super) unsafe extern "C" fn ui_write(
 }
 
 pub(super) unsafe extern "C" fn ui_resize(link: *mut c_void, width: i32, height: i32) -> i32 {
+    // SAFETY: `link` is the `*const UiLink` handed to the editor in `open_editor`, kept alive by the
+    // controller until the editor's `cleanup` has run.
     let link = unsafe { &*(link as *const UiLink) };
     link.resize
         .set(Some((width.max(1) as u32, height.max(1) as u32)));
@@ -97,6 +102,8 @@ pub(super) unsafe extern "C" fn ui_resize(link: *mut c_void, width: i32, height:
 }
 
 pub(super) unsafe extern "C" fn ui_port_index(link: *mut c_void, symbol: *const c_char) -> u32 {
+    // SAFETY: `link` is the `*const UiLink` handed to the editor (see above); `symbol` is a
+    // NUL-terminated string the editor owns for the call.
     unsafe {
         let link = &*(link as *const UiLink);
         link.shared
@@ -107,8 +114,8 @@ pub(super) unsafe extern "C" fn ui_port_index(link: *mut c_void, symbol: *const 
     }
 }
 
-pub(super) const UI: &str = "http://lv2plug.in/ns/extensions/ui#";
-pub(super) const EXTERNAL_UI: &CStr = c"http://kxstudio.sf.net/ns/lv2ext/external-ui#Widget";
+const UI: &str = "http://lv2plug.in/ns/extensions/ui#";
+const EXTERNAL_UI: &CStr = c"http://kxstudio.sf.net/ns/lv2ext/external-ui#Widget";
 pub(super) const EXTERNAL_HOST: &CStr = c"http://kxstudio.sf.net/ns/lv2ext/external-ui#Host";
 pub(super) const SHOW_INTERFACE: &CStr = c"http://lv2plug.in/ns/extensions/ui#showInterface";
 pub(super) const IDLE_INTERFACE: &CStr = c"http://lv2plug.in/ns/extensions/ui#idleInterface";
@@ -124,6 +131,8 @@ pub(super) unsafe fn find_ui(plugin: *const LilvPlugin) -> Option<UiInfo> {
     let w = world();
     // For trying a particular kind: `PAW_LV2_UI=x11|shows|external|gtk`.
     let only = std::env::var("PAW_LV2_UI").ok();
+    // SAFETY: lilv objects (`plugin`, `w.world`, the nodes made here, the list of UIs) are live for the
+    // block, and every node made here is freed before it ends. Main thread only.
     unsafe {
         let uri = |text: String| {
             let text = CString::new(text).unwrap();
@@ -211,6 +220,8 @@ pub(super) struct ExternalHost {
 }
 
 pub(super) unsafe extern "C" fn ui_closed(link: *mut c_void) {
+    // SAFETY: `link` is the `*const UiLink` that the controller gave the editor as the host handle; it is
+    // alive until `cleanup`, and the editor calls on the main thread.
     unsafe { &*(link as *const UiLink) }.closed.set(true);
 }
 

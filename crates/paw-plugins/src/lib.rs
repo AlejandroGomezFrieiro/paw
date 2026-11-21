@@ -12,6 +12,8 @@
 //! are looked into in a process of their own too. Without that, plugins are
 //! loaded into this process, and one that crashes takes the program with it.
 
+#![warn(clippy::undocumented_unsafe_blocks)]
+
 pub mod attach;
 pub mod clap;
 mod echo;

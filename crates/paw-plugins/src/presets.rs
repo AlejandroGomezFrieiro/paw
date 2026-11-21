@@ -95,6 +95,8 @@ unsafe fn text(ptr: *const c_char) -> String {
     if ptr.is_null() {
         String::new()
     } else {
+        // SAFETY: `ptr` is non-null (checked above) and `text` requires (its # Safety) a NUL-terminated
+        // string that stays valid for the call; the bytes are copied out before it returns.
         unsafe { CStr::from_ptr(ptr) }
             .to_string_lossy()
             .into_owned()
@@ -102,6 +104,9 @@ unsafe fn text(ptr: *const c_char) -> String {
 }
 
 unsafe fn found<'a>(data: *mut c_void) -> &'a mut Found {
+    // SAFETY: `data` is the `indexer_data` or `receiver_data` that `scan_provider` set to a live
+    // `Box<Found>` that outlives the provider, and the plugin calls back one at a time on the
+    // thread that called it, so no other reference to the Found exists.
     unsafe { &mut *(data as *mut Found) }
 }
 
@@ -109,6 +114,8 @@ unsafe extern "C" fn declare_filetype(
     indexer: *const clap_preset_discovery_indexer,
     filetype: *const clap_preset_discovery_filetype,
 ) -> bool {
+    // SAFETY: The plugin calls this with the indexer it was given in `create` (alive during
+    // the scan) and a filetype it owns for the call; `indexer_data` is the Found (see `found`).
     unsafe {
         let found = found((*indexer).indexer_data);
         if let Some(filetype) = filetype.as_ref() {
@@ -125,6 +132,8 @@ unsafe extern "C" fn declare_location(
     indexer: *const clap_preset_discovery_indexer,
     location: *const clap_preset_discovery_location,
 ) -> bool {
+    // SAFETY: The plugin passes the indexer given to it in `create`, which holds our Found in
+    // `indexer_data`, and a location it owns for the duration of the call; strings are NUL-terminated.
     unsafe {
         let found = found((*indexer).indexer_data);
         if let Some(l) = location.as_ref() {
@@ -161,6 +170,8 @@ unsafe extern "C" fn begin_preset(
     name: *const c_char,
     load_key: *const c_char,
 ) -> bool {
+    // SAFETY: The plugin passes the metadata receiver given to it, whose `receiver_data` is our Found;
+    // `name` and `load_key` are NUL-terminated strings (or null) it owns for the call.
     unsafe {
         let found = found((*receiver).receiver_data);
         let key = text(load_key);
@@ -190,6 +201,8 @@ unsafe extern "C" fn add_plugin_id(
     receiver: *const clap_preset_discovery_metadata_receiver,
     plugin_id: *const clap_universal_plugin_id,
 ) {
+    // SAFETY: The plugin passes the receiver given to it (`receiver_data` is our Found), and the
+    // plugin id it owns for the call; null pointers are handled by as_ref and `text`.
     unsafe {
         let found = found((*receiver).receiver_data);
         if let (Some(last), Some(id)) = (found.presets.last_mut(), plugin_id.as_ref()) {
@@ -229,13 +242,17 @@ pub unsafe fn clap_presets(
     plugin_id: &str,
 ) -> Vec<Preset> {
     let mut out = Vec::new();
+    // SAFETY: The caller got `factory` from the plugin's entry for this call, so it is null or a live factory.
     let Some(f) = (unsafe { factory.as_ref() }) else {
         return out;
     };
     let (Some(count), Some(get), Some(create)) = (f.count, f.get_descriptor, f.create) else {
         return out;
     };
+    // SAFETY: `count` is the factory's own function, called with the factory it belongs to.
     for index in 0..unsafe { count(factory) } {
+        // SAFETY: `get` is the factory's function, called with the factory and an index below `count`;
+        // the descriptor it returns is null or valid as long as the factory.
         let Some(desc) = (unsafe { get(factory, index).as_ref() }) else {
             continue;
         };
@@ -252,12 +269,17 @@ pub unsafe fn clap_presets(
             declare_soundpack: Some(declare_soundpack),
             get_extension: Some(indexer_extension),
         };
+        // SAFETY: `create` is the factory's function; `factory` is live, `indexer` lives on this stack frame
+        // until the provider is destroyed below, and `desc.id` is the descriptor's own NUL-terminated id.
         let provider = unsafe { create(factory, &indexer, desc.id) };
+        // SAFETY: `create` returns null or a provider that stays valid until `destroy`.
         let Some(p) = (unsafe { provider.as_ref() }) else {
             continue;
         };
+        // SAFETY: `init` is the provider's function, called once with its own provider, before any other call.
         if !p.init.is_some_and(|init| unsafe { init(provider) }) {
             if let Some(destroy) = p.destroy {
+                // SAFETY: `destroy` is the provider's function; the provider is not used again (the loop `continue`s).
                 unsafe { destroy(provider) };
             }
             continue;
@@ -283,6 +305,8 @@ pub unsafe fn clap_presets(
                     data.kind = kind;
                     data.location.clear();
                     data.root = PathBuf::new();
+                    // SAFETY: `get_metadata` is the provider's function, called after a successful `init` with its own
+                    // provider and a receiver that lives on this stack frame for the call; a null path means the plugin's own presets.
                     unsafe { get_metadata(provider, kind, ptr::null(), &receiver) };
                     continue;
                 }
@@ -301,11 +325,15 @@ pub unsafe fn clap_presets(
                     data.kind = kind;
                     data.location = file.to_string_lossy().into_owned();
                     data.root = root.clone();
+                    // SAFETY: `get_metadata` is the provider's function, called after a successful `init`; `c_path` is
+                    // a CString that lives through the call and `receiver` lives on this stack frame.
                     unsafe { get_metadata(provider, kind, c_path.as_ptr(), &receiver) };
                 }
             }
         }
         if let Some(destroy) = p.destroy {
+            // SAFETY: `destroy` is called once for a provider that was created and initialized here, after
+            // its last use, and the provider is not touched afterwards.
             unsafe { destroy(provider) };
         }
         out.extend(

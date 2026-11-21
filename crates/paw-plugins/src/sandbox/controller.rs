@@ -54,7 +54,7 @@ impl RemoteController {
     }
 
     /// End the helper and whatever it started.
-    pub(super) fn kill(&mut self) {
+    fn kill(&mut self) {
         // The helper leads a process group of its own (see `spawn`).
         let _ = rustix::process::kill_process_group(
             rustix::process::Pid::from_child(&self.child),
@@ -81,7 +81,7 @@ impl RemoteController {
 
     /// Ask the helper for something and wait for its answer, but not
     /// longer than `limit`.
-    pub(super) fn ask(&mut self, request: &Request, limit: Duration) -> Result<Vec<u8>> {
+    fn ask(&mut self, request: &Request, limit: Duration) -> Result<Vec<u8>> {
         if let Some(why) = &self.ended {
             bail!("{} is not running: {why}", self.name);
         }
@@ -104,14 +104,14 @@ impl RemoteController {
     }
 
     /// Tell the helper something that needs no answer.
-    pub(super) fn tell(&mut self, request: &Request) {
+    fn tell(&mut self, request: &Request) {
         if self.ended.is_none() && send(&mut self.stream, request).is_err() {
             let why = self.exited().unwrap_or(HelperError::Disconnected);
             self.end(why);
         }
     }
 
-    pub(super) fn refresh_values(&mut self) {
+    fn refresh_values(&mut self) {
         if let Ok(answer) = self.ask(&Request::Values, QUICK_LIMIT)
             && let Some(values) = read_values(&answer)
         {
@@ -123,7 +123,7 @@ impl RemoteController {
 }
 
 /// The processor time a process has used, all its threads together.
-pub(super) fn process_time(pid: u32) -> Option<Duration> {
+fn process_time(pid: u32) -> Option<Duration> {
     let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
     // The name, in parentheses, may hold spaces: the fields after it count
     // from the state, the third field.
@@ -134,7 +134,7 @@ pub(super) fn process_time(pid: u32) -> Option<Duration> {
     Some(Duration::from_nanos(ticks * 1_000_000_000 / per_second))
 }
 
-pub(super) fn describe(status: std::process::ExitStatus) -> String {
+fn describe(status: std::process::ExitStatus) -> String {
     use std::os::unix::process::ExitStatusExt;
     match (status.signal(), status.code()) {
         (Some(signal), _) if signal == Signal::SEGV.as_raw() => "it crashed (a memory fault)".into(),

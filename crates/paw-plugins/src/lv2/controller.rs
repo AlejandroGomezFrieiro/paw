@@ -39,7 +39,7 @@ pub(super) struct Lv2Controller {
 }
 
 /// Note the value a message from the plugin gives a property.
-pub(super) fn note_property(values: &mut HashMap<u32, serde_json::Value>, atom: &[u8]) {
+fn note_property(values: &mut HashMap<u32, serde_json::Value>, atom: &[u8]) {
     if let Some((property, value)) = lv2_patch::parse_set(&urids().patch, atom) {
         values.insert(property, value);
     }
@@ -48,7 +48,7 @@ pub(super) fn note_property(values: &mut HashMap<u32, serde_json::Value>, atom: 
 impl Lv2Controller {
     /// The host set the controls from a state itself: what they hold now
     /// are the state's values, for the echo.
-    pub(super) fn expect_values(&mut self) {
+    fn expect_values(&mut self) {
         let values: Vec<Option<f64>> =
             (0..self.shared.param_slots.len()).map(|i| self.value(i)).collect();
         self.echo.given(values);
@@ -56,7 +56,7 @@ impl Lv2Controller {
 
     /// Send a patch message to the plugin's control port. False when the
     /// plugin takes none, or the way to it is full.
-    pub(super) fn send_patch(&mut self, atom: &[u8]) -> bool {
+    fn send_patch(&mut self, atom: &[u8]) -> bool {
         let Some(port) = self.shared.patch_port else {
             return false;
         };
@@ -73,7 +73,7 @@ impl Lv2Controller {
 
     /// Take what the plugin sent while no editor is open: the new values of
     /// its properties.
-    pub(super) fn read_plugin(&mut self) {
+    fn read_plugin(&mut self) {
         while read_message(&mut self.from_plugin, &mut self.message) {
             if let Some((_, atom)) = self.message.split_at_checked(4) {
                 note_property(&mut self.values, atom);
@@ -81,7 +81,7 @@ impl Lv2Controller {
         }
     }
 
-    pub(super) fn properties_json(&mut self) -> Vec<u8> {
+    fn properties_json(&mut self) -> Vec<u8> {
         if self.ui.is_none() {
             self.read_plugin();
         }
@@ -95,7 +95,7 @@ impl Lv2Controller {
     }
 
     /// Set a property from `{ "property": name, "value": value }`.
-    pub(super) fn set_property(&mut self, data: &[u8]) -> Result<()> {
+    fn set_property(&mut self, data: &[u8]) -> Result<()> {
         let (urid, value, message) = self.property_message(data)?;
         if !self.send_patch(&message) {
             bail!("the plugin did not take the message: try again");
@@ -107,7 +107,7 @@ impl Lv2Controller {
     /// The `patch:Set` that sets a property from `{ "property": name,
     /// "value": value }`, with the property's URID and the value: checked,
     /// not sent.
-    pub(super) fn property_message(&self, data: &[u8]) -> Result<(u32, serde_json::Value, Vec<u8>)> {
+    fn property_message(&self, data: &[u8]) -> Result<(u32, serde_json::Value, Vec<u8>)> {
         #[derive(serde::Deserialize)]
         struct Set {
             property: String,
@@ -146,10 +146,14 @@ impl Lv2Controller {
         Ok((property.urid, set.value, message))
     }
     /// Keep the open editor up to date and let it do its work.
-    pub(super) fn run_editor(&mut self) {
+    fn run_editor(&mut self) {
         let Some(ui) = self.ui.as_mut() else { return };
         let shared = &self.shared;
         let mut close = self.link.closed.replace(false);
+        // SAFETY: `ui.descriptor` and `ui.handle` come from the editor's `instantiate` and stay valid until
+        // `close_editor` calls `cleanup`; the widget pointers were returned by that editor for this
+        // surface; every call is on the main thread, as LV2 UIs require, and `port_event` gets a
+        // pointer to `size` readable bytes that live through the call.
         unsafe {
             match &mut ui.surface {
                 Surface::Embedded(window) => {
@@ -275,6 +279,11 @@ impl Controller for Lv2Controller {
             .ui
             .as_ref()
             .context("this plugin has no editor this host can show")?;
+        // SAFETY: The editor library is opened by `open_library` and never unloaded, so the descriptor
+        // and everything it points to stay valid; `lv2ui_descriptor` has the signature given by the
+        // LV2 UI spec. The features handed to `instantiate` point into boxes and vectors that move
+        // into `Ui` below and live until `cleanup`; the `link` pointer is the controller's Box<UiLink>.
+        // The calls run on the main thread. A UI whose `instantiate` fails drops everything and returns.
         unsafe {
             // Never unloaded, like the plugins themselves.
             let lib = std::mem::ManuallyDrop::new(libloading::Library::from(
@@ -491,6 +500,9 @@ impl Controller for Lv2Controller {
     fn close_editor(&mut self) {
         if let Some(ui) = self.ui.take() {
             self.shared.ui_open.store(false, Relaxed);
+            // SAFETY: `ui.descriptor`, `ui.handle` and the widget pointers are those made in `open_editor` and
+            // not yet cleaned up (the `Ui` was just taken out of `self.ui`, so this runs once); the
+            // editor is cleaned up before its window drops.
             unsafe {
                 match &ui.surface {
                     Surface::Own(show) => {
@@ -511,6 +523,9 @@ impl Controller for Lv2Controller {
     fn save_state(&mut self) -> Result<Option<Vec<u8>>> {
         let shared = &*self.shared;
         let w = world();
+        // SAFETY: `shared.plugin`, `shared.instance` and the world are live; `map` is `shared.host.map`,
+        // which lilv only reads; `get_port_value` is called with `shared` (live through the call). The
+        // state and the text string lilv returns are freed here, once.
         unsafe {
             let map = &shared.host.map as *const UridMap as *mut _;
             let state = lilv_state_new_from_instance(
@@ -548,6 +563,7 @@ impl Controller for Lv2Controller {
         let w = world().world;
         let uri = |text: &str| -> Result<*mut LilvNode> {
             let text = CString::new(text)?;
+            // SAFETY: `w` is the live lilv world; the caller frees the node it makes.
             Ok(unsafe { lilv_new_uri(w, text.as_ptr()) })
         };
         match method {
@@ -556,6 +572,8 @@ impl Controller for Lv2Controller {
             paw_engine::device::method::PROPERTIES => Ok(self.properties_json()),
             paw_engine::device::method::PROPERTY_SET => self.set_property(data).map(|_| Vec::new()),
             // The presets the plugin's bundles (and the user's) describe.
+            // SAFETY: lilv objects (`shared.plugin`, the world, the nodes made here and the list lilv gives)
+            // are live; each node and list made here is freed before the block ends. Main thread only.
             paw_engine::device::method::PRESETS => unsafe {
                 let class = uri("http://lv2plug.in/ns/ext/presets#Preset")?;
                 let label = uri("http://www.w3.org/2000/01/rdf-schema#label")?;
@@ -583,6 +601,8 @@ impl Controller for Lv2Controller {
                 presets.sort_by(|a, b| a.name.cmp(&b.name));
                 Ok(crate::presets::to_json(&presets))
             },
+            // SAFETY: As for the presets list: the world, `shared` and the node are live, and the state made
+            // from the node is freed after `restore` has used it.
             paw_engine::device::method::PRESET_LOAD => unsafe {
                 let node = uri(&String::from_utf8_lossy(data))?;
                 lilv_world_load_resource(w, node);
@@ -604,6 +624,8 @@ impl Controller for Lv2Controller {
     fn load_state(&mut self, state: &[u8]) -> Result<()> {
         let shared = &*self.shared;
         let text = CString::new(state).context("the saved state is not text")?;
+        // SAFETY: `map` is `shared.host.map`, which lilv only reads; the world and `shared.instance` are
+        // live; `text` is a CString that lives through the call and the state is freed here.
         unsafe {
             let map = &shared.host.map as *const UridMap as *mut _;
             let state = lilv_state_new_from_string(world().world, map, text.as_ptr());
@@ -622,6 +644,8 @@ impl Controller for Lv2Controller {
 /// The properties a plugin lists as `patch:writable` or `patch:readable`.
 pub(super) unsafe fn find_properties(plugin: *const LilvPlugin, w: &World) -> Vec<Property> {
     let mut properties: Vec<Property> = Vec::new();
+    // SAFETY: `plugin` and `w` are live lilv objects of the world; each node list lilv returns is
+    // freed before the loop continues, and strings are copied out before the nodes are freed.
     unsafe {
         let subject = lilv_plugin_get_uri(plugin);
         for (predicate, writable) in [(w.patch_writable, true), (w.patch_readable, false)] {

@@ -89,7 +89,11 @@ struct Library {
 }
 
 // The factory is only used from the main thread.
+// SAFETY: `factory` and `presets` point into the plugin file's static entry data, and the file is never
+// unloaded (ManuallyDrop), so moving a Library to another thread keeps them valid.
 unsafe impl Send for Library {}
+// SAFETY: The CLAP threading rules keep every call through `factory` and `presets` on the main
+// thread, and the fields are never written after `load`, so sharing a Library is sound.
 unsafe impl Sync for Library {}
 
 /// Load a `.clap` file, or return it if it is loaded already.
@@ -99,6 +103,10 @@ fn load(path: &Path) -> Result<Arc<Library>> {
     if let Some((_, library)) = loaded.iter().find(|(p, _)| p == path) {
         return Ok(library.clone());
     }
+    // SAFETY: The file is opened by `open_library` and never unloaded; `clap_entry` is the symbol the CLAP
+    // ABI names and has the type `clap_plugin_entry`; `init` gets a NUL-terminated path that lives
+    // through the call, and `get_factory` gets static ids. Everything read from `entry` is checked
+    // for null first. This runs on the main thread, once per file (under the LOADED lock).
     let library = unsafe {
         let lib = libloading::Library::from(crate::libs::open_library(path)?);
         let entry: *const clap_plugin_entry =
@@ -131,6 +139,8 @@ unsafe fn text(ptr: *const c_char) -> String {
     if ptr.is_null() {
         String::new()
     } else {
+        // SAFETY: `ptr` is non-null (checked above) and the CLAP ABI requires the strings in a descriptor
+        // or port to be NUL-terminated; the bytes are copied out before returning.
         unsafe { CStr::from_ptr(ptr) }
             .to_string_lossy()
             .into_owned()
@@ -146,6 +156,9 @@ pub(crate) fn list_file(path: &Path) -> Result<Vec<Found>> {
 fn list(path: &Path) -> Result<Vec<Found>> {
     let library = load(path)?;
     let mut found = Vec::new();
+    // SAFETY: `library.factory` was checked non-null in `load` and the file stays loaded; descriptors
+    // are valid while the factory is, and their `features` list ends with a null pointer, as the
+    // ABI requires. Main thread only.
     unsafe {
         let factory = &*library.factory;
         let count = factory.get_plugin_count.context("no plugin count")?;
@@ -292,11 +305,18 @@ struct Shared {
 // The pointers are only followed under the CLAP threading rules: `plugin`'s
 // processing functions from the audio thread, everything else from the main
 // thread, with both halves dropped on the main thread.
+// SAFETY: The raw pointers in `Shared` are used under the CLAP threading rules (see the comment
+// above): the processing functions only on the audio thread, the rest only on the main thread.
+// Both halves are dropped on the main thread.
 unsafe impl Send for Shared {}
+// SAFETY: What the two threads share is atomics, mutexes and the read-only `param_ids`, `param_infos`;
+// the plugin pointers follow the threading rules named above.
 unsafe impl Sync for Shared {}
 
 impl Drop for Shared {
     fn drop(&mut self) {
+        // SAFETY: `plugin` was returned by `create_plugin` and is destroyed once, here, when the last
+        // half is dropped; the device has stopped and deactivated it already (`ClapDevice::drop`).
         unsafe {
             if let Some(destroy) = (*self.plugin).destroy {
                 destroy(self.plugin);
@@ -306,6 +326,8 @@ impl Drop for Shared {
 }
 
 unsafe fn extension<T>(plugin: *const clap_plugin, id: &CStr) -> *const T {
+    // SAFETY: `plugin` is live and `get_extension` is the plugin's own function; the id is a live CStr.
+    // The result is null or a table that lives as long as the plugin, and `T` is the table the id names.
     unsafe {
         match (*plugin).get_extension {
             Some(get) => get(plugin, id.as_ptr()).cast(),
@@ -321,6 +343,10 @@ impl DeviceFactory for ClapFactory {
 
     fn create(&self, sample_rate: f32, max_block: usize) -> Result<Instance> {
         let library = load(&self.path)?;
+        // SAFETY: The library is loaded and `factory` is a live plugin factory; the host given to the plugin
+        // is boxed, so its address stays put, and is kept alive in `Shared::_host`. Every plugin
+        // function called here (`init`, `activate`, the extensions) is called in the order the ABI
+        // requires, on the main thread, before the plugin is shared with the audio thread.
         unsafe {
             let flags = Arc::new(HostFlags::new());
             let host = Box::new(clap_host {
@@ -459,6 +485,9 @@ impl DeviceFactory for ClapFactory {
 }
 
 unsafe fn read_params(shared: &mut Shared) {
+    // SAFETY: `shared.plugin` is live and `params` came from the plugin's own `get_extension`; `info` is
+    // a zeroed `clap_param_info` (plain data, so zero is valid) that the plugin fills; `shared` is
+    // borrowed mutably, so nothing else uses the plugin. Main thread, after `init`.
     unsafe {
         let Some(params) = shared.params.as_ref() else {
             return;
@@ -524,6 +553,8 @@ unsafe fn value_text(
 ) -> Option<String> {
     let to_text = params.value_to_text?;
     let mut buffer = [0 as c_char; 256];
+    // SAFETY: `to_text` is the plugin's function; `buffer` is a live zeroed array, and the length passed
+    // is its size; the plugin writes a NUL-terminated string within it.
     unsafe {
         to_text(plugin, id, value, buffer.as_mut_ptr(), buffer.len() as u32)
             .then(|| text(buffer.as_ptr()))
@@ -538,6 +569,8 @@ unsafe fn port_infos(
     ports: *const clap_plugin_audio_ports,
     is_input: bool,
 ) -> Vec<(usize, String)> {
+    // SAFETY: `plugin` and `ports` came from the plugin; each `info` is a zeroed plain-data struct
+    // that `get` fills for an index below `count`.
     unsafe {
         let Some(ports) = ports.as_ref() else {
             return Vec::new();
@@ -561,6 +594,8 @@ unsafe fn port_infos(
 /// The note dialects the plugin's first note input takes, and the one it
 /// prefers.
 unsafe fn note_dialects(plugin: *const clap_plugin) -> (u32, u32) {
+    // SAFETY: `plugin` is live and `ports` is null or the plugin's note-ports table; `info` is a zeroed
+    // plain-data struct that `get` fills.
     unsafe {
         let ports: *const clap_plugin_note_ports = extension(plugin, CLAP_EXT_NOTE_PORTS);
         let Some(ports) = ports.as_ref() else {
@@ -582,6 +617,8 @@ unsafe fn note_dialects(plugin: *const clap_plugin) -> (u32, u32) {
 /// "Kick", "24": "Sustain" }`, for keys of its first port on every channel
 /// or the first. Empty when it names none.
 unsafe fn note_names(plugin: *const clap_plugin) -> Vec<u8> {
+    // SAFETY: `plugin` is live; the note-name table is null or the plugin's; each `name` is a zeroed
+    // plain-data struct that `get` fills for an index below `count`.
     unsafe {
         let mut names = serde_json::Map::new();
         let ext: *const clap_plugin_note_name = extension(plugin, CLAP_EXT_NOTE_NAME);
@@ -712,6 +749,8 @@ struct ClapDevice {
 }
 
 // The buffers hold raw pointers into vectors the device owns.
+// SAFETY: The buffers hold raw pointers into vectors that the device owns and moves with itself.
+// The device is used from the audio thread only, after the main thread built it.
 unsafe impl Send for ClapDevice {}
 
 impl Device for ClapDevice {
@@ -742,6 +781,11 @@ impl Device for ClapDevice {
         if shared.restarted.swap(false, Relaxed) {
             self.started = false;
         }
+        // SAFETY: `plugin` is the live plugin and `shared.run` is held (the `try_lock` above), so the main
+        // thread cannot deactivate it; the buffers' pointers lead to `max_block` frames per channel
+        // and `n <= max_block`; `in_events`, `out_events`, `transport` and `process` live on this
+        // frame until `process` returns; `self.out` and `self.events` are not touched while the plugin
+        // holds them. Called on the audio thread, as `start_processing` and `process` require.
         unsafe {
             if !self.started && !self.failed {
                 self.started = (*plugin).start_processing.is_none_or(|start| start(plugin));
@@ -963,6 +1007,8 @@ impl Drop for ClapDevice {
     /// Runs on the main thread, after the audio thread has let go of the device.
     fn drop(&mut self) {
         let plugin = self.shared.plugin;
+        // SAFETY: `plugin` is live, and this runs on the main thread after the audio thread let the device
+        // go, so `stop_processing` and `deactivate` do not race with `process`.
         unsafe {
             if self.started
                 && self.shared.processing.load(Relaxed)
@@ -980,6 +1026,8 @@ impl Drop for ClapDevice {
 }
 
 unsafe extern "C" fn events_size(list: *const clap_input_events) -> u32 {
+    // SAFETY: `list.ctx` is the `Vec<ClapEvent>` that `process` put there, alive until `process`
+    // returns; the plugin calls this inside `process` only.
     unsafe { (*((*list).ctx as *const Vec<ClapEvent>)).len() as u32 }
 }
 
@@ -987,6 +1035,8 @@ unsafe extern "C" fn events_get(
     list: *const clap_input_events,
     index: u32,
 ) -> *const clap_event_header {
+    // SAFETY: `list.ctx` is the `Vec<ClapEvent>` that `process` put there; the pointer returned points
+    // into it and stays valid for the block.
     unsafe {
         let events = &*((*list).ctx as *const Vec<ClapEvent>);
         events
@@ -1014,6 +1064,9 @@ unsafe extern "C" fn events_push(
     list: *const clap_output_events,
     event: *const clap_event_header,
 ) -> bool {
+    // SAFETY: `event` is a valid CLAP event (the plugin owns it for the call) of the size its header
+    // says, and the cast matches `type_`; `list.ctx` is the `Out` that `process` put there, used
+    // only inside `process`, on the audio thread.
     unsafe {
         if (*event).space_id != CLAP_CORE_EVENT_SPACE_ID {
             return true;
@@ -1081,6 +1134,7 @@ impl ClapController {
     /// native Wayland window if it can make one.
     fn editor_api(&self) -> Option<(&'static CStr, bool)> {
         let plugin = self.shared.plugin;
+        // SAFETY: `gui` is null or the plugin's gui table, which lives as long as the plugin.
         let supported = unsafe { self.shared.gui.as_ref()?.is_api_supported? };
         let wayland = std::env::var_os("WAYLAND_DISPLAY").is_some();
         [
@@ -1090,6 +1144,8 @@ impl ClapController {
         ]
         .into_iter()
         .filter(|(api, _)| wayland || *api != CLAP_WINDOW_API_WAYLAND)
+        // SAFETY: `supported` is the plugin's own function, called with the live plugin and a NUL-terminated
+        // API name that is a static CStr.
         .find(|(api, floating)| unsafe { supported(plugin, api.as_ptr(), *floating) })
     }
 
@@ -1101,6 +1157,8 @@ impl ClapController {
             return;
         };
         let mut close = shared.flags.closed.swap(false, Relaxed);
+        // SAFETY: `plugin` and `shared.gui` are live; all calls are on the main thread, which the gui
+        // extension requires; `width` and `height` are live locals.
         unsafe {
             let Some(gui) = shared.gui.as_ref() else {
                 return;
@@ -1158,6 +1216,7 @@ impl ClapController {
 
 impl Controller for ClapController {
     fn set_offline(&mut self, offline: bool) {
+        // SAFETY: `plugin` is live and the render extension (null or the plugin's table) is read on the main thread.
         unsafe {
             let render: *const clap_plugin_render = extension(self.shared.plugin, CLAP_EXT_RENDER);
             if let Some(set) = render.as_ref().and_then(|render| render.set) {
@@ -1181,6 +1240,7 @@ impl Controller for ClapController {
 
     fn value_text(&mut self, index: usize, value: f64) -> Option<String> {
         let (id, _) = *self.shared.param_ids.get(index)?;
+        // SAFETY: `plugin` and `params` are live, and `to_text` runs on the main thread.
         unsafe { value_text(self.shared.plugin, self.shared.params.as_ref()?, id, value) }
     }
 
@@ -1188,6 +1248,8 @@ impl Controller for ClapController {
         let (id, _) = *self.shared.param_ids.get(index)?;
         let text = CString::new(text).ok()?;
         let mut value = 0.0;
+        // SAFETY: `params` is null-checked by `as_ref`; `text` is a CString that lives through the call and
+        // `value` is a live local.
         unsafe {
             let to_value = self.shared.params.as_ref()?.text_to_value?;
             to_value(self.shared.plugin, id, text.as_ptr(), &mut value)
@@ -1197,6 +1259,7 @@ impl Controller for ClapController {
     }
 
     fn value(&self, index: usize) -> Option<f64> {
+        // SAFETY: `params` is null-checked by `as_ref`; `value` is a live local the plugin writes.
         unsafe {
             let get = self.shared.params.as_ref()?.get_value?;
             let (id, _) = *self.shared.param_ids.get(index)?;
@@ -1211,6 +1274,8 @@ impl Controller for ClapController {
             buffer: *const c_void,
             size: u64,
         ) -> i64 {
+            // SAFETY: `stream.ctx` is the `Vec<u8>` that `save_state` put there, alive during `save`; the plugin
+            // owns `buffer` for `size` readable bytes during the call.
             unsafe {
                 let out = &mut *((*stream).ctx as *mut Vec<u8>);
                 out.extend_from_slice(std::slice::from_raw_parts(
@@ -1220,6 +1285,7 @@ impl Controller for ClapController {
                 size as i64
             }
         }
+        // SAFETY: `state` is null-checked by `as_ref`; `stream` and `out` live on this frame until `save` returns.
         unsafe {
             let Some(save) = self.shared.state.as_ref().and_then(|s| s.save) else {
                 return Ok(None);
@@ -1242,6 +1308,8 @@ impl Controller for ClapController {
             buffer: *mut c_void,
             size: u64,
         ) -> i64 {
+            // SAFETY: `stream.ctx` is the `&[u8]` that `load_state` put there, alive during `load`; the plugin
+            // gives a `buffer` with room for `size` bytes, and `n <= size`.
             unsafe {
                 let rest = &mut *((*stream).ctx as *mut &[u8]);
                 let n = rest.len().min(size as usize);
@@ -1250,6 +1318,7 @@ impl Controller for ClapController {
                 n as i64
             }
         }
+        // SAFETY: `state` is null-checked by `as_ref`; `stream` and `rest` live on this frame until `load` returns.
         unsafe {
             let Some(load) = self.shared.state.as_ref().and_then(|s| s.load) else {
                 return Ok(());
@@ -1271,6 +1340,7 @@ impl Controller for ClapController {
 
     fn idle(&mut self) {
         if self.shared.flags.callback.swap(false, Relaxed) {
+            // SAFETY: `plugin` is live and `on_main_thread` runs on the main thread, as the plugin asked.
             unsafe {
                 if let Some(on_main_thread) = (*self.shared.plugin).on_main_thread {
                     on_main_thread(self.shared.plugin);
@@ -1358,6 +1428,9 @@ impl Controller for ClapController {
             .editor_api()
             .context("this plugin has no editor this host can show")?;
         let plugin = self.shared.plugin;
+        // SAFETY: `shared.gui` is non-null (`editor_api` found a supported API through it), the plugin is
+        // live, and the gui calls are in the order the ABI requires (create, set_scale, set_parent,
+        // show), on the main thread; `parent` lives through `set_parent`.
         unsafe {
             let gui = &*self.shared.gui;
             let destroy = || {
@@ -1425,6 +1498,8 @@ impl Controller for ClapController {
         if self.editor.is_none() {
             return;
         }
+        // SAFETY: `plugin` is live and `gui` is null-checked by `as_ref`; `hide` and `destroy` are
+        // called once, on the main thread, before the host window is dropped.
         unsafe {
             if let Some(gui) = self.shared.gui.as_ref() {
                 if let Some(hide) = gui.hide {
@@ -1445,11 +1520,14 @@ impl Controller for ClapController {
         }
         match method {
             paw_engine::device::method::PRESETS => {
+                // SAFETY: `presets` is null or the plugin file's preset-discovery factory, which lives as
+                // long as the (never unloaded) file; this runs on the main thread.
                 let presets = self.presets.get_or_insert_with(|| unsafe {
                     crate::presets::clap_presets(self.shared._library.presets, &self.plugin_id)
                 });
                 Ok(crate::presets::to_json(presets))
             }
+            // SAFETY: `plugin` is live; the extension is null-checked; the CStrings live through the call.
             paw_engine::device::method::PRESET_LOAD => unsafe {
                 let plugin = self.shared.plugin;
                 let mut ext: *const clap_plugin_preset_load =
@@ -1473,7 +1551,10 @@ impl Controller for ClapController {
                 self.given_state();
                 Ok(Vec::new())
             },
+            // SAFETY: `plugin` is live and this runs on the main thread.
             paw_engine::device::method::NOTE_NAMES => Ok(unsafe { note_names(self.shared.plugin) }),
+            // SAFETY: `plugin` is live and the extension is null-checked; `name`, `data` and `answer` live through
+            // the call, and `call_write` is the callback type the extension expects.
             _ => unsafe {
                 let ext: *const PawPluginCall = extension(self.shared.plugin, PAW_EXT_CALL);
                 let call = ext
@@ -1525,6 +1606,8 @@ unsafe extern "C" fn call_write(out: *mut c_void, data: *const u8, size: usize) 
     if out.is_null() || data.is_null() {
         return;
     }
+    // SAFETY: `out` is the `Vec<u8>` that `call` passed and is alive during the call; `data` is non-null
+    // (checked above) and the plugin owns it for `size` bytes.
     unsafe { (*(out as *mut Vec<u8>)).extend_from_slice(std::slice::from_raw_parts(data, size)) };
 }
 
@@ -1611,6 +1694,8 @@ impl ClapController {
         let shared = &self.shared;
         let plugin = shared.plugin;
         let _held = shared.run.lock().unwrap_or_else(|e| e.into_inner());
+        // SAFETY: `plugin` is live, `shared.run` is held so the audio thread is off it, and the calls
+        // (`stop_processing`, `deactivate`, `activate`) are made from the main thread as the ABI wants.
         unsafe {
             if shared.processing.swap(false, Relaxed)
                 && let Some(stop) = (*plugin).stop_processing
@@ -1654,6 +1739,7 @@ impl Drop for ClapController {
             let shared = &self.shared;
             let plugin = shared.plugin;
             let _held = shared.run.lock().unwrap_or_else(|e| e.into_inner());
+            // SAFETY: `plugin` is live and the audio thread is held off by `run`, as in `stopped`.
             unsafe {
                 if shared.processing.swap(false, Relaxed)
                     && let Some(stop) = (*plugin).stop_processing
@@ -1674,18 +1760,23 @@ impl Drop for ClapController {
 // --- what the host offers the plugin -----------------------------------------
 
 unsafe fn flags<'a>(host: *const clap_host) -> &'a HostFlags {
+    // SAFETY: `host.host_data` is the `Arc<HostFlags>` pointer that `create` set, kept alive by
+    // `Shared::flags` as long as the plugin; the plugin gives back the host it was created with.
     unsafe { &*((*host).host_data as *const HostFlags) }
 }
 
 unsafe extern "C" fn host_request_restart(host: *const clap_host) {
+    // SAFETY: The plugin gives back the host it was created with (see `flags`).
     unsafe { flags(host) }.restart.store(true, Relaxed);
 }
 
 unsafe extern "C" fn host_request_process(host: *const clap_host) {
+    // SAFETY: The plugin gives back the host it was created with (see `flags`).
     unsafe { flags(host) }.wake.store(true, Relaxed);
 }
 
 unsafe extern "C" fn host_request_callback(host: *const clap_host) {
+    // SAFETY: The plugin gives back the host it was created with (see `flags`).
     unsafe { flags(host) }.callback.store(true, Relaxed);
 }
 
@@ -1700,6 +1791,7 @@ unsafe extern "C" fn host_is_audio_thread(_: *const clap_host) -> bool {
 unsafe extern "C" fn host_log(_: *const clap_host, _: clap_log_severity, _: *const c_char) {}
 
 unsafe extern "C" fn host_params_rescan(host: *const clap_host, _: u32) {
+    // SAFETY: The plugin gives back the host it was created with (see `flags`).
     unsafe { flags(host) }.rescan.store(true, Relaxed);
 }
 
@@ -1708,6 +1800,7 @@ unsafe extern "C" fn host_gui_request_resize(
     width: u32,
     height: u32,
 ) -> bool {
+    // SAFETY: The plugin gives back the host it was created with (see `flags`).
     *unsafe { flags(host) }.resize.lock().unwrap() = Some((width, height));
     true
 }
@@ -1717,6 +1810,7 @@ unsafe extern "C" fn host_gui_request_show(_: *const clap_host) -> bool {
 }
 
 unsafe extern "C" fn host_gui_closed(host: *const clap_host, _was_destroyed: bool) {
+    // SAFETY: The plugin gives back the host it was created with (see `flags`).
     unsafe { flags(host) }.closed.store(true, Relaxed);
 }
 
@@ -1725,6 +1819,7 @@ unsafe extern "C" fn host_register_timer(
     period_ms: u32,
     id: *mut clap_id,
 ) -> bool {
+    // SAFETY: The plugin gives back the host it was created with (see `flags`).
     let flags = unsafe { flags(host) };
     let timer = flags.next_timer.fetch_add(1, Relaxed);
     flags
@@ -1732,11 +1827,13 @@ unsafe extern "C" fn host_register_timer(
         .lock()
         .unwrap()
         .add_timer(period_ms as u64, timer);
+    // SAFETY: The plugin gives a non-null `id` to write the timer id to, as the ABI requires.
     unsafe { *id = timer };
     true
 }
 
 unsafe extern "C" fn host_unregister_timer(host: *const clap_host, id: clap_id) -> bool {
+    // SAFETY: The plugin gives back the host it was created with (see `flags`).
     unsafe { flags(host) }
         .watches
         .lock()
@@ -1746,6 +1843,7 @@ unsafe extern "C" fn host_unregister_timer(host: *const clap_host, id: clap_id) 
 }
 
 unsafe extern "C" fn host_register_fd(host: *const clap_host, fd: i32, _flags: u32) -> bool {
+    // SAFETY: The plugin gives back the host it was created with (see `flags`).
     unsafe { flags(host) }
         .watches
         .lock()
@@ -1760,6 +1858,7 @@ unsafe extern "C" fn host_modify_fd(_: *const clap_host, _fd: i32, _flags: u32) 
 }
 
 unsafe extern "C" fn host_unregister_fd(host: *const clap_host, fd: i32) -> bool {
+    // SAFETY: The plugin gives back the host it was created with (see `flags`).
     unsafe { flags(host) }
         .watches
         .lock()
@@ -1807,6 +1906,7 @@ static FDS: clap_host_posix_fd_support = clap_host_posix_fd_support {
 };
 
 unsafe extern "C" fn host_get_extension(_: *const clap_host, id: *const c_char) -> *const c_void {
+    // SAFETY: The plugin gives a non-null NUL-terminated extension id that lives through the call.
     let id = unsafe { CStr::from_ptr(id) };
     if id == CLAP_EXT_THREAD_CHECK {
         &THREAD_CHECK as *const _ as *const c_void
