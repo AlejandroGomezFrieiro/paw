@@ -7,6 +7,7 @@ description = "Drawings of views (paw.canvas ops) to pixels, music fonts include
 
 [dependencies]
 serde_json.workspace = true
+paw-scene.workspace = true
 tiny-skia = "0.12"
 ttf-parser = "0.25"
 flate2 = "1"

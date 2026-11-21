@@ -46,13 +46,12 @@ pub struct Rgba(pub u8, pub u8, pub u8, pub u8);
 impl Rgba {
     /// `#rrggbb` or `#rrggbbaa`; nothing for anything else.
     pub fn parse(value: &Value) -> Option<Rgba> {
-        let hex = value.as_str()?.strip_prefix('#')?;
-        let channel = |at: usize| hex.get(at..at + 2).and_then(|h| u8::from_str_radix(h, 16).ok());
-        match hex.len() {
-            6 => Some(Rgba(channel(0)?, channel(2)?, channel(4)?, 255)),
-            8 => Some(Rgba(channel(0)?, channel(2)?, channel(4)?, channel(6)?)),
-            _ => None,
+        let text = value.as_str()?;
+        if !text.starts_with('#') {
+            return None;
         }
+        let c: paw_scene::color::Rgba = text.parse().ok()?;
+        Some(Rgba(c.r, c.g, c.b, c.a))
     }
 
     fn paint(self) -> Paint<'static> {

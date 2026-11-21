@@ -27,6 +27,7 @@
 //! (`bind`) a frontend moves without a new scene.
 
 pub mod cells;
+pub mod color;
 
 use std::collections::{HashMap, HashSet};
 
