@@ -1209,7 +1209,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.lsp.clients()`: The servers that were enabled, as `{ name, status, error, transport, subjects, capabilities, server, pid, documents, client }`.
 - `paw.lsp.code_actions(location)`: Pick a fix or an action for a location (by default what is under the cursor of the focused view; off a note in the piano roll, the diagnostics where the cursor is), and carry it out as one undo step.
 - `paw.lsp.command(ctx)`: `:lsp [info|start|stop|restart|log] [name]`.
-- `paw.lsp.command_complete()`: What `:Lsp` completes to: its words and the configured servers.
+- `paw.lsp.command_complete()`: What `:lsp` completes to: its words and the configured servers.
 - `paw.lsp.complete(ctx, done)`: A completion source over each server that runs and suggests, in the shape that `paw.complete.register` takes. `ctx` names the `clip` and the start of the suggestion (`at`, beats from the start of the clip), with an optional `selection` (a note set of the clip) and `controller`. paw calls `done(items)` one time.
 - `paw.lsp.complete_cancel()`: Forget the completion requests still out (a newer one replaced them).
 - `paw.lsp.config(name, config)`: Say how to start a server and what to show it, as `vim.lsp.config`. A second call changes only the fields it gives.

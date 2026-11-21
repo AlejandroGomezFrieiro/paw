@@ -186,7 +186,7 @@ view.hits = paw.canvas.hit_list()
 function view:paint(g, ctx)
   view.hits:clear()
   local x = paw.canvas.button(g, view.hits, 12, 8, "Play", function() paw.cmd("play") end)
-  paw.canvas.button(g, view.hits, x, 8, "Loop", toggle_loop, { on = paw.transport.loop })
+  paw.canvas.button(g, view.hits, x, 8, "Loop", toggle_loop, { on = paw.transport.loop_enabled })
   view.hits:add(g, 0, 40, ctx.width, 30, { down = choose_row, double = open_row })
 end
 ```

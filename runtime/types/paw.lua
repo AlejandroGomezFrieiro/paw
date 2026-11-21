@@ -4937,7 +4937,7 @@ function paw.lsp.code_actions(location) end
 ---@param ctx any
 function paw.lsp.command(ctx) end
 
---- What `:Lsp` completes to: its words and the configured servers.
+--- What `:lsp` completes to: its words and the configured servers.
 function paw.lsp.command_complete() end
 
 --- A completion source over each server that runs and suggests, in the

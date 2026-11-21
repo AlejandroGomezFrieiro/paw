@@ -62,8 +62,8 @@ For the reasons of the rule, see [About the key rule](../explanation/about-the-k
 A key of one view must not use a key of the global leader, or the leader
 alone. One exception: a view can play in its own way on the keys that
 play (`role = "play"`), as the vocal editor plays from its cursor.
-`:lua =paw.keyrule.broken()` lists the keys that do not obey. `:map` and
-the key hints show both leaders as you type them.
+`:lua =paw.keyrule.broken()` lists the keys that do not obey. The key
+hints show both leaders as you type them.
 
 When you set `paw.opt.leader` in `init.lua` or with `:set`, every key on
 the leader moves to the new leader, also the keys that paw mapped before.

@@ -1440,7 +1440,7 @@ function M.command(ctx: contracts.CommandContext)
   end
 end
 
---- What `:Lsp` completes to: its words and the configured servers.
+--- What `:lsp` completes to: its words and the configured servers.
 function M.command_complete(): {string}
   local out = { "info", "log", "start", "stop", "restart" }
   for name in pairs(M.configs) do out[#out + 1] = name end

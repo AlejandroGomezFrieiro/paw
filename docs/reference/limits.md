@@ -121,7 +121,7 @@ gets the function.
 - Help (`:help`):
   - The pages are 78 columns wide, not the width of the window.
   - `:helpgrep` takes words, not patterns.
-  - paw has no `:helptags`. paw makes the tags the first time that you ask for help, in about half a second.
+  - paw has no `:helptags`. paw makes the tags in short steps when it has no other work after it starts, or the first time that you ask for help before then.
   - Help is only in English.
   - The Nix package installs the extensions next to the program, but not `docs/`. So an installed paw has the pages of the extensions, but not the manual, unless `PAW_HOME` names a source tree.
 - Lists edited as text (`paw://tracks` and the others):
