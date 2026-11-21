@@ -89,7 +89,7 @@ pub enum KernelMsg {
         client: ClientId,
         method: String,
         params: Value,
-        reply: Sender<Result<Value, String>>,
+        reply: crate::rpc::Reply,
     },
     /// A connection closed: whatever it had asked to be sent stops.
     Gone(ClientId),

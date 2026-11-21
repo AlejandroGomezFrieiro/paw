@@ -160,8 +160,9 @@ Found with grep at a72467cf. Each refactor part that owns the file fixes it.
   `plugin-scan`), `paw-gui/src/main.rs`, `paw-mcp/src/main.rs`. Use clap with derive
   and subcommands. Keep every flag, its short form and its meaning, and keep
   `docs/reference` in step.
-- **I/O that waits, on threads:** `paw-core/src/rpc.rs` (a thread for each
-  control socket and network connection, TLS by hand over `rustls`),
+- **I/O that waits, on threads:** (done: `paw-core/src/rpc.rs`, the
+  control socket and the network server, runs on one tokio thread,
+  `paw-rpc`, with `tokio-rustls`.)
   `paw-core/src/io.rs` (helper processes read on threads, sockets polled
   from a timer), `paw-core/src/session/encode.rs` (ffmpeg jobs),
   `paw-proto` (the client: connect, TLS, a reader thread),

@@ -13,21 +13,30 @@
 //! TCP, inside TLS (see `crate::tls`), where a connection first has to show
 //! that it knows the token without sending it (`hello`). TCP in the clear
 //! is only there when asked for, for a network you trust.
+//!
+//! Every connection is two tasks on one tokio runtime, on a thread of its
+//! own (see [`runtime`]): one reads requests and hands them to the kernel's
+//! channel, the other writes what the kernel queued. The kernel's Lua loop
+//! never waits on them.
 
 use std::collections::HashMap;
-use std::io::{BufRead, BufReader, Read, Write};
-use std::net::TcpListener;
-use std::os::unix::net::{UnixListener, UnixStream};
+use std::io::{Read, Write};
+use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
-use std::sync::mpsc::{Receiver, Sender, channel};
-use std::sync::{Arc, Mutex};
+use std::sync::mpsc::Sender;
+use std::sync::{Arc, Mutex, OnceLock};
 
 use anyhow::{Context, Result, bail};
 pub use paw_proto::tls::known_path;
 pub use paw_proto::{ClientId, Connection, VERSION, Wire, proof, sha256};
 use paw_proto::hex;
 use serde_json::{Value, json};
+use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader};
+use tokio::net::{TcpListener, TcpStream, UnixListener};
+use tokio::runtime::Handle;
+use tokio::sync::{mpsc, oneshot, watch};
+use tokio::time::timeout;
 
 use crate::kernel::KernelMsg;
 
@@ -42,7 +51,8 @@ const MAX_WAITING: usize = 32 << 20;
 const MAX_REQUEST: u64 = 64 << 20;
 const MAX_HELLO: u64 = 4096;
 
-/// How long a network connection has to show the token.
+/// How long a network connection has for the TLS handshake, and for each
+/// line it sends until it has shown the token.
 const HELLO_TIME: std::time::Duration = std::time::Duration::from_secs(10);
 
 /// How long a connection to a TLS port may stay quiet before it is taken
@@ -54,13 +64,40 @@ const PLAIN_WAIT: std::time::Duration = std::time::Duration::from_millis(1500);
 const TLS_ONLY: &str = "this instance takes network connections in TLS only (protocol 3): \
     connect with a paw as new as it, or start the instance with --no-tls";
 
+/// Where the kernel puts its answer to one call.
+pub type Reply = oneshot::Sender<Result<Value, String>>;
+
+/// The runtime every connection runs on: a current-thread runtime on one
+/// thread of its own, made when the first listener opens. It sleeps while
+/// no socket has anything to say and no time limit runs. I/O only: calls
+/// go to the kernel's channel, as they did from the threads before.
+fn runtime() -> Result<&'static Handle> {
+    static RUNTIME: OnceLock<Handle> = OnceLock::new();
+    static MAKING: Mutex<()> = Mutex::new(());
+    let _one_at_a_time = MAKING.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    if let Some(handle) = RUNTIME.get() {
+        return Ok(handle);
+    }
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_io()
+        .enable_time()
+        .build()
+        .context("starting the I/O of the control socket")?;
+    let handle = runtime.handle().clone();
+    std::thread::Builder::new()
+        .name("paw-rpc".into())
+        .spawn(move || runtime.block_on(std::future::pending::<()>()))
+        .context("starting the thread of the control socket")?;
+    Ok(RUNTIME.get_or_init(|| handle))
+}
+
 /// One connection's way out.
 struct Out {
-    lines: Sender<String>,
+    lines: mpsc::UnboundedSender<String>,
     /// The bytes queued and not yet written.
     waiting: Arc<AtomicUsize>,
     /// Ends the connection from this side.
-    close: Box<dyn Fn() + Send>,
+    close: watch::Sender<bool>,
 }
 
 /// Every open connection's way out. Cheap to clone; the kernel keeps one to
@@ -89,9 +126,10 @@ impl Clients {
         let Some(out) = all.get(&id) else {
             return false;
         };
-        let waiting = out.waiting.fetch_add(line.len(), Ordering::Relaxed) + line.len();
+        let length = line.len();
+        let waiting = out.waiting.fetch_add(length, Ordering::Relaxed) + length;
         if waiting > MAX_WAITING || out.lines.send(line).is_err() {
-            (out.close)();
+            out.close.send_replace(true);
             all.remove(&id);
             return false;
         }
@@ -142,19 +180,21 @@ pub fn serve(path: &Path, kernel: Sender<KernelMsg>, clients: Clients) -> Result
         // Left behind by an instance that did not shut down cleanly.
         std::fs::remove_file(path)?;
     }
-    let listener =
-        UnixListener::bind(path).with_context(|| format!("listening on {}", path.display()))?;
-    std::thread::spawn(move || {
-        for stream in listener.incoming().flatten() {
-            let (kernel, clients) = (kernel.clone(), clients.clone());
-            std::thread::spawn(move || {
-                if let (Ok(writer), Ok(closer)) = (stream.try_clone(), stream.try_clone()) {
-                    let close = move || {
-                        let _ = closer.shutdown(std::net::Shutdown::Both);
-                    };
-                    connection(stream, writer, kernel, clients, None, close, || {});
-                }
-            });
+    let listener = std::os::unix::net::UnixListener::bind(path)
+        .with_context(|| format!("listening on {}", path.display()))?;
+    listener.set_nonblocking(true)?;
+    let runtime = runtime()?;
+    let listener = {
+        let _inside = runtime.enter();
+        UnixListener::from_std(listener)?
+    };
+    runtime.spawn(async move {
+        loop {
+            let Ok((stream, _)) = listener.accept().await else {
+                continue;
+            };
+            let (reader, writer) = stream.into_split();
+            tokio::spawn(connection(reader, writer, kernel.clone(), clients.clone(), None));
         }
     });
     Ok(Server {
@@ -177,75 +217,79 @@ pub fn serve_tcp(
         bail!("the token for network connections is too short to be one: 16 characters at least");
     }
     let listener =
-        TcpListener::bind(address).with_context(|| format!("listening on {address}"))?;
+        std::net::TcpListener::bind(address).with_context(|| format!("listening on {address}"))?;
     let bound = listener.local_addr()?;
-    std::thread::spawn(move || {
-        for stream in listener.incoming().flatten() {
+    listener.set_nonblocking(true)?;
+    let runtime = runtime()?;
+    let listener = {
+        let _inside = runtime.enter();
+        TcpListener::from_std(listener)?
+    };
+    let tls = tls.map(tokio_rustls::TlsAcceptor::from);
+    runtime.spawn(async move {
+        loop {
+            let Ok((stream, _)) = listener.accept().await else {
+                continue;
+            };
             let (kernel, clients, token) = (kernel.clone(), clients.clone(), token.clone());
-            let tls = tls.clone();
-            std::thread::spawn(move || {
-                // Small messages both ways: do not wait to fill a packet.
-                let _ = stream.set_nodelay(true);
-                // Whoever connects and says nothing does not keep a thread.
-                let _ = stream.set_read_timeout(Some(HELLO_TIME));
-                let (Ok(closer), Ok(known)) = (stream.try_clone(), stream.try_clone()) else {
-                    return;
-                };
-                let close = move || {
-                    let _ = closer.shutdown(std::net::Shutdown::Both);
-                };
-                let trusted = move || {
-                    let _ = known.set_read_timeout(None);
-                };
-                let Some(config) = tls else {
-                    if let Ok(writer) = stream.try_clone() {
-                        connection(stream, writer, kernel, clients, Some(token), close, trusted);
-                    }
-                    return;
-                };
-                // A TLS client opens with a handshake record; anything else
-                // is told what this port wants.
-                if first_byte(&stream) != Some(0x16) {
-                    return refuse_plain(stream);
-                }
-                let Ok(server) = rustls::ServerConnection::new(config) else {
-                    return;
-                };
-                if let Ok((reader, writer)) = paw_proto::tls::split(server.into(), stream) {
-                    connection(reader, writer, kernel, clients, Some(token), close, trusted);
-                }
-            });
+            tokio::spawn(network(stream, tls.clone(), kernel, clients, token));
         }
     });
     Ok(bound)
 }
 
+/// Serve one network connection: in TLS when the port takes TLS, else in
+/// the clear.
+async fn network(
+    stream: TcpStream,
+    tls: Option<tokio_rustls::TlsAcceptor>,
+    kernel: Sender<KernelMsg>,
+    clients: Clients,
+    token: String,
+) {
+    // Small messages both ways: do not wait to fill a packet.
+    let _ = stream.set_nodelay(true);
+    let Some(acceptor) = tls else {
+        let (reader, writer) = stream.into_split();
+        return connection(reader, writer, kernel, clients, Some(token)).await;
+    };
+    // A TLS client opens with a handshake record; anything else is told
+    // what this port wants.
+    if first_byte(&stream).await != Some(0x16) {
+        return refuse_plain(stream).await;
+    }
+    // Whoever connects and says nothing does not keep a task.
+    if let Ok(Ok(stream)) = timeout(HELLO_TIME, acceptor.accept(stream)).await {
+        let (reader, writer) = tokio::io::split(stream);
+        connection(reader, writer, kernel, clients, Some(token)).await;
+    }
+}
+
 /// The first byte a new connection sends, or nothing when it waits to be
 /// spoken to first (or goes away).
-fn first_byte(stream: &std::net::TcpStream) -> Option<u8> {
-    let _ = stream.set_read_timeout(Some(PLAIN_WAIT));
+async fn first_byte(stream: &TcpStream) -> Option<u8> {
     let mut byte = [0u8; 1];
-    let seen = matches!(stream.peek(&mut byte), Ok(1));
-    let _ = stream.set_read_timeout(Some(HELLO_TIME));
+    let seen = matches!(timeout(PLAIN_WAIT, stream.peek(&mut byte)).await, Ok(Ok(1)));
     seen.then_some(byte[0])
 }
 
 /// Tell a client that speaks in the clear, on a port that only takes TLS,
 /// why it will not be listened to: in the greeting it waits for, and in
 /// the answer to its first request.
-fn refuse_plain(mut stream: std::net::TcpStream) {
+async fn refuse_plain(mut stream: TcpStream) {
     let hello = json!({ "event": "hello", "payload": { "version": VERSION, "error": TLS_ONLY } });
-    if writeln!(stream, "{hello}").is_err() {
+    if stream.write_all(format!("{hello}\n").as_bytes()).await.is_err() {
         return;
     }
     let mut line = Vec::new();
-    let mut reader = BufReader::new((&stream).take(MAX_HELLO));
-    if reader.read_until(b'\n', &mut line).is_ok()
+    let mut reader = BufReader::new((&mut stream).take(MAX_HELLO));
+    if let Ok(Ok(_)) = timeout(HELLO_TIME, reader.read_until(b'\n', &mut line)).await
         && let Ok(request) = serde_json::from_slice::<Value>(&line)
     {
-        let _ = writeln!(stream, "{}", json!({ "id": request["id"], "error": TLS_ONLY }));
+        let error = json!({ "id": request["id"], "error": TLS_ONLY });
+        let _ = stream.write_all(format!("{error}\n").as_bytes()).await;
     }
-    let _ = stream.shutdown(std::net::Shutdown::Both);
+    let _ = stream.shutdown().await;
 }
 
 /// Where the token for network connections is kept on this machine:
@@ -310,42 +354,77 @@ fn same(a: &str, b: &str) -> bool {
             == 0
 }
 
-/// Serve one connection until it closes: its requests go to the kernel in
-/// order, and whatever the kernel has for it goes out through `writer`.
-fn connection(
-    stream: impl Read,
-    mut writer: impl Write + Send + 'static,
+/// Waits until the kernel's side closes the connection (see
+/// [`Clients::send`]). Never ends when the connection ends by itself.
+async fn closed(mut close: watch::Receiver<bool>) {
+    if close.wait_for(|&closed| closed).await.is_err() {
+        std::future::pending::<()>().await;
+    }
+}
+
+/// Write what the kernel queued for a connection, in order, until the
+/// queue ends (after the lines already in it) or a write fails.
+async fn write_out(
+    mut writer: impl AsyncWrite + Unpin,
+    mut queue: mpsc::UnboundedReceiver<String>,
+    written: Arc<AtomicUsize>,
+) {
+    while let Some(line) = queue.recv().await {
+        let sent = writer.write_all(line.as_bytes()).await.is_ok()
+            && writer.write_all(b"\n").await.is_ok()
+            && writer.flush().await.is_ok();
+        written.fetch_sub(line.len(), Ordering::Relaxed);
+        if !sent {
+            break;
+        }
+    }
+}
+
+/// Serve one connection until it closes, from either side: its requests
+/// go to the kernel in order, and whatever the kernel has for it goes out
+/// through `writer`.
+async fn connection(
+    reader: impl AsyncRead + Unpin,
+    writer: impl AsyncWrite + Unpin + Send + 'static,
     kernel: Sender<KernelMsg>,
     clients: Clients,
     token: Option<String>,
-    close: impl Fn() + Send + 'static,
-    on_trusted: impl FnOnce(),
 ) {
-    let (lines, queue): (Sender<String>, Receiver<String>) = channel();
+    let (lines, queue) = mpsc::unbounded_channel();
+    let (close, close_seen) = watch::channel(false);
     let waiting = Arc::new(AtomicUsize::new(0));
-    let written = waiting.clone();
-    std::thread::spawn(move || {
-        for line in queue {
-            let sent = writer.write_all(line.as_bytes()).is_ok()
-                && writer.write_all(b"\n").is_ok()
-                && writer.flush().is_ok();
-            written.fetch_sub(line.len(), Ordering::Relaxed);
-            if !sent {
-                break;
-            }
+    let writing = write_out(writer, queue, waiting.clone());
+    let stop_writing = closed(close_seen.clone());
+    tokio::spawn(async move {
+        tokio::select! {
+            () = writing => {}
+            () = stop_writing => {}
         }
     });
     let id = clients.add(Out {
         lines,
         waiting,
-        close: Box::new(close),
+        close,
     });
+    tokio::select! {
+        () = requests(id, reader, &kernel, &clients, token) => {}
+        () = closed(close_seen) => {}
+    }
+    clients.remove(id);
+    let _ = kernel.send(KernelMsg::Gone(id));
+}
+
+/// Read a connection's requests and answer each in turn, until it closes,
+/// says what cannot be listened to, or fails to show the token.
+async fn requests(
+    id: ClientId,
+    reader: impl AsyncRead + Unpin,
+    kernel: &Sender<KernelMsg>,
+    clients: &Clients,
+    token: Option<String>,
+) {
     // Everything for this connection goes through its queue, counted.
-    let out = {
-        let clients = clients.clone();
-        move |line: String| clients.send(id, line)
-    };
-    let mut on_trusted = Some(on_trusted);
+    let out = |line: String| clients.send(id, line);
     // Over the network, nothing is listened to before the token is shown.
     let challenge = token.as_ref().map(|_| nonce());
     let mut trusted = token.is_none();
@@ -353,15 +432,21 @@ fn connection(
         out(json!({ "event": "hello", "payload": { "version": VERSION, "nonce": nonce } })
             .to_string());
     }
-    let mut reader = BufReader::new(stream);
+    let mut reader = BufReader::new(reader);
     loop {
         // One line, and no more of it than a request may be long: what
-        // has not shown the token gets to say very little.
+        // has not shown the token gets to say very little, in HELLO_TIME.
         let limit = if trusted { MAX_REQUEST } else { MAX_HELLO };
         let mut bytes = Vec::new();
-        match (&mut reader).take(limit + 1).read_until(b'\n', &mut bytes) {
-            Ok(0) | Err(_) => break,
-            Ok(_) => {}
+        let mut limited = (&mut reader).take(limit + 1);
+        let read = limited.read_until(b'\n', &mut bytes);
+        let read = if trusted {
+            read.await
+        } else {
+            timeout(HELLO_TIME, read).await.unwrap_or(Ok(0))
+        };
+        if matches!(read, Ok(0) | Err(_)) {
+            break;
         }
         if bytes.last() != Some(&b'\n') && bytes.len() as u64 > limit {
             out(json!({ "id": null, "error": "the request is too long" }).to_string());
@@ -391,9 +476,6 @@ fn connection(
                 trusted = shown.is_some_and(|shown| same(shown, &proof(token, nonce)));
             }
             if trusted {
-                if let Some(on_trusted) = on_trusted.take() {
-                    on_trusted();
-                }
                 Ok(json!({ "version": VERSION, "client": id }))
             } else {
                 Err("the token is not the right one".to_string())
@@ -401,19 +483,19 @@ fn connection(
         } else if !trusted {
             Err("say `hello` with the proof of the token first".to_string())
         } else {
-            let (reply, result) = channel();
+            let (reply, result) = oneshot::channel();
             let sent = kernel.send(KernelMsg::Rpc {
                 client: id,
                 method,
                 params,
                 reply,
             });
-            match sent {
-                Ok(()) => result
-                    .recv()
-                    .unwrap_or_else(|_| Err("the kernel went away".to_string())),
-                Err(_) => break,
+            if sent.is_err() {
+                break;
             }
+            result
+                .await
+                .unwrap_or_else(|_| Err("the kernel went away".to_string()))
         };
         let response = match outcome {
             Ok(result) => json!({ "id": request_id, "result": result }),
@@ -427,8 +509,6 @@ fn connection(
             break;
         }
     }
-    clients.remove(id);
-    let _ = kernel.send(KernelMsg::Gone(id));
 }
 
 /// Call a method on a running instance and wait for the answer.
