@@ -222,6 +222,26 @@ test(":help opens the contents in a window split off, which cannot be changed", 
   eq(at:find("gU", 1, true) ~= nil, true, "on the key: " .. at)
 end)
 
+test("help is made at idle in short slices, and the first :help after it is quick", function()
+  start()
+  H.dirty = true -- every page made again, as at the start of a session
+  H.prepare()
+  eq(H.preparing(), true, "made at idle")
+  local longest = 0
+  for _ = 1, 5000 do
+    if not H.preparing() then break end
+    local t0 = T.cpu_ms()
+    paw.wait(1)
+    longest = math.max(longest, T.cpu_ms() - t0)
+  end
+  eq(H.preparing(), false, "and done")
+  T.quick(longest, 40, "the longest slice, which a key waits for")
+  local t0 = T.cpu_ms()
+  T.keys(":help gU<CR>")
+  T.quick(T.cpu_ms() - t0, 100, "the first :help after help was made at idle")
+  eq((here() or ""):match("^help://") ~= nil, true, "it opens the page")
+end)
+
 test(":help with a topic puts the cursor on its line, and says when there is none", function()
   start()
   paw.cmd("help", { "key-rule" })

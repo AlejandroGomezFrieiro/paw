@@ -78,10 +78,7 @@ days[1] = function(E)
   local dk = E.draw(phrase(r, 3, 4, 60, 72))
   for _, k in ipairs(dk) do keys[#keys + 1] = k end
   keys[#keys + 1] = "<C-w>p"
-  -- Two undo steps: `i` made the clip, the drawing filled it. One `u`
-  -- leaves an empty clip (a finding of the first run of this scenario: the
-  -- user sees it and presses `u` again).
-  keys[#keys + 1] = "u"
+  -- One undo step: the clip that `i` made and the notes drawn into it.
   keys[#keys + 1] = "u"
   E:act({ name = "draw a second bar of lead, and undo it", keys = keys, focus = "arrange" })
   E:act({ name = "mark the intro", keys = { "<Esc>", "1|", ":marker Intro<CR>" }, says = "Intro",

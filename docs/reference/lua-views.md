@@ -54,7 +54,7 @@ lists the fields for the graphical window (`title`, `window`, `paint`,
 | `window_state` | the names of the fields of the view that each window has for itself (see [A state for each window](#a-state-for-each-window)) |
 | `window_fresh` | the fields of `window_state` that a new window starts without, for example caches |
 | `open_target(self, target)` | opens a thing by name in the window, for `:e view://target`. It returns false and a message when it cannot |
-| `window_target(self)` | the name of what the window shows, for a saved layout |
+| `window_target(self)` | the name of what the window shows, for a saved layout. It gives nil when that thing is gone (undone or deleted) |
 | `share` | the part of the room that the view keeps: `column`, `least` and `most`, fractions (see [Windows, buffers and tabs](windows.md#sizes)) |
 
 ### A state for each window
@@ -77,7 +77,9 @@ paw.ui.view("score", {
     if not clip then return false, "no clip " .. target end
     self.clip_id, self.beat = clip.id, 0
   end,
-  window_target = function(self) return self.clip_id end,
+  window_target = function(self)
+    if self.clip_id and pcall(paw.api.clip_get, self.clip_id) then return self.clip_id end
+  end,
   render = function(self, buf, ctx) end,
 })
 ```

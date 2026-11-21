@@ -363,6 +363,11 @@ local function stop_timer()
   end
 end
 
+-- The undo state current when insert mode began. What is done from then
+-- until insert mode ends (the clip `i` made, the notes drawn into it) is
+-- one undo step, as an insert is in Vim: the steps after the first join it.
+local insert_undo
+
 --- Change mode. When visual mode stops, the selection closes. `gv` opens it again.
 function M.set_mode(mode)
   if mode == "v" then mode = "x" end
@@ -376,8 +381,10 @@ function M.set_mode(mode)
     M.visual = nil
   end
   if mode == old then return end
+  if mode == "i" then insert_undo = api.undo_current() end
   M.mode = mode
   paw.emit("mode.changed", { mode = mode, old = old })
+  if old == "i" then insert_undo = nil end
   api.ui_redraw()
 end
 
@@ -1109,6 +1116,8 @@ function M.dispatch(key)
     if paw.ui.grabber and paw.ui.grabber ~= grabber then return end
   end
   if macro and depth == 0 then macro.keys[#macro.keys + 1] = key end
+  -- A key of insert mode: its edits join the step the insert made first.
+  if M.mode == "i" and insert_undo and api.undo_current() ~= insert_undo then api.undo_join(api.undo_current()) end
   if not track.keys then track.keys, track.edits, track.texts = {}, api.project_get("edits"), text_changes end
   track.keys[#track.keys + 1] = key
   local ok, err = xpcall(handle, debug.traceback, key)

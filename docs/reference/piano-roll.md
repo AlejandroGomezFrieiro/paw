@@ -112,7 +112,7 @@ typed.
 - paw does not write a note with no length.
 - A note drawn over a note of the same pitch with the same start replaces it.
 - The clip grows by whole bars to hold notes that go past its end.
-- Nothing goes into the project until insert mode ends. So all of insert mode is one undo step.
+- Nothing goes into the project until insert mode ends. All of insert mode is one undo step. When `i` in the arrange view makes a new clip, the clip is in the same undo step.
 - `.` draws the same shape again from the cursor, moved to its pitch, as Vim repeats an insert.
 - Where the roll edits several clips, the notes go into the active clip (or, outside it, into the clip where the note starts).
 - When a suggestion shows, its keys come first: `Esc` dismisses it, and the next `Esc` leaves insert mode.
@@ -133,7 +133,8 @@ makes `i` and `a` do the same.
 | `[` `]` | Change the velocity. |
 | `Esc` | Returns to normal mode. |
 
-The clip grows by a bar when the notes go past its end. The key is `I`
+The clip grows by a bar when the notes go past its end. All of insert mode
+is one undo step, as when you draw. The key is `I`
 for three reasons. `gi` of Vim may be necessary for "insert where you
 stopped". `R` records. `I` of Vim, "insert at the start of the line", is
 `0i` here.

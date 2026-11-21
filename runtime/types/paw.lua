@@ -3824,6 +3824,13 @@ function paw.help.owned(index, topic, exact) end
 ---@param topic any
 function paw.help.owners(topic) end
 
+--- Make the index of help at idle, in slices. What has not changed since
+--- the last build is not made again.
+function paw.help.prepare() end
+
+--- Whether the index of help is being made at idle.
+function paw.help.preparing() end
+
 --- The directories that can be a copy of the source tree, with the manual
 --- and the bundled extensions in it. These are `$PAW_HOME` (where an
 --- installed program keeps them), the parent of the runtime (`--runtime`),

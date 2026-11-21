@@ -929,6 +929,8 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.help.open(topic)`: `:help topic`: go to the best tag for it, or say there is none.
 - `paw.help.owned(index, topic, exact)`: The tag a topic an extension owns goes to: its place in the owner's pages (where `exact` is not already), else the owner's first page.
 - `paw.help.owners(topic)`: The extensions that own what a topic names: the command's (`:name`), or a key's when only extensions map it (a key the core maps is the core's). A list, empty for the core's.
+- `paw.help.prepare()`: Make the index of help at idle, in slices. What has not changed since the last build is not made again.
+- `paw.help.preparing()`: Whether the index of help is being made at idle.
 - `paw.help.roots()`: The directories that can be a copy of the source tree, with the manual and the bundled extensions in it. These are `$PAW_HOME` (where an installed program keeps them), the parent of the runtime (`--runtime`), the tree of a loaded extension, and the current directory.
 - `paw.help.show(source, row, col)`: Show a page at a row. It shows in the help window, or in a window split from the current window (as the `:help` of Vim splits). In a graphical frontend, it shows as a docked pane (`gw` moves it to a separate window). Returns the window.
 - `paw.help.slug(text)`: A heading's words as a tag: `Ex: ranges, :s and :g` is `ex-ranges-s-and-g`.
