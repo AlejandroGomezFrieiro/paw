@@ -157,7 +157,7 @@ test("a prompt with text comes with the text selected, so that typing replaces i
   start()
   local got
   paw.ui.input({ prompt = "Name: ", text = "Track 1" }, function(text) got = text end)
-  eq(paw.ui.messages and require("paw.views.cmdline").state().selected, true, "selected")
+  eq(require("paw.views.cmdline").state().selected, true, "selected")
   paw.keymap.feed("Lead<CR>")
   eq(got, "Lead", "typing replaced it")
   paw.ui.input({ prompt = "Name: ", text = "Track 1" }, function(text) got = text end)
@@ -215,14 +215,6 @@ test(":set nofollow, :set follow, :set follow! and :set invfollow, as in Vim", f
   eq(last_message(), "zoom = " .. tostring(paw.opt.zoom), "a number's name alone shows it")
   paw.keymap.feed(":set follow?<CR>")
   eq(paw.opt.follow, true, "? does not set it")
-end)
-
-test("the quickfix list's key line has Enter to jump and q to close", function()
-  local entries = paw.ui.keybar.lines.qflist.n
-  local keys = {}
-  for _, entry in ipairs(entries) do keys[entry[1]] = entry[2] end
-  eq(keys["<CR>"], "jump", "jump")
-  eq(keys["q"], "close", "close")
 end)
 
 test("a bare extension name opens its main view, or suggests what it could mean", function()

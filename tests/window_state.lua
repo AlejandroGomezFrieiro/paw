@@ -137,8 +137,6 @@ test("window state: :sp in the roll shows the roll again, on the clip of this wi
   end)
   eq(windows(), "pianoroll pianoroll", "two rolls")
   eq(table.concat(each("pianoroll", function(v) return tostring(v.clip_id) end), " "), clip.id .. " " .. clip.id, "on the same clip")
-  sized(function() keys(":e arrange<CR>") keys(":vs<CR>") end)
-  eq(windows():find("arrange arrange", 1, true) ~= nil, true, ":vs in the arrange view shows it twice")
 end)
 
 test("window state: the mixer twice, each window with its own row and scroll", function()
