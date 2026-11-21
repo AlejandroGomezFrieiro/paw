@@ -5,6 +5,8 @@ tools that try to break the DAW. Results and the comparison are in
 [RESULTS.md](RESULTS.md). The processor time of paw while it plays,
 against REAPER, Ardour and LMMS, is in [DAWS.md](DAWS.md), with its
 harness in [daws/](daws).
+The speeds that the media design rests on (stretch, decode, hash,
+`stat`) are in [media.md](media.md), with its harness in [media/](media).
 
 ## Run the benchmarks
 

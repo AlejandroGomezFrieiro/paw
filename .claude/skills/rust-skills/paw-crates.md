@@ -61,6 +61,7 @@ comment next to the code:
 | Errors of a binary | `anyhow` | `Box<dyn Error>` |
 | JSON, TOML, XML | `serde_json`, `toml`/`toml_edit`, `quick-xml` | hand-written escaping |
 | base64, deflate, crc32 | `base64`, `flate2` (`flate2::Crc`) | own tables |
+| Content hashes of files (sources, caches) | `blake3` (`media::hash` in paw-core: memory map and rayon for big files, incremental) | `ring` or `sha2` for a hash that names content |
 | SHA-256 and other hashes | `ring::digest` (already linked), else `sha2` | an own SHA |
 | Bit sets in a `u8`/`u32` | `bitflags` | `const X: u32 = 1 << n` and `&` by hand |
 | Signal handlers | `signal-hook` (`low_level::register` for a handler that writes) | `libc::signal` |
