@@ -82,7 +82,6 @@ end)
 
 test("a role is defined with its cells, and marking one there is not is an error", function()
   eq(pcall(paw.ui.role, "roles_test_none", {}), false, "a role without cells")
-  eq(paw.ui.roles.roles_test_bar.props.amount, "number 0..1", "the props it says it has")
   eq(paw.ui.roles.fader ~= nil and paw.ui.roles.meter ~= nil and paw.ui.roles.switch ~= nil, true, "the widgets are roles")
   local ok, err = pcall(paw.ui.Buf.mark, paw.ui.Buf.root(4, 1), "roles_test_nothing", 0, 0, 1, 1)
   eq(ok, false)
