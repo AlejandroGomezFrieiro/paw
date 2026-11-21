@@ -5154,6 +5154,10 @@ function paw.markdown.width(s) end
 ---@param opts any
 function paw.markers.add(beat, name, opts) end
 
+--- The region a beat is in: the shortest of those that hold it, or nil.
+---@param beat any
+function paw.markers.around(beat) end
+
 --- The marker or region start nearest a beat within `reach` beats (half a
 --- grid step by default), or the region the beat is inside.
 ---@param beat any
@@ -7508,8 +7512,8 @@ function paw.track_kinds.set(which, name, args) end
 ---@param which any
 function paw.track_kinds.spec(which) end
 
---- True if something moves on its own now: the song plays, or a moment
---- after activity (`poke`), while meters fall.
+--- True if something moves on its own now: the song plays, a track listens
+--- to its input, or a moment after activity (`poke`), while meters fall.
 function paw.ui.active() end
 
 --- The position of each visible view on a screen of the current size: a

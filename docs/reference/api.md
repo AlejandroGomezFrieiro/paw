@@ -1276,6 +1276,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.markers
 
 - `paw.markers.add(beat, name, opts)`: Add a marker at a beat. With `opts.length`, add a region from there. Returns it.
+- `paw.markers.around(beat)`: The region a beat is in: the shortest of those that hold it, or nil.
 - `paw.markers.at(beat, reach)`: The marker or region start nearest a beat within `reach` beats (half a grid step by default), or the region the beat is inside.
 - `paw.markers.default_name()`: A name for a new marker that has none: "Marker 3" for the third.
 - `paw.markers.find(which)`: The marker or region of a number (its place in the song), of an id given as `{ id = n }`, or of a name. Nil if there is none.
@@ -1937,7 +1938,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 ## Module paw.ui
 
-- `paw.ui.active()`: True if something moves on its own now: the song plays, or a moment after activity (`poke`), while meters fall.
+- `paw.ui.active()`: True if something moves on its own now: the song plays, a track listens to its input, or a moment after activity (`poke`), while meters fall.
 - `paw.ui.arrange(width, height)`: The position of each visible view on a screen of the current size: a list of `{ name, win, x, y, w, h }`. The tab line is along the top when there is more than one tab. `.borders` contains the borders between windows, and `.nodes` the position of each node of the tree, to resize them.
 - `paw.ui.ask_value(opts, set)`: Ask for an exact value on the command line: a number is the value, with its sign (`-6` is -6 dB), and `+=2` and `-=3` change the current value by a step.
 

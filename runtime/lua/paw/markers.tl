@@ -252,6 +252,18 @@ function M.at(beat: number, reach?: number): Marker
   return best
 end
 
+--- The region a beat is in: the shortest of those that hold it, or nil.
+function M.around(beat: number): Marker
+  local best: Marker
+  for _, m in ipairs(M.list()) do
+    if m.length and beat >= m.beat - 1e-9 and beat < m.beat + m.length - 1e-9
+        and (not best or m.length < best.length) then
+      best = m
+    end
+  end
+  return best
+end
+
 --- The first marker after a beat, and the last before it.
 function M.next(beat: number): Marker
   for _, m in ipairs(M.list()) do
@@ -320,8 +332,14 @@ local function words(args: commands.Args): string
 end
 
 --- The marker a command is about: the one named (or given as `id=`, as a
---- frontend's menus do), or the one at the cursor.
-local function wanted(ctx: commands.Context, regions_only?: boolean): Marker
+--- frontend's menus do), or the one at the cursor. `kind` keeps to points
+--- ("marker") or to ranges ("region"); a region at the cursor is the one
+--- the cursor is in.
+local function wanted(ctx: commands.Context, kind?: string): Marker
+  local what = kind or "marker"
+  local function fits(m: Marker): boolean
+    return m ~= nil and (kind == nil or (kind == "region") == (m.length ~= nil))
+  end
   if ctx.args.id then
     local m = M.find({ id = tonumber(ctx.args.id) as integer })
     if not m then paw.notify("that marker is gone", "warn") end
@@ -330,12 +348,34 @@ local function wanted(ctx: commands.Context, regions_only?: boolean): Marker
   local word = ctx.args[1] and words(ctx.args)
   local m: Marker
   if word then
-    m = regions_only and M.region(word) or M.find(word)
-    if not m then paw.notify("no " .. (regions_only and "region" or "marker") .. " `" .. word .. "`", "warn") end
+    if kind == "region" then
+      m = M.region(word)
+    else
+      m = M.find(word)
+      if kind == "marker" and not fits(m) then
+        m = nil
+        for _, x in ipairs(M.list()) do
+          if not x.length and x.name:lower() == word:lower() then m = x end
+        end
+      end
+    end
+    if not fits(m) then m = nil end
+    if not m then paw.notify("no " .. what .. " `" .. word .. "`", "warn") end
   else
-    m = M.at(paw.cursor.beat)
-    if m and regions_only and not m.length then m = nil end
-    if not m then paw.notify("no " .. (regions_only and "region" or "marker") .. " at the cursor", "warn") end
+    local beat = paw.cursor.beat
+    if kind == "region" then
+      m = M.around(beat)
+    elseif kind == "marker" then
+      local reach = options.opt.grid / 2
+      local far: number
+      for _, x in ipairs(M.list()) do
+        local d = math.abs(x.beat - beat)
+        if not x.length and d <= reach and (not far or d < far) then m, far = x, d end
+      end
+    else
+      m = M.at(beat)
+    end
+    if not m then paw.notify("no " .. what .. " at the cursor", "warn") end
   end
   return m
 end
@@ -373,11 +413,12 @@ commands.define("marker.new", function(): Result
 end, { desc = "Put a marker at the cursor, asking for its name (Marker 1, Marker 2... if none is typed)" })
 
 commands.define("marker.remove", function(ctx: Context): Result
-  local m = wanted(ctx)
+  -- From a menu (`id=`), whichever it is; typed, markers only.
+  local m = wanted(ctx, (not ctx.args.id) and "marker" or nil)
   if not m then return end
   M.remove(m.id)
   paw.notify("removed the " .. describe(m))
-end, { desc = "Remove the marker or region at the cursor, or the one named or numbered: `marker.remove Chorus`", complete = names })
+end, { desc = "Remove the marker at the cursor, or the one named or numbered: `marker.remove Chorus`; regions stay (`region.remove`)", complete = names })
 
 commands.define("marker.rename", function(ctx: Context): Result
   local m = ctx.args.id and M.find({ id = tonumber(ctx.args.id) as integer }) or M.at(paw.cursor.beat)
@@ -472,14 +513,14 @@ commands.define("region", function(ctx: Context): Result
 end, { desc = "Make a region over the selection, or over the loop: `region Verse`" })
 
 commands.define("region.remove", function(ctx: Context): Result
-  local m = wanted(ctx, true)
+  local m = wanted(ctx, "region")
   if not m then return end
   M.remove(m.id)
-  paw.notify("removed the " .. describe(m))
-end, { desc = "Remove the region at the cursor, or the one named", complete = names })
+  paw.notify("removed the " .. describe(m) .. "; its clips stay")
+end, { desc = "Remove the region the cursor is in, or the one named: `region.remove Verse`; its clips and the markers stay", complete = names })
 
 commands.define("region.loop", function(ctx: Context): Result
-  local m = wanted(ctx, true)
+  local m = wanted(ctx, "region")
   if not m then return end
   local t = paw.transport
   t.loop_start, t.loop_end, t.loop_enabled = m.beat, m.beat + m.length, true

@@ -217,6 +217,22 @@ end
 for _, lhs in ipairs({ "il", "al" }) do
   aobject(lhs, function() return on_row(transport.loop_start, transport.loop_end) end, "The loop")
 end
+-- A region: its time on this track (`ir`), or on every track (`ar`), so
+-- `dar` empties the region in the whole song and keeps the region itself.
+local function region_here()
+  local r = paw.markers.around(cursor.beat)
+  if not r then paw.notify("the cursor is in no region", "warn") end
+  return r
+end
+aobject("ir", function()
+  local r = region_here()
+  if r then return on_row(r.beat, r.beat + r.length) end
+end, "The region the cursor is in, on this track")
+aobject("ar", function()
+  local r = region_here()
+  local n = #api.track_list()
+  if r and n > 0 then return { view = "arrange", kind = "block", r0 = 1, r1 = n, c0 = r.beat, c1 = r.beat + r.length } end
+end, "The region the cursor is in, on every track")
 for _, lhs in ipairs({ "it", "at" }) do
   aobject(lhs, function()
     local row = cursor.index() or 1
@@ -320,7 +336,8 @@ amap("]'", "marker.next", "The next marker or region", { motion = true })
 amap("['", "marker.prev", "The marker or region before", { motion = true })
 amap("g'", "marker.new", "Put a marker at the cursor: type its name")
 amap('g"', "marker.list", "Go to a marker or region from a list")
-amap("gx", "marker.remove", "Remove the marker or region at the cursor")
+amap("gx", "marker.remove", "Remove the marker at the cursor")
+amap("gX", "region.remove", "Remove the region the cursor is in; its clips stay")
 amap("<leader>ax", "lane.clear", "Clear the volume automation")
 
 -- Arrange: on a selection.

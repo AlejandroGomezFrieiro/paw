@@ -41,7 +41,7 @@ A motion moves the cursor. A count repeats it: `3W` moves three bars.
 | `g;` `g,` | Moves back and forward through the places of the edits (`3g;` three edits back). Each view keeps its own list. |
 | `` `. ``, `'.` | Goes to the place of the last edit. |
 | `:changes` | Lists the places of the edits. |
-| `g'`, `g"`, `gx` | Puts a marker (a name on the ruler) at the cursor. Chooses a marker from a list. Removes the marker at the cursor. |
+| `g'`, `g"`, `gx`, `gX` | Puts a marker (a name on the ruler) at the cursor. Chooses a marker from a list. Removes the marker at the cursor. Removes the region that the cursor is in. |
 
 ## Operators
 
@@ -69,6 +69,8 @@ A text object names a part of the project.
 | `ac` | the clip and the gap after it | those notes and every note that overlaps them |
 | `ib` | this bar (`2ib` two bars) | this bar |
 | `il` | the loop | |
+| `ir` | the region that the cursor is in, on this track | |
+| `ar` | the region that the cursor is in, on every track | |
 | `it` | everything on the track | |
 | `ie` | the entire project | every note of the clip |
 | `in` | | the note under the cursor |

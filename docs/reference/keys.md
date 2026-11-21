@@ -77,7 +77,8 @@ are rows, `w` `b` devices, `e` the last parameter of a device.
 | `]t` `[t` | the clip's next take, the one before | |
 | `zt` `zT` | show or hide the track's take lanes, the tempo lane under the ruler | |
 | `g'` `g"` | put a marker at the cursor; go to one from a list | |
-| `gx` | remove the marker or region at the cursor; a right click on its name under the ruler has "Remove" | |
+| `gx` | remove the marker at the cursor; a right click on its name under the ruler has "Remove" | |
+| `gX` | remove the region that the cursor is in; its clips stay | |
 | `K` | describe what is under the cursor | the note |
 | `u` `<C-r>` | undo, redo (`3u`) | the same |
 

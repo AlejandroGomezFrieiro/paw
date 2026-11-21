@@ -352,7 +352,7 @@ function M.marker(m: MenuTable): {Entry}
     { label = "Rename…", run = run("marker.rename") },
     { label = "Loop this region", enabled = m.length ~= nil, run = run("region.loop") },
     "-",
-    { label = "Remove", run = run("marker.remove") },
+    { label = "Remove", run = run(m.length and "region.remove" or "marker.remove") },
   }
 end
 
