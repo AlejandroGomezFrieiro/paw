@@ -277,3 +277,4 @@ below link the main ones.
 - [About project files](explanation/about-project-files.md): why a project is a folder of files, MIDI clip files, `unused`, safety copies
 - [About the Nix build](explanation/about-the-nix-build.md): two layers, and why crane
 - [About Teal in paw](explanation/about-teal.md): why the code of paw moves to Teal, how Teal and Lua work together, and the plan
+- [About the end-to-end scenarios](explanation/about-the-e2e-tests.md): a song over many days, and how each step knows the right result
