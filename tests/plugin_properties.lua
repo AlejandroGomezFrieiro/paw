@@ -35,6 +35,9 @@ test("LV2 properties are listed, set as one undo step, and refused with a reason
     call = { method = "property.set", data = paw.json.encode({ property = "ifn0", value = file }) },
   })
   api.undo_checkpoint()
+  -- The plugin tells the value back from its own thread, after it has loaded the file.
+  T.until_(function() return paw.json.decode(api.device_call(fx.id, "properties", ""))[1].value == file end,
+    "the plugin to tell the value back")
   eq(paw.json.decode(api.device_call(fx.id, "properties", ""))[1].value, file, "the value is told back")
   eq(fx:get().meta.preset, "ir", "the load is named")
   paw.undo()
