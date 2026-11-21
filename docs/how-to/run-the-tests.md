@@ -43,8 +43,11 @@ loaded machine is slow, but it is not wrong. Use these rules:
   for example a meter. Hold the value still while the test draws.
 - Measure the speed only when the speed is the behavior. Then measure the
   processor time of the thread with `T.cpu_ms()`, not the time on the
-  clock. Keep the limit a few times the target, because other programs
-  share the caches of the processor.
+  clock, and check it with `T.quick(ms, limit, what)`. Other programs
+  share the caches and the memory of the processor, so the same work
+  takes more processor time on a loaded machine. `T.quick` multiplies the
+  limit by the load average over the number of processors, when that is
+  more than 1. Keep the limit a few times the target.
 
 ## Run the Rust tests
 

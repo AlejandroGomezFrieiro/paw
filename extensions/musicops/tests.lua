@@ -567,5 +567,5 @@ test("musicops: legato on ten thousand notes is quick", function()
   local out = mo.legato(notes)
   local took = T.cpu_ms() - t0
   eq(#out, 10000, "every note kept")
-  eq(took < 200, true, "in well under a second: " .. took .. " ms of processor time")
+  T.quick(took, 200, "legato on ten thousand notes")
 end)

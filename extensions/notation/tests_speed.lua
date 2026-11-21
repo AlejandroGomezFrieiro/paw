@@ -29,13 +29,13 @@ test("notation: a clip of ten thousand notes opens and is drawn in well under a 
   eq(text:find("big", 1, true) ~= nil, true, "and is drawn, named")
   -- The target is 200 ms; the bound leaves room for caches that other
   -- programs share.
-  eq(took < 1000, true, string.format("opened and drawn in %.0f ms", took))
+  T.quick(took, 1000, "opened and drawn")
   -- The cursor moves at once, the events sorted once for the layout.
   t = T.cpu_ms()
   for _ = 1, 20 do paw.keymap.feed("l") end
   api.ui_snapshot(150, 45)
   took = T.cpu_ms() - t
   eq(view.beat > 0, true, "the cursor moved")
-  eq(took < 1000, true, string.format("twenty moves and a draw in %.0f ms", took))
+  T.quick(took, 1000, "twenty moves and a draw")
   paw.ui.focus("arrange")
 end)

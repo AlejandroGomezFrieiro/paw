@@ -190,7 +190,7 @@ test("pick: stays quick with thousands of items", function()
     api.ui_snapshot(120, 40)
   end
   local ms = T.cpu_ms() - t0
-  eq(ms < 1000, true, "eight keys over 6000 items took " .. math.floor(ms) .. " ms of processor time")
+  T.quick(ms, 1000, "eight keys over 6000 items")
   eq(#pick.state().matches > 0, true, "and found some")
   paw.keymap.feed("<Esc>")
 end)

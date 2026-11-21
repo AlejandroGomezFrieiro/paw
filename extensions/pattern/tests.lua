@@ -356,7 +356,7 @@ test("pattern: commands and keys on the clip under the cursor", function()
   eq(paw.ui.message.text:find("more than 20000 notes", 1, true) ~= nil, true, "too many notes: " .. paw.ui.message.text)
   eq(pattern.get(clip).text, "hh*4", "still unchanged")
   local took = T.cpu_ms() - t0
-  eq(took < 2000, true, "said in moments: " .. took .. " ms of processor time")
+  T.quick(took, 2000, "the errors said")
   -- The prompt holds the current text.
   paw.keymap.feed("<localleader>tt")
   local state = require("paw.views.cmdline").state()
