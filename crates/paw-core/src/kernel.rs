@@ -597,6 +597,12 @@ impl Kernel {
     /// Take turns until something asks to quit. Returns the exit code.
     pub fn run(&mut self) -> Result<i32> {
         let mut last_idle = Instant::now();
+        // What the start made (the runtime, the project opened, the
+        // expressions run) is shown now, not after the first message or
+        // timer, which can be a second away.
+        if self.shared.dirty.get() {
+            self.render();
+        }
         loop {
             let next_timer = self.shared.timers.borrow().iter().map(|t| t.due).min();
             // Hosted plugins need regular attention on this thread.

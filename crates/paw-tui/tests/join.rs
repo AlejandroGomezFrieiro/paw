@@ -184,3 +184,47 @@ fn a_second_paw_on_an_open_project_joins_it_as_a_seat_and_acts_on_changes_when_i
         "acted on"
     );
 }
+
+/// paw started in a terminal draws its first frame at once, not when the
+/// first message or timer comes (the first timer is a second away).
+#[test]
+fn the_first_frame_is_drawn_before_anything_else_arrives() {
+    let dir = scratch("first");
+    let socket = dir.join("paw.sock");
+    let (master, slave) = pty();
+    let tty = || std::fs::OpenOptions::new().read(true).write(true).open(&slave).unwrap();
+    let mut command = paw(&dir);
+    command
+        .args(["--clean", "--no-plugins", "--audio", "null", "--listen"])
+        .arg(&socket)
+        .stdin(Stdio::from(tty()))
+        .stdout(Stdio::from(tty()))
+        .stderr(Stdio::from(tty()));
+    // SAFETY: only async-signal-safe calls between fork and exec.
+    unsafe {
+        command.pre_exec(|| {
+            libc::setsid();
+            libc::ioctl(0, libc::TIOCSCTTY, 0);
+            Ok(())
+        });
+    }
+    let _running = Running(vec![command.spawn().expect("starting paw")], dir.clone());
+    // What it writes is read, so that it never waits on a full pty.
+    let mut reader = master.try_clone().unwrap();
+    std::thread::spawn(move || {
+        let mut buf = [0u8; 8192];
+        while matches!(reader.read(&mut buf), Ok(n) if n > 0) {}
+    });
+    let until = Instant::now() + Duration::from_secs(30);
+    let mut c = loop {
+        if let Ok(c) = Connection::unix(&socket) {
+            break c;
+        }
+        assert!(Instant::now() < until, "paw never listened");
+        std::thread::sleep(Duration::from_millis(5));
+    };
+    // This call is the first message: a frame drawn because of it comes
+    // after its answer.
+    let full = c.call("eval", json!(["return paw.api.ui_frames().full"])).unwrap();
+    assert!(full.as_u64().is_some_and(|n| n >= 1), "the first frame is drawn before the first message: {full}");
+}
