@@ -459,11 +459,10 @@ test("an audio clip's edit list: a gain on a part and a pencil fix play through,
   T.near(s[72010], 0.1, 0.01, "the pencil fix in the left channel")
   T.near(s[60000], 0.5, 0.01, "and the sound after the part")
   eq(T.read_file(src) == before, true, "the file is as it was")
-  local made = 0
-  for _, e in ipairs(api.read_dir(store)) do
-    if e.name:find("edits", 1, true) then made = made + 1 end
-  end
-  eq(made >= 1, true, "the version is in the cache")
+  -- Kept in the bake cache, by what it is made of (bake/store.rs).
+  local bakes = assert(os.getenv("XDG_CACHE_HOME"), "a cache of the tests' own") .. "/paw/bakes"
+  local found = io.popen("grep -rls '\"op\": \"edit\"' '" .. bakes .. "'"):read("*a")
+  eq(found ~= "", true, "the version is in the cache")
   -- Saved: the edit list is in the clip's own file.
   local dir = T.scratch .. "/edits-song"
   paw.project.save(dir)
@@ -471,7 +470,7 @@ test("an audio clip's edit list: a gain on a part and a pencil fix play through,
   local list = api.json_decode(T.read_file(dir .. "/tracks/Take/clips/" .. name .. ".edits.json"))
   eq(#list .. " " .. list[1].kind .. " " .. list[2].kind, "2 gain pencil", "the clip's file holds its edit list")
   -- Without the cache, it is made again.
-  os.execute("rm -rf '" .. store .. "'")
+  os.execute("rm -rf '" .. store .. "' '" .. bakes .. "'")
   paw.project.load(dir)
   paw.flush()
   local again = heard()
