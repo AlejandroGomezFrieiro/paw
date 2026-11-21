@@ -390,6 +390,14 @@
           PAW_TEST_ARA = "${(extensionsFor pkgs).ara.testPlugin}";
           PAW_ARA_BRIDGE = "${(extensionsFor pkgs).ara.bridge}/lib/paw-ara.so";
         };
+        # `nix develop .#profile`: the default shell and the profilers that
+        # bench/profile uses (bench/profile.md). perf samples the program's
+        # own processes without root when perf_event_paranoid is 2 or less.
+        profile = self.devShells.${pkgs.stdenv.hostPlatform.system}.default.overrideAttrs (old: {
+          nativeBuildInputs = old.nativeBuildInputs ++ (with pkgs; [
+            perf samply inferno heaptrack valgrind hyperfine
+          ]);
+        });
       });
     };
 }
