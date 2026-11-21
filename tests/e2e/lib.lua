@@ -67,14 +67,22 @@ local function basename(path) return path and (path:match("([^/]+)$")) or nil en
 function E.snapshot()
   local p = api.project_get()
   local out = { tempo = p.tempo, markers = {}, tracks = {} }
-  for _, m in ipairs((p.meta or {}).markers or {}) do out.markers[#out.markers + 1] = { name = m.name, beat = m.beat } end
-  table.sort(out.markers, function(a, b) return a.beat < b.beat end)
+  for _, m in ipairs((p.meta or {}).markers or {}) do
+    out.markers[#out.markers + 1] = { name = m.name, beat = m.beat, length = m.length }
+  end
+  table.sort(out.markers, Model.marker_order)
   local names = {}
   for _, t in ipairs(paw.tracks()) do names[t.id] = t.name end
   for _, t in ipairs(paw.tracks()) do
     local g = t:get()
     local track = { name = g.name, color = t.color, volume = g.volume, pan = g.pan, mute = g.mute, solo = g.solo,
-      devices = {}, sends = {}, clips = {}, notes = {} }
+      devices = {}, sends = {}, clips = {}, notes = {}, lanes = {} }
+    for _, l in ipairs(api.lane_list(t.id)) do
+      local points = {}
+      for _, p in ipairs(api.lane_points(l.id)) do points[#points + 1] = { p[1], p[2] } end
+      track.lanes[#track.lanes + 1] = { target = l.param and (l.target .. ":" .. l.param) or l.target, points = points }
+    end
+    table.sort(track.lanes, function(a, b) return a.target < b.target end)
     for _, d in ipairs(t:devices()) do track.devices[#track.devices + 1] = d.kind end
     for _, s in ipairs(g.sends or {}) do track.sends[#track.sends + 1] = { target = names[s.target], level = s.level } end
     for _, c in ipairs(t:clips()) do
@@ -124,8 +132,13 @@ function E:type(list)
     local t0 = speed.cpu_ms()
     paw.keymap.feed(text)
     paw.flush()
-    api.undo_checkpoint()
     slowest = math.max(slowest, speed.cpu_ms() - t0)
+    -- A key that begins a longer one (`]` and `]g`) waits for the next key
+    -- up to `timeoutlen`, as the person does.
+    local deadline = api.now() + paw.opt.timeoutlen + 5000
+    while paw.keymap.pending() ~= "" and api.now() < deadline do paw.wait(10) end
+    paw.flush()
+    api.undo_checkpoint()
   end
   return slowest
 end
@@ -138,6 +151,8 @@ end
 ---   says = "pattern",     the message that paw shows after it
 ---   slow = true,          a command that does real work (render, import): not a key of rule 7
 ---   check = fn(self),     a check of its own, after the model compare
+---   run = fn(self),       instead of `keys`: an action that waits between its
+---                         keys (a take played while the song records); not timed
 --- }
 function E:act(a)
   self.step = self.step + 1
@@ -145,9 +160,11 @@ function E:act(a)
   if not self.live then return end
   local before = #paw.ui.messages
   local ok, err = pcall(function()
+    if a.run then return a.run(self) end
     local ms = self:type(a.keys)
     if not a.slow then self.key_ms[#self.key_ms + 1] = { ms = ms, name = a.name } end
   end)
+  if not ok and type(err) == "table" and err.e2e then error(err, 0) end
   if not ok then self:fail(a.name, "the keys raised an error: " .. tostring(err)) end
   for i = before + 1, #paw.ui.messages do
     local m = paw.ui.messages[i]
@@ -163,6 +180,22 @@ function E:act(a)
   end
   self:compare(a.name)
   if a.check then a.check(self) end
+end
+
+--- Wait until `cond()` is true, as between key presses: timers fire and
+--- events come (`paw.wait`). A loaded machine is slow, not wrong: the
+--- limit is far above the usual time.
+function E:until_(cond, what, ms)
+  local deadline = api.now() + (ms or 30000)
+  while not cond() do
+    if api.now() > deadline then self:fail(what, "waited in vain for " .. what) end
+    paw.wait(5)
+  end
+end
+
+--- Wait until the playhead is at `beat` or past it.
+function E:until_beat(beat)
+  self:until_(function() return paw.transport.position >= beat end, string.format("the playhead at beat %g", beat))
 end
 
 -- Helpers for scenarios: keys for common moves ----------------------------------------
@@ -239,13 +272,21 @@ function E:check_opened()
 end
 
 --- Every change of the day undone gives the state the day began with, and
---- redone gives the state it ended with.
-function E:check_undo(start_state)
+--- redone gives the state it ended with. `u` goes back one step at a time
+--- to the undo state `start_id` of the start of the day; the same count
+--- of `<C-r>` comes back. (A day that ends with an undo has a redo left:
+--- a plain `999<C-r>` would redo it too.)
+function E:check_undo(start_state, start_id)
   local finish = E.snapshot()
-  self:type({ "<Esc>", "999u", "999u" })
-  self:compare("undo every change of the day", start_state)
-  self:type({ "999<C-r>", "999<C-r>" })
-  self:compare("redo every change of the day", finish)
+  self:type({ "<Esc>" })
+  local n = 0
+  while api.undo_current() ~= start_id and n < 2000 do
+    self:type({ "u" })
+    n = n + 1
+  end
+  self:compare("undo every change of the day (" .. n .. " steps)", start_state)
+  if n > 0 then self:type({ n .. "<C-r>" }) end
+  self:compare("redo every change of the day (" .. n .. " steps)", finish)
 end
 
 --- The keys of the day were quick: the slowest under the limit of rule 7.

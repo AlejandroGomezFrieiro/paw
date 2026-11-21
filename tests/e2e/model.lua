@@ -5,11 +5,12 @@
 --
 -- The state is plain data:
 --
---   { tempo, markers = { { name, beat } },
+--   { tempo, markers = { { name, beat, length } },  -- a region has a length
 --     tracks = { { name, color, volume, pan, mute, solo,
 --                  devices = { kind, ... }, sends = { { target = name, level } },
 --                  clips = { { kind, start, length, notes = { ... }, file } } | ANY,
---                  notes = { { pitch, start, length, velocity } } } } }
+--                  notes = { { pitch, start, length, velocity } },
+--                  lanes = { { target, points = { { beat, value } } } } } } }
 --
 -- `track.notes` is every note of the track at its time in the song (in
 -- beats), sorted. `clips` is the layout of the clips, or `M.ANY` where the
@@ -40,7 +41,27 @@ end
 
 function M.new_track(name)
   return { name = name, color = nil, volume = 0, pan = 0, mute = false, solo = false,
-    devices = {}, sends = {}, clips = {}, notes = {} }
+    devices = {}, sends = {}, clips = {}, notes = {}, lanes = {} }
+end
+
+--- Add an automation point `{ beat, value }` to the lane of `target` of a
+--- track ("volume", "pan"). A point at the beat of another replaces it, as
+--- docs/reference/automation.md says ("over what the lane had there").
+function M.automate(track, target, beat, value)
+  local lane
+  for _, l in ipairs(track.lanes) do
+    if l.target == target then lane = l end
+  end
+  if not lane then
+    lane = { target = target, points = {} }
+    track.lanes[#track.lanes + 1] = lane
+    table.sort(track.lanes, function(a, b) return a.target < b.target end)
+  end
+  for i = #lane.points, 1, -1 do
+    if math.abs(lane.points[i][1] - beat) < 1e-9 then table.remove(lane.points, i) end
+  end
+  lane.points[#lane.points + 1] = { beat, value }
+  table.sort(lane.points, function(a, b) return a[1] < b[1] end)
 end
 
 local function note_order(a, b)
@@ -60,6 +81,12 @@ function M.renote(track)
   end
   table.sort(out, note_order)
   track.notes = out
+end
+
+--- Markers and regions in the order of time; at one beat, by name.
+function M.marker_order(a, b)
+  if a.beat ~= b.beat then return a.beat < b.beat end
+  return a.name < b.name
 end
 
 function M.sort_notes(list) table.sort(list, note_order) return list end

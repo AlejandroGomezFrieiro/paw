@@ -10,6 +10,8 @@
 #   tests/tools/e2e.sh                     every scenario, every day, seed 1
 #   tests/tools/e2e.sh --short             the short mode: the first days of each
 #   tests/tools/e2e.sh song --seed 7       one scenario, another seed
+#   tests/tools/e2e.sh --seeds 1-5         each scenario with seeds 1 to 5 (nightly)
+#   tests/tools/e2e.sh --seeds 3,7,12      with these seeds
 #   tests/tools/e2e.sh song --days 3       days 1 to 3 only
 #   tests/tools/e2e.sh song --approve      approve the renders of this seed as golden
 #
@@ -23,11 +25,17 @@ cd "$ROOT" || exit 1
 export HOME=$SCRATCH/e2e-home CLAP_PATH= VST3_PATH= LV2_PATH=
 mkdir -p "$HOME"
 
-ALL="song interop"
-scenarios= seed=1 days= approve= short=
+ALL="song interop notation"
+scenarios= seeds=1 days= approve= short=
 while [ $# -gt 0 ]; do
   case "$1" in
-    --seed) seed=$2; shift ;;
+    --seed) seeds=$2; shift ;;
+    --seeds)
+      case "$2" in
+        *-*) seeds=$(seq "${2%-*}" "${2#*-}") ;;
+        *) seeds=$(echo "$2" | tr ',' ' ') ;;
+      esac
+      shift ;;
     --days) days=$2; shift ;;
     --short) short=1 ;;
     --approve) approve=approve ;;
@@ -40,6 +48,7 @@ done
 
 started=$(date +%s)
 failed=0
+for seed in $seeds; do
 for scenario in $scenarios; do
   [ -f "tests/e2e/scenarios/$scenario.lua" ] || { echo "e2e.sh: no scenario $scenario" >&2; exit 2; }
   # How many days the scenario has, and how many the short mode runs.
@@ -76,6 +85,7 @@ for scenario in $scenarios; do
       sed -n '/^E2E FAIL/,/^kept:/p' "$work/check.out"; failed=$((failed + 1)); }
     grep '^e2e: ' "$work/check.out"
   fi
+done
 done
 echo "e2e: $(( $(date +%s) - started )) s"
 [ "$failed" -eq 0 ] && echo "all passed" || echo "$failed failed"
