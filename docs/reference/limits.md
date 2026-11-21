@@ -19,8 +19,8 @@ gets the function.
 - Harmony:
   - The reading uses steps of half a beat. So it reads a chord shorter
     than about a beat as passing tones (a technical name).
-  - The arrange ruler does not show the chords and the key. Only the piano
-    roll shows them.
+  - The arrange ruler does not show the chords and the key. The piano roll
+    shows them, and the `rulerplus` extension shows them on the ruler.
   - A slash chord can have a bass that is not a chord tone. Then its name
     comes from the full set of pitches: C G B D is Cmaj9, not G/C.
   - paw reads the full song again after each edit. This is fast for songs
@@ -471,9 +471,8 @@ gets the function.
     `:drums.map off`), not a list.
   - The header shows the letter of a kind in the column before the name.
     Diagnostics mark the same column and draw over it.
-  - Extensions bring devices written in Lua. An extension cannot bring a
-    native plugin (CLAP, VST3) of its own to be found when it loads, or
-    package one with Nix. paw finds plugins where the system keeps them.
+  - An extension finds the CLAP and VST3 plugins of its own with
+    `paw.plugins.add_dir`. It cannot add LV2 plugins that way.
 - Packaged extensions (`paw.withExtensions`) load at startup. To leave
   them out for one run, you must run the plain program.
 - Extensions:
