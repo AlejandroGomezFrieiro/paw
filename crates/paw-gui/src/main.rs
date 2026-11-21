@@ -8,7 +8,7 @@
 use std::path::PathBuf;
 use std::process::Child;
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result};
 use serde_json::{Value, json};
 
 mod app;
@@ -27,6 +27,7 @@ mod pictures;
 mod portal;
 mod roles;
 mod runner;
+mod args;
 mod scene;
 #[cfg(test)]
 mod gestures;
@@ -34,58 +35,9 @@ mod theme;
 mod timeline;
 mod widgets;
 
+use args::Renderer;
+use clap::Parser;
 use client::Client;
-
-const HELP: &str = "\
-paw-gui: a graphical frontend for paw
-
-Usage:
-  paw-gui [kernel options] [project]   start a kernel and show it
-  paw-gui --socket <path>              show a kernel that is already running
-  paw-gui --connect <host:port> --token-file <path>
-                                       show one running on another machine
-                                       (started with --listen-tcp; the token
-                                       is also taken from --token or $PAW_TOKEN)
-    --accept-certificate               take the certificate it shows though
-                                       another was remembered for it
-    --no-tls                           connect in the clear, to one started
-                                       with --no-tls
-    --listen-audio                     play its sound here (about 1 Mbit/s);
-                                       also in the engine menu
-
-Options:
-  --renderer gpu|software   draw with OpenGL on the graphics card (the
-                            default) or have Mesa draw on the processor
-                            (llvmpipe); also PAW_GUI_RENDERER
-
-Kernel options are passed on to `paw --headless`; see `paw --help`.
-";
-
-/// How the window is drawn: OpenGL on whatever driver the system has, or
-/// asked of Mesa's processor driver.
-#[derive(Clone, Copy, Debug, PartialEq)]
-enum Renderer {
-    Gpu,
-    Software,
-}
-
-/// The renderer asked for with `--renderer` (taken out of `args`, which go
-/// on to the kernel), else by `env` (`PAW_GUI_RENDERER`); else the GPU.
-fn renderer_choice(args: &mut Vec<String>, env: Option<&str>) -> Result<Renderer> {
-    let named = match args.iter().position(|a| a == "--renderer") {
-        Some(at) => {
-            let name = args.get(at + 1).context("--renderer needs gpu or software")?.clone();
-            args.drain(at..at + 2);
-            Some(name)
-        }
-        None => env.filter(|name| !name.is_empty()).map(str::to_string),
-    };
-    match named.as_deref() {
-        None | Some("gpu") => Ok(Renderer::Gpu),
-        Some("software") => Ok(Renderer::Software),
-        Some(other) => bail!("the renderer is gpu or software, not {other}"),
-    }
-}
 
 /// Whether an OpenGL renderer draws on the processor: Mesa's llvmpipe,
 /// softpipe and swrast, and lavapipe under zink.
@@ -234,15 +186,11 @@ fn run() -> Result<()> {
     repair_display_env();
     // A font for Japanese and the like is looked for while the rest starts.
     let cjk = std::thread::spawn(theme::cjk_font);
-    let mut args: Vec<String> = std::env::args().skip(1).collect();
-    if args.iter().any(|a| a == "-h" || a == "--help") {
-        print!("{HELP}");
-        return Ok(());
-    }
+    let cli = args::Cli::parse();
     let env = std::env::var("PAW_GUI_RENDERER").ok();
     // Asked of Mesa before this program asks it too.
     let libgl = std::env::var_os("LIBGL_ALWAYS_SOFTWARE").is_some_and(|v| !v.is_empty() && v != "0");
-    let asked = renderer_choice(&mut args, env.as_deref())? == Renderer::Software;
+    let asked = args::renderer_choice(cli.renderer, env.as_deref())? == Renderer::Software;
     if asked {
         // Mesa draws on the processor; any other driver is not asked.
         unsafe {
@@ -250,39 +198,35 @@ fn run() -> Result<()> {
             std::env::set_var("GALLIUM_DRIVER", "llvmpipe");
         }
     }
-    // An option of this program's own and its value, taken off the
-    // arguments (the rest are the kernel's).
-    let mut option = |name: &str| -> Result<Option<String>> {
-        let Some(at) = args.iter().position(|a| a == name) else { return Ok(None) };
-        let value = args.get(at + 1).with_context(|| format!("{name} needs a value"))?.clone();
-        args.drain(at..at + 2);
-        Ok(Some(value))
-    };
-    let socket = option("--socket")?.map(PathBuf::from);
-    let address = option("--connect")?;
-    let token = match (option("--token")?, option("--token-file")?) {
+    let socket = cli.socket.clone();
+    let address = cli.connect.clone();
+    let token = match (cli.token.clone(), &cli.token_file) {
         (Some(token), _) => Some(token),
-        (None, Some(path)) => Some(std::fs::read_to_string(&path).with_context(|| format!("reading the token in {path}"))?.trim().to_string()),
+        (None, Some(path)) => Some(std::fs::read_to_string(path).with_context(|| format!("reading the token in {}", path.display()))?.trim().to_string()),
         (None, None) => std::env::var("PAW_TOKEN").ok(),
     };
     let (mut client, child) = match (&address, &socket) {
         (Some(address), _) => {
             let token = token.context("--connect needs the token: --token, --token-file or $PAW_TOKEN")?;
-            let flag = |name: &str| args.iter().any(|a| a == name);
-            let wire = if flag("--no-tls") {
+            let wire = if cli.no_tls {
                 paw_proto::Wire::Plain
             } else {
-                paw_proto::Wire::Tls { known: paw_proto::tls::known_path(), accept_new: flag("--accept-certificate") }
+                paw_proto::Wire::Tls { known: paw_proto::tls::known_path(), accept_new: cli.accept_certificate }
             };
             let mut client = Client::connect_tcp(address, &token, &wire)?;
-            if flag("--listen-audio") {
+            if cli.listen_audio {
                 client.toggle_listening()?;
             }
             (client, None)
         }
         (None, Some(path)) => (Client::connect(path, false).with_context(|| format!("no kernel at {}", path.display()))?, None),
         (None, None) => {
-            let (client, child) = client::start_kernel(&args)?;
+            // `--no-tls` is the kernel's too, when it listens on the network.
+            let mut kernel_args = cli.rest.clone();
+            if cli.no_tls {
+                kernel_args.insert(0, "--no-tls".into());
+            }
+            let (client, child) = client::start_kernel(&kernel_args)?;
             (client, Some(child))
         }
     };
@@ -380,18 +324,6 @@ mod tests {
         std::fs::write(runtime.join("other"), "x").unwrap();
         assert_eq!(find_authority(Some(&runtime), Some(&home)), Some(runtime.join("xauth_new")), "the desktop's newest first");
         std::fs::remove_dir_all(&dir).unwrap();
-    }
-
-    #[test]
-    fn the_renderer_is_chosen_by_option_then_environment() {
-        let mut args: Vec<String> = ["--renderer", "software", "song.json"].map(String::from).into();
-        assert_eq!(renderer_choice(&mut args, Some("gpu")).unwrap(), Renderer::Software);
-        assert_eq!(args, ["song.json"], "the option is not passed on to the kernel");
-        assert_eq!(renderer_choice(&mut args, Some("software")).unwrap(), Renderer::Software);
-        assert_eq!(renderer_choice(&mut args, None).unwrap(), Renderer::Gpu);
-        assert_eq!(renderer_choice(&mut args, Some("")).unwrap(), Renderer::Gpu);
-        assert!(renderer_choice(&mut args, Some("vulkan")).is_err());
-        assert!(renderer_choice(&mut vec!["--renderer".into()], None).is_err());
     }
 
     #[test]

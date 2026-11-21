@@ -7,6 +7,7 @@ description = "A graphical frontend, drawn with egui. It talks to the kernel ove
 
 [dependencies]
 anyhow.workspace = true
+clap.workspace = true
 paw-proto.workspace = true
 paw-listen.workspace = true
 paw-raster.workspace = true
