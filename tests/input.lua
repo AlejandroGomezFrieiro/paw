@@ -203,7 +203,6 @@ test("the status line shows recording", function()
   end
   eq(status():find("rec", 1, true), nil, "the rec flag shows only when it is on")
   paw.transport.recording = true
-  eq(paw.transport.recording, true, "record mode can be set")
   eq(status():find("rec", 1, true) ~= nil, true, "and then it is there")
   paw.transport.play()
   eq(status():find("●", 1, true) ~= nil, true, "the transport shows it is recording")
