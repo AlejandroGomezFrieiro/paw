@@ -1,21 +1,27 @@
-//! TLS over the network: a connection's two directions used from two
-//! threads, and the client's side, which trusts an instance's certificate
-//! the first time it sees it and holds it to that certificate afterwards
-//! (as SSH does with a host key). The instance makes its own certificate:
-//! see `paw_core::tls`.
+//! TLS over the network, the client's side: it trusts an instance's
+//! certificate the first time it sees it and holds it to that certificate
+//! afterwards (as SSH does with a host key). The instance makes its own
+//! certificate: see `paw_core::tls`. The connection itself is
+//! `tokio-rustls`'s, on the client's runtime (`crate::runtime`).
 
-use std::io::{self, Read, Write};
-use std::net::TcpStream;
+use std::io;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::pin::Pin;
+use std::sync::{Arc, Mutex, OnceLock};
+use std::task::{Context, Poll};
 
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Context as _, Result, anyhow, bail};
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
 use rustls::crypto::CryptoProvider;
 use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 use rustls::{DigitallySignedStruct, SignatureScheme};
+use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
+use tokio::net::TcpStream;
+use tokio::time::timeout;
+use tokio_rustls::TlsConnector;
+use tokio_rustls::client::TlsStream;
 
-use crate::{hex, sha256};
+use crate::{HELLO_TIME, hex, sha256};
 
 /// The cryptography everything here uses: ring's, which is pure Rust and
 /// assembly, with no OpenSSL.
@@ -29,114 +35,6 @@ pub fn fingerprint(der: &[u8]) -> String {
     let digits = hex(&sha256(der));
     let groups: Vec<&str> = (0..digits.len()).step_by(4).map(|i| &digits[i..i + 4]).collect();
     groups.join(":")
-}
-
-/// One end of a TLS connection, shared by the thread that reads and the
-/// one that writes. Neither holds the lock while it waits on the socket,
-/// so a side that is busy sending never keeps the other from reading.
-struct Shared {
-    tls: Mutex<rustls::Connection>,
-    /// Taken before `tls` is let go by whoever has records to send, and held
-    /// while they are written, so that records reach the socket in order.
-    sending: Mutex<TcpStream>,
-}
-
-impl Shared {
-    /// Write out what TLS has to send. Called with `tls` locked; lets go of it
-    /// before waiting on the socket.
-    fn send(&self, mut tls: std::sync::MutexGuard<'_, rustls::Connection>) -> io::Result<()> {
-        if !tls.wants_write() {
-            return Ok(());
-        }
-        let mut records = Vec::new();
-        while tls.wants_write() {
-            tls.write_tls(&mut records)?;
-        }
-        let mut socket = self.sending.lock().unwrap();
-        drop(tls);
-        socket.write_all(&records)?;
-        socket.flush()
-    }
-}
-
-/// The plaintext coming in over a TLS connection.
-pub struct TlsReader {
-    shared: Arc<Shared>,
-    socket: TcpStream,
-    /// Bytes from the socket that TLS has not taken in yet.
-    raw: Vec<u8>,
-}
-
-impl Read for TlsReader {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        loop {
-            let mut tls = self.shared.tls.lock().unwrap();
-            match tls.reader().read(buf) {
-                Ok(n) => return Ok(n),
-                Err(err) if err.kind() == io::ErrorKind::WouldBlock => {}
-                Err(err) => return Err(err),
-            }
-            if !self.raw.is_empty() {
-                let taken = tls.read_tls(&mut &self.raw[..])?;
-                self.raw.drain(..taken);
-                tls.process_new_packets()
-                    .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
-                // An answer TLS owes the other side (a new key, an alert).
-                self.shared.send(tls)?;
-                continue;
-            }
-            drop(tls);
-            let mut chunk = [0u8; 16 * 1024];
-            let n = self.socket.read(&mut chunk)?;
-            if n == 0 {
-                return Ok(0);
-            }
-            self.raw.extend_from_slice(&chunk[..n]);
-        }
-    }
-}
-
-/// The plaintext going out over a TLS connection.
-pub struct TlsWriter {
-    shared: Arc<Shared>,
-}
-
-impl Write for TlsWriter {
-    fn write(&mut self, data: &[u8]) -> io::Result<usize> {
-        // TLS takes as much as its buffer holds; that much goes out before
-        // `write_all` comes back with the rest.
-        let mut tls = self.shared.tls.lock().unwrap();
-        let taken = tls.writer().write(data)?;
-        self.shared.send(tls)?;
-        Ok(taken)
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        Ok(())
-    }
-}
-
-/// Run the handshake on `socket` (within its read timeout), then hand back
-/// the two directions of the connection.
-pub fn split(mut tls: rustls::Connection, mut socket: TcpStream) -> io::Result<(TlsReader, TlsWriter)> {
-    while tls.is_handshaking() {
-        tls.complete_io(&mut socket)?;
-    }
-    // Whatever was sent after the handshake, in the same packets, is not
-    // lost: complete_io only reads what TLS asks for.
-    let reader_socket = socket.try_clone()?;
-    let shared = Arc::new(Shared {
-        tls: Mutex::new(tls),
-        sending: Mutex::new(socket),
-    });
-    Ok((
-        TlsReader {
-            shared: shared.clone(),
-            socket: reader_socket,
-            raw: Vec::new(),
-        },
-        TlsWriter { shared },
-    ))
 }
 
 /// What the client knows of the instances it has connected to: one line
@@ -254,45 +152,66 @@ impl ServerCertVerifier for Pinned {
     }
 }
 
-/// Notes the first byte the other side sends: an instance that speaks
-/// first in the clear (`{`) is one without TLS.
-struct Sniff<'a> {
-    socket: &'a mut TcpStream,
-    first: Option<u8>,
+/// The socket under a TLS connection, noting the first byte the other side
+/// sends: an instance that speaks first in the clear (`{`) is one without
+/// TLS.
+pub(crate) struct Sniff {
+    socket: TcpStream,
+    first: Arc<OnceLock<u8>>,
 }
 
-impl Read for Sniff<'_> {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        let n = self.socket.read(buf)?;
-        if n > 0 && self.first.is_none() {
-            self.first = Some(buf[0]);
+impl AsyncRead for Sniff {
+    fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
+        let before = buf.filled().len();
+        let polled = Pin::new(&mut self.socket).poll_read(cx, buf);
+        if self.first.get().is_none()
+            && let Some(&byte) = buf.filled().get(before)
+        {
+            let _ = self.first.set(byte);
         }
-        Ok(n)
+        polled
     }
 }
 
-impl Write for Sniff<'_> {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.socket.write(buf)
+impl AsyncWrite for Sniff {
+    fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context<'_>, data: &[u8]) -> Poll<io::Result<usize>> {
+        Pin::new(&mut self.socket).poll_write(cx, data)
     }
 
-    fn flush(&mut self) -> io::Result<()> {
-        self.socket.flush()
+    fn poll_write_vectored(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        data: &[io::IoSlice<'_>],
+    ) -> Poll<io::Result<usize>> {
+        Pin::new(&mut self.socket).poll_write_vectored(cx, data)
+    }
+
+    fn is_write_vectored(&self) -> bool {
+        self.socket.is_write_vectored()
+    }
+
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Pin::new(&mut self.socket).poll_flush(cx)
+    }
+
+    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Pin::new(&mut self.socket).poll_shutdown(cx)
     }
 }
 
-/// What came of connecting in TLS: the two directions, and the
-/// certificate's fingerprint when it was remembered for the first time
-/// (or again, in place of another).
-pub struct Opened {
-    pub reader: TlsReader,
-    pub writer: TlsWriter,
+/// What came of connecting in TLS: the connection, and the certificate's
+/// fingerprint when it was remembered for the first time (or again, in
+/// place of another).
+pub(crate) struct Opened {
+    pub stream: TlsStream<Sniff>,
     pub trusted_now: Option<String>,
 }
 
 /// Make a TLS connection over `socket` to the instance at `address`,
-/// holding it to the certificate remembered in `known`.
-pub fn connect(address: &str, mut socket: TcpStream, known_file: &Path, accept_new: bool) -> Result<Opened> {
+/// holding it to the certificate remembered in `known_file`. The handshake
+/// may take [`HELLO_TIME`]; afterwards, reading waits as long as the kernel
+/// is quiet.
+pub(crate) async fn connect(address: &str, socket: TcpStream, known_file: &Path, accept_new: bool) -> Result<Opened> {
     let provider = provider();
     let expected = known(known_file, address);
     let pinned = Arc::new(Pinned {
@@ -313,41 +232,43 @@ pub fn connect(address: &str, mut socket: TcpStream, known_file: &Path, accept_n
     let name = ServerName::try_from(host.to_string())
         .or_else(|_| ServerName::try_from("paw-instance".to_string()))
         .map_err(|err| anyhow!("{err}"))?;
-    let mut tls: rustls::Connection = rustls::ClientConnection::new(Arc::new(config), name)?.into();
-    let mut sniff = Sniff {
-        socket: &mut socket,
-        first: None,
+    let first = Arc::new(OnceLock::new());
+    let sniff = Sniff {
+        socket,
+        first: first.clone(),
     };
-    let mut handshake = || -> io::Result<()> {
-        while tls.is_handshaking() {
-            tls.complete_io(&mut sniff)?;
-        }
-        Ok(())
+    let handshake = TlsConnector::from(Arc::new(config)).connect(name, sniff);
+    let handshake = match timeout(HELLO_TIME, handshake).await {
+        Ok(done) => done,
+        Err(_) => Err(io::Error::new(io::ErrorKind::TimedOut, "the handshake took too long")),
     };
-    if let Err(err) = handshake() {
-        let shown = pinned.shown.lock().unwrap().clone();
-        if let (Some(expected), Some(shown)) = (&expected, &shown)
-            && expected != shown
-        {
-            bail!(
-                "the instance at {address} shows another certificate than the one remembered:\n  \
-                 remembered: {expected}\n  shown now:  {shown}\n\
-                 If the instance made a new one (its state directory was lost, or it moved \
-                 machine), check the fingerprint it prints when it starts and connect again \
-                 with --accept-certificate. Otherwise something between here and there is \
-                 pretending to be it. (Remembered in {}.)",
-                known_file.display()
-            );
+    let stream = match handshake {
+        Ok(stream) => stream,
+        Err(err) => {
+            let shown = pinned.shown.lock().unwrap().clone();
+            if let (Some(expected), Some(shown)) = (&expected, &shown)
+                && expected != shown
+            {
+                bail!(
+                    "the instance at {address} shows another certificate than the one remembered:\n  \
+                     remembered: {expected}\n  shown now:  {shown}\n\
+                     If the instance made a new one (its state directory was lost, or it moved \
+                     machine), check the fingerprint it prints when it starts and connect again \
+                     with --accept-certificate. Otherwise something between here and there is \
+                     pretending to be it. (Remembered in {}.)",
+                    known_file.display()
+                );
+            }
+            if first.get() == Some(&b'{') {
+                bail!(
+                    "the instance at {address} speaks without encryption: it is older than this \
+                     program, or was started with --no-tls. Connect with --no-tls if the network \
+                     is one you trust."
+                );
+            }
+            return Err(anyhow!(err).context(format!("no TLS with the instance at {address}")));
         }
-        if sniff.first == Some(b'{') {
-            bail!(
-                "the instance at {address} speaks without encryption: it is older than this \
-                 program, or was started with --no-tls. Connect with --no-tls if the network \
-                 is one you trust."
-            );
-        }
-        return Err(anyhow!(err).context(format!("no TLS with the instance at {address}")));
-    }
+    };
     let shown = pinned.shown.lock().unwrap().clone().context("the instance showed no certificate")?;
     let trusted_now = if expected.as_deref() != Some(shown.as_str()) {
         remember(known_file, address, &shown)?;
@@ -355,10 +276,6 @@ pub fn connect(address: &str, mut socket: TcpStream, known_file: &Path, accept_n
     } else {
         None
     };
-    let (reader, writer) = split(tls, socket)?;
-    Ok(Opened {
-        reader,
-        writer,
-        trusted_now,
-    })
+    Ok(Opened { stream, trusted_now })
 }
+

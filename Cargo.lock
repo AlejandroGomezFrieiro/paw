@@ -3120,6 +3120,8 @@ dependencies = [
  "ring",
  "rustls",
  "serde_json",
+ "tokio",
+ "tokio-rustls",
 ]
 
 [[package]]
