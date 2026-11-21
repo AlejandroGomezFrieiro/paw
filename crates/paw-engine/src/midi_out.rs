@@ -159,21 +159,10 @@ mod imp {
     use alsa_sys::*;
 
     use super::*;
+    use crate::alsa::*;
     use crate::midi::port_key;
     use crate::midi_form::{Converter, Wire};
 
-    const OPEN_OUTPUT: c_int = 1;
-    const MIDI_2_0: c_int = 2;
-    /// Set on an event that carries a Universal MIDI Packet.
-    const EVENT_UMP: u8 = 1 << 5;
-    const CAP_READ: u32 = 1 << 0;
-    const CAP_WRITE: u32 = 1 << 1;
-    const CAP_SUBS_READ: u32 = 1 << 5;
-    const CAP_SUBS_WRITE: u32 = 1 << 6;
-    const CAP_NO_EXPORT: u32 = 1 << 7;
-    const TYPE_MIDI_GENERIC: u32 = 1 << 1;
-    const TYPE_APPLICATION: u32 = 1 << 20;
-    const SYSTEM_CLIENT: c_int = 0;
     /// Sent at once rather than through a queue.
     const QUEUE_DIRECT: u8 = 253;
     /// The destination that stands for every subscriber of the source.
@@ -231,8 +220,8 @@ mod imp {
                 snd_seq_create_simple_port(
                     seq.0,
                     c"output".as_ptr(),
-                    CAP_READ,
-                    TYPE_MIDI_GENERIC | TYPE_APPLICATION,
+                    Caps::READ.bits(),
+                    (PortType::MIDI_GENERIC | PortType::APPLICATION).bits(),
                 ),
                 "making the output port",
             )?;
@@ -493,8 +482,8 @@ mod imp {
                 snd_seq_create_simple_port(
                     self.sink.seq.0,
                     text.as_ptr(),
-                    CAP_READ | CAP_SUBS_READ,
-                    TYPE_MIDI_GENERIC | TYPE_APPLICATION,
+                    (Caps::READ | Caps::SUBS_READ).bits(),
+                    (PortType::MIDI_GENERIC | PortType::APPLICATION).bits(),
                 )
             };
             if port >= 0 {
@@ -509,7 +498,8 @@ mod imp {
             };
             self.release(port_key(name), None);
             self.sink.drain();
-            self.converters.retain(|(port, _), _| *port != port_key(name));
+            self.converters
+                .retain(|(port, _), _| *port != port_key(name));
             let (port, _) = self.own.remove(at);
             unsafe {
                 snd_seq_delete_simple_port(self.sink.seq.0, port);
@@ -551,15 +541,13 @@ mod imp {
                     snd_seq_port_info_set_client(port, id);
                     snd_seq_port_info_set_port(port, -1);
                     while snd_seq_query_next_port(self.sink.seq.0, port) >= 0 {
-                        let caps = snd_seq_port_info_get_capability(port);
-                        let writable = CAP_WRITE | CAP_SUBS_WRITE;
-                        if caps & writable != writable || caps & CAP_NO_EXPORT != 0 {
+                        let caps = Caps::from_bits_retain(snd_seq_port_info_get_capability(port));
+                        let writable = Caps::WRITE | Caps::SUBS_WRITE;
+                        if !caps.contains(writable) || caps.contains(Caps::NO_EXPORT) {
                             continue;
                         }
-                        let name = format!(
-                            "{client_name}: {}",
-                            text(snd_seq_port_info_get_name(port))
-                        );
+                        let name =
+                            format!("{client_name}: {}", text(snd_seq_port_info_get_name(port)));
                         if name == OWN_INPUT {
                             continue;
                         }
