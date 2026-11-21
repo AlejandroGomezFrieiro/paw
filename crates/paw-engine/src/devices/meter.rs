@@ -367,13 +367,12 @@ fn spectrum(tap: &Tap, sr: f32, bands: usize) -> Vec<f64> {
     let n = 4096.min(tap.capacity());
     let mut x = vec![0.0f32; n];
     tap.read(&mut x);
-    let mut re: Vec<f64> = x
+    let re: Vec<f64> = x
         .iter()
         .enumerate()
         .map(|(i, v)| *v as f64 * (0.5 - 0.5 * (std::f64::consts::TAU * i as f64 / n as f64).cos()))
         .collect();
-    let mut im = vec![0.0; n];
-    dsp::fft(&mut re, &mut im);
+    let spec = dsp::rfft(&re);
     let full = (n as f64 / 4.0).powi(2);
     let bin_hz = sr as f64 / n as f64;
     let edges: Vec<f64> = dsp::log_frequencies(bands + 1, 20.0, 20000.0).collect();
@@ -382,7 +381,7 @@ fn spectrum(tap: &Tap, sr: f32, bands: usize) -> Vec<f64> {
             let lo = ((edges[b] / bin_hz).floor() as usize).max(1);
             let hi = ((edges[b + 1] / bin_hz).ceil() as usize).clamp(lo + 1, n / 2);
             let most = (lo..hi)
-                .map(|k| re[k] * re[k] + im[k] * im[k])
+                .map(|k| spec[k].norm_sqr())
                 .fold(0.0, f64::max);
             (10.0 * (most / full).max(1e-20).log10()).max(-150.0)
         })
@@ -499,26 +498,25 @@ pub fn yin(x: &[f32], sr: f32, lo: f64, hi: f64) -> Option<Pitch> {
     // r(τ) = Σ_{j<w} x[j]·x[j+τ], as the correlation of the first half
     // with the whole, through FFTs of twice the length.
     let size = (2 * n).next_power_of_two();
-    let mut ar = vec![0.0; size];
-    let mut ai = vec![0.0; size];
-    let mut br = vec![0.0; size];
-    let mut bi = vec![0.0; size];
+    let mut a = vec![0.0; size];
+    let mut b = vec![0.0; size];
     for j in 0..w {
-        ar[j] = x[j] as f64;
+        a[j] = x[j] as f64;
     }
     for j in 0..n {
-        br[j] = x[j] as f64;
+        b[j] = x[j] as f64;
     }
-    dsp::fft(&mut ar, &mut ai);
-    dsp::fft(&mut br, &mut bi);
-    // conj(A)·B, then the inverse by a forward FFT of the conjugate.
+    // conj(A)·B, then the inverse (which realfft leaves `size` times too big).
+    let (sa, sb) = (dsp::rfft(&a), dsp::rfft(&b));
+    let mut c: Vec<_> = sa.iter().zip(&sb).map(|(a, b)| a.conj() * b).collect();
+    // The spectrum of a real signal has real ends.
+    c[0].im = 0.0;
+    c[size / 2].im = 0.0;
     let mut cr = vec![0.0; size];
-    let mut ci = vec![0.0; size];
-    for k in 0..size {
-        cr[k] = ar[k] * br[k] + ai[k] * bi[k];
-        ci[k] = -(ar[k] * bi[k] - ai[k] * br[k]);
-    }
-    dsp::fft(&mut cr, &mut ci);
+    realfft::RealFftPlanner::<f64>::new()
+        .plan_fft_inverse(size)
+        .process(&mut c, &mut cr)
+        .expect("lengths match the plan");
     let r = |tau: usize| cr[tau] / size as f64;
     // Energies of the window and of the window moved by τ.
     let mut prefix = vec![0.0f64; n + 1];

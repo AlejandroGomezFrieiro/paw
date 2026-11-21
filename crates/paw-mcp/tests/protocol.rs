@@ -29,20 +29,18 @@ fn paw_binary() -> PathBuf {
     paw
 }
 
-/// A fresh directory under the target's temporary directory.
 /// A short directory for sockets, whose paths must fit in 108 bytes.
-fn socket_dir(name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("dmcp-{name}-{}", std::process::id()));
-    std::fs::create_dir_all(&dir).unwrap();
-    dir
+fn socket_dir() -> tempfile::TempDir {
+    tempfile::Builder::new().prefix("dmcp-").tempdir().unwrap()
 }
 
-fn scratch(name: &str) -> PathBuf {
-    let dir =
-        Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("mcp-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
-    dir.canonicalize().unwrap()
+/// A fresh directory under the target's temporary directory.
+fn scratch(name: &str) -> tempfile::TempDir {
+    let base = Path::new(env!("CARGO_TARGET_TMPDIR")).canonicalize().unwrap();
+    tempfile::Builder::new()
+        .prefix(&format!("mcp-{name}-"))
+        .tempdir_in(base)
+        .unwrap()
 }
 
 const KERNEL_ARGS: [&str; 4] = ["--audio", "null", "--no-plugins", "--clean"];
@@ -52,11 +50,13 @@ struct Client {
     stdin: ChildStdin,
     stdout: BufReader<ChildStdout>,
     next: u64,
+    _sockets: tempfile::TempDir,
 }
 
 impl Client {
-    fn start(dir: &Path, args: &[&str]) -> Self {
-        let name = dir.file_name().unwrap().to_str().unwrap();
+    fn start(dir: &tempfile::TempDir, args: &[&str]) -> Self {
+        let dir = dir.path();
+        let sockets = socket_dir();
         let mut child = Command::new(env!("CARGO_BIN_EXE_paw-mcp"))
             .arg("--root")
             .arg(dir)
@@ -64,7 +64,7 @@ impl Client {
             .arg(paw_binary())
             .args(args)
             .current_dir(dir)
-            .env("XDG_RUNTIME_DIR", socket_dir(name))
+            .env("XDG_RUNTIME_DIR", sockets.path())
             .env("XDG_CACHE_HOME", dir)
             .env("XDG_DATA_HOME", dir)
             .env("XDG_CONFIG_HOME", dir)
@@ -80,6 +80,7 @@ impl Client {
             stdin,
             stdout,
             next: 1,
+            _sockets: sockets,
         }
     }
 
@@ -476,7 +477,7 @@ fn build_render_undo() {
 
     // Render, and hear it in numbers.
     let text = c.ok("render", json!({ "path": "out/mix.wav", "tail": 0.5 }));
-    assert!(dir.join("out/mix.wav").is_file(), "{text}");
+    assert!(dir.path().join("out/mix.wav").is_file(), "{text}");
     assert!(!text.contains("SILENT"), "{text}");
     assert!(left_peak(&text) > -40.0, "{text}");
     assert!(text.contains("level over time (bars"), "{text}");
@@ -557,7 +558,7 @@ fn build_render_undo() {
         "project_file",
         json!({ "action": "save", "path": "song.json" }),
     );
-    assert!(dir.join("song.json").is_file(), "{text}");
+    assert!(dir.path().join("song.json").is_file(), "{text}");
     c.ok("set_track", json!({ "track": "Drums", "mute": true }));
     assert!(
         c.fails("project_file", json!({ "action": "new" }))
@@ -615,14 +616,15 @@ fn escape_hatches_with_allow_eval() {
 #[test]
 fn kernel_gone_and_back() {
     let dir = scratch("gone");
-    let socket = socket_dir("gone").join("k.sock");
+    let sockets = socket_dir();
+    let socket = sockets.path().join("k.sock");
     let kernel = || {
         let child = Command::new(paw_binary())
             .args(["--headless", "--listen"])
             .arg(&socket)
             .args(KERNEL_ARGS)
-            .env("XDG_CACHE_HOME", &dir)
-            .env("XDG_DATA_HOME", &dir)
+            .env("XDG_CACHE_HOME", dir.path())
+            .env("XDG_DATA_HOME", dir.path())
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .spawn()
@@ -803,11 +805,11 @@ fn an_agent_composes_with_json_ids_markers_and_one_step_batches() {
         "render",
         json!({ "path": "v.flac", "region": "Verse 1", "loudness": -20 }),
     );
-    assert!(dir.join("v.flac").is_file() && flac.contains("-20"), "{flac}");
+    assert!(dir.path().join("v.flac").is_file() && flac.contains("-20"), "{flac}");
     c.add_drums();
     let stems = c.ok("render", json!({ "path": "stems", "stems": true, "tail": 0 }));
     assert!(stems.contains("Lead.wav: peak") && stems.contains("Drums.wav"), "{stems}");
-    assert!(dir.join("stems/Lead.wav").is_file());
+    assert!(dir.path().join("stems/Lead.wav").is_file());
     let an = c.ok("analyze_audio", json!({ "path": "v.flac" }));
     assert!(an.contains("LUFS"), "{an}");
 

@@ -547,21 +547,20 @@ mod tests {
     /// 8 kHz, each against the four on either side.
     fn peakiness(x: &[f32], sr: f32) -> f64 {
         let n = x.len();
-        let mut re: Vec<f64> = x
+        let re: Vec<f64> = x
             .iter()
             .enumerate()
             .map(|(i, v)| {
                 *v as f64 * (0.5 - 0.5 * (std::f64::consts::TAU * i as f64 / n as f64).cos())
             })
             .collect();
-        let mut im = vec![0.0; n];
-        dsp::fft(&mut re, &mut im);
+        let spec = dsp::rfft(&re);
         let bin = |f: f64| (f * n as f64 / sr as f64) as usize;
         let bands: Vec<f64> = (bin(200.0)..bin(8000.0))
             .step_by(8)
             .map(|b| {
                 (b..b + 8)
-                    .map(|k| re[k] * re[k] + im[k] * im[k])
+                    .map(|k| spec[k].norm_sqr())
                     .sum::<f64>()
             })
             .collect();
