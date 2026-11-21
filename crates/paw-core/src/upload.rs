@@ -13,6 +13,7 @@ use std::collections::HashMap;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
+use anyhow::{Context, Result, bail};
 use base64::Engine;
 use serde_json::{Value, json};
 
@@ -67,55 +68,55 @@ fn free_path(dir: &Path, name: &str) -> PathBuf {
 
 impl Uploads {
     /// Answer one of the `file.*` calls from `client`; files go into `dir`.
-    pub fn call(&mut self, client: ClientId, method: &str, params: &Value, dir: &Path) -> Result<Value, String> {
-        let id_of = |value: &Value| value.as_u64().ok_or_else(|| "which upload? its id first".to_string());
+    pub fn call(&mut self, client: ClientId, method: &str, params: &Value, dir: &Path) -> Result<Value> {
+        let id_of = |value: &Value| value.as_u64().context("which upload? its id first");
         match method {
             "file.begin" => {
                 let opts = &params[0];
-                let name = opts["name"].as_str().and_then(plain_name).ok_or("the file needs a name")?;
-                let size = opts["size"].as_u64().ok_or("the file needs its size in bytes")?;
+                let name = opts["name"].as_str().and_then(plain_name).context("the file needs a name")?;
+                let size = opts["size"].as_u64().context("the file needs its size in bytes")?;
                 if size > MAX_SIZE {
-                    return Err(format!("{name} is too big to send: {size} bytes"));
+                    bail!("{name} is too big to send: {size} bytes");
                 }
-                std::fs::create_dir_all(dir).map_err(|err| format!("creating {}: {err}", dir.display()))?;
+                std::fs::create_dir_all(dir).with_context(|| format!("creating {}", dir.display()))?;
                 let path = free_path(dir, &name);
                 self.next += 1;
                 let part = dir.join(format!(".{name}.{}-{}.part", std::process::id(), self.next));
-                let file = std::fs::File::create(&part).map_err(|err| format!("writing {}: {err}", part.display()))?;
+                let file = std::fs::File::create(&part).with_context(|| format!("writing {}", part.display()))?;
                 self.open.insert(self.next, Upload { client, file, part, path, size, written: 0 });
                 Ok(json!(self.next))
             }
             "file.chunk" => {
                 let id = id_of(&params[0])?;
-                let upload = self.open.get_mut(&id).filter(|u| u.client == client).ok_or("no such upload")?;
+                let upload = self.open.get_mut(&id).filter(|u| u.client == client).context("no such upload")?;
                 let bytes = base64::engine::general_purpose::STANDARD
                     .decode(params[1].as_str().unwrap_or_default())
-                    .map_err(|err| format!("not base64: {err}"))?;
+                    .context("not base64")?;
                 if upload.written + bytes.len() as u64 > upload.size {
                     let gone = self.open.remove(&id);
                     if let Some(gone) = gone {
                         let _ = std::fs::remove_file(&gone.part);
                     }
-                    return Err("more was sent than the file's size".into());
+                    bail!("more was sent than the file's size");
                 }
-                upload.file.write_all(&bytes).map_err(|err| format!("writing {}: {err}", upload.part.display()))?;
+                upload.file.write_all(&bytes).with_context(|| format!("writing {}", upload.part.display()))?;
                 upload.written += bytes.len() as u64;
                 Ok(json!(upload.written))
             }
             "file.end" => {
                 let id = id_of(&params[0])?;
-                if !self.open.get(&id).is_some_and(|u| u.client == client) {
-                    return Err("no such upload".into());
+                if self.open.get(&id).is_none_or(|u| u.client != client) {
+                    bail!("no such upload");
                 }
-                let mut upload = self.open.remove(&id).unwrap();
+                let mut upload = self.open.remove(&id).context("no such upload")?;
                 if upload.written != upload.size {
                     let _ = std::fs::remove_file(&upload.part);
-                    return Err(format!("{} of {} bytes arrived", upload.written, upload.size));
+                    bail!("{} of {} bytes arrived", upload.written, upload.size);
                 }
-                upload.file.flush().map_err(|err| err.to_string())?;
+                upload.file.flush()?;
                 // Taken now if another upload got there first.
                 let path = free_path(upload.path.parent().unwrap_or(dir), &upload.path.file_name().unwrap().to_string_lossy());
-                std::fs::rename(&upload.part, &path).map_err(|err| format!("keeping {}: {err}", path.display()))?;
+                std::fs::rename(&upload.part, &path).with_context(|| format!("keeping {}", path.display()))?;
                 Ok(json!(path.to_string_lossy()))
             }
             "file.abort" => {
@@ -125,7 +126,7 @@ impl Uploads {
                 }
                 Ok(Value::Null)
             }
-            _ => Err(format!("no method `{method}`")),
+            _ => bail!("no method `{method}`"),
         }
     }
 
@@ -156,9 +157,8 @@ mod tests {
 
     #[test]
     fn a_file_arrives_in_pieces_and_takes_a_free_name() {
-        let dir = std::env::temp_dir().join(format!("paw-upload-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).unwrap();
+        let temp = tempfile::tempdir().unwrap();
+        let dir = temp.path().to_path_buf();
         std::fs::write(dir.join("take.wav"), b"old").unwrap();
         let mut uploads = Uploads::default();
         let b64 = |b: &[u8]| json!(base64::engine::general_purpose::STANDARD.encode(b));
@@ -179,6 +179,5 @@ mod tests {
         uploads.closed(3);
         let left: Vec<_> = std::fs::read_dir(&dir).unwrap().flatten().map(|e| e.file_name()).collect();
         assert_eq!(left.len(), 2, "{left:?}");
-        let _ = std::fs::remove_dir_all(&dir);
     }
 }
