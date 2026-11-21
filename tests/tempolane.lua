@@ -126,11 +126,7 @@ lane_test("tempo lane: the pencil draws a curve of ramps over the stretch it cro
   eq(pts[#pts - 1].ramp, false, "the stroke's last change holds, what follows was not drawn")
   -- Drawn over a stretch, it replaces what was there.
   act.tempo_draw({ { 2, 0 }, { 10, 0 } })
-  local between = 0
-  for _, p in ipairs(paw.tempo.points()) do
-    if p.beat > 2 and p.beat < 10 then between = between + 1 end
-  end
-  eq(between <= 1, true, "the changes it crossed are replaced by the stroke's")
+  eq(shape(), "120@0 90@2> 90@10 120@24", "the changes it crossed are replaced by the stroke's")
 end)
 
 lane_test("tempo lane: commands move a change, and they are undone one step at a time", function()

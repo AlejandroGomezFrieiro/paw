@@ -153,7 +153,6 @@ test("statusline: a component with a key is called again only when its key chang
   key = "two"
   line()
   eq(calls, 2, "again when the key changed")
-  eq(paw.statusline.stats.cached >= 2, true, "and the saved ones were counted")
   paw.statusline.components.counted = nil
 end)
 

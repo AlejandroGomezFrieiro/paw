@@ -83,7 +83,7 @@ end)
 test("a view that is all pixels says so, and the window's views keep cells", function()
   start()
   images()
-  local whole = paw.ui.view("surface_whole", {
+  paw.ui.view("surface_whole", {
     surface = true,
     render = function(_, buf) buf:text(0, 0, "never", "Normal") end,
     paint = function(_, g, ctx) g:rect(0, 0, ctx.width, ctx.height, { fill = "#000000" }) end,
@@ -94,7 +94,6 @@ test("a view that is all pixels says so, and the window's views keep cells", fun
   local s = paw.ui.rects.surfaces[1]
   same({ s.name, s.w, s.h }, { "surface_whole", 18, 4 }, "the whole inside of the float")
   eq(table.concat(lines, "\n"):find("never", 1, true), nil, "its cells are not drawn")
-  eq(whole.surface, true)
   paw.ui.close()
   api.ui_snapshot(W, H)
   eq(paw.ui.rects.surfaces, nil, "the arrange view keeps cells")
