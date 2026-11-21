@@ -12,4 +12,5 @@ tiny-skia = "0.12"
 ttf-parser = "0.25"
 flate2 = "1"
 base64 = "0.22"
-libc = "0.2"
+# Shared memory objects for kitty's images.
+rustix = { version = "1", default-features = false, features = ["std", "shm"] }

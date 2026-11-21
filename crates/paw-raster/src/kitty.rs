@@ -15,6 +15,7 @@ use std::io::Write;
 
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD as B64;
+use rustix::shm;
 
 /// How pixels reach the terminal: a shared memory object or a temporary
 /// file it reads (and removes) when it runs on this machine, or inline,
@@ -82,9 +83,7 @@ impl Sent {
     fn remove(&self) {
         match self {
             Sent::Shm(name) => {
-                if let Ok(name) = std::ffi::CString::new(name.as_str()) {
-                    unsafe { libc::shm_unlink(name.as_ptr()) };
-                }
+                let _ = shm::unlink(name.as_str());
             }
             Sent::File(path) => {
                 let _ = std::fs::remove_file(path);
@@ -311,37 +310,16 @@ pub fn inline(out: &mut Vec<u8>, id: u32, rgba: &[u8], width: u32, height: u32) 
 /// A POSIX shared memory object holding `bytes`, for the terminal to read
 /// and unlink.
 pub fn write_shm(name: &str, bytes: &[u8]) -> std::io::Result<()> {
-    let cname = std::ffi::CString::new(name).map_err(std::io::Error::other)?;
-    unsafe {
-        let fd = libc::shm_open(cname.as_ptr(), libc::O_CREAT | libc::O_RDWR | libc::O_EXCL, 0o600);
-        if fd < 0 {
-            return Err(std::io::Error::last_os_error());
-        }
-        let ok = libc::ftruncate(fd, bytes.len() as libc::off_t) == 0 && {
-            let map = libc::mmap(
-                std::ptr::null_mut(),
-                bytes.len().max(1),
-                libc::PROT_WRITE,
-                libc::MAP_SHARED,
-                fd,
-                0,
-            );
-            if map == libc::MAP_FAILED {
-                false
-            } else {
-                std::ptr::copy_nonoverlapping(bytes.as_ptr(), map.cast::<u8>(), bytes.len());
-                libc::munmap(map, bytes.len().max(1));
-                true
-            }
-        };
-        libc::close(fd);
-        if !ok {
-            let err = std::io::Error::last_os_error();
-            libc::shm_unlink(cname.as_ptr());
-            return Err(err);
-        }
+    let flags = shm::OFlags::CREATE | shm::OFlags::RDWR | shm::OFlags::EXCL;
+    let fd = shm::open(name, flags, shm::Mode::from_raw_mode(0o600))?;
+    // Written through the descriptor rather than a memory map: the same
+    // bytes and size, with no unsafe code.
+    let mut file = std::fs::File::from(fd);
+    let written = file.set_len(bytes.len() as u64).and_then(|()| file.write_all(bytes));
+    if written.is_err() {
+        let _ = shm::unlink(name);
     }
-    Ok(())
+    written
 }
 
 /// The commands of the startup probe, which do want answers: whether the
@@ -364,9 +342,7 @@ pub fn probe(out: &mut Vec<u8>) {
 /// Remove what the probe left behind, when the terminal did not.
 pub fn probe_done() {
     let name = format!("/paw-tty-graphics-protocol-{}-probe", std::process::id());
-    if let Ok(cname) = std::ffi::CString::new(name) {
-        unsafe { libc::shm_unlink(cname.as_ptr()) };
-    }
+    let _ = shm::unlink(name);
     let path = std::env::temp_dir().join(format!("paw-tty-graphics-protocol-{}-probe", std::process::id()));
     let _ = std::fs::remove_file(path);
 }

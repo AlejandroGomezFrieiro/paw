@@ -2,7 +2,6 @@
 //! into kernel input.
 
 use std::io::{BufWriter, Read, Stdout, Write, stdout};
-use std::os::fd::AsRawFd;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::time::{Duration, Instant};
@@ -20,6 +19,9 @@ use paw_core::grid::{self, Caps, Color, Grid};
 use paw_core::{Frontend, InputEvent};
 use paw_raster::kitty;
 use paw_raster::probe::{self, Probe};
+use rustix::event::{PollFd, PollFlags, Timespec, poll};
+use rustix::termios::{self, OptionalActions, Termios};
+use signal_hook::consts::{SIGHUP, SIGTERM};
 
 use crate::graphics::{self, Graphics};
 
@@ -54,23 +56,24 @@ const RESTORE: &[u8] =
 static IMAGES: AtomicBool = AtomicBool::new(false);
 
 /// The terminal's settings before raw mode, for a signal handler to put back.
-static COOKED: std::sync::OnceLock<libc::termios> = std::sync::OnceLock::new();
+static COOKED: std::sync::OnceLock<Termios> = std::sync::OnceLock::new();
 
 /// Killed (`kill`, a multiplexer closing the pane), the program would leave
 /// the terminal reporting every move of the pointer to the shell. A handler
 /// gives it back, then lets the signal end the program as it would have.
-extern "C" fn on_signal(signal: libc::c_int) {
-    unsafe {
-        if IMAGES.load(Ordering::Relaxed) {
-            libc::write(1, kitty::DELETE_ALL.as_ptr().cast(), kitty::DELETE_ALL.len());
-        }
-        libc::write(1, RESTORE.as_ptr().cast(), RESTORE.len());
-        if let Some(cooked) = COOKED.get() {
-            libc::tcsetattr(0, libc::TCSANOW, cooked);
-        }
-        libc::signal(signal, libc::SIG_DFL);
-        libc::raise(signal);
+/// It runs in the signal handler, so it stays async-signal-safe: it writes
+/// only bytes made beforehand and makes plain system calls, with no
+/// allocation and no lock.
+fn on_signal(signal: i32) {
+    let out = rustix::stdio::stdout();
+    if IMAGES.load(Ordering::Relaxed) {
+        let _ = rustix::io::write(out, kitty::DELETE_ALL);
     }
+    let _ = rustix::io::write(out, RESTORE);
+    if let Some(cooked) = COOKED.get() {
+        let _ = termios::tcsetattr(rustix::stdio::stdin(), OptionalActions::Now, cooked);
+    }
+    let _ = signal_hook::low_level::emulate_default_handler(signal);
 }
 
 impl Terminal {
@@ -78,14 +81,12 @@ impl Terminal {
     /// says whether anyone is still listening: the kernel in this program,
     /// or a connection to one somewhere else.
     pub fn start(send: impl Fn(InputEvent) -> bool + Send + 'static) -> Result<(Self, u16, u16)> {
-        unsafe {
-            let mut cooked: libc::termios = std::mem::zeroed();
-            if libc::tcgetattr(0, &mut cooked) == 0 {
-                let _ = COOKED.set(cooked);
-            }
-            for signal in [libc::SIGTERM, libc::SIGHUP] {
-                libc::signal(signal, on_signal as extern "C" fn(libc::c_int) as libc::sighandler_t);
-            }
+        if let Ok(cooked) = termios::tcgetattr(rustix::stdio::stdin()) {
+            let _ = COOKED.set(cooked);
+        }
+        for signal in [SIGTERM, SIGHUP] {
+            // SAFETY: on_signal is async-signal-safe (see there).
+            let _ = unsafe { signal_hook::low_level::register(signal, move || on_signal(signal)) };
         }
         terminal::enable_raw_mode()?;
         // Asked before anything else reads what the terminal sends.
@@ -226,8 +227,8 @@ fn ask() -> Probe {
     let deadline = Instant::now() + Duration::from_millis(1500);
     while !found.done && Instant::now() < deadline {
         let left = deadline.saturating_duration_since(Instant::now());
-        let mut pfd = libc::pollfd { fd: tty.as_raw_fd(), events: libc::POLLIN, revents: 0 };
-        if unsafe { libc::poll(&mut pfd, 1, left.as_millis() as i32) } <= 0 {
+        let timeout = Timespec::try_from(left).unwrap_or_default();
+        if !matches!(poll(&mut [PollFd::new(&tty, PollFlags::IN)], Some(&timeout)), Ok(n) if n > 0) {
             continue;
         }
         let mut chunk = [0u8; 4096];
