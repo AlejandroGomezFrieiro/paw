@@ -291,9 +291,9 @@ impl super::Session {
         }
         for track in self.project.all_tracks() {
             for clip in track.clips.iter().chain(&track.cues) {
-                let file = match (&clip.source, &clip.content) {
+                let file = match (&clip.source, clip.playable()) {
                     (Some(source), _) => Some(source.clone()),
-                    (None, ClipContent::Audio { file, .. }) => Some(file.clone()),
+                    (None, Some(ClipContent::Audio { file, .. })) => Some(file.clone()),
                     _ => None,
                 };
                 if let Some(file) = file

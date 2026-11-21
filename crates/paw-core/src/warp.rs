@@ -230,7 +230,7 @@ fn bent(clip: &Clip, map: &TempoMap, unstretched: &Warp, offset: f64) -> Option<
 
 /// Whether `clip` is bent along the tempo rather than stretched evenly.
 pub fn is_bent(clip: &Clip, map: &TempoMap) -> bool {
-    let ClipContent::Audio { offset, .. } = &clip.content else {
+    let Some(ClipContent::Audio { offset, .. }) = clip.playable() else {
         return false;
     };
     bent(clip, map, &markers(&clip.warp), *offset).is_some()
@@ -240,7 +240,7 @@ pub fn is_bent(clip: &Clip, map: &TempoMap) -> bool {
 /// seconds to the seconds of the version it plays, 0 to 0. `None` for a
 /// clip that plays its file as it is.
 pub fn of(clip: &Clip, map: &TempoMap) -> Option<Warp> {
-    let ClipContent::Audio { offset, .. } = &clip.content else {
+    let Some(ClipContent::Audio { offset, .. }) = clip.playable() else {
         return None;
     };
     let unstretched = markers(&clip.warp);
@@ -255,7 +255,7 @@ pub fn of(clip: &Clip, map: &TempoMap) -> Option<Warp> {
 
 /// Where `clip` plays its file's moment `source`, as a beat of the song.
 pub fn beat_of(clip: &Clip, map: &TempoMap, source: f64) -> f64 {
-    let ClipContent::Audio { offset, .. } = &clip.content else {
+    let Some(ClipContent::Audio { offset, .. }) = clip.playable() else {
         return clip.start;
     };
     let warp = of(clip, map).unwrap_or_else(|| Warp::even(1.0));
@@ -265,7 +265,7 @@ pub fn beat_of(clip: &Clip, map: &TempoMap, source: f64) -> f64 {
 
 /// The moment of its file that `clip` plays at `beat`.
 pub fn source_at(clip: &Clip, map: &TempoMap, beat: f64) -> f64 {
-    let ClipContent::Audio { offset, .. } = &clip.content else {
+    let Some(ClipContent::Audio { offset, .. }) = clip.playable() else {
         return 0.0;
     };
     let warp = of(clip, map).unwrap_or_else(|| Warp::even(1.0));
@@ -275,7 +275,7 @@ pub fn source_at(clip: &Clip, map: &TempoMap, beat: f64) -> f64 {
 /// The `target` that puts a marker at `source` on `beat`, the rest of the
 /// clip staying as it is: as the clip is bent, or stretched evenly.
 pub fn target_for(clip: &Clip, map: &TempoMap, beat: f64) -> f64 {
-    let ClipContent::Audio { offset, .. } = &clip.content else {
+    let Some(ClipContent::Audio { offset, .. }) = clip.playable() else {
         return 0.0;
     };
     let unstretched = markers(&clip.warp);

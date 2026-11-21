@@ -14,6 +14,22 @@ use super::{RenderOpts, Session, unique_path};
 use crate::edits::AudioEdit;
 use crate::model::{Clip, ClipContent, Id, MASTER_ID};
 
+/// The refusal of a work on audio clips for clip `id`, which plays no audio
+/// of its own to change.
+fn not_audio(clip: &Clip, id: Id) -> anyhow::Error {
+    match &clip.content {
+        ClipContent::Custom(custom) if clip.playable().is_some() => anyhow::anyhow!(
+            "clip {id} is a clip of the kind `{}`: its audio sound cannot be changed here",
+            custom.kind
+        ),
+        ClipContent::Custom(custom) => anyhow::anyhow!(
+            "clip {id} is a clip of the kind `{}` with no audio sound: this works on audio clips",
+            custom.kind
+        ),
+        _ => anyhow::anyhow!("clip {id} is a MIDI clip: this works on audio clips"),
+    }
+}
+
 impl Session {
     /// The file, offset and gain of an audio clip.
     fn audio_clip(&self, id: Id) -> Result<(Arc<Clip>, PathBuf, f64, f64)> {
@@ -22,8 +38,8 @@ impl Session {
             .clip(id)
             .with_context(|| format!("no clip {id}"))?
             .clone();
-        let ClipContent::Audio { file, offset, gain, .. } = &clip.content else {
-            bail!("clip {id} is a MIDI clip: this works on audio clips");
+        let Some(ClipContent::Audio { file, offset, gain, .. }) = clip.playable() else {
+            return Err(not_audio(&clip, id));
         };
         let (file, offset, gain) = (file.clone(), *offset, *gain);
         Ok((clip, file, offset, gain))
@@ -42,8 +58,8 @@ impl Session {
     /// it has none.
     fn edited_sound(&mut self, clip: &Clip, file: &std::path::Path) -> Result<Arc<AudioData>> {
         let data = self.audio.load(file)?;
-        match &clip.content {
-            ClipContent::Audio { edits, .. } if !edits.is_empty() => {
+        match clip.playable() {
+            Some(ClipContent::Audio { edits, .. }) if !edits.is_empty() => {
                 Ok(Arc::new(crate::edits::apply(&data, edits)))
             }
             _ => Ok(data),
@@ -97,7 +113,7 @@ impl Session {
         let edits = self.edit(|p| {
             let c = p.clip_mut(id).context("the clip went away")?;
             let ClipContent::Audio { offset, edits, .. } = &mut c.content else {
-                bail!("clip {id} is a MIDI clip: this works on audio clips");
+                return Err(not_audio(c, id));
             };
             if edits.last() == Some(&AudioEdit::Reverse) {
                 edits.pop();
@@ -129,7 +145,7 @@ impl Session {
         self.edit(|p| {
             let c = p.clip_mut(id).context("the clip went away")?;
             let ClipContent::Audio { edits, .. } = &mut c.content else {
-                bail!("clip {id} is a MIDI clip: this works on audio clips");
+                return Err(not_audio(c, id));
             };
             edits.push(edit);
             Ok(edits.len())
@@ -140,7 +156,7 @@ impl Session {
     /// Returns how many edits it had.
     pub fn clip_edits_clear(&mut self, id: Id) -> Result<usize> {
         let (clip, file, offset, _) = self.audio_clip(id)?;
-        let ClipContent::Audio { edits, .. } = &clip.content else {
+        let Some(ClipContent::Audio { edits, .. }) = clip.playable() else {
             return Ok(0);
         };
         if edits.is_empty() {
@@ -157,7 +173,7 @@ impl Session {
         self.edit(|p| {
             let c = p.clip_mut(id).context("the clip went away")?;
             let ClipContent::Audio { offset, edits, .. } = &mut c.content else {
-                bail!("clip {id} is a MIDI clip: this works on audio clips");
+                return Err(not_audio(c, id));
             };
             let n = edits.len();
             edits.clear();
@@ -187,9 +203,10 @@ impl Session {
         let gain = (level - paw_engine::gain_to_db(peak)).clamp(-120.0, 24.0);
         self.edit(|p| {
             let c = p.clip_mut(id).context("the clip went away")?;
-            if let ClipContent::Audio { gain: g, .. } = &mut c.content {
-                *g = gain;
-            }
+            let ClipContent::Audio { gain: g, .. } = &mut c.content else {
+                return Err(not_audio(c, id));
+            };
+            *g = gain;
             Ok(())
         })?;
         Ok(gain)
