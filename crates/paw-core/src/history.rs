@@ -150,6 +150,14 @@ impl<T: Clone> History<T> {
         new
     }
 
+    /// A state by id; every id held by the tree, a parent link or a child
+    /// list names a state in the map.
+    fn state_mut(&mut self, id: StateId) -> &mut State<T> {
+        self.states
+            .get_mut(&id)
+            .expect("every id in the tree is in the map")
+    }
+
     /// Weigh a state again against its parent, after either changed.
     fn reweigh(&mut self, id: StateId) {
         let Some(state) = self.states.get(&id) else { return };
@@ -157,7 +165,10 @@ impl<T: Clone> History<T> {
             Some(parent) => (self.weigh)(&parent.snapshot, &state.snapshot),
             None => 0,
         };
-        let state = self.states.get_mut(&id).unwrap();
+        let state = self
+            .states
+            .get_mut(&id)
+            .expect("a state weighed a moment ago is still in the map");
         self.bytes = self.bytes - state.weight + weight;
         state.weight = weight;
         state.reckoned = 0;
@@ -260,7 +271,7 @@ impl<T: Clone> History<T> {
     /// Replace what the current state holds, for bookkeeping that changes
     /// the snapshot without being an edit.
     pub fn set_current_snapshot(&mut self, snapshot: T) {
-        self.states.get_mut(&self.current).unwrap().snapshot = snapshot;
+        self.state_mut(self.current).snapshot = snapshot;
         self.reweigh(self.current);
     }
 
@@ -315,7 +326,7 @@ impl<T: Clone> History<T> {
         state.keys = self.pending_keys.take();
         self.clear_labels();
         self.states.insert(id, state);
-        let p = self.states.get_mut(&parent).unwrap();
+        let p = self.state_mut(parent);
         p.children.push(id);
         p.redo = Some(id);
         self.reweigh(id);
@@ -357,7 +368,7 @@ impl<T: Clone> History<T> {
     /// Replace what the current state holds with a later version of the
     /// same edit: a control still being moved.
     pub fn amend(&mut self, snapshot: T, time: f64) {
-        let state = self.states.get_mut(&self.current).unwrap();
+        let state = self.state_mut(self.current);
         state.snapshot = snapshot;
         state.time = time;
         self.reweigh(self.current);
@@ -399,7 +410,7 @@ impl<T: Clone> History<T> {
     /// To the parent.
     pub fn undo(&mut self) -> Option<StateId> {
         let parent = self.states[&self.current].parent?;
-        self.states.get_mut(&parent).unwrap().redo = Some(self.current);
+        self.state_mut(parent).redo = Some(self.current);
         self.current = parent;
         Some(parent)
     }
@@ -422,7 +433,7 @@ impl<T: Clone> History<T> {
         }
         let mut at = id;
         while let Some(parent) = self.states[&at].parent {
-            self.states.get_mut(&parent).unwrap().redo = Some(at);
+            self.state_mut(parent).redo = Some(at);
             at = parent;
         }
         self.current = id;
@@ -500,17 +511,18 @@ impl<T: Clone> History<T> {
 
     /// Drop one state that is not the root, hanging its children from its parent.
     fn remove(&mut self, id: StateId) {
-        let state = self.states.remove(&id).unwrap();
+        let state = self.states.remove(&id).expect("a state to remove is in the map");
         self.bytes -= state.weight;
         let parent_id = state.parent.expect("the root is never removed");
         for child in &state.children {
-            self.states.get_mut(child).unwrap().parent = Some(parent_id);
+            self.state_mut(*child).parent = Some(parent_id);
             // What it shared with the state dropped it may not share with
             // its new parent.
             self.reparent_weight(*child, (state.weight, state.reckoned));
         }
-        let parent = self.states.get_mut(&parent_id).unwrap();
-        let at = parent.children.iter().position(|c| *c == id).unwrap();
+        let parent = self.state_mut(parent_id);
+        let at = parent.children.iter().position(|c| *c == id)
+            .expect("a parent lists each of its children");
         parent
             .children
             .splice(at..=at, state.children.iter().copied());

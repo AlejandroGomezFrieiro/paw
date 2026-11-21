@@ -924,7 +924,38 @@ pub fn read(dir: &Path) -> Result<Read> {
 /// (its `.bak`, for one that is damaged).
 pub fn read_with(dir: &Path, head_path: &Path) -> Result<Read> {
     let head_path = head_path.to_path_buf();
-    let text = std::fs::read_to_string(&head_path)
+    let (mut head, order, transport) = read_head(&head_path)?;
+    let mut problems = Vec::new();
+    let mut files = Vec::new();
+    let (tracks, master) = read_all_tracks(dir, &order, &mut files, &mut problems)?;
+    let map = head
+        .as_object_mut()
+        .expect("read_head checked that the head is a table");
+    map.insert("tracks".into(), Value::Array(tracks));
+    map.insert("master".into(), master);
+    let meta = match read_json(&dir.join("meta.json")) {
+        Ok(v) => v,
+        Err(_) if !dir.join("meta.json").exists() => json!({}),
+        Err(e) => return Err(e),
+    };
+    map.insert("meta".into(), meta);
+    let screen = read_json(&dir.join("screen.json")).ok();
+    let mut project: Project =
+        serde_json::from_value(head).with_context(|| format!("reading {}", dir.display()))?;
+    let clip_files = fill_clips(&mut project, &files, &mut problems, dir);
+    Ok(Read {
+        project,
+        transport,
+        screen,
+        clip_files,
+        problems,
+    })
+}
+
+/// The head of a project folder (`project.toml`): the head as JSON
+/// without the track list and the transport, which come back apart.
+fn read_head(head_path: &Path) -> Result<(Value, Vec<String>, Value)> {
+    let text = std::fs::read_to_string(head_path)
         .with_context(|| format!("reading {}", head_path.display()))?;
     let head: toml::Value =
         toml::from_str(&text).with_context(|| format!("parsing {}", head_path.display()))?;
@@ -946,8 +977,17 @@ pub fn read_with(dir: &Path, head_path: &Path) -> Result<Read> {
         None => Vec::new(),
     };
     let transport = map.remove("transport").unwrap_or(Value::Null);
-    let mut problems = Vec::new();
-    let mut files = Vec::new();
+    Ok((head, order, transport))
+}
+
+/// Read every track and the master, outside tracks included. The clips'
+/// files that the tracks name are collected in `files`.
+fn read_all_tracks(
+    dir: &Path,
+    order: &[String],
+    files: &mut Vec<(u64, PathBuf)>,
+    problems: &mut Vec<String>,
+) -> Result<(Vec<Value>, Value)> {
     let mut tracks = Vec::new();
     let fix = |mut track: Value, files: &mut Vec<(u64, PathBuf)>, root: &Path| {
         if let Some(Value::Array(clips)) = track.get_mut("clips") {
@@ -967,19 +1007,19 @@ pub fn read_with(dir: &Path, head_path: &Path) -> Result<Read> {
     // no part of the project has them, and gets new ones where one has.
     let mut read_tracks: Vec<Option<Value>> = Vec::new();
     let mut used = BTreeSet::new();
-    for name in &order {
+    for name in order {
         if is_outside_entry(name) {
             read_tracks.push(None);
             continue;
         }
         let folder = Path::new("tracks").join(name);
-        let track = read_track(dir, &folder, &mut problems)
+        let track = read_track(dir, &folder, problems)
             .with_context(|| format!("reading the track {name}"))?;
         ids_in(&track, &mut used);
         read_tracks.push(Some(track));
     }
     let mut master = if dir.join("master/track.json").exists() {
-        read_track(dir, Path::new("master"), &mut problems)?
+        read_track(dir, Path::new("master"), problems)?
     } else {
         serde_json::to_value(&*Project::default().master)?
     };
@@ -991,26 +1031,26 @@ pub fn read_with(dir: &Path, head_path: &Path) -> Result<Read> {
     }
     for (name, track) in order.iter().zip(read_tracks) {
         if let Some(track) = track {
-            tracks.push(fix(track, &mut files, dir));
+            tracks.push(fix(track, files, dir));
             continue;
         }
         // A track folder outside the project: read from where it is.
         let folder = resolve(Path::new(name), dir);
-        let track = read_outside_track(&folder, &mut used, &mut problems)?;
-        tracks.push(fix(track, &mut files, &track_root(&folder)));
+        let track = read_outside_track(&folder, &mut used, problems)?;
+        tracks.push(fix(track, files, &track_root(&folder)));
     }
-    let master = fix(master, &mut files, dir);
-    map.insert("tracks".into(), Value::Array(tracks));
-    map.insert("master".into(), master);
-    let meta = match read_json(&dir.join("meta.json")) {
-        Ok(v) => v,
-        Err(_) if !dir.join("meta.json").exists() => json!({}),
-        Err(e) => return Err(e),
-    };
-    map.insert("meta".into(), meta);
-    let screen = read_json(&dir.join("screen.json")).ok();
-    let mut project: Project =
-        serde_json::from_value(head).with_context(|| format!("reading {}", dir.display()))?;
+    let master = fix(master, files, dir);
+    Ok((tracks, master))
+}
+
+/// Give the clips of the project their notes from the clips' files, each
+/// file read once however many clips share it. Returns each clip's file.
+fn fill_clips(
+    project: &mut Project,
+    files: &[(u64, PathBuf)],
+    problems: &mut Vec<String>,
+    dir: &Path,
+) -> HashMap<u64, PathBuf> {
     // The clips' files, each once however many clips share it, on as many
     // threads as there are cores.
     let unique: Vec<PathBuf> = files
@@ -1026,7 +1066,7 @@ pub fn read_with(dir: &Path, head_path: &Path) -> Result<Read> {
     }
     let mut clip_files = HashMap::new();
     let mut contents: HashMap<u64, (Option<&clipfile::Clip>, PathBuf)> = HashMap::new();
-    for (id, path) in &files {
+    for (id, path) in files {
         clip_files.insert(*id, path.clone());
         let read = match by_path.get(path.as_path()) {
             Some(Ok(clip)) => Some(clip),
@@ -1077,13 +1117,7 @@ pub fn read_with(dir: &Path, head_path: &Path) -> Result<Read> {
             fill(clip);
         }
     }
-    Ok(Read {
-        project,
-        transport,
-        screen,
-        clip_files,
-        problems,
-    })
+    clip_files
 }
 
 /// Read and decode clip files, in parallel.
