@@ -1,7 +1,7 @@
-//! CLAP hosting. The file's entry, its plugin factory, the plugin instance
-//! and the host's callbacks go through Clack (`clack-host` and
-//! `clack-extensions`); processing, events and the plugin's extensions are
-//! still `clap-sys`.
+//! CLAP hosting. The file's entry, its plugin factory, the plugin instance,
+//! the host's callbacks and processing (events, buffers, transport, tail) go
+//! through Clack (`clack-host` and `clack-extensions`); the plugin's other
+//! extensions are still `clap-sys`.
 //!
 //! Threading follows the CLAP rules: a plugin is created, activated,
 //! deactivated and destroyed on the main thread, and `start_processing` and
@@ -28,14 +28,21 @@ use clack_extensions::params::{
 };
 use clack_extensions::posix_fd::{FdFlags, HostPosixFd, HostPosixFdImpl};
 use clack_extensions::state::{HostState, HostStateImpl};
+use clack_extensions::tail::{PluginTail, TailLength};
 use clack_extensions::thread_check::{HostThreadCheck, HostThreadCheckImpl};
 use clack_extensions::timer::{HostTimer, HostTimerImpl, TimerId};
 use clack_host::entry::{EntryDescriptor, PluginEntry, PluginEntryError};
+use clack_host::events::event_types::{TransportEvent, TransportFlags};
+use clack_host::events::io::{InputEventBuffer, OutputEventBuffer, TryPushError};
+use clack_host::events::spaces::CoreEventSpace;
+use clack_host::events::EventFlags;
 use clack_host::prelude::{
-    ClapId, HostError, HostExtensions, HostHandlers, HostInfo, MainThreadHandler,
-    PluginAudioConfiguration, PluginAudioProcessor, PluginInstance, PluginInstanceError,
-    SharedHandler,
+    ClapId, EventHeader, HostError, HostExtensions, HostHandlers, HostInfo, InputAudioBuffers,
+    InputEvents, MainThreadHandler, OutputAudioBuffers, OutputEvents, PluginAudioConfiguration,
+    PluginAudioProcessor, PluginInstance, PluginInstanceError, ProcessStatus, SharedHandler,
+    UnknownEvent,
 };
+use clack_host::utils::FixedPoint;
 use clap_sys::events::*;
 use clap_sys::ext::audio_ports::{
     CLAP_EXT_AUDIO_PORTS, clap_audio_port_info, clap_plugin_audio_ports,
@@ -71,14 +78,8 @@ use clap_sys::factory::preset_discovery::{
     CLAP_PRESET_DISCOVERY_FACTORY_ID, CLAP_PRESET_DISCOVERY_FACTORY_ID_COMPAT,
     clap_preset_discovery_factory,
 };
-use clap_sys::fixedpoint::{CLAP_BEATTIME_FACTOR, CLAP_SECTIME_FACTOR};
 use clap_sys::id::clap_id;
 use clap_sys::plugin::clap_plugin;
-use clap_sys::ext::tail::{CLAP_EXT_TAIL, clap_plugin_tail};
-use clap_sys::process::{
-    CLAP_PROCESS_CONTINUE_IF_NOT_QUIET, CLAP_PROCESS_ERROR, CLAP_PROCESS_SLEEP, CLAP_PROCESS_TAIL,
-    clap_process,
-};
 use clap_sys::stream::{clap_istream, clap_ostream};
 use paw_engine::device::{Change, Rest, assign_keys, silent};
 use paw_engine::{
@@ -295,7 +296,7 @@ struct Shared {
     /// there.
     instance: RefCell<PluginInstance<PawHost>>,
     /// The raw plugin, from `instance`, for the calls that are still
-    /// `clap-sys` (processing, events, the plugin's extensions).
+    /// `clap-sys` (the plugin's extensions).
     plugin: *const clap_plugin,
     params: *const clap_plugin_params,
     state: *const clap_plugin_state,
@@ -303,7 +304,7 @@ struct Shared {
     timers: *const clap_plugin_timer_support,
     fds: *const clap_plugin_posix_fd_support,
     /// How long the plugin rings after its input stops, when it says.
-    tail: *const clap_plugin_tail,
+    tail: Option<PluginTail>,
     /// The CLAP id and cookie of each parameter, in the order we list them.
     param_ids: Vec<(clap_id, *mut c_void)>,
     param_infos: Vec<ParamInfo>,
@@ -326,8 +327,8 @@ struct Shared {
 // functions, are only used on the main thread: `ClapFactory::create` makes the `Shared` there, the
 // controller lives there, and both halves are dropped there (the engine drops a device on the main
 // thread once the audio thread has let it go). The audio thread reaches the plugin only through
-// the processor in `run` (which is `Send`), the raw `process` and `tail` while it holds `run`, and
-// the atomics and mutexes in `flags`.
+// the processor in `run` (which is `Send`), `tail` with the processor's handle while it holds
+// `run`, and the atomics and mutexes in `flags`.
 unsafe impl Send for Shared {}
 // SAFETY: What the two threads share is `run` (a mutex), `flags` (atomics and mutexes) and the
 // read-only `param_ids`, `param_infos`, `sample_rate` and `max_block`. `instance` is a `RefCell`
@@ -390,7 +391,7 @@ impl DeviceFactory for ClapFactory {
         let flags = Arc::new(HostFlags::new());
         let host = HostInfo::new("paw", "paw", "", "0.1.0")?;
         let host_flags = flags.clone();
-        let instance = PluginInstance::<PawHost>::new(
+        let mut instance = PluginInstance::<PawHost>::new(
             move |_| HostShared { flags: host_flags },
             |shared| HostMain { shared },
             &library.entry,
@@ -407,6 +408,7 @@ impl DeviceFactory for ClapFactory {
             _ => anyhow::anyhow!("{} could not create the plugin", self.path.display()),
         })?;
         let plugin: *const clap_plugin = instance.raw_instance();
+        let tail = instance.plugin_handle().get_extension::<PluginTail>();
         // SAFETY: `plugin` is the live, initialized instance, which `shared` owns from here. Every
         // plugin function called here (the extensions, `activate`) is called in the order the ABI
         // requires, on the main thread, before the plugin is shared with the audio thread.
@@ -419,7 +421,7 @@ impl DeviceFactory for ClapFactory {
                 gui: extension(plugin, CLAP_EXT_GUI),
                 timers: extension(plugin, CLAP_EXT_TIMER_SUPPORT),
                 fds: extension(plugin, CLAP_EXT_POSIX_FD_SUPPORT),
-                tail: extension(plugin, CLAP_EXT_TAIL),
+                tail,
                 param_ids: Vec::new(),
                 param_infos: Vec::new(),
                 flags,
@@ -479,7 +481,7 @@ impl DeviceFactory for ClapFactory {
                 key_port,
                 keyed: false,
                 out_pairs,
-                events: Vec::with_capacity(2048),
+                events: ClapEvents(Vec::with_capacity(2048)),
                 pending: Vec::with_capacity(512),
                 held: HeldNotes::new(),
                 clap_notes,
@@ -756,7 +758,7 @@ struct ClapDevice {
     keyed: bool,
     /// The output ports as stereo pairs, the main one first.
     out_pairs: Vec<crate::OutPair>,
-    events: Vec<ClapEvent>,
+    events: ClapEvents,
     /// Parameter changes waiting for the next block: index and value.
     pending: Vec<(u32, f32)>,
     held: HeldNotes,
@@ -768,7 +770,7 @@ struct ClapDevice {
     midi2: bool,
     /// The plugin failed to start processing: it is not asked again.
     failed: bool,
-    steady_time: i64,
+    steady_time: u64,
     /// What the plugin said of itself after its last block (see
     /// [`Device::resting`]).
     rest: Rest,
@@ -790,7 +792,6 @@ impl Device for ClapDevice {
 
     fn process(&mut self, ctx: &ProcessCtx, io: &mut Io) {
         let n = io.left.len();
-        let plugin = self.shared.plugin;
         // Woken: its tail starts again from here.
         self.rest.begin(io, self.shared.flags.wake.swap(false, Relaxed));
         // The main thread has the plugin deactivated for an attachment:
@@ -810,198 +811,171 @@ impl Device for ClapDevice {
             self.failed = true;
             return;
         }
-        // SAFETY: `plugin` is the live plugin and `run` is held (the `try_lock` above), so the main
-        // thread cannot deactivate it, and its processor is started; the buffers' pointers lead to
-        // `max_block` frames per channel and `n <= max_block`; `in_events`, `out_events`, `transport`
-        // and `process` live on this frame until `process` returns; `self.out` and `self.events` are
-        // not touched while the plugin holds them. Called on the audio thread, as `process` requires.
-        unsafe {
+        let Ok(processor) = processor.as_started_mut() else {
+            return;
+        };
 
-            if let Some(port) = self.inputs.channels.first_mut() {
-                match port.as_mut_slice() {
-                    [] => {}
-                    [mono] => {
-                        for (m, (l, r)) in mono.iter_mut().zip(io.left.iter().zip(io.right.iter()))
-                        {
-                            *m = (l + r) * 0.5;
-                        }
-                    }
-                    [left, right, ..] => {
-                        left[..n].copy_from_slice(io.left);
-                        right[..n].copy_from_slice(io.right);
+        if let Some(port) = self.inputs.channels.first_mut() {
+            match port.as_mut_slice() {
+                [] => {}
+                [mono] => {
+                    for (m, (l, r)) in mono.iter_mut().zip(io.left.iter().zip(io.right.iter())) {
+                        *m = (l + r) * 0.5;
                     }
                 }
-            }
-            if let Some(port) = self.key_port.and_then(|p| self.inputs.channels.get_mut(p)) {
-                self.keyed = crate::put_key(port.as_mut_slice(), io.sidechain, self.keyed, n);
-            }
-
-            self.events.clear();
-            for (index, value) in self.pending.drain(..) {
-                let Some(&(param_id, cookie)) = self.shared.param_ids.get(index as usize) else {
-                    continue;
-                };
-                self.events.push(ClapEvent {
-                    param: clap_event_param_value {
-                        header: header::<clap_event_param_value>(0, CLAP_EVENT_PARAM_VALUE),
-                        param_id,
-                        cookie,
-                        note_id: -1,
-                        port_index: -1,
-                        channel: -1,
-                        key: -1,
-                        value: value as f64,
-                    },
-                });
-            }
-            let (events, clap_notes) = (&mut self.events, self.clap_notes);
-            let (midi, midi2) = (self.midi, self.midi2);
-            self.held.expand(io.events.as_slice(), |frame, kind| {
-                let mut push = |event: ClapEvent| {
-                    if events.len() < events.capacity() {
-                        events.push(event);
-                    }
-                };
-                match kind {
-                    EventKind::NoteOn { key, ch, .. } | EventKind::NoteOff { key, ch }
-                        if clap_notes =>
-                    {
-                        let (type_, velocity) = match kind {
-                            EventKind::NoteOn { vel, .. } => (CLAP_EVENT_NOTE_ON, vel as f64),
-                            _ => (CLAP_EVENT_NOTE_OFF, 0.0),
-                        };
-                        push(ClapEvent {
-                            note: clap_event_note {
-                                header: header::<clap_event_note>(frame, type_),
-                                note_id: -1,
-                                port_index: 0,
-                                channel: ch as i16,
-                                key: key as i16,
-                                velocity,
-                            },
-                        });
-                    }
-                    // A note's own controllers are what CLAP calls note expressions.
-                    EventKind::NoteControl {
-                        key,
-                        ctl,
-                        value,
-                        ch,
-                    } if clap_notes && expression(ctl, value).is_some() => {
-                        let (expression_id, value) = expression(ctl, value).unwrap();
-                        push(ClapEvent {
-                            expression: clap_event_note_expression {
-                                header: header::<clap_event_note_expression>(
-                                    frame,
-                                    CLAP_EVENT_NOTE_EXPRESSION,
-                                ),
-                                expression_id,
-                                note_id: -1,
-                                port_index: 0,
-                                channel: ch as i16,
-                                key: key as i16,
-                                value,
-                            },
-                        });
-                    }
-                    // Everything else is MIDI: as 2.0, whole, to a plugin
-                    // that takes it, and as 1.0 otherwise.
-                    _ if midi2 => {
-                        if let Some(data) = ump::encode(0, kind) {
-                            push(ClapEvent {
-                                midi2: clap_event_midi2 {
-                                    header: header::<clap_event_midi2>(frame, CLAP_EVENT_MIDI2),
-                                    port_index: 0,
-                                    data: [data[0], data[1], 0, 0],
-                                },
-                            });
-                        }
-                    }
-                    _ if midi => ump::midi1(kind, |data, _| {
-                        push(ClapEvent {
-                            midi: clap_event_midi {
-                                header: header::<clap_event_midi>(frame, CLAP_EVENT_MIDI),
-                                port_index: 0,
-                                data,
-                            },
-                        })
-                    }),
-                    _ => {}
+                [left, right, ..] => {
+                    left[..n].copy_from_slice(io.left);
+                    right[..n].copy_from_slice(io.right);
                 }
+            }
+        }
+        if let Some(port) = self.key_port.and_then(|p| self.inputs.channels.get_mut(p)) {
+            self.keyed = crate::put_key(port.as_mut_slice(), io.sidechain, self.keyed, n);
+        }
+
+        let events = &mut self.events.0;
+        events.clear();
+        for (index, value) in self.pending.drain(..) {
+            let Some(&(param_id, cookie)) = self.shared.param_ids.get(index as usize) else {
+                continue;
+            };
+            events.push(ClapEvent {
+                param: clap_event_param_value {
+                    header: header::<clap_event_param_value>(0, CLAP_EVENT_PARAM_VALUE),
+                    param_id,
+                    cookie,
+                    note_id: -1,
+                    port_index: -1,
+                    channel: -1,
+                    key: -1,
+                    value: value as f64,
+                },
             });
-
-            let beats = |b: f64| (b * CLAP_BEATTIME_FACTOR as f64) as i64;
-            let mut transport: clap_event_transport = std::mem::zeroed();
-            transport.header = header::<clap_event_transport>(0, CLAP_EVENT_TRANSPORT);
-            transport.flags = CLAP_TRANSPORT_HAS_TEMPO
-                | CLAP_TRANSPORT_HAS_BEATS_TIMELINE
-                | CLAP_TRANSPORT_HAS_SECONDS_TIMELINE
-                | CLAP_TRANSPORT_HAS_TIME_SIGNATURE
-                | if ctx.playing {
-                    CLAP_TRANSPORT_IS_PLAYING
-                } else {
-                    0
-                };
-            transport.song_pos_beats = beats(ctx.position);
-            transport.song_pos_seconds = (ctx.seconds * CLAP_SECTIME_FACTOR as f64) as i64;
-            transport.tempo = ctx.tempo;
-            transport.bar_start = beats(ctx.bar_start);
-            transport.bar_number = ctx.bar as i32;
-            transport.tsig_num = ctx.sig_num as u16;
-            transport.tsig_denom = ctx.sig_den as u16;
-
-            let in_events = clap_input_events {
-                ctx: &mut self.events as *mut Vec<ClapEvent> as *mut c_void,
-                size: Some(events_size),
-                get: Some(events_get),
-            };
-            // Set before `out_events` takes its pointer to `self.out`, which
-            // nothing else touches until `process` returns.
-            let loads = self.shared.flags.loads.load(Ordering::Acquire);
-            self.out.taking = loads != self.loads;
-            self.loads = loads;
-            let out_events = clap_output_events {
-                ctx: &mut self.out as *mut Out as *mut c_void,
-                try_push: Some(events_push),
-            };
-            let process = clap_process {
-                steady_time: self.steady_time,
-                frames_count: n as u32,
-                transport: &transport,
-                audio_inputs: self.inputs.ports.as_ptr(),
-                audio_outputs: self.outputs.ports.as_mut_ptr(),
-                audio_inputs_count: self.inputs.ports.len() as u32,
-                audio_outputs_count: self.outputs.ports.len() as u32,
-                in_events: &in_events,
-                out_events: &out_events,
-            };
-            self.steady_time += n as i64;
-            let Some(run) = (*plugin).process else { return };
-            let status = run(plugin, &process);
-            // Counted once the block is done: a state taken on in it, and
-            // the plugin's words of it, are there before the count is.
-            self.shared.flags.blocks.fetch_add(1, Ordering::Release);
-            if status == CLAP_PROCESS_ERROR {
-                return;
-            }
-            // Whether the plugin may sleep through silence from here on:
-            // it says so, or says it may once its output is quiet, or once
-            // its tail has gone by.
-            let out_quiet = || self.outputs.channels.iter().flatten().all(|c| silent(&c[..n]));
-            match status {
-                CLAP_PROCESS_SLEEP => self.rest.end(true),
-                CLAP_PROCESS_CONTINUE_IF_NOT_QUIET => self.rest.end(out_quiet()),
-                CLAP_PROCESS_TAIL => {
-                    let tail = self.shared.tail;
-                    let frames = tail
-                        .as_ref()
-                        .and_then(|t| t.get)
-                        .map(|get| get(plugin))
-                        .filter(|frames| *frames != u32::MAX);
-                    self.rest.end_after_tail(frames.map(u64::from), out_quiet());
+        }
+        let (clap_notes, midi, midi2) = (self.clap_notes, self.midi, self.midi2);
+        self.held.expand(io.events.as_slice(), |frame, kind| {
+            let mut push = |event: ClapEvent| {
+                if events.len() < events.capacity() {
+                    events.push(event);
                 }
-                _ => self.rest.end(false),
+            };
+            match kind {
+                EventKind::NoteOn { key, ch, .. } | EventKind::NoteOff { key, ch }
+                    if clap_notes =>
+                {
+                    let (type_, velocity) = match kind {
+                        EventKind::NoteOn { vel, .. } => (CLAP_EVENT_NOTE_ON, vel as f64),
+                        _ => (CLAP_EVENT_NOTE_OFF, 0.0),
+                    };
+                    push(ClapEvent {
+                        note: clap_event_note {
+                            header: header::<clap_event_note>(frame, type_),
+                            note_id: -1,
+                            port_index: 0,
+                            channel: ch as i16,
+                            key: key as i16,
+                            velocity,
+                        },
+                    });
+                }
+                // A note's own controllers are what CLAP calls note expressions.
+                EventKind::NoteControl {
+                    key,
+                    ctl,
+                    value,
+                    ch,
+                } if clap_notes && expression(ctl, value).is_some() => {
+                    let (expression_id, value) = expression(ctl, value).unwrap();
+                    push(ClapEvent {
+                        expression: clap_event_note_expression {
+                            header: header::<clap_event_note_expression>(
+                                frame,
+                                CLAP_EVENT_NOTE_EXPRESSION,
+                            ),
+                            expression_id,
+                            note_id: -1,
+                            port_index: 0,
+                            channel: ch as i16,
+                            key: key as i16,
+                            value,
+                        },
+                    });
+                }
+                // Everything else is MIDI: as 2.0, whole, to a plugin
+                // that takes it, and as 1.0 otherwise.
+                _ if midi2 => {
+                    if let Some(data) = ump::encode(0, kind) {
+                        push(ClapEvent {
+                            midi2: clap_event_midi2 {
+                                header: header::<clap_event_midi2>(frame, CLAP_EVENT_MIDI2),
+                                port_index: 0,
+                                data: [data[0], data[1], 0, 0],
+                            },
+                        });
+                    }
+                }
+                _ if midi => ump::midi1(kind, |data, _| {
+                    push(ClapEvent {
+                        midi: clap_event_midi {
+                            header: header::<clap_event_midi>(frame, CLAP_EVENT_MIDI),
+                            port_index: 0,
+                            data,
+                        },
+                    })
+                }),
+                _ => {}
             }
+        });
+
+        let loads = self.shared.flags.loads.load(Ordering::Acquire);
+        self.out.taking = loads != self.loads;
+        self.loads = loads;
+        // Built with the block's length, not with Clack's safe builders: they
+        // give a plugin with no audio ports a block of 0 frames.
+        // SAFETY: Each port's channel pointers lead to `max_block` frames of the device's own
+        // vectors, which live and stay in place as long as the device, and `n <= max_block`.
+        let (inputs, mut outputs) = unsafe {
+            (
+                InputAudioBuffers::from_raw_buffers(&self.inputs.ports, n as u32),
+                OutputAudioBuffers::from_raw_buffers(&mut self.outputs.ports, n as u32),
+            )
+        };
+        let steady_time = self.steady_time;
+        self.steady_time += n as u64;
+        let status = processor.process(
+            &inputs,
+            &mut outputs,
+            &InputEvents::from_buffer(&self.events),
+            &mut OutputEvents::from_buffer(&mut self.out),
+            Some(steady_time),
+            Some(&transport(ctx)),
+        );
+        if let Err(PluginInstanceError::NullProcessFunction) = status {
+            return;
+        }
+        // Counted once the block is done: a state taken on in it, and
+        // the plugin's words of it, are there before the count is.
+        self.shared.flags.blocks.fetch_add(1, Ordering::Release);
+        // The plugin failed the block (`CLAP_PROCESS_ERROR`).
+        let Ok(status) = status else {
+            return;
+        };
+        // Whether the plugin may sleep through silence from here on:
+        // it says so, or says it may once its output is quiet, or once
+        // its tail has gone by.
+        let out_quiet = || self.outputs.channels.iter().flatten().all(|c| silent(&c[..n]));
+        match status {
+            ProcessStatus::Sleep => self.rest.end(true),
+            ProcessStatus::ContinueIfNotQuiet => self.rest.end(out_quiet()),
+            ProcessStatus::Tail => {
+                let tail = self.shared.tail.map(|tail| tail.get(&processor.plugin_handle()));
+                let frames = match tail {
+                    Some(TailLength::Finite(frames)) => Some(u64::from(frames)),
+                    _ => None,
+                };
+                self.rest.end_after_tail(frames, out_quiet());
+            }
+            ProcessStatus::Continue => self.rest.end(false),
         }
 
         if let Some(port) = self.outputs.channels.first() {
@@ -1034,23 +1008,19 @@ impl Drop for ClapDevice {
     }
 }
 
-unsafe extern "C" fn events_size(list: *const clap_input_events) -> u32 {
-    // SAFETY: `list.ctx` is the `Vec<ClapEvent>` that `process` put there, alive until `process`
-    // returns; the plugin calls this inside `process` only.
-    unsafe { (*((*list).ctx as *const Vec<ClapEvent>)).len() as u32 }
-}
+/// The events of one block, as the plugin reads them.
+struct ClapEvents(Vec<ClapEvent>);
 
-unsafe extern "C" fn events_get(
-    list: *const clap_input_events,
-    index: u32,
-) -> *const clap_event_header {
-    // SAFETY: `list.ctx` is the `Vec<ClapEvent>` that `process` put there; the pointer returned points
-    // into it and stays valid for the block.
-    unsafe {
-        let events = &*((*list).ctx as *const Vec<ClapEvent>);
-        events
-            .get(index as usize)
-            .map_or(ptr::null(), |event| &event.header)
+impl InputEventBuffer for ClapEvents {
+    fn len(&self) -> u32 {
+        self.0.len() as u32
+    }
+
+    fn get(&self, index: u32) -> Option<&UnknownEvent> {
+        let event = self.0.get(index as usize)?;
+        // SAFETY: Each event was built whole by `process`, with a header that names its own type
+        // and size, and the union holds at least that size; the event lives as long as `self`.
+        Some(unsafe { UnknownEvent::from_raw(ptr::from_ref(event).cast()) })
     }
 }
 
@@ -1069,39 +1039,59 @@ struct Out {
 
 /// The plugin's output events. Only parameter changes and gestures are
 /// kept: they are how a plugin tells the host what was done in its editor.
-unsafe extern "C" fn events_push(
-    list: *const clap_output_events,
-    event: *const clap_event_header,
-) -> bool {
-    // SAFETY: `event` is a valid CLAP event (the plugin owns it for the call) of the size its header
-    // says, and the cast matches `type_`; `list.ctx` is the `Out` that `process` put there, used
-    // only inside `process`, on the audio thread.
-    unsafe {
-        if (*event).space_id != CLAP_CORE_EVENT_SPACE_ID {
-            return true;
-        }
-        let out = &mut *((*list).ctx as *mut Out);
-        match (*event).type_ {
-            CLAP_EVENT_PARAM_VALUE => {
-                let event = &*(event as *const clap_event_param_value);
-                let gesture = out.gestures.contains(&event.param_id);
-                let _ = out.changed.push((event.param_id, event.value, gesture, out.taking));
-            }
-            CLAP_EVENT_PARAM_GESTURE_BEGIN => {
-                let event = &*(event as *const clap_event_param_gesture);
-                // Room is kept for many at once: no allocation here.
-                if out.gestures.len() < out.gestures.capacity() {
-                    out.gestures.push(event.param_id);
+impl OutputEventBuffer for Out {
+    fn try_push(&mut self, event: &UnknownEvent) -> Result<(), TryPushError> {
+        match event.as_core_event() {
+            Some(CoreEventSpace::ParamValue(event)) => {
+                if let Some(id) = event.param_id().map(ClapId::get) {
+                    let gesture = self.gestures.contains(&id);
+                    let _ = self.changed.push((id, event.value(), gesture, self.taking));
                 }
             }
-            CLAP_EVENT_PARAM_GESTURE_END => {
-                let event = &*(event as *const clap_event_param_gesture);
-                out.gestures.retain(|id| *id != event.param_id);
+            Some(CoreEventSpace::ParamGestureBegin(event)) => {
+                // Room is kept for many at once: no allocation here.
+                if let Some(id) = event.param_id().map(ClapId::get)
+                    && self.gestures.len() < self.gestures.capacity()
+                {
+                    self.gestures.push(id);
+                }
+            }
+            Some(CoreEventSpace::ParamGestureEnd(event)) => {
+                if let Some(id) = event.param_id().map(ClapId::get) {
+                    self.gestures.retain(|known| *known != id);
+                }
             }
             _ => {}
         }
+        Ok(())
     }
-    true
+}
+
+/// The transport as of the block's first frame.
+fn transport(ctx: &ProcessCtx) -> TransportEvent {
+    // Cut toward zero into CLAP's fixed point, not rounded.
+    let fixed = |value: f64| FixedPoint::from_bits((value * FixedPoint::FACTOR as f64) as i64);
+    let mut flags = TransportFlags::HAS_TEMPO
+        | TransportFlags::HAS_BEATS_TIMELINE
+        | TransportFlags::HAS_SECONDS_TIMELINE
+        | TransportFlags::HAS_TIME_SIGNATURE;
+    flags.set(TransportFlags::IS_PLAYING, ctx.playing);
+    TransportEvent {
+        header: EventHeader::new_core(0, EventFlags::empty()),
+        flags,
+        song_pos_beats: fixed(ctx.position),
+        song_pos_seconds: fixed(ctx.seconds),
+        tempo: ctx.tempo,
+        tempo_inc: 0.0,
+        loop_start_beats: FixedPoint::default(),
+        loop_end_beats: FixedPoint::default(),
+        loop_start_seconds: FixedPoint::default(),
+        loop_end_seconds: FixedPoint::default(),
+        bar_start: fixed(ctx.bar_start),
+        bar_number: ctx.bar as i32,
+        time_signature_numerator: ctx.sig_num as u16,
+        time_signature_denominator: ctx.sig_den as u16,
+    }
 }
 
 struct ClapController {
