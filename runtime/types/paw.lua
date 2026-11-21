@@ -5213,7 +5213,9 @@ function paw.markers.set(id, fields) end
 function paw.media.clear_edits(clip) end
 
 --- Copy every file from outside the project's folder into `media` beside
---- it and point the clips at the copies. One undo step. Returns `{ copied, missing, dir }`.
+--- it and point the clips at the copies. A file with the same bytes as one
+--- the folder has already is not copied again. One undo step. Returns
+--- `{ copied, same, missing, dir }`.
 function paw.media.collect() end
 
 --- An audio clip's edit list: `{ { kind, ... } }`.
@@ -5235,7 +5237,9 @@ function paw.media.gain_part(clip, from, to, db) end
 ---@param clips any
 function paw.media.glue(clips) end
 
---- Every file the project plays: `{ path, missing, inside }`.
+--- Every file the project plays: `{ path, missing, inside, on_disk, hash,
+--- size }`. `hash` (`b3:` and 64 hexadecimal digits, the BLAKE3 hash of the
+--- file's bytes) and `size` are nil until paw has read the file.
 function paw.media.list() end
 
 --- Files the project's clips play that are not there, once each.
@@ -5258,10 +5262,12 @@ function paw.media.pencil(clip, at, values, channel) end
 
 --- Make the clips that play `from` play the file `to`, and find the other
 --- files that paw cannot find in the folder of `to`. One undo step. Returns
---- `{ clips, found, missing }`.
+--- `{ clips, found, missing }`. A file with other sound than `from` had is
+--- refused, unless `anyway`.
 ---@param from any
 ---@param to any
-function paw.media.relink(from, to) end
+---@param anyway any
+function paw.media.relink(from, to, anyway) end
 
 --- Select a file for a file that paw cannot find, or a directory where paw finds all of them.
 function paw.media.relink_pick() end
@@ -8843,9 +8849,11 @@ function paw.api.media_missing() end
 ---@param n integer
 function paw.api.media_peaks(file, offset, seconds, n) end
 
+--- A file with other bytes than `from` had is refused, unless `anyway`.
 ---@param from string
 ---@param to string
-function paw.api.media_relink(from, to) end
+---@param anyway boolean?
+function paw.api.media_relink(from, to, anyway) end
 
 ---@param dir string
 function paw.api.media_search(dir) end

@@ -15,6 +15,7 @@
 //! │   ├── clips/<name>.midi2  a MIDI 2.0 clip file (crate::clipfile)
 //! │   └── clips/<name>.<kind>.json, .signals.json, .sound.midi2
 //! │                           the parts of a custom clip (`Writer::custom_clip`)
+//! ├── media.json              what each file the clips use is: hash, size, header
 //! ├── media/                  sound files, and `derived/` for those a kind makes
 //! └── unused/                 files the project does not use any more
 //! ```
@@ -35,6 +36,7 @@ use base64::Engine as _;
 use serde_json::{Map, Value, json};
 
 use super::BASE64;
+use super::media::MEDIA_FILE;
 use crate::clipfile;
 use crate::model::{Clip, ClipContent, KindData, Notes, Project, Target, Track};
 
@@ -45,7 +47,7 @@ const VERSION: u32 = 2;
 /// The folders and the files at the top of a project that paw writes, and
 /// so may move to `unused/` when the project does not need them.
 const MANAGED_DIRS: [&str; 2] = ["tracks", "master"];
-const MANAGED_FILES: [&str; 2] = ["meta.json", "screen.json"];
+const MANAGED_FILES: [&str; 3] = ["meta.json", "screen.json", MEDIA_FILE];
 const GITATTRIBUTES: &str = "*.midi2 diff=paw-midi2\n";
 
 /// Whether a path names a project kept as a folder: a folder, its
@@ -1275,8 +1277,18 @@ impl super::Session {
         self.capture_states();
         let project = self.file_project(&file);
         let transport = serde_json::to_value(&self.transport)?;
-        let layout = layout(&project, &transport, self.screen.as_ref(), &dir)?;
+        let mut layout = layout(&project, &transport, self.screen.as_ref(), &dir)?;
+        self.add_media_file(&mut layout, &dir);
         Ok(Some((dir, layout)))
+    }
+
+    /// Put `media.json` into the files of the folder `dir`, when the project
+    /// uses any file.
+    fn add_media_file(&mut self, layout: &mut Layout, dir: &Path) {
+        let media = self.media_for_folder(dir);
+        if !media.is_empty() {
+            layout.files.insert(MEDIA_FILE.into(), media.to_json());
+        }
     }
 
     /// The files of a project kept in a folder, each with what it holds and
@@ -1315,6 +1327,7 @@ impl super::Session {
                 }
                 _ => match rel.file_name().and_then(|n| n.to_str()) {
                     Some("screen.json") => "screen",
+                    Some(MEDIA_FILE) => "media",
                     _ => "meta",
                 },
             };
@@ -1577,7 +1590,8 @@ impl super::Session {
             project.name = name.clone();
         }
         let transport = serde_json::to_value(&self.transport)?;
-        let layout = layout(&project, &transport, self.screen.as_ref(), &dir)?;
+        let mut layout = layout(&project, &transport, self.screen.as_ref(), &dir)?;
+        self.add_media_file(&mut layout, &dir);
         let done = commit(&dir, &layout, only)?;
         // Its own writes are not changes made outside paw.
         for rel in &done.written {

@@ -67,25 +67,50 @@ local function name_of(path: string): string return tostring(path):match("([^/]+
 --- Files the project's clips play that are not there, once each.
 function M.missing(): {string} return api.media_missing() end
 
---- Every file the project plays: `{ path, missing, inside }`.
+--- Every file the project plays: `{ path, missing, inside, on_disk, hash,
+--- size }`. `hash` (`b3:` and 64 hexadecimal digits, the BLAKE3 hash of the
+--- file's bytes) and `size` are nil until paw has read the file.
 function M.list(): {types.MediaFile} return api.media_list() end
 
 --- Make the clips that play `from` play the file `to`, and find the other
 --- files that paw cannot find in the folder of `to`. One undo step. Returns
---- `{ clips, found, missing }`.
-function M.relink(from: string, to: string): types.MediaFound return api.media_relink(from, to) end
+--- `{ clips, found, missing }`. A file with other sound than `from` had is
+--- refused, unless `anyway`.
+function M.relink(from: string, to: string, anyway?: boolean): types.MediaFound
+  return api.media_relink(from, to, anyway)
+end
 
 --- Find in a directory tree each file that paw cannot find. One undo step.
 --- Returns `{ found, missing }`.
 function M.search(dir: string): types.MediaFound return api.media_search(dir) end
 
 --- Copy every file from outside the project's folder into `media` beside
---- it and point the clips at the copies. One undo step. Returns `{ copied, missing, dir }`.
+--- it and point the clips at the copies. A file with the same bytes as one
+--- the folder has already is not copied again. One undo step. Returns
+--- `{ copied, same, missing, dir }`.
 function M.collect(): types.MediaCollected return api.media_collect() end
 
 local function still(result: types.MediaFound): string
   local n = #(result.missing or {})
   return n == 0 and "nothing is missing now" or string.format("%d still missing", n)
+end
+
+--- Relink `from` to `to`, then `done` with the result. When `to` holds
+--- other sound than `from` had, ask first.
+local function relink_asking(from: string, to: string, done: function(result: types.MediaFound))
+  local ok, result = pcall(api.media_relink, from, to)
+  if ok then return done(result as types.MediaFound) end
+  local message = tostring(result)
+  if not message:find("other sound", 1, true) then return paw.notify(message, "error") end
+  local use = "Use it: its clips play the other sound"
+  paw.pick.open({
+    title = message,
+    items = { use, "Cancel" },
+    format = function(item: string): string return item end,
+    on_choose = function(item: string)
+      if item == use then done(api.media_relink(from, to, true)) end
+    end,
+  })
 end
 
 --- An entry of the list of `M.relink_pick`.
@@ -120,11 +145,10 @@ function M.relink_pick()
         title = "Find " .. name_of(item.path),
         extensions = ext and { ext } or nil,
         on_choose = function(path: string)
-          local ok, result = pcall(api.media_relink, item.path, path)
-          if not ok then return paw.notify(tostring(result), "error") end
-          local found = result as types.MediaFound
-          paw.notify(string.format("%s: %d clip%s relinked, %d other file%s found; %s", name_of(path),
-            found.clips, found.clips == 1 and "" or "s", found.found, found.found == 1 and "" or "s", still(found)))
+          relink_asking(item.path, path, function(found: types.MediaFound)
+            paw.notify(string.format("%s: %d clip%s relinked, %d other file%s found; %s", name_of(path),
+              found.clips, found.clips == 1 and "" or "s", found.found, found.found == 1 and "" or "s", still(found)))
+          end)
         end,
       })
     end,
@@ -134,8 +158,10 @@ end
 commands.define("media.relink", function(ctx: Context): Result
   local a, b = ctx.args[1], ctx.args[2]
   if a and b then
-    local result = api.media_relink(tostring(a), tostring(b))
-    return paw.notify(string.format("%d clip%s relinked; %s", result.clips, result.clips == 1 and "" or "s", still(result)))
+    relink_asking(tostring(a), tostring(b), function(result: types.MediaFound)
+      paw.notify(string.format("%d clip%s relinked; %s", result.clips, result.clips == 1 and "" or "s", still(result)))
+    end)
+    return
   elseif a then
     local result = api.media_search(tostring(a))
     return paw.notify(string.format("found %d file%s; %s", result.found, result.found == 1 and "" or "s", still(result)))

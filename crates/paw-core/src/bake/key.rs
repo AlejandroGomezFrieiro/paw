@@ -1,7 +1,7 @@
 //! What a bake is known by: its job as canonical JSON, hashed.
 //!
 //! ```text
-//! input_key = H( "paw.bake/1\n" ‖ canonical_json(job) )
+//! input_key = H( "paw.bake/2\n" ‖ canonical_json(job) )
 //! entry     = hex( H( input_key ‖ tool )[0..16] )
 //! ```
 //!
@@ -12,15 +12,14 @@
 //! `H` is [`Hasher`], BLAKE3 (`media::hash`), the hash that names sources.
 
 use std::fmt;
-use std::path::Path;
 
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::media::hash;
+use crate::media::{SourceHash, hash};
 
 /// The format of a key: a change of the canonical form is a new prefix.
-const PREFIX: &[u8] = b"paw.bake/1\n";
+const PREFIX: &[u8] = b"paw.bake/2\n";
 
 /// The hash of keys and sources. The one place that names the algorithm.
 pub struct Hasher(hash::Incremental);
@@ -37,11 +36,6 @@ impl Hasher {
     pub fn finish(self) -> Digest {
         Digest(*self.0.finish().as_bytes())
     }
-
-    /// The hash of a file's bytes (a big file on all cores).
-    pub fn file(path: &Path) -> std::io::Result<Digest> {
-        Ok(Digest(*hash::file(path)?.as_bytes()))
-    }
 }
 
 impl Default for Hasher {
@@ -50,7 +44,8 @@ impl Default for Hasher {
     }
 }
 
-/// 32 bytes of [`Hasher`]: a source's identity, or a job's input key.
+/// 32 bytes of [`Hasher`]: a job's input key. (A source is named by
+/// [`SourceHash`], the same hash of its bytes.)
 /// Written as 64 hex digits.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Digest(pub [u8; 32]);
@@ -99,10 +94,10 @@ pub struct Output {
 #[serde(untagged)]
 pub enum Input {
     /// A whole source file, by the hash of its bytes.
-    File { source: Digest },
+    File { source: SourceHash },
     /// A range of frames of one stream of a source.
     Range {
-        hash: Digest,
+        hash: SourceHash,
         stream: u16,
         from: u64,
         to: u64,
@@ -181,7 +176,7 @@ mod tests {
             version: 3,
             params: serde_json::json!({ "warp": [[0, 0], [20, 30.5]], "mode": "tonal", "formants": false }),
             inputs: vec![Input::Range {
-                hash: Digest([7; 32]),
+                hash: SourceHash::from_bytes([7; 32]),
                 stream: 0,
                 from: 0,
                 to: 960_000,
@@ -200,7 +195,7 @@ mod tests {
         let job = job();
         assert_eq!(
             String::from_utf8(job.canonical()).unwrap(),
-            r#"{"inputs":[{"from":0,"hash":"0707070707070707070707070707070707070707070707070707070707070707","reverse":true,"stream":0,"to":960000}],"op":"stretch","output":{"rate":48000,"stream":"sound"},"params":{"formants":false,"mode":"tonal","warp":[[0,0],[20,30.5]]},"version":3}"#
+            r#"{"inputs":[{"from":0,"hash":"b3:0707070707070707070707070707070707070707070707070707070707070707","reverse":true,"stream":0,"to":960000}],"op":"stretch","output":{"rate":48000,"stream":"sound"},"params":{"formants":false,"mode":"tonal","warp":[[0,0],[20,30.5]]},"version":3}"#
         );
         // Golden: a change here is a change of every key, so of the format
         // (a new PREFIX) or of the hash (a new Hasher). Checked with b3sum.
@@ -209,6 +204,6 @@ mod tests {
         assert_eq!(key.id(), GOLDEN_ENTRY);
     }
 
-    const GOLDEN_INPUT: &str = "29b50a8a744563c9d47c5a63e0abe1c2df24918aff9de716792a82c550f742c4";
-    const GOLDEN_ENTRY: &str = "421b5e8615317cc596377ea66e276c56";
+    const GOLDEN_INPUT: &str = "5b857ed715d64e01e00bd80b88e59ddfadeb410d0461c27a7fe100e137503a52";
+    const GOLDEN_ENTRY: &str = "70ec6181f1e0a4052bd6c956e456c702";
 }

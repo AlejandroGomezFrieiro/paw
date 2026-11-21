@@ -10,7 +10,8 @@ use std::path::{Path, PathBuf};
 
 use paw_engine::AudioData;
 
-use crate::bake::{BakeJob, Digest, EntryKey, Input, Output, Stream};
+use crate::bake::{BakeJob, EntryKey, Input, Output, Stream};
+use crate::media::SourceHash;
 
 /// Frames covered by each entry of a [`Summary`].
 const BLOCK: usize = 256;
@@ -94,7 +95,7 @@ pub const FILE: &str = "peaks.bin";
 
 /// The bake of the overview of the file whose bytes hash to `source`, and
 /// its key.
-pub fn bake(source: Digest) -> (BakeJob, EntryKey) {
+pub fn bake(source: SourceHash) -> (BakeJob, EntryKey) {
     let job = BakeJob {
         op: "peaks".into(),
         version: 1,
@@ -226,14 +227,14 @@ mod tests {
         write(&wav, 0.5);
         let store = Store::new(dir.path().join("bakes"), crate::bake::store::DEFAULT_LIMIT);
         let entries = || store.tidy(&Default::default()).kept;
-        let first = AudioCache::with_bakes(store.clone()).peaks(&wav, 0.0, 4.0, 100).unwrap();
+        let source = SourceHash::of_file(&wav).unwrap();
+        let first = AudioCache::with_bakes(store.clone()).peaks(&wav, Some(source), 0.0, 4.0, 100).unwrap();
         assert!((first[50][1] - 0.5).abs() < 0.01, "{:?}", first[50]);
         let one = entries();
         assert!(one > 0, "one overview is kept");
 
         // The entry holds what is drawn: put another overview in it, then
         // move the file. Drawn zoomed out, the moved file shows the entry.
-        let source = crate::bake::Hasher::file(&wav).unwrap();
         let entry = store.open(&bake(source).1).unwrap();
         let quiet = dir.path().join("quiet.wav");
         write(&quiet, 0.25);
@@ -242,7 +243,7 @@ mod tests {
         let moved = dir.path().join("moved").join("tone.wav");
         std::fs::create_dir_all(moved.parent().unwrap()).unwrap();
         std::fs::rename(&wav, &moved).unwrap();
-        let again = AudioCache::with_bakes(store.clone()).peaks(&moved, 0.0, 4.0, 100).unwrap();
+        let again = AudioCache::with_bakes(store.clone()).peaks(&moved, Some(source), 0.0, 4.0, 100).unwrap();
         assert!((again[50][1] - 0.25).abs() < 0.01, "drawn from the entry: {:?}", again[50]);
         assert_eq!(entries(), one, "no second entry");
     }
