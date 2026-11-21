@@ -3824,11 +3824,11 @@ function paw.help.owned(index, topic, exact) end
 ---@param topic any
 function paw.help.owners(topic) end
 
---- Make the index of help at idle, in slices. What has not changed since
---- the last build is not made again.
+--- Make the index of help at idle, in slices. A page that did not change
+--- since the last build is not made again.
 function paw.help.prepare() end
 
---- Whether the index of help is being made at idle.
+--- True while paw makes the index of help at idle.
 function paw.help.preparing() end
 
 --- The directories that can be a copy of the source tree, with the manual
