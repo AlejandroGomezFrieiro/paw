@@ -194,9 +194,9 @@ Found with grep at a72467cf. Each refactor part that owns the file fixes it.
 - **WAV writers:** `paw-engine/src/record.rs` (a take, header kept valid
   as it grows: `hound`'s `WavWriter::flush` does this),
   and `paw-listen/src/lib.rs`. (The sampler's `audio.rs` is on `hound` now.)
-- **FFT:** three radix-2 transforms by hand: `paw-core/src/measure/analysis.rs`,
-  `paw-mcp/src/audio.rs`, `paw-engine/src/devices/dsp.rs`. Use `realfft`.
-  The one in `dsp.rs` stays only if a device calls it on the audio thread.
+- **FFT:** `paw-mcp/src/audio.rs` and `paw-engine/src/devices/dsp.rs` (`rfft`,
+  main thread only: no device calls an FFT in `process`) use `realfft` now.
+  `paw-core/src/measure/analysis.rs` still has a radix-2 transform by hand.
 - **Loudness:** `paw-core/src/measure/analysis.rs` has its own BS.1770
   K-weighting, gates, loudness range and true peak. Compare it with
   `ebur128` on the tests in `measure/tests.rs`, and change to the crate if

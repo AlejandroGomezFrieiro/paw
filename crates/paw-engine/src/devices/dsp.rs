@@ -1,6 +1,6 @@
 //! Building blocks shared by the built-in effects: decibels, parameter
 //! smoothing, the state-variable filter, delay lines, oversampling, LFOs and
-//! a small FFT for the main-thread analyses.
+//! a real FFT (`realfft`) for the main-thread analyses.
 //!
 //! Everything that runs on the audio thread here works on preallocated
 //! memory: buffers are sized in `new`, which runs on the main thread.
@@ -706,44 +706,16 @@ impl<const N: usize> Readings<N> {
     }
 }
 
-/// An in-place radix-2 FFT of `re`/`im` (length a power of two).
-pub fn fft(re: &mut [f64], im: &mut [f64]) {
-    let n = re.len();
-    debug_assert!(n.is_power_of_two() && im.len() == n);
-    let mut j = 0;
-    for i in 1..n {
-        let mut bit = n >> 1;
-        while j & bit != 0 {
-            j ^= bit;
-            bit >>= 1;
-        }
-        j |= bit;
-        if i < j {
-            re.swap(i, j);
-            im.swap(i, j);
-        }
-    }
-    let mut len = 2;
-    while len <= n {
-        let ang = -2.0 * PI64 / len as f64;
-        let (wr, wi) = (ang.cos(), ang.sin());
-        for start in (0..n).step_by(len) {
-            let (mut cr, mut ci) = (1.0, 0.0);
-            for k in 0..len / 2 {
-                let (a, b) = (start + k, start + k + len / 2);
-                let tr = re[b] * cr - im[b] * ci;
-                let ti = re[b] * ci + im[b] * cr;
-                re[b] = re[a] - tr;
-                im[b] = im[a] - ti;
-                re[a] += tr;
-                im[a] += ti;
-                let next = cr * wr - ci * wi;
-                ci = cr * wi + ci * wr;
-                cr = next;
-            }
-        }
-        len <<= 1;
-    }
+/// The spectrum of the real signal `x`: `x.len() / 2 + 1` bins, unnormalized.
+///
+/// This plans and allocates, so it is for the main thread (analyses a
+/// script asks for), never for a device's `process`.
+pub fn rfft(x: &[f64]) -> Vec<realfft::num_complex::Complex<f64>> {
+    let plan = realfft::RealFftPlanner::<f64>::new().plan_fft_forward(x.len());
+    let mut input = x.to_vec();
+    let mut out = plan.make_output_vec();
+    plan.process(&mut input, &mut out).expect("lengths match the plan");
+    out
 }
 
 /// `n` frequencies spaced evenly on a log scale from `lo` to `hi` Hz.
@@ -842,16 +814,14 @@ mod tests {
     }
 
     #[test]
-    fn fft_finds_a_sine() {
+    fn rfft_finds_a_sine() {
         let n = 1024;
-        let mut re: Vec<f64> = (0..n)
+        let x: Vec<f64> = (0..n)
             .map(|i| (std::f64::consts::TAU * 37.0 * i as f64 / n as f64).cos())
             .collect();
-        let mut im = vec![0.0; n];
-        fft(&mut re, &mut im);
-        let mag: Vec<f64> = re.iter().zip(&im).map(|(r, i)| r.hypot(*i)).collect();
-        assert!((mag[37] - n as f64 / 2.0).abs() < 1e-6);
-        assert!(mag[36] < 1e-6);
+        let spectrum = rfft(&x);
+        assert!((spectrum[37].norm() - n as f64 / 2.0).abs() < 1e-6);
+        assert!(spectrum[36].norm() < 1e-6);
     }
 
     #[test]

@@ -323,20 +323,20 @@ fn spectrum(mono: &[f32], rate: f64) -> (Vec<f64>, f64) {
         .collect();
     let mut power = vec![0f64; FFT_SIZE / 2];
     let mut frames = 0;
-    let mut re = vec![0f64; FFT_SIZE];
-    let mut im = vec![0f64; FFT_SIZE];
+    let plan = realfft::RealFftPlanner::<f64>::new().plan_fft_forward(FFT_SIZE);
+    let mut frame = plan.make_input_vec();
+    let mut bins = plan.make_output_vec();
     // Hop by a whole frame; with at most 2000 frames spread over the file.
     let total = mono.len().saturating_sub(FFT_SIZE) / FFT_SIZE + 1;
     let step = total.div_ceil(2000).max(1);
     let mut start = 0;
     while start < mono.len() {
         for i in 0..FFT_SIZE {
-            re[i] = mono.get(start + i).copied().unwrap_or(0.0) as f64 * window[i];
-            im[i] = 0.0;
+            frame[i] = mono.get(start + i).copied().unwrap_or(0.0) as f64 * window[i];
         }
-        fft(&mut re, &mut im);
-        for (k, p) in power.iter_mut().enumerate() {
-            *p += re[k] * re[k] + im[k] * im[k];
+        plan.process(&mut frame, &mut bins).expect("lengths match the plan");
+        for (p, bin) in power.iter_mut().zip(&bins) {
+            *p += bin.norm_sqr();
         }
         frames += 1;
         start += FFT_SIZE * step;
@@ -366,45 +366,6 @@ fn spectrum(mono: &[f32], rate: f64) -> (Vec<f64>, f64) {
         0.0
     };
     (bands, centroid)
-}
-
-/// In-place radix-2 FFT; the length must be a power of two.
-fn fft(re: &mut [f64], im: &mut [f64]) {
-    let n = re.len();
-    let mut j = 0;
-    for i in 1..n {
-        let mut bit = n >> 1;
-        while j & bit != 0 {
-            j ^= bit;
-            bit >>= 1;
-        }
-        j |= bit;
-        if i < j {
-            re.swap(i, j);
-            im.swap(i, j);
-        }
-    }
-    let mut len = 2;
-    while len <= n {
-        let angle = -2.0 * std::f64::consts::PI / len as f64;
-        let (wr, wi) = (angle.cos(), angle.sin());
-        for start in (0..n).step_by(len) {
-            let (mut cr, mut ci) = (1.0, 0.0);
-            for k in 0..len / 2 {
-                let (a, b) = (start + k, start + k + len / 2);
-                let tr = re[b] * cr - im[b] * ci;
-                let ti = re[b] * ci + im[b] * cr;
-                re[b] = re[a] - tr;
-                im[b] = im[a] - ti;
-                re[a] += tr;
-                im[a] += ti;
-                let next = cr * wr - ci * wi;
-                ci = cr * wi + ci * wr;
-                cr = next;
-            }
-        }
-        len <<= 1;
-    }
 }
 
 #[cfg(test)]

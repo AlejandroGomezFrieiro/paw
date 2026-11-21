@@ -428,17 +428,16 @@ mod tests {
         let x = sine(9000.0, sr, n * 2, 0.8);
         let level = |out: &[f32], f: f64| {
             let tail = &out[n..];
-            let mut re: Vec<f64> = tail
+            let re: Vec<f64> = tail
                 .iter()
                 .enumerate()
                 .map(|(i, v)| {
                     *v as f64 * (0.5 - 0.5 * (std::f64::consts::TAU * i as f64 / n as f64).cos())
                 })
                 .collect();
-            let mut im = vec![0.0; n];
-            dsp::fft(&mut re, &mut im);
+            let spec = dsp::rfft(&re);
             let k = (f * n as f64 / sr as f64).round() as usize;
-            let e: f64 = (k - 2..=k + 2).map(|k| re[k] * re[k] + im[k] * im[k]).sum();
+            let e: f64 = (k - 2..=k + 2).map(|k| spec[k].norm_sqr()).sum();
             10.0 * e.max(1e-30).log10()
         };
         // Against the same curve without oversampling: 17.5 dB down.
