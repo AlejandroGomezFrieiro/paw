@@ -90,6 +90,10 @@ local function set_output(id: integer, output: integer)
   if output == nil then api.track_set(id, "output", nil) else api.track_set(id, { output = output }) end
 end
 
+-- `track_get(id, "id")`: one field, which fails when the track is gone,
+-- without the list of clips that the whole track has.
+local track_id_of = api.track_get as function(integer, string): integer
+
 --- True if a track is a group.
 function M.is_group(track: TrackRef): boolean
   return meta(id_of(track)).group_head == true
@@ -98,7 +102,7 @@ end
 --- The group a track belongs to (its id), or nil.
 function M.of(track: TrackRef): integer
   local group = meta(id_of(track)).group
-  if group and pcall(api.track_get, group) and M.is_group(group) then return group end
+  if group and pcall(track_id_of, group, "id") and M.is_group(group) then return group end
 end
 
 --- The tracks that belong to a group, in the order of the track list.

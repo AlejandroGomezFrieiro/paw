@@ -7,6 +7,9 @@ against REAPER, Ardour and LMMS, is in [DAWS.md](DAWS.md), with its
 harness in [daws/](daws).
 The speeds that the media design rests on (stretch, decode, hash,
 `stat`) are in [media.md](media.md), with its harness in [media/](media).
+[profile.md](profile.md) tells how to profile paw in a terminal, with
+its scripts in [profile/](profile). It measures the latency of each key,
+the processor time, the frames, the allocations and the memory.
 
 ## Run the benchmarks
 

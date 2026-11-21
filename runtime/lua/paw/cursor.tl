@@ -95,6 +95,11 @@ end
 --- (paw/views/devices.lua) sets it, for while its window has the keyboard.
 M.lens = nil
 
+-- `track_get(id, "id")`: one field, which fails when the track is gone,
+-- without the list of clips that the whole track has. `track_id` runs
+-- many times in each frame.
+local track_id_of = api.track_get as function(integer, string): integer
+
 --- The id of the track of the cursor, or of the first track when that track
 --- does not exist now. Nil when the project has no tracks. 0 when the
 --- cursor is on the master track (`on_master`).
@@ -102,7 +107,7 @@ function M.track_id(): integer
   local lens = M.lens and M.lens()
   if lens then return lens end
   if track_id == 0 then return 0 end
-  if track_id and pcall(api.track_get, track_id) then return track_id end
+  if track_id and pcall(track_id_of, track_id, "id") then return track_id end
   track_id = api.track_list()[1]
   return track_id
 end
