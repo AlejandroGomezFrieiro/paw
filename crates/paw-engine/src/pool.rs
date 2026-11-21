@@ -58,8 +58,16 @@ struct Inner {
     refused: AtomicU32,
 }
 
-// The job is only read under the protocol above.
+// SAFETY: everything but `job` is atomic. `job` is only read under the
+// protocol above: the caller (`Pool::run`, which takes `&mut Pool`, so there
+// is one) writes it before it publishes the job's state (Release), and a
+// worker reads it only after its compare-exchange on that state (AcqRel)
+// claimed an item, which the caller waits for before it writes the next job.
+// What `job.data` points to is shared by the threads, and `run` requires it
+// to be `Sync`.
 unsafe impl Sync for Inner {}
+// SAFETY: `job.data` is the only field that is not `Send`; it is a shared
+// borrow of a `Sync` closure (see above), so it may be used on any thread.
 unsafe impl Send for Inner {}
 
 fn pack(job: u32, count: usize, next: usize) -> u64 {
@@ -91,9 +99,13 @@ impl Inner {
                 }
             }
             let _done = Done(&self.done);
-            // The claim succeeded, so the job is the one this state belongs
-            // to, and it stays until this item is counted as done.
+            // SAFETY: the claim succeeded, so the job is the one this state
+            // belongs to: the caller wrote it before it published the state,
+            // and writes it again only after this item is counted as done.
             let job = unsafe { *self.job.get() };
+            // SAFETY: `job.call` is `call::<G>` and `job.data` a `&G` of the
+            // same `G`, set together by `erase`; the `G` lives until every
+            // claimed item is done, and this one is not until `_done` drops.
             unsafe { (job.call)(job.data, next as usize) };
         }
     }
@@ -174,7 +186,10 @@ impl Pool {
             return;
         }
         self.inner.busy.store(true, Ordering::Relaxed);
+        /// # Safety
+        /// `data` must point to an `F` that is alive for the call.
         unsafe fn call<F: Fn(usize)>(data: *const (), index: usize) {
+            // SAFETY: the caller's promise above.
             unsafe { (*(data as *const F))(index) }
         }
         let mut first = 0;
@@ -189,6 +204,10 @@ impl Pool {
                     call: call::<G>,
                 }
             }
+            // SAFETY: no item can be claimed now (the state of the last job
+            // was closed and its claimed items are done, or there was none),
+            // so no worker reads `job` while it is written. `piece` is
+            // `Sync`, as it borrows only `f` (`F: Sync`) and `first`.
             unsafe { *self.inner.job.get() = erase(&piece) };
             self.inner.done.store(0, Ordering::Relaxed);
             self.job = self.job.wrapping_add(1);
@@ -279,7 +298,10 @@ fn worker(inner: &Inner) {
 #[cfg(unix)]
 fn current_priority() -> (i32, i32) {
     let mut policy = 0;
+    // SAFETY: `sched_param` is a plain C struct of integers; all zeros is one.
     let mut param: libc::sched_param = unsafe { std::mem::zeroed() };
+    // SAFETY: the calling thread exists, and both out-pointers are to live
+    // locals of the right types.
     let result =
         unsafe { libc::pthread_getschedparam(libc::pthread_self(), &mut policy, &mut param) };
     if result == 0 {
@@ -303,9 +325,13 @@ fn match_priority(policy: i32, priority: i32) -> bool {
         // An ordinary caller: stay ordinary too.
         return true;
     }
+    // SAFETY: `sched_param` is a plain C struct of integers; all zeros is one.
     let mut param: libc::sched_param = unsafe { std::mem::zeroed() };
     param.sched_priority = priority;
-    unsafe { libc::pthread_setschedparam(libc::pthread_self(), policy, &param) == 0 }
+    // SAFETY: the calling thread exists, and `param` is a live local; a
+    // policy or priority the system does not take is an error, not UB.
+    let result = unsafe { libc::pthread_setschedparam(libc::pthread_self(), policy, &param) };
+    result == 0
 }
 
 #[cfg(not(unix))]
@@ -353,11 +379,13 @@ mod tests {
     #[test]
     fn workers_take_the_priority_of_the_thread_that_drives_them() {
         let outcome = std::thread::spawn(|| {
+            // SAFETY: `sched_param` is a plain C struct of integers.
             let mut param: libc::sched_param = unsafe { std::mem::zeroed() };
             param.sched_priority = 5;
+            // SAFETY: this thread exists, and `param` is a live local.
             let allowed = unsafe {
-                libc::pthread_setschedparam(libc::pthread_self(), libc::SCHED_FIFO, &param) == 0
-            };
+                libc::pthread_setschedparam(libc::pthread_self(), libc::SCHED_FIFO, &param)
+            } == 0;
             if !allowed {
                 return None;
             }

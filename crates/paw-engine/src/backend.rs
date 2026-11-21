@@ -537,12 +537,21 @@ pub fn no_denormals() {
 #[cfg(target_arch = "x86_64")]
 fn csr() -> u32 {
     let mut csr: u32 = 0;
+    // SAFETY: `stmxcsr` stores the four bytes of MXCSR at the address of
+    // `csr`, a live, aligned u32 that the asm borrows mutably; it touches no
+    // other memory, no stack and no flags.
     unsafe { std::arch::asm!("stmxcsr [{}]", in(reg) &mut csr, options(nostack)) };
     csr
 }
 
 #[cfg(target_arch = "x86_64")]
 fn set_csr(csr: u32) {
+    // SAFETY: `ldmxcsr` only reads the four bytes of `csr`, a live u32. The
+    // callers set or restore only the flush-to-zero (bit 15) and
+    // denormals-are-zero (bit 6) bits of a value read from MXCSR, which every
+    // x86_64 processor has, so the load cannot fault. Rust assumes the
+    // default floating-point environment (see `_mm_setcsr`): with FTZ/DAZ on,
+    // only denormal results differ, which is what this is for.
     unsafe { std::arch::asm!("ldmxcsr [{}]", in(reg) &csr, options(nostack, readonly)) };
 }
 

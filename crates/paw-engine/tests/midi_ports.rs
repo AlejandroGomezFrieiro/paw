@@ -21,6 +21,8 @@ struct Sender {
 impl Sender {
     /// `None` where there is no sequencer to open, as on a build machine.
     fn open(name: &std::ffi::CStr, midi2: bool) -> Option<Self> {
+        // SAFETY: `seq` is a live out-pointer and is used only once it is
+        // open; the names are C strings that outlive the calls.
         unsafe {
             let mut seq = std::ptr::null_mut();
             if snd_seq_open(&mut seq, c"default".as_ptr(), 1, 0) < 0 {
@@ -39,11 +41,15 @@ impl Sender {
     }
 
     fn address(&self) -> String {
-        format!("{}:{}", unsafe { snd_seq_client_id(self.seq) }, self.port)
+        // SAFETY: a `Sender` holds an open handle until it is dropped.
+        let client = unsafe { snd_seq_client_id(self.seq) };
+        format!("{client}:{}", self.port)
     }
 
     /// Send a Universal MIDI Packet to whoever is subscribed.
     fn packet(&self, words: [u32; 2]) {
+        // SAFETY: the handle is open; all zeros is a valid (empty) event of
+        // plain integers, and the call only reads it.
         unsafe {
             let mut ev: snd_seq_ump_event_t = std::mem::zeroed();
             ev.flags = 1 << 5;
@@ -58,6 +64,7 @@ impl Sender {
 
     /// Send a MIDI 1.0 event to whoever is subscribed.
     fn legacy(&self, type_: u32, fill: impl FnOnce(&mut snd_seq_event_data_t)) {
+        // SAFETY: as in `packet`.
         unsafe {
             let mut ev: snd_seq_event_t = std::mem::zeroed();
             ev.type_ = type_ as u8;
@@ -79,6 +86,7 @@ impl Sender {
         type_: u32,
         fill: impl FnOnce(&mut snd_seq_event_data_t),
     ) {
+        // SAFETY: as in `packet`.
         unsafe {
             let mut ev: snd_seq_event_t = std::mem::zeroed();
             ev.type_ = type_ as u8;
@@ -94,6 +102,7 @@ impl Sender {
 
 impl Drop for Sender {
     fn drop(&mut self) {
+        // SAFETY: the handle is open and owned by this `Sender` alone.
         unsafe {
             snd_seq_close(self.seq);
         }
