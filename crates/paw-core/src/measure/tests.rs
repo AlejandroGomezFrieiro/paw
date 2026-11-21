@@ -396,20 +396,3 @@ fn series_place_a_loud_passage() {
     near(tp[55], -10.0, 0.05, "true peak in the loud hop");
     near(tp[20], -30.0, 0.05, "and in a quiet one");
 }
-
-#[test]
-fn speed_of_a_four_minute_song() {
-    // Not a pass/fail figure: printed with `cargo test -- --nocapture`.
-    let rate = 48_000.0;
-    let n = (240.0 * rate) as usize;
-    let (mut a, mut b) = (noise(3), noise(4));
-    let left: Vec<f32> = (0..n).map(|_| 0.2 * a()).collect();
-    let right: Vec<f32> = (0..n).map(|_| 0.2 * b()).collect();
-    let started = std::time::Instant::now();
-    let result = analyze(rate, &left, &right);
-    eprintln!(
-        "analysed 240 s of stereo at 48 kHz in {:.2} s",
-        started.elapsed().as_secs_f64()
-    );
-    assert!(result.integrated.is_some());
-}
