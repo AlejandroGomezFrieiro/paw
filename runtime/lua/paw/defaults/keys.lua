@@ -430,6 +430,19 @@ paw.device_rows = require("paw.device_rows")
 
 -- Piano roll: motions.
 local function pmap(lhs, rhs, desc, opts) map(lhs, rhs, util.merge({ view = "pianoroll", desc = desc }, opts)) end
+local noteobj = require("paw.note_objects")
+--- The notes of the roll, and the one under the cursor among them.
+local function here()
+  if not roll:clip() then return end
+  local notes = roll:ordered()
+  local _, place, part = roll:note_at(roll.pitch, roll.beat)
+  if place then
+    for _, n in ipairs(notes) do
+      if n.clip == part.id and n.place == place then return notes, n end
+    end
+  end
+  return notes
+end
 local function move(dbeat, dpitch) return function(ctx)
   local n = ctx.count or 1
   roll:move(dbeat * n * paw.opt.note_grid, dpitch * n)
@@ -459,63 +472,220 @@ pmap("$", function() roll:to_edge(-1) end, "End of the clip", motion)
 pmap("gg", function() roll:to_extreme(1) end, "The highest note", far_lines)
 pmap("G", function() roll:to_extreme(-1) end, "The lowest note", far_lines)
 pmap("*", function() keymap.search(paw.music.name(roll.pitch), 1) end, "Next note of this pitch", far)
+-- The phrases, as Vim's sentences: `)` the next, `(` the start of this
+-- one or the one before.
+local function to_phrase(dir, count)
+  local notes = here()
+  if not notes then return end
+  local list = noteobj.phrases(notes, paw.opt.phrase_rest)
+  local pitch, beat = roll.pitch, roll.beat
+  for _ = 1, count or 1 do
+    local found
+    if dir > 0 then
+      for _, p in ipairs(list) do
+        if p.start > beat + 1e-9 then
+          found = p
+          break
+        end
+      end
+    else
+      for i = #list, 1, -1 do
+        if list[i].start < beat - 1e-9 then
+          found = list[i]
+          break
+        end
+      end
+    end
+    if not found then
+      if dir > 0 then beat = select(2, roll:span()) else beat = (roll:span()) end
+      break
+    end
+    pitch, beat = found.notes[1].pitch, found.start
+  end
+  roll:set(pitch, beat)
+end
+-- The chords: `]c` the start of the next place where two or more notes
+-- start together, `[c` of the one before (`ic` is the chord).
+local function to_chord(dir, count)
+  local notes = here()
+  if not notes then return end
+  local starts = {}
+  -- The lowest note of each chord: the first of the notes of one start.
+  for i, n in ipairs(notes) do
+    local before, after = notes[i - 1], notes[i + 1]
+    local first = not before or math.abs(before.start - n.start) > 1e-9
+    if first and after and math.abs(after.start - n.start) < 1e-9 then starts[#starts + 1] = n end
+  end
+  local at = roll.beat
+  local found
+  for _ = 1, count or 1 do
+    local step
+    if dir > 0 then
+      for _, n in ipairs(starts) do
+        if n.start > at + 1e-9 then
+          step = n
+          break
+        end
+      end
+    else
+      for i = #starts, 1, -1 do
+        if starts[i].start < at - 1e-9 then
+          step = starts[i]
+          break
+        end
+      end
+    end
+    if not step then break end
+    found, at = step, step.start
+  end
+  if found then roll:set(found.pitch, found.start) end
+end
+pmap("]c", function(ctx) to_chord(1, ctx.count) end, "Next chord", far)
+pmap("[c", function(ctx) to_chord(-1, ctx.count) end, "Previous chord", far)
+pmap(")", function(ctx) to_phrase(1, ctx.count) end, "Next phrase", far)
+pmap("(", function(ctx) to_phrase(-1, ctx.count) end, "Start of this phrase, or the one before", far)
 pmap("gp", function()
   local clip = roll:clip()
   if clip then transport.seek(clip.start + roll.beat) end
 end, "Playhead to the cursor")
 
--- Piano roll: text objects.
+-- Piano roll: text objects. The musical objects of the notes
+-- (paw/note_objects.tl): `in` the note, `ic` the chord, `ip` the phrase,
+-- `iv` the voice, `i=` the pitch, then `ib` the bar, `ir` the region and
+-- `ie` everything. `a` takes in what surrounds the object. A count takes
+-- more of them, and the same object again in visual mode takes one more.
 local function pobject(lhs, fn, desc) keymap.textobject(lhs, fn, { view = "pianoroll", desc = desc }) end
+--- The region of `picked`: a plain block when the block holds no other
+--- note, else one that names its notes.
+local function region_of(notes, picked, to)
+  local reg = noteobj.region(picked, to)
+  if not reg then return end
+  local count = 0
+  for _, n in ipairs(notes) do
+    if n.pitch >= reg.r0 and n.pitch <= reg.r1 and n.start >= reg.c0 - 1e-9 and n.start < reg.c1 - 1e-9 then count = count + 1 end
+  end
+  if count == #picked then reg.notes = nil end
+  return reg
+end
+--- A stretch of the roll's time at every pitch.
+local function stretch(c0, c1)
+  return { view = "pianoroll", kind = "char", r0 = roll.pitch, r1 = roll.pitch, c0 = c0, c1 = c1 }
+end
+
 for _, lhs in ipairs({ "in", "an" }) do
-  pobject(lhs, function()
-    local note = roll:note_at(roll.pitch, roll.beat)
-    if note then
-      return { view = "pianoroll", kind = "block", r0 = note.pitch, r1 = note.pitch, c0 = note.start, c1 = note.start + note.length }
+  pobject(lhs, function(ctx)
+    local notes, at = here()
+    if not at then return end
+    -- The note, and with a count the next notes of its voice.
+    local voice = noteobj.voice(notes, at)
+    local first = 1
+    for i, n in ipairs(voice) do
+      if n == at then first = i end
     end
-  end, "The note under the cursor")
+    local last = math.min(#voice, first + (ctx.count or 1) - 1)
+    local picked = {}
+    for i = first, last do picked[#picked + 1] = voice[i] end
+    -- `an`: up to where the next note of the voice starts.
+    local after = lhs == "an" and voice[last + 1]
+    return region_of(notes, picked, after and after.start)
+  end, lhs == "in" and "The note under the cursor (2in: and the next of its voice)" or "The note and the rest after it, up to the next of its voice")
+end
+for _, lhs in ipairs({ "ic", "ac" }) do
+  pobject(lhs, function(ctx)
+    local notes, at = here()
+    if not notes then return end
+    local chord = noteobj.chords(notes, at, roll.beat, ctx.count or 1)
+    if #chord == 0 then return end
+    if lhs == "ic" then return region_of(notes, chord) end
+    -- `ac`: the chord as the harmony reads it (a broken chord too): every
+    -- note that starts while it holds, in the phrase of the chord. Where
+    -- no chord is read, the notes that sound with these.
+    local s0, s1, e1 = math.huge, -math.huge, -math.huge
+    for _, n in ipairs(chord) do s0, s1, e1 = math.min(s0, n.start), math.max(s1, n.start), math.max(e1, n.start + n.length) end
+    local base = roll:clip().start
+    local h0, h1 = paw.harmony.at(base + s0), paw.harmony.at(base + s1)
+    local from, to, starting = s0, e1, false
+    if h0 and h1 then
+      local phrases = noteobj.phrases(notes, paw.opt.phrase_rest)
+      local p0, p1 = phrases[noteobj.phrase_at(phrases, s0)], phrases[noteobj.phrase_at(phrases, s1)]
+      from, to, starting = math.max(h0.at - base, p0.start), math.min(h1.at + h1.length - base, p1.finish), true
+    end
+    local inside = {}
+    for _, n in ipairs(chord) do inside[n] = true end
+    local picked = {}
+    for _, n in ipairs(notes) do
+      local yes = inside[n]
+      if starting then
+        yes = yes or (n.start >= from - 1e-9 and n.start < to - 1e-9)
+      else
+        yes = yes or (n.start < to - 1e-9 and n.start + n.length > from + 1e-9)
+      end
+      if yes then picked[#picked + 1] = n end
+    end
+    return region_of(notes, picked)
+  end, lhs == "ic" and "The chord: the notes that start with the one under the cursor (2ic: and the next chord)"
+    or "The chord as the harmony reads it: every note that starts while it holds")
+end
+for _, lhs in ipairs({ "ip", "ap" }) do
+  pobject(lhs, function(ctx)
+    local notes = here()
+    if not notes then return end
+    local list = noteobj.phrases(notes, paw.opt.phrase_rest)
+    local first = noteobj.phrase_at(list, roll.beat)
+    if not first then return end
+    local last = math.min(#list, first + (ctx.count or 1) - 1)
+    local c0, c1 = list[first].start, list[last].finish
+    if lhs == "ap" then c1 = list[last + 1] and list[last + 1].start or math.max(c1, select(2, roll:span())) end
+    return stretch(c0, c1)
+  end, lhs == "ip" and "The phrase: notes with no long rest between them (from a rest, the next)" or "The phrase and the rest after it")
+end
+for _, lhs in ipairs({ "iv", "av" }) do
+  pobject(lhs, function()
+    local notes, at = here()
+    if not at then return end
+    local voice = noteobj.voice(notes, at)
+    if lhs == "av" then voice = noteobj.doublings(notes, voice) end
+    return region_of(notes, voice)
+  end, lhs == "iv" and "The voice of the note under the cursor: the top line, the bass, or the line between"
+    or "The voice and the notes that double it in other octaves")
+end
+for _, lhs in ipairs({ "i=", "a=" }) do
+  pobject(lhs, function()
+    local notes, at = here()
+    if not notes then return end
+    return region_of(notes, noteobj.pitch(notes, at and at.pitch or roll.pitch, lhs == "a="))
+  end, lhs == "i=" and "Every note of the pitch under the cursor" or "Every note of the pitch class under the cursor, in every octave")
 end
 for _, lhs in ipairs({ "ib", "ab" }) do
   pobject(lhs, function(ctx)
     local clip = roll:clip()
     if not clip then return end
     local n = paw.time.bar_of(clip.start + roll.beat)
-    local c0, c1 = paw.time.bar_start(n) - clip.start, paw.time.bar_start(n + (ctx.count or 1)) - clip.start
-    return { view = "pianoroll", kind = "char", r0 = roll.pitch, r1 = roll.pitch, c0 = c0, c1 = c1 }
+    return stretch(paw.time.bar_start(n) - clip.start, paw.time.bar_start(n + (ctx.count or 1)) - clip.start)
   end, "This bar, or N bars from it")
+end
+-- A region of the song: the innermost one at the cursor, and with a count
+-- the one around it.
+for _, lhs in ipairs({ "ir", "ar" }) do
+  pobject(lhs, function(ctx)
+    local clip = roll:clip()
+    if not clip then return end
+    local beat = clip.start + roll.beat
+    local around = {}
+    for _, m in ipairs(paw.markers.list()) do
+      if m.length and beat >= m.beat - 1e-9 and beat < m.beat + m.length - 1e-9 then around[#around + 1] = m end
+    end
+    table.sort(around, function(x, y) return x.length < y.length end)
+    local r = around[math.min(#around, ctx.count or 1)]
+    if not r then return paw.notify("the cursor is in no region", "warn") end
+    return stretch(r.beat - clip.start, r.beat + r.length - clip.start)
+  end, "The region of the song the cursor is in (2ir: the region around it)")
 end
 for _, lhs in ipairs({ "ie", "ae" }) do
   pobject(lhs, function()
     if not roll:clip() then return end
-    local c0, c1 = roll:span()
-    return { view = "pianoroll", kind = "char", r0 = roll.pitch, r1 = roll.pitch, c0 = c0, c1 = c1 }
+    return stretch(roll:span())
   end, "Every note of the clip, or of the clips edited")
-end
--- The chord: the notes that start with the one under the cursor (or at its
--- beat); `ac` takes in the notes that sound over it as well.
-for _, lhs in ipairs({ "ic", "ac" }) do
-  pobject(lhs, function()
-    if not roll:clip() then return end
-    local at = roll:note_at(roll.pitch, roll.beat)
-    local start = at and at.start or roll.beat
-    local notes = roll:ordered()
-    local r0, r1, c0, c1
-    for _, n in ipairs(notes) do
-      if math.abs(n.start - start) < 1e-9 then
-        r0, r1 = math.min(r0 or n.pitch, n.pitch), math.max(r1 or n.pitch, n.pitch)
-        c0, c1 = math.min(c0 or n.start, n.start), math.max(c1 or 0, n.start + n.length)
-      end
-    end
-    if not c0 then return end
-    if lhs == "ac" then
-      for _, n in ipairs(notes) do
-        if n.start < c1 - 1e-9 and n.start + n.length > c0 + 1e-9 then
-          r0, r1 = math.min(r0, n.pitch), math.max(r1, n.pitch)
-          c0, c1 = math.min(c0, n.start), math.max(c1, n.start + n.length)
-        end
-      end
-    end
-    return { view = "pianoroll", kind = "block", r0 = r0, r1 = r1, c0 = c0, c1 = c1 }
-  end, lhs == "ic" and "The notes that sound together at the cursor" or "The chord and every note that overlaps it")
 end
 
 -- Piano roll: operators. They act on every clip the roll edits.

@@ -481,8 +481,8 @@ test("the vocal editor draws and erases expression curves under the notes", func
   -- In the terminal: the chosen curve under the notes, raised at the cursor.
   paw.ui.focus("utau")
   editor.curve, editor.beat, editor.pitch = "pitd", 2, 64
-  paw.keymap.feed("]c]c")
-  eq(editor.curve, "tenc", "]c shows the next curve")
+  paw.keymap.feed("]e]e")
+  eq(editor.curve, "tenc", "]e shows the next curve")
   paw.keymap.feed("3}")
   eq(notes.curve_at(track.id, device, "tenc", clip.start + 2), 15, "} raises it at the cursor")
   local text = table.concat(api.ui_snapshot(120, 40), "\n")

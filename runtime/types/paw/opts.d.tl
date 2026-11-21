@@ -65,6 +65,7 @@ local record Opts
    number: boolean
    octave: integer
    on_external_change: string
+   phrase_rest: number
    pianoroll_height: number
    pre_roll: integer
    pre_roll_seconds: number

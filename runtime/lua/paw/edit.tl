@@ -13,7 +13,9 @@
 -- In the piano roll rows are pitches and beats count from the start of the
 -- clip. A "char" region is a stretch of time at every pitch, a "block" one
 -- only between two pitches, a "line" one whole pitches. Notes belong to the
--- region they start in, and are never cut. Where the roll edits several
+-- region they start in, and are never cut. A region with `notes` (from a
+-- text object such as `iv`, the notes of a voice) is about those notes
+-- alone, in the block they span. Where the roll edits several
 -- clips at once, `yank`, `delete`, `each` and `paste` take the list of them
 -- (`paw.roll_clips.parts()`: `{ clip, offset }` each, beats counting from
 -- the start of the first) in place of one clip; every note stays in its own.
@@ -33,8 +35,9 @@ local record Value
 end
 
 --- A region of a view (`paw.keymap`): rows `r0` to `r1`, beats `c0` up to
---- `c1`, its `kind` ("char", "line" or "block"), and in the arrange view
---- maybe `clips`, a set of clip ids.
+--- `c1`, its `kind` ("char", "line" or "block"), in the arrange view
+--- maybe `clips`, a set of clip ids, and in the piano roll maybe `notes`,
+--- the ids of notes by the id of their clip.
 local record Region
   kind: string
   view: string
@@ -43,6 +46,7 @@ local record Region
   c0: number
   c1: number
   clips: {integer: boolean}
+  notes: {integer: {integer: boolean}}
 end
 
 local type ClipSnapshot = objects.ClipSnapshot
@@ -506,8 +510,21 @@ end
 
 -- Piano roll ------------------------------------------------------------------
 
---- Whether a note belongs to a region.
-function R.inside(note: types.Note, region: Region): boolean
+--- Whether a region names a note of a clip, when it names notes at all.
+--- Without the clip, a note of any clip with the note's id is named.
+local function named(note: types.Note, region: Region, clip?: integer): boolean
+  local by_clip = region.notes
+  if not by_clip then return true end
+  if clip then return by_clip[clip] ~= nil and by_clip[clip][note.id] == true end
+  for _, ids in pairs(by_clip) do
+    if ids[note.id] then return true end
+  end
+  return false
+end
+
+--- Whether a note (of the clip `clip`, an id) belongs to a region.
+function R.inside(note: types.Note, region: Region, clip?: integer): boolean
+  if not named(note, region, clip) then return false end
   local rows = note.pitch >= region.r0 and note.pitch <= region.r1
   local time = note.start >= region.c0 - EPS and note.start < region.c1 - EPS
   if region.kind == "line" then return rows end
@@ -524,7 +541,7 @@ function R.notes(clip: objects.Clip, region: Region): {types.Note}, {integer}
   local notes, places: {types.Note}, {integer} = {}, {}
   local found, at = clip:notes(range)
   for i, n in ipairs(found) do
-    if R.inside(n, region) then
+    if R.inside(n, region, clip.id) then
       notes[#notes + 1], places[#places + 1] = n, at[i]
     end
   end
