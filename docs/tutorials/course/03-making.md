@@ -30,7 +30,7 @@ The tutor opens a practice project for this lesson. It checks each step when you
    - ✓ Bass has a synth.
 4. `i` makes a clip at the cursor and opens it in insert mode, where you draw notes. Press `i`.
    - ✓ The mode is INSERT. The piano roll is open on C4, and its title row shows the note that you draw.
-5. `l` makes the note one step longer, so `4l` makes one beat. `<CR>` keeps the note and starts the next note at its end. `2k` moves up two semitones. Press `4l`, `<CR>`, `2k`, `4l`, `<CR>`, `2k`, `4l` and `<Esc>`.
+5. `l` makes the note one step longer, so `4l` makes one beat. `<CR>` keeps the note and starts the next note at its end. `2+` moves the note up two semitones. Press `4l`, `<CR>`, `2+`, `4l`, `<CR>`, `2+`, `4l` and `<Esc>`.
    - *Hint:* The notes that you draw are green, and `<Esc>` writes them. `h` makes a note shorter and `j` moves it down.
    - ✓ The clip has three notes, C D E. paw wrote them when you left insert mode.
 6. Press `<C-w>p` to return to the arrange view, the previous window. `<Esc>` does not leave the piano roll, as in each view.

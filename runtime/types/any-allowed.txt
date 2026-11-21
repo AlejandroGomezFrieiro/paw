@@ -44,7 +44,6 @@ paw.plugins 1 written in Lua: typed when its module is ported to Teal
 paw.recent 1 written in Lua: typed when its module is ported to Teal
 paw.reconnect 1 written in Lua: typed when its module is ported to Teal
 paw.roll_clips 1 written in Lua: typed when its module is ported to Teal
-paw.roll_draw 1 written in Lua: typed when its module is ported to Teal
 paw.routes 1 written in Lua: typed when its module is ported to Teal
 paw.scope 1 written in Lua: typed when its module is ported to Teal
 paw.state 1 written in Lua: typed when its module is ported to Teal

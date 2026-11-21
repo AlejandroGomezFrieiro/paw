@@ -236,19 +236,25 @@ view.layer("notes", 20, function(L)
       local shown, places = part.clip:notes({
         from = L.from - part.offset, to = L.to - part.offset, low = math.max(0, L.top - L.rows + 1), high = L.top,
       })
-      for k, note in ipairs(shown) do
+      -- The notes insert mode's pencil holds show where it has them; each
+      -- note's own bend shows on it.
+      local held = paw.roll_draw.hidden(part.id) or {}
+      local controls = #shown > 0 and paw.roll_draw.controls_of(part.id) or {}
+      for k, note in ipairs(shown) do if not held[note.id] then
         local place, start = places[k], note.start + part.offset
         local at_cursor = L.under_part and L.under_part.id == part.id and place == L.under_place
         local style = at_cursor and "NoteCursor" or chosen[place] and hue.title_cur or paw.draw.note_style(hue, note.velocity)
         -- Long enough notes say which they are, or the articulation
         -- (MIDI 2.0 attribute) they carry.
         local said = note.attr and paw.attr.describe(note.attr)
+        local bend, bend_at = paw.roll_draw.bend_of(controls, note)
         L.plane:mark("note", start, note.pitch, note.length, 1, {
           label = said and said.tag or music.name(note.pitch), style = style, color = colour, velocity = note.velocity,
           selected = chosen[place] or nil, cursor = at_cursor or nil, key = "note:" .. part.id .. ":" .. place,
+          bend = bend, bend_at = bend_at,
           hit = { kind = "note", clip = part.id, place = place, pitch = note.pitch, start = start, length = note.length },
         })
-      end
+      end end
     end
   end)
 
@@ -912,6 +918,13 @@ function view:describe()
   end
   local attr = not said and note.attr and paw.attr.describe(note.attr)
   if attr then lines[#lines + 1] = "  articulation: " .. attr.text end
+  local own = note
+  if part.offset ~= 0 then own = paw.util.merge(note, { start = note.start - part.offset }) end
+  local bend, bend_at = paw.roll_draw.bend_of(paw.roll_draw.controls_of(part.id), own)
+  if bend then
+    lines[#lines + 1] = string.format("  bends %s %g semitone%s by its end, from %d%% of it (its own pitch bend)",
+      bend > 0 and "up" or "down", math.abs(bend), math.abs(bend) == 1 and "" or "s", math.floor(bend_at * 100 + 0.5))
+  end
   local key = paw.plugins.key_names(part.track)[note.pitch]
   if key then lines[#lines + 1] = "  the instrument calls this key " .. key end
   for _, line in ipairs(more) do lines[#lines + 1] = line end

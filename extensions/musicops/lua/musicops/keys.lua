@@ -445,7 +445,7 @@ function M.install_locks()
     end
   end
   -- Insert mode drawing: the note being drawn moves by steps of the scale.
-  for lhs, dir in pairs({ k = 1, ["<Up>"] = 1, j = -1, ["<Down>"] = -1 }) do
+  for lhs, dir in pairs({ ["+"] = 1, ["<C-a>"] = 1, ["-"] = -1, ["<C-x>"] = -1 }) do
     local orig = original("i", "pianoroll", lhs)
     keymap.set(lhs, function(ctx)
       if not locked() then return call(orig, ctx) end

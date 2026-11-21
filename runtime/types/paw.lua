@@ -41,6 +41,9 @@ paw.bytes = {}
 ---@class paw.canvas
 paw.canvas = {}
 
+---@class paw.chords
+paw.chords = {}
+
 ---@class paw.clip_kinds
 paw.clip_kinds = {}
 
@@ -1513,6 +1516,36 @@ function paw.canvas.view_pointer(view, e) end
 --- The windows that are open, for a frontend: `{ name, title, width, height, cells }`
 --- each, `cells` for a view drawn as the terminal draws it.
 function paw.canvas.windows() end
+
+--- The chords to offer at the pencil, in this order: the diatonic triads
+--- and sevenths of `key`, then the common qualities on the pitch `near`.
+--- Each with its symbol, name, numeral and pitches.
+---@param key any
+---@param near any
+function paw.chords.offer(key, near) end
+
+--- Read a chord symbol in `key` (paw.harmony's key, C major when nil)
+--- with its root nearest the pitch `near` (60 when nil). Returns the chord,
+--- or nil and why not.
+---@param text any
+---@param key any
+---@param near any
+function paw.chords.parse(text, key, near) end
+
+--- Add a chord name: its suffix after the root (`"7#9"`) and its tones
+--- in semitones above the root. A name the reading does not know is
+--- written but not read.
+---@param suffix any
+---@param steps any
+---@param name any
+function paw.chords.quality(suffix, steps, name) end
+
+--- The chord of `n` notes (3 a triad, 4 a seventh) on `root`, a pitch,
+--- stacked in thirds from the scale of `key`: the diatonic chord.
+---@param root any
+---@param n any
+---@param key any
+function paw.chords.stack(root, n, key) end
 
 --- A new clip of the kind `name` on `track`: `data`, or what the kind's
 --- `create` makes of `args` (the words, and `name`, `start` and `length`
@@ -6441,25 +6474,90 @@ function paw.roll_clips.tracks() end
 --- the active clip's and those shown behind it.
 function paw.roll_clips.visible() end
 
+--- `#` or `b` right after `r` and a name: a semitone up or down.
+---@param semitones any
+function paw.roll_draw.accidental(semitones) end
+
 --- True if you draw a note now: insert mode in the piano roll, the kind that draws.
 function paw.roll_draw.active() end
+
+--- Keep the notes being drawn and draw them again where they end (`.`),
+--- count times.
+function paw.roll_draw.again() end
+
+--- The next insert mode takes up the note under the cursor at its end, or
+--- starts a step on (`a`).
+function paw.roll_draw.append() end
 
 --- Take back the last note kept: it is the one being drawn again.
 function paw.roll_draw.back() end
 
---- The note being drawn, in words: "C4 · 2 steps · 0.5 beats", or nil.
+--- Take back all that this insert drew (`Ctrl-u`): the pencil is where it began.
+function paw.roll_draw.back_all() end
+
+--- Bend the notes being drawn by `dir` steps of `bend_step` semitones
+--- (times the count): their own pitch bend rises (or falls) to that at
+--- their end, from half of each.
+---@param dir any
+function paw.roll_draw.bend(dir) end
+
+--- The bend of a note of a clip in the clip's beats, or nil: `semis` at
+--- its end and where its ramp starts, as a fraction of its length. The
+--- piano roll shows it on the note, `K` says it.
+---@param controls any
+---@param note any
+function paw.roll_draw.bend_of(controls, note) end
+
+--- Make the notes being drawn these pitches, the first under the cursor:
+--- a chord at the same start and as long.
+---@param pitches any
+---@param name any
+function paw.roll_draw.chord(pitches, name) end
+
+--- Per-note bends of a clip, read once for each frame that shows it.
+---@param id any
+function paw.roll_draw.controls_of(id) end
+
+--- The note being drawn, in words: "C4 · end · 2 steps · 0.5 beats", or nil.
 function paw.roll_draw.describe() end
 
---- A digit of the count for the next key.
+--- A digit of the count for the next key, or of a length after `=`.
 ---@param d any
 function paw.roll_draw.digit(d) end
 
---- End the drawing: write it, and forget it.
+--- Go to the other edge of the note (`o`), or to `edge`.
+---@param edge any
+function paw.roll_draw.edge(edge) end
+
+--- The edge the cursor is on: "start" or "end", nil when not drawing.
+function paw.roll_draw.edge_now() end
+
+--- Erase the notes being drawn (`x`): a clip's note goes when insert mode
+--- writes; the pencil stays, with nothing long.
+function paw.roll_draw.erase() end
+
+--- End the drawing: write it, and forget it. Returns what it did, in words.
 function paw.roll_draw.finish() end
 
---- Make the note `steps` grid steps longer, or shorter with a negative count.
+--- Move the edge under the cursor `steps` grid steps right, or left with a
+--- negative count: at the end, the note grows; at its start, it shrinks.
+--- No note grows over the next note of its pitch.
 ---@param steps any
 function paw.roll_draw.grow(steps) end
+
+--- The ids of a clip's notes that the pencil holds, which the roll does not
+--- draw where they were: they show where the pencil has them.
+---@param clip any
+function paw.roll_draw.hidden(clip) end
+
+--- A key of the pencil from an extension: `lhs` in the piano roll's
+--- insert mode, `spec.run(count, char)` with the count typed before it
+--- (and the key typed after it, with `spec.char`). It reads and changes
+--- `paw.roll_draw.pen()`, then calls `paw.roll_draw.shown()`.
+---   paw.roll_draw.key("gs", { desc = "Staccato: half as long", run = function(n) ... end })
+---@param lhs any
+---@param spec any
+function paw.roll_draw.key(lhs, spec) end
 
 --- Insert mode the piano keys way this once, whatever `roll_insert` says.
 function paw.roll_draw.keys_once() end
@@ -6467,33 +6565,74 @@ function paw.roll_draw.keys_once() end
 --- What the piano roll's title says in insert mode.
 function paw.roll_draw.label() end
 
---- Keep the note and go to the next note. "legato" starts it at the end,
---- "rest" one step (or count steps) after the end, and "chord" at the same
---- start and with the same length.
+--- Start typing a length (`=`), or add to it: each key that makes one
+--- sets the notes being drawn that long at once.
+---@param char any
+function paw.roll_draw.length_key(char) end
+
+--- Put a mark of the song at the pencil's start (`m` then its kind): `k`
+--- a key change, `t` a tempo, `s` a time signature from the bar, `'` a
+--- marker. Each asks its value, and is in the insert's undo step.
+---@param kind any
+function paw.roll_draw.mark(kind) end
+
+--- Set the pitch by its name (`r` then a letter): the nearest of that
+--- name, the chord with it. `#` and `b` next make it sharp or flat.
+---@param letter any
+function paw.roll_draw.name(letter) end
+
+--- Keep the notes and go on. "legato" starts the next note at the end,
+--- "rest" a step (or count steps) after it; a note of the clip that starts
+--- there is taken up. "chord" draws another note at the same start and as
+--- long (`chord`'s count stacks).
 ---@param how any
 function paw.roll_draw.next(how) end
 
---- Move the note by `semitones` (times the count), and hear its new pitch.
---- `step(pitch, n)`, if given, says where `n` such moves go instead: by
---- steps of a scale, say.
+--- Move the notes being drawn `steps` grid steps later, or earlier: `>` `<`.
+---@param steps any
+function paw.roll_draw.nudge(steps) end
+
+--- The notes being drawn now, as `{ pitch, start, length, velocity }` in
+--- project beats, the one under the cursor first. An extension's key
+--- changes them in place, then calls `paw.roll_draw.shown()`.
+function paw.roll_draw.pen() end
+
+--- Choose a chord to draw at the pencil (`c`): the diatonic chord on the
+--- pencil's pitch first (`4c` its seventh, `5c` its ninth), the others of
+--- the key, then common chords on the pitch. Typing searches them; a
+--- symbol typed (`V7/V`, `F#m9/C#`, `C4maj7`) is drawn as typed. The
+--- chord takes the note's place, its start and length, and the keys shape
+--- it as one note until Enter or Escape.
+function paw.roll_draw.pick_chord() end
+
+--- Move the notes being drawn by `semitones` (times the count), and hear
+--- the new pitch. `step(pitch, n)`, if given, says where `n` such moves go
+--- instead: by steps of a scale, say.
 ---@param semitones any
 ---@param step any
 function paw.roll_draw.pitch(semitones, step) end
 
---- Start drawing at the cursor, `after` steps on.
----@param after any
-function paw.roll_draw.start(after) end
+--- Show what an extension's key changed in the notes being drawn.
+function paw.roll_draw.shown() end
+
+--- Start drawing at the cursor. `how` as `take` has it: "i" or "a".
+---@param how any
+function paw.roll_draw.start(how) end
 
 --- What the window says while in insert mode.
 function paw.roll_draw.status() end
 
 --- The notes that you drew and kept, as "60@1+0.5 64@1+0.5" in the beats of
---- the roll. The second value is the note that you draw now, "67@1.5+0".
+--- the roll. The second value is the notes that you draw now, "67@1.5+0".
 function paw.roll_draw.text() end
 
 --- Change from drawing to the piano keys and stay in insert mode. paw
 --- writes the drawn notes, and the letters are notes from now on.
 function paw.roll_draw.to_keys() end
+
+--- The velocity of the notes being drawn and of the next, by `dir` tens.
+---@param dir any
+function paw.roll_draw.velocity(dir) end
 
 --- True if the sound of `from` goes to `into`.
 ---@param from any

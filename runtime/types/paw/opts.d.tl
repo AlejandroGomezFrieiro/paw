@@ -12,6 +12,7 @@ local record Opts
    audition_level: number
    autosave: number
    barlabel: {string | number}
+   bend_step: number
    braille: boolean
    chords: string | boolean
    click_accent: boolean

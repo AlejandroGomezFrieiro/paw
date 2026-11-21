@@ -88,12 +88,13 @@ M.lines.pianoroll = {
   -- Insert mode: the note being drawn, then the keys that draw it.
   i = function()
     local now = paw.roll_draw and paw.roll_draw.describe()
+    local at_start = paw.roll_draw and paw.roll_draw.edge_now() == "start"
     local out = {
-      { "l", "longer" }, { "h", "shorter" }, { "k", "up" }, { "j", "down" }, { "<CR>", "next" }, { "<Space>", "rest" },
-      { "o", "chord" }, { "<Esc>", "write" },
+      { "l", at_start and "shorter" or "longer" }, { "h", at_start and "longer" or "shorter" }, { "o", "other edge" },
+      { "+", "up" }, { "k", "bend" }, { "c", "chord" }, { "<CR>", "next" }, { "<Space>", "rest" }, { "<Esc>", "write" },
     }
     if now then
-      local pitch, length = now:match("^(%S+) · (.*)$")
+      local pitch, length = now:match("^(.-) · (.*)$")
       table.insert(out, 1, { "", length, pitch })
     end
     return out

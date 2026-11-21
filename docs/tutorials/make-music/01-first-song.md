@@ -68,14 +68,14 @@ changes the project is one undo step.
 2. Press `a`, type `synth` and press Enter.
    - The bass track has the built-in synth.
 3. Press `0` to put the cursor at the start of the song.
-4. Press `i`. Then press `<C-d>` and `3j`.
-   - Insert mode starts a note on C4. `<C-d>` moves it down one octave,
-     and `3j` three semitones, to A2.
+4. Press `i`. Then press `J` and `3-`.
+   - Insert mode starts a note on C4. `J` moves it down one octave,
+     and `3-` three semitones, to A2.
 5. Press `16l`, then Enter.
    - The A2 is one bar long. Enter keeps it and starts the next note where
      it ends.
-6. Draw the next three notes. Press `4j` and `16l`, then Enter. Press `7k`
-   and `16l`, then Enter. Press `5j` and `16l`, then `<Esc>`.
+6. Draw the next three notes. Press `4-` and `16l`, then Enter. Press `7+`
+   and `16l`, then Enter. Press `5-` and `16l`, then `<Esc>`.
    - The bass plays A2, F2, C3 and G2, one bar each.
 7. Press `<C-w>p` to return to the arrange view.
 
@@ -83,15 +83,18 @@ changes the project is one undo step.
 
 1. Press `o`. Press `grn` and `<C-u>`, type `Keys` and press Enter.
 2. Press `a`, type `synth` and press Enter. Press `0`.
-3. Press `i`, `3j` (down to A3) and `16l`.
-4. Press `o` and `3k` (C4). Press `o` and `4k` (E4). Then press Enter.
-   - In insert mode, `o` keeps the note and starts a note at the same
-     time, for a chord. The first chord is A minor.
+3. Press `i` and `3-` (down to A3).
+4. Press `c`. Type `vi` and press Enter. Then press `16l` and Enter.
+   - In insert mode, `c` makes the note a chord. `vi` is the sixth chord
+     of the key, A minor in C major. Then `16l` makes all of the chord one
+     bar long, and Enter keeps it.
 5. Draw the next chords. After each chord, press Enter:
-   - F: `7j`, `16l`, `o`, `3k`, `o`, `5k`.
-   - C: `10j`, `16l`, `o`, `5k`, `o`, `4k`.
-   - G: `9j`, `16l`, `o`, `4k`, `o`, `3k`. Press `<Esc>`, not Enter, after
-     this last chord.
+   - F: `c`, type `IV6`, Enter, `16l`. The `6` puts the third, A, at the
+     bottom.
+   - C: `c`, type `I64`, Enter, `16l`. The `64` puts the fifth, G, at the
+     bottom.
+   - G: `c`, type `V`, Enter, `16l`. Press `<Esc>`, not Enter, after this
+     last chord.
 6. Press `<C-w>p`.
    - The Keys track has four chords: Am, F, C and G.
 

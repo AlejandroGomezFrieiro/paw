@@ -97,16 +97,16 @@ test("make music 1: the first song has drums, bass and keys in a loop of four ba
     "kick, snare and hi-hats in each bar")
 
   step("o", "grn", "<C-u>", "Bass<CR>", "a", "synth", "<CR>", "0")
-  step("i", "<C-d>", "3j", "16l", "<CR>", "4j", "16l", "<CR>", "7k", "16l", "<CR>", "5j", "16l", "<Esc>")
+  step("i", "J", "3-", "16l", "<CR>", "4-", "16l", "<CR>", "7+", "16l", "<CR>", "5-", "16l", "<Esc>")
   step("<C-w>p")
   eq(melody(paw.track("Bass"):clips()[1]), "45@0+4 41@4+4 48@8+4 43@12+4", "the bass plays A F C G")
   eq(paw.track("Bass"):clips()[1].length, 16, "the clip ends with the notes, at the end of bar 4")
 
   step("o", "grn", "<C-u>", "Keys<CR>", "a", "synth", "<CR>", "0")
-  step("i", "3j", "16l", "o", "3k", "o", "4k", "<CR>")
-  step("7j", "16l", "o", "3k", "o", "5k", "<CR>")
-  step("10j", "16l", "o", "5k", "o", "4k", "<CR>")
-  step("9j", "16l", "o", "4k", "o", "3k", "<Esc>")
+  step("i", "3-", "c", "vi<CR>", "16l", "<CR>")
+  step("c", "IV6<CR>", "16l", "<CR>")
+  step("c", "I64<CR>", "16l", "<CR>")
+  step("c", "V<CR>", "16l", "<Esc>")
   step("<C-w>p")
   eq(melody(paw.track("Keys"):clips()[1]),
     "57@0+4 60@0+4 64@0+4 57@4+4 60@4+4 65@4+4 55@8+4 60@8+4 64@8+4 55@12+4 59@12+4 62@12+4", "the chords Am F C G")
