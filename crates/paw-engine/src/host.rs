@@ -34,51 +34,28 @@ pub fn params() -> [ParamInfo; 2] {
 /// line that holds back their dry signal is never written, and costs them
 /// nothing (it was 128 kB a device). Made and dropped on the main thread.
 struct Zeroed {
-    ptr: std::ptr::NonNull<f32>,
+    map: memmap2::MmapMut,
     len: usize,
 }
 
-// Owned memory, like a `Box<[f32]>`.
-unsafe impl Send for Zeroed {}
-
 impl Zeroed {
     fn new(len: usize) -> Self {
-        let bytes = len * std::mem::size_of::<f32>();
-        // SAFETY: a private anonymous mapping, read and written only as
-        // the `len` samples it holds; the system gives it zeroed.
-        let ptr = unsafe {
-            libc::mmap(
-                std::ptr::null_mut(),
-                bytes,
-                libc::PROT_READ | libc::PROT_WRITE,
-                libc::MAP_PRIVATE | libc::MAP_ANONYMOUS,
-                -1,
-                0,
-            )
-        };
-        if ptr == libc::MAP_FAILED {
-            std::alloc::handle_alloc_error(std::alloc::Layout::array::<f32>(len).expect("layout"));
-        }
-        Self { ptr: std::ptr::NonNull::new(ptr.cast()).expect("mapped"), len }
+        // A private anonymous mapping: the system gives it zeroed.
+        let map = memmap2::MmapMut::map_anon(len * std::mem::size_of::<f32>()).unwrap_or_else(|_| {
+            std::alloc::handle_alloc_error(std::alloc::Layout::array::<f32>(len).expect("layout"))
+        });
+        Self { map, len }
     }
 
     fn as_ref(&self) -> &[f32] {
-        // SAFETY: `len` samples, mapped while `self` lives.
-        unsafe { std::slice::from_raw_parts(self.ptr.as_ptr(), self.len) }
+        // SAFETY: the mapping is `len` f32s long and starts on a page, so
+        // it is aligned for f32; any four bytes are an f32.
+        unsafe { std::slice::from_raw_parts(self.map.as_ptr().cast(), self.len) }
     }
 
     fn as_mut(&mut self) -> &mut [f32] {
-        // SAFETY: as above, and borrowed mutably once.
-        unsafe { std::slice::from_raw_parts_mut(self.ptr.as_ptr(), self.len) }
-    }
-}
-
-impl Drop for Zeroed {
-    fn drop(&mut self) {
-        // SAFETY: the mapping made in `new`, unmapped once.
-        unsafe {
-            libc::munmap(self.ptr.as_ptr().cast(), self.len * std::mem::size_of::<f32>());
-        }
+        // SAFETY: as above, borrowed mutably through `&mut self`.
+        unsafe { std::slice::from_raw_parts_mut(self.map.as_mut_ptr().cast(), self.len) }
     }
 }
 

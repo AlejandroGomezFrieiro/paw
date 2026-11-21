@@ -32,6 +32,9 @@ clap = { version = "4", features = ["derive"] }
 tokio = { version = "1", default-features = false }
 # Bytes as hexadecimal digits: digests, fingerprints, plugin ids.
 hex = "0.4"
+# Memory maps of files and anonymous memory (paw-crates.md). Already in
+# Cargo.lock through other crates.
+memmap2 = "0.9"
 # TLS for network connections, pure Rust with ring: no OpenSSL.
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 # TLS on tokio's sockets (the network server, paw-core's rpc.rs), over the

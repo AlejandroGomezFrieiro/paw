@@ -27,6 +27,8 @@ alsa-sys = { version = "0.4", optional = true }
 # Thread priorities for the worker pool, and the sequencer's poll.
 libc = "0.2"
 bitflags.workspace = true
+# Decoded sound in files of the cache, and room for sound being made.
+memmap2.workspace = true
 # The sequencer's poll.
 rustix = { version = "1", default-features = false, features = ["std", "event", "process"] }
 
