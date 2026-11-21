@@ -42,7 +42,7 @@ end
 --- (that group, or track, alone). In a narrowed tab, the parts of its group.
 function M.plan(opts)
   opts = opts or {}
-  local scope = paw.scope.current()
+  local scope = paw.scope.group()
   local ext = opts.format or "wav"
   local dir = opts.dir
   if not dir then
@@ -53,7 +53,7 @@ function M.plan(opts)
   if opts.group then
     ids[1] = opts.group
   else
-    for _, id in ipairs(paw.scope.tracks(scope)) do
+    for _, id in ipairs(paw.scope.tracks()) do
       local t = api.track_get(id)
       local wanted
       if opts.tracks then

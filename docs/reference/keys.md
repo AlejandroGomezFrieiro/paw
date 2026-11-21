@@ -67,7 +67,7 @@ are rows, `w` `b` devices, `e` the last parameter of a device.
 | `gw` `gW` | put a warp marker on an audio clip at the cursor, take off the nearest | |
 | `<A-j>` `<A-k>` | move the track down, up | |
 | `M` `s` `r` | mute, solo, arm the track | |
-| `zn` `zw` | narrow to the group at the cursor, in a tab of its own; widen again | |
+| `zn` `zw` | narrow to the group at the cursor, in a tab of its own; widen one level (`:narrow Bridge` narrows to a region) | |
 | `<Space>tv` `<Space>ta` `<Space>tr` `<Space>tx` `<Space>tl` | a new VCA over the selected tracks; put them under a VCA; take them out of their VCAs; take the VCA at the cursor away; link the faders of a group | |
 | `I` `<A-i>` | choose the input (audio, MIDI port and channel), monitor it | |
 | `a` | add a device | enter notes after the note |

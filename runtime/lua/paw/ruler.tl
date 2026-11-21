@@ -28,7 +28,13 @@ local type Context = contracts.RulerContext
 local type Cells = contracts.ColumnCells
 local type Piece = contracts.Piece
 
+--- paw/scope.tl, the part of it that this module reads: how many bars of
+--- the song come before a scope's bar 1.
+local record Scope
+  bar_offset: function(): integer
+end
 local record Paw is partial.Paw
+  scope: Scope
   draw: DrawModule
   tempo: TempoModule
   time: objects.Time
@@ -126,7 +132,9 @@ M.add("number", {
 })
 
 --- The pieces of bar `bar`'s label, from the parts in `paw.opt.barlabel`
---- in their order. `style` is the style of the bar's number there.
+--- in their order. `bar` is the song's bar: in a scope with time, its
+--- label counts from 1 at the scope's start (`paw.scope.bar_offset`).
+--- `style` is the style of the bar's number there.
 --- `room` is how many columns the label has before the next bar's: each
 --- part gets what the parts before it left (`ctx.room`).
 function M.label(bar: integer, beat: number, style: string, cursor_beat: number, room?: integer): {Piece}
@@ -139,10 +147,12 @@ function M.label(bar: integer, beat: number, style: string, cursor_beat: number,
     if a.order ~= b.order then return a.order < b.order end
     return a.name < b.name
   end)
+  local song_bar = bar
+  bar = bar - (paw.scope and paw.scope.bar_offset() or 0)
   local ctx: Context = {
-    bar = bar, beat = beat, style = style, g = paw.draw.g,
-    cursor = paw.time.bar_of(cursor_beat) == bar,
-    relative = opt.relativebar and M.relative(bar, cursor_beat) or nil,
+    bar = bar, song_bar = song_bar, beat = beat, style = style, g = paw.draw.g,
+    cursor = paw.time.bar_of(cursor_beat) == song_bar,
+    relative = opt.relativebar and M.relative(song_bar, cursor_beat) or nil,
   }
   local left: integer = room or 1000
   local out: {Piece} = {}

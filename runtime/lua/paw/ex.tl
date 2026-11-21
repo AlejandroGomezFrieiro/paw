@@ -189,8 +189,10 @@ local record Views
 end
 
 
+--- paw/scope.tl, the part of it that this module reads.
 local record Scope
   tracks: function(): {integer}
+  bar_offset: function(): integer
 end
 local record RollClips
   ids: function(): {integer}
@@ -346,7 +348,15 @@ end
 
 local function last_bar(): integer return math.max(1, paw.time.bar_of(math.max(0, song_end() - NEAR))) end
 
-local function bar_span(n: integer): Span return { from = paw.time.bar_start(n), to = paw.time.bar_start(n + 1), unit = "bar", bar = n } end
+--- Bar `n` as the user types it: in a scope with time, its own bars
+--- (`paw.scope.bar_offset`), from 1 at its start.
+local function bar_span(n: integer): Span
+  local song = n + paw.scope.bar_offset()
+  return { from = paw.time.bar_start(song), to = paw.time.bar_start(song + 1), unit = "bar", bar = n }
+end
+
+--- The bar a beat is in, as the user types it.
+local function typed_bar(beat: number): integer return paw.time.bar_of(beat) - paw.scope.bar_offset() end
 
 --- The length of one beat of the signature at a place (an eighth in 6/8).
 local function beat_length(at: number): number
@@ -355,10 +365,11 @@ local function beat_length(at: number): number
 end
 
 local function beat_span(bar: integer, beat: integer, text: string): Span
-  local start = paw.time.bar_start(bar)
+  local song = bar + paw.scope.bar_offset()
+  local start = paw.time.bar_start(song)
   local len = beat_length(start)
   local from = start + (beat - 1) * len
-  if beat < 1 or from >= paw.time.bar_start(bar + 1) - EPS then fail("`%s`: bar %d has no beat %d", text, bar, beat) end
+  if beat < 1 or from >= paw.time.bar_start(song + 1) - EPS then fail("`%s`: bar %d has no beat %d", text, bar, beat) end
   return { from = from, to = from + len, unit = "beat" }
 end
 
@@ -384,9 +395,9 @@ local function address(s: string, i: integer): Span, integer
       if tonumber(bar) < 1 then fail("`%s`: bars count from 1", bar) end
       span, j = bar_span(math.tointeger(tonumber(bar))), e as integer
     elseif s:sub(i, i) == "." then
-      span, j = bar_span(paw.time.bar_of(cursor_beat())), i + 1
+      span, j = bar_span(typed_bar(cursor_beat())), i + 1
     elseif s:sub(i, i) == "$" then
-      span, j = bar_span(last_bar()), i + 1
+      span, j = bar_span(typed_bar(paw.time.bar_start(last_bar()))), i + 1
     elseif s:sub(i, i) == "'" and s:sub(i + 1, i + 1):match("[%a<>]") then
       local name = s:sub(i + 1, i + 1)
       if name == "<" or name == ">" then
@@ -400,7 +411,7 @@ local function address(s: string, i: integer): Span, integer
       end
       j = i + 2
     elseif s:sub(i, i):match("[%+%-]") then
-      span, j = bar_span(paw.time.bar_of(cursor_beat())), i
+      span, j = bar_span(typed_bar(cursor_beat())), i
     else
       return nil, i
     end
@@ -429,7 +440,7 @@ end
 -- Ranges ---------------------------------------------------------------------------
 --
 -- A range is a table: `from` and `to` (beats of the song, `to` not
--- included) and `bars` (the first and last bar they touch) for time;
+-- included) and `bars` (the first and last bar they touch, as typed: in a scope with time, its own bars) for time;
 -- `tracks` (ids) for tracks; `selection` and `region` for `'<,'>`, with
 -- `pitches` ({ low, high }) when the selection was of some pitches in the
 -- piano roll, and `clip_ids` (a set) when it was of clips chosen one by
@@ -438,7 +449,7 @@ end
 
 local function finish_range(r: Range): Range
   if r.from then
-    r.bars = { paw.time.bar_of(r.from), paw.time.bar_of(math.max(r.from, r.to - NEAR)) }
+    r.bars = { typed_bar(r.from), typed_bar(math.max(r.from, r.to - NEAR)) }
   end
   return r
 end
@@ -561,7 +572,7 @@ local function time_range(s: string, i: integer): Range, integer
   local to = b.unit == "point" and b.from or b.to
   if not second and a.unit == "point" then
     -- A mark alone stands for the bar it is in, as a line in Vim.
-    local bar = bar_span(paw.time.bar_of(a.from))
+    local bar = bar_span(typed_bar(a.from))
     from, to = bar.from, bar.to
   end
   if to < from - EPS or b.from < a.from - EPS then fail("`%s`: a range goes from the first to the last", s:sub(i, j - 1)) end
@@ -1131,7 +1142,7 @@ local function range_of(ctx: Context, default: string): Range
     if not id then fail("no track here") end
     r = { tracks = { id } }
   else
-    local span = bar_span(paw.time.bar_of(cursor_beat()))
+    local span = bar_span(typed_bar(cursor_beat()))
     r = { from = span.from, to = span.to }
   end
   return finish_range(r)

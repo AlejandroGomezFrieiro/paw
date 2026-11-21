@@ -1869,6 +1869,9 @@ function paw.controls.select_box(clip, kind, number, beat0, low, beat1, high, mo
 ---@param fraction any
 function paw.controls.value(kind, fraction) end
 
+--- The time the cursor stays in: the current scope's.
+function paw.cursor.bounds() end
+
 --- The clip under the cursor, if any.
 function paw.cursor.clip() end
 
@@ -1909,7 +1912,7 @@ function paw.cursor.on_master() end
 --- the last track.
 function paw.cursor.row() end
 
---- Put the cursor at a beat (not before 0).
+--- Put the cursor at a beat (not before 0, and in the scope's time).
 ---@param beat any
 function paw.cursor.set_beat(beat) end
 
@@ -3452,7 +3455,7 @@ function paw.groups.of(track) end
 function paw.groups.remove(track, stay) end
 
 --- The tracks that are drawn, in order: all but those folded away, and in
---- a narrowed tab only those of its group (`paw.scope`). Rows of the
+--- a narrowed tab only those of its scope (`paw.scope`). Rows of the
 --- arrange view and of a graphical frontend are places in this list.
 --- With `{ lanes = true }`, every row: `{ track = id }` for a track and
 --- `{ track = id, lane = id }` for an automation lane shown under it
@@ -6575,7 +6578,9 @@ function paw.routes.spread(device) end
 function paw.ruler.add(name, spec) end
 
 --- The pieces of bar `bar`'s label, from the parts in `paw.opt.barlabel`
---- in their order. `style` is the style of the bar's number there.
+--- in their order. `bar` is the song's bar: in a scope with time, its
+--- label counts from 1 at the scope's start (`paw.scope.bar_offset`).
+--- `style` is the style of the bar's number there.
 --- `room` is how many columns the label has before the next bar's: each
 --- part gets what the parts before it left (`ctx.room`).
 ---@param bar any
@@ -6636,22 +6641,52 @@ function paw.scene.watchers() end
 --- Tell the engine what the rest of the song does for a scope. This is the
 --- scope of the tab in front, which the last seat to change tabs (a
 --- terminal or a window) selected.
----@param scope any
-function paw.scope.apply(scope) end
+---@param s any
+function paw.scope.apply(s) end
 
---- True if a track is inside a scope (the current scope by default): the
---- group itself or a track in it, at any depth. With no scope, all tracks are inside.
+--- How many bars of the song come before the first bar of a scope (the
+--- current one by default) when its bars are numbered from 1: 0 with no
+--- time, or with `scopebars=song`. A scope's bars are the song's (its meter
+--- map), counted from the bar its time starts in.
+---@param s any
+function paw.scope.bar_offset(s) end
+
+--- The path in words: `Song › Bridge › Strings`.
+---@param s any
+function paw.scope.breadcrumb(s) end
+
+--- True if a scope (the current one by default; a group's id is a scope
+--- of that group) shows a track: it and every level above it do. With no
+--- scope, every track is inside.
 ---@param track any
----@param scope any
-function paw.scope.contains(track, scope) end
+---@param s any
+function paw.scope.contains(track, s) end
 
---- The group a tab is narrowed to (the current tab's by default), or nil.
----@param tab any
-function paw.scope.current(tab) end
+--- The scope a window shows (the current window's by default), or nil for
+--- the song. A level whose group, track or region is gone is left out.
+---@param win any
+function paw.scope.current(win) end
+
+--- Enter a scope (`{ kind, id, tracks, from, to, name }`). In a tab that
+--- shows a scope, it becomes its child, in the same tab: it shows what both
+--- show. In a tab that shows the song, a tab of its own opens after it, or
+--- the tab that shows the same scope comes to the front. Changes nothing in
+--- the project. Returns the scope.
+---@param spec any
+function paw.scope.enter(spec) end
 
 --- A group by its id, its track, or its name (or part of it).
 ---@param which any
 function paw.scope.find(which) end
+
+--- A place as the scope numbers it: `bar.beat.hundredths`, as `paw.time.format`.
+---@param beat any
+function paw.scope.format(beat) end
+
+--- The innermost group of a scope's path (the current scope by default):
+--- what a narrowed tab's tracks are shown under. Nil when no level is a group.
+---@param s any
+function paw.scope.group(s) end
 
 --- The group of a track when you narrow: the track itself if it is a group.
 --- If not, the group that contains it.
@@ -6661,27 +6696,60 @@ function paw.scope.group_at(track) end
 --- The parts of the rest the engine plays from files now.
 function paw.scope.held() end
 
---- Open a tab narrowed to a group, after the current tab, with the same
---- windows, and go to it. If a tab is already narrowed to the group, paw
---- goes to that tab. Returns the tab.
----@param group any
-function paw.scope.narrow(group) end
+--- Whether a scope, or one of the levels above it, limits the tracks.
+---@param s any
+function paw.scope.limits_tracks(s) end
+
+--- The bar the current scope shows for a bar of the song.
+---@param song_bar any
+function paw.scope.local_bar(song_bar) end
+
+--- A scope by name: a group of that name, else a region of that name, else
+--- a group or a region whose name starts with it. A number is a group's id.
+---@param which any
+function paw.scope.named(which) end
+
+--- Narrow to a group or a region, by its id, its track or its name (see
+--- `named`): `enter` of that scope. Returns the tab it shows in.
+---@param which any
+function paw.scope.narrow(which) end
+
+--- The scope of a tab, for the frontends that draw each tab.
+---@param tab any
+function paw.scope.of_tab(tab) end
+
+--- The levels of a scope's path, from the outermost to it.
+---@param s any
+function paw.scope.path(s) end
 
 --- The parts of the rest of the song that paw can freeze for a scope. These
 --- are the tracks outside it at the top of their branch (a whole group, not
 --- its members). They are not the tracks that the sound of the scope goes
 --- through (its groups, and a bus that its sends reach). They are not empty.
----@param scope any
-function paw.scope.rest_parts(scope) end
+---@param s any
+function paw.scope.rest_parts(s) end
 
---- The tracks of a scope (the current scope by default), in the order of
---- the track list. With no scope, all tracks.
----@param scope any
-function paw.scope.tracks(scope) end
+--- The bar of the song for a bar as the current scope shows it.
+---@param local_bar any
+function paw.scope.song_bar(local_bar) end
 
---- Leave the scope of the current tab. The tab closes and the tab that it
---- was narrowed from shows again. When it is the last tab, it stays, wide.
-function paw.scope.widen() end
+--- The time a scope shows (the current one by default): `from, to` in
+--- beats, its own time intersected with its parent's. Nil when it shows all
+--- of the song's time. `from` is `to` when the times do not meet.
+---@param s any
+function paw.scope.span(s) end
+
+--- The tracks of a scope (the current one by default), in the order of the
+--- track list. With no scope, or one that keeps every track, all tracks.
+---@param s any
+function paw.scope.tracks(s) end
+
+--- Leave the scope of the current tab: up one level, or with `top` to the
+--- song. Leaving the first level closes the tab and shows the tab it was
+--- narrowed from again; when it is the last tab, it stays, wide. False when
+--- the tab shows the song.
+---@param top any
+function paw.scope.widen(top) end
 
 --- Let go of a reason for `id`'s seat (or of all of them, with none): the
 --- seat closes with its last one.
@@ -7239,7 +7307,8 @@ function paw.tempo.lines(from, to, limit) end
 function paw.tempo.marks(from, to) end
 
 --- A place given to a command: a bar (`17`), a bar and beat (`17.3`), or
---- `cursor` / `here`. The beat of the cursor when nothing is given.
+--- `cursor` / `here`. The beat of the cursor when nothing is given. In a
+--- scope with time (`paw.scope`), bars are its own, from 1 at its start.
 ---@param text any
 function paw.tempo.place(text) end
 

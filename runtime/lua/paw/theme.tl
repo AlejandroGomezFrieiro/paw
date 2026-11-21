@@ -209,6 +209,7 @@ local function build(): Groups
     CursorVisual = { bg = c.visual, fg = c.bg },
     CursorTail = { bg = "#2a3a50" },
     Visual = { bg = "#3a3352", fg = c.bright },
+    ScopeOutside = { fg = c.faint, bg = c.bg },
     InsertCursor = { bg = c.insert, fg = c.bg },
     RulerInsert = { fg = c.bg, bg = c.insert, bold = true },
     HintKey = { fg = c.accent, bold = true },

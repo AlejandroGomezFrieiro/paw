@@ -54,7 +54,7 @@ end
 --- The group the song is narrowed to (`paw.scope`), or nil.
 local function scope_group()
   local scope = rawget(paw, "scope")
-  return scope and scope.current()
+  return scope and scope.group()
 end
 
 --- What the view shows, in words: "the full score", "the score of Strings".
