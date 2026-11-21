@@ -790,6 +790,12 @@ struct Shared {
     host: ComWrapper<Host>,
     /// Rendering to a file, faster than real time.
     offline: AtomicBool,
+    /// Held by the audio thread while the processor runs a block, and by
+    /// the main thread while it stops the processor to set it up again
+    /// ([`Vst3Controller::set_offline`]): the audio thread only tries it,
+    /// and leaves the block as it is (silence added for an instrument, the
+    /// input passed through for an effect) when it cannot have it.
+    run: Mutex<()>,
     /// What the processor was set up with, to set it up again.
     max_block: i32,
     sample_rate: f64,
@@ -958,6 +964,7 @@ impl DeviceFactory for Vst3Factory {
                 params: Vec::new(),
                 host: host.clone(),
                 offline: AtomicBool::new(false),
+                run: Mutex::new(()),
                 max_block: max_block as i32,
                 sample_rate: sample_rate as f64,
                 _module: module,
@@ -1158,6 +1165,12 @@ impl Device for Vst3Device {
         // Woken: its tail starts again from here.
         self.rest
             .begin(io, self.shared.host.wake.swap(false, Ordering::Relaxed));
+        // The main thread has the processor stopped to set it up again: this
+        // block is left as it came, which adds silence for an instrument and
+        // passes the input through for an effect.
+        let Ok(_running) = self.shared.run.try_lock() else {
+            return;
+        };
         if let Some(bus) = self.inputs.channels.first_mut() {
             match bus.as_mut_slice() {
                 [] => {}
@@ -1176,7 +1189,9 @@ impl Device for Vst3Device {
             self.keyed = crate::put_key(bus.as_mut_slice(), io.sidechain, self.keyed, n);
         }
 
-        // SAFETY: This is the audio thread, the only user of the event list, the queues and the buffers;
+        // SAFETY: This is the audio thread, holding `self.shared.run` (the `try_lock` above), so the main
+        // thread does not stop or set up the processor during the call; it is the only user of the
+        // event list, the queues and the buffers;
         // the pointers in `data` lead to live buffers of `max_block` frames per channel (`n` is at most
         // that) and to COM objects that the device owns, which live until `process` returns; the
         // zeroed `Event`, `ProcessContext` and `ProcessData` are plain data, filled before use.
@@ -1483,9 +1498,13 @@ impl Controller for Vst3Controller {
     fn set_offline(&mut self, offline: bool) {
         // The mode is part of the processing setup, which can only be
         // changed while the processor is stopped.
+        crate::debug_assert_main_thread();
         let shared = &self.shared;
-        // SAFETY: The controller's calls are on the main thread. Unlike the CLAP device's `run` lock,
-        // nothing here keeps the audio thread out of `process` while the component is deactivated.
+        // The audio thread waits at most one block for the lock, and then
+        // leaves the blocks alone until it is let go.
+        let _held = shared.run.lock().unwrap_or_else(|e| e.into_inner());
+        // SAFETY: The calls are on the main thread, and `shared.run` is held, so the audio thread is
+        // not in `process` while the processor is stopped, set up and started again, as VST3 wants.
         unsafe {
             shared.processor.setProcessing(0);
             shared.component.setActive(0);
