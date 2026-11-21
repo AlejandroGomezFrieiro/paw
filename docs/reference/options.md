@@ -54,6 +54,7 @@ An extension adds options of its own with `paw.option.define(name, default, spec
 | `paw.opt.autosave` | `60` | The seconds between safety copies of unsaved work. `0` gives no copies. It is `0` under `--clean`. |
 | `paw.opt.reopen_last` | `false` | A start with no project opens the newest recent project. |
 | `paw.opt.lua_limit` | `2000` | The time in ms after which paw stops Lua code that does not return. `0` gives no limit. |
+| `paw.opt.clip_kind_limit` | `50` | The time in ms that a function of a kind of clip (for example `compile` or `serialize`) can run. `0` gives no limit. |
 
 When the undo history has more steps than `undo_steps` or more data than
 `undo_memory`, paw removes the oldest steps and shows a message one time.

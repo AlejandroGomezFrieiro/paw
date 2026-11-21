@@ -199,6 +199,8 @@ paw.audition = require("paw.audition")
 paw.regex = require("paw.regex")
 paw.pick = require("paw.pick")
 paw.track_kinds = require("paw.track_kinds")
+-- Kinds of clip that extensions define (paw/clip_kinds.tl).
+paw.clip_kinds = require("paw.clip_kinds")
 paw.fx = require("paw.fx")
 paw.routes = require("paw.routes")
 paw.controls = require("paw.controls")

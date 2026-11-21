@@ -204,6 +204,7 @@ The program continues.
 | --- | --- |
 | `paw.opt.lua_limit` | the limit in milliseconds. 0 is no limit. Default 2000 |
 | `paw.limit.unhurried(fn, ...)` | runs `fn` without the limit, for work that is known to be long |
+| `paw.limit.within(ms, name, fn, ...)` | runs `fn` with a shorter limit, and gives its error to the caller |
 | `paw.api.limit_async` | tells if the build can stop compiled loops |
 
 - Time in the kernel does not count: a render, the read of a project, the
@@ -318,6 +319,64 @@ the extension, the track is an ordinary track, and `K` gives the kind that
 it was. Vocal tracks (utau) and drum tracks (drums) are kinds.
 `paw.track_kinds.add(name, opts)`, `set(track, name, args)`,
 `clear(track)`, `of(track)` and `describe(track)` are for scripts.
+
+### Kinds of clip
+
+`paw.clip_kinds.define(name, spec)` defines a kind of clip, for example a
+film, lyrics or light cues. A clip of the kind keeps the data of the kind.
+The core does not read the data. The kind compiles the data into what the
+clip plays: a MIDI or audio sound, signals and media files. The project
+saves these too, so the project plays without the extension. In Teal, the
+spec is `paw.contracts.ClipKind<D>`, and `D` is the record of the data.
+
+The kind tells how its data is saved. This is the job of the extension:
+
+- `serialize(data)` gives plain data: text, numbers, booleans, and lists
+  and maps of them. One text alone is data in a text format of the kind,
+  for example an `.lrc` file. Any other value is an error that names the
+  kind and the place: `` kind `film`: .frames[3]: a function is not
+  data ``.
+- `deserialize(stored, version)` gives the data back. `version` is the
+  version that the data has in the project. The kind changes data of an
+  older version here.
+- Bytes, for example pictures, sound or video, do not go in the data. They
+  go in media files that `compile` names.
+
+| Field | Value |
+| --- | --- |
+| `title`, `letter` | the name of the kind, and its letter |
+| `version` | the version of the data, 1 if not given |
+| `timeline` | `beats` (default) or `seconds`: what the positions in the data count |
+| `serialize(data)`, `deserialize(stored, version)` | required: how the data is saved (see above) |
+| `ext` | the file extension of data that `serialize` gives as one text, for example `lrc` |
+| `create(args)` | gives the data of a new clip |
+| `check(data)` | tells what is wrong with the data, or nil |
+| `compile(data, clip)` | gives `{ sound, signals, media, length }` |
+| `split`, `trim`, `slip` | optional: change the data for these edits. Without them, the clip keeps its data and moves its offset in it |
+| `describe(clip)` | a few words for `K` |
+| `look(clip, ctx)` | how the arrange view draws the clip: `{ label, marks, strip, color }` |
+| `editor(clip)` | opens the clip |
+| `on_signal`, `chase`, `chase_back`, `on_stop` | for the time when the project plays |
+
+The functions of a kind must be fast. Each one stops after
+`paw.opt.clip_kind_limit` milliseconds (50).
+
+| Function | Effect |
+| --- | --- |
+| `paw.clip_kinds.add(track, name, args, data)` | makes a clip of the kind, with `data` or with the data that `create` gives. One undo step |
+| `clip:data()` | gives the data of the clip |
+| `clip:set_data(data)`, `paw.clip_kinds.set(clip, data)` | changes the data and compiles it again. One undo step |
+| `paw.clip_kinds.compile(clip)` | compiles the data again. One undo step |
+| `paw.clip_kinds.describe(clip)` | `Film clip · intro.mp4`, or `film (no extension here defines it)` |
+| `paw.clip_kinds.list()`, `spec(name)`, `remove(name)` | the kinds |
+
+Each clip keeps the version of its data. When the project opens, and when
+the kind is defined, paw migrates a clip with an older version. A message
+tells how many clips changed. A clip with a newer version does not
+change: `this clip was made by a newer film extension (data 2, this one
+knows 1)`. Without the extension, the clip keeps its data and its sound,
+and you can move, copy and delete it. When paw unloads the extension, its
+kinds go too.
 
 ### Plugins of an extension
 

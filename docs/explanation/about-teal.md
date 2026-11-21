@@ -167,7 +167,7 @@ Teal can require it.
 In an extension, the contracts are `paw.contracts.View`,
 `paw.contracts.PickSource<T>` and the others. The functions that take a
 contract (`paw.ui.view`, `paw.buftype`, `paw.textbuf.kind`,
-`paw.track_kinds.define`, `paw.roles.define`, `paw.statusline.component`,
+`paw.track_kinds.define`, `paw.clip_kinds.define`, `paw.roles.define`, `paw.statusline.component`,
 `paw.query.field`, `paw.grep.source`, `paw.health.register`, `paw.pick`,
 `paw.pick.sources` and `paw.ui.menu`) take it with its type. So the checker finds a
 field with a wrong name, for example `on_keys` for `on_key`. A picker is
