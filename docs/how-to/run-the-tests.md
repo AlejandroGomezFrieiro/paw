@@ -58,6 +58,40 @@ loaded machine is slow, but it is not wrong. Use these rules:
    `crates/paw-tui/tests/suite.rs`.
 2. To test one crate, run `cargo test -p <crate>`.
 
+## Run the end-to-end scenarios
+
+The end-to-end scenarios are a person who works on a song for many days.
+Run them only in CI or for the release check before a tag. To test a
+change, run the Lua suite. The suite and the default `nix flake check` do
+not run the scenarios. For their design, see
+[About the end-to-end scenarios](../explanation/about-the-e2e-tests.md).
+
+1. Build paw: `cargo build --release`.
+2. For a pull request, run the short mode:
+   `tests/tools/e2e.sh --short`.
+3. For the check of each night, run all the days with some seeds:
+   `tests/tools/e2e.sh --seeds 1-3`. For a release, run all the days:
+   `tests/tools/e2e.sh`.
+4. Read the last line. It is `all passed`, or the number of scenarios
+   that failed.
+
+- To run one scenario, give its name: `tests/tools/e2e.sh song`.
+- To run another seed, give it: `tests/tools/e2e.sh song --seed 7`.
+- To run some seeds, give a range or a list: `--seeds 1-5`, `--seeds 3,7,12`.
+  Each seed has its own approved renders.
+- To run only the first days, give their number:
+  `tests/tools/e2e.sh song --days 2`.
+- If a failure shows, run the command that its `repeat:` line gives.
+  Look at the folder that its `kept:` line gives.
+- If the sound of a scenario changes on purpose, approve the new renders:
+  `tests/tools/e2e.sh song --seeds 1-3 --approve`. Commit
+  `tests/e2e/golden/song.json` with the reason for the change.
+
+The scenarios use `--audio null`, no plugins, and their own home and XDG
+folders under `target/test-scratch`. They need no display and no
+network. The CI runs them in the dev shell, as
+`nix develop -c tests/tools/e2e.sh --short`.
+
 ## Run the tests of the graphical window
 
 1. Run `cargo test -p paw-gui`.

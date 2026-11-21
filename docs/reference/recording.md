@@ -28,7 +28,7 @@ keys.midi_input = { port = "Keystation 49", channel = 1 }   -- MIDI from one por
 
 | Field of a track | Value |
 | --- | --- |
-| `input` | `"1"`, `"1/2"`, `"3"`, or nil for no audio input. |
+| `input` | `"1"`, `"1/2"`, `"3"`, or nil for no audio input. A pair is two adjacent channels, so `"1/3"` is an error. A project file with a bad input does not load. |
 | `monitor` | True: you hear the input, also when the track is not armed. |
 | `armed` | True: the track records. |
 | `midi_input` | `{ port, channel }`: MIDI from one port, and optionally one channel. Nil: all ports. |

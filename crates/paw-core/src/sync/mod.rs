@@ -573,7 +573,8 @@ impl<'p> Pass<'p, '_, '_> {
             let Some(&slot) = self.map.tracks.get(&track.id) else {
                 continue;
             };
-            let (first, channels) = track.input_channels().unwrap_or((0, 0));
+            let (first, channels) =
+                track.input.map_or((0, 0), |i| (usize::from(i.first), usize::from(i.count)));
             // An armed track is always heard, so that what is recorded is what
             // the player hears; the monitor switch is for hearing it otherwise.
             let followed = follow == Some(track.id) && channels == 0 && track.id != MASTER_ID;

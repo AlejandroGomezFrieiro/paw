@@ -1,26 +1,26 @@
 //! Clips of a kind that an extension defines: video, lyrics, light cues.
 //!
 //! The core never reads such a clip's data. It keeps four things for it:
-//! the kind's **data** (JSON or text, kept as the bytes it was given), the
+//! the kind's **data** (a plain value, or text in the kind's own format:
+//! the kind serializes its data to one of these), the
 //! **media** files it uses, the **sound** it makes you hear (a built-in MIDI
 //! or audio content that the kind compiled) and the **signals** it sends
 //! (timed messages to the kernel or to an OSC port). The sound and the
 //! signals are saved with the project, so that a project plays without the
 //! extension.
 //!
-//! JSON that the core keeps but does not read ([`RawJson`]) is saved as a
-//! string that holds its text. serde reads an internally tagged enum such
-//! as [`ClipContent`] through a buffer that keeps values, not bytes, so JSON
-//! written in place would come back with its keys sorted and its numbers
-//! and spaces rewritten. A string comes back as it was.
+//! The data is a value, never bytes that the core cannot read. A
+//! [`KindValue`] is saved as pretty JSON with its keys sorted, so that one
+//! value has one text (save, load and save give the same bytes) and a
+//! change of one field is one line in `git diff`.
 
 use std::fmt;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use serde_json::value::RawValue;
+use serde::{Deserialize, Deserializer, Serialize};
+use serde_json::Value;
 
 use super::ClipContent;
 
@@ -42,9 +42,15 @@ pub enum CustomError {
     BadAddress(String),
     #[error("the sound of a clip is MIDI or audio, not a clip of the kind `{0}`")]
     NestedCustom(String),
-    #[error("not JSON: {0}")]
-    BadJson(String),
+    #[error(
+        "the data is {0} bytes, over the limit of 1 MB: big or binary data goes in a media file: give it in `media`"
+    )]
+    TooBig(usize),
 }
+
+/// The most bytes that a custom clip's data can have, as compact JSON or as
+/// text. More is media, not data.
+pub const DATA_LIMIT: usize = 1 << 20;
 
 /// A lowercase word, `[a-z][a-z0-9_-]{0,31}`, shared by clips that use it:
 /// the role of a media file, the name of an OSC port.
@@ -147,44 +153,29 @@ impl fmt::Display for ClipKindId {
     }
 }
 
-/// JSON that the core keeps and never reads, as the text it was given.
-/// Saved as a string that holds the text (see the module's comment).
-#[derive(Clone, Debug)]
-pub struct RawJson(Arc<RawValue>);
+/// A plain JSON value that the core keeps and never reads: what a kind
+/// serialized its data or a signal's body to. Clips that share it share
+/// one value, so a clone is a count. Its maps keep their keys sorted, so
+/// one value has one text.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct KindValue(Arc<Value>);
 
-impl RawJson {
-    /// The JSON text, byte for byte as it was given.
-    pub fn get(&self) -> &str {
-        self.0.get()
+impl KindValue {
+    pub fn get(&self) -> &Value {
+        &self.0
     }
 }
 
-impl FromStr for RawJson {
-    type Err = CustomError;
-
-    fn from_str(text: &str) -> Result<Self, CustomError> {
-        let raw = RawValue::from_string(text.to_string())
-            .map_err(|err| CustomError::BadJson(err.to_string()))?;
-        Ok(RawJson(raw.into()))
+impl From<Value> for KindValue {
+    fn from(value: Value) -> Self {
+        KindValue(Arc::new(value))
     }
 }
 
-impl PartialEq for RawJson {
+impl PartialEq for KindValue {
     fn eq(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.0, &other.0) || self.get() == other.get()
-    }
-}
-
-impl Serialize for RawJson {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(self.get())
-    }
-}
-
-impl<'de> Deserialize<'de> for RawJson {
-    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let text = String::deserialize(deserializer)?;
-        text.parse().map_err(serde::de::Error::custom)
+        Arc::ptr_eq(&self.0, &other.0) || self.0 == other.0
     }
 }
 
@@ -199,18 +190,34 @@ pub enum Timeline {
     Seconds,
 }
 
-/// The data of a custom clip: the kind's own, which the core keeps byte
-/// for byte and never reads.
+/// The data of a custom clip: the kind's own, as the kind serialized it.
+/// The core keeps it and never reads it.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum KindData {
-    Json(RawJson),
+    /// A plain value, saved as pretty JSON with sorted keys.
+    Json(KindValue),
     /// Text in the kind's own format (an `.lrc` file), with the file
-    /// extension that it is saved with.
+    /// extension that it is saved with. Saved as it is.
     Text {
         ext: Word,
         text: Arc<str>,
     },
+}
+
+impl KindData {
+    /// Refuse data over [`DATA_LIMIT`]: what a kind gives stays small
+    /// enough to save, load and compare at each edit.
+    pub fn check_size(&self) -> Result<(), CustomError> {
+        let size = match self {
+            KindData::Json(value) => serde_json::to_vec(value.get()).map_or(usize::MAX, |b| b.len()),
+            KindData::Text { text, .. } => text.len(),
+        };
+        if size > DATA_LIMIT {
+            return Err(CustomError::TooBig(size));
+        }
+        Ok(())
+    }
 }
 
 /// A file that a custom clip uses.
@@ -278,7 +285,7 @@ fn is_zero_u16(value: &u16) -> bool {
 #[serde(tag = "kind", rename_all = "lowercase")]
 pub enum SignalTo {
     /// To the kind's code in the kernel, with this payload.
-    Kernel { body: RawJson },
+    Kernel { body: KindValue },
     /// An OSC message to a port that the machine's setting names.
     Osc {
         port: PortName,
@@ -388,9 +395,9 @@ mod tests {
     }
 
     #[test]
-    fn an_unknown_kinds_data_round_trips_byte_for_byte() {
-        let data = "{ \"zeta\": 1.50, \"alpha\" :[3,  2] }";
-        let body = "{\"b\":1e3,\"a\":0}";
+    fn an_unknown_kinds_data_round_trips_as_a_value() {
+        let data = serde_json::json!({ "zeta": 1.5, "alpha": [3, 2, { "n": null, "b": true }] });
+        let body = serde_json::json!({ "b": 1000.0, "a": 0 });
         let content = serde_json::json!({ "kind": "custom", "type": "unknown", "data": { "json": data },
             "signals": [{ "at": 1.0, "to": { "kind": "kernel", "body": body } },
                 { "at": 2.0, "to": { "kind": "osc", "port": "qlc", "address": "/go", "args": [1, 0.5, "x"] } }],
@@ -404,11 +411,11 @@ mod tests {
         let KindData::Json(json) = &custom.data else {
             panic!("JSON data")
         };
-        assert_eq!(json.get(), data);
+        assert_eq!(json.get(), &data);
         let SignalTo::Kernel { body: read_body } = &custom.signals[0].to else {
             panic!("a kernel signal")
         };
-        assert_eq!(read_body.get(), body);
+        assert_eq!(read_body.get(), &body);
         assert!(
             matches!(read.playable(), Some(ClipContent::Midi { .. })),
             "it plays its sound"

@@ -508,10 +508,17 @@ local record types
     "beats" "seconds"
   end
 
-  --- The data of a custom clip (`model::KindData`): `json` is the text of
-  --- JSON, `text` text in the kind's own format. Kept as given.
+  --- A plain value that a kind serialized its data or a signal's body to
+  --- (`model::KindValue`): a table of lists and maps of strings, numbers
+  --- and booleans, saved as JSON. Teal cannot name a type that is a list
+  --- or a map at each level, so the kind's `serialize` and `deserialize`
+  --- give it its own type.
+  type KindValue = any
+
+  --- The data of a custom clip (`model::KindData`): `json` a plain value,
+  --- or `text` UTF-8 text in the kind's own format.
   record KindData
-    json: string
+    json: KindValue
     text: KindText
   end
 
@@ -528,10 +535,10 @@ local record types
   end
 
   --- Where a custom clip's signal goes (`model::SignalTo`): `kind` is
-  --- `kernel` (with `body`, JSON text) or `osc` (`port`, `address`, `args`).
+  --- `kernel` (with `body`, a plain value) or `osc` (`port`, `address`, `args`).
   record SignalTo
     kind: string
-    body: string
+    body: KindValue
     port: string
     address: string
     args: {number | string | boolean}

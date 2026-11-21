@@ -55,3 +55,4 @@ paw.track_kinds 1 written in Lua: typed when its module is ported to Teal
 paw.try 1 written in Lua: typed when its module is ported to Teal
 paw.version 1 written in Lua: typed when its module is ported to Teal
 types.Meta 1 an extension's own data in `meta`, any JSON value: the extension gives it a record of its own
+types.KindValue 1 a custom clip's data, any plain JSON value: the kind's serialize and deserialize give it a type of its own (Teal cannot name a list-or-map at each level)

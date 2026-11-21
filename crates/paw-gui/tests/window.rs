@@ -872,10 +872,18 @@ impl Scene {
         (self.pane(view, "p.x + p.w / 2"), place::AREA_TOP + self.pane(view, "p.y + p.h / 2"))
     }
 
-    /// The window's close button as a window manager sends it.
+    /// The window's close button as a window manager sends it: asked of
+    /// openbox by the window's id (`_NET_CLOSE_WINDOW`), which sends the
+    /// window WM_DELETE_WINDOW. Not Alt-F4, which goes through openbox's
+    /// grab of the key: on a loaded machine the F4 of a first key of the
+    /// session went past it to the window as a plain key, and nothing
+    /// closed (most likely while openbox grabbed its keys again after the
+    /// server changed to xdotool's keyboard).
     fn close_window(&self) {
-        self.mouse_to((self.size.0 / 2, self.size.1 / 2));
-        self.key("alt+F4");
+        let found = self.xdotool(&["search", "--onlyvisible", "--name", "^paw"]);
+        let id = found.lines().next().expect("the window");
+        self.xdotool(&["windowquit", id]);
+        self.pause(0.3);
     }
 
     /// The file menu, from the project's name at the left of the transport bar.
@@ -2169,6 +2177,12 @@ fn the_session_view_launches_scenes_and_takes_clips_from_the_timeline() {
     w.type_text(":launch.back all");
     w.key("Return");
     w.expect("the timeline again", "next(require('launcher').state()) == nil");
+    // The scene set the song playing, and the timeline follows the playhead:
+    // on a loaded machine it has paged past the chorus before the drag.
+    // Stopped, and back at its start, the chorus stays where it is drawn.
+    w.ctl("paw.api.transport_stop()");
+    w.expect("the song stopped", "not paw.api.transport_get().playing");
+    w.ctl("paw.ui.views.arrange.scroll = 0; paw.api.ui_redraw()");
 
     // A clip dragged from the timeline onto an empty slot of the bass is
     // copied into it: the slot under the bass's clip, in the second row.

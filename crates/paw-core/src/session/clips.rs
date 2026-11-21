@@ -170,6 +170,7 @@ impl Session {
                     .data
                     .take()
                     .with_context(|| format!("a clip of the kind `{id}` needs `data`"))?;
+                data.check_size()?;
                 let length = opts
                     .length
                     .with_context(|| format!("a clip of the kind `{id}` needs a `length`"))?;
@@ -445,6 +446,7 @@ impl Session {
     /// signals together, as one edit.
     pub fn clip_set_custom(&mut self, id: Id, set: CustomSet) -> Result<()> {
         let data = set.data.context("a custom clip is set with its `data`")?;
+        data.check_size()?;
         let version = set.version.map(|v| custom_version(Some(v))).transpose()?;
         if set.offset.is_some_and(|o| !o.is_finite()) {
             bail!("a clip's offset is a number");

@@ -13,8 +13,7 @@ paw-raster.workspace = true
 paw-scene.workspace = true
 anyhow.workspace = true
 serde.workspace = true
-# raw_value: a custom clip's data is kept as the JSON text it was given.
-serde_json = { workspace = true, features = ["raw_value"] }
+serde_json.workspace = true
 thiserror.workspace = true
 mlua = { version = "0.12", features = ["luajit", "vendored", "serde"] }
 include_dir = "0.7"
@@ -52,3 +51,6 @@ rcgen = { version = "0.14", default-features = false, features = ["crypto", "rin
 # Compiles the Lua runtime to bytecode (build.rs), with the LuaJIT the
 # program runs it on.
 mlua = { version = "0.12", features = ["luajit", "vendored"] }
+
+[dev-dependencies]
+tempfile = "3"

@@ -520,9 +520,8 @@ mod tests {
     #[test]
     fn a_piped_process_writes_its_errors_to_the_log_and_not_the_pipe() {
         let (mut io, _) = counted();
-        let dir = std::env::temp_dir().join(format!("paw-io-test-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
-        let log = dir.join("helper.log");
+        let dir = tempfile::tempdir().unwrap();
+        let log = dir.path().join("helper.log");
         let argv = ["sh", "-c", "echo out; echo err >&2"].map(String::from);
         let opts = SpawnOpts { pipe: true, log: Some(log.clone()), ..Default::default() };
         let id = io.spawn(&argv, opts).unwrap();
@@ -533,6 +532,5 @@ mod tests {
             std::thread::sleep(Duration::from_millis(2));
         }
         assert_eq!(std::fs::read_to_string(&log).unwrap(), "err\n");
-        let _ = std::fs::remove_dir_all(&dir);
     }
 }

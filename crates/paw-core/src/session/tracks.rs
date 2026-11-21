@@ -322,7 +322,7 @@ fn checked_sends(p: &Project, id: Id, mut sends: Vec<Send>) -> Result<Vec<Send>>
 }
 
 /// An audio input from Lua: a channel like "1", a pair like "1/2", or none.
-fn input_of(value: Value) -> Result<Option<String>> {
+fn input_of(value: Value) -> Result<Option<InputChannels>> {
     let spec = match value {
         Value::Null => return Ok(None),
         Value::Number(n) => n.to_string(),
@@ -330,11 +330,7 @@ fn input_of(value: Value) -> Result<Option<String>> {
         Value::String(s) => s,
         _ => bail!("an input is a channel like \"1\" or a pair like \"1/2\""),
     };
-    Ok(Some(match parse_input(&spec) {
-        Some((first, 1)) => format!("{}", first + 1),
-        Some((first, _)) => format!("{}/{}", first + 1, first + 2),
-        None => bail!("bad input `{spec}`: give a channel like \"1\" or a pair like \"1/2\""),
-    }))
+    spec.parse().map(Some).map_err(|e: String| anyhow::anyhow!(e))
 }
 
 /// A MIDI input from Lua: a port's name, a `{port, channel}` table, or all.

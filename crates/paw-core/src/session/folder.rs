@@ -12,8 +12,10 @@
 //! │   ├── devices.json        the chain and its parameters
 //! │   ├── <n>-<kind>.state    a plugin's state, as the plugin gives it
 //! │   ├── automation/<target>.json
-//! │   └── clips/<name>.midi2  a MIDI 2.0 clip file (crate::clipfile)
-//! ├── media/                  sound files
+//! │   ├── clips/<name>.midi2  a MIDI 2.0 clip file (crate::clipfile)
+//! │   └── clips/<name>.<kind>.json, .signals.json, .sound.midi2
+//! │                           the parts of a custom clip (`Writer::custom_clip`)
+//! ├── media/                  sound files, and `derived/` for those a kind makes
 //! └── unused/                 files the project does not use any more
 //! ```
 //!
@@ -34,7 +36,7 @@ use serde_json::{Map, Value, json};
 
 use super::BASE64;
 use crate::clipfile;
-use crate::model::{Clip, ClipContent, Notes, Project, Target, Track};
+use crate::model::{Clip, ClipContent, KindData, Notes, Project, Target, Track};
 
 /// The file that makes a folder a project.
 pub const PROJECT_FILE: &str = "project.toml";
@@ -280,6 +282,9 @@ impl Writer<'_> {
 
     fn clip(&mut self, clip: &Clip, folder: &Path, taken: &mut BTreeSet<String>) -> Result<Value> {
         let ClipContent::Midi { notes, controls } = &clip.content else {
+            if let ClipContent::Custom(_) = &clip.content {
+                return self.custom_clip(clip, folder, taken);
+            }
             return self.audio_clip(clip, folder, taken);
         };
         // A clip that refers to a file outside goes on referring to it.
@@ -359,6 +364,79 @@ impl Writer<'_> {
         let path = folder.join("clips").join(unique(taken, &stem, ".edits.json"));
         self.layout.files.insert(path.clone(), pretty(&edits));
         value["content"]["edits_file"] = json!(path);
+        Ok(value)
+    }
+}
+
+impl Writer<'_> {
+    /// The file for `bytes` in the track's `clips/`: named `<stem><middle>.<ext>`,
+    /// and shared by every clip with the same bytes (a split clip keeps its
+    /// data, so both halves name one file).
+    fn clip_file(
+        &mut self,
+        folder: &Path,
+        taken: &mut BTreeSet<String>,
+        stem: &str,
+        middle: &str,
+        ext: &str,
+        bytes: Vec<u8>,
+    ) -> PathBuf {
+        let ext = format!(".{ext}");
+        // The same bytes under another name or kind are another file.
+        let mut key = format!("{middle}{ext}\0").into_bytes();
+        key.extend_from_slice(&bytes);
+        if let Some(path) = self.written.get(&key) {
+            return path.clone();
+        }
+        let name = unique(taken, &format!("{stem}{middle}"), &ext);
+        let path = folder.join("clips").join(name);
+        self.written.insert(key, path.clone());
+        self.layout.files.insert(path.clone(), bytes);
+        path
+    }
+
+    /// A custom clip as `track.json` holds it. Its data, its signals and its
+    /// sound when that is MIDI are files of their own in `clips/`, named by
+    /// the entry (`data.json_file`, `data.text_file`, `signals_file`,
+    /// `sound.file`): JSON data is pretty with sorted keys and text data is
+    /// as the kind wrote it, so a change reads in `git diff`, and the entry
+    /// keeps the rest.
+    fn custom_clip(&mut self, clip: &Clip, folder: &Path, taken: &mut BTreeSet<String>) -> Result<Value> {
+        let ClipContent::Custom(custom) = &clip.content else {
+            bail!("clip {} is not a custom clip", clip.id);
+        };
+        let mut value = clip_entry(clip, None)?;
+        let stem = file_name(if clip.name.is_empty() { "clip" } else { &clip.name });
+        let kind = format!(".{}", custom.kind);
+        let (data, path) = match &custom.data {
+            KindData::Json(json) => {
+                let bytes = pretty(json.get());
+                let path = self.clip_file(folder, taken, &stem, &kind, "json", bytes);
+                (json!({ "json_file": path }), path)
+            }
+            KindData::Text { ext, text } => {
+                let bytes = text.as_bytes().to_vec();
+                let path = self.clip_file(folder, taken, &stem, &kind, ext.as_str(), bytes);
+                (json!({ "text_file": path, "ext": ext }), path)
+            }
+        };
+        self.layout.clip_files.insert(clip.id, path);
+        let content = value
+            .get_mut("content")
+            .and_then(Value::as_object_mut)
+            .context("a custom clip")?;
+        content.insert("data".into(), data);
+        if !custom.signals.is_empty() {
+            let bytes = pretty(&serde_json::to_value(&*custom.signals)?);
+            let path = self.clip_file(folder, taken, &stem, ".signals", "json", bytes);
+            content.remove("signals");
+            content.insert("signals_file".into(), json!(path));
+        }
+        if let Some(ClipContent::Midi { notes, controls }) = custom.sound.as_ref().map(|s| s.content()) {
+            let bytes = clipfile::encode(notes.iter(), controls, clip.length);
+            let path = self.clip_file(folder, taken, &stem, ".sound", "midi2", bytes);
+            content.insert("sound".into(), json!({ "kind": "midi", "file": path }));
+        }
         Ok(value)
     }
 }
@@ -893,26 +971,67 @@ fn is_outside_entry(name: &str) -> bool {
 
 /// Take the file a clip's entry names out of it, leaving an empty note
 /// list to fill.
-fn take_clip_file(clip: &mut Value, files: &mut Vec<(u64, PathBuf)>, dir: &Path) {
+fn take_clip_file(clip: &mut Value, files: &mut Vec<(u64, PathBuf)>, dir: &Path) -> Result<()> {
     let id = clip.get("id").and_then(Value::as_u64).unwrap_or(0);
     let Some(content) = clip.get_mut("content") else {
-        return;
+        return Ok(());
     };
+    if content.get("kind").and_then(Value::as_str) == Some("custom") {
+        return take_custom_files(content, dir);
+    }
     if content.get("kind").and_then(Value::as_str) == Some("audio") {
         // An audio clip's edit list, from its file.
         if let Some(file) = content.as_object_mut().and_then(|c| c.remove("edits_file")) {
             let path = resolve(Path::new(file.as_str().unwrap_or_default()), dir);
             content["edits"] = read_json(&path).unwrap_or_else(|_| json!([]));
         }
-        return;
+        return Ok(());
     }
     if content.get("kind").and_then(Value::as_str) != Some("midi") {
-        return;
+        return Ok(());
     }
     if let Some(file) = content.get("file").and_then(Value::as_str) {
         files.push((id, resolve(Path::new(file), dir)));
     }
     *content = json!({ "kind": "midi", "notes": [] });
+    Ok(())
+}
+
+/// The text of a file that a custom clip's entry names.
+fn read_text(file: &str, dir: &Path) -> Result<String> {
+    let path = resolve(Path::new(file), dir);
+    std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))
+}
+
+/// Put the files that a custom clip's entry names back into it: its data,
+/// its signals and its sound when that is MIDI. An error names the file and,
+/// for JSON, the line and column.
+fn take_custom_files(content: &mut Value, dir: &Path) -> Result<()> {
+    let Some(map) = content.as_object_mut() else {
+        return Ok(());
+    };
+    let data = map.get("data").and_then(Value::as_object);
+    if let Some(file) = data.and_then(|d| d.get("json_file")).and_then(Value::as_str) {
+        let value = read_json(&resolve(Path::new(file), dir))?;
+        map.insert("data".into(), json!({ "json": value }));
+    } else if let Some(file) = data.and_then(|d| d.get("text_file")).and_then(Value::as_str) {
+        let ext = data.and_then(|d| d.get("ext")).cloned().unwrap_or(Value::Null);
+        let text = read_text(file, dir)?;
+        map.insert("data".into(), json!({ "text": { "ext": ext, "text": text } }));
+    }
+    if let Some(file) = map.remove("signals_file") {
+        let path = resolve(Path::new(file.as_str().unwrap_or_default()), dir);
+        map.insert("signals".into(), read_json(&path)?);
+    }
+    let sound = map.get("sound").and_then(|s| s.get("file")).and_then(Value::as_str);
+    if let Some(file) = sound {
+        let path = resolve(Path::new(file), dir);
+        let bytes = std::fs::read(&path).with_context(|| format!("reading {}", path.display()))?;
+        let read = clipfile::decode(&bytes).with_context(|| format!("reading {}", path.display()))?;
+        let midi = ClipContent::Midi { notes: Notes::from(read.notes), controls: read.controls };
+        map.insert("sound".into(), serde_json::to_value(&midi)?);
+    }
+    Ok(())
 }
 
 /// Read a project folder (`dir/project.toml`).
@@ -989,18 +1108,15 @@ fn read_all_tracks(
     problems: &mut Vec<String>,
 ) -> Result<(Vec<Value>, Value)> {
     let mut tracks = Vec::new();
-    let fix = |mut track: Value, files: &mut Vec<(u64, PathBuf)>, root: &Path| {
-        if let Some(Value::Array(clips)) = track.get_mut("clips") {
-            for clip in clips {
-                take_clip_file(clip, files, root);
+    let fix = |mut track: Value, files: &mut Vec<(u64, PathBuf)>, root: &Path| -> Result<Value> {
+        for key in ["clips", "cues"] {
+            if let Some(Value::Array(clips)) = track.get_mut(key) {
+                for clip in clips {
+                    take_clip_file(clip, files, root)?;
+                }
             }
         }
-        if let Some(Value::Array(cues)) = track.get_mut("cues") {
-            for clip in cues {
-                take_clip_file(clip, files, root);
-            }
-        }
-        track
+        Ok(track)
     };
     // The project's own tracks first: their ids are the project's. What
     // comes from outside (a track folder, a chain file) keeps its ids where
@@ -1031,15 +1147,15 @@ fn read_all_tracks(
     }
     for (name, track) in order.iter().zip(read_tracks) {
         if let Some(track) = track {
-            tracks.push(fix(track, files, dir));
+            tracks.push(fix(track, files, dir)?);
             continue;
         }
         // A track folder outside the project: read from where it is.
         let folder = resolve(Path::new(name), dir);
         let track = read_outside_track(&folder, &mut used, problems)?;
-        tracks.push(fix(track, files, &track_root(&folder)));
+        tracks.push(fix(track, files, &track_root(&folder))?);
     }
-    let master = fix(master, files, dir);
+    let master = fix(master, files, dir)?;
     Ok((tracks, master))
 }
 
@@ -1188,6 +1304,8 @@ impl super::Session {
                 Some("state") => "state",
                 Some("toml") => "project",
                 _ if rel.to_string_lossy().ends_with(".edits.json") => "edits",
+                _ if rel.to_string_lossy().ends_with(".signals.json") => "signals",
+                _ if rel.parent().and_then(Path::file_name).is_some_and(|n| n == "clips") => "data",
                 _ if rel.starts_with("tracks") || rel.starts_with("master") => {
                     match rel.file_name().and_then(|n| n.to_str()) {
                         Some("track.json") => "track",
@@ -1314,7 +1432,7 @@ impl super::Session {
         for key in ["clips", "cues"] {
             if let Some(Value::Array(clips)) = value.get_mut(key) {
                 for clip in clips {
-                    take_clip_file(clip, &mut files, &root);
+                    take_clip_file(clip, &mut files, &root)?;
                 }
             }
         }
@@ -1569,6 +1687,95 @@ mod tests {
                 _ => Vec::new(),
             })
             .collect()
+    }
+
+    fn custom(id: u64, name: &str, start: f64, content: Value) -> Arc<Clip> {
+        let value = json!({
+            "id": id, "name": name, "start": start, "length": 4.0, "muted": false,
+            "content": content,
+        });
+        Arc::new(serde_json::from_value(value).unwrap())
+    }
+
+    #[test]
+    fn custom_clips_save_their_data_in_one_canonical_form() {
+        let dir = scratch("custom");
+        let data = json!({ "zeta": 1.5, "alpha": [3, 2], "cue": { "text": "one" } });
+        let signals = json!([
+            { "at": 1.0, "to": { "kind": "kernel", "body": { "b": 1000.0, "a": 0 } } },
+            { "at": 2.0, "to": { "kind": "osc", "port": "qlc", "address": "/go", "args": [1, 0.5, "x"] } },
+        ]);
+        let video = json!({
+            "kind": "custom", "type": "video", "data": { "json": data }, "signals": signals,
+            "media": [
+                { "role": "source", "path": "media/film.mp4" },
+                { "role": "proxy", "path": "media/derived/video-3f9a.flac", "derived": true },
+            ],
+            "sound": { "kind": "midi", "notes": [
+                { "start": 0.5, "length": 1.0, "pitch": 60, "velocity": 90, "id": 1 }] },
+        });
+        let lyrics = json!({
+            "kind": "custom", "type": "lyrics", "version": 2, "timeline": "seconds",
+            "data": { "text": { "ext": "lrc", "text": "[00:01.00]one\n[00:02.00]two" } },
+        });
+        let mut track = Track::new(1);
+        track.name = "Show".into();
+        track.clips = vec![
+            custom(2, "intro", 0.0, video.clone()),
+            // A split keeps the data: both halves name one data file.
+            custom(3, "intro", 4.0, video),
+            custom(4, "verse", 8.0, lyrics),
+        ]
+        .into();
+        let mut p = Project::default();
+        p.tracks.push(Arc::new(track));
+        let first = layout(&p, &json!({}), None, &dir).unwrap();
+        let clips = Path::new("tracks/Show/clips");
+        let names: Vec<_> = first
+            .files
+            .keys()
+            .filter_map(|f| f.strip_prefix(clips).ok())
+            .map(|f| f.to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(
+            names,
+            ["intro.signals.json", "intro.sound.midi2", "intro.video.json", "verse.lyrics.lrc"]
+        );
+        // Pretty, with the keys sorted: one field is one line.
+        let text = String::from_utf8(first.files[&clips.join("intro.video.json")].clone()).unwrap();
+        assert_eq!(
+            text,
+            "{\n  \"alpha\": [\n    3,\n    2\n  ],\n  \"cue\": {\n    \"text\": \"one\"\n  },\n  \"zeta\": 1.5\n}\n"
+        );
+        let saved: Value = serde_json::from_slice(&first.files[&clips.join("intro.signals.json")]).unwrap();
+        assert_eq!(saved[0]["to"]["body"], json!({ "a": 0, "b": 1000.0 }), "a body is JSON, not a string");
+        assert_eq!(first.files[&clips.join("verse.lyrics.lrc")], b"[00:01.00]one\n[00:02.00]two");
+        assert_eq!(first.clip_files[&2], first.clip_files[&3], "the halves share a data file");
+        commit(&dir, &first, None).unwrap();
+        // Read it back, with no kind defined anywhere: the same value, and
+        // saved again as the same bytes.
+        let read = read(&dir).unwrap();
+        assert!(read.problems.is_empty(), "{:?}", read.problems);
+        let ClipContent::Custom(video) = &read.project.tracks[0].clips[0].content else {
+            panic!("a custom clip");
+        };
+        assert_eq!(video.data, KindData::Json(data.into()));
+        let again = super::layout(&read.project, &json!({}), None, &dir).unwrap();
+        assert_eq!(again.files, first.files);
+        let ClipContent::Custom(c) = &read.project.tracks[0].clips[2].content else {
+            panic!("a custom clip");
+        };
+        assert_eq!((c.version, c.timeline), (2, crate::model::Timeline::Seconds));
+        assert!(commit(&dir, &again, None).unwrap().written.is_empty());
+        // A data file that is not JSON is said with its name and the place.
+        std::fs::write(dir.join(clips).join("intro.video.json"), "{\n  \"a\": }").unwrap();
+        let err = format!("{:#}", read_err(&dir));
+        assert!(err.contains("intro.video.json") && err.contains("line 2 column 8"), "{err}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    fn read_err(dir: &Path) -> anyhow::Error {
+        read(dir).err().expect("the data file is not JSON")
     }
 
     #[test]

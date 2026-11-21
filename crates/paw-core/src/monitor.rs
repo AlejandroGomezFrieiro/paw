@@ -9,6 +9,7 @@ use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender, channel};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use anyhow::{Result, bail};
 use paw_proto::monitor::Encoder;
 use rtrb::Consumer;
 use serde_json::{Value, json};
@@ -39,7 +40,7 @@ impl Monitor {
     }
 
     /// Answer `monitor.listen` and `monitor.unlisten`.
-    pub fn call(&mut self, client: ClientId, method: &str, session: &mut Session) -> Result<Value, String> {
+    pub fn call(&mut self, client: ClientId, method: &str, session: &mut Session) -> Result<Value> {
         match method {
             "monitor.listen" => {
                 {
@@ -60,7 +61,7 @@ impl Monitor {
                 self.closed(client, session);
                 Ok(Value::Bool(true))
             }
-            _ => Err(format!("no method `{method}`")),
+            _ => bail!("no method `{method}`"),
         }
     }
 
@@ -133,7 +134,7 @@ fn send_on(
         }
         let Ok(chunk) = queue.read_chunk(ready - ready % 2) else { continue };
         buf.clear();
-        buf.extend(chunk.into_iter());
+        buf.extend(chunk);
         let frames = encoder.push(&buf);
         let ids = listeners.lock().unwrap().clone();
         for frame in &frames {

@@ -334,8 +334,8 @@ The kind tells how its data is saved. This is the job of the extension:
 - `serialize(data)` gives plain data: text, numbers, booleans, and lists
   and maps of them. One text alone is data in a text format of the kind,
   for example an `.lrc` file. Any other value is an error that names the
-  kind and the place: `` kind `film`: serialize returned a function at
-  .frames[3] ``.
+  kind and the place: `` kind `film`: .frames[3]: a function is not
+  data ``.
 - `deserialize(stored, version)` gives the data back. `version` is the
   version that the data has in the project. The kind changes data of an
   older version here.

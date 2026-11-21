@@ -109,16 +109,24 @@ test("several plugins are made at the same time", function()
     fresh()
     local t = paw.add_track()
     hang(kind:match("[^:]*$"), 1.5, 20)
+    local function running(list)
+      return wait_for(function()
+        for _, fx in ipairs(list) do if fx:get().status ~= "running" then return false end end
+        return true
+      end, 20000)
+    end
+    -- The time of one plugin, measured here, so a loaded machine scales both.
     local started = api.now()
+    eq(running({ t:add_device(kind) }), true, "one is made")
+    local one = api.now() - started
+    started = api.now()
     local list = {}
     for i = 1, 6 do list[i] = t:add_device(kind) end
-    eq(wait_for(function()
-      for _, fx in ipairs(list) do if fx:get().status ~= "running" then return false end end
-      return true
-    end, 20000), true, "all are made")
-    -- One after the other would take 9 s; four at a time, two rounds.
+    eq(running(list), true, "all are made")
+    -- One after the other would take 6 times as long as one; four at a
+    -- time, two rounds, about 2 times.
     local took = api.now() - started
-    eq(took < 6000, true, "made side by side, took " .. took .. " ms")
+    eq(took < 4 * one, true, "made side by side: six took " .. took .. " ms, one took " .. one .. " ms")
   end)
 end)
 

@@ -98,60 +98,24 @@ local function version_of(custom: types.CustomContent): integer
    return custom.version or 1
 end
 
---- Why a value is not plain data (strings, numbers, booleans, and tables
---- of them by string keys or as lists), or nil when it is.
-local function not_plain(value: contracts.KindJson, path: string, seen: {contracts.KindJson:boolean}): string
-   local where = path == "" and "" or (" at " .. path)
-   local t = type(value)
-   if t == "boolean" then return nil end
-   if t == "string" then
-      if not utf8.len(value as string) then return "text that is not UTF-8" .. where end
-      return nil
-   end
-   if t == "number" then
-      local n = value as number
-      if n ~= n or n == math.huge or n == -math.huge then return "a number that is not finite" .. where end
-      return nil
-   end
-   if t ~= "table" then return "a " .. t .. where end
-   if seen[value] then return "a table that holds itself" .. where end
-   seen[value] = true
-   for k, v in pairs(value as {contracts.KindJson:contracts.KindJson}) do
-      local inner: string
-      if k is string then
-         inner = path .. "." .. k
-      elseif math.type(k) == "integer" then
-         inner = path .. "[" .. tostring(k) .. "]"
-      else
-         return "a key that is not text" .. where
-      end
-      local bad = not_plain(v, inner, seen)
-      if bad then return bad end
-   end
-   seen[value] = nil
-   return nil
-end
-
 -- How the kernel keeps plain data: these two functions are the only ones
--- that know it. Text is kept as text, with the kind's file extension.
+-- that know it. Text is kept as text, with the kind's file extension; the
+-- rest as a table, which the kernel checks is plain data (the path of what
+-- is not, in its error) and saves as JSON.
 local function store(spec: contracts.ClipKind<M.Data>, value: contracts.KindJson): types.KindData
    if value is string then return { text = { ext = spec.ext or "txt", text = value } } end
-   return { json = api.json_encode(value) }
+   return { json = value }
 end
 
 local function stored(custom: types.CustomContent): contracts.KindJson, string
    if custom.data.text then return custom.data.text.text end
-   local value, why = api.json_decode(custom.data.json)
-   if why then return nil, "its data is not JSON: " .. why end
-   return value as contracts.KindJson
+   return custom.data.json as contracts.KindJson
 end
 
 --- A kind's data as the kernel keeps it, by the kind's `serialize`.
 local function serialized(spec: contracts.ClipKind<M.Data>, data: M.Data): types.KindData, string
    local value, why = run(spec, "serialize", function(): (contracts.KindJson, string) return spec.serialize(data) end)
    if value == nil then return nil, why end
-   local bad = not_plain(value, "", {})
-   if bad then return nil, "serialize returned " .. bad .. ": data holds plain values, and files go in media" end
    return store(spec, value)
 end
 
@@ -218,6 +182,13 @@ local function changeable(id: integer): contracts.ClipKind<M.Data>, types.Clip, 
    return spec, c, custom
 end
 
+--- Give a clip what its kind made, as one undo step; the kernel's refusal
+--- (data that is not plain, with its path) names the kind.
+local function keep(spec: contracts.ClipKind<M.Data>, id: integer, set: types.CustomSet)
+   local ok, err = pcall(api.clip_set_custom, id, set) as (boolean, string)
+   if not ok then error("kind `" .. spec.name .. "`: " .. tostring(err), 0) end
+end
+
 -- Defining kinds -------------------------------------------------------------
 
 --- The clips of the project, on the timeline and among the cues, whose
@@ -251,7 +222,11 @@ function M.migrate(name?: string): integer
             local set: types.CustomSet
             if data ~= nil then set, why = made(spec, data, info(c, custom)) end
             if set then
-               api.clip_set_custom(c.id, set)
+               local ok: boolean
+               ok, why = pcall(keep, spec, c.id, set) as (boolean, string)
+               if not ok then set = nil end
+            end
+            if set then
                moved[c.kind] = (moved[c.kind] or 0) + 1
                total = total + 1
             else
@@ -350,11 +325,12 @@ function M.add<D>(track: integer | objects.Track, name: string, args?: contracts
       offset = 0, timeline = spec.timeline }
    local set, why, natural = made(spec, value, where)
    if not set then error("kind `" .. name .. "`: " .. why, 0) end
-   local id = api.clip_add(args.track, {
+   local ok, id = pcall(api.clip_add, args.track, {
       kind = name, name = args.name, start = args.start, length = args.length or natural or 4,
       data = set.data, version = set.version, timeline = set.timeline,
       sound = set.sound, signals = set.signals, media = set.media,
-   })
+   }) as (boolean, integer)
+   if not ok then error("kind `" .. name .. "`: " .. tostring(id), 0) end
    return objects.clip(id)
 end
 
@@ -367,7 +343,7 @@ function M.set<D>(clip: integer | objects.Clip, data: D)
    local spec, c, custom = changeable(id)
    local set, why = made(spec, data as M.Data, info(c, custom))
    if not set then error("kind `" .. spec.name .. "`: " .. why, 0) end
-   api.clip_set_custom(id, set)
+   keep(spec, id, set)
 end
 
 --- Compile a clip of a kind again from its data (after something that it
@@ -379,7 +355,7 @@ function M.compile(clip: integer | objects.Clip)
    local set: types.CustomSet
    if data ~= nil then set, why = made(spec, data, info(c, custom)) end
    if not set then error("kind `" .. spec.name .. "`: " .. why, 0) end
-   api.clip_set_custom(id, set)
+   keep(spec, id, set)
 end
 
 --- The data of a clip of a kind, by its kind's `deserialize`: nil for a
