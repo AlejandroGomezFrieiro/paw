@@ -119,6 +119,7 @@ paw.ui.view("euclid", { render = function(self, buf, ctx) end, on_key = …, tit
 paw.buftype("tally", { … })                    -- a buffer type with its own keys/motions/K/status
 paw.textbuf.kind("clips", { … })               -- a listing edited as text, :w shows a plan
 paw.track_kinds.define("euclid", { … })        -- a kind of track (create, editor, describe)
+paw.clip_kinds.define("lyric", { … })          -- a kind of clip: own data, compiled to sound/signals (docs/reference/extensions.md)
 paw.on("edit.after", function(payload) end)    -- hooks: see docs/reference/events.md
 paw.statusline.component("euclid", { fn = function(ctx) return { { "E", "StatusOn" } } end })
 paw.query.field("note", "onset", function(note) end)  -- :select / :query fields

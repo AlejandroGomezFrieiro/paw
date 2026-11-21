@@ -1,6 +1,6 @@
 -- The contracts: the tables that an extension gives to paw and that paw
 -- gives back to it. A view, a buffer type, a kind of text buffer, a kind of
--- track, a role, a picker, a status line component, a query field, a
+-- track, a kind of clip, a role, a picker, a status line component, a query field, a
 -- source of grep, a health check and a manifest. Each record has the
 -- fields that the runtime reads (paw/ui.tl, paw/layout.tl, paw/keymap.lua,
 -- paw/mouse.tl, paw/scene.tl, paw/canvas.tl, paw/statusline.tl and the
@@ -1028,6 +1028,149 @@ local record contracts
       editor: function(clip: integer): boolean
       describe: function(track: integer): string
       is: function(track: integer): boolean
+   end
+
+   -- Kinds of clip ----------------------------------------------------------------
+
+   --- A clip as `paw.clip(id)` gives it (`paw.Clip`).
+   type ClipHandle = objects.Clip
+
+   --- Plain data, as the project saves a kind's data: text, a number,
+   --- a boolean, or a list or a map of them. A kind's `serialize` gives
+   --- it, and its `deserialize` takes it. Text alone is data in the
+   --- kind's own text format (an `.lrc` file).
+   type KindJson = string | number | boolean | {KindJson:KindJson}
+
+   --- What a kind's `create` gets: the words after the kind's name in a
+   --- command, and the options of `paw.clip_kinds.add`.
+   record ClipKindArgs
+      {string}
+      name: string
+      start: number
+      length: number
+      track: integer
+   end
+
+   --- The clip that a kind's `compile` makes the output of: where it is
+   --- and where it starts in its data (`offset`, in its `timeline`).
+   record ClipInfo
+      id: integer
+      track: integer
+      start: number
+      length: number
+      offset: number
+      timeline: types.Timeline
+   end
+
+   --- What a kind's `compile` gives: what the clip sounds as (a MIDI or
+   --- audio content: `{ kind = "midi", notes = ... }`), what it makes
+   --- happen (`signals`, in its timeline from the start of its data), the
+   --- files it uses, and its natural length in beats (optional).
+   record Compiled
+      sound: types.ClipContentData
+      signals: {types.Signal}
+      media: {types.MediaRef}
+      length: number
+   end
+
+   --- A mark inside a clip in the arrange view: `at` in beats from the
+   --- clip's start, its text, and the role that draws it.
+   record ClipMark
+      at: number
+      text: string
+      role: string
+   end
+
+   --- Where a kind's `look` draws: the clip's width in cells, and the
+   --- beats of the clip that the cells show.
+   record ClipLookContext
+      width: integer
+      from: number
+      to: number
+   end
+
+   --- How a clip of a kind looks in the arrange view: the label drawn in
+   --- its cells, marks inside it, pixels (as `buf:strip` draws them) and
+   --- a color. Each is optional.
+   record ClipLook
+      label: string
+      marks: {ClipMark}
+      strip: StripOptions
+      color: string
+   end
+
+   --- A signal of a clip at play, as the kind's `on_signal` gets it: its
+   --- index in the clip's signals, where it is in the clip's timeline,
+   --- when it is heard (nanoseconds), its payload (JSON text) and latch.
+   record SignalInfo
+      index: integer
+      at: number
+      at_ns: number
+      body: string
+      latch: string
+   end
+
+   --- What a jump on a track takes back: the clip's own state, or the
+   --- whole track's.
+   enum ChaseBack
+      "clip" "track"
+   end
+
+   --- A kind of clip (`paw.clip_kinds.define`). `D` is the record of its
+   --- data. The core keeps the data and never looks inside it: saving it
+   --- is the kind's own job. `serialize` (required) turns `D` into plain
+   --- data (`KindJson`): text, numbers, booleans, lists and maps. It is
+   --- an error to give anything else (a function, a cycle, a number that
+   --- is not finite). `deserialize` (required) turns the plain data and
+   --- the version it was saved with back into `D`: migration from an
+   --- older version happens there. Bytes (pictures, sound, video) never
+   --- go in the data: they go in media files (`Compiled.media`).
+   ---
+   --- `title` and `letter` say how the kind is offered and shown;
+   --- `version` is the version of `D` (1 if not given), and `ext` the
+   --- file extension of data that `serialize` gives as one text (`lrc`).
+   --- `create` makes the data of a new clip, `check` tells what is wrong
+   --- with data (nil when it is good), and `compile` gives what the clip
+   --- sounds as and makes happen. These must be fast and change nothing:
+   --- each runs under `paw.opt.clip_kind_limit` milliseconds.
+   ---
+   --- The edits `split`, `trim` and `slip` are optional: without them, a
+   --- clip keeps its data and moves its offset in it. Their positions are
+   --- in the kind's `timeline`, from the start of the data. `describe`
+   --- gives a few words for `K`, `look` how the clip is drawn, and
+   --- `editor` opens it. `on_signal`, `chase`, `chase_back` and `on_stop`
+   --- run at play.
+   record ClipKind<D>
+      name: string
+      title: string
+      letter: string
+      version: integer
+      timeline: types.Timeline
+      ext: string
+      track_kind: string
+
+      serialize: function(data: D): KindJson
+      deserialize: function(stored: KindJson, version: integer): D, string
+
+      create: function(args: ClipKindArgs): D, string
+      check: function(data: D): string
+
+      compile: function(data: D, clip: ClipInfo): Compiled, string
+
+      on_signal: function(clip: ClipHandle, signal: SignalInfo)
+      chase: function(clip: ClipHandle, beat: number)
+      chase_back: ChaseBack
+      on_stop: function(clip: ClipHandle)
+
+      split: function(data: D, at: number): D, D
+      trim: function(data: D, from: number, to: number): D
+      slip: function(data: D, offset: number): D, number
+
+      describe: function(clip: ClipHandle): string
+      look: function(clip: ClipHandle, ctx: ClipLookContext): ClipLook
+      editor: function(clip: ClipHandle): boolean
+
+      formats: {string}
    end
 
    -- Roles ------------------------------------------------------------------------

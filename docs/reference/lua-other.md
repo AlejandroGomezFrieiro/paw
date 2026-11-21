@@ -63,6 +63,7 @@ Nothing polls. When paw stops, it asks each helper program to stop.
 | `paw.api.device_post(kind, topic, bytes)` | sends data to every device of a kind: the devices that exist now, and each device made later. The devices of an offline render get it before their first block |
 | `paw.api.device_alias(old, new)` | makes devices of a renamed kind as the new kind |
 | `paw.track_kinds` | defines kinds of track |
+| `paw.clip_kinds` | defines kinds of clip |
 
 [Extensions](extensions.md#what-the-core-gives-an-extension) describes
 these functions.

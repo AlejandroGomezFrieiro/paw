@@ -407,6 +407,13 @@ local record M
     add_note: function(self: Clip, note: NoteInput): integer
     snapshot: function(self: Clip): ClipSnapshot
     duplicate: function(self: Clip, opts?: DuplicateOptions): Clip
+    --- The data of a clip of a kind that an extension defines, decoded
+    --- (paw/clip_kinds.tl): nil for a MIDI or audio clip, and nil and why
+    --- for data that its kind cannot read.
+    data: function<D>(self: Clip): D, string
+    --- Give a clip of a kind new data, and what the kind compiles from
+    --- it, as one undo step (`paw.clip_kinds.set`).
+    set_data: function<D>(self: Clip, data: D)
   end
 
   --- What `Clip:duplicate` takes: where the copy goes.

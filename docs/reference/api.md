@@ -72,6 +72,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   Returns the note's place among the clip's notes.
 - `paw.Clip:add_notes(notes)`: Add several notes as one edit (as `add_note` takes each).
 - `paw.Clip:controls()`: The events of the clip that are not notes: controller moves, the pitch wheel, pressure and program changes. Each is `{ start, type, value }`, with `start` in beats from the start of the clip. `type` is "cc" (with `number`), "bend" (-1 to 1), "pressure", "registered" or "assignable" (with `bank` and `index`), or "program" (with `program` and maybe `bank`). Values go from 0 to 1 at any resolution. With `key`, a move is for the note on that key only, as in MIDI 2.0: its own bend, pressure or controller.
+- `paw.Clip:data()`: The data of a clip of a kind (`paw.clip_kinds.data`).
 - `paw.Clip:duplicate(opts)`: Copy the clip. By default the copy goes right after the original.
 - `paw.Clip:edit_notes(edit)`: Change, remove and add several notes as one edit. Every index is a note's place before the call:
 
@@ -97,6 +98,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   clip:set_controls({ { start = 0, type = "cc", number = 64, value = 1 },
                       { start = 1, type = "bend", key = "E4", value = 0.02 } })
   ```
+- `paw.Clip:set_data(data)`: Give a clip of a kind new data, as one undo step (`paw.clip_kinds.set`).
 - `paw.Clip:set_note(index, fields)`: Change one note, by its place in the notes of the clip (from 1). The other notes do not change: `clip:set_note(3, { length = 2 })`. Returns the new place of the note, because notes stay in the order of their start. `attr = false` removes its attribute.
 - `paw.Clip:set_notes(notes)`: Replace every note of the clip with `notes` (as `add_note` takes each).
 - `paw.Clip:snapshot()`: The clip as plain data, for `paw.restore_clip`.
@@ -368,6 +370,23 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.canvas.text_width(text, size)`: The width of a line of text in pixels, near enough, at `size` (12).
 - `paw.canvas.view_pointer(view, e)`: Give a pointer event in pixels to a painted view: to its hit list (`view.hits`) first, then to its `pointer` function.
 - `paw.canvas.windows()`: The windows that are open, for a frontend: `{ name, title, width, height, cells }` each, `cells` for a view drawn as the terminal draws it.
+
+## Module paw.clip_kinds
+
+- `paw.clip_kinds.add(track, name, args, data)`: A new clip of the kind `name` on `track`: `data`, or what the kind's `create` makes of `args` (the words, and `name`, `start` and `length` of the clip). Its length is `args.length`, or the length the kind compiled, or a bar of 4 beats. One undo step.
+- `paw.clip_kinds.compile(clip)`: Compile a clip of a kind again from its data (after something that it links to changed). One undo step.
+- `paw.clip_kinds.data(clip)`: The data of a clip of a kind, by its kind's `deserialize`: nil for a MIDI or audio clip, and nil and why when the kind cannot read it. Without its kind, the plain data as it is stored.
+- `paw.clip_kinds.define(name, spec)`: Define a kind of clip (see above). `name` is a lowercase word that is not a built-in kind (`midi`, `audio`): what a clip of the kind keeps. Defining a kind again replaces it. Clips of an older version of its data are migrated.
+- `paw.clip_kinds.describe(clip)`: A few words on a clip of a kind, for `K`: "Film clip · intro.mp4", or "film (no extension here defines it)". Nil for a MIDI or audio clip.
+- `paw.clip_kinds.list()`: The names of the defined kinds, in the order they were defined.
+- `paw.clip_kinds.look(clip, ctx)`: How a clip of a kind looks in the arrange view, by its kind's `look`: nil without the kind, or when `look` fails (said once per kind).
+- `paw.clip_kinds.migrate(name)`: Move the clips of the kind `name` (of each kind when nil) whose data is of an older version to their kind's version, by its `deserialize`, and compile them again. Says how many moved; a clip whose migration fails stays as it was, with a message. Gives how many moved.
+- `paw.clip_kinds.remove(name)`: Forget a kind: no new clips of it. The clips of it that the project has stay as they are, data and all, until something defines it again.
+- `paw.clip_kinds.set(clip, data)`: Give a clip of a kind new data: the kind checks it and compiles it again, and the data, sound, signals and files change together, as one undo step. Refused without the kind, and for a clip that a newer version of the kind made.
+- `paw.clip_kinds.slip(clip, by)`: What a clip of a kind holds when what it plays moves `by` beats later under it: by the kind's `slip` (given the new offset), or the same data with its offset moved.
+- `paw.clip_kinds.spec(name)`: The kind `name` as defined, or nil. `D` is the record of its data.
+- `paw.clip_kinds.split(clip, at)`: What the two halves of a clip of a kind hold when it is split `at` beats after its start, as `paw.api.clip_set_custom` takes it: by the kind's `split`, or (without it, or without the kind) the same data, with the right half starting where the cut is in it. The caller makes the halves.
+- `paw.clip_kinds.trim(clip, from, to)`: What a clip of a kind holds when it is cut to the beats `from` to `to` after its start: by the kind's `trim`, or the same data with its offset moved to `from`. The caller moves the clip's start and length.
 
 ## Module paw.commands
 
@@ -1166,6 +1185,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.limit.named(name, fn, ...)`: Name what runs inside the limited call, for the error should it run away: `paw.limit.named("command `x`", fn, ...)`.
 - `paw.limit.unhurried(fn, ...)`: Run `fn(...)` with its time not counted, for work that is known to be long and to end: `paw.limit.unhurried(synthesise, phrase)`. Callbacks the kernel makes meanwhile (timers during a wait) get a limit of their own.
 - `paw.limit.untrusted(fn)`: Mark a function that the runtime did not write. Where the limit can stop compiled code, this does nothing. Where it cannot, the JIT compiler does not compile the function and each function made inside it. So the limit can stop their loops (unless `paw.opt.lua_limit = 0` disables the limit before paw loads the code).
+- `paw.limit.within(ms, name, fn, ...)`: Call `fn(...)` with at most `ms` milliseconds, as `call` does: its error goes to the caller. Inside a limited call, the shorter of the two limits holds, and the rest of the outer one goes on after. Use it for code of an extension that must be fast, as a kind of clip's `compile` (`paw.opt.clip_kind_limit`).
 
 ## Module paw.loading
 

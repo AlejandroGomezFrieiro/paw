@@ -16,6 +16,7 @@ local record Opts
    click_accent: boolean
    click_level: number
    click_output: integer
+   clip_kind_limit: number
    clip_length: number
    complete_audition: boolean
    complete_auto: boolean

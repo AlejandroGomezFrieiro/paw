@@ -13,6 +13,7 @@ local type AttrModule = require("paw.attr")
 local type AuditionModule = require("paw.audition")
 local type BytesModule = require("paw.bytes")
 local type CanvasModule = require("paw.canvas")
+local type ClipKindsModule = require("paw.clip_kinds")
 local type CommandsModule = require("paw.commands")
 local type CompleteModule = require("paw.complete")
 local type ContractsModule = require("paw.contracts")
@@ -83,6 +84,7 @@ global record paw
    cancel: function(handle: integer)
    canvas: CanvasModule
    clip: function(id: integer): ObjectsModule.Clip
+   clip_kinds: ClipKindsModule
    cmd: function<C is CommandsModule.Context>(name: string, args?: CommandsModule.Args, ctx?: C): CommandsModule.Result
    command: contracts.Command
    commands: CommandsModule

@@ -219,6 +219,9 @@ M.registries = {
   keyed("track_kinds", "kinds of track", function() return paw.track_kinds.kinds end, function(key, value)
     if value then paw.track_kinds.define(key, value) else paw.track_kinds.remove(key) end
   end),
+  keyed("clip_kinds", "kinds of clip", function() return paw.clip_kinds.kinds end, function(key, value)
+    if value then paw.clip_kinds.define(key, value) else paw.clip_kinds.remove(key) end
+  end),
   keyed("roles", "roles", function() return paw.roles and paw.roles.registry end, function(key, value)
     paw.roles.registry[key] = value
     -- Frontends that paint roles learn the set changed.

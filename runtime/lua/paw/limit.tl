@@ -69,6 +69,7 @@ local CHECK_EVERY = 100000  -- instructions between looks at the clock
 
 local deadline: number     -- when the running callback must have returned, or nil
 local what: {string} = {}  -- a stack of what is running, for the error
+local budget: number       -- the milliseconds of a shorter limit (`within`), or nil
 
 options.define("lua_limit", 2000, { min = 0 })
 local opt = options.opt
@@ -85,11 +86,11 @@ local function hook()
   if not deadline then return end
   if api.now() > deadline then
     local name = what[#what] or "a callback"
+    local ms = budget or opt.lua_limit or 2000
     -- Another full stretch for whatever runs after the error, such as the
     -- handler that reports it.
-    set(api.now() + (opt.lua_limit or 2000))
-    error(string.format("%s ran for more than %g s without returning, and was stopped", name,
-      (opt.lua_limit or 2000) / 1000), 2)
+    set(api.now() + ms)
+    error(string.format("%s ran for more than %g s without returning, and was stopped", name, ms / 1000), 2)
   end
   -- Called early (the limit moved after the kernel's thread looked): the
   -- thread is told again.
@@ -138,6 +139,29 @@ function M.named<A, R>(name: string, fn: function(A...): (R...), ...: A): R...
   local result = { fn(...) }
   for i = #what, depth + 1, -1 do what[i] = nil end
   return lua51.unpack(result)
+end
+
+--- Call `fn(...)` with at most `ms` milliseconds, as `call` does: its
+--- error goes to the caller. Inside a limited call, the shorter of the two
+--- limits holds, and the rest of the outer one goes on after. Use it for
+--- code of an extension that must be fast, as a kind of clip's `compile`
+--- (`paw.opt.clip_kind_limit`).
+function M.within<A, R>(ms: number, name: string, fn: function(A...): (R...), ...: A): R...
+  if (opt.lua_limit or 0) <= 0 or ms <= 0 then return fn(...) end
+  local outer, was, depth = deadline, budget, #what
+  local mine = api.now() + ms
+  if outer and outer <= mine then return M.named(name, fn, ...) end
+  budget = ms
+  what[depth + 1] = name
+  set(mine)
+  if not outer and not async then debug.sethook(hook, "", CHECK_EVERY) end
+  local result = { (pcall as Call<A>)(fn as Body<A>, ...) }
+  if not outer and not async then (debug.sethook as function())() end
+  for i = #what, depth + 1, -1 do what[i] = nil end
+  budget = was
+  set(outer)
+  if not result[1] then error(result[2], 0) end
+  return (lua51.unpack as function(Results, integer, integer): R...)(result, 2, maxn(result))
 end
 
 --- Give the current call more time, as `:lua` does: `ms` from now.
