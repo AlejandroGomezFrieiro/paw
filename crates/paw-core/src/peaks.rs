@@ -1,14 +1,16 @@
 //! Waveform overviews of audio files, for drawing clips.
 //!
-//! An overview is made once per file and kept on disk in the cache directory
-//! (`~/.cache/paw/peaks`), named after the file's path, size and time of
-//! last change, so that drawing a long file zoomed out after the first time
-//! reads the overview and not the file.
+//! An overview is made once per file and kept in the bake cache
+//! (`bake::Store`), keyed by the hash of the file's bytes, so that drawing a
+//! long file zoomed out after the first time reads the overview and not the
+//! file, wherever the file is now.
 
-use std::io::{Read, Write};
+use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use paw_engine::AudioData;
+
+use crate::bake::{BakeJob, Digest, EntryKey, Input, Output, Stream};
 
 /// Frames covered by each entry of a [`Summary`].
 const BLOCK: usize = 256;
@@ -67,11 +69,9 @@ impl Summary {
         })
     }
 
-    /// Keep the overview in a file, whole or not at all.
+    /// Keep the overview in a file (of a bake entry, which is put in
+    /// place whole).
     pub fn write(&self, path: &Path) -> std::io::Result<()> {
-        if let Some(dir) = path.parent() {
-            std::fs::create_dir_all(dir)?;
-        }
         let mut bytes = Vec::with_capacity(28 + self.blocks.len() * 12);
         bytes.extend_from_slice(MAGIC);
         bytes.extend_from_slice(&self.sample_rate.to_le_bytes());
@@ -82,50 +82,41 @@ impl Summary {
                 bytes.extend_from_slice(&v.to_le_bytes());
             }
         }
-        let tmp = path.with_extension(format!("{}.part", std::process::id()));
-        std::fs::File::create(&tmp)?.write_all(&bytes)?;
-        std::fs::rename(&tmp, path)
+        std::fs::write(path, bytes)
     }
 }
 
-/// Where the overview of `file` as it is now is kept under `dir`, and the
-/// identity it is kept by (path, size and time of last change).
-/// `None` when the file is not there to be known by.
-pub fn stored(dir: &Path, file: &Path) -> Option<(PathBuf, u64)> {
-    use std::os::unix::ffi::OsStrExt;
-    let file = std::path::absolute(file).unwrap_or_else(|_| file.to_path_buf());
-    let meta = std::fs::metadata(&file).ok().filter(|m| m.is_file())?;
-    let size = meta.len();
-    let modified = meta
-        .modified()
-        .ok()
-        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-        .map_or(0, |d| d.as_nanos());
-    // FNV-1a over the identity: the same file as it was gives the same name.
-    let mut hash = 0xcbf2_9ce4_8422_2325u64;
-    let mut eat = |bytes: &[u8]| {
-        for b in bytes {
-            hash = (hash ^ *b as u64).wrapping_mul(0x100_0000_01b3);
-        }
-    };
-    eat(file.as_os_str().as_bytes());
-    eat(&size.to_le_bytes());
-    eat(&modified.to_le_bytes());
-    Some((dir.join(format!("{hash:016x}.peaks")), hash))
-}
+/// Who makes overviews: a new form of [`Summary`] is a new tool.
+pub const TOOL: &str = "paw.peaks/1";
 
-/// The cache directory overviews are kept in: `$XDG_CACHE_HOME/paw/peaks`.
-pub fn cache_dir() -> PathBuf {
-    paw_proto::dirs::cache()
-        .unwrap_or_else(std::env::temp_dir)
-        .join("paw")
-        .join("peaks")
+/// The file of an overview in its bake entry.
+pub const FILE: &str = "peaks.bin";
+
+/// The bake of the overview of the file whose bytes hash to `source`, and
+/// its key.
+pub fn bake(source: Digest) -> (BakeJob, EntryKey) {
+    let job = BakeJob {
+        op: "peaks".into(),
+        version: 1,
+        params: serde_json::json!({ "block": BLOCK }),
+        inputs: vec![Input::File { source }],
+        output: Output {
+            stream: Stream::Data,
+            rate: None,
+            format: Some("peaks".into()),
+        },
+    };
+    let key = EntryKey::new(&job, TOOL);
+    (job, key)
 }
 
 /// The cache directory the decoded sound of long files is kept in and
 /// played from: `$XDG_CACHE_HOME/paw/media`.
 pub fn media_dir() -> PathBuf {
-    cache_dir().with_file_name("media")
+    paw_proto::dirs::cache()
+        .unwrap_or_else(std::env::temp_dir)
+        .join("paw")
+        .join("media")
 }
 
 /// As [`peaks`], from the overview alone, when each point covers at least a
@@ -216,15 +207,15 @@ pub fn peaks(data: &AudioData, summary: &Summary, from: f64, to: f64, n: usize) 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::bake::Store;
     use crate::sync::AudioCache;
 
     #[test]
-    fn an_overview_is_kept_on_disk_and_used_without_decoding_the_file() {
-        let dir = std::env::temp_dir().join(format!("paw-peaks-test-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
-        let wav = dir.join("tone.wav");
-        let write = |level: f32| {
-            let mut w = paw_engine::wav::Writer::create(&wav, 48_000, 16, false).unwrap();
+    fn an_overview_is_kept_by_the_bytes_of_the_file_wherever_it_is() {
+        let dir = tempfile::tempdir().unwrap();
+        let wav = dir.path().join("tone.wav");
+        let write = |wav: &Path, level: f32| {
+            let mut w = paw_engine::wav::Writer::create(wav, 48_000, 16, false).unwrap();
             for i in 0..48_000 * 4 {
                 let s = level * (i as f32 * 0.05).sin();
                 w.write(s).unwrap();
@@ -232,47 +223,28 @@ mod tests {
             }
             w.finish().unwrap();
         };
-        write(0.5);
-        let store = dir.join("peaks");
-        let mut cache = AudioCache::with_peak_dir(store.clone());
-        let first = cache.peaks(&wav, 0.0, 4.0, 100).unwrap();
+        write(&wav, 0.5);
+        let store = Store::new(dir.path().join("bakes"), crate::bake::store::DEFAULT_LIMIT);
+        let entries = || store.tidy(&Default::default()).kept;
+        let first = AudioCache::with_bakes(store.clone()).peaks(&wav, 0.0, 4.0, 100).unwrap();
         assert!((first[50][1] - 0.5).abs() < 0.01, "{:?}", first[50]);
-        assert_eq!(
-            std::fs::read_dir(&store).unwrap().count(),
-            1,
-            "one overview is kept"
-        );
+        let one = entries();
+        assert!(one > 0, "one overview is kept");
 
-        // Another run, with the samples changed behind its back but the
-        // file's size and time of change put back: what is drawn comes from
-        // the overview, not from the samples.
-        let modified = std::fs::metadata(&wav).unwrap().modified().unwrap();
-        write(0.25);
-        std::fs::File::options()
-            .write(true)
-            .open(&wav)
-            .unwrap()
-            .set_modified(modified)
-            .unwrap();
-        let mut again = AudioCache::with_peak_dir(store.clone());
-        let second = again.peaks(&wav, 0.0, 4.0, 100).unwrap();
-        assert!(
-            (second[50][1] - 0.5).abs() < 0.01,
-            "drawn from the stored overview: {:?}",
-            second[50]
-        );
-
-        // A file changed in the ordinary way is looked at again.
-        std::fs::File::options()
-            .write(true)
-            .open(&wav)
-            .unwrap()
-            .set_modified(modified + std::time::Duration::from_secs(5))
-            .unwrap();
-        let mut third = AudioCache::with_peak_dir(store.clone());
-        let changed = third.peaks(&wav, 0.0, 4.0, 100).unwrap();
-        assert!((changed[50][1] - 0.25).abs() < 0.01, "{:?}", changed[50]);
-        let _ = std::fs::remove_dir_all(&dir);
+        // The entry holds what is drawn: put another overview in it, then
+        // move the file. Drawn zoomed out, the moved file shows the entry.
+        let source = crate::bake::Hasher::file(&wav).unwrap();
+        let entry = store.open(&bake(source).1).unwrap();
+        let quiet = dir.path().join("quiet.wav");
+        write(&quiet, 0.25);
+        let data = AudioData::load_with(&quiet, None).unwrap();
+        Summary::new(&data).write(&entry.file(FILE)).unwrap();
+        let moved = dir.path().join("moved").join("tone.wav");
+        std::fs::create_dir_all(moved.parent().unwrap()).unwrap();
+        std::fs::rename(&wav, &moved).unwrap();
+        let again = AudioCache::with_bakes(store.clone()).peaks(&moved, 0.0, 4.0, 100).unwrap();
+        assert!((again[50][1] - 0.25).abs() < 0.01, "drawn from the entry: {:?}", again[50]);
+        assert_eq!(entries(), one, "no second entry");
     }
 
     #[test]

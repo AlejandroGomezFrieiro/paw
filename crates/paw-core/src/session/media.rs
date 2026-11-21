@@ -364,9 +364,15 @@ fn some_names(files: &[PathBuf]) -> String {
 }
 
 impl Session {
-    /// Keep waveform overviews in `dir` between runs (`peaks.rs`), or nowhere.
-    pub fn set_peak_dir(&mut self, dir: Option<PathBuf>) {
-        self.audio.peak_dir = dir;
+    /// Keep bakes (waveform overviews, `peaks.rs`) in `store` between
+    /// runs, or nowhere.
+    pub fn set_bakes(&mut self, store: Option<crate::bake::Store>) {
+        self.audio.bakes = store;
+    }
+
+    /// The bake cache, when there is one.
+    pub fn bakes_mut(&mut self) -> Option<&mut crate::bake::Store> {
+        self.audio.bakes.as_mut()
     }
 
     /// Play long files from the disk instead of memory: the decoded sound

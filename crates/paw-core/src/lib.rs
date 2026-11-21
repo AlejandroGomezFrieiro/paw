@@ -5,6 +5,7 @@
 
 pub mod api;
 pub mod attr_map;
+pub mod bake;
 pub mod clipfile;
 pub mod codec;
 pub mod edits;

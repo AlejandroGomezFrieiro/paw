@@ -152,7 +152,7 @@ impl Kernel {
         crate::audio::apply(&mut backend, &crate::audio::load(&device_file));
         let mut session = Session::new(&backend, opts.registry)?;
         session.device_file = Some(device_file);
-        session.set_peak_dir(Some(crate::peaks::cache_dir()));
+        session.set_bakes(Some(crate::bake::Store::user()));
         let (tx, rx) = channel();
         // MIDI input goes straight to the engine; scripts hear of it here.
         // It waits in a queue of its own, which a script that waits empties
