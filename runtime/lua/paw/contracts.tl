@@ -822,6 +822,135 @@ local record contracts
       shrink: boolean
    end
 
+   -- The track column and the ruler's bar labels --------------------------------
+
+   --- What a part of the track column or a bar label gives: nothing,
+   --- text, or pieces (`{ { "3", "TrackNr" } }`).
+   type ColumnCells = string | {Piece}
+
+   --- What the track column knows of all the tracks drawn, once a draw:
+   --- what a component's `width` function gets. `rows` are the ids of the
+   --- tracks drawn, in order (`paw.groups.rows()`); `count` how many lines
+   --- the counts of `j` and `k` go over (tracks, and lanes in normal mode
+   --- when lanes are open).
+   record TrackColumnFrame
+      rows: {integer}
+      count: integer
+   end
+
+   --- What a component of the track column draws one line from. `row` is
+   --- the track's number (its place among the tracks drawn, what `5G`
+   --- takes); `line` 0 for the first line of the track's row, then 1, 2,
+   --- for the lines under it; `kind` `track`, or `lane` (an automation
+   --- lane shown as a row, `lane` its id) or `take` (a take lane);
+   --- `relative` how many `j` or `k` reach the line, nil for a line the
+   --- counts skip; `cursor` true on the cursor's line; `width` the
+   --- component's columns; `x` the column clicked, for `click` only;
+   --- `glyphs` and `styles` the component's own (what `set` gave it).
+   record TrackColumnContext
+      row: integer
+      line: integer
+      kind: string
+      lane: integer
+      relative: integer
+      cursor: boolean
+      width: integer
+      x: integer
+      g: Glyphs
+      glyphs: {string:string}
+      styles: {string:string}
+   end
+
+   --- How wide a component is: a number of columns, or a function of the
+   --- frame that gives it (0 hides the component for this draw).
+   type TrackColumnWidth = function(frame: TrackColumnFrame): integer
+
+   --- A component of the track column (`paw.trackcolumn.add`), as Neovim's
+   --- 'statuscolumn': its place among the others (`order`, lower to the
+   --- left), its `width`, what it draws on each line of a track
+   --- (`render`), what a click on it does (`click`), and what `K` says of
+   --- the cursor's track (`describe`, a line or nothing). `glyphs` and
+   --- `styles` are the characters and highlight groups it draws with, by
+   --- name, which a user changes with `paw.trackcolumn.set`.
+   record TrackColumnComponent
+      name: string
+      order: number
+      width: integer | TrackColumnWidth
+      render: function(track: integer, ctx: TrackColumnContext): ColumnCells
+      click: function(track: integer, ctx: TrackColumnContext)
+      describe: function(track: integer, ctx: TrackColumnContext): string
+      glyphs: {string:string}
+      styles: {string:string}
+      --- Added, but not put in `paw.opt.trackcolumn`.
+      hidden: boolean
+   end
+
+   --- A sign of the `signs` component (`paw.trackcolumn.sign`): one
+   --- character for a track, or nothing. Where several have one, the
+   --- highest `priority` shows. `glyphs` and `styles` as a component's;
+   --- `describe` what `K` says of the track.
+   record TrackSign
+      name: string
+      priority: integer
+      render: function(track: integer, ctx: TrackColumnContext): ColumnCells
+      describe: function(track: integer, ctx: TrackColumnContext): string
+      glyphs: {string:string}
+      styles: {string:string}
+   end
+
+   --- What a bar label of the ruler draws one bar from. `bar` is the
+   --- bar's number; `beat` where it starts; `relative` how many `W` (or
+   --- `B`, behind the cursor) reach it, nil while `paw.opt.relativebar`
+   --- is off; `cursor` true on the bar the cursor is in; `style` the style
+   --- the bar's number has there (in the loop, in the punch range);
+   --- `glyphs` and `styles` the label's own.
+   record RulerContext
+      bar: integer
+      beat: number
+      relative: integer
+      cursor: boolean
+      style: string
+      g: Glyphs
+      glyphs: {string:string}
+      styles: {string:string}
+   end
+
+   --- A part of each bar's label on the ruler (`paw.ruler.add`): its place
+   --- among the others (`order`, lower first), what it draws, and the
+   --- characters and highlight groups it draws with (`paw.ruler.set`).
+   record RulerLabel
+      name: string
+      order: number
+      render: function(bar: integer, ctx: RulerContext): ColumnCells
+      glyphs: {string:string}
+      styles: {string:string}
+      --- Added, but not put in `paw.opt.barlabel`.
+      hidden: boolean
+   end
+
+   --- What `paw.ruler.set` changes of a part of the bar labels: only the
+   --- fields given; `glyphs` and `styles` are merged into the part's.
+   record RulerPatch
+      order: number
+      render: function(bar: integer, ctx: RulerContext): ColumnCells
+      glyphs: {string:string}
+      styles: {string:string}
+   end
+
+   --- What `paw.trackcolumn.set` and `paw.trackcolumn.set_sign` change of
+   --- a component or a sign: only the fields given; `glyphs` and `styles`
+   --- are merged into its own.
+   record ColumnPatch
+      order: number
+      width: integer | TrackColumnWidth
+      priority: integer
+      render: function(track: integer, ctx: TrackColumnContext): ColumnCells
+      click: function(track: integer, ctx: TrackColumnContext)
+      describe: function(track: integer, ctx: TrackColumnContext): string
+      glyphs: {string:string}
+      styles: {string:string}
+   end
+
    -- Pickers ----------------------------------------------------------------------
 
    --- What `audition(item)` gives: a label, and with `loading()` whether

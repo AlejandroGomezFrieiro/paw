@@ -19,6 +19,9 @@ The tracks share the rows of the window, three to four rows each
 (`paw.opt.track_height`). The headers are 26, 22, 18 or 12 columns wide,
 by the width of the screen (`paw.opt.header_width`).
 
+The track column and the ruler's bar numbers are in
+[The track column](#the-track-column) and [Relative bars](#relative-bars).
+
 A clip has a name row and a darker body that shows its notes or waveform,
 in the color of its track. The clip under the cursor shows in the full
 color. The track of the cursor has a brighter header and a tinted lane.
@@ -89,6 +92,73 @@ color. The track of the cursor has a brighter header and a tinted lane.
 | `ZZ` `ZQ` | Saves and quits. Quits. |
 
 For the keys of windows, see [Windows, buffers and tabs](windows.md).
+
+## The track column
+
+In paw a track is a line: `5j` goes down five tracks, `5G` goes to track
+5, `dd` deletes a track. So the left edge of the track headers has a
+column, as the number column and the `statuscolumn` of Neovim. It is
+not part of the header width (`paw.opt.header_width`): the headers keep
+their width, and the timeline is narrower by the width of the column. It
+has three parts, from the left:
+
+- `number`: the number of each track. With `:set relativenumber`
+  (`:set rnu`), each track shows how many `j` or `k` go to it. The track
+  of the cursor shows its own number, or `0` when `:set nonumber`. The
+  master has no number.
+- `signs`: one character for each track, when a track has one. The diagnostics of language servers show here: the worst of the track, its devices and its clips.
+- `fold`: the groups as a tree. An open group has `▾` on its row and a
+  line down its members, `╰` on its last member. A folded group has `▸`,
+  and its name tells how many tracks it holds (`Strings +3`). Each level
+  of groups inside groups is one column more. A click on `▾` or `▸`
+  folds the group or opens it, as `za`.
+
+```text
+ 2   ▌ Drums
+ 1 ▾ ▌ Strings
+ 3 │ █ Violins
+ 1 │▾▌ Low
+ 2 ││▌ Cellos
+ 3 ╰╰▌ Violas
+ 4   ▌ Bass
+```
+
+The numbers count as the motions do. A folded group is one row, as a
+fold in Neovim is one line, so `4j` goes to the track that shows `4`.
+The automation lanes of a track can show as rows (`<Space>aa`). Then `j`
+and `k` go onto the lane rows in normal mode, and the lane rows have
+relative numbers too. In visual mode and after an operator, only tracks count.
+
+| Option | Default | Effect |
+| --- | --- | --- |
+| `paw.opt.number` (`nu`) | `true` | Shows the number of each track. |
+| `paw.opt.relativenumber` (`rnu`) | `false` | Shows how many `j` or `k` go to each track. |
+| `paw.opt.trackcolumn` | `number,signs,fold` | The parts of the column that show. An extension that adds a part puts its name here. |
+
+An extension adds its own parts and signs with `paw.trackcolumn`: see
+[The track column and the bar labels](trackcolumn.md). The highlight
+groups are `TrackNr`, `TrackNrCursor`, `TrackFold`, `TrackSign`,
+`TrackColumn` and `TrackColumnCursor`.
+
+## Relative bars
+
+`:set relativebar` (`:set rbar`) shows on the ruler how many `W` or `B`
+go to each bar, as `relativenumber` does for tracks. The bar of the cursor
+keeps its own number, in the accent color. So `4W` goes to the bar that
+shows `4`, and `4B` to the bar behind that shows `4`. From inside a bar,
+the first `B` goes to the start of that bar, so the bars behind count
+from 2. `17|` and `:17` still go to bar 17.
+
+It is a separate option from `relativenumber`. Commands such as `17|`
+and `:tempo 96 at 17` take the number of a bar. So you can keep those
+numbers on the ruler while you count tracks.
+
+| Option | Default | Effect |
+| --- | --- | --- |
+| `paw.opt.relativebar` (`rbar`) | `false` | Shows how many `W` or `B` go to each bar. |
+| `paw.opt.barlabel` | `number` | The parts of the label of each bar. An extension that adds a part puts its name here. |
+
+The highlight groups are `RulerBarCursor` and `RulerBarRelative`.
 
 ## Audio waveforms
 

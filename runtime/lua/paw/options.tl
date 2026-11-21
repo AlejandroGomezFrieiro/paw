@@ -97,6 +97,16 @@ local defaults: {string:Value} = {
   zoom = 2,                -- arrange columns per beat
   track_height = "auto",   -- arrange rows per track; "auto" fits the tracks to the screen, 3 to 4
   header_width = "auto",   -- arrange columns for the track headers; "auto" by the screen's width
+  -- The track column at the left of the track headers, as Neovim's
+  -- 'number', 'relativenumber' and 'statuscolumn': each track's number,
+  -- or how many `j` or `k` reach it, and the parts shown (paw/trackcolumn.tl).
+  number = true,
+  relativenumber = false,
+  trackcolumn = { "number", "signs", "fold" },
+  -- The ruler's bar labels: how many `W` or `B` reach each bar, and the
+  -- parts of each label shown (paw/ruler.tl).
+  relativebar = false,
+  barlabel = { "number" },
   termcolors = "auto",     -- "true" for 24-bit colour, "256", or "auto" to ask the environment
   ascii = false,           -- draw with plain ASCII characters only
   braille = true,          -- false draws curves with lines, whatever curve_glyphs says
@@ -276,17 +286,27 @@ function M.read(name: string, text: Value): Value, string
   return value
 end
 
+--- Short names, as Vim's: `:set nu` is `:set number`.
+local aliases: {string:string} = { nu = "number", rnu = "relativenumber", rbar = "relativebar" }
+
+--- The full name of option `name`: itself, or what its short name stands for.
+function M.full(name: string): string
+  return aliases[name] or name
+end
+
 local values: {string:Value} = {}
 -- What `M.define` was given, by name.
 local definitions: {string:Definition} = {}
 
 local opt: Opt = setmetatable({} as Opt, {
   __index = function(_: Opt, name: string): Value
+    name = aliases[name] or name
     local v = values[name]
     if v == nil then return defaults[name] end
     return v
   end,
   __newindex = function(self: Opt, name: string, value: Value)
+    name = aliases[name] or name
     local ok, err = M.check(name, value)
     if not ok then error(err, 2) end
     local old = self[name]

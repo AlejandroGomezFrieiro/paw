@@ -236,6 +236,9 @@ paw.roll_draw = {}
 ---@class paw.routes
 paw.routes = {}
 
+---@class paw.ruler
+paw.ruler = {}
+
 ---@class paw.scene
 paw.scene = {}
 
@@ -271,6 +274,9 @@ paw.textbuf = {}
 
 ---@class paw.track_kinds
 paw.track_kinds = {}
+
+---@class paw.trackcolumn
+paw.trackcolumn = {}
 
 ---@class paw.ui
 paw.ui = {}
@@ -5551,6 +5557,10 @@ function paw.option.define(name, default, spec) end
 --- was given, `{ default, spec }`, the same table until defined again.
 function paw.option.definitions() end
 
+--- The full name of option `name`: itself, or what its short name stands for.
+---@param name any
+function paw.option.full(name) end
+
 --- Every option that has a default, by name: { name, default }.
 function paw.option.list() end
 
@@ -6558,6 +6568,39 @@ function paw.routes.sidechain_text(d) end
 ---@param device any
 function paw.routes.spread(device) end
 
+--- Add a part of the bar labels, or put a new one in place of one of that
+--- name. It goes into `paw.opt.barlabel` (unless `hidden`).
+---@param name any
+---@param spec any
+function paw.ruler.add(name, spec) end
+
+--- The pieces of bar `bar`'s label, from the parts in `paw.opt.barlabel`
+--- in their order. `style` is the style of the bar's number there.
+---@param bar any
+---@param beat any
+---@param style any
+---@param cursor_beat any
+function paw.ruler.label(bar, beat, style, cursor_beat) end
+
+--- How many `W` (ahead) or `B` (behind) reach bar `bar` from the cursor
+--- at `beat`: from inside a bar, the first `B` goes to its own start
+--- (paw/defaults/cursor.lua). Nil for the cursor's own bar.
+---@param bar any
+---@param beat any
+function paw.ruler.relative(bar, beat) end
+
+--- Take a part away, and its name out of `paw.opt.barlabel`.
+---@param name any
+function paw.ruler.remove(name) end
+
+--- Change a part that is there, the built-in `number` too: its `order`,
+--- `render`, and the `glyphs` and `styles` it draws with (merged into its
+--- own).
+---   paw.ruler.set("number", { styles = { cursor = "Title" } })
+---@param name any
+---@param patch any
+function paw.ruler.set(name, patch) end
+
 --- A connection closed or stopped to watch. paw keeps no more data for it.
 ---@param client any
 function paw.scene.closed(client) end
@@ -7511,6 +7554,72 @@ function paw.track_kinds.set(which, name, args) end
 --- loaded extension defines).
 ---@param which any
 function paw.track_kinds.spec(which) end
+
+--- Add a component, or put a new one in place of one of that name. It
+--- goes into `paw.opt.trackcolumn` (unless `hidden`), so it shows at once.
+---@param name any
+---@param spec any
+function paw.trackcolumn.add(name, spec) end
+
+--- A click at column `x` of the column on a line of `track`: the
+--- component there does what its `click` says. True if one had a `click`.
+---@param L any
+---@param x any
+---@param track any
+---@param ctx any
+function paw.trackcolumn.click(L, x, track, ctx) end
+
+--- What the components shown say of `track` for `K` (their `describe`),
+--- a line each, in their order.
+---@param track any
+function paw.trackcolumn.describe(track) end
+
+--- Draw one line of the column for `track` at line `y` of `buf` (the
+--- column's own part of the view), with what `ctx` says of the line.
+---@param buf any
+---@param L any
+---@param y any
+---@param track any
+---@param ctx any
+function paw.trackcolumn.draw(buf, L, y, track, ctx) end
+
+--- The column for one draw over the tracks of `frame`, at most `room`
+--- columns wide: the components named in `paw.opt.trackcolumn`, in their
+--- order, each as wide as it says. A component that fails takes no room.
+---@param frame any
+---@param room any
+function paw.trackcolumn.layout(frame, room) end
+
+--- Take a component away, and its name out of `paw.opt.trackcolumn`.
+---@param name any
+function paw.trackcolumn.remove(name) end
+
+--- Change a component that is there, the built-in ones too: its `order`
+--- (to put it elsewhere), `width`, `render`, `click`, `describe`, and the
+--- `glyphs` and `styles` it draws with (merged into its own).
+---   paw.trackcolumn.set("fold", { order = 5, glyphs = { open = "-", closed = "+" } })
+---   paw.trackcolumn.set("number", { width = 4, styles = { cursor = "Title" } })
+---@param name any
+---@param patch any
+function paw.trackcolumn.set(name, patch) end
+
+--- Change a sign that is there, as `set` changes a component: its
+--- `priority`, `render`, `describe`, `glyphs` and `styles`.
+---   paw.trackcolumn.set_sign("diagnostics", { glyphs = { error = "E", warn = "W" } })
+---@param name any
+---@param patch any
+function paw.trackcolumn.set_sign(name, patch) end
+
+--- True if component `name` is shown: added and named in `paw.opt.trackcolumn`.
+---@param name any
+function paw.trackcolumn.shows(name) end
+
+--- Add a sign to the `signs` component: `render(track, ctx)` gives one
+--- character, or nothing. Where several give one, the highest `priority`
+--- shows. `nil` for `spec` takes the sign away.
+---@param name any
+---@param spec any
+function paw.trackcolumn.sign(name, spec) end
 
 --- True if something moves on its own now: the song plays, a track listens
 --- to its input, or a moment after activity (`poke`), while meters fall.

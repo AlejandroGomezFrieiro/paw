@@ -29,6 +29,7 @@ local type partial = require("paw.partial")
 local type UiModule = require("paw.ui")
 local type objects = require("paw.objects")
 local type DrawModule = require("paw.draw")
+local type TrackColumnModule = require("paw.trackcolumn")
 
 --- A severity: 1 (error) to 4 (hint), or one of the words `error`,
 --- `warning` (`warn`), `info` (`information`) and `hint`.
@@ -291,6 +292,7 @@ local record Paw is partial.Paw
   pick: Pick
   frontend: Frontend
   draw: DrawModule
+  trackcolumn: TrackColumnModule
   qf: Qf
   time: objects.Time
   Clip: objects.Clip
@@ -931,15 +933,26 @@ paw.ui.layer("arrange", "clip", "diagnostics", 30, function(c: PartLayer)
   local worst = M.worst(A.clip(c.clip.id))
   if worst then c.buf:text(c.width - 1, 0, worst == 1 and g().error or g().warn, M.group("Diagnostic", worst)) end
 end)
-paw.ui.layer("arrange", "header", "diagnostics", 30, function(c: PartLayer)
-  if not next(store) then return end
-  -- What is said of the track itself, its devices or sends; its clips have marks of their own.
-  local worst: integer
-  for _, d in ipairs(M.get(A.track(c.track))) do
-    if M.kind(d) ~= "clip" then worst = math.min(worst or 4, d.severity) end
-  end
-  if worst then c.buf:text(c.x, c.y, worst == 1 and g().error or g().warn, M.group("Diagnostic", worst)) end
-end)
+-- A sign in the track column (paw/trackcolumn.tl), as in Neovim's sign
+-- column: the worst said of the track, its devices, its sends or its clips.
+-- Its glyphs (`error`, `warn`) and styles (`error`, `warn`) can be set
+-- with `paw.trackcolumn.set_sign("diagnostics", ...)`.
+paw.trackcolumn.sign("diagnostics", {
+  priority = 30, glyphs = {}, styles = {},
+  render = function(track: integer, ctx: contracts.TrackColumnContext): contracts.ColumnCells
+    if not (options.signs and next(store)) then return nil end
+    local worst = M.worst(A.track(track))
+    if not worst then return nil end
+    local which = worst == 1 and "error" or "warn"
+    return { { ctx.glyphs[which] or (worst == 1 and g().error or g().warn), ctx.styles[which] or M.group("Diagnostic", worst) } }
+  end,
+  describe = function(track: integer): string
+    if not next(store) then return nil end
+    local n = M.count(A.track(track))
+    if n.total == 0 then return nil end
+    return string.format("diagnostics: %d errors, %d warnings", n.error, n.warning)
+  end,
+})
 -- Stretches of time on the arrange view's ruler (one of its layers).
 local arrange = paw.ui.views.arrange as Arrange
 arrange.layers.diagnostics = function(_: Arrange, c: RulerLayer)

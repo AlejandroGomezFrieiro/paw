@@ -72,7 +72,7 @@ test("drums: drums.track makes a track ready for drums in one step", function()
   eq(paw.ui.message.text:find("Ctrl-w p goes back", 1, true) ~= nil, true, "the message names the key that goes back")
   paw.ui.focus("arrange")
   local screen = table.concat(api.ui_snapshot(120, 30), "\n")
-  eq(screen:find("1 D Drums", 1, true) ~= nil, true, "the header's D stands clear of the number and the name: " .. (screen:match("[^\n]*Drums[^\n]*") or ""))
+  eq(screen:find(" D Drums", 1, true) ~= nil, true, "the header's D stands clear of the name: " .. (screen:match("[^\n]*Drums[^\n]*") or ""))
 end)
 
 test("drums: the map is kept with the track in the project", function()

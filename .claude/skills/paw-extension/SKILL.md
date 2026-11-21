@@ -127,6 +127,10 @@ paw.track_kinds.define("euclid", { … })        -- a kind of track (create, edi
 paw.clip_kinds.define("lyric", { … })          -- a kind of clip: own data, compiled to sound/signals (docs/reference/extensions.md)
 paw.on("edit.after", function(payload) end)    -- hooks: see docs/reference/events.md
 paw.statusline.component("euclid", { fn = function(ctx) return { { "E", "StatusOn" } } end })
+paw.trackcolumn.add("euclid", { order = 25, width = 1, render = function(track, ctx) end })  -- a part of the track column
+paw.trackcolumn.sign("euclid", { priority = 10, render = function(track, ctx) end })      -- a sign in its `signs` part
+paw.trackcolumn.set("fold", { order = 5, glyphs = { open = "-" }, styles = { fold = "Dim" } })  -- change a built-in part
+paw.ruler.add("euclid", { order = 20, render = function(bar, ctx) end })            -- a part of each bar's label
 paw.query.field("note", "onset", function(note) end)  -- :select / :query fields
 paw.grep.source("euclid", function(add) end)           -- :vimgrep text
 paw.health.register("euclid", function(h) h.ok("ready") end, { desc = "Euclid" })

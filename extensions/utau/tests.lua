@@ -236,7 +236,7 @@ test("utau: a vocal track is a kind of track: made, shown, described and opened 
   utau.configure(track.id, { singer = "Someone" })
   eq(paw.track_kinds.describe(track.id), "Vocal track · Someone", "described with its singer")
   local screen = table.concat(api.ui_snapshot(120, 30), "\n")
-  eq(screen:find("1 V Vocal", 1, true) ~= nil, true, "the header shows V before the name, a column clear of each")
+  eq(screen:find(" V Vocal", 1, true) ~= nil, true, "the header shows V before the name, a column clear of it")
   local clip = track:add_clip({ start = 0, length = 2, notes = { { pitch = 60, start = 0, length = 1 } } })
   paw.cursor.set_track(track)
   paw.cursor.set_beat(0.5)
