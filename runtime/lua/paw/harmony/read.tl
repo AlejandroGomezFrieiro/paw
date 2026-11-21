@@ -147,16 +147,55 @@ local function weigh(notes: {Note}, from: number, to: number, first?: integer): 
   local cuts: {number} = { from, to }
   for _, l in ipairs(lows) do cuts[#cuts + 1] = l.a cuts[#cuts + 1] = l.b end
   table.sort(cuts)
-  local held: Weights = {}
-  for i = 1, #cuts - 1 do
-    local a, b = cuts[i], cuts[i + 1]
-    if b - a > 1e-9 then
-      local low: integer
-      for _, l in ipairs(lows) do
-        if l.a <= a + 1e-9 and l.b >= b - 1e-9 and (not low or l.pitch < low) then low = l.pitch end
-      end
-      if low then held[low % 12] = (held[low % 12] or 0) + (b - a) end
+  -- The lowest pitch over each piece between two cuts: piece `i` is from
+  -- `cuts[i]` to `cuts[i + 1]`, and a low covers the pieces in one run.
+  -- The lows from the lowest up each take the pieces of their run that no
+  -- lower one took; `skip` leads past the pieces taken (with its paths
+  -- made short as they are walked), so that each piece is looked at about
+  -- once rather than once for each low.
+  local pieces = #cuts - 1
+  local by_pitch: {Low} = {}
+  for i, l in ipairs(lows) do by_pitch[i] = l end
+  table.sort(by_pitch, function(x: Low, y: Low): boolean return x.pitch < y.pitch end)
+  local low_of: {integer} = {}
+  local skip: {integer} = {}
+  local function untaken(i: integer): integer
+    local j = i
+    while skip[j] do j = skip[j] end
+    while skip[i] do
+      local after = skip[i]
+      skip[i] = j
+      i = after
     end
+    return j
+  end
+  for _, l in ipairs(by_pitch) do
+    -- The first piece with `l.a <= cuts[i] + 1e-9` and the last with
+    -- `l.b >= cuts[i + 1] - 1e-9`: the tests of a low that covers a piece.
+    local lo, hi = 1, pieces + 1
+    while lo < hi do
+      local mid = (lo + hi) // 2
+      if l.a <= cuts[mid] + 1e-9 then hi = mid else lo = mid + 1 end
+    end
+    local from_piece = lo
+    lo, hi = 0, pieces
+    while lo < hi do
+      local mid = (lo + hi + 1) // 2
+      if l.b >= cuts[mid + 1] - 1e-9 then lo = mid else hi = mid - 1 end
+    end
+    local to_piece = lo
+    local i = untaken(from_piece)
+    while i <= to_piece do
+      low_of[i] = l.pitch
+      skip[i] = i + 1
+      i = untaken(i + 1)
+    end
+  end
+  local held: Weights = {}
+  for i = 1, pieces do
+    local a, b = cuts[i], cuts[i + 1]
+    local low = low_of[i]
+    if b - a > 1e-9 and low then held[low % 12] = (held[low % 12] or 0) + (b - a) end
   end
   local bass: integer
   local most: number = 0
