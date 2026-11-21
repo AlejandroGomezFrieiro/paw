@@ -226,69 +226,25 @@ impl Session {
     }
 
     pub fn transport_set(&mut self, key: &str, value: Value) -> Result<()> {
-        if key == "write" {
-            self.writing.on = de(key, value)?;
-            self.emit(E::TransportChanged(Nothing {}));
-            return Ok(());
-        }
-        if key == "record_offset" {
-            let ms: f64 = de(key, value)?;
-            if !ms.is_finite() {
-                bail!("the recording offset is a number of milliseconds");
+        let field: TransportField = key.parse()?;
+        match field {
+            TransportField::Write => {
+                self.writing.on = de(key, value)?;
+                self.emit(E::TransportChanged(Nothing {}));
+                return Ok(());
             }
-            self.rec.offset = ms;
-            return Ok(());
-        }
-        let t = &mut self.transport;
-        match key {
-            "loop_enabled" => t.loop_enabled = de(key, value)?,
-            "loop_start" => t.loop_start = de::<f64>(key, value)?.max(0.0),
-            "loop_end" => t.loop_end = de::<f64>(key, value)?.max(0.0),
-            "metronome" => t.metronome = de(key, value)?,
-            "recording" => t.recording = de(key, value)?,
-            "punch_enabled" => t.punch_enabled = de(key, value)?,
-            "punch_start" => t.punch_start = finite(key, de(key, value)?)?.max(0.0),
-            "punch_end" => t.punch_end = finite(key, de(key, value)?)?.max(0.0),
-            "count_in" => {
-                let bars: f64 = de(key, value)?;
-                if !(0.0..=16.0).contains(&bars) {
-                    bail!("a count-in is from 0 to 16 bars");
+            TransportField::RecordOffset => {
+                let ms: f64 = de(key, value)?;
+                if !ms.is_finite() {
+                    bail!("the recording offset is a number of milliseconds");
                 }
-                t.count_in = bars as u32;
+                self.rec.offset = ms;
+                return Ok(());
             }
-            "pre_roll" => {
-                let bars: f64 = de(key, value)?;
-                if !(0.0..=16.0).contains(&bars) {
-                    bail!("a pre-roll is from 0 to 16 bars");
-                }
-                t.pre_roll = bars as u32;
-            }
-            "pre_roll_seconds" => {
-                let seconds: f64 = de(key, value)?;
-                if !(0.0..=30.0).contains(&seconds) {
-                    bail!("a pre-roll is from 0 to 30 seconds");
-                }
-                t.pre_roll_seconds = seconds;
-            }
-            "click_level" => {
-                let db: f64 = de(key, value)?;
-                if !(-60.0..=12.0).contains(&db) {
-                    bail!("the click's level is from -60 to +12 dB");
-                }
-                t.click_level = db;
-            }
-            "click_accent" => t.click_accent = de(key, value)?,
-            "click_output" => {
-                let channel: f64 = de(key, value)?;
-                if !(0.0..=64.0).contains(&channel) || channel.fract() != 0.0 {
-                    bail!("the click's output is a channel from 1 to 64, or 0 for with the song");
-                }
-                t.click_output = channel as u32;
-            }
-            _ => bail!("the transport has no settable field `{key}`"),
+            _ => field.set(&mut self.transport, key, value)?,
         }
         // Turning recording on or off while playing punches in or out.
-        if key == "recording" {
+        if field == TransportField::Recording {
             if !self.transport.recording {
                 self.finish_take();
             } else if self.play.playing {
@@ -367,5 +323,109 @@ impl Session {
             .get(&track)
             .map(|slot| self.engine.handle.shared.meter(*slot))
             .unwrap_or((0.0, 0.0))
+    }
+}
+
+/// A field of the transport that [`Session::transport_set`] changes: the
+/// key that Lua gives, parsed once.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum TransportField {
+    Write,
+    RecordOffset,
+    LoopEnabled,
+    LoopStart,
+    LoopEnd,
+    Metronome,
+    Recording,
+    PunchEnabled,
+    PunchStart,
+    PunchEnd,
+    CountIn,
+    PreRoll,
+    PreRollSeconds,
+    ClickLevel,
+    ClickAccent,
+    ClickOutput,
+}
+
+impl TransportField {
+    /// Set this field of the transport. `Write` and `RecordOffset` belong
+    /// to the session, not the transport: [`Session::transport_set`] sets
+    /// them.
+    fn set(self, t: &mut Transport, key: &str, value: Value) -> Result<()> {
+        match self {
+            Self::LoopEnabled => t.loop_enabled = de(key, value)?,
+            Self::LoopStart => t.loop_start = de::<f64>(key, value)?.max(0.0),
+            Self::LoopEnd => t.loop_end = de::<f64>(key, value)?.max(0.0),
+            Self::Metronome => t.metronome = de(key, value)?,
+            Self::Recording => t.recording = de(key, value)?,
+            Self::PunchEnabled => t.punch_enabled = de(key, value)?,
+            Self::PunchStart => t.punch_start = finite(key, de(key, value)?)?.max(0.0),
+            Self::PunchEnd => t.punch_end = finite(key, de(key, value)?)?.max(0.0),
+            Self::CountIn => {
+                let bars: f64 = de(key, value)?;
+                if !(0.0..=16.0).contains(&bars) {
+                    bail!("a count-in is from 0 to 16 bars");
+                }
+                t.count_in = bars as u32;
+            }
+            Self::PreRoll => {
+                let bars: f64 = de(key, value)?;
+                if !(0.0..=16.0).contains(&bars) {
+                    bail!("a pre-roll is from 0 to 16 bars");
+                }
+                t.pre_roll = bars as u32;
+            }
+            Self::PreRollSeconds => {
+                let seconds: f64 = de(key, value)?;
+                if !(0.0..=30.0).contains(&seconds) {
+                    bail!("a pre-roll is from 0 to 30 seconds");
+                }
+                t.pre_roll_seconds = seconds;
+            }
+            Self::ClickLevel => {
+                let db: f64 = de(key, value)?;
+                if !(-60.0..=12.0).contains(&db) {
+                    bail!("the click's level is from -60 to +12 dB");
+                }
+                t.click_level = db;
+            }
+            Self::ClickAccent => t.click_accent = de(key, value)?,
+            Self::ClickOutput => {
+                let channel: f64 = de(key, value)?;
+                if !(0.0..=64.0).contains(&channel) || channel.fract() != 0.0 {
+                    bail!("the click's output is a channel from 1 to 64, or 0 for with the song");
+                }
+                t.click_output = channel as u32;
+            }
+            Self::Write | Self::RecordOffset => unreachable!("set by the session"),
+        }
+        Ok(())
+    }
+}
+
+impl std::str::FromStr for TransportField {
+    type Err = anyhow::Error;
+
+    fn from_str(key: &str) -> Result<Self> {
+        Ok(match key {
+            "write" => Self::Write,
+            "record_offset" => Self::RecordOffset,
+            "loop_enabled" => Self::LoopEnabled,
+            "loop_start" => Self::LoopStart,
+            "loop_end" => Self::LoopEnd,
+            "metronome" => Self::Metronome,
+            "recording" => Self::Recording,
+            "punch_enabled" => Self::PunchEnabled,
+            "punch_start" => Self::PunchStart,
+            "punch_end" => Self::PunchEnd,
+            "count_in" => Self::CountIn,
+            "pre_roll" => Self::PreRoll,
+            "pre_roll_seconds" => Self::PreRollSeconds,
+            "click_level" => Self::ClickLevel,
+            "click_accent" => Self::ClickAccent,
+            "click_output" => Self::ClickOutput,
+            _ => bail!("the transport has no settable field `{key}`"),
+        })
     }
 }

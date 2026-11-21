@@ -19,7 +19,7 @@ use std::time::{Duration, Instant};
 use anyhow::Result;
 use paw_engine::automation::value_at;
 
-use super::{LaneOpts, Session};
+use super::{LaneKind, LaneOpts, Session};
 use crate::model::{AutoMode, Id, Target};
 
 /// Whether moving a fader or a parameter while playing writes automation,
@@ -241,16 +241,16 @@ impl Session {
             return Ok(Some(lane.id));
         }
         let (target, device, param) = match &latch.target {
-            Target::Volume => ("volume", None, None),
-            Target::Pan => ("pan", None, None),
-            Target::Param { device, param } => ("param", Some(*device), Some(param.clone())),
+            Target::Volume => (LaneKind::Volume, None, None),
+            Target::Pan => (LaneKind::Pan, None, None),
+            Target::Param { device, param } => (LaneKind::Param, Some(*device), Some(param.clone())),
             // Nothing moves a state lane but its points.
             Target::State { .. } => return Ok(None),
         };
         self.lane_add(
             latch.track,
             LaneOpts {
-                target: target.into(),
+                target: Some(target),
                 device,
                 param,
                 enabled: Some(true),

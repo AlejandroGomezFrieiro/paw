@@ -747,7 +747,7 @@ impl Session {
             place(&mut notes, &mut controls, start);
             let last = notes.iter().map(|n| n.start + n.length).fold(0.0, f64::max);
             let opts = ClipOpts {
-                kind: Some("midi".into()),
+                kind: Some(ClipKind::Midi),
                 name: Some(name.to_string()),
                 start,
                 length: Some(punch.unwrap_or((end - start).max(last))),
@@ -776,7 +776,7 @@ impl Session {
                     note.length = note.length.min(loop_start - start - note.start).max(1.0 / 128.0);
                 }
                 let opts = ClipOpts {
-                    kind: Some("midi".into()),
+                    kind: Some(ClipKind::Midi),
                     name: Some(format!("{name} lead-in")),
                     start,
                     length: Some(loop_start - start),
@@ -809,7 +809,7 @@ impl Session {
             );
         }
         let opts = ClipOpts {
-            kind: Some("midi".into()),
+            kind: Some(ClipKind::Midi),
             name: Some(name.to_string()),
             start: loop_start,
             length: Some(loop_end - loop_start),

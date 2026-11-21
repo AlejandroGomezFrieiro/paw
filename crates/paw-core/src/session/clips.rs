@@ -56,7 +56,7 @@ impl Session {
                 std::fs::read(&file).with_context(|| format!("reading {}", file.display()))?;
             let read = crate::clipfile::decode(&bytes)
                 .with_context(|| format!("reading {}", file.display()))?;
-            opts.kind = Some("midi".into());
+            opts.kind = Some(ClipKind::Midi);
             opts.notes = read.notes;
             opts.controls = read.controls;
             if opts.length.is_none() && read.length > 0.0 {
@@ -67,13 +67,14 @@ impl Session {
             }
             source = Some(file);
         }
-        let kind =
-            opts.kind
-                .as_deref()
-                .unwrap_or(if opts.file.is_some() { "audio" } else { "midi" });
+        let kind = opts.kind.unwrap_or(if opts.file.is_some() {
+            ClipKind::Audio
+        } else {
+            ClipKind::Midi
+        });
         let tempo = self.project.tempo_map().clone();
         let (content, natural, default_name) = match kind {
-            "midi" => {
+            ClipKind::Midi => {
                 check_notes(&opts.notes)?;
                 let end = opts
                     .notes
@@ -92,7 +93,7 @@ impl Session {
                     "midi".to_string(),
                 )
             }
-            "audio" => {
+            ClipKind::Audio => {
                 let file = opts.file.context("audio clips need a `file`")?;
                 if !opts.offset.is_finite() || opts.offset < 0.0 {
                     bail!("an audio clip's offset is a number of seconds from 0 up");
@@ -112,7 +113,6 @@ impl Session {
                 };
                 (content, natural, name.unwrap_or_else(|| "audio".into()))
             }
-            other => bail!("unknown clip kind `{other}`"),
         };
         let length = opts.length.unwrap_or(natural);
         if !length.is_finite() || length <= 0.0 || !opts.start.is_finite() || opts.start < 0.0 {
@@ -120,7 +120,7 @@ impl Session {
         }
         check_fade(opts.fade_in)?;
         check_fade(opts.fade_out)?;
-        if kind == "midi" && (opts.fade_in > 0.0 || opts.fade_out > 0.0) {
+        if kind == ClipKind::Midi && (opts.fade_in > 0.0 || opts.fade_out > 0.0) {
             bail!("only audio clips fade");
         }
         let stretch = opts.stretch.unwrap_or(1.0);
@@ -137,11 +137,11 @@ impl Session {
                 .track_mut(track)
                 .with_context(|| format!("no track {track}"))?;
             let clip = Arc::new(Clip {
-                timebase: opts.timebase.filter(|_| kind == "audio"),
+                timebase: opts.timebase.filter(|_| kind == ClipKind::Audio),
                 stretch,
                 pitch: opts.pitch,
                 stretch_mode: opts.stretch_mode,
-                source_tempo: opts.source_tempo.filter(|_| kind == "audio"),
+                source_tempo: opts.source_tempo.filter(|_| kind == ClipKind::Audio),
                 warp: opts.warp.clone(),
                 formants: opts.formants,
                 looped: opts.looped && opts.loop_length.is_some(),
