@@ -587,12 +587,25 @@ test("launcher: while the song plays, the session view is drawn again as a live 
   until_(function() return (launcher.state()[t.id] or {}).slot == 0 end, "the clip to start", 5000)
   paw.transport.stop()
   local W, H = 120, 40
+  -- The drawings come one after the other, and a meter falls and a held
+  -- peak lets go in between (a loaded machine): the meters stand still.
+  local meter = api.track_meter
+  api.track_meter = function() return 0.5, 0.25 end
+  local draw = require("paw.draw")
+  local function still()
+    draw.clear_peak(0)
+    for _, id in ipairs(api.track_list()) do draw.clear_peak(id) end
+  end
+  still()
   local first = api.ui_frame_snapshot(W, H)
   eq(first.live > 0, true, "live parts")
   paw.transport.position = 3
+  still()
   local moved = api.ui_frame_snapshot(W, H, true)
-  eq(moved ~= nil, true, "drawn by its live parts only, with the session view shown")
+  still()
   local whole = api.ui_frame_snapshot(W, H)
+  api.track_meter = meter
+  eq(moved ~= nil, true, "drawn by its live parts only, with the session view shown")
   for row = 1, H do eq(moved.cells[row], whole.cells[row], "row " .. row .. ":\n" .. moved.text[row] .. "\n" .. whole.text[row]) end
   paw.ui.hide("session")
 end)
