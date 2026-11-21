@@ -178,7 +178,7 @@ the session view of the clip launcher. It also includes `paw://tracks`, the pick
 the motions and the Ex ranges.
 `:widen` (`zw`) closes the tab and returns.
 
-The status line shows `narrowed Strings`. Each tab has its own group. So
+The status line shows `Song › Strings`. Each tab has its own group. So
 `gt` goes from the whole song to the strings and to the brass.
 `paw://tracks` in a narrowed tab lists the tracks of the group, and `:w`
 does not change the other tracks. `paw.opt.scope_rest` sets what the other

@@ -905,7 +905,9 @@ local record contracts
    end
 
    --- What a bar label of the ruler draws one bar from. `bar` is the
-   --- bar's number; `beat` where it starts; `relative` how many `W` (or
+   --- bar's number as shown (counted from 1 at the start of a scope with
+   --- time, see `paw.scope`), `song_bar` its number in the song; `beat`
+   --- where it starts; `relative` how many `W` (or
    --- `B`, behind the cursor) reach it, nil while `paw.opt.relativebar`
    --- is off; `cursor` true on the bar the cursor is in; `style` the style
    --- the bar's number has there (in the loop, in the punch range);
@@ -913,6 +915,7 @@ local record contracts
    --- the part before the next bar's label.
    record RulerContext
       bar: integer
+      song_bar: integer
       beat: number
       room: integer
       relative: integer

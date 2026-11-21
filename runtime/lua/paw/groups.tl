@@ -44,9 +44,11 @@ local record RowOptions
 end
 
 -- What this module reads of `paw`, which paw/init.lua makes.
+-- paw/scope.tl names this module's types, so this one declares only the
+-- part of it that it reads.
 local record Scope
-  current: function(): integer
-  tracks: function(scope?: integer): {integer}
+  group: function(): integer
+  tracks: function(): {integer}
 end
 local record Paw is partial.Paw
   lanes: LanesModule
@@ -143,7 +145,7 @@ function M.hidden(track: TrackRef, top?: integer): boolean
 end
 
 --- The tracks that are drawn, in order: all but those folded away, and in
---- a narrowed tab only those of its group (`paw.scope`). Rows of the
+--- a narrowed tab only those of its scope (`paw.scope`). Rows of the
 --- arrange view and of a graphical frontend are places in this list.
 --- With `{ lanes = true }`, every row: `{ track = id }` for a track and
 --- `{ track = id, lane = id }` for an automation lane shown under it
@@ -151,8 +153,8 @@ end
 local function rows(opts?: RowOptions): {integer}
   if opts and opts.lanes then return paw.lanes.lines() as {integer} end
   local out, vcas: {integer}, {integer} = {}, {}
-  local scope = paw.scope and paw.scope.current()
-  for _, id in ipairs(paw.scope and paw.scope.tracks(scope) or api.track_list()) do
+  local scope = paw.scope and paw.scope.group()
+  for _, id in ipairs(paw.scope and paw.scope.tracks() or api.track_list()) do
     if not M.hidden(id, scope) then
       -- VCAs come after the tracks they move.
       local list = paw.vca.is_vca(id) and vcas or out

@@ -93,7 +93,7 @@ gets.
 | `tab.enter` | `{ tab }` | a different tab |
 | `ui.resized` | `{ width, height }` | the screen changed size |
 | `ui.focus` | `{ focused }` | the terminal (mode 1004) or the window got the focus of the desktop, or lost it |
-| `scope.changed` | `{ scope }` | the tab is narrowed to a group, or not narrowed |
+| `scope.changed` | `{ scope }` | the tab shows a different scope (`paw.scope`), or the whole song. `scope` is the innermost group of the scope, if any |
 | `seat.opened`, `seat.closing` | `{ seat }` | a terminal or a graphical window attached, or will go |
 | `address.changed` | `{ uris, revision }` | things with addresses changed (`paw/address.tl`). In Teal, its descriptor is `paw.address.changed` |
 | `annotation.changed`, `diagnostic.changed` | `{ namespace, document, ... }` | annotations or diagnostics changed. In Teal, the descriptor of `diagnostic.changed` is `paw.diagnostic.changed` |

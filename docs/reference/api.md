@@ -471,6 +471,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 ## Module paw.cursor
 
+- `paw.cursor.bounds()`: The time the cursor stays in: the current scope's.
 - `paw.cursor.clip()`: The clip under the cursor, if any.
 - `paw.cursor.index()`: 1-based position of the cursor track in the track list.
 - `paw.cursor.lane_id()`: The automation lane row of the cursor: a lane of the cursor track that shows as a row (see `paw.lanes`). Nil when the cursor is on the track.
@@ -480,7 +481,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.cursor.move_track(delta)`: Move by rows. In normal mode, the rows of open automation lanes count. After an operator or in a selection, only tracks count, as for `dj`. From the last track, a move down goes on to the master, and from the master a move up returns to the tracks.
 - `paw.cursor.on_master()`: True if the cursor is on the master track: the row after the last track in the arrange view, the strip after the last in the mixer.
 - `paw.cursor.row()`: 1-based row of the cursor track among the tracks that are drawn: the same as `index` until a group is folded. On the master, the row after the last track.
-- `paw.cursor.set_beat(beat)`: Put the cursor at a beat (not before 0).
+- `paw.cursor.set_beat(beat)`: Put the cursor at a beat (not before 0, and in the scope's time).
 - `paw.cursor.set_track(track, lane)`: Put the cursor on a track, or with `lane` on one of its lane rows.
 - `paw.cursor.snap(beat)`: Round a position to the arrange grid.
 - `paw.cursor.track()`: The track the cursor is on, as a `paw.Track`, or nil.
@@ -842,7 +843,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.groups.members(group)`: The tracks that belong to a group, in the order of the track list.
 - `paw.groups.of(track)`: The group a track belongs to (its id), or nil.
 - `paw.groups.remove(track, stay)`: Remove a track from its group, up one level. It sounds where the group sounds, and it is in the parent group of the group, if any. It moves out of the rows of the group, unless `stay`.
-- `paw.groups.rows(opts)`: The tracks that are drawn, in order: all but those folded away, and in a narrowed tab only those of its group (`paw.scope`). Rows of the arrange view and of a graphical frontend are places in this list. With `{ lanes = true }`, every row: `{ track = id }` for a track and `{ track = id, lane = id }` for an automation lane shown under it (see `paw.lanes`).
+- `paw.groups.rows(opts)`: The tracks that are drawn, in order: all but those folded away, and in a narrowed tab only those of its scope (`paw.scope`). Rows of the arrange view and of a graphical frontend are places in this list. With `{ lanes = true }`, every row: `{ track = id }` for a track and `{ track = id, lane = id }` for an automation lane shown under it (see `paw.lanes`).
 
 ## Module paw.harmony
 
@@ -1712,7 +1713,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.ruler
 
 - `paw.ruler.add(name, spec)`: Add a part of the bar labels, or put a new one in place of one of that name. It goes into `paw.opt.barlabel` (unless `hidden`).
-- `paw.ruler.label(bar, beat, style, cursor_beat, room)`: The pieces of bar `bar`'s label, from the parts in `paw.opt.barlabel` in their order. `style` is the style of the bar's number there. `room` is how many columns the label has before the next bar's: each part gets what the parts before it left (`ctx.room`).
+- `paw.ruler.label(bar, beat, style, cursor_beat, room)`: The pieces of bar `bar`'s label, from the parts in `paw.opt.barlabel` in their order. `bar` is the song's bar: in a scope with time, its label counts from 1 at the scope's start (`paw.scope.bar_offset`). `style` is the style of the bar's number there. `room` is how many columns the label has before the next bar's: each part gets what the parts before it left (`ctx.room`).
 - `paw.ruler.relative(bar, beat)`: How many `W` (ahead) or `B` (behind) reach bar `bar` from the cursor at `beat`: from inside a bar, the first `B` goes to its own start (paw/defaults/cursor.lua). Nil for the cursor's own bar.
 - `paw.ruler.remove(name)`: Take a part away, and its name out of `paw.opt.barlabel`.
 - `paw.ruler.set(name, patch)`: Change a part that is there, the built-in `number` too: its `order`, `render`, and the `glyphs` and `styles` it draws with (merged into its own). The part becomes a changed copy, as with `paw.trackcolumn.set`: `paw.ruler.add(name, old)` puts back the table it had before.
@@ -1732,16 +1733,28 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 ## Module paw.scope
 
-- `paw.scope.apply(scope)`: Tell the engine what the rest of the song does for a scope. This is the scope of the tab in front, which the last seat to change tabs (a terminal or a window) selected.
-- `paw.scope.contains(track, scope)`: True if a track is inside a scope (the current scope by default): the group itself or a track in it, at any depth. With no scope, all tracks are inside.
-- `paw.scope.current(tab)`: The group a tab is narrowed to (the current tab's by default), or nil.
+- `paw.scope.apply(s)`: Tell the engine what the rest of the song does for a scope. This is the scope of the tab in front, which the last seat to change tabs (a terminal or a window) selected.
+- `paw.scope.bar_offset(s)`: How many bars of the song come before the first bar of a scope (the current one by default) when its bars are numbered from 1: 0 with no time, or with `scopebars=song`. A scope's bars are the song's (its meter map), counted from the bar its time starts in.
+- `paw.scope.breadcrumb(s)`: The path in words: `Song › Bridge › Strings`.
+- `paw.scope.contains(track, s)`: True if a scope (the current one by default; a group's id is a scope of that group) shows a track: it and every level above it do. With no scope, every track is inside.
+- `paw.scope.current(win)`: The scope a window shows (the current window's by default), or nil for the song. A level whose group, track or region is gone is left out.
+- `paw.scope.enter(spec)`: Enter a scope (`{ kind, id, tracks, from, to, name }`). In a tab that shows a scope, it becomes its child, in the same tab: it shows what both show. In a tab that shows the song, a tab of its own opens after it, or the tab that shows the same scope comes to the front. Changes nothing in the project. Returns the scope.
 - `paw.scope.find(which)`: A group by its id, its track, or its name (or part of it).
+- `paw.scope.format(beat)`: A place as the scope numbers it: `bar.beat.hundredths`, as `paw.time.format`.
+- `paw.scope.group(s)`: The innermost group of a scope's path (the current scope by default): what a narrowed tab's tracks are shown under. Nil when no level is a group.
 - `paw.scope.group_at(track)`: The group of a track when you narrow: the track itself if it is a group. If not, the group that contains it.
 - `paw.scope.held()`: The parts of the rest the engine plays from files now.
-- `paw.scope.narrow(group)`: Open a tab narrowed to a group, after the current tab, with the same windows, and go to it. If a tab is already narrowed to the group, paw goes to that tab. Returns the tab.
-- `paw.scope.rest_parts(scope)`: The parts of the rest of the song that paw can freeze for a scope. These are the tracks outside it at the top of their branch (a whole group, not its members). They are not the tracks that the sound of the scope goes through (its groups, and a bus that its sends reach). They are not empty.
-- `paw.scope.tracks(scope)`: The tracks of a scope (the current scope by default), in the order of the track list. With no scope, all tracks.
-- `paw.scope.widen()`: Leave the scope of the current tab. The tab closes and the tab that it was narrowed from shows again. When it is the last tab, it stays, wide.
+- `paw.scope.limits_tracks(s)`: Whether a scope, or one of the levels above it, limits the tracks.
+- `paw.scope.local_bar(song_bar)`: The bar the current scope shows for a bar of the song.
+- `paw.scope.named(which)`: A scope by name: a group of that name, else a region of that name, else a group or a region whose name starts with it. A number is a group's id.
+- `paw.scope.narrow(which)`: Narrow to a group or a region, by its id, its track or its name (see `named`): `enter` of that scope. Returns the tab it shows in.
+- `paw.scope.of_tab(tab)`: The scope of a tab, for the frontends that draw each tab.
+- `paw.scope.path(s)`: The levels of a scope's path, from the outermost to it.
+- `paw.scope.rest_parts(s)`: The parts of the rest of the song that paw can freeze for a scope. These are the tracks outside it at the top of their branch (a whole group, not its members). They are not the tracks that the sound of the scope goes through (its groups, and a bus that its sends reach). They are not empty.
+- `paw.scope.song_bar(local_bar)`: The bar of the song for a bar as the current scope shows it.
+- `paw.scope.span(s)`: The time a scope shows (the current one by default): `from, to` in beats, its own time intersected with its parent's. Nil when it shows all of the song's time. `from` is `to` when the times do not meet.
+- `paw.scope.tracks(s)`: The tracks of a scope (the current one by default), in the order of the track list. With no scope, or one that keeps every track, all tracks.
+- `paw.scope.widen(top)`: Leave the scope of the current tab: up one level, or with `top` to the song. Leaving the first level closes the tab and shows the tab it was narrowed from again; when it is the last tab, it stays, wide. False when the tab shows the song.
 
 ## Module paw.seats
 
@@ -1869,7 +1882,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.tempo.label(point)`: What a tempo change reads as on a ruler: "96" or "120>" for a ramp.
 - `paw.tempo.lines(from, to, limit)`: The bar and beat lines from one beat to another: { beat, bar, index }, `index` 0 on a bar line (bars count from 1).
 - `paw.tempo.marks(from, to)`: Tempo and signature changes from one beat to another, for a ruler to mark: { beat, text, kind = "tempo" | "signature" }, the start's left out.
-- `paw.tempo.place(text)`: A place given to a command: a bar (`17`), a bar and beat (`17.3`), or `cursor` / `here`. The beat of the cursor when nothing is given.
+- `paw.tempo.place(text)`: A place given to a command: a bar (`17`), a bar and beat (`17.3`), or `cursor` / `here`. The beat of the cursor when nothing is given. In a scope with time (`paw.scope`), bars are its own, from 1 at its start.
 - `paw.tempo.point_at(beat)`: The tempo point in effect at a beat.
 - `paw.tempo.points()`: Every tempo point, the start's first: { beat, bpm, ramp }.
 - `paw.tempo.remove(beat)`: Remove the tempo change at `beat`.

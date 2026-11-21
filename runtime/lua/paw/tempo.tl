@@ -38,7 +38,13 @@ end
 local type Define = function(name: string, run: function(ctx: commands.Context): (commands.Result), opts?: commands.Options)
 
 -- What this module reads of `paw`, which paw/init.lua makes.
+--- paw/scope.tl, the part of it that this module reads: bars typed in a
+--- scope with time are its own, from 1 at its start.
+local record Scope
+  bar_offset: function(): integer
+end
 local record Paw
+  scope: Scope
   cursor: CursorModule
   project: objects.Project
   time: objects.Time
@@ -134,14 +140,17 @@ end
 -- Commands ------------------------------------------------------------------
 
 --- A place given to a command: a bar (`17`), a bar and beat (`17.3`), or
---- `cursor` / `here`. The beat of the cursor when nothing is given.
+--- `cursor` / `here`. The beat of the cursor when nothing is given. In a
+--- scope with time (`paw.scope`), bars are its own, from 1 at its start.
 function M.place(text?: commands.Arg): number
   if text == nil or text == "cursor" or text == "here" then return paw.cursor.beat end
   local bar_text, beat = tostring(text):match("^(%d+)%.?(%d*)$")
   if not bar_text then error("a place is a bar (17), a bar and beat (17.3) or `cursor`, not " .. tostring(text), 0) end
   local bar = tonumber(bar_text) as integer
   if bar < 1 then error("bars count from 1", 0) end
-  return api.tempo_from_bbt(bar - 1, math.max(0, (tonumber(beat) or 1) - 1) as integer)
+  -- In a scope with time, its own bars.
+  local offset = paw.scope and paw.scope.bar_offset() or 0
+  return api.tempo_from_bbt(bar - 1 + offset, math.max(0, (tonumber(beat) or 1) - 1) as integer)
 end
 
 --- The tempo point in effect at a beat.
@@ -155,7 +164,8 @@ end
 
 --- What a position reads as in commands' messages: "bar 9" or "9.2.50".
 local function where(beat: number): string
-  if api.tempo_is_bar_line(beat) then return "bar " .. M.bar_of(beat) end
+  local offset = paw.scope and paw.scope.bar_offset() or 0
+  if api.tempo_is_bar_line(beat) then return "bar " .. (M.bar_of(beat) - offset) end
   return paw.time.format(beat)
 end
 

@@ -60,8 +60,17 @@ local record Keymap
   recording: function(): string
   pending: function(): string
 end
+--- paw/scope.tl, the part of it that this module reads (it names types
+--- that lead back here).
+local record ScopeLevel
+  name: string
+end
 local record Scope
-  current: function(): integer
+  current: function(): ScopeLevel
+  breadcrumb: function(s?: ScopeLevel): string
+  span: function(s?: ScopeLevel): number, number
+  format: function(beat: number): string
+  bar_offset: function(): integer
 end
 local record Audio
   load: function(cpu?: number): number
@@ -380,9 +389,10 @@ spec("flags", { rank = 4, fn = function(ctx: Context): StatusText
   local t, g = ctx.transport, ctx.g
   local on: {Piece} = {}
   if t.loop_enabled then
-    local bar = paw.time.bar()
-    local from = math.floor(t.loop_start / bar + 1e-9) + 1
-    local to = math.max(from, math.ceil(t.loop_end / bar - 1e-9))
+    -- The bars it touches, as the ruler numbers them (in a scope with time, its own).
+    local offset = paw.scope and paw.scope.bar_offset() or 0
+    local from = paw.time.bar_of(t.loop_start) - offset
+    local to = math.max(from, paw.time.bar_of(math.max(t.loop_start, t.loop_end - 1e-6)) - offset)
     on[#on + 1] = { "loop " .. from .. (g.ellipsis == "…" and "–" or "-") .. to, "StatusOn" }
   end
   if t.metronome then on[#on + 1] = { "click", "StatusOn" } end
@@ -474,16 +484,22 @@ spec("keys", { fn = function(): StatusText
   if pending ~= "" then return { { pending, "StatusOn" } } end
 end })
 
--- One field of a track, quicker than the whole track (`track_get(id, key)`).
-local track_field = api.track_get as function(id: integer, key: string): string
 
--- The group a narrowed tab shows, and what the rest of the song does.
+-- The scope shown, as its path (`Song › Bridge › Strings`); in a scope
+-- with time, the cursor's place in its bars and in the song's
+-- (`3.2 (19.2)`); and what the rest of the song does.
 spec("scope", { rank = 2, fn = function(ctx: Context): StatusText
   local scope = paw.scope and paw.scope.current()
   if not scope then return end
-  local out: {Piece} = { { "narrowed " .. track_field(scope, "name"), "StatusOn" } }
+  local out: {Piece} = { { paw.scope.breadcrumb(scope), "StatusOn" } }
+  if paw.scope.span(scope) then
+    local beat = paw.cursor.beat
+    local here = paw.scope.format(beat):match("^(%d+%.%d+)")
+    local song = paw.time.format(beat):match("^(%d+%.%d+)")
+    out[#out + 1] = { " " .. here .. (here ~= song and (" (" .. song .. ")") or ""), "StatusDim" }
+  end
   local rest = opt.scope_rest
-  if rest ~= "play" and ctx.width >= 100 then out[2] = { " rest " .. rest, "StatusDim" } end
+  if rest ~= "play" and ctx.width >= 100 then out[#out + 1] = { " rest " .. rest, "StatusDim" } end
   return out
 end })
 

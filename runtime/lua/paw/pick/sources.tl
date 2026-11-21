@@ -84,7 +84,7 @@ local record Keymap
   mode: string
 end
 
---- The tracks in scope (paw/scope.lua, in Lua): what this module calls of it.
+--- The tracks in scope (paw/scope.tl): what this module calls of it.
 local record Scope
   tracks: function(): {integer}
 end

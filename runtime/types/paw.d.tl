@@ -55,6 +55,7 @@ local type RenderModule = require("paw.render")
 local type RolesModule = require("paw.roles")
 local type RulerModule = require("paw.ruler")
 local type SceneModule = require("paw.scene")
+local type ScopeModule = require("paw.scope")
 local type SeatsModule = require("paw.seats")
 local type SnippetModule = require("paw.snippet")
 local type StatuslineModule = require("paw.statusline")
@@ -183,7 +184,7 @@ global record paw
    routes: Untyped
    ruler: RulerModule
    scene: SceneModule
-   scope: Untyped
+   scope: ScopeModule
    seats: SeatsModule
    snippet: SnippetModule
    state: Untyped

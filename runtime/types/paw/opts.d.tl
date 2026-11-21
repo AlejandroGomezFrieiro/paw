@@ -79,6 +79,8 @@ local record Opts
    roll_context_max: number
    roll_insert: string
    scope_rest: string
+   scopebars: string
+   scopeloop: boolean
    send_level: number
    splitbelow: boolean
    splitright: boolean

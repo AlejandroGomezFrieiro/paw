@@ -64,6 +64,7 @@ local record M
   --- The beat of the cursor.
   beat: number
   lens: function(): integer
+  bounds: function(): number, number
   master_reachable: function(): boolean
 end
 
@@ -200,9 +201,17 @@ function M.move_track(delta: integer)
   M.set_track(list[util.clamp(at + delta, 1, #list) as integer])
 end
 
---- Put the cursor at a beat (not before 0).
+--- A function that gives the time the cursor stays in, `from, to` in beats,
+--- or nil for all of it: paw/scope.tl sets it, for the scope shown.
+M.bounds = nil
+
+--- Put the cursor at a beat (not before 0, and in the scope's time).
 function M.set_beat(beat: number)
-  M.beat = math.max(0, beat)
+  beat = math.max(0, beat)
+  local from, to: number, number
+  if M.bounds then from, to = M.bounds() end
+  if from then beat = math.min(math.max(beat, from), to) end
+  M.beat = beat
   save()
 end
 

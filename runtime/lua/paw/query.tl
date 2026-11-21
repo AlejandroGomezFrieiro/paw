@@ -111,7 +111,7 @@ end
 --- What `paw.ex` reads its fields from (paw/ex.tl).
 local type ExItem = contracts.ExItem
 
---- paw/scope.lua: the tracks of the tab, narrowed to a group or not.
+--- paw/scope.tl, the part of it that this module reads: the tracks of the scope shown.
 local record Scope
   tracks: function(): {integer}
 end

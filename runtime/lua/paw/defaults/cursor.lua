@@ -78,8 +78,9 @@ command("cursor.clip_end", function(ctx)
   end
 end, { desc = "End of the clip under the cursor, or of the next one" })
 command("cursor.bar", function(ctx)
-  cursor.set_beat(paw.time.bar_start(ctx.count or tonumber(ctx.args[1]) or 1))
-end, { desc = "Start of a bar: `cursor.bar 9`" })
+  -- In a scope with time, its own bars: bar 1 is where it starts.
+  cursor.set_beat(paw.time.bar_start(paw.scope.song_bar(ctx.count or tonumber(ctx.args[1]) or 1)))
+end, { desc = "Start of a bar: `cursor.bar 9` (in a scope with time, its bar 9)" })
 command("cursor.first_track", function(ctx)
   local list = paw.scope.tracks()
   if #list > 0 then cursor.set_track(list[util.clamp(ctx.count or 1, 1, #list)]) end
