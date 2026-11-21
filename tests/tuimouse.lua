@@ -736,7 +736,7 @@ test("the command line's list: a click puts a candidate in the line, a second cl
   paw.tempolane.show(false)
 end)
 
-test("a picker's row is chosen with two clicks, and the wheel moves through it", function()
+test("a picker's row is chosen with two clicks", function()
   start()
   local chosen
   paw.pick({ title = "Fruit", items = { { text = "apple" }, { text = "banana" }, { text = "cherry" } }, on_choose = function(item) chosen = item.text end })

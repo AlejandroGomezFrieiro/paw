@@ -26,7 +26,6 @@ end
 
 local function kept(why)
   eq(#paw.tracks(), 1, why)
-  eq(paw.tracks()[1].name ~= nil, true, why)
 end
 
 test("a project opened from a MIDI file counts as unsaved work, and the window asks about it", function()

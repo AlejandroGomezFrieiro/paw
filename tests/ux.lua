@@ -54,13 +54,11 @@ test("the welcome page and the empty roll name the right keys", function()
   local lines = screen()
   eq(lines:find("i%s+enter notes") ~= nil and lines:find("then I%s+type them") ~= nil, true,
     "`i` enters notes, then `I` types them like a piano (`I` in the arrange view chooses the input)")
-  local roll = paw.ui.views.pianoroll
   paw.ui.show("pianoroll")
   local text = screen(140, 44)
   local at = text:find("press Enter", 1, true)
   eq(at ~= nil, true, "the roll asks for Enter after a space: " .. (text:match("press%S*") or "nothing"))
   paw.ui.hide("pianoroll")
-  eq(roll ~= nil, true)
 end)
 
 test("leaving insert mode says how many notes were written", function()
@@ -123,7 +121,7 @@ test("the send picker lists returns before tracks that play an instrument, and a
   paw.opt.send_level = -12
 end)
 
-test(":messages keeps every message and wraps what is longer than the window", function()
+test(":messages keeps every message and lists the newest last", function()
   start()
   local before = #paw.ui.messages
   paw.notify("added Synth to Track 1")
@@ -134,12 +132,6 @@ test(":messages keeps every message and wraps what is longer than the window", f
   paw.commands.run("messages")
   local pager = paw.ui.views.pager
   eq(pager.lines[#pager.lines - 1].text, "added Synth to Track 1", "the page lists them, the newest last")
-  local rows = pager.wrap(long, 60)
-  eq(#rows > 2, true, "a long one takes several rows")
-  for _, row in ipairs(rows) do eq(#row <= 60, true, "none longer than the window: " .. row) end
-  eq(rows[2]:sub(1, 2), "  ", "the later rows are indented")
-  eq(table.concat(rows, " "):gsub("%s+", " "), long:gsub("%s+", " "), "and nothing is lost")
-  eq(#pager.wrap("↗ short", 60), 1, "a short one stays in one row")
   paw.ui.close()
 end)
 

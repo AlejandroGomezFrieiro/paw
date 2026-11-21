@@ -264,7 +264,7 @@ test("linked faders move the members of a group together, in dB", function()
   api.undo_checkpoint()
   a.volume = 24
   paw.flush()
-  eq(b.volume <= 24, true, "a fader stops at its end")
+  near(b.volume, 21, 0.001, "the other follows by the same dB")
   api.undo_checkpoint()
   paw.undo()
   paw.flush()
