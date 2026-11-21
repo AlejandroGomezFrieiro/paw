@@ -222,16 +222,32 @@ Found with grep at a72467cf. Each refactor part that owns the file fixes it.
   `atomic_float`. The `no_alloc.rs` test and `no_denormals` stay paw's own,
   for the reasons above.
 - **CLAP host:** started. `clack-host` 0.2 (crates.io, on the same
-  `clap-sys` 0.5) covers all that `paw-plugins/src/clap.rs` uses: the
-  file's entry and its plugin factory go through it now. paw still opens
-  the file itself (`libs.rs`) and gives Clack the entry
-  (`PluginEntry::load_from_raw`), and keeps it for good, so Clack never
-  calls `deinit`. Still on `clap-sys`: the instance, process, events,
-  parameters, state, editor, the host's callbacks and `presets.rs`. Port
-  them with `clack-extensions` (same version). The device and the
-  controller must share the `PluginInstance` (it is not `Send`), with the
-  audio processor behind the `run` lock, so that `stopped` can take it back
-  to deactivate. Pass the block length with `InputAudioBuffers::from_raw_buffers`:
-  the safe builders give a plugin with no audio ports 0 frames.
+  `clap-sys` 0.5) covers all that `paw-plugins/src/clap.rs` uses, with
+  `clack-extensions` (same version). paw still opens the file itself
+  (`libs.rs`) and gives Clack the entry (`PluginEntry::load_from_raw`),
+  and keeps it for good, so Clack never calls `deinit`. The port, in
+  steps:
+  1. Done: the file's entry and its plugin factory.
+  2. Done: the host's callbacks are `PawHost`'s handlers (`HostShared`
+     holds the `Arc<HostFlags>`; `HostMain` has the main-thread ones), with
+     no static tables. `create` makes a `PluginInstance` and activates it.
+     `Shared` keeps the instance in a `RefCell`, used on the main thread
+     only, and the audio processor in `run: Mutex<Option<PluginAudioProcessor>>`:
+     the audio thread only tries the lock and starts the processor;
+     `stopped` and the drops take it out, stop it, deactivate the plugin
+     (`Shared::deactivate`), and `stopped` puts a new one back.
+  3. Next: `process` through `StartedPluginAudioProcessor::process`, with
+     Clack's events and buffers. Pass the block length with
+     `InputAudioBuffers::from_raw_buffers`: the safe builders give a plugin
+     with no audio ports 0 frames. Keep the audio path allocation-free.
+  4. The plugin's extensions through `clack-extensions` (parameters, state,
+     editor, timer, posix-fd, tail, render, note ports and names, audio
+     ports): their callers need a `PluginMainThreadHandle`
+     (`instance.borrow_mut().plugin_handle()`). Clack's extension types
+     do not give their raw table, so `Shared` keeps the raw `plugin` and
+     table pointers (taken with `extension`) until each caller moves.
+     `get_extension` asks only for an extension's first id: the preset-load
+     extension's compatible id stays a raw call, or gets a type of paw's own.
+  5. `presets.rs` (preset discovery).
 - **`rubato` 0.16** in paw-core: crates.io has 5.1. Update it with the
   sample-rate tests.
