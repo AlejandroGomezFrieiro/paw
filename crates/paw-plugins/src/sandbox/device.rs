@@ -61,6 +61,200 @@ impl RemoteDevice {
             io.right.fill(0.0);
         }
     }
+
+    /// A helper that has said why it stopped is ending, or has ended.
+    fn helper_stopped(&self) -> bool {
+        self.link.dead.load(Ordering::Relaxed)
+            || self.link.shm.header().reason_len.load(Ordering::Acquire) > 0
+    }
+
+    /// The helper has answered the last block asked for. One that is
+    /// still on an earlier block is not given another until it has caught
+    /// up: this block counts as late, and its events are kept for the
+    /// next block it takes.
+    fn caught_up(&mut self, io: &Io) -> bool {
+        if !self.outstanding {
+            return true;
+        }
+        let link = &*self.link;
+        if link.shm.header().done.load(Ordering::Acquire) != self.seq {
+            link.late.fetch_add(1, Ordering::Relaxed);
+            self.pending.keep_all(io.events.as_slice(), true);
+            return false;
+        }
+        self.outstanding = false;
+        link.answered.fetch_add(1, Ordering::Relaxed);
+        true
+    }
+
+    /// Once, tell the helper the scheduling of the audio thread, for its
+    /// own audio thread to take.
+    fn tell_priority(&mut self) {
+        if self.told_priority {
+            return;
+        }
+        self.told_priority = true;
+        let header = self.link.shm.header();
+        let mut policy = 0;
+        // libc, as rustix has no wrapper for the pthread scheduling
+        // calls (they act on a pthread, not a kernel thread id).
+        // SAFETY: `sched_param` is a plain C struct of integers, for which all-zero bytes is a valid value.
+        let mut param: libc::sched_param = unsafe { std::mem::zeroed() };
+        // SAFETY: `pthread_self` is the calling thread and both out-pointers are live locals of the right types.
+        unsafe {
+            libc::pthread_getschedparam(libc::pthread_self(), &mut policy, &mut param);
+        }
+        header
+            .priority
+            .store(param.sched_priority as u32, Ordering::Relaxed);
+        header.policy.store(policy as u32, Ordering::Relaxed);
+    }
+
+    /// Put the block's context, input, events, parameter moves and
+    /// messages in the shared memory. Events kept from blocks the helper
+    /// did not take go first, then this block's own.
+    fn write_block(&mut self, ctx: &ProcessCtx, io: &Io, frames: usize) {
+        if !self.pending.is_empty() {
+            self.pending.keep_all(io.events.as_slice(), false);
+        }
+        let events = if self.pending.is_empty() {
+            io.events.as_slice()
+        } else {
+            self.pending.events.as_slice()
+        };
+        let count = events.len().min(EVENTS);
+        let block = self.link.shm.block(&mut self.turn);
+        let head = &mut *block.context;
+        head.frames = frames as u32;
+        head.sample_rate = ctx.sample_rate;
+        head.tempo = ctx.tempo;
+        head.position = ctx.position;
+        head.seconds = ctx.seconds;
+        head.bar_start = ctx.bar_start;
+        head.bar = ctx.bar;
+        head.sig_num = ctx.sig_num;
+        head.sig_den = ctx.sig_den;
+        head.playing = ctx.playing as u32;
+        head.events_in = count as u32;
+        head.params_in = self.moves.len() as u32;
+        head.messages_in = self.messages.len() as u32;
+        head.keyed = io.sidechain.is_some() as u32;
+        head.outs = io
+            .outputs
+            .iter()
+            .take(MAX_PAIRS - 1)
+            .enumerate()
+            .filter(|(_, out)| out.is_some())
+            .fold(0, |bits, (pair, _)| bits | 1 << pair);
+        block.left[..frames].copy_from_slice(&io.left[..frames]);
+        block.right[..frames].copy_from_slice(&io.right[..frames]);
+        if let Some([l, r]) = io.sidechain {
+            let [key_l, key_r] = block.key;
+            key_l[..frames].copy_from_slice(&l[..frames]);
+            key_r[..frames].copy_from_slice(&r[..frames]);
+        }
+        block.events[..count].copy_from_slice(&events[..count]);
+        self.pending.events.clear();
+        block.params[..self.moves.len()].copy_from_slice(&self.moves);
+        self.moves.clear();
+        block.messages[..self.messages.len()].copy_from_slice(&self.messages);
+        self.messages.clear();
+    }
+
+    /// Ask the helper for the next block, and wake it.
+    fn ask(&mut self) {
+        let header = self.link.shm.header();
+        self.seq = self.seq.wrapping_add(1);
+        header.request.store(self.seq, Ordering::Release);
+        futex_wake(&header.request);
+    }
+
+    /// The longest to wait for the block. A render waits for as long as
+    /// the plugin takes; live, a block that is not there in time is given
+    /// up on.
+    fn limit(&self, offline: bool, ctx: &ProcessCtx, frames: usize) -> Duration {
+        if offline {
+            // Tests that make plugins hang do not wait the whole limit.
+            if TEST_HANG.load(Ordering::Relaxed) {
+                Duration::from_secs(1)
+            } else {
+                self.offline_limit
+            }
+        } else {
+            let block = Duration::from_secs_f64(frames as f64 / ctx.sample_rate.max(1.0) as f64);
+            block + block / 2 + Duration::from_millis(2)
+        }
+    }
+
+    /// Wait for the helper's answer, for at most the [limit](Self::limit);
+    /// false if the block was given up on.
+    fn wait_for_answer(&mut self, ctx: &ProcessCtx, frames: usize) -> bool {
+        let link = &*self.link;
+        let header = link.shm.header();
+        let offline = header.offline.load(Ordering::Relaxed) != 0;
+        let limit = self.limit(offline, ctx, frames);
+        let started = Instant::now();
+        let mut spins = 0u32;
+        loop {
+            if header.done.load(Ordering::Acquire) == self.seq {
+                break;
+            }
+            let waited = started.elapsed();
+            let stopped = header.reason_len.load(Ordering::Acquire) > 0;
+            if waited >= limit || link.dead.load(Ordering::Relaxed) || stopped {
+                self.give_up(offline);
+                return false;
+            }
+            // Most blocks are back within a few dozen microseconds: look
+            // again at once for a moment before going to sleep.
+            if spins < 2000 {
+                spins += 1;
+                std::hint::spin_loop();
+            } else {
+                let seen = header.done.load(Ordering::Acquire);
+                if seen != self.seq {
+                    futex_wait(
+                        &header.done,
+                        seen,
+                        (limit - waited).min(Duration::from_millis(50)),
+                    );
+                }
+            }
+        }
+        link.answered.fetch_add(1, Ordering::Relaxed);
+        true
+    }
+
+    /// The block was not back in time: it stays outstanding, and the
+    /// helper gets no other until it has answered it.
+    fn give_up(&mut self, offline: bool) {
+        self.outstanding = true;
+        self.link.late.fetch_add(1, Ordering::Relaxed);
+        if offline {
+            // A render does not wait that long twice.
+            self.link.dead.store(true, Ordering::Relaxed);
+        }
+    }
+
+    /// Take the plugin's sound, its rest and its events from the answered
+    /// block.
+    fn read_block(&mut self, io: &mut Io, frames: usize) {
+        let mut block = self.link.shm.block(&mut self.turn);
+        io.left[..frames].copy_from_slice(&block.left[..frames]);
+        io.right[..frames].copy_from_slice(&block.right[..frames]);
+        for (pair, out) in io.outputs.iter_mut().take(MAX_PAIRS - 1).enumerate() {
+            if let Some([l, r]) = out {
+                l[..frames].copy_from_slice(&block.out(pair, 0)[..frames]);
+                r[..frames].copy_from_slice(&block.out(pair, 1)[..frames]);
+            }
+        }
+        self.rest.end(block.context.resting != 0);
+        let out = (block.context.events_out as usize).min(EVENTS);
+        io.events.clear();
+        for event in &block.events[..out] {
+            io.events.push(*event);
+        }
+    }
 }
 
 /// The events of blocks that a late helper did not take, kept for the
@@ -130,158 +324,22 @@ impl Device for RemoteDevice {
     }
 
     fn process(&mut self, ctx: &ProcessCtx, io: &mut Io) {
-        let link = &*self.link;
-        self.rest.begin(io, link.wake.swap(false, Ordering::Relaxed));
-        let shm = &link.shm;
-        let header = shm.header();
-        // A helper that has said why it stopped is ending, or has ended.
-        if link.dead.load(Ordering::Relaxed) || header.reason_len.load(Ordering::Acquire) > 0 {
+        self.rest.begin(io, self.link.wake.swap(false, Ordering::Relaxed));
+        if self.helper_stopped() {
             self.pending.events.clear();
             return self.without(io);
         }
-        if self.outstanding {
-            // The helper is still on an earlier block: it is not given
-            // another until it has caught up.
-            if header.done.load(Ordering::Acquire) != self.seq {
-                link.late.fetch_add(1, Ordering::Relaxed);
-                self.pending.keep_all(io.events.as_slice(), true);
-                return self.without(io);
-            }
-            self.outstanding = false;
-            link.answered.fetch_add(1, Ordering::Relaxed);
+        if !self.caught_up(io) {
+            return self.without(io);
         }
-        let frames = io.left.len().min(shm.max_block);
-        if !self.told_priority {
-            self.told_priority = true;
-            let mut policy = 0;
-            // libc, as rustix has no wrapper for the pthread scheduling
-            // calls (they act on a pthread, not a kernel thread id).
-            // SAFETY: `sched_param` is a plain C struct of integers, for which all-zero bytes is a valid value.
-            let mut param: libc::sched_param = unsafe { std::mem::zeroed() };
-            // SAFETY: `pthread_self` is the calling thread and both out-pointers are live locals of the right types.
-            unsafe {
-                libc::pthread_getschedparam(libc::pthread_self(), &mut policy, &mut param);
-            }
-            header
-                .priority
-                .store(param.sched_priority as u32, Ordering::Relaxed);
-            header.policy.store(policy as u32, Ordering::Relaxed);
+        let frames = io.left.len().min(self.link.shm.max_block);
+        self.tell_priority();
+        self.write_block(ctx, io, frames);
+        self.ask();
+        if !self.wait_for_answer(ctx, frames) {
+            return self.without(io);
         }
-        // Events kept from blocks the helper did not take go first, then
-        // this block's own.
-        let events = if self.pending.is_empty() {
-            io.events.as_slice()
-        } else {
-            self.pending.keep_all(io.events.as_slice(), false);
-            self.pending.events.as_slice()
-        };
-        let count = events.len().min(EVENTS);
-        {
-            let block = shm.block(&mut self.turn);
-            let head = &mut *block.context;
-            head.frames = frames as u32;
-            head.sample_rate = ctx.sample_rate;
-            head.tempo = ctx.tempo;
-            head.position = ctx.position;
-            head.seconds = ctx.seconds;
-            head.bar_start = ctx.bar_start;
-            head.bar = ctx.bar;
-            head.sig_num = ctx.sig_num;
-            head.sig_den = ctx.sig_den;
-            head.playing = ctx.playing as u32;
-            head.events_in = count as u32;
-            head.params_in = self.moves.len() as u32;
-            head.messages_in = self.messages.len() as u32;
-            head.keyed = io.sidechain.is_some() as u32;
-            head.outs = io
-                .outputs
-                .iter()
-                .take(MAX_PAIRS - 1)
-                .enumerate()
-                .filter(|(_, out)| out.is_some())
-                .fold(0, |bits, (pair, _)| bits | 1 << pair);
-            block.left[..frames].copy_from_slice(&io.left[..frames]);
-            block.right[..frames].copy_from_slice(&io.right[..frames]);
-            if let Some([l, r]) = io.sidechain {
-                let [key_l, key_r] = block.key;
-                key_l[..frames].copy_from_slice(&l[..frames]);
-                key_r[..frames].copy_from_slice(&r[..frames]);
-            }
-            block.events[..count].copy_from_slice(&events[..count]);
-            self.pending.events.clear();
-            block.params[..self.moves.len()].copy_from_slice(&self.moves);
-            self.moves.clear();
-            block.messages[..self.messages.len()].copy_from_slice(&self.messages);
-            self.messages.clear();
-        }
-
-        self.seq = self.seq.wrapping_add(1);
-        header.request.store(self.seq, Ordering::Release);
-        futex_wake(&header.request);
-
-        // A render waits for as long as the plugin takes; live, a block
-        // that is not there in time is given up on.
-        let offline = header.offline.load(Ordering::Relaxed) != 0;
-        let block = Duration::from_secs_f64(frames as f64 / ctx.sample_rate.max(1.0) as f64);
-        let limit = if offline {
-            // Tests that make plugins hang do not wait the whole limit.
-            if TEST_HANG.load(Ordering::Relaxed) {
-                Duration::from_secs(1)
-            } else {
-                self.offline_limit
-            }
-        } else {
-            block + block / 2 + Duration::from_millis(2)
-        };
-        let started = Instant::now();
-        let mut spins = 0u32;
-        loop {
-            if header.done.load(Ordering::Acquire) == self.seq {
-                break;
-            }
-            let waited = started.elapsed();
-            let stopped = header.reason_len.load(Ordering::Acquire) > 0;
-            if waited >= limit || link.dead.load(Ordering::Relaxed) || stopped {
-                self.outstanding = true;
-                link.late.fetch_add(1, Ordering::Relaxed);
-                if offline {
-                    // A render does not wait that long twice.
-                    link.dead.store(true, Ordering::Relaxed);
-                }
-                return self.without(io);
-            }
-            // Most blocks are back within a few dozen microseconds: look
-            // again at once for a moment before going to sleep.
-            if spins < 2000 {
-                spins += 1;
-                std::hint::spin_loop();
-            } else {
-                let seen = header.done.load(Ordering::Acquire);
-                if seen != self.seq {
-                    futex_wait(
-                        &header.done,
-                        seen,
-                        (limit - waited).min(Duration::from_millis(50)),
-                    );
-                }
-            }
-        }
-        link.answered.fetch_add(1, Ordering::Relaxed);
-        let mut block = shm.block(&mut self.turn);
-        io.left[..frames].copy_from_slice(&block.left[..frames]);
-        io.right[..frames].copy_from_slice(&block.right[..frames]);
-        for (pair, out) in io.outputs.iter_mut().take(MAX_PAIRS - 1).enumerate() {
-            if let Some([l, r]) = out {
-                l[..frames].copy_from_slice(&block.out(pair, 0)[..frames]);
-                r[..frames].copy_from_slice(&block.out(pair, 1)[..frames]);
-            }
-        }
-        self.rest.end(block.context.resting != 0);
-        let out = (block.context.events_out as usize).min(EVENTS);
-        io.events.clear();
-        for event in &block.events[..out] {
-            io.events.push(*event);
-        }
+        self.read_block(io, frames);
     }
 
     fn message(&mut self, frame: u32, data: &[u8]) -> bool {
