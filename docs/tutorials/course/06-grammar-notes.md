@@ -38,8 +38,8 @@ The tutor opens a practice project for this lesson. It checks each step when you
    - ✓ G4 is two steps late now. It gives a small push before the beat.
 6. `yie` copies all the notes of the clip. `$` goes to the end of the clip, and `p` pastes the notes there. Press `yie`, `$` and `p`.
    - ✓ The riff plays two times, and the clip became longer to hold it.
-7. `c` changes. `cin` deletes the note under the cursor and starts insert mode at its position. Press `^` (the first note) and `cin`. Then press `7k`, `4l` and `<Esc>`.
-   - *Hint:* `7k` moves the new note up to G, and `4l` makes it one beat long.
+7. `c` changes. `cin` deletes the note under the cursor and starts insert mode at its position. Press `^` (the first note) and `cin`. Then press `7+`, `4l` and `<Esc>`.
+   - *Hint:* `7+` moves the new note up to G, and `4l` makes it one beat long.
    - ✓ The riff starts on G now.
 8. `/` finds a pitch: `/d4` and `<CR>` go to the next D4. Then `dd` deletes all the notes of that pitch. Press `/d4`, `<CR>` and `dd`.
    - ✓ The clip has no D4 now.

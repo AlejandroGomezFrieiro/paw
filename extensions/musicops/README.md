@@ -160,8 +160,8 @@ In the vocal editor, musicops gives these:
 
 **Scale lock** (`musicops_scale_lock`, `gzL`). While it is on:
 
-- Insert mode in the piano roll moves the new note by steps of the scale
-  (`j` `k`, `2k` from C is E in C major). With the keyboard as a piano
+- Insert mode in the piano roll moves the note being drawn by steps of
+  the scale (`+` `-` and `<C-a>` `<C-x>`, `2+` from C is E in C major). With the keyboard as a piano
   (`I`), it enters the nearest pitch of the key: in C major, `w` (C#)
   enters D.
 - `<C-a>` and `<C-x>` move notes by steps of the scale, not by semitones

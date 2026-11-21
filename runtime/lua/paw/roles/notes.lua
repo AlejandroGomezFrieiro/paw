@@ -11,11 +11,15 @@ local role = paw.roles.define
 --- fainter the softer its `velocity`, lit when `selected`, outlined when
 --- the keyboard's cursor is on it (`cursor`); `pending` for a note being
 --- drawn in insert mode, not yet written; `ghost` for where a drag will
---- put one, which a terminal draws without the mark.
+--- put one, which a terminal draws without the mark. `bend` is the note's
+--- own pitch bend at its end, in semitones, from `bend_at` (0 to 1) of its
+--- length: a terminal ends the note with an arrow up or down, a window
+--- draws the line the pitch takes.
 role("note", {
   props = {
     label = "string", style = "highlight group", color = "#rrggbb", velocity = "number 0..127",
     selected = "boolean", cursor = "boolean", pending = "boolean", ghost = "boolean",
+    bend = "semitones", bend_at = "number 0..1",
   },
   cells = function(buf, p)
     local w = buf.width
@@ -25,7 +29,12 @@ role("note", {
       return
     end
     buf:text(0, 0, paw.draw.g.clip_start)
-    if w >= 4 and p.label then buf:text(1, 0, tostring(p.label):sub(1, w - 1)) end
+    local bent = p.bend and p.bend ~= 0 and w >= 2
+    if w >= 4 and p.label then buf:text(1, 0, tostring(p.label):sub(1, w - (bent and 2 or 1))) end
+    if bent then
+      local up = p.bend > 0
+      buf:text(w - 1, 0, paw.opt.ascii and (up and "/" or "\\") or (up and "↗" or "↘"))
+    end
   end,
 })
 

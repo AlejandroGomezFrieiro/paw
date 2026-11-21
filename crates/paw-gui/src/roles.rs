@@ -423,6 +423,23 @@ fn note(ui: &Ui, painter: &Painter, rect: Rect, p: &NoteProps, under: bool) {
     if !label.is_empty() && widgets::text_width(ui, label, font.clone()) + 6.0 <= shape.width() {
         painter.with_clip_rect(shape.intersect(painter.clip_rect())).text(pos2(shape.left() + 3.0, shape.center().y), Align2::LEFT_CENTER, label, font, ink);
     }
+    bend_line(painter, rect, p, if p.pending { colour } else { ink });
+}
+
+/// A note's own pitch bend: a line along the note that leaves it where the
+/// bend starts and reaches the row of the pitch it bends to at its end, a
+/// row a semitone.
+fn bend_line(painter: &Painter, rect: Rect, p: &NoteProps, colour: Color32) {
+    if p.bend == 0.0 || !p.bend.is_finite() {
+        return;
+    }
+    let y = rect.center().y;
+    let from = rect.left() + rect.width() * p.bend_at.clamp(0.0, 1.0) as f32;
+    let to = pos2(rect.right(), y - p.bend as f32 * rect.height());
+    let stroke = Stroke::new(1.5, colour);
+    painter.line_segment([pos2(rect.left(), y), pos2(from, y)], stroke);
+    painter.line_segment([pos2(from, y), to], stroke);
+    painter.circle_filled(to, 2.0, colour);
 }
 
 const NAMES: [&str; 12] = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"];

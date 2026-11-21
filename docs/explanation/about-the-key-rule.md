@@ -41,6 +41,7 @@ meaning:
 
 - `K` is the key of Vim that finds help for the word under the cursor. The side-chain of a device went to `gS` in the panel, because `gK` already shows the diagnostics in every view.
 - An octave is `Ctrl-d` `Ctrl-u` (half a page in Vim), because `J` `K` are not motions: `K` describes, and `J` joins clips. In insert mode, `J` `K` still move the note an octave.
+- Insert mode in the piano roll is a pencil, and the rule does not cover the keys of insert mode. There, the keys keep their meaning as far as they can. `+` `-` change the pitch, the main value. `[` `]` change the velocity, the second value. `<` `>` move the note in time. `h` `l` move the edge of the note under the cursor, so the note follows the cursor. `j` `k` bend the note, up and down. To go to another note, `Ctrl-o` does one command of normal mode, for example `w`.
 - The count-in went from `gC` to `gM`, next to `gm` of the metronome. So `gC` opens curves everywhere. `gc` does not open a curve any more.
 - `gn` stays the next edited clip of the piano roll, as `gn` of Vim goes to the next match. The wave of the curve editor is `g~` (an operator, and `~` looks like a wave), its shapes are `~`, and its own window is `Ctrl-w f`. `gw` is only the warp marker.
 - `s` is solo wherever there is a track. The session view stops the clip of a track with `S` (`gS` every clip). The presets of the device panel are `c` on a device (choose), `]p` `[p` (step), `<Space>dw` (save, as `:w` writes) and `<Space>dW` (the default).

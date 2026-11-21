@@ -125,7 +125,8 @@ local record role_props
 
    --- A note: its track's `color` (`#rrggbb`), its `velocity` (1 to 127), its
    --- name as `label`; `selected`, `cursor`, `ghost` while it is dragged and
-   --- `pending` while it is drawn.
+   --- `pending` while it is drawn; `bend`, its own pitch bend at its end in
+   --- semitones, reached from `bend_at` (0 to 1) of its length.
    record NoteProps is Props
       color: string
       velocity: number
@@ -134,6 +135,8 @@ local record role_props
       cursor: boolean
       ghost: boolean
       pending: boolean
+      bend: number
+      bend_at: number
    end
 
    --- A piano down a roll: `top` the pitch of its first row, `cursor` the

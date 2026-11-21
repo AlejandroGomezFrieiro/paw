@@ -239,6 +239,7 @@ work of one agent. The areas of one wave do not depend on each other.
 | Done | Editors: Ex and text buffers | `ex`, `textbuf`: 4,817 lines of Teal, `paw.ex` and `paw.command` typed (the types of commands are contracts now), 3 fewer entries on the allow-list, and no `any` or `paw.Untyped` in these modules | 4,100 | wave 3 |
 | Done | Editors: pickers, help and language servers | `pick` and `pick/`, `help`, `lsp/`: 8,039 lines of Teal, 3 fewer entries on the allow-list, and no `any` or `paw.Untyped` in these modules | 4,900 | wave 3 |
 | Done | The frontend | `frontend`, `remote`, `render`, `media`: 5,290 lines of Teal, 9 fewer entries on the allow-list, and no `any` or `paw.Untyped` in these modules | 3,800 | wave 3 |
+| Done | The pencil of the piano roll | `roll_draw` (moved when it changed) and the new `chords`: 1,400 lines of Teal, 1 fewer entry on the allow-list, and no `any` in these modules | 350 | wave 4 |
 | Done | Scopes | `scope`, when scopes got time ranges and levels: 905 lines of Teal, 1 fewer entry on the allow-list, and no `any` or `paw.Untyped` in this module | 380 | wave 3 |
 | 5 | Keys and views | `keymap`, `keyrule`, `keybar`, `defaults/`, `views/`, `roles/` | 15,000 | wave 4, and the work on the keys that runs now |
 | 5 | Extensions | one agent for each: `notation` (20,000), `utau` (8,000), `plugstate` (5,700), `interop` (4,000), the others (under 3,200 each) | 60,000 | the modules of paw that each uses |

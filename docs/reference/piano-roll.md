@@ -84,41 +84,129 @@ operators of musicops. The beats of the cursor are those of the active clip.
 
 ## Insert mode: draw notes
 
-<!-- tags: insert-mode -->
+<!-- tags: insert-mode pencil -->
 
-Insert mode draws a note with the cursor. In the arrange view, `i` and
-`Enter` open the clip under the cursor, or a new clip (see [Insert
-mode](insert-mode.md)). In the piano roll, `i` starts at
-the cursor, and `a` where the note under the cursor ends (one grid step on,
-if there is no note).
+Insert mode is a pencil. It draws a new note, or it changes the note
+under the cursor. In the arrange view, `i` and `Enter` open the clip
+under the cursor, or a new clip (see [Insert mode](insert-mode.md)).
 
-A note starts at the pitch of the cursor, with no length. The cursor stays
-at the end of the note, so what you see is what paw will write. The note
-shows in the green of insert mode. The title and the start of the bottom
-line give the note: `DRAW C4  2 steps · 0.5 beats  vel 100`.
+- On an empty place, `i` starts a new note at the cursor, with no length.
+  `a` starts it one grid step after the cursor.
+- On a note, `i` takes the note at its start, and `a` takes it at its end.
+  After `e`, the cursor is where the note ends, and `a` takes it there.
+
+The pencil has an edge: the start or the end of its note. The cursor is
+on that edge. `h` and `l` move the edge, so at the end `l` makes the note
+longer, and at the start `l` makes it shorter. The note shows in the
+green of insert mode. The title and the start of the bottom line give
+the note and its edge: `DRAW C4 end  2 steps · 0.5 beats  vel 100`.
 
 | Keys | Effect |
 | --- | --- |
-| `l` `h` | Makes the note one grid step longer or shorter. A count goes first: `4l` is a beat at the usual grid. |
-| `j` `k` | Moves the note a semitone. |
-| `Ctrl-d` `Ctrl-u`, `J` `K` | Moves the note an octave. The arrow keys also move it. |
-| `[` `]` | Change the velocity. |
-| `Enter` | Keeps the note, and draws the next one where it ends (legato). |
+| `l` `h` | Move the edge one grid step right or left. A count goes first: `4l` is a beat at the usual grid. |
+| `o` | Goes to the other edge. `^` and `0` go to the start, `$` to the end. |
+| `+` `-`, `Ctrl-a` `Ctrl-x` | Move the note a semitone. |
+| `K` `J` | Move the note an octave. |
+| `r` and a name | Moves the note to the nearest pitch of that name: `ra`, `rf#`, `rbb`. |
+| `k` `j` | Bend the note up or down at its end, `bend_step` semitones for each key (one by default). |
+| `>` `<` | Move the note one grid step later or earlier. |
+| `=` and a value | Sets the length as a note value: `=4` is a beat, `=8` an eighth, `=8.` a dotted eighth, `=8t` a triplet eighth. |
+| `c` | Makes the note a chord: see [Chords](#chords). |
+| `C` | Makes the note a strummed chord: see [Chords](#chords). |
+| `a` | Gives the note an articulation, by name. The names come from the articulations extension: the map of the track, or the usual words. |
+| `e` and a kind | Puts a controller point where the note starts: `em` the modulation wheel, `ee` expression, `eb` breath, `es` the sustain pedal, `e` and a number any controller. A count first is the value (`100em`), else paw asks for it. |
+| `Ctrl-n` `Ctrl-p` | Suggest what comes next, in place of the note: after a chord, the chords of the key that often follow it; after a note, the notes of the key near it. The next key that edits takes the suggestion, and `Enter` takes it and stays. |
+| `Ctrl-e` | Puts back the note from before the suggestions. |
+| `m` and a kind | Puts a mark of the song at the note: see [Marks of the song](#marks-of-the-song). |
+| `[` `]` | Change the velocity of the note and of the notes after it. |
+| `Enter` | Keeps the note, and draws the next one where it ends (legato). When a note starts there, the pencil takes it. |
 | `Space` | Keeps the note, and draws the next one a step after it ends, with a rest between (`3 Space` three steps). |
-| `o` | Keeps the note, and draws another with the same start and length, for a chord. Then `k` moves it up to its pitch. |
-| `Backspace` | Removes the last kept note, to draw it again. |
+| `.` | Keeps the note or the chord, and draws it again after it. A count goes first: `3.`. |
+| `x` | Erases the note. A note of the clip goes when insert mode ends. |
+| `Backspace`, `Ctrl-w` | Take back the last kept note, to draw it again. |
+| `Ctrl-u` | Takes back all that this insert drew. |
+| `Ctrl-o` | Writes the notes, does one command of normal mode (for example `w`, to the next note), and draws again. |
 | `Esc` | Writes the notes and returns to normal mode. |
 
-At `Esc`, paw gives the number of notes written (`wrote 4 notes`), drawn or
-typed.
+At `Esc`, paw tells what it did: `wrote 3 notes, changed 1 note`.
 
-- paw does not write a note with no length.
+- Notes of one pitch do not overlap. A note stops at the next note of its pitch, and paw tells you.
+- A note does not go before the start of its clip.
+- paw does not write a new note with no length. A note of the clip that you shorten to no length goes.
 - A note drawn over a note of the same pitch with the same start replaces it.
+- A note that you take keeps its articulation and its data. Its own controllers (its pitch bend, its pressure) move with it.
 - The clip grows by whole bars to hold notes that go past its end.
 - Nothing goes into the project until insert mode ends. All of insert mode is one undo step. When `i` in the arrange view makes a new clip, the clip is in the same undo step.
-- `.` draws the same shape again from the cursor, moved to its pitch, as Vim repeats an insert.
+- `.` in normal mode draws the same shape again from the cursor, moved to its pitch, as Vim repeats an insert.
 - Where the roll edits several clips, the notes go into the active clip (or, outside it, into the clip where the note starts).
 - When a suggestion shows, its keys come first: `Esc` dismisses it, and the next `Esc` leaves insert mode.
+
+### Bends
+
+`k` and `j` bend the note with its own pitch bend (MIDI 2.0 per-note pitch
+bend). The bend rises or falls from the middle of the note to its end. A
+second `k` bends one step more.
+
+paw writes the bend as short steps of the pitch bend of that key in the
+clip. A plugin that takes MIDI 2.0 or MPE plays it. The note shows the
+bend: an arrow at its end in the terminal, and a line in the window. `K`
+in normal mode gives the bend. `gX` opens the pitch bend of the note as a
+curve, to draw it by hand.
+
+### Chords
+
+`c` opens a list of chords at the note. The first chord is the chord of
+the key on the pitch of the note, in thirds. `c Enter` gives a triad, `4c
+Enter` a seventh chord and `5c Enter` a ninth chord. Then come the chords of
+the key, and the usual chords on the pitch. Type to search, or type a
+symbol. `Enter` draws the chord that you typed, else the chord on the
+line.
+
+| Symbol | The chord |
+| --- | --- |
+| `C`, `Cm`, `Cmaj7`, `Am7b5`, `Csus4`, `C(add9)` | A chord by its root and quality. The root is the nearest to the note. |
+| `C3maj7` | With the octave of the root. |
+| `F#m9/C#` | With a bass note below. |
+| `I`, `ii`, `V7`, `ii7`, `bVII` | A degree of the key. Upper case is major, lower case minor. `o` is diminished, `+` augmented, `ø` half diminished. `7` adds the seventh of the scale. A `b` or `#` counts from the major scale on the tonic. |
+| `V6`, `V64` (`V6/4`), `V65`, `V43`, `V42` | An inversion, by its figures. |
+| `V/ii`, `V7/V`, `viio7/V` | An applied chord: the chord in the key of that degree. |
+| `N6`, `It6`, `Fr6`, `Ger6` | The Neapolitan sixth and the augmented sixths. |
+
+The key is the key of the last key change (`mk`) before the note, else
+the key of the project (`:key`). With no key, paw tells you and uses C
+major.
+
+`C` opens the same list, and strums the chord: each note starts a 64th
+note after the note below it (`paw.opt.strum`, in beats). A count gives
+the 64ths: `2C`. `:set strum_dir=down` strums from the highest note. The
+notes of a strum end together.
+
+The chord replaces the note, and all of its notes are the note that you
+draw. `h` `l` `=` `<` `>` `+` `-` `k` `j` change all of them. The title
+gives the name of the chord. `Enter` keeps the chord and draws a
+note after it. `Esc` keeps it and leaves insert mode.
+
+### Marks of the song
+
+`m` then a kind puts a mark of the song where the note starts. paw asks
+for its value. The marks are in the undo step of the insert.
+
+| Keys | Mark |
+| --- | --- |
+| `mk` | A key change, for example `D minor`. At the start of a song with no key, it sets the key of the project. Else it is a marker named `key D minor`. The chords after it use that key. |
+| `mt` | A tempo, for example `96`. `96~` ramps to the next tempo. |
+| `ms` | A time signature, for example `6/8`, from the bar of the note (or the next bar, when the note is in a bar). |
+| `mr` | A region from the note to its end (a bar when the note has no length), with a name or none. |
+| `m'` | A marker with a name. |
+
+### Keys of extensions
+
+An extension adds keys to the pencil with `paw.roll_draw.key(lhs, spec)`.
+`paw.roll_draw.articulation(provider)` gives `a` its names and what they
+set on a note: the articulations extension does this.
+`spec.run(count, char)` changes the notes that `paw.roll_draw.pen()`
+gives, then calls `paw.roll_draw.shown()`. `paw.chords.quality(suffix,
+steps)` adds the name of a chord.
 
 ## Insert mode: the keyboard as a piano
 

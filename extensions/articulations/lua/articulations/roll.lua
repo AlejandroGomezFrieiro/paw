@@ -177,6 +177,31 @@ roll.describer("articulations", function(note, part)
   return lines
 end)
 
+-- The piano roll's pencil (`a` in insert mode) takes its articulations
+-- from here: the names of the track's map (or the words libraries use,
+-- without a map), and the fields that give a note one.
+if paw.roll_draw and paw.roll_draw.articulation then
+  paw.roll_draw.articulation({
+    names = function(track)
+      local map = art.map_of(track)
+      local out, seen = {}, {}
+      local function add(name) if name and not seen[name] then seen[name], out[#out + 1] = true, name end end
+      if map then
+        for _, a in ipairs(map.arts) do add(a.id) add(a.name) end
+      else
+        for _, w in ipairs(m2.words) do add(w[1]) end
+      end
+      add("none")
+      return out
+    end,
+    apply = function(track, text, note)
+      local choice, why = art.lookup(art.map_of(track), text)
+      if choice == nil then return nil, why end
+      return art.attr_fields(note, choice and choice.attr or nil)
+    end,
+  })
+end
+
 -- New notes take the pen of their track.
 roll.entering("articulations", function(note, clip)
   local pen = art.pen(clip:get().track)

@@ -623,3 +623,11 @@ test("articulations: :art.from-keyswitches reads a controller whose values choos
   eq(codes(clip), "67:11.A 69:11.A 71:11.0 72:11.0", "the notes after each move")
   eq(#clip:controls(), 1, "the switches go, the dynamics stay")
 end)
+
+test("articulations: a in insert mode gives the note under the pencil an articulation of the map", function()
+  local _, clip = strings()
+  keys("iastaccato<CR><Esc>")
+  eq(codes(clip):match("^%S+"), "67:" .. art.m2.code(art.lookup(art.map_of(clip:get().track), "staccato").attr), "the first note, by the map's name")
+  keys("u")
+  eq(codes(clip):match("^%S+"), "67:-", "one undo step")
+end)

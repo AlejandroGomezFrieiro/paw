@@ -80,14 +80,14 @@ finds a pitch by its name, and `n` goes to the next match.]],
       done = "The riff plays two times, and the clip became longer to hold it.",
     },
     {
-      say = "`c` changes. `cin` deletes the note under the cursor and starts insert mode at its position. Press `^` (the first note) and `cin`. Then press `7k`, `4l` and `<Esc>`.",
-      keys = { "^", "cin", "7k", "4l", "<Esc>" },
+      say = "`c` changes. `cin` deletes the note under the cursor and starts insert mode at its position. Press `^` (the first note) and `cin`. Then press `7+`, `4l` and `<Esc>`.",
+      keys = { "^", "cin", "7+", "4l", "<Esc>" },
       check = function(_, look)
         local m = look.melody(look.clip("Lead"))
         return m:find("^67@0%+1") ~= nil and not m:find("^60@0") and paw.keymap.mode == "n"
       end,
       done = "The riff starts on G now.",
-      hint = "`7k` moves the new note up to G, and `4l` makes it one beat long.",
+      hint = "`7+` moves the new note up to G, and `4l` makes it one beat long.",
     },
     {
       say = "`/` finds a pitch: `/d4` and `<CR>` go to the next D4. Then `dd` deletes all the notes of that pitch. Press `/d4`, `<CR>` and `dd`.",
