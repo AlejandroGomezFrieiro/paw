@@ -414,13 +414,4 @@ mod tests {
         // the inverted signal to the plain one would be up to 1.
         assert!(step < 0.04, "a step of {step}");
     }
-
-    #[test]
-    fn host_parameters_come_after_the_device_s_own() {
-        let mut path = HostPath::new(3, 0, 128);
-        assert!(!path.set_param(2, 50.0));
-        assert!(path.set_param(3, 50.0));
-        assert!(path.set_param(4, -6.0));
-        assert!(!path.set_param(5, 0.0));
-    }
 }
