@@ -911,7 +911,7 @@ fn diff_notes(was: &Notes, now: &Notes) -> Count {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::{Clip, DeviceInst};
+    use crate::model::{Clip, DeviceInst, Lane, Target};
 
     #[test]
     fn names_survive_a_file_name() {
@@ -983,16 +983,34 @@ mod tests {
             source: None,
             origin: None,
         }));
+        let mut eq = (*track.devices[0]).clone();
+        eq.id = 6;
+        eq.kind = "eq".into();
+        track.devices.push(Arc::new(eq));
+        let lane = |id: Id, target: Target| Lane {
+            id,
+            target,
+            enabled: true,
+            points: vec![(0.0, 0.0)],
+            shapes: Vec::new(),
+            states: Vec::new(),
+        };
+        track.lanes.push(Arc::new(lane(5, Target::Volume)));
         a.tracks.push(Arc::new(track));
         let empty = diff(&a, &a);
         assert_eq!(empty["same"], json!(true));
 
         let mut b = a.clone();
         b.tempo = 100.0;
-        b.tracks.push(Arc::new(Track::new(4)));
+        let mut added = Track::new(4);
+        added.lanes.push(Arc::new(lane(8, Target::Pan)));
+        b.tracks.push(Arc::new(added));
         {
             let t = Arc::make_mut(&mut b.tracks[0]);
+            t.name = "Low".into();
             t.volume = -6.0;
+            t.devices.remove(1);
+            Arc::make_mut(&mut t.lanes[0]).points.push((4.0, -6.0));
             Arc::make_mut(&mut t.devices[0])
                 .params
                 .insert("cutoff".into(), 500.0);
@@ -1006,29 +1024,43 @@ mod tests {
             notes.push(note(3.5, 69)); // added
         }
         let d = diff(&a, &b);
-        assert_eq!(d["same"], json!(false));
-        assert_eq!(d["project"], json!(["tempo"]));
-        assert_eq!(d["tracks"]["added"], json!(1));
-        assert_eq!(d["tracks"]["changed"], json!(1));
-        assert_eq!(d["devices"]["changed"], json!(1));
-        assert_eq!(d["clips"]["changed"], json!(1));
-        assert_eq!(d["notes"]["added"], json!(2));
-        assert_eq!(d["notes"]["removed"], json!(1));
-        assert_eq!(d["notes"]["changed"], json!(1));
-        let items: Vec<String> = serde_json::from_value(d["items"].clone()).unwrap();
-        assert!(
-            items.contains(&"~ device synth on track Bass: cutoff".to_string()),
-            "{items:?}"
+        assert_eq!(
+            d,
+            json!({
+                "same": false,
+                "project": ["tempo"],
+                "tracks": {"added": 1, "removed": 0, "changed": 1},
+                "devices": {"added": 0, "removed": 1, "changed": 1},
+                "clips": {"added": 0, "removed": 0, "changed": 1},
+                "notes": {"added": 2, "removed": 1, "changed": 1},
+                "lanes": {"added": 1, "removed": 0, "changed": 1},
+                "items": [
+                    "~ project: tempo",
+                    "~ track Low (was Bass): name, volume",
+                    "+ track 4",
+                    "~ device synth on track Low: cutoff",
+                    "- device eq on track Bass",
+                    "~ clip verse on track Low: 2 notes added, 1 note removed, 1 note changed",
+                    "~ volume automation on track Low",
+                    "+ pan automation on track 4",
+                ],
+            })
         );
-        assert!(
-            items.contains(&"~ track Bass: volume".to_string()),
-            "{items:?}"
-        );
-
         let back = diff(&b, &a);
         assert_eq!(back["tracks"]["removed"], json!(1));
-        assert_eq!(back["notes"]["added"], json!(1));
-        assert_eq!(back["notes"]["removed"], json!(2));
+        assert_eq!(
+            back["items"],
+            json!([
+                "~ project: tempo",
+                "~ track Bass (was Low): name, volume",
+                "- track 4",
+                "~ device synth on track Bass: cutoff",
+                "+ device eq on track Bass",
+                "~ clip verse on track Bass: 1 note added, 2 notes removed, 1 note changed",
+                "~ volume automation on track Bass",
+                "- pan automation on track 4",
+            ])
+        );
     }
 
     #[test]
