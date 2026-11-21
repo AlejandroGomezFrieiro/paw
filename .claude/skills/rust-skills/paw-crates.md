@@ -245,14 +245,17 @@ Found with grep at a72467cf. Each refactor part that owns the file fixes it.
      safe builders give a plugin with no audio ports 0 frames.
      `tests/no_alloc.rs` of paw-plugins runs the stub plugin with an
      allocator that counts the audio thread's allocations.
-  4. Next: the plugin's extensions through `clack-extensions` (parameters, state,
-     editor, timer, posix-fd, tail, render, note ports and names, audio
-     ports): their callers need a `PluginMainThreadHandle`
-     (`instance.borrow_mut().plugin_handle()`). Clack's extension types
-     do not give their raw table, so `Shared` keeps the raw `plugin` and
-     table pointers (taken with `extension`) until each caller moves.
-     `get_extension` asks only for an extension's first id: the preset-load
-     extension's compatible id stays a raw call, or gets a type of paw's own.
-  5. `presets.rs` (preset discovery).
+  4. Done: the plugin's extensions through `clack-extensions` (parameters,
+     state through Clack's streams, editor, timer, posix-fd, tail, render,
+     note ports and names, audio ports, preset load). `Shared::on_main`
+     gives the callers a `PluginMainThreadHandle` from the instance;
+     `Shared::ext` keeps the extensions that are called often, the others
+     are asked for when used. No raw plugin or table pointer is kept: only
+     the attachments get `raw_instance()`, once, in `create`.
+     `get_extension` asks only for an extension's first id, so the
+     preset-load extension's compatible id is paw's own `PresetLoadCompat`,
+     and `dev.paw.call/1` is paw's own `PawCall` (both `unsafe impl
+     Extension`).
+  5. Next: `presets.rs` (preset discovery).
 - **`rubato` 0.16** in paw-core: crates.io has 5.1. Update it with the
   sample-rate tests.

@@ -16,13 +16,14 @@ serde_json.workspace = true
 thiserror.workspace = true
 clap-sys = "0.5"
 # Safe wrappers over clap-sys for the CLAP host (clap.rs): the entry, the
-# plugin factory, the instance, the host's callbacks and processing. paw opens
-# the file itself (libs.rs), so not Clack's own loader.
+# plugin factory, the instance, the host's callbacks, processing and the
+# plugin's extensions. paw opens the file itself (libs.rs), so not Clack's own loader.
 clack-host = { version = "0.2", default-features = false }
 # The host's side of the CLAP extensions that paw offers a plugin, and the
-# plugin's tail.
+# plugin's side of those that paw calls.
 clack-extensions = { version = "0.2", default-features = false, features = [
-    "clack-host", "gui", "log", "params", "posix-fd", "state", "tail", "thread-check", "timer",
+    "audio-ports", "clack-host", "gui", "log", "note-name", "note-ports", "params", "posix-fd",
+    "preset-discovery", "render", "state", "tail", "thread-check", "timer",
 ] }
 lilv-sys = "0.3"
 vst3 = "0.3"

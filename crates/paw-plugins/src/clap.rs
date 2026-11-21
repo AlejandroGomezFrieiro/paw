@@ -1,7 +1,8 @@
 //! CLAP hosting. The file's entry, its plugin factory, the plugin instance,
-//! the host's callbacks and processing (events, buffers, transport, tail) go
-//! through Clack (`clack-host` and `clack-extensions`); the plugin's other
-//! extensions are still `clap-sys`.
+//! the host's callbacks, processing (events, buffers, transport, tail) and the
+//! plugin's extensions go through Clack (`clack-host` and `clack-extensions`).
+//! paw's own types are the extensions Clack has none for: the preset-load
+//! extension's compatible id and paw's `dev.paw.call/1`.
 //!
 //! Threading follows the CLAP rules: a plugin is created, activated,
 //! deactivated and destroyed on the main thread, and `start_processing` and
@@ -21,66 +22,48 @@ use std::sync::{Arc, Mutex};
 use anyhow::{Context, Result, bail};
 use clap_sys::audio_buffer::clap_audio_buffer;
 use clap_sys::entry::clap_plugin_entry;
-use clack_extensions::gui::{GuiSize, HostGui, HostGuiImpl};
-use clack_extensions::log::{HostLog, HostLogImpl, LogSeverity};
-use clack_extensions::params::{
-    HostParams, HostParamsImplMainThread, HostParamsImplShared, ParamClearFlags, ParamRescanFlags,
+use clack_extensions::audio_ports::{AudioPortInfoBuffer, PluginAudioPorts};
+use clack_extensions::gui::{
+    GuiApiType, GuiConfiguration, GuiSize, HostGui, HostGuiImpl, PluginGui, Window,
 };
-use clack_extensions::posix_fd::{FdFlags, HostPosixFd, HostPosixFdImpl};
-use clack_extensions::state::{HostState, HostStateImpl};
+use clack_extensions::log::{HostLog, HostLogImpl, LogSeverity};
+use clack_extensions::note_name::{NoteNameBuffer, PluginNoteName};
+use clack_extensions::note_ports::{
+    NoteDialect, NoteDialects, NotePortInfoBuffer, PluginNotePorts,
+};
+use clack_extensions::params::{
+    HostParams, HostParamsImplMainThread, HostParamsImplShared, ParamClearFlags, ParamInfoBuffer,
+    ParamInfoFlags, ParamRescanFlags, PluginParams,
+};
+use clack_extensions::posix_fd::{FdFlags, HostPosixFd, HostPosixFdImpl, PluginPosixFd};
+use clack_extensions::preset_discovery::PluginPresetLoad;
+use clack_extensions::preset_discovery::preset_data::Location;
+use clack_extensions::render::{PluginRender, RenderMode};
+use clack_extensions::state::{HostState, HostStateImpl, PluginState};
 use clack_extensions::tail::{PluginTail, TailLength};
 use clack_extensions::thread_check::{HostThreadCheck, HostThreadCheckImpl};
-use clack_extensions::timer::{HostTimer, HostTimerImpl, TimerId};
+use clack_extensions::timer::{HostTimer, HostTimerImpl, PluginTimer, TimerId};
 use clack_host::entry::{EntryDescriptor, PluginEntry, PluginEntryError};
 use clack_host::events::event_types::{TransportEvent, TransportFlags};
 use clack_host::events::io::{InputEventBuffer, OutputEventBuffer, TryPushError};
 use clack_host::events::spaces::CoreEventSpace;
-use clack_host::events::EventFlags;
+use clack_host::events::{EventFlags, Match};
+use clack_host::extensions::{Extension, PluginExtensionSide, RawExtension};
 use clack_host::prelude::{
     ClapId, EventHeader, HostError, HostExtensions, HostHandlers, HostInfo, InputAudioBuffers,
     InputEvents, MainThreadHandler, OutputAudioBuffers, OutputEvents, PluginAudioConfiguration,
-    PluginAudioProcessor, PluginInstance, PluginInstanceError, ProcessStatus, SharedHandler,
-    UnknownEvent,
+    PluginAudioProcessor, PluginInstance, PluginInstanceError, PluginMainThreadHandle,
+    ProcessStatus, SharedHandler, UnknownEvent,
 };
-use clack_host::utils::FixedPoint;
+use clack_host::utils::{Cookie, FixedPoint};
 use clap_sys::events::*;
-use clap_sys::ext::audio_ports::{
-    CLAP_EXT_AUDIO_PORTS, clap_audio_port_info, clap_plugin_audio_ports,
-};
-use clap_sys::ext::gui::{
-    CLAP_EXT_GUI, CLAP_WINDOW_API_WAYLAND, CLAP_WINDOW_API_X11, clap_plugin_gui, clap_window,
-    clap_window_handle,
-};
-use clap_sys::ext::note_name::{CLAP_EXT_NOTE_NAME, clap_note_name, clap_plugin_note_name};
-use clap_sys::ext::note_ports::{
-    CLAP_EXT_NOTE_PORTS, CLAP_NOTE_DIALECT_CLAP, CLAP_NOTE_DIALECT_MIDI, CLAP_NOTE_DIALECT_MIDI2,
-    clap_note_port_info, clap_plugin_note_ports,
-};
-use clap_sys::ext::params::{
-    CLAP_EXT_PARAMS, CLAP_PARAM_IS_AUTOMATABLE, CLAP_PARAM_IS_AUTOMATABLE_PER_CHANNEL,
-    CLAP_PARAM_IS_AUTOMATABLE_PER_KEY, CLAP_PARAM_IS_AUTOMATABLE_PER_NOTE_ID, CLAP_PARAM_IS_ENUM,
-    CLAP_PARAM_IS_HIDDEN, CLAP_PARAM_IS_MODULATABLE_PER_CHANNEL, CLAP_PARAM_IS_MODULATABLE_PER_KEY,
-    CLAP_PARAM_IS_MODULATABLE_PER_NOTE_ID, CLAP_PARAM_IS_READONLY, CLAP_PARAM_IS_STEPPED,
-    clap_param_info, clap_plugin_params,
-};
-use clap_sys::ext::posix_fd_support::{
-    CLAP_EXT_POSIX_FD_SUPPORT, CLAP_POSIX_FD_READ, clap_plugin_posix_fd_support,
-};
-use clap_sys::ext::preset_load::{
-    CLAP_EXT_PRESET_LOAD, CLAP_EXT_PRESET_LOAD_COMPAT, clap_plugin_preset_load,
-};
-use clap_sys::ext::render::{
-    CLAP_EXT_RENDER, CLAP_RENDER_OFFLINE, CLAP_RENDER_REALTIME, clap_plugin_render,
-};
-use clap_sys::ext::state::{CLAP_EXT_STATE, clap_plugin_state};
-use clap_sys::ext::timer_support::{CLAP_EXT_TIMER_SUPPORT, clap_plugin_timer_support};
+use clap_sys::ext::preset_load::{CLAP_EXT_PRESET_LOAD_COMPAT, clap_plugin_preset_load};
 use clap_sys::factory::preset_discovery::{
     CLAP_PRESET_DISCOVERY_FACTORY_ID, CLAP_PRESET_DISCOVERY_FACTORY_ID_COMPAT,
     clap_preset_discovery_factory,
 };
 use clap_sys::id::clap_id;
 use clap_sys::plugin::clap_plugin;
-use clap_sys::stream::{clap_istream, clap_ostream};
 use paw_engine::device::{Change, Rest, assign_keys, silent};
 use paw_engine::{
     Controller, Device, DeviceFactory, DeviceFormat, DeviceInfo, EventKind, Instance, Io,
@@ -155,28 +138,10 @@ fn load(path: &Path) -> Result<Arc<Library>> {
     Ok(library)
 }
 
-unsafe fn text(ptr: *const c_char) -> String {
-    if ptr.is_null() {
-        String::new()
-    } else {
-        // SAFETY: `ptr` is non-null (checked above) and the CLAP ABI requires the strings in a descriptor
-        // or port to be NUL-terminated; the bytes are copied out before returning.
-        unsafe { CStr::from_ptr(ptr) }
-            .to_string_lossy()
-            .into_owned()
-    }
-}
-
-/// The text in a fixed-size buffer that a plugin filled: up to its first
-/// NUL, or the whole buffer when the plugin wrote none.
-fn buffer_text(buffer: &[c_char]) -> String {
-    // SAFETY: `c_char` and `u8` have the same size and alignment, and the
-    // slice is read only while `buffer` is borrowed.
-    let bytes: &[u8] = unsafe { std::slice::from_raw_parts(buffer.as_ptr().cast(), buffer.len()) };
-    match CStr::from_bytes_until_nul(bytes) {
-        Ok(text) => text.to_string_lossy().into_owned(),
-        Err(_) => String::from_utf8_lossy(bytes).into_owned(),
-    }
+/// The text in a fixed-size buffer that a plugin filled, as Clack gives it:
+/// up to its first NUL, or the whole buffer when the plugin wrote none.
+fn buffer_text(bytes: &[u8]) -> String {
+    String::from_utf8_lossy(bytes).into_owned()
 }
 
 /// Load a file and list the plugins in it.
@@ -295,18 +260,10 @@ struct Shared {
     /// `Sync` notes below): created, activated, deactivated and destroyed
     /// there.
     instance: RefCell<PluginInstance<PawHost>>,
-    /// The raw plugin, from `instance`, for the calls that are still
-    /// `clap-sys` (the plugin's extensions).
-    plugin: *const clap_plugin,
-    params: *const clap_plugin_params,
-    state: *const clap_plugin_state,
-    gui: *const clap_plugin_gui,
-    timers: *const clap_plugin_timer_support,
-    fds: *const clap_plugin_posix_fd_support,
-    /// How long the plugin rings after its input stops, when it says.
-    tail: Option<PluginTail>,
+    /// The plugin's extensions that are called often, asked for once.
+    ext: PluginExtensions,
     /// The CLAP id and cookie of each parameter, in the order we list them.
-    param_ids: Vec<(clap_id, *mut c_void)>,
+    param_ids: Vec<(ClapId, Cookie)>,
     param_infos: Vec<ParamInfo>,
     flags: Arc<HostFlags>,
     /// The plugin's audio processor while the plugin is active. The audio
@@ -323,19 +280,52 @@ struct Shared {
 }
 
 // SAFETY: `PluginInstance` is not `Send` so that its main-thread functions are called from one
-// thread. `instance`, and the raw `plugin` and extension pointers outside of the processing
-// functions, are only used on the main thread: `ClapFactory::create` makes the `Shared` there, the
-// controller lives there, and both halves are dropped there (the engine drops a device on the main
-// thread once the audio thread has let it go). The audio thread reaches the plugin only through
-// the processor in `run` (which is `Send`), `tail` with the processor's handle while it holds
-// `run`, and the atomics and mutexes in `flags`.
+// thread. `instance`, and so every main-thread handle to the plugin, is only used on the main
+// thread: `ClapFactory::create` makes the `Shared` there, the controller lives there, and both
+// halves are dropped there (the engine drops a device on the main thread once the audio thread
+// has let it go). The audio thread reaches the plugin only through the processor in `run` (which
+// is `Send`), `ext.tail` with the processor's handle while it holds `run`, and the atomics and
+// mutexes in `flags`.
 unsafe impl Send for Shared {}
 // SAFETY: What the two threads share is `run` (a mutex), `flags` (atomics and mutexes) and the
-// read-only `param_ids`, `param_infos`, `sample_rate` and `max_block`. `instance` is a `RefCell`
-// that only the main thread touches (see above), so no two threads borrow it at once.
+// read-only `ext`, `param_ids`, `param_infos`, `sample_rate` and `max_block`. `instance` is a
+// `RefCell` that only the main thread touches (see above), so no two threads borrow it at once.
 unsafe impl Sync for Shared {}
 
+/// The plugin's extensions that paw calls again and again, each `None` when
+/// the plugin has none. The others are asked for when they are used.
+#[derive(Clone, Copy)]
+struct PluginExtensions {
+    params: Option<PluginParams>,
+    state: Option<PluginState>,
+    gui: Option<PluginGui>,
+    timers: Option<PluginTimer>,
+    fds: Option<PluginPosixFd>,
+    /// How long the plugin rings after its input stops, when it says.
+    tail: Option<PluginTail>,
+}
+
+impl PluginExtensions {
+    fn new(plugin: &PluginMainThreadHandle) -> Self {
+        Self {
+            params: plugin.get_extension(),
+            state: plugin.get_extension(),
+            gui: plugin.get_extension(),
+            timers: plugin.get_extension(),
+            fds: plugin.get_extension(),
+            tail: plugin.get_extension(),
+        }
+    }
+}
+
 impl Shared {
+    /// Run `f` with the plugin's main-thread handle. Main thread only, and
+    /// not from inside another `on_main`.
+    fn on_main<R>(&self, f: impl FnOnce(&PluginMainThreadHandle) -> R) -> R {
+        let mut instance = self.instance.borrow_mut();
+        f(&instance.plugin_handle())
+    }
+
     /// Activate the plugin: its audio processor, not processing yet.
     /// Main thread, with the plugin inactive.
     fn activate(&self) -> Result<PluginAudioProcessor<PawHost>, PluginInstanceError> {
@@ -370,17 +360,6 @@ impl Drop for Shared {
     }
 }
 
-unsafe fn extension<T>(plugin: *const clap_plugin, id: &CStr) -> *const T {
-    // SAFETY: `plugin` is live and `get_extension` is the plugin's own function; the id is a live CStr.
-    // The result is null or a table that lives as long as the plugin, and `T` is the table the id names.
-    unsafe {
-        match (*plugin).get_extension {
-            Some(get) => get(plugin, id.as_ptr()).cast(),
-            None => ptr::null(),
-        }
-    }
-}
-
 impl DeviceFactory for ClapFactory {
     fn info(&self) -> &DeviceInfo {
         &self.info
@@ -407,271 +386,249 @@ impl DeviceFactory for ClapFactory {
             }
             _ => anyhow::anyhow!("{} could not create the plugin", self.path.display()),
         })?;
-        let plugin: *const clap_plugin = instance.raw_instance();
-        let tail = instance.plugin_handle().get_extension::<PluginTail>();
-        // SAFETY: `plugin` is the live, initialized instance, which `shared` owns from here. Every
-        // plugin function called here (the extensions, `activate`) is called in the order the ABI
-        // requires, on the main thread, before the plugin is shared with the audio thread.
-        unsafe {
-            let mut shared = Shared {
-                instance: RefCell::new(instance),
-                plugin,
-                params: extension(plugin, CLAP_EXT_PARAMS),
-                state: extension(plugin, CLAP_EXT_STATE),
-                gui: extension(plugin, CLAP_EXT_GUI),
-                timers: extension(plugin, CLAP_EXT_TIMER_SUPPORT),
-                fds: extension(plugin, CLAP_EXT_POSIX_FD_SUPPORT),
-                tail,
-                param_ids: Vec::new(),
-                param_infos: Vec::new(),
-                flags,
-                run: Mutex::new(None),
-                sample_rate: sample_rate as f64,
-                // Clack refuses a longest block of 0 frames.
-                max_block: (max_block as u32).max(1),
-                _library: library,
-            };
-            read_params(&mut shared);
+        // The raw plugin only for the attachments, which take it as it is.
+        let raw_plugin: *const clap_plugin = instance.raw_instance();
+        // What the plugin is, read on the main thread before it is shared
+        // with the audio thread.
+        let (ext, (param_ids, param_infos), input_ports, output_ports, dialects) = {
+            let plugin = instance.plugin_handle();
+            let ext = PluginExtensions::new(&plugin);
+            let ports = plugin.get_extension::<PluginAudioPorts>();
+            (
+                ext,
+                read_params(&plugin, ext.params),
+                port_infos(&plugin, ports, true),
+                port_infos(&plugin, ports, false),
+                note_dialects(&plugin),
+            )
+        };
+        let mut shared = Shared {
+            instance: RefCell::new(instance),
+            ext,
+            param_ids,
+            param_infos,
+            flags,
+            run: Mutex::new(None),
+            sample_rate: sample_rate as f64,
+            // Clack refuses a longest block of 0 frames.
+            max_block: (max_block as u32).max(1),
+            _library: library,
+        };
 
-            let ports: *const clap_plugin_audio_ports = extension(plugin, CLAP_EXT_AUDIO_PORTS);
-            let input_ports = port_infos(plugin, ports, true);
-            let output_ports = port_infos(plugin, ports, false);
-            let channels = |ports: &[(usize, String)]| -> Vec<u32> {
-                ports.iter().map(|(count, _)| *count as u32).collect()
-            };
-            let inputs = Buffers::new(&channels(&input_ports), max_block);
-            let outputs = Buffers::new(&channels(&output_ports), max_block);
-            // The main port is the first; the first other input that takes
-            // sound is the side-chain.
-            let key_port = (1..input_ports.len()).find(|&i| input_ports[i].0 > 0);
-            let out_pairs = crate::out_pairs(&output_ports);
-            let ports = Ports {
-                sidechain: key_port.is_some(),
-                outputs: crate::pair_names(&out_pairs),
-            };
-            let (dialects, preferred) = note_dialects(plugin);
-            // Notes go as CLAP's own events unless the plugin prefers MIDI
-            // 2.0, which alone carries a note's attribute (an articulation).
-            let clap_notes =
-                dialects & CLAP_NOTE_DIALECT_CLAP != 0 && preferred != CLAP_NOTE_DIALECT_MIDI2;
-            // A channel's controllers, the pitch wheel, pressure and program
-            // changes only exist as MIDI: 2.0 when the plugin takes it.
-            let midi2 = dialects & CLAP_NOTE_DIALECT_MIDI2 != 0;
-            let midi = !clap_notes || dialects & CLAP_NOTE_DIALECT_MIDI != 0;
+        let channels = |ports: &[(usize, String)]| -> Vec<u32> {
+            ports.iter().map(|(count, _)| *count as u32).collect()
+        };
+        let inputs = Buffers::new(&channels(&input_ports), max_block);
+        let outputs = Buffers::new(&channels(&output_ports), max_block);
+        // The main port is the first; the first other input that takes
+        // sound is the side-chain.
+        let key_port = (1..input_ports.len()).find(|&i| input_ports[i].0 > 0);
+        let out_pairs = crate::out_pairs(&output_ports);
+        let ports = Ports {
+            sidechain: key_port.is_some(),
+            outputs: crate::pair_names(&out_pairs),
+        };
+        let (supported, preferred) = dialects;
+        // Notes go as CLAP's own events unless the plugin prefers MIDI
+        // 2.0, which alone carries a note's attribute (an articulation).
+        let clap_notes =
+            supported.contains(NoteDialects::CLAP) && preferred != Some(NoteDialect::Midi2);
+        // A channel's controllers, the pitch wheel, pressure and program
+        // changes only exist as MIDI: 2.0 when the plugin takes it.
+        let midi2 = supported.contains(NoteDialects::MIDI2);
+        let midi = !clap_notes || supported.contains(NoteDialects::MIDI);
 
-            // Attachments take the plugin before it is active: ARA binds
-            // a plugin to its document then.
-            let attached = crate::attach::offer(c"clap", plugin.cast());
-            let processor = shared.activate().map_err(|err| match err {
-                PluginInstanceError::NullActivateFunction => anyhow::anyhow!("no activate"),
-                _ => anyhow::anyhow!("the plugin failed to activate"),
-            })?;
-            *shared.run.get_mut().unwrap() = Some(processor);
-            let shared = Arc::new(shared);
-            let (changed, changes) = rtrb::RingBuffer::new(1024);
-            let device = ClapDevice {
-                shared: shared.clone(),
-                out: Out {
-                    changed,
-                    gestures: Vec::with_capacity(64),
-                    taking: false,
-                },
-                inputs,
-                outputs,
-                key_port,
-                keyed: false,
-                out_pairs,
-                events: ClapEvents(Vec::with_capacity(2048)),
-                pending: Vec::with_capacity(512),
-                held: HeldNotes::new(),
-                clap_notes,
-                midi,
-                midi2,
-                failed: false,
-                steady_time: 0,
-                rest: Rest::default(),
-                loads: 0,
-            };
-            let mut controller = ClapController {
-                plugin_id: self.id.to_string_lossy().into_owned(),
-                presets: None,
-                known: vec![f64::NAN; shared.param_ids.len()],
-                shared,
-                changes,
-                echo: Echo::default(),
-                reread: None,
-                editor: None,
-                ports,
-                attached,
-            };
-            // What it starts with is a state too: its first words of its
-            // values are no edit.
-            controller.given_state();
-            Ok(Instance {
-                device: Box::new(device),
-                controller: Some(Box::new(controller)),
-            })
-        }
+        // Attachments take the plugin before it is active: ARA binds
+        // a plugin to its document then.
+        // SAFETY: `raw_plugin` is the live, initialized instance that `shared` owns, offered on the
+        // main thread before it is active, as the attachments require.
+        let attached = unsafe { crate::attach::offer(c"clap", raw_plugin.cast()) };
+        let processor = shared.activate().map_err(|err| match err {
+            PluginInstanceError::NullActivateFunction => anyhow::anyhow!("no activate"),
+            _ => anyhow::anyhow!("the plugin failed to activate"),
+        })?;
+        *shared.run.get_mut().unwrap() = Some(processor);
+        let shared = Arc::new(shared);
+        let (changed, changes) = rtrb::RingBuffer::new(1024);
+        let device = ClapDevice {
+            shared: shared.clone(),
+            out: Out {
+                changed,
+                gestures: Vec::with_capacity(64),
+                taking: false,
+            },
+            inputs,
+            outputs,
+            key_port,
+            keyed: false,
+            out_pairs,
+            events: ClapEvents(Vec::with_capacity(2048)),
+            pending: Vec::with_capacity(512),
+            held: HeldNotes::new(),
+            clap_notes,
+            midi,
+            midi2,
+            failed: false,
+            steady_time: 0,
+            rest: Rest::default(),
+            loads: 0,
+        };
+        let mut controller = ClapController {
+            plugin_id: self.id.to_string_lossy().into_owned(),
+            presets: None,
+            known: vec![f64::NAN; shared.param_ids.len()],
+            shared,
+            changes,
+            echo: Echo::default(),
+            reread: None,
+            editor: None,
+            ports,
+            attached,
+        };
+        // What it starts with is a state too: its first words of its
+        // values are no edit.
+        controller.given_state();
+        Ok(Instance {
+            device: Box::new(device),
+            controller: Some(Box::new(controller)),
+        })
     }
 }
 
-unsafe fn read_params(shared: &mut Shared) {
-    // SAFETY: `shared.plugin` is live and `params` came from the plugin's own `get_extension`; `info` is
-    // a zeroed `clap_param_info` (plain data, so zero is valid) that the plugin fills; `shared` is
-    // borrowed mutably, so nothing else uses the plugin. Main thread, after `init`.
-    unsafe {
-        let Some(params) = shared.params.as_ref() else {
-            return;
+/// The plugin's parameters that it does not hide: their CLAP ids and
+/// cookies, and what paw tells of them.
+fn read_params(
+    plugin: &PluginMainThreadHandle,
+    params: Option<PluginParams>,
+) -> (Vec<(ClapId, Cookie)>, Vec<ParamInfo>) {
+    let (mut ids, mut infos) = (Vec::new(), Vec::new());
+    let Some(params) = params else {
+        return (ids, infos);
+    };
+    let mut buffer = ParamInfoBuffer::new();
+    for index in 0..params.count(plugin) {
+        let Some(info) = params.get_info(plugin, index, &mut buffer) else {
+            continue;
         };
-        let (Some(count), Some(get_info)) = (params.count, params.get_info) else {
-            return;
-        };
-        for index in 0..count(shared.plugin) {
-            let mut info: clap_param_info = std::mem::zeroed();
-            if !get_info(shared.plugin, index, &mut info) || info.flags & CLAP_PARAM_IS_HIDDEN != 0
-            {
-                continue;
-            }
-            shared.param_ids.push((info.id, info.cookie));
-            let mut param = ParamInfo::new(
-                &buffer_text(&info.name),
-                info.min_value as f32,
-                info.max_value as f32,
-                info.default_value as f32,
-                "",
-            );
-            param.id = info.id.to_string();
-            param.group = buffer_text(&info.module).trim_matches('/').to_string();
-            let flags = info.flags;
-            param.automatable = flags & CLAP_PARAM_IS_AUTOMATABLE != 0;
-            param.read_only = flags & CLAP_PARAM_IS_READONLY != 0;
-            param.per_note = flags
-                & (CLAP_PARAM_IS_AUTOMATABLE_PER_NOTE_ID
-                    | CLAP_PARAM_IS_AUTOMATABLE_PER_KEY
-                    | CLAP_PARAM_IS_AUTOMATABLE_PER_CHANNEL
-                    | CLAP_PARAM_IS_MODULATABLE_PER_NOTE_ID
-                    | CLAP_PARAM_IS_MODULATABLE_PER_KEY
-                    | CLAP_PARAM_IS_MODULATABLE_PER_CHANNEL)
-                != 0;
-            if flags & CLAP_PARAM_IS_STEPPED != 0 {
-                let span = (info.max_value - info.min_value).round();
-                param.steps = if span > 0.0 && span < u32::MAX as f64 { span as u32 } else { 0 };
-                // An enumeration names its steps: the plugin's own names.
-                param.enumeration = flags & CLAP_PARAM_IS_ENUM != 0;
-                if param.enumeration && (1..=256).contains(&param.steps) {
-                    param.choices = (0..=param.steps)
-                        .map(|step| {
-                            value_text(shared.plugin, params, info.id, info.min_value + step as f64)
-                                .unwrap_or_else(|| step.to_string())
-                        })
-                        .collect();
-                } else {
-                    param.boolean = param.steps == 1;
-                }
-            }
-            shared.param_infos.push(param);
+        let flags = info.flags;
+        if flags.contains(ParamInfoFlags::IS_HIDDEN) {
+            continue;
         }
-        assign_keys(&mut shared.param_infos);
+        ids.push((info.id, info.cookie));
+        let mut param = ParamInfo::new(
+            &buffer_text(info.name),
+            info.min_value as f32,
+            info.max_value as f32,
+            info.default_value as f32,
+            "",
+        );
+        param.id = info.id.get().to_string();
+        param.group = buffer_text(info.module).trim_matches('/').to_string();
+        param.automatable = flags.contains(ParamInfoFlags::IS_AUTOMATABLE);
+        param.read_only = flags.contains(ParamInfoFlags::IS_READONLY);
+        param.per_note = flags.intersects(
+            ParamInfoFlags::IS_AUTOMATABLE_PER_NOTE_ID
+                | ParamInfoFlags::IS_AUTOMATABLE_PER_KEY
+                | ParamInfoFlags::IS_AUTOMATABLE_PER_CHANNEL
+                | ParamInfoFlags::IS_MODULATABLE_PER_NOTE_ID
+                | ParamInfoFlags::IS_MODULATABLE_PER_KEY
+                | ParamInfoFlags::IS_MODULATABLE_PER_CHANNEL,
+        );
+        if flags.contains(ParamInfoFlags::IS_STEPPED) {
+            let span = (info.max_value - info.min_value).round();
+            param.steps = if span > 0.0 && span < u32::MAX as f64 { span as u32 } else { 0 };
+            // An enumeration names its steps: the plugin's own names.
+            param.enumeration = flags.contains(ParamInfoFlags::IS_ENUM);
+            if param.enumeration && (1..=256).contains(&param.steps) {
+                let (id, min) = (info.id, info.min_value);
+                param.choices = (0..=param.steps)
+                    .map(|step| {
+                        value_text(plugin, params, id, min + step as f64)
+                            .unwrap_or_else(|| step.to_string())
+                    })
+                    .collect();
+            } else {
+                param.boolean = param.steps == 1;
+            }
+        }
+        infos.push(param);
     }
+    assign_keys(&mut infos);
+    (ids, infos)
 }
 
 /// A parameter's value as the plugin writes it.
-unsafe fn value_text(
-    plugin: *const clap_plugin,
-    params: &clap_plugin_params,
-    id: clap_id,
+fn value_text(
+    plugin: &PluginMainThreadHandle,
+    params: PluginParams,
+    id: ClapId,
     value: f64,
 ) -> Option<String> {
-    let to_text = params.value_to_text?;
-    let mut buffer = [0 as c_char; 256];
-    // SAFETY: `to_text` is the plugin's function; `buffer` is a live zeroed array, and the length passed
-    // is its size, so the plugin writes within it.
-    let written = unsafe { to_text(plugin, id, value, buffer.as_mut_ptr(), buffer.len() as u32) };
-    written
-        .then(|| buffer_text(&buffer))
-        .filter(|t| !t.is_empty())
+    let mut buffer = [0u8; 256];
+    let text = params.value_to_text(plugin, id, value, &mut buffer).ok()?;
+    Some(buffer_text(text)).filter(|t| !t.is_empty())
 }
 
 /// The channel count and name of each of the plugin's audio ports in one
 /// direction.
-unsafe fn port_infos(
-    plugin: *const clap_plugin,
-    ports: *const clap_plugin_audio_ports,
+fn port_infos(
+    plugin: &PluginMainThreadHandle,
+    ports: Option<PluginAudioPorts>,
     is_input: bool,
 ) -> Vec<(usize, String)> {
-    // SAFETY: `plugin` and `ports` came from the plugin; each `info` is a zeroed plain-data struct
-    // that `get` fills for an index below `count`.
-    unsafe {
-        let Some(ports) = ports.as_ref() else {
-            return Vec::new();
-        };
-        let (Some(count), Some(get)) = (ports.count, ports.get) else {
-            return Vec::new();
-        };
-        (0..count(plugin, is_input))
-            .map(|index| {
-                let mut info: clap_audio_port_info = std::mem::zeroed();
-                if get(plugin, index, is_input, &mut info) {
-                    (info.channel_count as usize, buffer_text(&info.name))
-                } else {
-                    (0, String::new())
-                }
-            })
-            .collect()
-    }
+    let Some(ports) = ports else {
+        return Vec::new();
+    };
+    let mut buffer = AudioPortInfoBuffer::new();
+    (0..ports.count(plugin, is_input))
+        .map(|index| match ports.get(plugin, index, is_input, &mut buffer) {
+            Some(info) => (info.channel_count as usize, buffer_text(info.name)),
+            None => (0, String::new()),
+        })
+        .collect()
 }
 
 /// The note dialects the plugin's first note input takes, and the one it
 /// prefers.
-unsafe fn note_dialects(plugin: *const clap_plugin) -> (u32, u32) {
-    // SAFETY: `plugin` is live and `ports` is null or the plugin's note-ports table; `info` is a zeroed
-    // plain-data struct that `get` fills.
-    unsafe {
-        let ports: *const clap_plugin_note_ports = extension(plugin, CLAP_EXT_NOTE_PORTS);
-        let Some(ports) = ports.as_ref() else {
-            return (0, 0);
-        };
-        let (Some(count), Some(get)) = (ports.count, ports.get) else {
-            return (0, 0);
-        };
-        let mut info: clap_note_port_info = std::mem::zeroed();
-        if count(plugin, true) > 0 && get(plugin, 0, true, &mut info) {
-            (info.supported_dialects, info.preferred_dialect)
-        } else {
-            (0, 0)
-        }
+fn note_dialects(plugin: &PluginMainThreadHandle) -> (NoteDialects, Option<NoteDialect>) {
+    let none = (NoteDialects::empty(), None);
+    let Some(ports) = plugin.get_extension::<PluginNotePorts>() else {
+        return none;
+    };
+    let mut buffer = NotePortInfoBuffer::new();
+    if ports.count(plugin, true) == 0 {
+        return none;
     }
+    ports
+        .get(plugin, 0, true, &mut buffer)
+        .map_or(none, |info| (info.supported_dialects, info.preferred_dialect))
 }
 
 /// What the plugin calls its keys (`clap.note-name`), as JSON: `{ "36":
 /// "Kick", "24": "Sustain" }`, for keys of its first port on every channel
 /// or the first. Empty when it names none.
-unsafe fn note_names(plugin: *const clap_plugin) -> Vec<u8> {
-    // SAFETY: `plugin` is live; the note-name table is null or the plugin's; each `name` is a zeroed
-    // plain-data struct that `get` fills for an index below `count`.
-    unsafe {
-        let mut names = serde_json::Map::new();
-        let ext: *const clap_plugin_note_name = extension(plugin, CLAP_EXT_NOTE_NAME);
-        if let Some(ext) = ext.as_ref()
-            && let (Some(count), Some(get)) = (ext.count, ext.get)
-        {
-            for index in 0..count(plugin) {
-                let mut name: clap_note_name = std::mem::zeroed();
-                let ours = |n: &clap_note_name| {
-                    (n.port == -1 || n.port == 0) && matches!(n.channel, -1 | 0)
-                };
-                if !get(plugin, index, &mut name) || !ours(&name) {
-                    continue;
-                }
-                let text = text(name.name.as_ptr());
-                // A name for every key (-1) is no name for any one key.
-                if (0..128).contains(&name.key) && !text.is_empty() {
-                    names.insert(name.key.to_string(), text.into());
-                }
+fn note_names(plugin: &PluginMainThreadHandle) -> Vec<u8> {
+    let mut names = serde_json::Map::new();
+    if let Some(ext) = plugin.get_extension::<PluginNoteName>() {
+        let mut buffer = NoteNameBuffer::new();
+        let first_or_all = |m: Match<u16>| matches!(m, Match::All | Match::Specific(0));
+        for index in 0..ext.count(plugin) {
+            let Some(name) = ext.get(plugin, index as u32, &mut buffer) else {
+                continue;
+            };
+            if !first_or_all(name.port) || !first_or_all(name.channel) {
+                continue;
+            }
+            let text = buffer_text(name.name);
+            // A name for every key (-1) is no name for any one key.
+            if let Match::Specific(key @ 0..128) = name.key
+                && !text.is_empty()
+            {
+                names.insert(key.to_string(), text.into());
             }
         }
-        serde_json::to_vec(&names).unwrap_or_default()
     }
+    serde_json::to_vec(&names).unwrap_or_default()
 }
 
 /// Audio buffers for every port in one direction, laid out as CLAP wants them.
@@ -842,8 +799,8 @@ impl Device for ClapDevice {
             events.push(ClapEvent {
                 param: clap_event_param_value {
                     header: header::<clap_event_param_value>(0, CLAP_EVENT_PARAM_VALUE),
-                    param_id,
-                    cookie,
+                    param_id: param_id.get(),
+                    cookie: cookie.as_raw(),
                     note_id: -1,
                     port_index: -1,
                     channel: -1,
@@ -968,7 +925,7 @@ impl Device for ClapDevice {
             ProcessStatus::Sleep => self.rest.end(true),
             ProcessStatus::ContinueIfNotQuiet => self.rest.end(out_quiet()),
             ProcessStatus::Tail => {
-                let tail = self.shared.tail.map(|tail| tail.get(&processor.plugin_handle()));
+                let tail = self.shared.ext.tail.map(|tail| tail.get(&processor.plugin_handle()));
                 let frames = match tail {
                     Some(TailLength::Finite(frames)) => Some(u64::from(frames)),
                     _ => None,
@@ -1131,82 +1088,81 @@ impl ClapController {
     /// first, since that is what nearly every plugin offers and it lets the
     /// host own the window. A plugin that can only float is still shown, as a
     /// native Wayland window if it can make one.
-    fn editor_api(&self) -> Option<(&'static CStr, bool)> {
-        let plugin = self.shared.plugin;
-        // SAFETY: `gui` is null or the plugin's gui table, which lives as long as the plugin.
-        let supported = unsafe { self.shared.gui.as_ref()?.is_api_supported? };
+    fn editor_api(&self) -> Option<GuiConfiguration<'static>> {
+        let gui = self.shared.ext.gui?;
         let wayland = std::env::var_os("WAYLAND_DISPLAY").is_some();
-        [
-            (CLAP_WINDOW_API_X11, false),
-            (CLAP_WINDOW_API_WAYLAND, true),
-            (CLAP_WINDOW_API_X11, true),
-        ]
-        .into_iter()
-        .filter(|(api, _)| wayland || *api != CLAP_WINDOW_API_WAYLAND)
-        // SAFETY: `supported` is the plugin's own function, called with the live plugin and a NUL-terminated
-        // API name that is a static CStr.
-        .find(|(api, floating)| unsafe { supported(plugin, api.as_ptr(), *floating) })
+        let configuration = |api_type, is_floating| GuiConfiguration {
+            api_type,
+            is_floating,
+        };
+        self.shared.on_main(|plugin| {
+            [
+                configuration(GuiApiType::X11, false),
+                configuration(GuiApiType::WAYLAND, true),
+                configuration(GuiApiType::X11, true),
+            ]
+            .into_iter()
+            .filter(|c| wayland || c.api_type != GuiApiType::WAYLAND)
+            .find(|c| gui.is_api_supported(plugin, *c))
+        })
     }
 
     /// React to what happened to the editor window and what the plugin asked for.
     fn run_editor(&mut self) {
         let shared = &self.shared;
-        let plugin = shared.plugin;
         let Some(editor) = self.editor.as_mut() else {
             return;
         };
         let mut close = shared.flags.closed.swap(false, Relaxed);
-        // SAFETY: `plugin` and `shared.gui` are live; all calls are on the main thread, which the gui
-        // extension requires; `width` and `height` are live locals.
-        unsafe {
-            let Some(gui) = shared.gui.as_ref() else {
-                return;
-            };
-            let resize = shared.flags.resize.lock().unwrap().take();
-            if let (Some(window), Some((width, height))) = (editor.as_mut(), resize) {
-                window.resize(width, height);
-            }
-            let events = editor.as_mut().map(HostWindow::events).unwrap_or_default();
-            let mut resized = None;
-            for event in events {
-                match event {
-                    WindowEvent::Closed => close = true,
-                    WindowEvent::Resized(mut width, mut height) => {
-                        // Let the plugin round the size to one it can draw, then
-                        // make the window agree with what it settled on.
-                        if gui.can_resize.is_some_and(|can| can(plugin)) {
-                            if let Some(adjust) = gui.adjust_size {
-                                adjust(plugin, &mut width, &mut height);
-                            }
-                            if let Some(set) = gui.set_size {
-                                set(plugin, width, height);
-                            }
-                        } else if let Some(get) = gui.get_size {
-                            get(plugin, &mut width, &mut height);
+        let Some(gui) = shared.ext.gui else {
+            return;
+        };
+        let resize = shared.flags.resize.lock().unwrap().take();
+        if let (Some(window), Some((width, height))) = (editor.as_mut(), resize) {
+            window.resize(width, height);
+        }
+        let events = editor.as_mut().map(HostWindow::events).unwrap_or_default();
+        let mut resized = None;
+        for event in events {
+            match event {
+                WindowEvent::Closed => close = true,
+                WindowEvent::Resized(width, height) => {
+                    // Let the plugin round the size to one it can draw, then
+                    // make the window agree with what it settled on.
+                    let asked = GuiSize { width, height };
+                    let size = shared.on_main(|plugin| {
+                        if gui.can_resize(plugin) {
+                            let size = gui.adjust_size(plugin, asked).unwrap_or(asked);
+                            let _ = gui.set_size(plugin, size);
+                            size
+                        } else {
+                            gui.get_size(plugin).unwrap_or(asked)
                         }
-                        resized = Some((width, height));
-                    }
-                }
-            }
-            if let (Some(window), Some((width, height))) = (editor.as_mut(), resized) {
-                window.resize(width, height);
-            }
-            // Timers and file descriptors drive the plugin's own event handling.
-            let (due, ready) = {
-                let mut watches = shared.flags.watches.lock().unwrap();
-                (watches.due_timers(), watches.ready_fds())
-            };
-            if let Some(on_timer) = shared.timers.as_ref().and_then(|t| t.on_timer) {
-                for id in due {
-                    on_timer(plugin, id);
-                }
-            }
-            if let Some(on_fd) = shared.fds.as_ref().and_then(|f| f.on_fd) {
-                for (fd, ()) in ready {
-                    on_fd(plugin, fd, CLAP_POSIX_FD_READ);
+                    });
+                    resized = Some((size.width, size.height));
                 }
             }
         }
+        if let (Some(window), Some((width, height))) = (editor.as_mut(), resized) {
+            window.resize(width, height);
+        }
+        // Timers and file descriptors drive the plugin's own event handling.
+        let (due, ready) = {
+            let mut watches = shared.flags.watches.lock().unwrap();
+            (watches.due_timers(), watches.ready_fds())
+        };
+        shared.on_main(|plugin| {
+            if let Some(timers) = shared.ext.timers {
+                for id in due {
+                    timers.on_timer(plugin, TimerId(id));
+                }
+            }
+            if let Some(fds) = shared.ext.fds {
+                for (fd, ()) in ready {
+                    fds.on_fd(plugin, fd, FdFlags::READ);
+                }
+            }
+        });
         if close {
             self.close_editor();
         }
@@ -1215,18 +1171,16 @@ impl ClapController {
 
 impl Controller for ClapController {
     fn set_offline(&mut self, offline: bool) {
-        // SAFETY: `plugin` is live and the render extension (null or the plugin's table) is read on the main thread.
-        unsafe {
-            let render: *const clap_plugin_render = extension(self.shared.plugin, CLAP_EXT_RENDER);
-            if let Some(set) = render.as_ref().and_then(|render| render.set) {
-                let mode = if offline {
-                    CLAP_RENDER_OFFLINE
-                } else {
-                    CLAP_RENDER_REALTIME
-                };
-                set(self.shared.plugin, mode);
+        let mode = if offline {
+            RenderMode::Offline
+        } else {
+            RenderMode::Realtime
+        };
+        self.shared.on_main(|plugin| {
+            if let Some(render) = plugin.get_extension::<PluginRender>() {
+                let _ = render.set(plugin, mode);
             }
-        }
+        });
     }
 
     fn params(&self) -> Vec<ParamInfo> {
@@ -1239,102 +1193,48 @@ impl Controller for ClapController {
 
     fn value_text(&mut self, index: usize, value: f64) -> Option<String> {
         let (id, _) = *self.shared.param_ids.get(index)?;
-        // SAFETY: `plugin` and `params` are live, and `to_text` runs on the main thread.
-        unsafe { value_text(self.shared.plugin, self.shared.params.as_ref()?, id, value) }
+        let params = self.shared.ext.params?;
+        self.shared.on_main(|plugin| value_text(plugin, params, id, value))
     }
 
     fn text_value(&mut self, index: usize, text: &str) -> Option<f64> {
         let (id, _) = *self.shared.param_ids.get(index)?;
+        let params = self.shared.ext.params?;
         let text = CString::new(text).ok()?;
-        let mut value = 0.0;
-        // SAFETY: `params` is null-checked by `as_ref`; `text` is a CString that lives through the call and
-        // `value` is a live local.
-        unsafe {
-            let to_value = self.shared.params.as_ref()?.text_to_value?;
-            to_value(self.shared.plugin, id, text.as_ptr(), &mut value)
-                .then_some(value)
-                .filter(|v| v.is_finite())
-        }
+        self.shared
+            .on_main(|plugin| params.text_to_value(plugin, id, &text))
+            .filter(|v| v.is_finite())
     }
 
     fn value(&self, index: usize) -> Option<f64> {
-        // SAFETY: `params` is null-checked by `as_ref`; `value` is a live local the plugin writes.
-        unsafe {
-            let get = self.shared.params.as_ref()?.get_value?;
-            let (id, _) = *self.shared.param_ids.get(index)?;
-            let mut value = 0.0;
-            get(self.shared.plugin, id, &mut value).then_some(value)
-        }
+        let params = self.shared.ext.params?;
+        let (id, _) = *self.shared.param_ids.get(index)?;
+        self.shared.on_main(|plugin| params.get_value(plugin, id))
     }
 
     fn save_state(&mut self) -> Result<Option<Vec<u8>>> {
-        unsafe extern "C" fn write(
-            stream: *const clap_ostream,
-            buffer: *const c_void,
-            size: u64,
-        ) -> i64 {
-            // SAFETY: `stream.ctx` is the `Vec<u8>` that `save_state` put there, alive during `save`; the plugin
-            // owns `buffer` for `size` readable bytes during the call.
-            unsafe {
-                let out = &mut *((*stream).ctx as *mut Vec<u8>);
-                out.extend_from_slice(std::slice::from_raw_parts(
-                    buffer as *const u8,
-                    size as usize,
-                ));
-                size as i64
-            }
-        }
-        // SAFETY: `state` is null-checked by `as_ref`; `stream` and `out` live on this frame until `save` returns.
-        unsafe {
-            let Some(save) = self.shared.state.as_ref().and_then(|s| s.save) else {
-                return Ok(None);
-            };
-            let mut out = Vec::new();
-            let stream = clap_ostream {
-                ctx: &mut out as *mut Vec<u8> as *mut c_void,
-                write: Some(write),
-            };
-            if !save(self.shared.plugin, &stream) {
-                bail!("the plugin could not save its state");
-            }
-            Ok(Some(out))
-        }
+        let Some(state) = self.shared.ext.state else {
+            return Ok(None);
+        };
+        let mut out = Vec::new();
+        self.shared
+            .on_main(|plugin| state.save(plugin, &mut out))
+            .map_err(|_| anyhow::anyhow!("the plugin could not save its state"))?;
+        Ok(Some(out))
     }
 
     fn load_state(&mut self, state: &[u8]) -> Result<()> {
-        unsafe extern "C" fn read(
-            stream: *const clap_istream,
-            buffer: *mut c_void,
-            size: u64,
-        ) -> i64 {
-            // SAFETY: `stream.ctx` is the `&[u8]` that `load_state` put there, alive during `load`; the plugin
-            // gives a `buffer` with room for `size` bytes, and `n <= size`.
-            unsafe {
-                let rest = &mut *((*stream).ctx as *mut &[u8]);
-                let n = rest.len().min(size as usize);
-                ptr::copy_nonoverlapping(rest.as_ptr(), buffer as *mut u8, n);
-                *rest = &rest[n..];
-                n as i64
-            }
-        }
-        // SAFETY: `state` is null-checked by `as_ref`; `stream` and `rest` live on this frame until `load` returns.
-        unsafe {
-            let Some(load) = self.shared.state.as_ref().and_then(|s| s.load) else {
-                return Ok(());
-            };
-            let mut rest = state;
-            let stream = clap_istream {
-                ctx: &mut rest as *mut &[u8] as *mut c_void,
-                read: Some(read),
-            };
-            if !load(self.shared.plugin, &stream) {
-                bail!("the plugin rejected the saved state");
-            }
-            // Some plugins take a state on only in their next block.
-            self.shared.flags.wake.store(true, Relaxed);
-            self.given_state();
-            Ok(())
-        }
+        let Some(ext) = self.shared.ext.state else {
+            return Ok(());
+        };
+        let mut rest = state;
+        self.shared
+            .on_main(|plugin| ext.load(plugin, &mut rest))
+            .map_err(|_| anyhow::anyhow!("the plugin rejected the saved state"))?;
+        // Some plugins take a state on only in their next block.
+        self.shared.flags.wake.store(true, Relaxed);
+        self.given_state();
+        Ok(())
     }
 
     fn idle(&mut self) {
@@ -1376,7 +1276,7 @@ impl Controller for ClapController {
                 .shared
                 .param_ids
                 .iter()
-                .position(|(known, _)| *known == id)
+                .position(|(known, _)| known.get() == id)
             {
                 self.known[index] = value;
                 // Told with no gesture in the block that took a state on:
@@ -1418,72 +1318,56 @@ impl Controller for ClapController {
         if self.editor.is_some() {
             return Ok(());
         }
-        let (api, floating) = self
+        let configuration = self
             .editor_api()
             .context("this plugin has no editor this host can show")?;
-        let plugin = self.shared.plugin;
-        // SAFETY: `shared.gui` is non-null (`editor_api` found a supported API through it), the plugin is
-        // live, and the gui calls are in the order the ABI requires (create, set_scale, set_parent,
-        // show), on the main thread; `parent` lives through `set_parent`.
-        unsafe {
-            let gui = &*self.shared.gui;
-            let destroy = || {
-                if let Some(destroy) = gui.destroy {
-                    destroy(plugin);
-                }
-            };
-            if !gui.create.context("no gui.create")?(plugin, api.as_ptr(), floating) {
+        let gui = self.shared.ext.gui.context("no gui")?;
+        // The calls go in the order the ABI requires: create, set_scale,
+        // set_parent, show.
+        let window = self.shared.on_main(|plugin| -> Result<Option<HostWindow>> {
+            if gui.create(plugin, configuration).is_err() {
                 bail!("the plugin could not create its editor");
             }
             // Before asking for the size, which depends on it. Wayland windows
             // are scaled by the compositor instead.
-            if api == CLAP_WINDOW_API_X11
-                && let Some(set_scale) = gui.set_scale
-            {
-                set_scale(plugin, ui_scale());
+            if configuration.api_type == GuiApiType::X11 {
+                let _ = gui.set_scale(plugin, ui_scale());
             }
-            let window = if floating {
+            let window = if configuration.is_floating {
                 // The plugin makes and manages the window; all it gets is a name.
-                if let (Some(suggest), Ok(title)) = (gui.suggest_title, CString::new(title)) {
-                    suggest(plugin, title.as_ptr());
+                if let Ok(title) = CString::new(title) {
+                    gui.suggest_title(plugin, &title);
                 }
                 None
             } else {
-                let (mut width, mut height) = (640, 480);
-                if let Some(get_size) = gui.get_size {
-                    get_size(plugin, &mut width, &mut height);
-                }
-                let window = match HostWindow::new(title, width, height) {
+                let (width, height) = gui
+                    .get_size(plugin)
+                    .map_or((640, 480), |size| (size.width, size.height));
+                let mut window = match HostWindow::new(title, width, height) {
                     Ok(window) => window,
                     Err(err) => {
-                        destroy();
+                        gui.destroy(plugin);
                         return Err(err);
                     }
                 };
-                let parent = clap_window {
-                    api: CLAP_WINDOW_API_X11.as_ptr(),
-                    specific: clap_window_handle {
-                        x11: window.id() as _,
-                    },
+                // SAFETY: The X11 window lives in `self.editor` until `close_editor`, which
+                // destroys the plugin's editor before it drops the window.
+                let parent = unsafe {
+                    gui.set_parent(plugin, Window::from_x11_handle(window.id() as _))
                 };
-                if !gui
-                    .set_parent
-                    .is_some_and(|set_parent| set_parent(plugin, &parent))
-                {
-                    destroy();
+                if parent.is_err() {
+                    gui.destroy(plugin);
                     bail!("the plugin refused the editor window");
                 }
-                let mut window = window;
-                window.set_fixed(!gui.can_resize.is_some_and(|can| can(plugin)));
+                window.set_fixed(!gui.can_resize(plugin));
                 Some(window)
             };
-            if let Some(show) = gui.show {
-                show(plugin);
-            }
-            // Remember where every parameter stands, to notice what the editor changes.
-            self.shared.flags.rescan.store(true, Relaxed);
-            self.editor = Some(window);
-        }
+            let _ = gui.show(plugin);
+            Ok(window)
+        })?;
+        // Remember where every parameter stands, to notice what the editor changes.
+        self.shared.flags.rescan.store(true, Relaxed);
+        self.editor = Some(window);
         self.take_changes();
         Ok(())
     }
@@ -1492,17 +1376,11 @@ impl Controller for ClapController {
         if self.editor.is_none() {
             return;
         }
-        // SAFETY: `plugin` is live and `gui` is null-checked by `as_ref`; `hide` and `destroy` are
-        // called once, on the main thread, before the host window is dropped.
-        unsafe {
-            if let Some(gui) = self.shared.gui.as_ref() {
-                if let Some(hide) = gui.hide {
-                    hide(self.shared.plugin);
-                }
-                if let Some(destroy) = gui.destroy {
-                    destroy(self.shared.plugin);
-                }
-            }
+        if let Some(gui) = self.shared.ext.gui {
+            self.shared.on_main(|plugin| {
+                let _ = gui.hide(plugin);
+                gui.destroy(plugin);
+            });
         }
         // The plugin's window is gone; now ours can go.
         self.editor = None;
@@ -1521,58 +1399,96 @@ impl Controller for ClapController {
                 });
                 Ok(crate::presets::to_json(presets))
             }
-            // SAFETY: `plugin` is live; the extension is null-checked; the CStrings live through the call.
-            paw_engine::device::method::PRESET_LOAD => unsafe {
-                let plugin = self.shared.plugin;
-                let mut ext: *const clap_plugin_preset_load =
-                    extension(plugin, CLAP_EXT_PRESET_LOAD);
-                if ext.is_null() {
-                    ext = extension(plugin, CLAP_EXT_PRESET_LOAD_COMPAT);
-                }
-                let load = ext
-                    .as_ref()
-                    .and_then(|e| e.from_location)
-                    .context("the plugin cannot load presets")?;
-                let id = String::from_utf8_lossy(data);
-                let (kind, location, key) = crate::presets::clap_preset_parts(&id)?;
-                let ptr_of = |c: &Option<CString>| c.as_ref().map_or(ptr::null(), |c| c.as_ptr());
-                if !load(plugin, kind, ptr_of(&location), ptr_of(&key)) {
-                    bail!("the plugin could not load the preset");
-                }
+            paw_engine::device::method::PRESET_LOAD => {
+                self.shared.on_main(|plugin| load_preset(plugin, data))?;
                 // What the preset changed is read back, as the echo of a
                 // state.
                 self.shared.flags.rescan.store(true, Relaxed);
                 self.given_state();
                 Ok(Vec::new())
-            },
-            // SAFETY: `plugin` is live and this runs on the main thread.
-            paw_engine::device::method::NOTE_NAMES => Ok(unsafe { note_names(self.shared.plugin) }),
-            // SAFETY: `plugin` is live and the extension is null-checked; `name`, `data` and `answer` live through
-            // the call, and `call_write` is the callback type the extension expects.
-            _ => unsafe {
-                let ext: *const PawPluginCall = extension(self.shared.plugin, PAW_EXT_CALL);
-                let call = ext
-                    .as_ref()
-                    .and_then(|e| e.call)
-                    .with_context(|| format!("this device has no method `{method}`"))?;
-                let name = CString::new(method)?;
-                let mut answer: Vec<u8> = Vec::new();
-                let ok = call(
-                    self.shared.plugin,
-                    name.as_ptr(),
-                    data.as_ptr(),
-                    data.len(),
-                    &mut answer as *mut Vec<u8> as *mut c_void,
-                    Some(call_write),
-                );
+            }
+            paw_engine::device::method::NOTE_NAMES => Ok(self.shared.on_main(note_names)),
+            _ => {
+                let (ok, answer) = self.shared.on_main(|plugin| {
+                    let ext = plugin
+                        .get_extension::<PawCall>()
+                        .filter(|ext| ext.can_call(plugin))
+                        .with_context(|| format!("this device has no method `{method}`"))?;
+                    let name = CString::new(method)?;
+                    anyhow::Ok(ext.call(plugin, &name, data))
+                })?;
                 // What the plugin read or loaded may have changed its parameters.
                 self.shared.flags.rescan.store(true, Relaxed);
                 if !ok {
                     bail!("{}", String::from_utf8_lossy(&answer));
                 }
                 Ok(answer)
-            },
+            }
         }
+    }
+}
+
+/// Load one of the plugin's presets, by the id paw gave it: through the
+/// preset-load extension, or its draft (compatible) id.
+fn load_preset(plugin: &PluginMainThreadHandle, id: &[u8]) -> Result<()> {
+    let standard = plugin.get_extension::<PluginPresetLoad>();
+    let compat = match standard {
+        Some(_) => None,
+        None => Some(
+            plugin
+                .get_extension::<PresetLoadCompat>()
+                .context("the plugin cannot load presets")?,
+        ),
+    };
+    let id = String::from_utf8_lossy(id);
+    let (kind, location, key) = crate::presets::clap_preset_parts(&id)?;
+    let path = location.as_deref().map_or(ptr::null(), CStr::as_ptr);
+    // SAFETY: `path` is null or the CString `location`, which lives to the end of this function.
+    let location = unsafe { Location::from_raw(kind, path) };
+    let key = key.as_deref();
+    let loaded = location.is_some_and(|location| match (standard, compat) {
+        (Some(ext), _) => ext.load_from_location(plugin, location, key).is_ok(),
+        (None, Some(ext)) => ext.load_from_location(plugin, location, key),
+        (None, None) => false,
+    });
+    if !loaded {
+        bail!("the plugin could not load the preset");
+    }
+    Ok(())
+}
+
+/// The preset-load extension under its draft id, which Clack does not ask
+/// for: [`PluginPresetLoad`] asks only for the final one.
+#[derive(Clone, Copy)]
+struct PresetLoadCompat(RawExtension<PluginExtensionSide, clap_plugin_preset_load>);
+
+// SAFETY: The draft id names the same table as the final one, `clap_plugin_preset_load`.
+unsafe impl Extension for PresetLoadCompat {
+    const IDENTIFIERS: &'static [&'static CStr] = &[CLAP_EXT_PRESET_LOAD_COMPAT];
+    type ExtensionSide = PluginExtensionSide;
+
+    unsafe fn from_raw(raw: RawExtension<PluginExtensionSide>) -> Self {
+        // SAFETY: The caller gives the table that the id names.
+        Self(unsafe { raw.cast() })
+    }
+}
+
+impl PresetLoadCompat {
+    /// As [`PluginPresetLoad::load_from_location`]: whether the plugin loaded it.
+    fn load_from_location(
+        &self,
+        plugin: &PluginMainThreadHandle,
+        location: Location,
+        key: Option<&CStr>,
+    ) -> bool {
+        let Some(from_location) = plugin.use_extension(&self.0).from_location else {
+            return false;
+        };
+        let (kind, path) = location.to_raw();
+        let key = key.map_or(ptr::null(), CStr::as_ptr);
+        // SAFETY: The function is the plugin's own, called on the main thread with its own
+        // plugin; `path` and `key` are null or strings that live through the call.
+        unsafe { from_location(plugin.as_raw_ptr(), kind, path, key) }
     }
 }
 
@@ -1580,9 +1496,52 @@ impl Controller for ClapController {
 /// host does not know (paw's sampler answers `describe`): the plugin
 /// writes its answer through `write`, and returns false when the method
 /// failed, having written why.
-const PAW_EXT_CALL: &CStr = c"dev.paw.call/1";
+#[derive(Clone, Copy)]
+struct PawCall(RawExtension<PluginExtensionSide, PawPluginCall>);
+
+// SAFETY: `dev.paw.call/1` is paw's own id, and the table it names is `PawPluginCall`.
+unsafe impl Extension for PawCall {
+    const IDENTIFIERS: &'static [&'static CStr] = &[c"dev.paw.call/1"];
+    type ExtensionSide = PluginExtensionSide;
+
+    unsafe fn from_raw(raw: RawExtension<PluginExtensionSide>) -> Self {
+        // SAFETY: The caller gives the table that the id names.
+        Self(unsafe { raw.cast() })
+    }
+}
+
+impl PawCall {
+    /// Whether the table has its function.
+    fn can_call(&self, plugin: &PluginMainThreadHandle) -> bool {
+        plugin.use_extension(&self.0).call.is_some()
+    }
+
+    /// Call `method` with `data`: whether it succeeded, and what the plugin
+    /// wrote (its answer, or why it failed).
+    fn call(&self, plugin: &PluginMainThreadHandle, method: &CStr, data: &[u8]) -> (bool, Vec<u8>) {
+        let mut answer: Vec<u8> = Vec::new();
+        let Some(call) = plugin.use_extension(&self.0).call else {
+            return (false, answer);
+        };
+        // SAFETY: `call` is the plugin's own function, called on the main thread with its own
+        // plugin; `method`, `data` and `answer` live through the call, and `call_write` is the
+        // callback type the extension expects, writing into `answer`.
+        let ok = unsafe {
+            call(
+                plugin.as_raw_ptr(),
+                method.as_ptr(),
+                data.as_ptr(),
+                data.len(),
+                ptr::from_mut(&mut answer).cast(),
+                Some(call_write),
+            )
+        };
+        (ok, answer)
+    }
+}
 
 #[repr(C)]
+#[derive(Clone, Copy)]
 struct PawPluginCall {
     call: Option<
         unsafe extern "C" fn(
@@ -1862,15 +1821,3 @@ impl HostPosixFdImpl for HostMain<'_> {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_buffer_text_stops_at_the_nul_and_reads_no_further_without_one() {
-        let mut buffer = [b'x' as c_char; 4];
-        assert_eq!(buffer_text(&buffer), "xxxx");
-        buffer[2] = 0;
-        assert_eq!(buffer_text(&buffer), "xx");
-    }
-}
