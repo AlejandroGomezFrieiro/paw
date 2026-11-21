@@ -55,25 +55,12 @@ thread_local! {
     static PICTURES: RefCell<Pictures> = RefCell::new(Pictures::default());
 }
 
-/// Paint a role of the arrange view over `rect` (points), a cell being
-/// `cell` points; false for one of other views.
-pub fn paint(ui: &Ui, painter: &Painter, role: &str, props: &Value, rect: Rect, cell: (f32, f32)) -> bool {
-    match role {
-        "clip" => clip(ui, painter, &props::parse(props), rect, cell),
-        "beats" => ground(painter, &props::parse(props), rect, cell),
-        "curve" => curve(painter, &props::parse(props), rect, cell),
-        "trackhead" => trackhead(ui, painter, &props::parse(props), rect),
-        _ => return false,
-    }
-    true
-}
-
 /// A clip: a bar along its top with its name, kept in view while its start
 /// is scrolled away, over its body with its notes or its waveform; its
 /// fades and their handles, the gain line while it is dragged, warp
 /// markers and the notches of a loop; outlined when chosen or under the
 /// pointer. One being dragged is a see-through copy where it will land.
-fn clip(ui: &Ui, painter: &Painter, p: &ClipProps, rect: Rect, (cw, ch): (f32, f32)) {
+pub fn clip(ui: &Ui, painter: &Painter, p: &ClipProps, rect: Rect, (cw, ch): (f32, f32)) {
     let t = th();
     let colour = p.color.and_then(crate::theme::hex).unwrap_or(t.select);
     // A pixel short of where the next clip starts, a pixel off the row's
@@ -205,7 +192,7 @@ fn take(ui: &Ui, painter: &Painter, p: &ClipProps, shape: Rect, colour: Color32,
 /// A track's header: the panel, lighter for the cursor's track, a stripe
 /// of the track's colour down its left, a line under it, lit under the
 /// pointer, where a drag makes the track taller or shorter.
-fn trackhead(ui: &Ui, painter: &Painter, p: &TrackheadProps, rect: Rect) {
+pub fn trackhead(ui: &Ui, painter: &Painter, p: &TrackheadProps, rect: Rect) {
     let t = th();
     painter.rect_filled(rect, CornerRadius::ZERO, if p.selected { t.panel_sel } else { t.panel });
     let colour = p.color.and_then(crate::theme::hex).unwrap_or(t.text_3);
@@ -271,7 +258,7 @@ fn picture(props: &ClipProps, midi: bool, length: f32, width: f32) -> Option<Tex
 /// and tinted for the cursor's track, a take lane, an automation lane;
 /// the loop shaded over it; a line on each bar, and on each beat where
 /// the view draws them, where it is.
-fn ground(painter: &Painter, p: &BeatsProps, rect: Rect, (cw, _): (f32, f32)) {
+pub fn ground(painter: &Painter, p: &BeatsProps, rect: Rect, (cw, _): (f32, f32)) {
     let t = th();
     let face = match p.tone {
         Some("take") => alpha(t.panel, 0.55),
@@ -302,7 +289,7 @@ fn ground(painter: &Painter, p: &BeatsProps, rect: Rect, (cw, _): (f32, f32)) {
 /// A curve over a stretch of time: a line through its values, one each
 /// half column, broken where there is none, in its track's colour, grey
 /// when it is off; a dot on each of its points.
-fn curve(painter: &Painter, p: &CurveProps, rect: Rect, (cw, _): (f32, f32)) {
+pub fn curve(painter: &Painter, p: &CurveProps, rect: Rect, (cw, _): (f32, f32)) {
     let t = th();
     let colour = if p.enabled == Some(false) {
         t.text_3

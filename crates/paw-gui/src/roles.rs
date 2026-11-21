@@ -7,24 +7,126 @@
 //! track's (`bind`, `meter:<id>`) moves with `scene.live`, with no new
 //! scene.
 
+use std::str::FromStr;
+
 use egui::{Align2, Color32, CornerRadius, Id, Painter, Pos2, Rect, Sense, Stroke, StrokeKind, Ui, pos2, vec2};
 use paw_scene::props::{self, *};
 use paw_scene::{Kind, Node};
 use serde_json::Value;
 
 use crate::theme::{T_BASE, T_SMALL, alpha, hex, mix, mono_medium, semi, th};
-use crate::widgets;
+use crate::{timeline, widgets};
 
-/// The roles this window paints: it says so when it watches scenes, and
-/// is sent them without their cells.
-pub const KNOWN: &[&str] = &[
-    "label", "button", "switch", "knob", "fader", "meter", "peak", "chip", "note", "keyboard", "playhead", "scrollbar", "param", "power", "band", "clip",
-    "beats", "hmeter", "curve", "trackhead", "recording",
-];
+/// A role this window paints, read once from a role node's name (the
+/// `role` of the scene's node, as runtime/lua/paw/roles names it). Each
+/// has its props in paw_scene::props (`LabelProps` for `Label`, and so on),
+/// read from the node as it is painted. A role not named here is drawn as
+/// the cells the view lowered it to.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Role {
+    Label,
+    Button,
+    Switch,
+    Knob,
+    Fader,
+    Meter,
+    Peak,
+    Chip,
+    Note,
+    Keyboard,
+    Playhead,
+    Scrollbar,
+    Param,
+    Power,
+    Band,
+    Clip,
+    Beats,
+    Hmeter,
+    Curve,
+    Trackhead,
+    Recording,
+}
 
-/// The roles that paint over all of their rectangle: what is under them is
-/// not drawn.
-pub const OPAQUE: &[&str] = &["beats", "trackhead"];
+/// A role's name that this window does not paint.
+#[derive(Debug, PartialEq, Eq)]
+pub struct UnknownRole;
+
+impl Role {
+    /// The roles this window paints: it says so when it watches scenes,
+    /// and is sent them without their cells.
+    pub const ALL: [Role; 21] = [
+        Role::Label,
+        Role::Button,
+        Role::Switch,
+        Role::Knob,
+        Role::Fader,
+        Role::Meter,
+        Role::Peak,
+        Role::Chip,
+        Role::Note,
+        Role::Keyboard,
+        Role::Playhead,
+        Role::Scrollbar,
+        Role::Param,
+        Role::Power,
+        Role::Band,
+        Role::Clip,
+        Role::Beats,
+        Role::Hmeter,
+        Role::Curve,
+        Role::Trackhead,
+        Role::Recording,
+    ];
+
+    /// Its name in a scene.
+    pub fn name(self) -> &'static str {
+        match self {
+            Role::Label => "label",
+            Role::Button => "button",
+            Role::Switch => "switch",
+            Role::Knob => "knob",
+            Role::Fader => "fader",
+            Role::Meter => "meter",
+            Role::Peak => "peak",
+            Role::Chip => "chip",
+            Role::Note => "note",
+            Role::Keyboard => "keyboard",
+            Role::Playhead => "playhead",
+            Role::Scrollbar => "scrollbar",
+            Role::Param => "param",
+            Role::Power => "power",
+            Role::Band => "band",
+            Role::Clip => "clip",
+            Role::Beats => "beats",
+            Role::Hmeter => "hmeter",
+            Role::Curve => "curve",
+            Role::Trackhead => "trackhead",
+            Role::Recording => "recording",
+        }
+    }
+
+    /// The role of a node, if it is one this window paints.
+    pub fn of(node: &Node) -> Option<Role> {
+        match &node.kind {
+            Kind::Role { role, .. } => role.parse().ok(),
+            _ => None,
+        }
+    }
+
+    /// Whether it paints over all of its rectangle: what is under it is not
+    /// drawn.
+    pub fn opaque(self) -> bool {
+        matches!(self, Role::Beats | Role::Trackhead)
+    }
+}
+
+impl FromStr for Role {
+    type Err = UnknownRole;
+
+    fn from_str(name: &str) -> Result<Role, UnknownRole> {
+        Role::ALL.into_iter().find(|role| role.name() == name).ok_or(UnknownRole)
+    }
+}
 
 /// A colour named by the palette (`tone`), else `or`.
 fn tone(tone: Option<&str>, or: Color32) -> Color32 {
@@ -43,9 +145,6 @@ fn font_for(rect: Rect, bold: bool) -> egui::FontId {
     if bold { semi(size) } else { crate::theme::sans(size) }
 }
 
-/// Paint a role node over `rect` (points), on a scene whose cells are
-/// `row` points high, with the live values the kernel last sent; `id` is
-/// its own in the window. False for a role this window does not know.
 /// What a role is called (its `label`), for whoever reads the window
 /// without seeing it; said each frame, painted or not.
 pub fn name(ui: &Ui, id: Id, node: &Node, rect: Rect) {
@@ -57,220 +156,236 @@ pub fn name(ui: &Ui, id: Id, node: &Node, rect: Rect) {
     }
 }
 
-pub fn paint(ui: &Ui, painter: &Painter, id: Id, node: &Node, rect: Rect, cell: (f32, f32), live: &Value) -> bool {
-    let row = cell.1;
-    let Kind::Role { role, props } = &node.kind else { return false };
-    let t = th();
+/// Paint the node `node`, of the role `role`, over `rect` (points), on a
+/// scene whose cells are `cell` points, with the live values the kernel
+/// last sent; `id` is its own in the window.
+#[allow(clippy::too_many_arguments)]
+pub fn paint(ui: &Ui, painter: &Painter, id: Id, node: &Node, role: Role, rect: Rect, cell: (f32, f32), live: &Value) {
+    let Kind::Role { props, .. } = &node.kind else { return };
     name(ui, id, node, rect);
     let under = ui.rect_contains_pointer(rect);
-    match role.as_str() {
-        "label" => {
-            let p: LabelProps = props::parse(props);
-            let align = match p.align {
-                Some("right") => Align2::RIGHT_CENTER,
-                Some("center") => Align2::CENTER_CENTER,
-                _ => Align2::LEFT_CENTER,
-            };
-            let at = match align {
-                Align2::RIGHT_CENTER => rect.right_center(),
-                Align2::CENTER_CENTER => rect.center(),
-                _ => rect.left_center(),
-            };
-            // In the window's monospace font, unless it asks for words
-            // (`sans`) or a heading (`title`); cut to its rectangle.
-            let size = (rect.height() * 0.7).clamp(8.0, T_SMALL + 1.0);
-            let font = match p.font {
-                Some("sans") => crate::theme::sans(size + 0.5),
-                Some("title") => semi((rect.height() * 0.72).clamp(8.0, T_BASE)),
-                _ => mono_medium(size),
-            };
-            let colour = tone(p.tone, t.text_2);
-            // Words may be a little wider than the cells they stand in: up
-            // to a cell more, which a view leaves free after a heading.
-            let mut said = p.text.unwrap_or("").trim_end().to_string();
-            if p.capital
-                && let Some(first) = said.chars().next()
-            {
-                said = first.to_uppercase().chain(said.chars().skip(1)).collect();
-            }
-            let room = rect.width() + if p.font.is_some() { cell.0 } else { 2.0 };
-            let shown = widgets::elide(ui, &said, font.clone(), room);
-            let drawn = painter.text(at, align, shown, font, colour);
-            if p.strike {
-                painter.hline(drawn.x_range(), drawn.center().y, Stroke::new(1.0, colour));
-            }
-        }
-        "button" => {
-            // A quiet one shows a face only under the pointer or when on; one
-            // that opens a menu has a caret, drawn, for the terminal's `▾`.
-            let p: ButtonProps = props::parse(props);
-            let (on, menu) = (p.on, p.menu);
-            let face = if under { t.control_hover } else if p.quiet { Color32::TRANSPARENT } else { t.control };
-            let shape = rect.shrink2(vec2(1.0, 2.0));
-            painter.rect_filled(shape, CornerRadius::same(4), if on { alpha(t.select, 0.85) } else { face });
-            let colour = if on { t.surface } else if p.off { t.text_3 } else { tone(p.tone, t.text) };
-            let font = font_for(rect, false);
-            let whole = p.words.or(p.text).unwrap_or("").to_string();
-            // An icon in place of the glyph that stands for it in cells: a
-            // text of one character is that glyph alone, a longer one the
-            // words after it.
-            let mut shape = shape;
-            if let Some(icon) = p.icon.and_then(icon_named) {
-                let words = whole.trim().trim_start_matches(|c: char| !c.is_alphanumeric()).trim();
-                let side = (shape.height() - 4.0).clamp(8.0, 12.0);
-                if whole.trim().chars().count() <= 1 || words.is_empty() {
-                    widgets::icon_on(painter, Rect::from_center_size(shape.center(), vec2(side, side)), icon, colour);
-                    return true;
-                }
-                widgets::icon_on(painter, Rect::from_min_size(pos2(shape.left() + 5.0, shape.center().y - side / 2.0), vec2(side, side)), icon, colour);
-                shape.min.x += side + 4.0;
-                let room = shape.width() - 10.0;
-                let shown = widgets::elide(ui, words, font.clone(), room);
-                painter.text(pos2(shape.left() + 3.0, shape.center().y), Align2::LEFT_CENTER, shown, font, colour);
-                return true;
-            }
-            let label = if menu { whole.trim().trim_end_matches(['▾', 'v']).trim_end() } else { whole.trim() };
-            // A small one keeps a narrow margin; a menu too narrow for its
-            // words and its caret shows the words alone.
-            let margin = if shape.width() < 30.0 { 2.0 } else if shape.width() < 40.0 { 4.0 } else { 10.0 };
-            let caret = menu && (label.is_empty() || widgets::text_width(ui, label, font.clone()) <= shape.width() - 16.0);
-            let room = shape.width() - if caret { 16.0 } else if menu { 6.0 } else { margin };
-            let shown = widgets::elide(ui, label, font.clone(), room);
-            let centred = !menu && widgets::text_width(ui, &shown, font.clone()) < room;
-            if centred {
-                painter.text(shape.center(), Align2::CENTER_CENTER, shown, font, colour);
-            } else {
-                painter.text(pos2(shape.left() + if menu { 3.0 } else { 5.0 }, shape.center().y), Align2::LEFT_CENTER, shown, font, colour);
-            }
-            if caret {
-                let (x, y) = (shape.right() - 10.0, shape.center().y);
-                painter.add(egui::Shape::convex_polygon(vec![pos2(x - 3.5, y - 1.5), pos2(x + 3.5, y - 1.5), pos2(x, y + 2.5)], t.text_2, Stroke::NONE));
-            }
-        }
-        "switch" => {
-            let p: SwitchProps = props::parse(props);
-            let on = p.on;
-            let lit = tone(p.tone, t.select);
-            let side = rect.width().min(rect.height()).max(4.0);
-            let shape = Rect::from_center_size(rect.center(), vec2(rect.width().max(side) - 1.0, rect.height() - 2.0));
-            let face = if on { lit } else if under { t.control_hover } else { t.control };
-            painter.rect_filled(shape, CornerRadius::same(3), face);
-            let ink = if on { t.on_hue } else { t.text_2 };
-            // An icon in place of its letter, where it names one.
-            match p.icon.and_then(icon_named) {
-                Some(icon) => {
-                    let side = (shape.height() - 4.0).clamp(8.0, 12.0);
-                    widgets::icon_on(painter, Rect::from_center_size(shape.center(), vec2(side, side)), icon, ink);
-                }
-                None => {
-                    let letter = p.letter.unwrap_or("");
-                    painter.text(shape.center(), Align2::CENTER_CENTER, letter, semi((rect.height() * 0.6).clamp(8.0, T_SMALL)), ink);
-                }
-            }
-        }
-        "knob" if props::parse::<KnobProps>(props).round => {
-            // A round knob, turned from the middle; its pointer where the
-            // sound sits.
-            let value = (props::parse::<KnobProps>(props).value as f32).clamp(-1.0, 1.0);
-            let r = (rect.height().min(rect.width()) / 2.0 - 1.0).max(3.0);
-            let centre = pos2(rect.left() + r + 1.0, rect.center().y);
-            painter.circle(centre, r, if under { t.control_hover } else { t.control }, Stroke::new(1.0, t.divider));
-            let turn = value * 135f32.to_radians();
-            let at = |d: f32| centre + vec2(turn.sin(), -turn.cos()) * d;
-            painter.line_segment([at(r * 0.25), at(r - 1.5)], Stroke::new(2.0, if value.abs() > 1e-3 { t.select } else { t.text }));
-        }
-        "knob" => {
-            // A pan: a rail across, the middle marked, a bar from the middle
-            // to where the sound sits and a thumb there.
-            let value = (props::parse::<KnobProps>(props).value as f32).clamp(-1.0, 1.0);
-            let y = rect.center().y;
-            let (left, right) = (rect.left() + 3.0, rect.right() - 3.0);
-            let middle = (left + right) / 2.0;
-            let at = middle + value * (right - left) / 2.0;
-            painter.hline(left..=right, y, Stroke::new(2.0, t.well));
-            painter.vline(middle, (y - 3.0)..=(y + 3.0), Stroke::new(1.0, t.text_3));
-            painter.hline(middle.min(at)..=middle.max(at), y, Stroke::new(2.0, t.select));
-            painter.circle_filled(pos2(at, y), (rect.height() * 0.28).clamp(3.0, 6.0), if under { t.bright } else { t.thumb });
-        }
-        "param" | "playhead" | "meter" | "peak" | "hmeter" | "recording" => {
-            paint_live(painter, node, rect, cell, live, under);
-        }
-        "power" => {
-            // A power button, lit while the device plays.
-            let on = props::parse::<PowerProps>(props).on;
-            let shape = Rect::from_center_size(rect.center(), vec2(rect.height().max(18.0).min(rect.width()), rect.height() - 2.0));
-            let face = if on { alpha(t.select, 0.85) } else if under { t.control_hover } else { t.control };
-            painter.rect_filled(shape, CornerRadius::same(4), face);
-            let side = (shape.height() - 5.0).clamp(8.0, 12.0);
-            widgets::icon_on(painter, Rect::from_center_size(shape.center(), vec2(side, side)), crate::icons::POWER, if on { t.surface } else { t.text_3 });
-        }
-        "band" => {
-            // A card's heading: a band across, a shade lighter than the panel;
-            // tinted where the keyboard's cursor is.
-            let shape = rect.shrink2(vec2(1.0, 0.5));
-            let p: BandProps = props::parse(props);
-            let face = if p.selected { mix(t.card, t.select, 0.72) } else if p.off { alpha(t.card, 0.6) } else { t.card };
-            painter.rect_filled(shape, CornerRadius::same(3), face);
-            painter.hline(shape.x_range(), shape.top() + 0.5, Stroke::new(1.0, alpha(t.card_line, 0.8)));
-        }
-        "note" => note(ui, painter, rect, &props::parse(props), under),
-        "keyboard" => keyboard(painter, rect, &props::parse(props), row),
-        "scrollbar" => scrollbar(painter, rect, &props::parse(props), under),
-        "fader" => fader(painter, rect, &props::parse(props), under, row),
-        "chip" => {
-            let p: ChipProps = props::parse(props);
-            let colour = p.color.and_then(hex).unwrap_or(t.control);
-            painter.rect_filled(rect, CornerRadius::ZERO, colour);
-            let font = font_for(rect, true);
-            let mut left = rect.left() + 4.0;
-            if let Some(n) = p.number {
-                let number = n.to_string();
-                painter.text(pos2(left, rect.center().y), Align2::LEFT_CENTER, &number, font.clone(), alpha(t.on_hue, 0.6));
-                left += widgets::text_width(ui, &number, font.clone()) + 4.0;
-            }
-            let shown = widgets::elide(ui, p.text.unwrap_or(""), font.clone(), rect.right() - 4.0 - left);
-            painter.text(pos2((left + rect.right() - 4.0) / 2.0, rect.center().y), Align2::CENTER_CENTER, shown, font, t.on_hue);
-            if p.selected {
-                painter.rect_stroke(rect, CornerRadius::ZERO, Stroke::new(1.0, Color32::WHITE), StrokeKind::Inside);
-            }
-        }
+    match role {
+        Role::Label => label(ui, painter, rect, &props::parse(props), cell),
+        Role::Button => button(ui, painter, rect, &props::parse(props), under),
+        Role::Switch => switch(painter, rect, &props::parse(props), under),
+        Role::Knob => knob(painter, rect, &props::parse(props), under),
+        Role::Power => power(painter, rect, &props::parse(props), under),
+        Role::Band => band(painter, rect, &props::parse(props)),
+        Role::Note => note(ui, painter, rect, &props::parse(props), under),
+        Role::Keyboard => keyboard(painter, rect, &props::parse(props), cell.1),
+        Role::Scrollbar => scrollbar(painter, rect, &props::parse(props), under),
+        Role::Fader => fader(painter, rect, &props::parse(props), under, cell.1),
+        Role::Chip => chip(ui, painter, rect, &props::parse(props)),
         // The arrange view's (crate::timeline).
-        other => return crate::timeline::paint(ui, painter, other, props, rect, cell),
+        Role::Clip => timeline::clip(ui, painter, &props::parse(props), rect, cell),
+        Role::Beats => timeline::ground(painter, &props::parse(props), rect, cell),
+        Role::Curve => timeline::curve(painter, &props::parse(props), rect, cell),
+        Role::Trackhead => timeline::trackhead(ui, painter, &props::parse(props), rect),
+        Role::Param | Role::Playhead | Role::Meter | Role::Peak | Role::Hmeter | Role::Recording => paint_live(painter, node, role, rect, cell, live, under),
     }
-    true
+}
+
+/// A line of text, in the window's monospace font unless it asks for words
+/// (`sans`) or a heading (`title`); cut to its rectangle.
+fn label(ui: &Ui, painter: &Painter, rect: Rect, p: &LabelProps, cell: (f32, f32)) {
+    let t = th();
+    let align = match p.align {
+        Some("right") => Align2::RIGHT_CENTER,
+        Some("center") => Align2::CENTER_CENTER,
+        _ => Align2::LEFT_CENTER,
+    };
+    let at = match align {
+        Align2::RIGHT_CENTER => rect.right_center(),
+        Align2::CENTER_CENTER => rect.center(),
+        _ => rect.left_center(),
+    };
+    let size = (rect.height() * 0.7).clamp(8.0, T_SMALL + 1.0);
+    let font = match p.font {
+        Some("sans") => crate::theme::sans(size + 0.5),
+        Some("title") => semi((rect.height() * 0.72).clamp(8.0, T_BASE)),
+        _ => mono_medium(size),
+    };
+    let colour = tone(p.tone, t.text_2);
+    // Words may be a little wider than the cells they stand in: up to a
+    // cell more, which a view leaves free after a heading.
+    let mut said = p.text.unwrap_or("").trim_end().to_string();
+    if p.capital
+        && let Some(first) = said.chars().next()
+    {
+        said = first.to_uppercase().chain(said.chars().skip(1)).collect();
+    }
+    let room = rect.width() + if p.font.is_some() { cell.0 } else { 2.0 };
+    let shown = widgets::elide(ui, &said, font.clone(), room);
+    let drawn = painter.text(at, align, shown, font, colour);
+    if p.strike {
+        painter.hline(drawn.x_range(), drawn.center().y, Stroke::new(1.0, colour));
+    }
+}
+
+/// A button. A quiet one shows a face only under the pointer or when on;
+/// one that opens a menu has a caret, drawn, for the terminal's `▾`.
+fn button(ui: &Ui, painter: &Painter, rect: Rect, p: &ButtonProps, under: bool) {
+    let t = th();
+    let (on, menu) = (p.on, p.menu);
+    let face = if under { t.control_hover } else if p.quiet { Color32::TRANSPARENT } else { t.control };
+    let mut shape = rect.shrink2(vec2(1.0, 2.0));
+    painter.rect_filled(shape, CornerRadius::same(4), if on { alpha(t.select, 0.85) } else { face });
+    let colour = if on { t.surface } else if p.off { t.text_3 } else { tone(p.tone, t.text) };
+    let font = font_for(rect, false);
+    let whole = p.words.or(p.text).unwrap_or("");
+    // An icon in place of the glyph that stands for it in cells: a text of
+    // one character is that glyph alone, a longer one the words after it.
+    if let Some(icon) = p.icon.and_then(icon_named) {
+        let words = whole.trim().trim_start_matches(|c: char| !c.is_alphanumeric()).trim();
+        let side = (shape.height() - 4.0).clamp(8.0, 12.0);
+        if whole.trim().chars().count() <= 1 || words.is_empty() {
+            widgets::icon_on(painter, Rect::from_center_size(shape.center(), vec2(side, side)), icon, colour);
+            return;
+        }
+        widgets::icon_on(painter, Rect::from_min_size(pos2(shape.left() + 5.0, shape.center().y - side / 2.0), vec2(side, side)), icon, colour);
+        shape.min.x += side + 4.0;
+        let room = shape.width() - 10.0;
+        let shown = widgets::elide(ui, words, font.clone(), room);
+        painter.text(pos2(shape.left() + 3.0, shape.center().y), Align2::LEFT_CENTER, shown, font, colour);
+        return;
+    }
+    let label = if menu { whole.trim().trim_end_matches(['▾', 'v']).trim_end() } else { whole.trim() };
+    // A small one keeps a narrow margin; a menu too narrow for its words
+    // and its caret shows the words alone.
+    let margin = if shape.width() < 30.0 { 2.0 } else if shape.width() < 40.0 { 4.0 } else { 10.0 };
+    let caret = menu && (label.is_empty() || widgets::text_width(ui, label, font.clone()) <= shape.width() - 16.0);
+    let room = shape.width() - if caret { 16.0 } else if menu { 6.0 } else { margin };
+    let shown = widgets::elide(ui, label, font.clone(), room);
+    let centred = !menu && widgets::text_width(ui, &shown, font.clone()) < room;
+    if centred {
+        painter.text(shape.center(), Align2::CENTER_CENTER, shown, font, colour);
+    } else {
+        painter.text(pos2(shape.left() + if menu { 3.0 } else { 5.0 }, shape.center().y), Align2::LEFT_CENTER, shown, font, colour);
+    }
+    if caret {
+        let (x, y) = (shape.right() - 10.0, shape.center().y);
+        painter.add(egui::Shape::convex_polygon(vec![pos2(x - 3.5, y - 1.5), pos2(x + 3.5, y - 1.5), pos2(x, y + 2.5)], t.text_2, Stroke::NONE));
+    }
+}
+
+/// A switch, lit in its `tone` when on: an icon in place of its letter,
+/// where it names one.
+fn switch(painter: &Painter, rect: Rect, p: &SwitchProps, under: bool) {
+    let t = th();
+    let on = p.on;
+    let lit = tone(p.tone, t.select);
+    let side = rect.width().min(rect.height()).max(4.0);
+    let shape = Rect::from_center_size(rect.center(), vec2(rect.width().max(side) - 1.0, rect.height() - 2.0));
+    let face = if on { lit } else if under { t.control_hover } else { t.control };
+    painter.rect_filled(shape, CornerRadius::same(3), face);
+    let ink = if on { t.on_hue } else { t.text_2 };
+    match p.icon.and_then(icon_named) {
+        Some(icon) => {
+            let side = (shape.height() - 4.0).clamp(8.0, 12.0);
+            widgets::icon_on(painter, Rect::from_center_size(shape.center(), vec2(side, side)), icon, ink);
+        }
+        None => {
+            let letter = p.letter.unwrap_or("");
+            painter.text(shape.center(), Align2::CENTER_CENTER, letter, semi((rect.height() * 0.6).clamp(8.0, T_SMALL)), ink);
+        }
+    }
+}
+
+/// A pan. A round one is a knob turned from the middle, its pointer where
+/// the sound sits; else a rail across, the middle marked, a bar from the
+/// middle to where the sound sits and a thumb there.
+fn knob(painter: &Painter, rect: Rect, p: &KnobProps, under: bool) {
+    let t = th();
+    let value = (p.value as f32).clamp(-1.0, 1.0);
+    if p.round {
+        let r = (rect.height().min(rect.width()) / 2.0 - 1.0).max(3.0);
+        let centre = pos2(rect.left() + r + 1.0, rect.center().y);
+        painter.circle(centre, r, if under { t.control_hover } else { t.control }, Stroke::new(1.0, t.divider));
+        let turn = value * 135f32.to_radians();
+        let at = |d: f32| centre + vec2(turn.sin(), -turn.cos()) * d;
+        painter.line_segment([at(r * 0.25), at(r - 1.5)], Stroke::new(2.0, if value.abs() > 1e-3 { t.select } else { t.text }));
+        return;
+    }
+    let y = rect.center().y;
+    let (left, right) = (rect.left() + 3.0, rect.right() - 3.0);
+    let middle = (left + right) / 2.0;
+    let at = middle + value * (right - left) / 2.0;
+    painter.hline(left..=right, y, Stroke::new(2.0, t.well));
+    painter.vline(middle, (y - 3.0)..=(y + 3.0), Stroke::new(1.0, t.text_3));
+    painter.hline(middle.min(at)..=middle.max(at), y, Stroke::new(2.0, t.select));
+    painter.circle_filled(pos2(at, y), (rect.height() * 0.28).clamp(3.0, 6.0), if under { t.bright } else { t.thumb });
+}
+
+/// A power button, lit while the device plays.
+fn power(painter: &Painter, rect: Rect, p: &PowerProps, under: bool) {
+    let t = th();
+    let on = p.on;
+    let shape = Rect::from_center_size(rect.center(), vec2(rect.height().max(18.0).min(rect.width()), rect.height() - 2.0));
+    let face = if on { alpha(t.select, 0.85) } else if under { t.control_hover } else { t.control };
+    painter.rect_filled(shape, CornerRadius::same(4), face);
+    let side = (shape.height() - 5.0).clamp(8.0, 12.0);
+    widgets::icon_on(painter, Rect::from_center_size(shape.center(), vec2(side, side)), crate::icons::POWER, if on { t.surface } else { t.text_3 });
+}
+
+/// A card's heading: a band across, a shade lighter than the panel; tinted
+/// where the keyboard's cursor is.
+fn band(painter: &Painter, rect: Rect, p: &BandProps) {
+    let t = th();
+    let shape = rect.shrink2(vec2(1.0, 0.5));
+    let face = if p.selected { mix(t.card, t.select, 0.72) } else if p.off { alpha(t.card, 0.6) } else { t.card };
+    painter.rect_filled(shape, CornerRadius::same(3), face);
+    painter.hline(shape.x_range(), shape.top() + 0.5, Stroke::new(1.0, alpha(t.card_line, 0.8)));
+}
+
+/// A track's name on its colour, with its number; outlined when chosen.
+fn chip(ui: &Ui, painter: &Painter, rect: Rect, p: &ChipProps) {
+    let t = th();
+    let colour = p.color.and_then(hex).unwrap_or(t.control);
+    painter.rect_filled(rect, CornerRadius::ZERO, colour);
+    let font = font_for(rect, true);
+    let mut left = rect.left() + 4.0;
+    if let Some(n) = p.number {
+        let number = n.to_string();
+        painter.text(pos2(left, rect.center().y), Align2::LEFT_CENTER, &number, font.clone(), alpha(t.on_hue, 0.6));
+        left += widgets::text_width(ui, &number, font.clone()) + 4.0;
+    }
+    let shown = widgets::elide(ui, p.text.unwrap_or(""), font.clone(), rect.right() - 4.0 - left);
+    painter.text(pos2((left + rect.right() - 4.0) / 2.0, rect.center().y), Align2::CENTER_CENTER, shown, font, t.on_hue);
+    if p.selected {
+        painter.rect_stroke(rect, CornerRadius::ZERO, Stroke::new(1.0, Color32::WHITE), StrokeKind::Inside);
+    }
 }
 
 /// Paint a role that the live values can move (`bind`): the playhead, a
 /// meter, a peak, a parameter, a level across a row, a take being
 /// recorded. It needs no `Ui`: the window paints these again by themselves
-/// while only the live values change (crate::runner). False for another
+/// while only the live values change (crate::runner). Nothing for another
 /// role.
-pub fn paint_live(painter: &Painter, node: &Node, rect: Rect, cell: (f32, f32), live: &Value, under: bool) -> bool {
-    let Kind::Role { role, props } = &node.kind else { return false };
-    let t = th();
+pub fn paint_live(painter: &Painter, node: &Node, role: Role, rect: Rect, cell: (f32, f32), live: &Value, under: bool) {
+    let Kind::Role { props, .. } = &node.kind else { return };
     let bind = node.bind.as_deref();
-    match role.as_str() {
-        "param" => param(painter, rect, &props::parse(props), bind, live, cell, under),
-        "playhead" => playhead(painter, rect, &props::parse(props), bind, live, cell),
-        "meter" => meter(painter, rect, &props::parse(props), bind, live),
-        "peak" => {
-            // The loudest of late in a well, which turns red with the clip
-            // light.
-            let p: MeterProps = props::parse(props);
-            let (hold, clipped) = held(p.hold, p.clipped, bind, live);
-            let db = 20.0 * hold.max(1e-6).log10();
-            let said = crate::model::decibels(db);
-            let well = rect.shrink2(vec2(0.0, 1.0));
-            painter.rect_filled(well, CornerRadius::same(2), if clipped { alpha(t.meter_clip, 0.25) } else if under { t.control_hover } else { t.well });
-            let colour = if clipped { t.meter_clip } else if db > -0.1 { t.meter_hot } else { t.text_2 };
-            let size = (rect.height() * 0.7).clamp(8.0, T_SMALL + 1.0);
-            painter.text(well.right_center() - vec2(3.0, 0.0), Align2::RIGHT_CENTER, said, mono_medium(size), colour);
-        }
-        "hmeter" => crate::timeline::hmeter(painter, &props::parse(props), bind, live, rect, under),
-        "recording" => crate::timeline::recording(painter, &props::parse(props), bind, live, rect, cell),
-        _ => return false,
+    match role {
+        Role::Param => param(painter, rect, &props::parse(props), bind, live, cell, under),
+        Role::Playhead => playhead(painter, rect, &props::parse(props), bind, live, cell),
+        Role::Meter => meter(painter, rect, &props::parse(props), bind, live),
+        Role::Peak => peak(painter, rect, &props::parse(props), bind, live, under),
+        Role::Hmeter => timeline::hmeter(painter, &props::parse(props), bind, live, rect, under),
+        Role::Recording => timeline::recording(painter, &props::parse(props), bind, live, rect, cell),
+        _ => {}
     }
-    true
+}
+
+/// The loudest of late in a well, which turns red with the clip light.
+fn peak(painter: &Painter, rect: Rect, p: &MeterProps, bind: Option<&str>, live: &Value, under: bool) {
+    let t = th();
+    let (hold, clipped) = held(p.hold, p.clipped, bind, live);
+    let db = 20.0 * hold.max(1e-6).log10();
+    let said = crate::model::decibels(db);
+    let well = rect.shrink2(vec2(0.0, 1.0));
+    painter.rect_filled(well, CornerRadius::same(2), if clipped { alpha(t.meter_clip, 0.25) } else if under { t.control_hover } else { t.well });
+    let colour = if clipped { t.meter_clip } else if db > -0.1 { t.meter_hot } else { t.text_2 };
+    let size = (rect.height() * 0.7).clamp(8.0, T_SMALL + 1.0);
+    painter.text(well.right_center() - vec2(3.0, 0.0), Align2::RIGHT_CENTER, said, mono_medium(size), colour);
 }
 
 /// A note where it is between cells: its track's colour, deeper the harder
@@ -574,5 +689,13 @@ mod tests {
         assert_eq!(level(1.0), 1.0);
         assert!((level(0.001) - 0.0).abs() < 1e-6, "-60 dB is the bottom");
         assert!((level(0.1) - 2.0 / 3.0).abs() < 1e-4, "-20 dB two thirds up");
+    }
+
+    #[test]
+    fn each_role_the_window_says_it_paints_is_read_back_by_its_name() {
+        for role in Role::ALL {
+            assert_eq!(role.name().parse(), Ok(role));
+        }
+        assert_eq!("dial".parse::<Role>(), Err(UnknownRole), "left to the cells");
     }
 }
