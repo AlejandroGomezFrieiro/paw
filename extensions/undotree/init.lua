@@ -8,7 +8,7 @@ require("undotree.paint")
 paw.option.define("undotree_ab_key", "")   -- one more key that switches between A and B; "" for none
 
 local command, map = paw.command, paw.keymap.set
-paw.keymap.group("<leader>u", "undo tree")
+-- On the core's `<leader>p` (project): the undo history is the project's.
 
 command("undotree", function()
   if paw.ui.float and paw.ui.float.name == "undotree" then return paw.ui.close() end
@@ -92,16 +92,17 @@ end, { desc = "Forget the A/B marks" })
 
 map("g-", function(ctx) undotree.travel(-1, nil, ctx.count) end, { desc = "Older state, across branches", repeatable = false })
 map("g+", function(ctx) undotree.travel(1, nil, ctx.count) end, { desc = "Newer state, across branches", repeatable = false })
-map("<leader>uu", "undotree", { desc = "Undo tree", repeatable = false })
-map("<leader>ua", "ab.mark", { desc = "Mark this state as A", repeatable = false })
-map("<leader>ub", "ab.toggle", { desc = "Switch between A and B", repeatable = false })
-map("<leader>uB", "ab.clear", { desc = "Forget A and B", repeatable = false })
-map("<leader>uc", "checkpoint", { desc = "Write a checkpoint", repeatable = false })
-map("<leader>ul", "checkpoints", { desc = "List checkpoints", repeatable = false })
-map("<leader>un", function()
+map("<leader>pu", "undotree", { desc = "Undo tree", repeatable = false })
+map("<leader>vu", "undotree", { desc = "Undo tree", repeatable = false })
+map("<leader>pa", "ab.mark", { desc = "Mark this state as A", repeatable = false })
+map("<leader>pb", "ab.toggle", { desc = "Switch between A and B", repeatable = false })
+map("<leader>pB", "ab.clear", { desc = "Forget A and B", repeatable = false })
+map("<leader>pc", "checkpoint", { desc = "Write a checkpoint", repeatable = false })
+map("<leader>pC", "checkpoints", { desc = "List checkpoints", repeatable = false })
+map("<leader>pn", function()
   paw.ui.input({ prompt = "Name this state: " }, function(text) paw.cmd("undo.name", { text }) end)
 end, { desc = "Name this state", repeatable = false })
-map("<leader>ud", "undo.diff", { desc = "What the last step changed", repeatable = false })
+map("<leader>p.", "undo.diff", { desc = "What the last step changed", repeatable = false })
 if paw.opt.undotree_ab_key ~= "" then
   map(paw.opt.undotree_ab_key, "ab.toggle", { desc = "Switch between A and B", repeatable = false })
 end

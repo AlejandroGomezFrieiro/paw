@@ -68,6 +68,6 @@ in the help of Vim. Code has its own color, and tables show in columns.
 ## Help from other places
 
 - The bottom line of each view ends with its topic: `:help arrange-view` in the arrange view, `:help mixer` in the mixer.
-- In the keys picker (`?`) and the commands picker (`<Space>fc`), `Ctrl-]` opens the help of the chosen key or command.
+- In the keys picker (`?`) and the commands picker (`<Space>f:`), `Ctrl-]` opens the help of the chosen key or command.
 - The panel of the tutor gives the page of its lesson (`:help course-5`).
 - In the graphical window, help opens as a docked pane, with the same keys. `Ctrl-w f` shows it in a window of its own.

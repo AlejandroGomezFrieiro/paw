@@ -6,7 +6,7 @@ files. For each option, see
 
 ## One file for each group
 
-1. Put the tracks of each part into a group (`<Space>g` on the selected tracks).
+1. Put the tracks of each part into a group (`<Space>tg` on the selected tracks).
 2. Type `:render stems`. paw shows the plan: each file, and the tracks that
    it holds.
 3. Press `y` or `Enter` to render. The files go into the folder

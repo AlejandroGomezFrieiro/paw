@@ -1,5 +1,5 @@
 -- A one-file extension that adds a view: the transport position in big digits.
--- It starts hidden. `<Space>C` and `:clock` show and hide it.
+-- It starts hidden. `<Space>vc` and `:clock` show and hide it.
 local glyphs = {
   ["0"] = { "█▀█", "█ █", "▀▀▀" }, ["1"] = { " █ ", " █ ", " ▀ " }, ["2"] = { "▀▀█", "█▀▀", "▀▀▀" },
   ["3"] = { "▀▀█", " ▀█", "▀▀▀" }, ["4"] = { "█ █", "▀▀█", "  ▀" }, ["5"] = { "█▀▀", "▀▀█", "▀▀▀" },
@@ -30,4 +30,4 @@ paw.ui.view("clock", {
 paw.ui.dock("clock", { side = "top", size = 3 })
 paw.ui.hide("clock")
 paw.command("clock", function() paw.ui.toggle("clock") end, { desc = "Show or hide the big clock" })
-paw.keymap.set("<leader>C", "clock", { desc = "Show or hide the big clock" })
+paw.keymap.set("<leader>vc", "clock", { desc = "Show or hide the big clock" })

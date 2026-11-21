@@ -662,7 +662,7 @@ function M.tags_of_code(text: string, first?: boolean): {string}
   if text:match("^<leader>") or text:match("^<localleader>") then text = keymap.human(text) end
   -- Keys written as mappings write them (`<C-w>o`) are named as people
   -- write them (`Ctrl-w o`), as the docs do.
-  -- The default leader too: `<Space>xa` is `Space xa`.
+  -- The default leader too: `<Space>ma` is `Space ma`.
   if text:match("^<%a%-.->") or text:match("^<%u%a+>$") or text:match("^<Space>%S") then text = keymap.human(text) end
   local short = #text <= 16 and not text:find("  ") and not text:find("^%s")
   local keyish = short and (not text:find(" ") or text:match("^%u%l+%-%S+ %S+$") ~= nil or text:match("^Space %S+$") ~= nil)

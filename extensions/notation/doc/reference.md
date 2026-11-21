@@ -16,7 +16,19 @@ extension has the steps to try it and the how-to guides.
 | --- | --- |
 | `:notation` | the clip under the arrange cursor, or the piano roll's clip |
 | `\n` | the same, in the arrange view and in the piano roll |
+| `<Space>nn` `<Space>vn` | the same, from every view |
 | Open as notation | in the window's right-click menu of a MIDI clip |
+
+The domain `<Space>n` (notation) of the leader has the keys that work from
+every view:
+
+| Keys | Command | |
+| --- | --- | --- |
+| `<Space>nn` | `notation` | the clip under the cursor as notation |
+| `<Space>ns` | `score` | every track with MIDI as a score, a staff each |
+| `<Space>nc` | `score.check` | the pages of the score as they will be exported |
+| `<Space>ne` | `notation.export` | the clip as MusicXML, in a file with its name |
+| `<Space>nE` | `notation.export pdf` | the clip as an engraved PDF, in a file with its name |
 
 The view opens at the bottom of the terminal and takes two thirds of the
 height. In the graphical frontend, it opens in a window of its own. `\n`
@@ -548,9 +560,9 @@ last popover again, with what you typed in it.
 The letters are the letters of Dorico, where the letter of Dorico is not a
 note name. They are on the local leader (`\`), not on the leader (`<Space>`), so
 the leader keeps its meaning in the notation view. There, as in all views,
-`<Space>d` is the device panel, `<Space>m` the mixer, `<Space>l` the session view and `<Space>p`
-the piano roll. `<Space>c` and `<Space>x` start `<Space>ca` (fixes and actions) and the mix
-measurements, as in all views. The clef is `\C` and text is `\X`. `\.`
+`<Space>dd` is the device panel, `<Space>mm` the mixer, `<Space>vs` the session view and `<Space>vp`
+the piano roll. `<Space>l` starts the keys of the language servers (`<Space>la`, fixes and actions) and
+`<Space>m` the keys of the mix, as in all views. The clef is `\C` and text is `\X`. `\.`
 repeats the last popover.
 
 `paw.opt.localleader` changes the local leader. A key of a view of your

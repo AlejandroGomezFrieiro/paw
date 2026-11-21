@@ -56,7 +56,7 @@ remember projects under `--clean` or in a script.
 
 | Command or option | Effect |
 | --- | --- |
-| `:recent` | Chooses a recent project from a list (`<Space>fR`). `Alt-d` in the list removes one. |
+| `:recent` | Chooses a recent project from a list (`<Space>pr`). `Alt-d` in the list removes one. |
 | `:recent 2` | Opens the second recent project. |
 | `:recent.clear` | Removes all projects from the list. |
 | `paw.opt.reopen_last` | When `true`, a start with no project opens the newest one. If it does not open, paw shows a message and starts. |

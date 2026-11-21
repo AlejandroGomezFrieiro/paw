@@ -37,8 +37,8 @@ end, { desc = "Switch a MIDI LSP rule on or off: `midilsp.rule parallel-perfect 
 paw.command("problems", function() midilsp.problems() end,
   { desc = "Every language server's diagnostics with their fixes: Enter goes to one, or applies a fix" })
 
-paw.keymap.set("<leader>Lp", "problems", { desc = "Problems: every server's diagnostics and fixes" })
-paw.keymap.set("<leader>Lr", "midilsp.rule", { desc = "MIDI LSP's rules, to switch on and off" })
-paw.keymap.set("<leader>Li", "lsp info", { desc = "The language servers and what they can do" })
+-- On the core's `<leader>l` (language servers), beside `<leader>li`, `<leader>la` and `<leader>ll`.
+paw.keymap.set("<leader>lD", "problems", { desc = "Problems: every server's diagnostics and fixes" })
+paw.keymap.set("<leader>lR", "midilsp.rule", { desc = "MIDI LSP's rules, to switch on and off" })
 
 if paw.opt.midilsp_autostart then midilsp.start(false) end

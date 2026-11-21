@@ -37,7 +37,7 @@ interface.
 
 1. Press `a`, type `saturation` and press Enter.
    - The saturation device is the amp. It adds drive and harmonics.
-2. Press `<Space>d` (comma, then d) to open the device panel.
+2. Press `<Space>dd` (the space bar, then d two times) to open the device panel.
    - The panel shows Saturation and its parameters. The cursor is on the
      name of the device.
 3. Press `j` to go to Drive. Press `12+`.

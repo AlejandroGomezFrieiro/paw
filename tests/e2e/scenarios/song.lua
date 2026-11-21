@@ -83,8 +83,8 @@ days[1] = function(E)
   E:act({ name = "draw a second bar of lead, and undo it", keys = keys, focus = "arrange" })
   E:act({ name = "mark the intro", keys = { "<Esc>", "1|", ":marker Intro<CR>" }, says = "Intro",
     apply = function(m) m.markers[#m.markers + 1] = { name = "Intro", beat = 0 } end })
-  E:act({ name = "look at the mixer", keys = { "<Space>m" }, focus = "mixer" })
-  E:act({ name = "close the mixer", keys = { "<Space>m" }, focus = "arrange" })
+  E:act({ name = "look at the mixer", keys = { "<Space>mm" }, focus = "mixer" })
+  E:act({ name = "close the mixer", keys = { "<Space>mm" }, focus = "arrange" })
   if r.chance(0.5) then
     -- Not timed: the first `:help` of a session takes over a second of
     -- processor time (a finding of the first run); later ones take 20 ms.
@@ -195,13 +195,13 @@ days[3] = function(E)
   -- In the mixer: the strip of the lead, its pan and its level typed.
   local pan = r.int(1, 5) * 10
   local level = -r.int(1, 8)
-  local keys = { "<Esc>", "<Space>m", "0" }
+  local keys = { "<Esc>", "<Space>mm", "0" }
   if lead > 1 then keys[#keys + 1] = (lead - 1) .. "l" end
   keys[#keys + 1] = "grpL" .. pan .. "<CR>"
   keys[#keys + 1] = "grv" .. level .. "<CR>"
   E:act({ name = "pan and level the lead in the mixer", keys = keys, focus = "mixer",
     apply = function(m) m.tracks[lead].pan = -pan / 100 m.tracks[lead].volume = level end })
-  E:act({ name = "close the mixer", keys = { "<Space>m" }, focus = "arrange" })
+  E:act({ name = "close the mixer", keys = { "<Space>mm" }, focus = "arrange" })
   -- A faster tempo; the clips keep their beats. The drum sample keeps its
   -- time (`timebase` "time"), so it is shorter in beats.
   local tempo = E.model.tempo + r.int(4, 12)
@@ -370,9 +370,9 @@ days[6] = function(E)
       M.automate(m.tracks[bass], "pan", 12, 0.5)
     end })
   local i = r.int(1, #E.model.tracks)
-  E:act({ name = "solo a track in the mixer, and take it back", keys = { "<Esc>", "<Space>m", "0", (i > 1 and (i - 1) .. "l" or "0"), "s", "s" },
+  E:act({ name = "solo a track in the mixer, and take it back", keys = { "<Esc>", "<Space>mm", "0", (i > 1 and (i - 1) .. "l" or "0"), "s", "s" },
     focus = "mixer" })
-  E:act({ name = "close the mixer", keys = { "<Space>m" }, focus = "arrange" })
+  E:act({ name = "close the mixer", keys = { "<Space>mm" }, focus = "arrange" })
 end
 
 -- Day 7: the drum sample is too short: stretched to half speed. The first
@@ -440,7 +440,7 @@ days[9] = function(E)
       local t = paw.cursor.track()
       if not t or t.name ~= "Bass" then self:fail("pick a track", "the cursor is on " .. tostring(t and t.name)) end
     end })
-  E:act({ name = "go to the bridge with the marker picker", keys = { "<Esc>", "<Space>f'", "Bridge<CR>" }, focus = "arrange",
+  E:act({ name = "go to the bridge with the marker picker", keys = { "<Esc>", "<Space>fm", "Bridge<CR>" }, focus = "arrange",
     check = function(self)
       local want = 0
       for _, m in ipairs(self.model.markers) do if m.name == "Bridge" then want = m.beat end end
@@ -469,7 +469,7 @@ days[10] = function(E)
     apply = function(m) m.tracks[lead].volume = b end })
   E:act({ name = "g- goes to the first idea, on the other branch", keys = { "g-" },
     apply = function(m) m.tracks[lead].volume = a end })
-  E:act({ name = "the undo tree's window, and closed", keys = { "<Space>uu", "<Esc>" }, focus = "arrange" })
+  E:act({ name = "the undo tree's window, and closed", keys = { "<Space>pu", "<Esc>" }, focus = "arrange" })
 end
 
 -- Day 11: the project takes its files in, and the stems go to a friend.

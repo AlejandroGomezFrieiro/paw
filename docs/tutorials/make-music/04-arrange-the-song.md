@@ -74,9 +74,9 @@ In the graphical window, you can also drag a clip to move it.
 3. Press `['`.
    - `['` goes to the marker before, the second verse. `]'` goes to the
      next marker.
-4. Press `<Space>ft` (comma, f, t).
+4. Press `<Space>ft` (the space bar, f, t).
    - A list of the tracks opens. `<Space>f` and a letter open a list of other
-     things, for example `<Space>fl` the clips.
+     things, for example `<Space>fc` the clips.
 5. Type `Bass` and press Enter.
    - The cursor goes to the Bass track, at the same bar.
 6. Press `gp` to move the playhead to the cursor. Press `<Space><Space>`.

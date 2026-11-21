@@ -33,7 +33,7 @@ the mix report and the messages. Extensions add entries (see
 | `:copen`, `:copen 15` | Opens a window that shows the list, along the bottom, the full width (`qf_height` rows). |
 | `:cclose` | Closes the window. |
 | `:cwindow` | Opens the window if the list has entries, and closes it if not. |
-| `j` `k` `gg` `G`, `Enter`, `<Space>ca`, `q` | In the window of the list: move, go to the entry, do its fix, close the window. |
+| `j` `k` `gg` `G`, `Enter`, `<Space>la`, `q` | In the window of the list: move, go to the entry, do its fix, close the window. |
 | `:colder` `:cnewer` | Show the list before and after in the history. paw keeps ten lists. |
 | `:chistory` | Lists all lists in the history. |
 | `:cdiag`, `:cdiag error` | Makes a list of the diagnostics (as `vim.diagnostic.setqflist`), or of the errors. |

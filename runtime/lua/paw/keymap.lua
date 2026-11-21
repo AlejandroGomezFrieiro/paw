@@ -168,7 +168,7 @@ end
 
 --- Map keys.
 ---   paw.keymap.set("M", "track.mute", { desc = "Mute track" })
----   paw.keymap.set("<leader>x", function(ctx) ... end, { view = "arrange" })
+---   paw.keymap.set("<leader>mz", function(ctx) ... end, { desc = "Check the mix" })
 --- `ctx` has `count`, `register` and, for mappings made with `char = true`,
 --- the key typed after the mapping as `char`.
 ---
@@ -203,8 +203,8 @@ function M.set(lhs, rhs, opts)
 end
 
 --- Give a name to a prefix that only leads to more keys. The hints after it
---- then show `+mixer`, not the number of keys after it.
----   paw.keymap.group("<leader>x", "mix checks")
+--- then show `+mix`, not the number of keys after it.
+---   paw.keymap.group("<leader>m", "mix")
 --- With `opts.view`, the name applies only while that view has focus.
 function M.group(prefix, name, opts)
   local scope = opts and opts.view or "global"

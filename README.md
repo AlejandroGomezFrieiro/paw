@@ -138,7 +138,7 @@ it, and the sound does not stop:
 
 ```lua
 paw.ui.hl("Playhead", { bg = "#f38ba8" })
-paw.keymap.set("<leader>T", "track.add Strings device=synth", { desc = "A strings track" })
+paw.keymap.set("<leader>tS", "track.add Strings device=synth", { desc = "A strings track" })
 ```
 
 [config/init.lua](config/init.lua) is an example to start from. See

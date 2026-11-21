@@ -38,7 +38,7 @@ meaning:
 - An octave is `Ctrl-d` `Ctrl-u` (half a page in Vim), because `J` `K` are not motions: `K` describes, and `J` joins clips. In insert mode, `J` `K` still move the note an octave.
 - The count-in went from `gC` to `gM`, next to `gm` of the metronome. So `gC` opens curves everywhere. `gc` does not open a curve any more.
 - `gn` stays the next edited clip of the piano roll, as `gn` of Vim goes to the next match. The wave of the curve editor is `g~` (an operator, and `~` looks like a wave), its shapes are `~`, and its own window is `Ctrl-w f`. `gw` is only the warp marker.
-- `s` is solo wherever there is a track. The session view stops the clip of a track with `S` (`gS` every clip). The presets of the device panel are `c` on a device (choose), `]p` `[p` (step), `<Space>w` (save, as `:w` writes) and `<Space>W` (the default).
+- `s` is solo wherever there is a track. The session view stops the clip of a track with `S` (`gS` every clip). The presets of the device panel are `c` on a device (choose), `]p` `[p` (step), `<Space>dw` (save, as `:w` writes) and `<Space>dW` (the default).
 - The system breaks of the score are `zs` (a system starts here) and `zj` (join the bar to the system before), next to `zg` and `zp`, which also set the layout of the page. `gS` keeps its meaning of the session view and the panel.
 - `a` appends. It already added a device on a track and notes after a note. It does the same in the mixer and the panel.
 - `A` already added a point of automation at the cursor in every view that had it.
@@ -63,6 +63,26 @@ Space waits, and after a moment it lists the keys that can follow it.
 
 The comma is free again in normal mode. As in Vim, `;` and `,` do the
 last `f` or `t` again, in the same direction and the other direction.
+
+## After the leader, a domain and then a key
+
+Many Neovim configurations put a domain after the leader: `f` finds, `g`
+is git, `l` the language servers. paw does the same. After `<Space>`, the
+first key is a domain (`m` the mix, `d` the devices, `t` the tracks, `p`
+the project) and the second key is what to do in it. So you learn one
+letter for one domain, and it has the same meaning in all the keys:
+`<Space>mm` shows the mixer, and `<Space>ma` measures the mix.
+
+In the domain `f` (find), the key after `f` is the letter of the domain
+of what you find: `<Space>fc` finds a clip, as `<Space>cf` fades a clip.
+`<Space>fr` finds a region, as `<Space>rn` makes one. When you remember
+where a thing is, you also know how to find it.
+
+The extensions put their keys in the domain of what the keys do, not in a
+domain of the extension. The undo tree is part of the project, so
+undotree uses `<Space>p`. The mix measurements are part of the mix, so
+mixdiag uses `<Space>m`. An extension for one large subject has its own
+domain: `<Space>n` notation, `<Space>u` utau.
 
 ## Escape never leaves
 

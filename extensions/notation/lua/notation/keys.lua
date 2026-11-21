@@ -388,6 +388,14 @@ command("notation.export", function(ctx)
 end, { desc = "Write the clip's score as MusicXML (`.mxl` zipped), LilyPond, or engraved pages: `notation.export song.musicxml`, `notation.export score.mxl all` (every track), `notation.export lead.ly track`, `notation.export pdf`, `notation.export tune.svg`", complete = { "files", function() return { "all", "track" } end } })
 
 -- Reaching it from the arrange view and the window's clip menu.
+-- From every view, on the leader: `n` for notation, `vn` among the views.
+paw.keymap.group("<leader>n", "notation")
+map("<leader>nn", "notation", { desc = "Show the clip under the cursor as notation" })
+map("<leader>vn", "notation", { desc = "Show the clip under the cursor as notation" })
+map("<leader>ns", "score", { desc = "Show every track with MIDI as a score, a staff each" })
+map("<leader>nc", "score.check", { desc = "Show the score's pages as they will be exported, to check them" })
+map("<leader>ne", "notation.export", { desc = "Export the clip as MusicXML, a file named after it" })
+map("<leader>nE", "notation.export pdf", { desc = "Export the clip as an engraved PDF, a file named after it" })
 map("<localleader>n", "notation", { view = "arrange", desc = "Show the clip as notation" })
 map("<localleader>n", "notation", { view = "pianoroll", desc = "Show this clip as notation" })
 if paw.frontend and paw.frontend.menus then
@@ -808,7 +816,7 @@ paw.ex.view("notation", {
 })
 
 -- Where the view shows things with an address, so that diagnostics, hover
--- and fixes (`]d` `[d`, `gK`, `<leader>ca`) work on what is under its cursor.
+-- and fixes (`]d` `[d`, `gK`, `<leader>la`) work on what is under its cursor.
 if paw.ui.locator and paw.address then
   local A = paw.address
   paw.ui.locator("notation", {
@@ -851,7 +859,8 @@ if paw.ui.locator and paw.address then
   nmap("[d", function(ctx) paw.diagnostic.jump(-1, ctx.count) end, "Previous diagnostic here", { jump = true })
   if paw.lsp then
     nmap("gK", function() paw.lsp.show_hover() end, "What the diagnostics and language servers say about the note")
-    nmap("<leader>ca", function() paw.lsp.code_actions() end, "Fixes and actions for the note")
+    nmap("<leader>la", function() paw.lsp.code_actions() end, "Fixes and actions for the note")
+    nmap("<leader>ll", function() paw.lsp.show_hover() end, "The problems and what the language servers say about the note")
   end
 end
 

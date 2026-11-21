@@ -14,32 +14,32 @@ paw.ext.load("extensions/mixdiag")      -- or put it in ~/.config/paw/extensions
 ## Try it
 
 1. Type `:ext.load mixdiag`, and open a song.
-2. Press `<Space>xa`. The status line shows `measuring` and a percentage. At the
+2. Press `<Space>ma`. The status line shows `measuring` and a percentage. At the
    end, a message gives the summary: LUFS, true peak, LRA.
 3. Look above the arrange view. A row has a letter (`E`, `W`, `I` or `H`)
    at the beat of each finding.
 4. Press `]d`. The cursor goes to the first finding, and the message gives
    it.
-5. Press `<Space>xx`. The list of the findings opens.
+5. Press `<Space>mx`. The list of the findings opens.
 
 ## How to
 
 ### How to check a mix before delivery
 
-1. Choose the target: press `<Space>xt` until the message names it, or type
+1. Choose the target: press `<Space>mt` until the message names it, or type
    `:mix.target ebu`.
-2. Press `<Space>xa` to measure the song.
-3. Press `<Space>xr` to open the report. Press `j` and `k` to choose a finding.
+2. Press `<Space>ma` to measure the song.
+3. Press `<Space>mr` to open the report. Press `j` and `k` to choose a finding.
    Press Enter to go to it.
-4. Correct the mix, then press `<Space>xa` again. The marks show `(old)` until you
+4. Correct the mix, then press `<Space>ma` again. The marks show `(old)` until you
    measure again.
 
 ### How to find the track that clips
 
-1. Press `<Space>xa`. If a track output is over full scale, the finding
+1. Press `<Space>ma`. If a track output is over full scale, the finding
    `track_over` names it.
 2. To measure what one track adds to the mix, put the cursor on the track
-   and press `<Space>xk`.
+   and press `<Space>mk`.
 
 ### How to measure a file
 
@@ -76,16 +76,16 @@ mixdiag.targets.album = { name = "my album", kind = "deliver", integrated = -16,
 
 | Keys | Command | Effect |
 | --- | --- | --- |
-| `<leader>xa` | `mix.analyze` | measures the song. In visual mode, the selection |
-| `<leader>xl` | `mix.analyze loop` | measures the loop |
-| `<leader>xk` | `mix.analyze track` | measures what the cursor track adds: the song with that track as if it is soloed |
-| `<leader>xx` | `mix.list` | the findings, in `paw.pick`, or in the report |
-| `<leader>xr` | `mix.report` | the report: what paw measured (or the progress), the numbers, the findings by severity, the target. `j` `k` choose a finding, Enter goes to it, `a` measures the song, `l` the loop, `t` the cursor track, `T` selects the next target, `q` closes |
-| `<leader>xp` | `view.open mixdiag_paint` | the painted report, in pixels where the terminal shows them (`paw.opt.graphics`). Otherwise, the report in cells |
-| `<leader>xs` | `mix.summary` | LUFS, true peak, LRA, short-term maximum and mono loss of the last measurement |
-| `<leader>xt` | `mix.target [name]` | the next delivery target, or the target with that name |
-| `<leader>xc` | `mix.clear` | removes the findings |
-| `<leader>xq` | `mix.cancel` | stops a measurement |
+| `<leader>ma` | `mix.analyze` | measures the song. In visual mode, the selection |
+| `<leader>ml` | `mix.analyze loop` | measures the loop |
+| `<leader>mk` | `mix.analyze track` | measures what the cursor track adds: the song with that track as if it is soloed |
+| `<leader>mx` | `mix.list` | the findings, in `paw.pick`, or in the report |
+| `<leader>mr` | `mix.report` | the report: what paw measured (or the progress), the numbers, the findings by severity, the target. `j` `k` choose a finding, Enter goes to it, `a` measures the song, `l` the loop, `t` the cursor track, `T` selects the next target, `q` closes |
+| `<leader>mp` | `view.open mixdiag_paint` | the painted report, in pixels where the terminal shows them (`paw.opt.graphics`). Otherwise, the report in cells |
+| `<leader>ms` | `mix.summary` | LUFS, true peak, LRA, short-term maximum and mono loss of the last measurement |
+| `<leader>mt` | `mix.target [name]` | the next delivery target, or the target with that name |
+| `<leader>mc` | `mix.clear` | removes the findings |
+| `<leader>mq` | `mix.cancel` | stops a measurement |
 | `]d` `[d` | | the next and the previous diagnostic, as in every view: the findings are diagnostics, with the other diagnostics of the project. A finding about the master leaves the cursor on its track |
 | | `mix.next` `mix.prev` | the next and the previous finding only, with its message. A count goes further. They wrap. `<C-o>` returns |
 | | `mix.file path` | measures an audio file |
@@ -260,7 +260,7 @@ Times are seconds from the start of the measurement.
 ### Limits
 
 - Tracks give only their peak, not their loudness, correlation or
-  spectrum. To get the numbers of one track, measure what it adds (`<Space>xk`).
+  spectrum. To get the numbers of one track, measure what it adds (`<Space>mk`).
   This is one render for each track.
 - paw measures the mix. So a DC offset, a phase problem or infrasonic
   energy points at a time, not at a track.

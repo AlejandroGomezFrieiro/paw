@@ -36,7 +36,7 @@ The tempo and the time signature can change along the song. The module is
 | `:tempo.ramp` | Make the change at or before the cursor ramp to the next change. Again: hold. `:tempo.ramp off`: hold. |
 | `:tempo.remove`, `:tempo.remove 17` | Remove the change at or before the cursor, or at bar 17. |
 | `:tempo.list` | List the tempo and time signature changes. |
-| `:tempo.tap`, `<Space>b` | Tap again and again, in time, to set the tempo at the cursor. |
+| `:tempo.tap`, `<Space>Tt` | Tap again and again, in time, to set the tempo at the cursor. |
 | `:timesig 6/8` | Start 6/8 at the bar of the cursor. `:timesig 6/8 at 9`: at bar 9. |
 | `:timesig` | Show the time signature at the cursor. |
 | `:timesig.remove` | Remove the time signature change at the cursor, or at a bar. |

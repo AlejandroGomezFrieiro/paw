@@ -171,7 +171,7 @@ qmap("<C-u>", function() move(-10) end, "Ten entries up")
 qmap("gg", function(ctx) move(-math.huge) if ctx.count then move(ctx.count - 1) end end, "The first entry", motion)
 qmap("G", function() move(math.huge) end, "The last entry", motion)
 qmap("<CR>", function() M.choose() end, "Go to the entry: the view that shows it gets the keyboard")
-qmap("<leader>ca", fix_here, "Make the entry's fix, as one undo step")
+qmap("<leader>la", fix_here, "Make the entry's fix, as one undo step")
 qmap("q", function()
   local win = M.current()
   if win == loose then return paw.ui.close() end
@@ -179,7 +179,7 @@ qmap("q", function()
 end, "Close the window")
 
 paw.ui.keybar.set("qflist", "n", {
-  { "j", "next" }, { "k", "previous" }, { "<CR>", "jump" }, { "<leader>ca", "fix" }, { "q", "close" }, { "?", "keys" },
+  { "j", "next" }, { "k", "previous" }, { "<CR>", "jump" }, { "<leader>la", "fix" }, { "q", "close" }, { "?", "keys" },
 })
 
 paw.command("qf.window", function()

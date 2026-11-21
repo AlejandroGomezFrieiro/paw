@@ -31,13 +31,13 @@ A count moves it more places: `3<A-j>` moves it down three tracks.
 
 1. Put the cursor on the first track of the group.
 2. Press `V`, then `j` until the selection holds all the tracks.
-3. Press `<Space>g`. Type the name of the group, for example `Drums`, and press
+3. Press `<Space>tg`. Type the name of the group, for example `Drums`, and press
    `Enter`. The group track shows above its tracks, which are indented.
 4. To fold the group, put the cursor on the group track and press `za`.
    Press `za` again to open it.
 
 To put one more track into the group, type `:track.into Drums` on that
-track. To take a track out of its group, press `<Space>G`.
+track. To take a track out of its group, press `<Space>tG`.
 
 To work on one group alone, press `zn` on the group. See
 [How to work on one group of a large project](work-on-one-group.md).

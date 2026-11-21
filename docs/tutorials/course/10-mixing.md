@@ -24,7 +24,7 @@ The mixer turns the grid on its side. `h` `l` move between tracks because the tr
 
 The tutor opens a practice project for this lesson. It checks each step when you do it.
 
-1. Press `<Space>m` to open the mixer at the bottom. It has one strip for each track, with a fader and a meter.
+1. Press `<Space>mm` to open the mixer at the bottom. It has one strip for each track, with a fader and a meter.
    - ✓ The mixer gets the keys. The master is on the right.
 2. Here `h` and `l` select a strip, and the cursor starts on its fader. `-` and `+` change the row under the cursor by 1 dB. Press `l` to go to Bass, then press `-` three times.
    - ✓ Bass is at -7 dB, 3 dB lower than before. `3-` or `3<C-x>` does the same in one step.
@@ -41,7 +41,7 @@ The tutor opens a practice project for this lesson. It checks each step when you
 8. Now send Keys into the bus. Type `/Keys` and `<CR>` to find the track. Then type `:track.output Bus` and `<CR>`.
    - ✓ Keys plays through Bus now. The fader of Bus changes the level of the chords and of each other track that you send there.
 9. A send copies a part of a track to a different track. Here it goes to Echo, which has a delay. Type `/Lead` and `<CR>` to find the track. Then type `:send Echo -6` and `<CR>`.
-   - *Hint:* `<Space>s` does the same: it asks for the track and sends at the default level.
+   - *Hint:* `<Space>ts` does the same: it asks for the track and sends at the default level.
    - ✓ Lead sends to Echo at -6 dB. The melody has an echo now, and the fader of Echo sets its level.
 10. Now we add automation. `A` adds a volume point at the cursor and asks for its value. Type `/Keys` and `<CR>` to return to Keys. Then press `0` and `A`. Press `<C-u>` to clear the value, type `-30` and press `<CR>`.
    - *Hint:* The cursor must be on Keys. Type `/Keys` and `<CR>`.

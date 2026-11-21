@@ -65,8 +65,8 @@ closes the mixer.]],
   at = function() paw.cursor.set_track(paw.track("Drums")) end,
   steps = {
     {
-      say = "Press `<leader>m` to open the mixer at the bottom. It has one strip for each track, with a fader and a meter.",
-      keys = { "<leader>m" },
+      say = "Press `<leader>mm` to open the mixer at the bottom. It has one strip for each track, with a fader and a meter.",
+      keys = { "<leader>mm" },
       check = function(_, look) return look.focused() == "mixer" end,
       done = "The mixer gets the keys. The master is on the right.",
     },
@@ -124,7 +124,7 @@ closes the mixer.]],
         end
       end,
       done = "Lead sends to Echo at -6 dB. The melody has an echo now, and the fader of Echo sets its level.",
-      hint = "`<leader>s` does the same: it asks for the track and sends at the default level.",
+      hint = "`<leader>ts` does the same: it asks for the track and sends at the default level.",
     },
     {
       say = "Now we add automation. `A` adds a volume point at the cursor and asks for its value. Type `/Keys` and `<CR>` to return to Keys. Then press `0` and `A`. Press `<C-u>` to clear the value, type `-30` and press `<CR>`.",

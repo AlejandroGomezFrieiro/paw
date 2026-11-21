@@ -6,7 +6,7 @@ pan. It also shows how to keep the master below full scale. For each key, see
 
 ## Set the level and the pan of a track
 
-1. Press `<Space>m` to show the mixer. Each track has a strip.
+1. Press `<Space>mm` to show the mixer. Each track has a strip.
 2. Press `h` and `l` to go from strip to strip. Press `0` for the first
    strip.
 3. Press `-` to lower the fader by one dB, and `+` to raise it. A count

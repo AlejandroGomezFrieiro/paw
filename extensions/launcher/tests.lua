@@ -325,7 +325,7 @@ test("launcher: the session view shows the slots and scenes, and its keys launch
   start()
   local t = synth("Lead", 0)
   launcher.set_scene_name(0, "Verse")
-  paw.keymap.feed("<leader>l")
+  paw.keymap.feed("<leader>vs")
   eq(paw.ui.focused, "session", "shown and focused")
   paw.cursor.set_track(t.id)
   local text = screen()

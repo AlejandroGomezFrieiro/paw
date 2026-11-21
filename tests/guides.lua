@@ -193,8 +193,8 @@ test("make music 3: a guitar through an amp chain is recorded in two takes and c
   eq(guitar.monitor, true, "we hear the input")
 
   step("a", "saturation", "<CR>")
-  step("<Space>d")
-  eq(paw.ui.focused, "devices", "Space d opens the device panel")
+  step("<Space>dd")
+  eq(paw.ui.focused, "devices", "Space dd opens the device panel")
   step("j", "12+", "j", "+")
   local saturation = guitar:devices()[1]
   eq(params(saturation).drive > 10, true, "more drive")
@@ -283,8 +283,8 @@ end)
 
 test("make music 5: the song is mixed, rendered to WAV and MP3, and the file plays", function()
   open("5-mix.lua")
-  step("<Space>m")
-  eq(paw.ui.focused, "mixer", "Space m opens the mixer")
+  step("<Space>mm")
+  eq(paw.ui.focused, "mixer", "Space mm opens the mixer")
   step("V", "$", "6-", "<Esc>")
   for _, track in ipairs(paw.tracks()) do eq(track.volume, -6, track.name .. " is 6 dB lower") end
   step("0", "l", "3-")
@@ -295,17 +295,17 @@ test("make music 5: the song is mixed, rendered to WAV and MP3, and the file pla
   T.near(paw.track("Guitar").pan, 0.3, 1e-6, "the guitar is on the right")
   step("<C-w>c")
 
-  step("/Bass<CR>", "<Space>d", "a", "eq", "<CR>", "gg", "w", "c", "tighten", "<CR>", "<Space>d")
+  step("/Bass<CR>", "<Space>dd", "a", "eq", "<CR>", "gg", "w", "c", "tighten", "<CR>", "<Space>dd")
   local bass_eq = paw.track("Bass"):devices()[2]
   eq(bass_eq and bass_eq:get().kind, "eq", "the bass has an equalizer")
   eq(params(bass_eq).b1_on, 1, "with the preset")
-  step("/Drums<CR>", "<Space>d", "a", "compressor", "<CR>", "gg", "w", "c", "glue", "<CR>", "<Space>d")
+  step("/Drums<CR>", "<Space>dd", "a", "compressor", "<CR>", "gg", "w", "c", "glue", "<CR>", "<Space>dd")
   local compressor = paw.track("Drums"):devices()[2]
   eq(compressor and compressor:get().kind, "compressor", "the drums have a compressor")
   eq(params(compressor).ratio, 2, "with the preset")
   eq(paw.ui.focused, "arrange", "back in the arrange view")
 
-  step("G", ":track.add Reverb<CR>", "<Space>d", "a", "reverb", "<CR>", "gg", "c", "on a send", "<CR>", "<Space>d")
+  step("G", ":track.add Reverb<CR>", "<Space>dd", "a", "reverb", "<CR>", "gg", "c", "on a send", "<CR>", "<Space>dd")
   local reverb = paw.track("Reverb")
   eq(reverb and params(reverb:devices()[1]).mix, 100, "the reverb track has a reverb set for a send")
   step("/Keys<CR>", ":send Reverb -9<CR>", "/Lead<CR>", ":send Reverb -12<CR>")

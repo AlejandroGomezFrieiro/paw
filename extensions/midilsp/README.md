@@ -18,7 +18,7 @@ paw.ext.load("/path/to/paw/extensions/midilsp")
    and how it runs.
 3. Open a MIDI clip with two voices in parallel fifths in the piano roll.
    After a moment, the notes show diagnostics.
-4. Press `<Space>Lp`. The list of problems opens.
+4. Press `<Space>lD`. The list of problems opens.
 5. Put the cursor on a problem with a fix, and press Enter. paw applies the
    fix.
 
@@ -27,7 +27,7 @@ paw.ext.load("/path/to/paw/extensions/midilsp")
 - To check the rules of one profile of the engine, type
   `:midilsp.preset strict-counterpoint`.
 - To disable one rule, type `:midilsp.rule parallel-perfect off`.
-- To see all the rules and switch them, press `<Space>Lr`.
+- To see all the rules and switch them, press `<Space>lR`.
 
 ## Reference
 
@@ -35,9 +35,9 @@ paw.ext.load("/path/to/paw/extensions/midilsp")
 | --- | --- | --- |
 | `:midilsp` | | shows where the engine is and how it runs. `:midilsp start`, `:midilsp stop` |
 | `:midilsp.preset strict-counterpoint` | | sets the rules to check, as one of the profiles of the engine |
-| `:midilsp.rule parallel-perfect off` | `<Space>Lr` | enables or disables a rule. Alone, a list to switch them |
-| `:problems` | `<Space>Lp` | the diagnostics of all servers, with their fixes. Enter goes to one, or applies a fix |
-| | `<Space>Li` | the language servers and what they can do |
+| `:midilsp.rule parallel-perfect off` | `<Space>lR` | enables or disables a rule. Alone, a list to switch them |
+| `:problems` | `<Space>lD` | the diagnostics of all servers, with their fixes. Enter goes to one, or applies a fix |
+| | `<Space>li` | the language servers and what they can do |
 
 - The engine is `paw.opt.midilsp_cmd`. If it is not set, it is
   `$MIDI_LSP_ENGINE`. If that is not set, it is `reaper-midi-lsp` on the

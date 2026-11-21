@@ -28,7 +28,7 @@ and a count before them (`10+`) changes it by more steps. `a` adds a device,
 also to other tracks. `<A-j>` `<A-k>` change the order, and `ge` opens the
 window of a plugin.
 
-`<leader>d` shows and hides the panel, and `<C-w>c` closes it. In the arrange view,
+`<leader>dd` shows and hides the panel, and `<C-w>c` closes it. In the arrange view,
 `ge` opens the plugin window of the track.]],
   vim = [[
 `<C-w>c` closes a panel as it closes a window in Vim. `yy` `dd` `p` work on
@@ -47,8 +47,8 @@ change a number. `gc` bypasses, as it changes a line to a comment.]],
   at = function() paw.cursor.set_track(paw.track("Lead")) end,
   steps = {
     {
-      say = "The cursor is on Lead. Press `<leader>d` (the space bar, then d) to show its device panel on the right. The panel gets the keys.",
-      keys = { "<leader>d" },
+      say = "The cursor is on Lead. Press `<leader>dd` (the space bar, then d twice) to show its device panel on the right. The panel gets the keys.",
+      keys = { "<leader>dd" },
       check = function(_, look) return look.focused() == "devices" end,
       done = "The panel shows the name of the synth, then one row for each parameter.",
       hint = "`,` is the leader key. It starts many commands of two keys.",
@@ -121,7 +121,7 @@ change a number. `gc` bypasses, as it changes a line to a comment.]],
       say = "`<C-w>c` closes the panel, and the arrange view gets the keys again. Press `<C-w>c`.",
       keys = { "<C-w>c" },
       check = function(ctx, look) return look.became(ctx, "closed", not look.visible("devices") and look.focused() == "arrange") end,
-      done = "The panel is closed. `<leader>d` shows it again.",
+      done = "The panel is closed. `<leader>dd` shows it again.",
     },
     {
       say = "Listen to the line with its echo. Press `<leader><Space>`, and `<leader><Space>` to stop.",

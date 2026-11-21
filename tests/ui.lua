@@ -17,7 +17,7 @@ test("the bottom line shows the keys for the focused view, and gives way to mess
   paw.ui.focus("arrange")
   local last = function() local lines = api.ui_snapshot(120, 30) return lines[#lines] end
   eq(last():find("Space Space play", 1, true) ~= nil, true, "the arrange view's keys: " .. last())
-  eq(last():find("Space m mixer", 1, true) ~= nil, true, "with the leader shown as it is typed")
+  eq(last():find("Space mm mixer", 1, true) ~= nil, true, "with the leader shown as it is typed")
   paw.notify("hello")
   eq(last():find("hello", 1, true) ~= nil, true, "a message takes the line")
   eq(last():find("Space play", 1, true), nil, "instead of the keys")

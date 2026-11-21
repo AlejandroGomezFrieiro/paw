@@ -57,7 +57,7 @@ name in `~/.config/paw/lua/` replaces a built-in module.]],
       say = "Now make a command of your own. Type `:lua paw.command(\"hello\", function() paw.notify(\"hello from my command\") end)` and `<CR>`. Then type `:hello` and `<CR>`.",
       keys = { ":lua paw.command(\"hello\", function() paw.notify(\"hello from my command\") end)", "<CR>", ":hello", "<CR>" },
       check = function(ctx, look) return look.said(ctx, "hello from my command") end,
-      done = "Your command ran. `:commands` and the `<leader>fc` picker show it now, with the built-in commands.",
+      done = "Your command ran. `:commands` and the `<leader>f:` picker show it now, with the built-in commands.",
     },
     {
       say = "To keep them, open `~/.config/paw/init.lua` in your text editor. Add the same three lines without `:lua`, and save. Then type `:reload` here.",

@@ -102,7 +102,7 @@ you read it.
 | Key or command | Effect |
 | --- | --- |
 | `:messages` | Shows all messages, newest at the bottom. A long message wraps over many rows. |
-| `<Space>fn` | Chooses a message from a list, newest first. |
+| `<Space>fl` | Chooses a message from a list, newest first. |
 
 ## Keys that are not complete
 
@@ -120,5 +120,5 @@ as new commands.
 | Key | Effect |
 | --- | --- |
 | `?` | Lists every key of the focused view and the global keys. Type a part of a key or of its description to filter the list. `Enter` runs the key. See [Pickers](pickers.md). |
-| `<Space>fc` | Chooses a command by its name. |
+| `<Space>f:` | Chooses a command by its name. |
 | `:help all` | Shows the keys of the focused view as one page. |

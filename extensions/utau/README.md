@@ -121,6 +121,22 @@ A vocal track is a kind of track (`paw.track_kinds`).
   roll.
 - Without the extension, a vocal track is an ordinary MIDI track.
 
+### Keys after the leader
+
+These keys work from every view. They are in the domain `<Space>u` (utau).
+
+| Keys | Command | Effect |
+| --- | --- | --- |
+| `<Space>ut` | `utau.track` | adds a vocal track |
+| `<Space>uv` | `utau.voice` | makes the track at the cursor a vocal track |
+| `<Space>us` | `utau.singer` | chooses the singer of the vocal track |
+| `<Space>ue` | `utau.edit` | opens the clip under the cursor in the vocal editor |
+| `<Space>ul` | `utau.sheet` | shows or hides the lyric sheet |
+| `<Space>ur` | `utau.render` | renders the vocal track again |
+| `<Space>uf` `<Space>uF` | `utau.freeze`, `utau.unfreeze` | freezes the vocal track, sings it again |
+| `<Space>uo` | `utau.openutau` | opens the vocal tracks in OpenUtau |
+| `<Space>ui` | `utau.status` | tells what the singing engine does |
+
 ### The vocal editor
 
 | Keys | Effect |

@@ -55,7 +55,7 @@ test("guide: record a guitar or a bass through an audio interface", function()
     local p = paw.params.read(tuner, "pitch")
     return p and p.note == "A4"
   end, "the tuner to hear the A")
-  keys("<Space>d")
+  keys("<Space>dd")
   eq(paw.ui.focused, "arrange", "Space d hides the device panel again")
   keys(":audio.buffer 128<CR>")
   keys("R")

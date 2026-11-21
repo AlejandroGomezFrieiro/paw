@@ -20,8 +20,9 @@ loop, the playhead returns to its start.
 ## Loop a region
 
 If the song has a region, for example `Chorus`, type
-`:region.loop Chorus`. To make a region over the loop, type
-`:region Chorus`.
+`:region.loop Chorus`, or put the cursor in it and press `<Space>rl`. To make
+a region over the loop, type `:region Chorus`. To make a region over a
+selection, select the bars with `v`, press `<Space>rn` and type its name.
 
 ## Turn the loop off and on
 

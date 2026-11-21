@@ -331,7 +331,7 @@ end
 function M.step(dir, count)
   local list = placed()
   if #list == 0 then
-    paw.notify(M.result and "mix: no findings with a place" or "mix: nothing measured yet: <leader>xa", "warn")
+    paw.notify(M.result and "mix: no findings with a place" or "mix: nothing measured yet: <leader>ma", "warn")
     return nil
   end
   local beat = paw.cursor.beat
@@ -386,7 +386,7 @@ end
 
 --- Show the findings: in the picker when there is one, else in a list of our own.
 function M.list()
-  if not M.result then return paw.notify("mix: nothing measured yet: <leader>xa", "warn") end
+  if not M.result then return paw.notify("mix: nothing measured yet: <leader>ma", "warn") end
   if paw.pick then
     return paw.pick({
       title = "Mix",

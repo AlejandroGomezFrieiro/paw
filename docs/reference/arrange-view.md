@@ -56,7 +56,7 @@ color. The track of the cursor has a brighter header and a tinted lane.
 | `K` | Describes what is under the cursor. A kind of track also says what it is. |
 | `a` | Adds a device. The list shows instruments first on a track with no instrument, else effects first. |
 | `ge` | Shows the window of the plugin. |
-| `<Space>d` `<Space>m` `<Space>p` `<Space>l` | Shows the device panel, the mixer, the piano roll, the session view (with the clip launcher extension). |
+| `<Space>dd` `<Space>mm` `<Space>vp` `<Space>vs` | Shows the device panel, the mixer, the piano roll, the session view (with the clip launcher extension). |
 | `A` | Adds a volume automation point at the cursor. |
 | `<Space>at` `<Space>ax` | Turns the lane off or on (read or bypass). Clears the lane. |
 | `<Space>al` | Chooses what to automate (volume, pan, a device parameter), and shows its lane. |
@@ -77,11 +77,11 @@ color. The track of the cursor has a brighter header and a tinted lane.
 | `zz` `zh` `zl` | Puts the cursor in the center. Scrolls left and right. |
 | `[g` `]g` | Makes the grid finer or coarser. |
 | `zn` `zw` | Narrows to the group at the cursor, in a tab of its own. Widens again. |
-| `<Space>vn` | Makes a VCA over the selected tracks. |
-| `<Space>va` | Puts the selected tracks under a VCA. |
-| `<Space>vr` | Removes the selected tracks from their VCAs. |
-| `<Space>vx` | Removes the VCA at the cursor. |
-| `<Space>vl` | Links the faders of a group. |
+| `<Space>tv` | Makes a VCA over the selected tracks. |
+| `<Space>ta` | Puts the selected tracks under a VCA. |
+| `<Space>tr` | Removes the selected tracks from their VCAs. |
+| `<Space>tx` | Removes the VCA at the cursor. |
+| `<Space>tl` | Links the faders of a group. |
 | `Tab`, `Ctrl-w w` | Goes to the next window. |
 | `Ctrl-w +` `Ctrl-w -` | With the arrange view the only window: taller or shorter tracks. |
 | `Ctrl-w =` | With the arrange view the only window: the height of the tracks is automatic again. |

@@ -257,7 +257,7 @@ test("undotree: A/B while playing keeps the transport going", function()
   paw.transport.stop()
   -- The key does the same.
   paw.ui.focus("arrange")
-  T.keys("<leader>ub")
+  T.keys("<leader>pb")
   eq(api.undo_current(), a, "the A/B key")
   u.clear_ab()
 end)

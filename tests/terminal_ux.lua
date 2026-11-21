@@ -80,7 +80,7 @@ test("`,m` in a window that is only the mixer leaves the mixer there, as Ctrl-w 
   paw.ui.focus("mixer")
   L.only()
   eq(windows(), "mixer", "the mixer alone")
-  paw.keymap.feed("<leader>m")
+  paw.keymap.feed("<leader>mm")
   eq(windows(), "mixer", "the last window does not close, and no arrange view comes back")
   eq(paw.ui.message and paw.ui.message.text:find("last window", 1, true) ~= nil, true, "it says so")
   paw.keymap.feed("<C-w>c")
@@ -139,7 +139,7 @@ test("`?` in the mixer finds the arrange view's `,s` for `send`, and says it is 
   local list = ranked("keys", "send")
   local found
   for _, r in ipairs(list) do
-    if r.item.other == "arrange" and r.item.map.lhs == "<leader>s" then found = r end
+    if r.item.other == "arrange" and r.item.map.lhs == "<leader>ts" then found = r end
   end
   eq(found ~= nil, true, "`,s` is listed")
   eq(found.text:find("arrange view", 1, true) ~= nil, true, "as a key of the arrange view")

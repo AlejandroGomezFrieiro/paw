@@ -3,7 +3,7 @@
 <!-- tags: pianoroll roll -->
 
 The piano roll shows the notes of a MIDI clip: pitches as rows, time as
-columns. `Enter` on a clip in the arrange view opens it, and `<Space>p` shows it.
+columns. `Enter` on a clip in the arrange view opens it, and `<Space>vp` shows it.
 The keys that it shares with the arrange view are in
 [Motions, operators and modes](grammar.md).
 

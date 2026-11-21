@@ -30,7 +30,7 @@ The tutor opens a practice project for this lesson. It checks each step when you
 2. Now map a key of your own. Type `:lua paw.keymap.set("<leader>z", "transport.metronome", { desc = "Click" })` and `<CR>`. Then press `<Space>z`.
    - ✓ `<Space>z` enables and disables the click. `?` shows your mapping with its description.
 3. Now make a command of your own. Type `:lua paw.command("hello", function() paw.notify("hello from my command") end)` and `<CR>`. Then type `:hello` and `<CR>`.
-   - ✓ Your command ran. `:commands` and the `<Space>fc` picker show it now, with the built-in commands.
+   - ✓ Your command ran. `:commands` and the `<Space>f:` picker show it now, with the built-in commands.
 4. To keep them, open `~/.config/paw/init.lua` in your text editor. Add the same three lines without `:lua`, and save. Then type `:reload` here.
    - *Hint:* In init.lua, each line is usual Lua, for example `paw.opt.grid = 0.5`. If there is an error, `:extensions` and `:messages` show it.
    - *The tutor cannot check this step* (The tutor does not read or write your configuration). `<Space>hn` moves to the next step.

@@ -15,7 +15,7 @@ For the steps to write a server, see
 | Feature | Where it goes |
 | --- | --- |
 | diagnostics | the views, `:diagnostics`, the status line |
-| fixes and actions | `<Space>ca`, one undo step for each |
+| fixes and actions | `<Space>la`, one undo step for each |
 | hover | `gK` |
 | chords and keys | `paw.harmony` (see [Harmony](harmony.md)) |
 | suggestions | `paw.complete`, as a source (see [Completion](completion.md)) |
@@ -46,7 +46,7 @@ mixer strip.
 | --- | --- |
 | `]d` `[d` | Go to the next or previous diagnostic in the focused view (piano roll, arrange view, mixer, device panel). |
 | `gK` | Show what is known about the thing under the cursor: diagnostics, labels, and the hover of each server. |
-| `<Space>ca` | Show the fixes and actions for the thing under the cursor. `Enter` applies one, as one undo step. |
+| `<Space>la` | Show the fixes and actions for the thing under the cursor. `Enter` applies one, as one undo step. |
 | `:diagnostics` | List every diagnostic, grouped by subject. `Enter` goes to one. `:diagnostics clip`: only the clip in the piano roll. |
 | `:lsp info`, `:lsp` | Show each server: how it runs, its subjects, its features, its last error. |
 | `:lsp start`, `:lsp stop`, `:lsp restart` | Start, stop or restart a server (with a name: only that server). |

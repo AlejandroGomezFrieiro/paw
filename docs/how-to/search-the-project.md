@@ -23,7 +23,7 @@ To see the places in a list that filters while you type, press `<Space>fg`.
 
 ## Find notes
 
-Press `<Space>fN`. The list shows each note of the project, with its pitch, its
+Press `<Space>fn`. The list shows each note of the project, with its pitch, its
 lyric and its articulation. Type, for example, `c5` or a word of a lyric,
 and press `Enter` to go to the note.
 
