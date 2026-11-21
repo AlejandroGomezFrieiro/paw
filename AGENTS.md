@@ -125,6 +125,9 @@ nix flake check                                # all of the checks
   `cargo test --release -p paw-gui`.
 - Do not run `tests/tools/loaded.sh` unless the owner asks for it. It
   puts a heavy load on the machine.
+- Do not run the end-to-end tests (`tests/tools/e2e.sh`). They are for
+  CI and for the release check before a tagged version. Only the agent
+  that builds them, or the owner, runs them.
 
 ## Safety and privacy
 
