@@ -50,11 +50,17 @@ pub(super) struct World {
 }
 
 // Created and used on the main thread only.
+// SAFETY: The World holds the lilv world and node pointers, made once and never freed. lilv is
+// not thread safe, so by convention paw calls it from the main thread only; this impl
+// is how the static `world()` can hold it.
 unsafe impl Send for World {}
+// SAFETY: See `Send`: the World is read-only after creation and used from the main thread.
 unsafe impl Sync for World {}
 
 pub(super) fn world() -> &'static World {
     static WORLD: OnceLock<World> = OnceLock::new();
+    // SAFETY: `lilv_world_new` makes a world that lives for the program; the nodes and options are made
+    // from it here and never freed; strings passed are NUL-terminated CStrings that live through each call.
     WORLD.get_or_init(|| unsafe {
         let world = lilv_world_new();
         let dirs: Vec<String> = search_dirs("LV2_PATH", "lv2")
@@ -110,6 +116,8 @@ pub(super) fn world() -> &'static World {
 }
 
 pub(super) unsafe fn node_text(node: *const LilvNode) -> String {
+    // SAFETY: `node` is null (handled) or a live lilv node; lilv owns the string `lilv_node_as_string`
+    // returns and it is valid until the node is freed, so it is copied before returning.
     unsafe {
         let text = if node.is_null() {
             ptr::null()
@@ -126,6 +134,7 @@ pub(super) unsafe fn node_text(node: *const LilvNode) -> String {
 
 /// The text of a node the caller owns, freeing the node.
 pub(super) unsafe fn take_text(node: *mut LilvNode) -> String {
+    // SAFETY: `node` is null or a live lilv node that the caller owns and nothing uses after this call.
     unsafe {
         let text = node_text(node);
         if !node.is_null() {
@@ -144,6 +153,8 @@ pub(super) unsafe fn describe_port(
     w: &World,
     info: &mut ParamInfo,
 ) {
+    // SAFETY: `plugin`, `port` and `w` are live lilv objects of the world; every list or node lilv
+    // returns to us is freed in this block, and scale-point strings are copied out first.
     unsafe {
         let span = (info.max - info.min).round();
         if !info.boolean
@@ -242,6 +253,8 @@ unsafe fn missing_feature(plugin: *const LilvPlugin) -> Option<String> {
         WORKER_SCHEDULE,
         LOAD_DEFAULT_STATE,
     ];
+    // SAFETY: `plugin` is live and `required` is a node list that we own and free before returning;
+    // the URI strings are lilv's, valid until then and copied before.
     unsafe {
         let required = lilv_plugin_get_required_features(plugin);
         let mut missing = None;
@@ -316,6 +329,8 @@ fn scan_world(bundles: Vec<(PathBuf, u64)>) -> crate::Lv2Cache {
         plugins: Vec::new(),
         skipped: 0,
     };
+    // SAFETY: `w.world` is live and its plugin list is owned by the world; every node lilv gives is
+    // read before the next call that could invalidate it, and owned ones are freed here.
     unsafe {
         let plugins = lilv_world_get_all_plugins(w.world);
         let mut it = lilv_plugins_begin(plugins);

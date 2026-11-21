@@ -150,6 +150,10 @@ impl Lv2Controller {
         let Some(ui) = self.ui.as_mut() else { return };
         let shared = &self.shared;
         let mut close = self.link.closed.replace(false);
+        // SAFETY: `ui.descriptor` and `ui.handle` come from the editor's `instantiate` and stay valid until
+        // `close_editor` calls `cleanup`; the widget pointers were returned by that editor for this
+        // surface; every call is on the main thread, as LV2 UIs require, and `port_event` gets a
+        // pointer to `size` readable bytes that live through the call.
         unsafe {
             match &mut ui.surface {
                 Surface::Embedded(window) => {
@@ -275,6 +279,11 @@ impl Controller for Lv2Controller {
             .ui
             .as_ref()
             .context("this plugin has no editor this host can show")?;
+        // SAFETY: The editor library is opened by `open_library` and never unloaded, so the descriptor
+        // and everything it points to stay valid; `lv2ui_descriptor` has the signature given by the
+        // LV2 UI spec. The features handed to `instantiate` point into boxes and vectors that move
+        // into `Ui` below and live until `cleanup`; the `link` pointer is the controller's Box<UiLink>.
+        // The calls run on the main thread. A UI whose `instantiate` fails drops everything and returns.
         unsafe {
             // Never unloaded, like the plugins themselves.
             let lib = std::mem::ManuallyDrop::new(libloading::Library::from(
@@ -491,6 +500,9 @@ impl Controller for Lv2Controller {
     fn close_editor(&mut self) {
         if let Some(ui) = self.ui.take() {
             self.shared.ui_open.store(false, Relaxed);
+            // SAFETY: `ui.descriptor`, `ui.handle` and the widget pointers are those made in `open_editor` and
+            // not yet cleaned up (the `Ui` was just taken out of `self.ui`, so this runs once); the
+            // editor is cleaned up before its window drops.
             unsafe {
                 match &ui.surface {
                     Surface::Own(show) => {
@@ -511,6 +523,9 @@ impl Controller for Lv2Controller {
     fn save_state(&mut self) -> Result<Option<Vec<u8>>> {
         let shared = &*self.shared;
         let w = world();
+        // SAFETY: `shared.plugin`, `shared.instance` and the world are live; `map` is `shared.host.map`,
+        // which lilv only reads; `get_port_value` is called with `shared` (live through the call). The
+        // state and the text string lilv returns are freed here, once.
         unsafe {
             let map = &shared.host.map as *const UridMap as *mut _;
             let state = lilv_state_new_from_instance(
@@ -548,6 +563,7 @@ impl Controller for Lv2Controller {
         let w = world().world;
         let uri = |text: &str| -> Result<*mut LilvNode> {
             let text = CString::new(text)?;
+            // SAFETY: `w` is the live lilv world; the caller frees the node it makes.
             Ok(unsafe { lilv_new_uri(w, text.as_ptr()) })
         };
         match method {
@@ -556,6 +572,8 @@ impl Controller for Lv2Controller {
             paw_engine::device::method::PROPERTIES => Ok(self.properties_json()),
             paw_engine::device::method::PROPERTY_SET => self.set_property(data).map(|_| Vec::new()),
             // The presets the plugin's bundles (and the user's) describe.
+            // SAFETY: lilv objects (`shared.plugin`, the world, the nodes made here and the list lilv gives)
+            // are live; each node and list made here is freed before the block ends. Main thread only.
             paw_engine::device::method::PRESETS => unsafe {
                 let class = uri("http://lv2plug.in/ns/ext/presets#Preset")?;
                 let label = uri("http://www.w3.org/2000/01/rdf-schema#label")?;
@@ -583,6 +601,8 @@ impl Controller for Lv2Controller {
                 presets.sort_by(|a, b| a.name.cmp(&b.name));
                 Ok(crate::presets::to_json(&presets))
             },
+            // SAFETY: As for the presets list: the world, `shared` and the node are live, and the state made
+            // from the node is freed after `restore` has used it.
             paw_engine::device::method::PRESET_LOAD => unsafe {
                 let node = uri(&String::from_utf8_lossy(data))?;
                 lilv_world_load_resource(w, node);
@@ -604,6 +624,8 @@ impl Controller for Lv2Controller {
     fn load_state(&mut self, state: &[u8]) -> Result<()> {
         let shared = &*self.shared;
         let text = CString::new(state).context("the saved state is not text")?;
+        // SAFETY: `map` is `shared.host.map`, which lilv only reads; the world and `shared.instance` are
+        // live; `text` is a CString that lives through the call and the state is freed here.
         unsafe {
             let map = &shared.host.map as *const UridMap as *mut _;
             let state = lilv_state_new_from_string(world().world, map, text.as_ptr());
@@ -622,6 +644,8 @@ impl Controller for Lv2Controller {
 /// The properties a plugin lists as `patch:writable` or `patch:readable`.
 pub(super) unsafe fn find_properties(plugin: *const LilvPlugin, w: &World) -> Vec<Property> {
     let mut properties: Vec<Property> = Vec::new();
+    // SAFETY: `plugin` and `w` are live lilv objects of the world; each node list lilv returns is
+    // freed before the loop continues, and strings are copied out before the nodes are freed.
     unsafe {
         let subject = lilv_plugin_get_uri(plugin);
         for (predicate, writable) in [(w.patch_writable, true), (w.patch_readable, false)] {

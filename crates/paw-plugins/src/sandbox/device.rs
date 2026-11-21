@@ -92,7 +92,9 @@ impl Device for RemoteDevice {
             let mut policy = 0;
             // libc, as rustix has no wrapper for the pthread scheduling
             // calls (they act on a pthread, not a kernel thread id).
+            // SAFETY: `sched_param` is a plain C struct of integers, for which all-zero bytes is a valid value.
             let mut param: libc::sched_param = unsafe { std::mem::zeroed() };
+            // SAFETY: `pthread_self` is the calling thread and both out-pointers are live locals of the right types.
             unsafe {
                 libc::pthread_getschedparam(libc::pthread_self(), &mut policy, &mut param);
             }

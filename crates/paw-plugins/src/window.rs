@@ -112,6 +112,9 @@ pub fn repair_display_env() -> Option<String> {
     }
     for (_, file) in candidates.into_iter().filter(|(_, file)| file.exists()) {
         // Nothing else is running yet, as the caller promised.
+        // SAFETY: Editing the environment is sound only while no other thread reads or writes it. The
+        // contract of `repair_display_env` is to be called before any thread starts, which the
+        // compiler cannot enforce for a safe `pub fn`.
         unsafe { std::env::set_var("XAUTHORITY", &file) };
         if x11rb::connect(None).is_ok() {
             return Some(format!(
@@ -124,7 +127,9 @@ pub fn repair_display_env() -> Option<String> {
         }
     }
     match stale {
+        // SAFETY: Same contract as above: the caller runs this before any other thread starts.
         Some(file) => unsafe { std::env::set_var("XAUTHORITY", file) },
+        // SAFETY: Same contract as above: the caller runs this before any other thread starts.
         None => unsafe { std::env::remove_var("XAUTHORITY") },
     }
     None
@@ -189,6 +194,9 @@ fn tolerate_x_errors() {
         0
     }
     type Handler = unsafe extern "C" fn(*mut std::ffi::c_void, *mut std::ffi::c_void) -> i32;
+    // SAFETY: The library is opened by name, so this is the Xlib the plugin already loaded (or the
+    // system's); `XSetErrorHandler` has the signature `Handler` by the Xlib ABI, and `ignore`
+    // matches `Handler`. The library is forgotten, not closed, so `ignore` and the symbol stay valid.
     unsafe {
         // Opening by name finds the library a plugin has already loaded.
         let Ok(xlib) = libloading::Library::new("libX11.so.6") else {
@@ -281,6 +289,12 @@ impl GtkWindow {
         if widget.is_null() {
             anyhow::bail!("the editor gave back no widget");
         }
+        // SAFETY: `widget` is a `GtkWidget` of a library already loaded (the caller's promise on `wrap`), and
+        // the library is opened with RTLD_NOLOAD so it is that same copy. Each symbol is looked up by
+        // the name of a Gtk function whose C signature is the type given, and the library is held in
+        // ManuallyDrop so the copied function pointers stay valid. Gtk is called from the thread that
+        // made the window, with the window and widget made here; `closed` is a Box that the window owns
+        // and that lives past the signal handler, which `widget_destroy` ends in Drop.
         unsafe {
             // Only a copy that is already loaded: the one the editor uses.
             let lib = ["libgtk-3.so.0", "libgtk-x11-2.0.so.0"]
@@ -319,6 +333,9 @@ impl GtkWindow {
                 _event: *mut c_void,
                 closed: *mut c_void,
             ) -> i32 {
+                // SAFETY: `closed` is the `*const Cell<bool>` that `wrap` passed to `g_signal_connect_data`; the Box
+                // it points into is owned by the GtkWindow, which destroys the window (and so the handler)
+                // before the Box drops, and Gtk calls the handler on the same thread.
                 unsafe { &*(closed as *const Cell<bool>) }.set(true);
                 // Handled: the host takes the window down itself.
                 1
@@ -349,6 +366,8 @@ impl GtkWindow {
 
     /// Let Gtk handle what is waiting. Returns whether the user closed the window.
     pub fn run(&mut self) -> bool {
+        // SAFETY: `gtk` holds Gtk functions found in `wrap`, and nothing here frees the window or the
+        // widget, so the calls work on live objects; they run on the thread that made the window.
         unsafe {
             // Bounded, so a flood of events cannot hold the host up.
             for _ in 0..200 {
@@ -363,12 +382,16 @@ impl GtkWindow {
 
     /// Take the widget out of the window, before its editor destroys it.
     pub fn release(&self) {
+        // SAFETY: `window` and `widget` are live (created in `wrap`, destroyed only in Drop), and the widget
+        // was added to this window, which `gtk_container_remove` requires.
         unsafe { (self.gtk.container_remove)(self.window, self.widget) };
     }
 }
 
 impl Drop for GtkWindow {
     fn drop(&mut self) {
+        // SAFETY: The widget was referenced in `wrap` and the window is made there; each is released once,
+        // here, and the window is destroyed after the widget reference is dropped, on the creating thread.
         unsafe {
             (self.gtk.object_unref)(self.widget);
             (self.gtk.widget_destroy)(self.window);

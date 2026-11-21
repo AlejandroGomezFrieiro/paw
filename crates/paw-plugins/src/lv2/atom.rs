@@ -66,6 +66,8 @@ impl AtomBuffer {
     }
 
     pub(super) fn header(&mut self) -> &mut SequenceHeader {
+        // SAFETY: `data` is a Vec<u64>, so it is 8-byte aligned, and `new` makes it at least 16 bytes
+        // (ATOM_CAPACITY / 8 words), which is the size of a SequenceHeader; `&mut self` makes the borrow unique.
         unsafe { &mut *(self.data.as_mut_ptr() as *mut SequenceHeader) }
     }
 
@@ -91,6 +93,9 @@ impl AtomBuffer {
         if used + 24 > ATOM_CAPACITY {
             return;
         }
+        // SAFETY: `used + 24 <= ATOM_CAPACITY` (checked above), so the 16-byte event header and the 8 bytes
+        // of body written here are inside `data`; `used` is a multiple of 8 because the sequence header
+        // is 8 bytes and every event added is padded to 8, so the header write is aligned.
         unsafe {
             let at = (self.data.as_mut_ptr() as *mut u8).add(used);
             (at as *mut EventHeader).write(EventHeader {
@@ -113,6 +118,9 @@ impl AtomBuffer {
         if atom.len() < 8 || used + 8 + padded > ATOM_CAPACITY {
             return;
         }
+        // SAFETY: `used + 8 + padded <= ATOM_CAPACITY` (checked above), so the frame stamp, the padding and
+        // the `atom.len()` bytes copied are inside `data`; `atom` is a slice in another allocation, so
+        // the copy does not overlap; `used` is a multiple of 8, so the i64 write is aligned.
         unsafe {
             let at = (self.data.as_mut_ptr() as *mut u8).add(used);
             (at as *mut i64).write(frame as i64);
@@ -126,7 +134,11 @@ impl AtomBuffer {
     /// plugin wrote.
     pub(super) fn each_event(&self, mut f: impl FnMut(&[u8])) {
         let bytes =
+            // SAFETY: `data` holds `ATOM_CAPACITY / 8` initialized u64 words, so the same memory is
+            // ATOM_CAPACITY initialized bytes; the plugin is not running while `&self` is borrowed.
             unsafe { std::slice::from_raw_parts(self.data.as_ptr() as *const u8, ATOM_CAPACITY) };
+        // SAFETY: `data` is 8-byte aligned and at least 16 bytes, the size of a SequenceHeader, and every
+        // bit pattern is a valid value for its integer fields.
         let header = unsafe { &*(self.data.as_ptr() as *const SequenceHeader) };
         if header.type_ != urids().sequence {
             return;

@@ -71,8 +71,11 @@ fn audio_loop(shm: Arc<Shm>, mut device: Box<dyn Device>) {
         if wanted != scheduling {
             scheduling = wanted;
             // libc: rustix has no wrapper for pthread_setschedparam.
+            // SAFETY: `sched_param` is a plain C struct of integers, for which all-zero bytes is a valid value.
             let mut param: libc::sched_param = unsafe { std::mem::zeroed() };
             param.sched_priority = wanted.1 as i32;
+            // SAFETY: `pthread_self` is the calling thread and `param` is a live local; a refused change
+            // (no right to set the priority) is reported by the return value, which is ignored on purpose.
             unsafe {
                 libc::pthread_setschedparam(libc::pthread_self(), wanted.0 as i32, &param);
             }
@@ -177,9 +180,13 @@ pub fn serve_with(
         let [kind, sock, shm, rate, block, ..] = args else {
             bail!("usage: plugin-host <kind> <socket> <memory> <sample rate> <block> [cache]");
         };
+        // SAFETY: The DAW started this process with the socket as an inherited file descriptor and named
+        // its number in `args`; nothing else in this process owns it, and it is taken once.
         let mut stream = unsafe { UnixStream::from_raw_fd(sock.parse::<RawFd>()?) };
         let max_block: usize = block.parse()?;
         let shm = Arc::new(Shm::map(
+            // SAFETY: The DAW named the shared memory's file descriptor in `args`; this process inherited it
+            // and nothing else owns it, and it is taken once.
             unsafe { OwnedFd::from_raw_fd(shm.parse::<RawFd>()?) },
             max_block,
         )?);

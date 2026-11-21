@@ -35,6 +35,8 @@ impl Lv2Factory {
         }
         let w = world();
         let uri = CString::new(self.uri.clone())?;
+        // SAFETY: `w.world` is the live lilv world (it lives for the program); the node is made and freed
+        // here, and the plugin it finds belongs to the world, not to the node.
         let found = unsafe {
             let node = lilv_new_uri(w.world, uri.as_ptr());
             let plugin = lilv_plugins_get_by_uri(lilv_world_get_all_plugins(w.world), node);
@@ -58,6 +60,10 @@ impl DeviceFactory for Lv2Factory {
     fn create(&self, sample_rate: f32, max_block: usize) -> Result<Instance> {
         let plugin = self.plugin()?;
         let w = world();
+        // SAFETY: lilv calls on the live world and on `plugin`, which the world owns. `host` and `instance`
+        // are owned by this function and then moved into `Shared`, whose Drop frees the instance
+        // after the worker has stopped; `Shared` is built after all ports are connected. This block
+        // is on the main thread, which is the one thread lilv may be called from.
         unsafe {
             let host = host_data(sample_rate, max_block);
             let instance = lilv_plugin_instantiate(
@@ -340,6 +346,8 @@ fn side_less(name: &str) -> String {
 /// Whether an audio input takes a side-chain: it says so, or belongs to a
 /// group that is the side-chain of another.
 unsafe fn takes_key(plugin: *const LilvPlugin, port: *const LilvPort, w: &World) -> bool {
+    // SAFETY: `plugin`, `port` and `w.world` are live lilv objects of the world; the node list `groups`
+    // is owned by this function and freed before return.
     unsafe {
         if lilv_port_has_property(plugin, port, w.side_chain) {
             return true;

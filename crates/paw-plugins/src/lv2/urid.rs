@@ -24,6 +24,7 @@ pub(super) fn urid(uri: &CStr) -> u32 {
 }
 
 pub(super) unsafe extern "C" fn urid_map(_: *mut c_void, uri: *const c_char) -> u32 {
+    // SAFETY: The plugin passes a NUL-terminated URI that is valid for the call, as LV2's URID map requires.
     urid(unsafe { CStr::from_ptr(uri) })
 }
 

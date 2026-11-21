@@ -85,7 +85,10 @@ struct Lib {
 }
 
 // The entry is static data in a library that stays loaded.
+// SAFETY: A Lib holds a reference to static data in a library that is never unloaded (ManuallyDrop),
+// and a path and a name that nothing mutates, so moving it to another thread is sound.
 unsafe impl Send for Lib {}
+// SAFETY: The same data is read-only after load, so sharing a Lib between threads is sound.
 unsafe impl Sync for Lib {}
 
 static LIBS: Mutex<Vec<Arc<Lib>>> = Mutex::new(Vec::new());
@@ -115,6 +118,9 @@ pub fn add(path: &Path) -> Result<String> {
 }
 
 fn open(path: &Path) -> Result<Lib> {
+    // SAFETY: The library is loaded by its path and its entry symbol has the type of the attachment ABI,
+    // which `abi` is checked against below; the entry is called once, and the library is never
+    // unloaded, so the `&Attachment` and the name pointer it holds stay valid for the life of the program.
     unsafe {
         let lib = libloading::Library::new(path)
             .with_context(|| format!("could not load the attachment {}", path.display()))?;
@@ -178,6 +184,8 @@ pub(crate) struct Attached {
 }
 
 // Only used from the main thread, as the interface says.
+// SAFETY: An Attached holds a handle only the attachment reads, and the interface says calls come from
+// the main thread only; paw moves the value between threads but never uses it from two at once.
 unsafe impl Send for Attached {}
 
 impl Attached {
@@ -194,6 +202,9 @@ impl Attached {
             return (CALL_UNKNOWN, Vec::new());
         };
         let mut answer: Vec<u8> = Vec::new();
+        // SAFETY: `call` is the function the attachment gave for this handle; `method` is a NUL-terminated
+        // CString that lives through the call, `data` is a live slice, and `out` points to `answer`, which
+        // `write_answer` (the callback) alone appends to during the call.
         let code = unsafe {
             call(
                 self.handle,
@@ -211,6 +222,8 @@ impl Attached {
 impl Drop for Attached {
     fn drop(&mut self) {
         if let Some(detach) = self.lib.entry.detach {
+            // SAFETY: `detach` is the attachment's function for `handle`, which `attach` returned and nothing
+            // detached before: Drop runs once.
             unsafe { detach(self.handle) };
         }
     }
@@ -228,6 +241,8 @@ pub(crate) unsafe fn offer(format: &CStr, plugin: *const c_void) -> Vec<Attached
         let Some(attach) = lib.entry.attach else {
             continue;
         };
+        // SAFETY: `attach` is the attachment's function; `HOST` is static, `format` is a live CStr, and the
+        // caller of `offer` promises `plugin` is a live plugin of that format (this function's # Safety).
         let handle = unsafe { attach(&HOST, format.as_ptr(), plugin) };
         if !handle.is_null() {
             taken.push(Attached { lib, handle });
@@ -241,6 +256,9 @@ unsafe extern "C" fn write_answer(out: *mut c_void, data: *const u8, size: usize
         return;
     }
     if size > 0 {
+        // SAFETY: `out` is the `*mut Vec<u8>` that `Attached::call` passed as the write target and is live
+        // for the whole call; `data` is non-null when `size > 0` (checked above) and the attachment
+        // promises it points to `size` readable bytes.
         unsafe {
             (*(out as *mut Vec<u8>)).extend_from_slice(std::slice::from_raw_parts(data, size))
         };
@@ -253,12 +271,14 @@ unsafe extern "C" fn audio_open(path: *const c_char, info: *mut AudioInfo) -> *m
     if path.is_null() {
         return std::ptr::null_mut();
     }
+    // SAFETY: `path` is non-null (checked above) and the attachment promises it is NUL-terminated.
     let path = unsafe { CStr::from_ptr(path) }
         .to_string_lossy()
         .into_owned();
     let Ok(data) = AudioData::load(Path::new(&path)) else {
         return std::ptr::null_mut();
     };
+    // SAFETY: The attachment promises `info` is null or points to a writable AudioInfo; null is handled by as_mut.
     if let Some(info) = unsafe { info.as_mut() } {
         info.frames = data.frames() as i64;
         info.sample_rate = data.sample_rate as f64;
@@ -277,7 +297,10 @@ unsafe extern "C" fn audio_read(
     if audio.is_null() || channels.is_null() || frames < 0 {
         return false;
     }
+    // SAFETY: `audio` is non-null (checked above) and came from `audio_open`, which leaks a live
+    // `Box<Arc<AudioData>>`-shaped pointer until `audio_close`; the attachment does not use it after close.
     let data = unsafe { &*(audio as *const Arc<AudioData>) };
+    // SAFETY: `channels` is non-null (checked above) and the attachment promises it holds `channel_count` pointers.
     let outs = unsafe { std::slice::from_raw_parts(channels, channel_count as usize) };
     read_into(data, start, frames as usize, outs);
     true
@@ -290,6 +313,8 @@ fn read_into(data: &AudioData, start: i64, frames: usize, outs: &[*mut f32]) {
         if out.is_null() {
             continue;
         }
+        // SAFETY: `out` is non-null (checked above), and the attachment promises each channel buffer holds
+        // `frames` writable f32 and that the buffers do not overlap.
         let out = unsafe { std::slice::from_raw_parts_mut(out, frames) };
         let samples = &data.channels[c.min(1)];
         for (i, slot) in out.iter_mut().enumerate() {
@@ -305,6 +330,7 @@ fn read_into(data: &AudioData, start: i64, frames: usize, outs: &[*mut f32]) {
 
 unsafe extern "C" fn audio_close(audio: *mut c_void) {
     if !audio.is_null() {
+        // SAFETY: `audio` is non-null (checked above), came from `audio_open` and the attachment closes it once.
         drop(unsafe { Box::from_raw(audio as *mut Arc<AudioData>) });
     }
 }

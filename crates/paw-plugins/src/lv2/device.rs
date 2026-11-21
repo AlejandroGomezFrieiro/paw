@@ -181,6 +181,11 @@ impl Device for Lv2Device {
         self.queued.clear();
 
         let shared = &self.shared;
+        // SAFETY: `shared.instance` is an instantiated and activated plugin that this device runs on the audio
+        // thread only; its ports were connected to buffers owned by this device and `shared` for
+        // the life of the instance, and each is at least `n` frames. The worker interface and its
+        // handle belong to the same instance; the worker's responses queue has only this thread as
+        // consumer (`finish` waits on atomics only).
         unsafe {
             lilv_instance_run(shared.instance, n as u32);
             if let (Some(worker), Some(interface)) =
@@ -252,6 +257,8 @@ impl Device for Lv2Device {
 
 impl Drop for Lv2Device {
     fn drop(&mut self) {
+        // SAFETY: `instance` is live (the Shared that owns it is alive through `self`) and was activated
+        // in `create`; it is deactivated once, here, on a thread that is not inside `run`.
         unsafe { lilv_instance_deactivate(self.shared.instance) };
     }
 }
@@ -262,6 +269,9 @@ pub(super) unsafe extern "C" fn get_port_value(
     size: *mut u32,
     type_: *mut u32,
 ) -> *const c_void {
+    // SAFETY: lilv passes back the `shared` pointer given in `save_state` (a live `&Shared` for the
+    // call), a NUL-terminated port symbol, and writable `size` and `type_` slots; `scratch` is
+    // written only by this callback and the value read before lilv asks for the next one.
     unsafe {
         let shared = &*(shared as *const Shared);
         let Some(&slot) = shared.symbols.get(CStr::from_ptr(symbol)) else {
@@ -284,6 +294,8 @@ unsafe extern "C" fn set_port_value(
     size: u32,
     type_: u32,
 ) {
+    // SAFETY: lilv passes back the `shared` pointer given in `restore` (a live `&Shared`), a
+    // NUL-terminated port symbol and, for a 4-byte float or int type, a pointer to that many readable bytes.
     unsafe {
         let shared = &*(shared as *const Shared);
         let Some(&slot) = shared.symbols.get(CStr::from_ptr(symbol)) else {
@@ -299,6 +311,9 @@ unsafe extern "C" fn set_port_value(
 }
 
 pub(super) unsafe fn restore(shared: &Shared, state: *const LilvState) {
+    // SAFETY: `state` is a live LilvState (the callers hold it until after the call), `instance` is
+    // live and `shared` lives through the call, which is the `user_data` of `set_port_value`;
+    // `feature_list` is the NULL-terminated array that `host_data` built, owned by `shared.host`.
     unsafe {
         lilv_state_restore(
             state,

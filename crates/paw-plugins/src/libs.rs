@@ -101,6 +101,8 @@ fn open_at(path: &Path, depth: usize) -> Result<()> {
 fn open_with(path: &Path, depth: usize) -> Result<Library> {
     let mut given_up: Vec<String> = Vec::new();
     loop {
+        // SAFETY: Loading a library runs its initializers; paw loads only plugin libraries it was asked
+        // to open, and the path is a valid file path. The same trust as any plugin load.
         let err = match unsafe { Library::open(Some(path), RTLD_LAZY | RTLD_LOCAL) } {
             Ok(library) => return Ok(library),
             Err(err) => err.to_string(),
@@ -137,6 +139,8 @@ pub fn open_library(path: &Path) -> Result<Library> {
     static ONCE: Once = Once::new();
     ONCE.call_once(|| {
         for name in OPENED_LATER {
+            // SAFETY: Loading a library the plugin would look for by name runs its initializers, the same
+            // trust as loading the plugin; the handle is forgotten so the library stays loaded.
             let found = unsafe {
                 Library::open(Some(name), RTLD_LAZY | RTLD_LOCAL)
                     .map(std::mem::forget)
@@ -147,6 +151,7 @@ pub fn open_library(path: &Path) -> Result<Library> {
             }
         }
     });
+    // SAFETY: Loading a library runs its initializers; this is the plugin load the user asked for.
     match unsafe { Library::open(Some(path), RTLD_LAZY | RTLD_LOCAL) } {
         Ok(library) => Ok(library),
         Err(err) if missing(&err.to_string()).is_some() => open_with(path, 0),
