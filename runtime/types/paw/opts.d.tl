@@ -12,6 +12,7 @@ local record Opts
    audition_level: number
    autosave: number
    barlabel: {string | number}
+   bend_step: number
    braille: boolean
    chords: string | boolean
    click_accent: boolean
@@ -86,6 +87,8 @@ local record Opts
    send_level: number
    splitbelow: boolean
    splitright: boolean
+   strum: number
+   strum_dir: string
    termcolors: string | number
    threads: integer
    timeoutlen: number

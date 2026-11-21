@@ -56,8 +56,8 @@ the cursor draws notes, not text. `grn` renames, as in the LSP keys of Neovim.]]
       done = "The mode is INSERT. The piano roll is open on C4, and its title row shows the note that you draw.",
     },
     {
-      say = "`l` makes the note one step longer, so `4l` makes one beat. `<CR>` keeps the note and starts the next note at its end. `2k` moves up two semitones. Press `4l`, `<CR>`, `2k`, `4l`, `<CR>`, `2k`, `4l` and `<Esc>`.",
-      keys = { "4l", "<CR>", "2k", "4l", "<CR>", "2k", "4l", "<Esc>" },
+      say = "`l` makes the note one step longer, so `4l` makes one beat. `<CR>` keeps the note and starts the next note at its end. `2+` moves the note up two semitones. Press `4l`, `<CR>`, `2+`, `4l`, `<CR>`, `2+`, `4l` and `<Esc>`.",
+      keys = { "4l", "<CR>", "2+", "4l", "<CR>", "2+", "4l", "<Esc>" },
       check = function(_, look)
         local clip = look.clip("Bass")
         return clip and look.melody(clip) == "60@0+1 62@1+1 64@2+1" and look.mode() == "n"

@@ -201,7 +201,8 @@ pub struct BandProps<'a> {
 
 /// A note: its track's `color` (`#rrggbb`), its `velocity` (1 to 127), its
 /// name as `label`; `selected`, `cursor`, `ghost` while it is dragged and
-/// `pending` while it is drawn.
+/// `pending` while it is drawn; `bend`, its own pitch bend at its end in
+/// semitones, reached from `bend_at` (0 to 1) of its length.
 #[derive(Debug, Default, Deserialize)]
 #[serde(default)]
 pub struct NoteProps<'a> {
@@ -212,6 +213,8 @@ pub struct NoteProps<'a> {
     pub cursor: bool,
     pub ghost: bool,
     pub pending: bool,
+    pub bend: f64,
+    pub bend_at: f64,
 }
 
 /// A piano down a roll: `top` the pitch of its first row, `cursor` the

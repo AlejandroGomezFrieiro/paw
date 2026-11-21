@@ -205,15 +205,30 @@ is one undo step. See [Insert mode](insert-mode.md).
 
 | Keys | |
 | --- | --- |
-| `i` | draw a note from the cursor (in A: `i` `<CR>`, in the clip under the cursor, or a new one) |
-| `a` | draw from where the note under the cursor ends |
-| `l` `h` | the note a step longer, shorter; a count first: `4l` |
-| `k` `j` `<C-u>` `<C-d>` | the note up, down a semitone; an octave (`K` `J` too) |
-| `<CR>` | keep it, draw the next where it ends |
+| `i` | draw from the cursor: on a note, take it at its start; else a new note (in A: `i` `<CR>`, in the clip under the cursor, or a new one) |
+| `a` | take the note under the cursor, or the note that ends there (after `e`), at its end; else a new note a step on |
+| `l` `h` | the edge under the cursor a step right, left: at the end, longer, shorter; at the start, shorter, longer; a count first: `4l` |
+| `o` `^` `$` `0` | the other edge; the start; the end; the start |
+| `+` `-` `<C-a>` `<C-x>` | the note up, down a semitone; a count first: `3+` |
+| `K` `J` | the note up, down an octave |
+| `r` and a name | the nearest pitch of that name: `ra`, `rf#`, `rbb` |
+| `k` `j` | bend the note up, down at its end (its own pitch bend), `bend_step` semitones each |
+| `>` `<` | the note a step later, earlier |
+| `=` and a value | the length as a note value: `=4` a beat, `=8.` dotted, `=8t` a triplet |
+| `c` | a chord at the note: choose it, or type its symbol (`V7`, `ii`, `V7/V`, `Cmaj7`, `F#m9/C#`) |
+| `C` | a strummed chord: the same list, its notes a 64th apart (`2C` two 64ths; `strum_dir` down) |
+| `a` | an articulation on the note, by name (with the articulations extension) |
+| `e` and a kind | a controller at the note: `em` modulation, `ee` expression, `eb` breath, `es` sustain, `e` and a number any; a count first is the value: `100em` |
+| `<C-n>` `<C-p>` `<C-e>` | suggest the next note or chord in place, the one before; put back |
+| `m` and a kind | a mark of the song at the note: `mk` a key change, `mt` a tempo, `ms` a time signature, `mr` a region to the end of the note, `m'` a marker |
+| `<CR>` | keep it, draw the next where it ends (a note that starts there is taken) |
 | `<Space>` | keep it, draw the next after a step's rest |
-| `o` | keep it, draw another from the same start, for a chord |
-| `<BS>` | take back the note kept last |
+| `.` | keep it, draw it again after it (a count: more times) |
+| `x` | erase the note (a note of the clip goes at `<Esc>`) |
+| `<BS>` `<C-w>` | take back the note kept last |
+| `<C-u>` | take back all that this insert drew |
 | `[` `]` | softer, louder |
+| `<C-o>` | one command of normal mode, then draw again |
 | `I` | keep what was drawn and type notes from here as on a piano (a piano's letter while drawing says so) |
 | `<Esc>` | write what was drawn (one undo step; `.` draws it again) and return to normal mode |
 

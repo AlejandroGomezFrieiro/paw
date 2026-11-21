@@ -33,6 +33,8 @@ paw.ext.load("/path/to/paw/extensions/articulations")
 - For a range, type `:'<,'>art stc`, `:5,8art pizz` or `:%art sus`.
 - To give new notes an articulation, press `\a` in insert mode, or type
   `:art.pen name`.
+- For the note that you draw in the piano roll, press `a` in insert mode
+  and type the name. The names of the map of the track complete.
 
 ### How to make a map for a library
 

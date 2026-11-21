@@ -16,7 +16,7 @@ To move, use `h` `l` for one step and `j` `k` for one semitone. Use `<C-d>` `<C-
 
 To change the note under the cursor: `<CR>` adds or removes a note. `+` `-` (and `<C-a>` `<C-x>`) change its pitch. `<A-h>` `<A-l>` change its length, `H` `L` move it, `[` `]` change the velocity and `gh` plays the pitch.
 
-Insert mode (`i`, or `a` after the note) draws a note from the cursor. `l` `h` make it longer and shorter, and `j` `k` `<C-d>` `<C-u>` change its pitch. `<CR>` keeps the note and draws the next note at its end. `<Space>` adds a rest first. `o` draws a note from the same start, for a chord. `<BS>` removes the last note, and `<Esc>` writes the notes and leaves insert mode.
+Insert mode (`i`, or `a` after the note) is a pencil. It draws a note from the cursor, or it takes the note under the cursor. `l` `h` move the edge of the note where the cursor is: at its end, `l` makes the note longer. `+` `-` change its pitch and `K` `J` the octave. `k` `j` bend it. `<CR>` keeps the note and draws the next note at its end. `<Space>` adds a rest first. `c` makes the note a chord. `<BS>` removes the last note, and `<Esc>` writes the notes and leaves insert mode.
 
 `I` makes the keyboard a piano: `a w s e d f t g y h u j k` are C up to the next C. In normal mode, `<Esc>` stays in the piano roll. `<C-w>p` returns to the arrange view.
 
@@ -42,19 +42,19 @@ The tutor opens a practice project for this lesson. It checks each step when you
    - ✓ The note is A4 now, and the cursor moved with it.
 6. Press `4l` to move one beat. Then press `i` to draw a note there.
    - ✓ The mode is INSERT at beat 2. A note starts here, with no length yet. The title row shows its pitch and length.
-7. In insert mode, `l` makes the note one step longer and `h` makes it shorter. `j` `k` change its pitch. Press `2j` (down to G) and `4l` (one beat long).
+7. In insert mode, `l` makes the note one step longer and `h` makes it shorter. `+` `-` change its pitch. Press `2-` (down to G) and `4l` (one beat long).
    - *Hint:* Counts work as in normal mode: `4l` is `l` four times. `h` moves one step back.
    - ✓ A green G that is one beat long shows. paw did not write it yet. The cursor is at its end.
-8. `<CR>` keeps the note and starts the next note at its end. Press `<CR>`, `2j` (F), `4l`, `<CR>`, `j` (E) and `4l`.
+8. `<CR>` keeps the note and starts the next note at its end. Press `<CR>`, `2-` (F), `4l`, `<CR>`, `-` (E) and `4l`.
    - *Hint:* Each new note starts with no length, and `4l` draws it. `<BS>` removes the last note that you kept.
    - ✓ G and F are kept, and you draw an E now.
 9. `<Esc>` writes the notes that you drew and leaves insert mode. Press `<Esc>`.
    - ✓ The notes A G F E go into the notes E D C that were there before. All of this is one undo step.
-10. Now we add a chord at the end of the clip. Press `$` (the end), `i`, `4j` (down to C) and `4l`.
+10. Now we add a chord at the end of the clip. Press `$` (the end), `i`, `4-` (down to C) and `4l`.
    - ✓ A C that is one beat long shows after the end of the clip. The clip becomes longer to hold it.
-11. `o` keeps the note and starts a note with the same start and length, for a chord. Press `o` and `4k` (E). Then press `o` and `3k` (G).
-   - ✓ C and E are kept, and you draw a G now.
-12. `<CR>` continues after the chord. `<C-d>` and `<C-u>` move one octave. Press `<CR>`, `<C-d>` and `7j` (the C below), `4l` and `<Esc>`.
+11. `c` makes the note a chord. It shows a list of chords, the chord of the key on C first. Press `c`, then `<CR>` to take that chord.
+   - ✓ C E G show in green. The keys of the pencil change all of the chord, as one note. Type a symbol, for example `V7` or `Am`, to get another chord.
+12. `<CR>` keeps the chord and continues after it. `K` and `J` move one octave. Press `<CR>`, `J` (the C below), `4l` and `<Esc>`.
    - *Hint:* `<Space>` adds a rest of one step before the next note.
    - ✓ The clip has a C major chord, then a C3 below it.
 13. In normal mode, `<Esc>` stays in the piano roll, as in each view. `<C-w>p` returns to the previous window. Press `<C-w>p`, then `gs` and `<Space><Space>` to listen. `<Space><Space>` stops.

@@ -13,6 +13,7 @@ local type AttrModule = require("paw.attr")
 local type AuditionModule = require("paw.audition")
 local type BytesModule = require("paw.bytes")
 local type CanvasModule = require("paw.canvas")
+local type ChordsModule = require("paw.chords")
 local type ClipKindsModule = require("paw.clip_kinds")
 local type CommandsModule = require("paw.commands")
 local type CompleteModule = require("paw.complete")
@@ -54,6 +55,7 @@ local type RegexModule = require("paw.regex")
 local type RemoteModule = require("paw.remote")
 local type RenderModule = require("paw.render")
 local type RolesModule = require("paw.roles")
+local type RollDrawModule = require("paw.roll_draw")
 local type RulerModule = require("paw.ruler")
 local type SceneModule = require("paw.scene")
 local type ScopeModule = require("paw.scope")
@@ -87,6 +89,7 @@ global record paw
    bytes: BytesModule
    cancel: function(handle: integer)
    canvas: CanvasModule
+   chords: ChordsModule
    clip: function(id: integer): ObjectsModule.Clip
    clip_kinds: ClipKindsModule
    cmd: function<C is CommandsModule.Context>(name: string, args?: CommandsModule.Args, ctx?: C): CommandsModule.Result
@@ -182,7 +185,7 @@ global record paw
    restore_track: function(snap: ObjectsModule.TrackSnapshot, index?: integer): ObjectsModule.Track
    roles: RolesModule
    roll_clips: Untyped
-   roll_draw: Untyped
+   roll_draw: RollDrawModule
    routes: Untyped
    ruler: RulerModule
    scene: SceneModule

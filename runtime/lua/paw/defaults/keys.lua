@@ -731,17 +731,18 @@ end, "Loop")
 
 -- Piano roll: single keys.
 pmap("<CR>", function() roll:toggle_note() end, "Add or remove a note")
-pmap("i", function() keymap.set_mode("i") end, "Draw notes from the cursor")
+pmap("i", function() keymap.set_mode("i") end, "Draw: the note under the cursor at its start, or a new one")
 pmap("a", function()
-  local note = roll:note_at(roll.pitch, roll.beat)
-  if note then
-    roll:set(nil, note.start + note.length)
-  elseif paw.opt.roll_insert ~= "keys" then
-    -- A step on, past the end of the clip if need be: it grows to hold what is drawn.
-    roll.beat = roll.beat + paw.opt.note_grid
+  if paw.opt.roll_insert == "keys" then
+    local note = roll:note_at(roll.pitch, roll.beat)
+    if note then roll:set(nil, note.start + note.length) end
+  else
+    -- The pencil takes the note at its end, or starts a step on: past the
+    -- end of the clip if need be, which grows to hold what is drawn.
+    paw.roll_draw.append()
   end
   keymap.set_mode("i")
-end, "Draw notes after this one")
+end, "Draw: the note under the cursor at its end, or a new one a step on")
 pmap("I", function()
   paw.roll_draw.keys_once()
   keymap.set_mode("i")
@@ -953,30 +954,62 @@ for lhs, fn in pairs({ ["+"] = lengthen_region, ["-"] = shorten_region }) do
   end })
 end
 
--- Piano roll: insert mode draws a note from the cursor (`paw.roll_draw`).
--- What is drawn is written when insert mode ends, as one undo step.
-local function drawmap(lhs, fn, desc) map(lhs, fn, { view = "pianoroll", mode = "i", desc = desc }) end
+-- Piano roll: insert mode is a pencil (`paw.roll_draw`). It draws a note
+-- from the cursor, or takes up the note under it; `h` `l` move the edge
+-- of the note that the cursor is on. What is drawn is written when insert
+-- mode ends, as one undo step.
+local function drawmap(lhs, fn, desc, extra)
+  map(lhs, fn, util.merge({ view = "pianoroll", mode = "i", desc = desc }, extra or {}))
+end
 local drawing = paw.roll_draw
 for digit = 0, 9 do
-  drawmap(tostring(digit), function() drawing.digit(digit) end, "A count for the next key")
+  drawmap(tostring(digit), function() drawing.digit(digit) end, digit == 0 and "The start of the note (or a count)" or "A count for the next key")
 end
-for _, lhs in ipairs({ "l", "<Right>" }) do drawmap(lhs, function() drawing.grow(1) end, "The note a step longer") end
-for _, lhs in ipairs({ "h", "<Left>" }) do drawmap(lhs, function() drawing.grow(-1) end, "The note a step shorter") end
-for _, lhs in ipairs({ "k", "<Up>" }) do drawmap(lhs, function() drawing.pitch(1) end, "The note up a semitone") end
-for _, lhs in ipairs({ "j", "<Down>" }) do drawmap(lhs, function() drawing.pitch(-1) end, "The note down a semitone") end
+for _, lhs in ipairs({ "l", "<Right>" }) do drawmap(lhs, function() drawing.grow(1) end, "The edge a step right: longer at the end, shorter at the start") end
+for _, lhs in ipairs({ "h", "<Left>" }) do drawmap(lhs, function() drawing.grow(-1) end, "The edge a step left: shorter at the end, longer at the start") end
+for _, lhs in ipairs({ "k", "<Up>" }) do drawmap(lhs, function() drawing.bend(1) end, "Bend the note up at its end") end
+for _, lhs in ipairs({ "j", "<Down>" }) do drawmap(lhs, function() drawing.bend(-1) end, "Bend the note down at its end") end
+drawmap("o", function() drawing.edge() end, "The other edge of the note")
+drawmap("^", function() drawing.edge("start") end, "The start of the note")
+drawmap("$", function() drawing.edge("end") end, "The end of the note")
+for _, lhs in ipairs({ "+", "<C-a>" }) do drawmap(lhs, function() drawing.pitch(1) end, "The note up a semitone") end
+for _, lhs in ipairs({ "-", "<C-x>" }) do drawmap(lhs, function() drawing.pitch(-1) end, "The note down a semitone") end
 drawmap("K", function() drawing.pitch(12) end, "The note up an octave")
 drawmap("J", function() drawing.pitch(-12) end, "The note down an octave")
-drawmap("<C-u>", function() drawing.pitch(12) end, "The note up an octave")
-drawmap("<C-d>", function() drawing.pitch(-12) end, "The note down an octave")
+drawmap("r", function(ctx) drawing.name(ctx.char) end, "The pitch by its name: r c, r f then #", { char = true })
+drawmap("#", function() drawing.accidental(1) end, "After r and a name: sharp")
+drawmap("b", function() drawing.accidental(-1) end, "After r and a name: flat")
+drawmap(">", function() drawing.nudge(1) end, "The note a step later")
+drawmap("<lt>", function() drawing.nudge(-1) end, "The note a step earlier")
+drawmap("=", function() drawing.length_key() end, "The length in note values: =4 a beat, =8. dotted, =8t triplet")
+drawmap(".", function() if not drawing.length_key(".") then drawing.again() end end, "The note or chord again, after this one")
+drawmap("t", function() drawing.length_key("t") end, "After = and a value: a triplet")
 drawmap("<CR>", function() drawing.next("legato") end, "Keep the note, and draw the next where it ends")
 drawmap("<Space>", function() drawing.next("rest") end, "Keep the note, and draw the next after a step's rest")
-drawmap("o", function() drawing.next("chord") end, "Keep the note, and draw another as long from where it starts, for a chord")
+drawmap("c", function() drawing.pick_chord() end, "A chord here: choose or type its symbol (V7, ii, Cmaj7, F#m9/C#)")
+drawmap("m", function(ctx) drawing.mark(ctx.char) end, "A mark of the song here: mk a key, mt a tempo, ms a time signature, m' a marker", { char = true })
+drawmap("C", function() drawing.pick_chord(true) end, "A strummed chord here: its notes one after the other (strum, strum_dir)")
+drawmap("a", function() drawing.articulate() end, "An articulation on the note (from the articulations extension)")
+drawmap("e", function(ctx) drawing.expression(ctx.char) end, "A controller here: em modulation, ee expression, eb breath, es sustain, e and a number", { char = true })
+drawmap("<C-n>", function() drawing.suggest(1) end, "Suggest what comes next here: the next suggestion")
+drawmap("<C-p>", function() drawing.suggest(-1) end, "Suggest what comes next here: the suggestion before")
+drawmap("<C-e>", function() drawing.unsuggest() end, "Put back what was there before the suggestions")
+drawmap("x", function() drawing.erase() end, "Erase the note: a note of the clip goes when insert mode ends")
 drawmap("<BS>", function() drawing.back() end, "Take back the note kept last, to draw it again")
-drawmap("]", function() paw.opt.velocity = math.min(127, paw.opt.velocity + 10) end, "Louder notes")
-drawmap("[", function() paw.opt.velocity = math.max(1, paw.opt.velocity - 10) end, "Softer notes")
+drawmap("<C-w>", function() drawing.back() end, "Take back the note kept last, to draw it again")
+drawmap("<C-u>", function() drawing.back_all() end, "Take back all that this insert drew")
+drawmap("]", function() drawing.velocity(1) end, "Louder notes")
+drawmap("[", function() drawing.velocity(-1) end, "Softer notes")
 drawmap("I", function() drawing.to_keys() end, "Type notes as a piano from here: a s d f … are a scale")
+drawmap("<C-o>", function()
+  -- One command of normal mode: what is drawn is written, and insert mode starts again after it.
+  keymap.set_mode("n")
+  keymap.after_next(function()
+    if paw.ui.focused == "pianoroll" and keymap.mode == "n" then keymap.set_mode("i") end
+  end)
+end, "One command of normal mode, then draw again")
 -- The piano's letters do nothing while drawing: said, not lost in silence.
-for _, lhs in ipairs({ "a", "w", "s", "e", "d", "f", "t", "g", "y", "u", "p", ";" }) do
+for _, lhs in ipairs({ "w", "s", "d", "f", "g", "y", "u", "p", ";" }) do
   drawmap(lhs, function()
     paw.notify("drawing a note: h j k l shape it, Enter keeps it; I types notes as a piano (" .. lhs .. " is a key there)", "warn")
   end, "Not a key while drawing: says that I types notes")
