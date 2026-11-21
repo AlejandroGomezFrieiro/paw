@@ -228,6 +228,9 @@ end)
 -- The notes of the clips being edited: each a note on the roll's plane,
 -- and what the pointer finds there.
 view.layer("notes", 20, function(L)
+    -- A selection that names its notes (`viv`) shows on them.
+    local selection = paw.ui.focused == "pianoroll" and paw.keymap.selection()
+    local named = selection and selection.notes
     for i, part in ipairs(L.parts) do
       local colour = paw.draw.track_colour(api.track_get(part.track))
       local hue = i == 1 and L.hue or paw.draw.hue(colour)
@@ -236,10 +239,12 @@ view.layer("notes", 20, function(L)
       local shown, places = part.clip:notes({
         from = L.from - part.offset, to = L.to - part.offset, low = math.max(0, L.top - L.rows + 1), high = L.top,
       })
+      local ids = named and named[part.id] or {}
       for k, note in ipairs(shown) do
         local place, start = places[k], note.start + part.offset
         local at_cursor = L.under_part and L.under_part.id == part.id and place == L.under_place
-        local style = at_cursor and "NoteCursor" or chosen[place] and hue.title_cur or paw.draw.note_style(hue, note.velocity)
+        if ids[note.id] then chosen[place] = true end
+        local style = at_cursor and "NoteCursor" or ids[note.id] and "Visual" or chosen[place] and hue.title_cur or paw.draw.note_style(hue, note.velocity)
         -- Long enough notes say which they are, or the articulation
         -- (MIDI 2.0 attribute) they carry.
         local said = note.attr and paw.attr.describe(note.attr)
@@ -608,7 +613,8 @@ function view:render(buf, ctx)
 
   -- The selection of visual mode: a stretch of time, a block, or whole pitches.
   local selection = ctx.focused and paw.keymap.selection()
-  if selection then
+  -- One that names its notes shows on the notes themselves.
+  if selection and not selection.notes then
     local x0 = math.max(0, math.floor((selection.c0 - self.scroll) * zoom + 0.5))
     local x1 = math.min(tw, math.floor((selection.c1 - self.scroll) * zoom + 0.5))
     local y0, y1 = math.max(0, self.top - selection.r1), math.min(rows - 1, self.top - selection.r0)

@@ -289,6 +289,8 @@ local record contracts
    --- `visual` when a selection made it, `object` when a text object made
    --- it, `unstretched` for a selection that a key has not moved yet, and
    --- `clips` the clips chosen one by one in the arrange view (a set).
+   --- `notes` names the notes of a piano roll text object (`iv`): note ids
+   --- by clip id. An operator then acts on those notes alone.
    record Region
       view: string
       kind: string
@@ -300,6 +302,7 @@ local record contracts
       object: boolean
       unstretched: boolean
       clips: {integer:boolean}
+      notes: {integer:{integer:boolean}}
    end
 
    --- What a function of a key mapping gets: the count typed before it,

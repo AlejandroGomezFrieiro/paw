@@ -134,6 +134,7 @@ local defaults: {string:Value} = {
   note_grid = 0.25,        -- piano roll step and snap, in beats
   note_snap = true,        -- the pointer's notes land on the piano roll's grid
   note_zoom = 8,           -- piano roll columns per beat
+  phrase_rest = 0.5,       -- beats: a longer rest ends a phrase (`ip`, `(` `)` in the piano roll)
   message_time = 4000,     -- ms a message stays on the command line
   -- A sound file whose decoded audio is larger than this many megabytes is
   -- played from the disk instead of being held in memory; 0 holds every
@@ -173,6 +174,7 @@ local specs: {string:Spec} = {
   send_level = { min = -150, max = 24 },
   note_grid = { min = 1 / 128, max = 64 },
   note_zoom = { min = 0.125, max = 64 },
+  phrase_rest = { min = 0, max = 64 },
   message_time = { min = 0, max = 600000 },
   media_stream = { min = 0 },
   media_cache = { min = 0 },

@@ -48,6 +48,12 @@ take out what your extension adds. An extension's README follows
    "The leader keys"); a new domain names its group with `paw.keymap.group`.
    `tests/fixtures/keys_walk.lua` fails on a leader key outside a domain.
    Motions are declared `motion = true` so operators and visual mode work.
+   A musical object of the piano roll is a text object
+   (`paw.keymap.textobject`), not a new selection key: return the region of
+   its notes, with `notes` (note ids by clip id) when other notes lie
+   between them, as `require("paw.note_objects").region(notes)` makes it.
+   The core objects are in docs/reference/grammar.md ("Objects of the
+   piano roll"); do not map their letters again.
    `tests/keys_constitution.lua` and `paw.keyrule.broken()` check it.
 3. **Terminal first, both frontends from one code path.** Draw views in
    cells with `buf:text`/`buf:fill`; the window renders the same scene (see

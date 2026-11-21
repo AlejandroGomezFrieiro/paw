@@ -435,7 +435,7 @@ end
 function M.visual_restore()
   local g, last = grid(), M.last_visual
   if not (g and last and last.view == paw.ui.focused) then return end
-  M.visual = { kind = last.kind, row = last.row, col = last.col, view = last.view }
+  M.visual = { kind = last.kind, row = last.row, col = last.col, view = last.view, region = last.region }
   g.set(last.cursor_row, last.cursor_col)
   M.set_mode("x")
 end
@@ -811,18 +811,39 @@ local function run(map, char)
   end
 
   if map.object then
-    -- In visual mode a text object becomes the selection.
+    -- In visual mode a text object becomes the selection. The same object
+    -- again, with the cursor where it left it, takes in one more (`vic`
+    -- then `ic`): it is asked again from where the first one started,
+    -- with a count one higher.
+    local v, again = M.visual, nil
+    if g and v and v.object and v.object.map == map then
+      local r, c = g.get()
+      if r == v.object.at_row and c == v.object.at_col then again = v.object end
+    end
+    local from_row, from_col
+    if g then from_row, from_col = g.get() end
+    if again then
+      from_row, from_col = again.row, again.col
+      g.set(from_row, from_col)
+      ctx.count = again.count + (ctx.count or 1)
+    end
     local reg = map.object(ctx)
-    if reg and M.visual then
-      M.visual.row, M.visual.col, M.visual.region = reg.r0, reg.c0, nil
+    if again and not reg then g.set(again.at_row, again.at_col) end
+    if reg and M.visual and g then
+      -- A region that names its notes is the selection as it is: the
+      -- cursor does not stretch it.
+      local fixed = reg.notes and function() return paw.util.merge(reg, {}) end or nil
+      M.visual.row, M.visual.col, M.visual.region = reg.r0, reg.c0, fixed
       if reg.kind == "line" then
         M.visual.kind = "V"
       elseif reg.kind == "block" then
         M.visual.kind = "b"
-      elseif M.visual.kind == "V" then
+      else
         M.visual.kind = "v"
       end
       g.set(reg.r1, reg.c1)
+      local at_row, at_col = g.get()
+      M.visual.object = { map = map, count = ctx.count or 1, row = from_row, col = from_col, at_row = at_row, at_col = at_col }
     end
     return
   end

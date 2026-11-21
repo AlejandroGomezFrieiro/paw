@@ -133,7 +133,7 @@ and the step under the cursor, and the velocity of the hit there.
 | `Esc` | cancels. The grid stays |
 | `Ctrl-w p` | returns to the window before |
 
-- Text objects: `ih` the cell, `ir` `ar` the row, `ib` the bar on every row,
+- Text objects: `ih` `ah` the cell, `ir` `ar` the row, `ib` the bar on every row,
   `ic` every hit.
 - Visual mode: `v` a time on every row, `Ctrl-v` a block, `V` full rows.
   Then `x`, `+` `-`, `gs`, `y`, `p`.
