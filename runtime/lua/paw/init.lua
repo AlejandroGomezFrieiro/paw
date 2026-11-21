@@ -210,6 +210,7 @@ paw.controls = require("paw.controls")
 paw.takes = require("paw.takes")
 paw.stretch = require("paw.stretch")
 paw.harmony = require("paw.harmony")
+paw.chords = require("paw.chords")
 paw.snippet = require("paw.snippet")
 -- The window's menus, shown by it and built here (paw/window_menus.tl).
 require("paw.window_menus")
