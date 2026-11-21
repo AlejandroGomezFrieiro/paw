@@ -79,14 +79,15 @@ impl Session {
         out
     }
 
-    pub fn device_view(&self, id: Id) -> Result<Value> {
-        let (track, index) = self
-            .project
-            .find_device(id)
-            .with_context(|| format!("no device {id}"))?;
-        let d = &self.project.track(track).unwrap().devices[index];
-        let info = self.registry.get(&d.kind).map(|f| f.info());
-        let live = self.live.get(&id);
+    /// Every parameter of a device with its current value, and its
+    /// description.
+    fn device_params(
+        &self,
+        id: Id,
+        track: Id,
+        d: &crate::model::DeviceInst,
+        live: Option<&crate::sync::LiveDevice>,
+    ) -> (serde_json::Map<String, Value>, Vec<Value>) {
         // Every parameter with its current value: what the project sets,
         // else what the plugin reports (from its own state), else the default.
         let mut params = serde_json::Map::new();
@@ -127,6 +128,18 @@ impl Session {
             info["automated"] = json!(automated.contains(&p.key.as_str()));
             infos.push(info);
         }
+        (params, infos)
+    }
+
+    pub fn device_view(&self, id: Id) -> Result<Value> {
+        let (track, index) = self
+            .project
+            .find_device(id)
+            .with_context(|| format!("no device {id}"))?;
+        let d = &self.project.track(track).unwrap().devices[index];
+        let info = self.registry.get(&d.kind).map(|f| f.info());
+        let live = self.live.get(&id);
+        let (mut params, infos) = self.device_params(id, track, d, live);
         // `running`, `loading` (being made apart: see session/loading.rs),
         // `stopped`, `offline` (set so: not made at all) or `missing` (not
         // installed).
@@ -620,14 +633,15 @@ impl Session {
         self.poll_stretches();
         self.watch_devices();
         self.poll_file_changes();
-        let mut changed: Vec<(Id, Vec<String>)> = Vec::new();
-        // What was moved in a plugin's own window, for writing automation.
-        let mut moved: Vec<(Id, String, String, f64)> = Vec::new();
-        let mut latency_changed = false;
-        // Plugins that have stopped working since the last look.
-        let mut stopped: Vec<(Id, String)> = Vec::new();
-        // Devices whose output held NaN or infinity, silenced by the engine.
-        let mut invalid: Vec<Id> = Vec::new();
+        let mut scan = self.scan_devices();
+        self.emit_device_scan(&mut scan);
+        self.apply_device_scan(scan);
+    }
+
+    /// Look at each live device once: engine faults, health, latency and what
+    /// its own window changed.
+    fn scan_devices(&mut self) -> DeviceScan {
+        let mut scan = DeviceScan::default();
         for (id, live) in &mut self.live {
             // Any device, built in or not, that panicked or put out NaN or
             // infinity: the engine has bypassed or silenced it.
@@ -640,10 +654,10 @@ impl Session {
                     let why =
                         "it crashed while processing; it is bypassed until restarted".to_string();
                     live.stopped = Some(why.clone());
-                    stopped.push((*id, why));
+                    scan.stopped.push((*id, why));
                 }
                 if fault.contains(paw_engine::guard::Fault::NOT_FINITE) {
-                    invalid.push(*id);
+                    scan.invalid.push(*id);
                 }
             }
             let Some(controller) = live.controller.as_mut() else {
@@ -655,12 +669,12 @@ impl Session {
                 && let Some(why) = controller.health()
             {
                 live.stopped = Some(why.clone());
-                stopped.push((*id, why));
+                scan.stopped.push((*id, why));
             }
             let latency = controller.latency();
             if latency != live.latency {
                 live.latency = latency;
-                latency_changed = true;
+                scan.latency_changed = true;
             }
             let changes = controller.take_changes();
             // The echo of a state it was given only mirrors the state, which
@@ -669,13 +683,22 @@ impl Session {
             for change in changes.iter().filter(|c| c.edit) {
                 if let Some(param) = live.params.get(change.index) {
                     keys.push(param.key.clone());
-                    moved.push((*id, param.key.clone(), param.stable_id().to_string(), change.value));
+                    scan.moved.push((*id, param.key.clone(), param.stable_id().to_string(), change.value));
                 }
             }
             if !changes.is_empty() || was_open != controller.editor_open() {
-                changed.push((*id, keys));
+                scan.changed.push((*id, keys));
             }
         }
+        scan
+    }
+
+    /// Tell the frontends about the parameters moved in a plugin's window and
+    /// the devices that stopped or put out NaN or infinity.
+    fn emit_device_scan(&mut self, scan: &mut DeviceScan) {
+        let moved = std::mem::take(&mut scan.moved);
+        let stopped = std::mem::take(&mut scan.stopped);
+        let invalid = std::mem::take(&mut scan.invalid);
         for (device, param, stable, value) in moved {
             // The parameter last moved in a plugin's own window, for
             // `:param.last` and for the frontends to show.
@@ -707,16 +730,21 @@ impl Session {
                 .map_or(kind.to_string(), |f| f.info().name.clone());
             self.emit(E::DeviceInvalid(DeviceTrouble { device, track, name, reason: None, loading: false }));
         }
-        if latency_changed {
+    }
+
+    /// The plugin's own changes: lining up the tracks again for a new latency,
+    /// and dropping the project's overrides of values the plugin now holds.
+    fn apply_device_scan(&mut self, scan: DeviceScan) {
+        if scan.latency_changed {
             // The tracks have to be lined up again.
             self.dirty = true;
             self.flush();
         }
-        if changed.is_empty() {
+        if scan.changed.is_empty() {
             return;
         }
         self.flush();
-        for (id, keys) in changed {
+        for (id, keys) in scan.changed {
             // The plugin now holds a value the project did not set. Stop
             // overriding it: the plugin's own state is what carries it from here.
             for snapshot in [&mut self.project, &mut self.undo.checkpoint] {
@@ -885,4 +913,17 @@ impl Session {
             Ok(())
         })
     }
+}
+
+/// What `Session::idle` found among the live devices.
+#[derive(Default)]
+struct DeviceScan {
+    changed: Vec<(Id, Vec<String>)>,
+    /// What was moved in a plugin's own window, for writing automation.
+    moved: Vec<(Id, String, String, f64)>,
+    latency_changed: bool,
+    /// Plugins that have stopped working since the last look.
+    stopped: Vec<(Id, String)>,
+    /// Devices whose output held NaN or infinity, silenced by the engine.
+    invalid: Vec<Id>,
 }

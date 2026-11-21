@@ -277,7 +277,15 @@ impl Renders {
     /// take in what has been made, noting it in `finished`. `store` keeps
     /// what is large.
     pub fn poll(&mut self, wanted: &HashSet<Key>, settle: Duration, store: Option<&DiskStore>) {
-        let finished = &mut self.finished;
+        self.drop_unwanted(wanted);
+        self.take_ended(wanted);
+        self.start_due(settle, store);
+        self.drop_spare(wanted);
+    }
+
+    /// Drop the waiting versions no clip wants, and tell the running ones
+    /// to stop.
+    fn drop_unwanted(&mut self, wanted: &HashSet<Key>) {
         self.jobs.retain(|key, job| match job {
             Job::Waiting(..) => wanted.contains(key),
             Job::Running(_, cancel, _) => {
@@ -289,6 +297,11 @@ impl Renders {
             }
             Job::Done(_) | Job::Failed => true,
         });
+    }
+
+    /// Take in the versions whose thread has ended, noting each in
+    /// `finished`.
+    fn take_ended(&mut self, wanted: &HashSet<Key>) {
         let ended: Vec<Key> = self
             .jobs
             .iter()
@@ -306,13 +319,13 @@ impl Renders {
                 // Wanted again since it was told to stop: its clips are
                 // built again, which asks for it anew.
                 if wanted.contains(&key) {
-                    finished.push(key);
+                    self.finished.push(key);
                 }
                 continue;
             }
             match result {
                 Ok(data) => {
-                    finished.push(key.clone());
+                    self.finished.push(key.clone());
                     self.jobs.insert(
                         key.clone(),
                         Job::Done(Ready {
@@ -326,10 +339,15 @@ impl Renders {
                     let why = format!("stretching {}: {err:#}", key.file.display());
                     self.failures.push(why);
                     self.jobs.insert(key.clone(), Job::Failed);
-                    finished.push(key);
+                    self.finished.push(key);
                 }
             }
         }
+    }
+
+    /// Start the versions that have waited `settle`, the oldest first, as
+    /// many as `AT_ONCE` allows.
+    fn start_due(&mut self, settle: Duration, store: Option<&DiskStore>) {
         let running = self
             .jobs
             .values()
@@ -382,7 +400,7 @@ impl Renders {
             match thread {
                 Ok((thread, made)) => {
                     // Its clips play it from now, as far as it is made.
-                    finished.push(key.clone());
+                    self.finished.push(key.clone());
                     self.jobs.insert(key, Job::Running(thread, cancel, made));
                 }
                 Err(err) => {
@@ -392,7 +410,10 @@ impl Renders {
                 }
             }
         }
-        // Versions no clip plays any more, past a few kept for undo.
+    }
+
+    /// Versions no clip plays any more, past a few kept for undo.
+    fn drop_spare(&mut self, wanted: &HashSet<Key>) {
         let unwanted: Vec<Key> = self
             .made
             .iter()

@@ -44,36 +44,75 @@ impl Session {
             bail!("the master track has no clips: put them on a track");
         }
         let mut opts = opts;
-        // A MIDI clip file: a MIDI clip that refers to it, as long as it
-        // is not edited (`Clip::source`).
-        let mut source = None;
-        if let Some(file) = opts
-            .file
-            .take_if(|f| f.extension().is_some_and(|e| e == "midi2"))
-        {
-            let file = std::path::absolute(&file).unwrap_or(file);
-            let bytes =
-                std::fs::read(&file).with_context(|| format!("reading {}", file.display()))?;
-            let read = crate::clipfile::decode(&bytes)
-                .with_context(|| format!("reading {}", file.display()))?;
-            opts.kind = Some(ClipKind::Midi);
-            opts.notes = read.notes;
-            opts.controls = read.controls;
-            if opts.length.is_none() && read.length > 0.0 {
-                opts.length = Some(read.length);
-            }
-            if opts.name.is_none() {
-                opts.name = file.file_stem().map(|s| s.to_string_lossy().into_owned());
-            }
-            source = Some(file);
-        }
+        let source = Self::read_midi_source(&mut opts)?;
         let kind = opts.kind.unwrap_or(if opts.file.is_some() {
             ClipKind::Audio
         } else {
             ClipKind::Midi
         });
+        let (content, natural, default_name) = self.clip_content(kind, &mut opts)?;
+        let length = opts.length.unwrap_or(natural);
+        Self::check_clip_opts(kind, &opts, length)?;
+        let id = self.new_id();
+        let cue = opts.cue;
+        self.edit(|p| {
+            let t = p
+                .track_mut(track)
+                .with_context(|| format!("no track {track}"))?;
+            let clip = Arc::new(Self::build_clip(
+                id,
+                kind,
+                opts,
+                content,
+                default_name,
+                length,
+                source,
+            ));
+            if cue {
+                t.cues.push(clip);
+            } else {
+                t.clips.push(clip);
+                let at = t.clips.len() - 1;
+                p.found_clip(id, track, at);
+            }
+            Ok(id)
+        })
+    }
+
+    /// A MIDI clip file: a MIDI clip that refers to it, as long as it is
+    /// not edited (`Clip::source`). Fills `opts` from the file.
+    fn read_midi_source(opts: &mut ClipOpts) -> Result<Option<std::path::PathBuf>> {
+        let Some(file) = opts
+            .file
+            .take_if(|f| f.extension().is_some_and(|e| e == "midi2"))
+        else {
+            return Ok(None);
+        };
+        let file = std::path::absolute(&file).unwrap_or(file);
+        let bytes = std::fs::read(&file).with_context(|| format!("reading {}", file.display()))?;
+        let read = crate::clipfile::decode(&bytes)
+            .with_context(|| format!("reading {}", file.display()))?;
+        opts.kind = Some(ClipKind::Midi);
+        opts.notes = read.notes;
+        opts.controls = read.controls;
+        if opts.length.is_none() && read.length > 0.0 {
+            opts.length = Some(read.length);
+        }
+        if opts.name.is_none() {
+            opts.name = file.file_stem().map(|s| s.to_string_lossy().into_owned());
+        }
+        Ok(Some(file))
+    }
+
+    /// The content of a new clip, its natural length in beats and its
+    /// default name. Takes the notes, controls and file out of `opts`.
+    fn clip_content(
+        &mut self,
+        kind: ClipKind,
+        opts: &mut ClipOpts,
+    ) -> Result<(ClipContent, f64, String)> {
         let tempo = self.project.tempo_map().clone();
-        let (content, natural, default_name) = match kind {
+        match kind {
             ClipKind::Midi => {
                 check_notes(&opts.notes)?;
                 let end = opts
@@ -84,17 +123,17 @@ impl Session {
                 let bar = tempo.bar_length(opts.start);
                 // Default to whole bars, long enough for the notes given.
                 let natural = (end / bar).ceil().max(1.0) * bar;
-                (
+                Ok((
                     ClipContent::Midi {
-                        notes: sorted(opts.notes).into(),
-                        controls: check_controls(opts.controls)?,
+                        notes: sorted(std::mem::take(&mut opts.notes)).into(),
+                        controls: check_controls(std::mem::take(&mut opts.controls))?,
                     },
                     natural,
                     "midi".to_string(),
-                )
+                ))
             }
             ClipKind::Audio => {
-                let file = opts.file.context("audio clips need a `file`")?;
+                let file = opts.file.take().context("audio clips need a `file`")?;
                 if !opts.offset.is_finite() || opts.offset < 0.0 {
                     bail!("an audio clip's offset is a number of seconds from 0 up");
                 }
@@ -111,10 +150,13 @@ impl Session {
                     gain,
                     edits: Vec::new(),
                 };
-                (content, natural, name.unwrap_or_else(|| "audio".into()))
+                Ok((content, natural, name.unwrap_or_else(|| "audio".into())))
             }
-        };
-        let length = opts.length.unwrap_or(natural);
+        }
+    }
+
+    /// The checks of a new clip's timing, fades, stretch and loop.
+    fn check_clip_opts(kind: ClipKind, opts: &ClipOpts, length: f64) -> Result<()> {
         if !length.is_finite() || length <= 0.0 || !opts.start.is_finite() || opts.start < 0.0 {
             bail!("clips need a start of at least 0 and a length above 0");
         }
@@ -131,44 +173,42 @@ impl Session {
         {
             bail!("a clip's loop is a length above 0 from a start");
         }
-        let id = self.new_id();
-        self.edit(|p| {
-            let t = p
-                .track_mut(track)
-                .with_context(|| format!("no track {track}"))?;
-            let clip = Arc::new(Clip {
-                timebase: opts.timebase.filter(|_| kind == ClipKind::Audio),
-                stretch,
-                pitch: opts.pitch,
-                stretch_mode: opts.stretch_mode,
-                source_tempo: opts.source_tempo.filter(|_| kind == ClipKind::Audio),
-                warp: opts.warp.clone(),
-                formants: opts.formants,
-                looped: opts.looped && opts.loop_length.is_some(),
-                loop_length: opts.loop_length,
-                loop_start: opts.loop_start,
-                id,
-                name: opts.name.unwrap_or(default_name),
-                // A clip off the timeline starts at 0 whatever `start` says.
-                start: if opts.cue { 0.0 } else { opts.start },
-                length,
-                muted: false,
-                content,
-                fade_in: opts.fade_in,
-                fade_out: opts.fade_out,
-                meta: opts.meta,
-                source,
-                origin: None,
-            });
-            if opts.cue {
-                t.cues.push(clip);
-            } else {
-                t.clips.push(clip);
-                let at = t.clips.len() - 1;
-                p.found_clip(id, track, at);
-            }
-            Ok(id)
-        })
+        Ok(())
+    }
+
+    fn build_clip(
+        id: Id,
+        kind: ClipKind,
+        opts: ClipOpts,
+        content: ClipContent,
+        default_name: String,
+        length: f64,
+        source: Option<std::path::PathBuf>,
+    ) -> Clip {
+        Clip {
+            timebase: opts.timebase.filter(|_| kind == ClipKind::Audio),
+            stretch: opts.stretch.unwrap_or(1.0),
+            pitch: opts.pitch,
+            stretch_mode: opts.stretch_mode,
+            source_tempo: opts.source_tempo.filter(|_| kind == ClipKind::Audio),
+            warp: opts.warp,
+            formants: opts.formants,
+            looped: opts.looped && opts.loop_length.is_some(),
+            loop_length: opts.loop_length,
+            loop_start: opts.loop_start,
+            id,
+            name: opts.name.unwrap_or(default_name),
+            // A clip off the timeline starts at 0 whatever `start` says.
+            start: if opts.cue { 0.0 } else { opts.start },
+            length,
+            muted: false,
+            content,
+            fade_in: opts.fade_in,
+            fade_out: opts.fade_out,
+            meta: opts.meta,
+            source,
+            origin: None,
+        }
     }
 
     /// The waveform of the part of its file an audio clip plays, as `n`

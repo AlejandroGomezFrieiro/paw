@@ -211,44 +211,7 @@ impl Session {
             .context("no such track")?
             .clips
             .to_vec();
-        let audio = |c: &Clip| matches!(c.content, ClipContent::Audio { .. });
-        let mut chosen: Vec<Id> = ids.to_vec();
-        if ids.len() == 1 {
-            // Grow the run both ways while a clip touches or overlaps it.
-            let (mut lo, mut hi) = {
-                let c = clips.iter().find(|c| c.id == first).context("no clip")?;
-                (c.start, c.start + c.length)
-            };
-            loop {
-                let before = chosen.len();
-                for c in &clips {
-                    if audio(c)
-                        && !chosen.contains(&c.id)
-                        && c.start <= hi + 1e-9
-                        && c.start + c.length >= lo - 1e-9
-                    {
-                        chosen.push(c.id);
-                        lo = lo.min(c.start);
-                        hi = hi.max(c.start + c.length);
-                    }
-                }
-                if chosen.len() == before {
-                    break;
-                }
-            }
-        }
-        for id in &chosen {
-            let c = clips
-                .iter()
-                .find(|c| c.id == *id)
-                .with_context(|| format!("clip {id} is not on the same track as clip {first}"))?;
-            if !audio(c) {
-                bail!("clip {id} is a MIDI clip: only audio clips are glued");
-            }
-        }
-        if chosen.len() < 2 {
-            bail!("nothing to glue: no other audio clip touches clip {first}");
-        }
+        let chosen = glue_choice(&clips, ids, first)?;
         let start = clips
             .iter()
             .filter(|c| chosen.contains(&c.id))
@@ -260,22 +223,7 @@ impl Session {
             .map(|c| c.start + c.length)
             .fold(f64::NEG_INFINITY, f64::max);
 
-        // A project of these clips alone on a bare track, straight to a bare master.
-        self.capture_states();
-        let mut project = self.project.clone();
-        project.tracks.retain(|t| t.id == track);
-        if track == MASTER_ID {
-            bail!("clips on the master track cannot be glued");
-        }
-        {
-            let t = Arc::make_mut(&mut project.tracks[0]);
-            t.clips.retain(|c| chosen.contains(&c.id));
-            t.devices.clear();
-            t.lanes.clear();
-            t.sends.clear();
-            (t.volume, t.pan, t.mute, t.solo, t.output) = (0.0, 0.0, false, false, None);
-            t.input = None;
-        }
+        let project = self.glue_project(track, &chosen)?;
         let first_clip = clips
             .iter()
             .find(|c| c.id == first)
@@ -335,4 +283,69 @@ impl Session {
         })?;
         Ok(json!({ "id": id, "file": path, "glued": chosen.len() }))
     }
+}
+
+impl Session {
+    /// A project of the chosen clips alone on a bare track, straight to a
+    /// bare master.
+    fn glue_project(&mut self, track: Id, chosen: &[Id]) -> Result<crate::model::Project> {
+        self.capture_states();
+        let mut project = self.project.clone();
+        project.tracks.retain(|t| t.id == track);
+        if track == MASTER_ID {
+            bail!("clips on the master track cannot be glued");
+        }
+        let t = Arc::make_mut(&mut project.tracks[0]);
+        t.clips.retain(|c| chosen.contains(&c.id));
+        t.devices.clear();
+        t.lanes.clear();
+        t.sends.clear();
+        (t.volume, t.pan, t.mute, t.solo, t.output) = (0.0, 0.0, false, false, None);
+        t.input = None;
+        Ok(project)
+    }
+}
+
+/// The clips to glue: the ones given, or with one clip, the run of audio
+/// clips that touch or overlap it. Each must be an audio clip of its track.
+fn glue_choice(clips: &[Arc<Clip>], ids: &[Id], first: Id) -> Result<Vec<Id>> {
+    let audio = |c: &Clip| matches!(c.content, ClipContent::Audio { .. });
+    let mut chosen: Vec<Id> = ids.to_vec();
+    if ids.len() == 1 {
+        // Grow the run both ways while a clip touches or overlaps it.
+        let (mut lo, mut hi) = {
+            let c = clips.iter().find(|c| c.id == first).context("no clip")?;
+            (c.start, c.start + c.length)
+        };
+        loop {
+            let before = chosen.len();
+            for c in clips {
+                if audio(c)
+                    && !chosen.contains(&c.id)
+                    && c.start <= hi + 1e-9
+                    && c.start + c.length >= lo - 1e-9
+                {
+                    chosen.push(c.id);
+                    lo = lo.min(c.start);
+                    hi = hi.max(c.start + c.length);
+                }
+            }
+            if chosen.len() == before {
+                break;
+            }
+        }
+    }
+    for id in &chosen {
+        let c = clips
+            .iter()
+            .find(|c| c.id == *id)
+            .with_context(|| format!("clip {id} is not on the same track as clip {first}"))?;
+        if !audio(c) {
+            bail!("clip {id} is a MIDI clip: only audio clips are glued");
+        }
+    }
+    if chosen.len() < 2 {
+        bail!("nothing to glue: no other audio clip touches clip {first}");
+    }
+    Ok(chosen)
 }
