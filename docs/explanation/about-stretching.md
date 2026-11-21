@@ -46,8 +46,13 @@ and a render is the same each time.
 
 paw makes the result many times faster than it plays, from the start, and
 the clip plays as far as the result is ready. So a long file plays
-immediately after a change. paw keeps each result by its file and its
-settings, and a large result goes into the media cache for later runs.
+immediately after a change. Before paw starts the result, the clip plays
+a rough preview. The preview is short pieces of the file at its own
+pitch, each at the place where the stretch puts it. It is not exact, but
+you hear the rhythm, not silence.
+
+paw keeps each result by the bytes of its file and its settings. A large result goes into the bake cache for
+later runs and for other projects.
 
 ## Warp markers
 

@@ -630,7 +630,7 @@ impl Session {
         self.play_states();
         self.poll_preview();
         self.poll_loads();
-        self.poll_stretches();
+        self.poll_bakes();
         self.watch_devices();
         self.poll_file_changes();
         let mut scan = self.scan_devices();

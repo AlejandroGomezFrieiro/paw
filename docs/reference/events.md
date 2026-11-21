@@ -68,6 +68,7 @@ gets.
 | `midi.lost`, `midi.returned` | `{ port, tracks }` | a MIDI port disappeared, or is available again |
 | `audio.lost`, `audio.restored` | `{ device, ... }` | the audio device disappeared, or is available again |
 | `engine.started` | engine info | the audio engine started or started again |
+| `bake.progress` | `{ running, waiting, fraction }` | paw makes sound for clips (stretches) in the background: at most 4 times each second, and one time when all are done |
 | `media.missing` | `{ files, found }` | the sound files of a project are not at their paths |
 | `proc.output` | `{ id }` | a helper process wrote output (see [Timers, programs and other modules](lua-other.md#helper-programs)) |
 | `render.before` | `{ path, opts }` | a render will start |

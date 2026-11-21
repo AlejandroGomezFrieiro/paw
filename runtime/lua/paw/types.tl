@@ -465,6 +465,7 @@ local record types
     loop_length: number
     stretching: boolean
     made: number
+    preview: boolean
     bent: boolean
     formants: boolean
     warp: {WarpMarker}

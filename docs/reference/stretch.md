@@ -64,6 +64,7 @@ A stretched clip has a label before its name, in both frontends:
 | `clip.stretch_mode` | `"tonal"`, `"percussive"` or `"auto"` (default). |
 | `clip.formants` | True: keep the formants when the pitch changes. Then the clip uses the `tonal` method in all modes. |
 | `clip.made` | How much of the stretched sound is ready, from 0 to 1. |
+| `clip.preview` | True while the clip plays a rough preview, before paw starts its stretched sound. |
 | `clip.offset` | In seconds of the file. One second of a clip stretched by 2 is half a second of its file. |
 
 - A stretched or shifted clip does not stretch while it plays. paw
@@ -71,6 +72,12 @@ A stretched clip has a label before its name, in both frontends:
   plays the result as any file.
 - paw starts this a moment after the last change. A drag makes it one
   time, when you release the edge.
+- Until paw starts, the clip plays a rough preview: short pieces of its
+  file at the pitch of the file, each where the stretch puts it. You hear
+  the rhythm, not silence. A render never uses the preview.
+- paw makes first the clips that the playhead plays in the next 10
+  seconds, or, when the song is stopped, the clips after the cursor.
+  Then it makes the clips that a render waits for, and then the rest.
 - paw makes the sound from its start, into space for all of it, and the
   clip plays it as far as it is ready. paw makes it many times faster than
   it plays, so a long file plays immediately.
@@ -80,9 +87,10 @@ immediately before that point,
   is silent, and fades in where the ready part reaches.
 - A render waits until all of the sound is ready. A render gives the same
   file at any time.
-- paw keeps each stretched version by file, warp markers, shift, method,
-  formants and sample rate. A large version goes in the media cache, and
-  paw finds it there in later runs.
+- paw keeps each stretched version by the bytes of its file, warp
+  markers, shift, method, formants and sample rate. A large version goes
+  in the bake cache, and paw finds it there in later runs and for other
+  projects, also after you move the file.
 
 ## Warp markers
 
