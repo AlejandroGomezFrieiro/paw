@@ -62,6 +62,8 @@ graphical window) lists all the inputs of a track:
 
 - The track header shows the input (`UR22mkII · 1/2`) and the level at the
   input. The level shows also when the track is not armed or monitored.
+- While a track is armed or monitored, its meters, the master's meters
+  and a tuner on it move with the input, also when the song is stopped.
 - In the terminal, `I` next to `M S R` on the header switches the monitor
   on or off. In the graphical window, the loudspeaker next to the input
   button does the same. `<A-i>` also switches the monitor.

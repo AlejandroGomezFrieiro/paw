@@ -1603,10 +1603,29 @@ function M.frame_ms(): number
   return 1000 / opt.fps
 end
 
---- True if something moves on its own now: the song plays, or a moment
---- after activity (`poke`), while meters fall.
+-- True while a track listens to its audio input (armed or monitored): its
+-- meters, the master's and a tuner on it move with the input, also while
+-- the song is stopped. Counted again when a track changes, not per frame.
+local listening = false
+
+-- `track_get` with a key reads one field, without the clips of the track.
+local field = api.track_get as function(integer, string): any
+
+local function count_listening()
+  listening = false
+  for _, id in ipairs(api.track_list()) do
+    local input = field(id, "input") as string
+    if input and input ~= "" and (field(id, "armed") as boolean or field(id, "monitor") as boolean) then
+      listening = true
+      return
+    end
+  end
+end
+
+--- True if something moves on its own now: the song plays, a track listens
+--- to its input, or a moment after activity (`poke`), while meters fall.
 function M.active(): boolean
-  return api.transport_get().playing or api.now() < active_until
+  return api.transport_get().playing or listening or api.now() < active_until
 end
 
 local function moving(): boolean
@@ -1641,6 +1660,16 @@ function M.start_ticker()
   events.on(kernel.transport_play, function() M.wake() end)
   -- The meters fall for a moment after the song stops.
   events.on(kernel.transport_stop, function() M.poke(1500) end)
+  -- Arming or monitoring an input starts the frames; the last one off ends them.
+  local function recount()
+    count_listening()
+    M.poke()
+  end
+  events.on(kernel.track_changed, recount)
+  events.on(kernel.track_added, recount)
+  events.on(kernel.track_removed, recount)
+  events.on(kernel.project_loaded, recount)
+  count_listening()
   M.wake()
 end
 

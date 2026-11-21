@@ -77,3 +77,20 @@ test("frames: a view that does not say what moves in it is drawn whole", functio
   api.ui_frame_snapshot(120, 40)
   eq(api.ui_frame_snapshot(120, 40, true), nil, "no frame of the live parts only")
 end)
+
+test("frames: a track that listens to its input keeps the meters moving while the song is stopped", function()
+  T.fresh()
+  local gtr = paw.add_track({ name = "Guitar" })
+  gtr.input = "1"
+  gtr.armed = true
+  -- Past the moment that any key keeps the screen live.
+  local t0 = api.now()
+  T.until_(function() return api.now() > t0 + 2000 end, "two seconds with no key")
+  eq(api.transport_get().playing, false, "the song is stopped")
+  eq(paw.ui.active(), true, "an armed input is live")
+  gtr.armed = false
+  gtr.monitor = true
+  eq(paw.ui.active(), true, "a monitored input is live")
+  gtr.monitor = false
+  T.until_(function() return not paw.ui.active() end, "the frames to end with no input listened to", 5000)
+end)
