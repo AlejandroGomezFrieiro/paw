@@ -2255,7 +2255,7 @@ fn the_status_bar_names_the_view_and_lists_its_keys() {
     // The pointer over the timeline has its own hint on the line.
     w.mouse_to((700, 20));
     assert!(w.shows("commands", 20), "the key bar of the arrange view");
-    w.xdotool(&["key", "space", "m"]);
+    w.xdotool(&["key", "space", "m", "m"]);
     w.expect("the mixer focused", "paw.ui.focused == 'mixer'");
     w.shot("keybar-mixer.png");
     assert!(w.shows("pan", 10), "the mixer's keys");
@@ -2577,7 +2577,7 @@ fn a_render_says_its_peak_with_a_sign_and_warns_when_it_clips() {
 #[test]
 fn the_commands_list_fills_the_window() {
     let mut w = scene!("picker", DEMO);
-    w.xdotool(&["key", "space", "f", "c"]);
+    w.xdotool(&["key", "space", "f", "colon"]);
     w.expect("the picker open", "paw.ui.float ~= nil");
     w.pause(0.6);
     w.shot("picker.png");
