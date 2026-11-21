@@ -98,6 +98,9 @@ local record M
   record RenderOptions
     width: integer
     heading_tag: function(block: Block): string
+    --- Called before each block: where a long render may stop for a
+    --- while (help made at idle, paw/help.tl).
+    pause: function()
   end
 
   width: function(s: string): integer
@@ -596,7 +599,9 @@ function M.render(blocks: {Block}, opts?: M.RenderOptions): M.Document
       end
     end
   end
+  local pause = opts.pause
   for _, block in ipairs(blocks) do
+    if pause then pause() end
     local from = #lines + 1
     local t = block.type
     if t == "blank" then
