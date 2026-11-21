@@ -295,6 +295,8 @@ fn current_priority() -> (i32, i32) {
 
 /// Give the calling thread a policy and priority. Says whether it has what a
 /// real-time caller needs it to have.
+// Not `audio_thread_priority`: it asks RtKit over D-Bus (a C library for the
+// Nix build) and does not copy the sound thread's own policy and priority.
 #[cfg(unix)]
 fn match_priority(policy: i32, priority: i32) -> bool {
     if policy != libc::SCHED_FIFO && policy != libc::SCHED_RR {
