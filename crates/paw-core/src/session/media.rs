@@ -20,7 +20,7 @@ use serde_json::{Value, json};
 
 use super::Session;
 use crate::freeze;
-use crate::model::{Clip, ClipContent, Project};
+use crate::model::{Clip, ClipContent, Project, Sound};
 
 /// How deep, and how far, the search for a missing file by name looks.
 const SEARCH_DEPTH: usize = 8;
@@ -60,6 +60,46 @@ fn map_take_files(clip: &mut Clip, f: &mut impl FnMut(&Path) -> Option<PathBuf>)
     }
 }
 
+/// The files of a custom clip: each of its media, and the file of its sound
+/// when that is audio. Derived media are the second of each pair.
+fn custom_files(clip: &Clip) -> Vec<(PathBuf, bool)> {
+    let ClipContent::Custom(custom) = &clip.content else {
+        return Vec::new();
+    };
+    let mut out: Vec<(PathBuf, bool)> = custom
+        .media
+        .iter()
+        .map(|m| (m.path.clone(), m.derived))
+        .collect();
+    if let Some(ClipContent::Audio { file, .. }) = custom.sound.as_ref().map(Sound::content) {
+        out.push((file.clone(), false));
+    }
+    out
+}
+
+/// Change the files of a custom clip (see [`custom_files`]) for which `f`
+/// gives a new one.
+fn map_custom_files(clip: &mut Clip, f: &mut impl FnMut(&Path) -> Option<PathBuf>) {
+    let ClipContent::Custom(custom) = &mut clip.content else {
+        return;
+    };
+    let custom = &mut **custom;
+    for media in &mut custom.media {
+        if let Some(new) = f(&media.path) {
+            media.path = new;
+        }
+    }
+    let new_sound = match custom.sound.as_ref().map(Sound::content) {
+        Some(ClipContent::Audio { file, offset, gain, edits }) => f(file).map(|file| {
+            ClipContent::Audio { file, offset: *offset, gain: *gain, edits: edits.clone() }
+        }),
+        _ => None,
+    };
+    if let Some(sound) = new_sound.and_then(|c| Sound::try_from(c).ok()) {
+        custom.sound = Some(sound);
+    }
+}
+
 /// Change the file of every audio clip, of every other take of one, and of
 /// every frozen track (see `crate::freeze`), for which `f` gives a new one.
 /// Returns how many clips and tracks changed.
@@ -85,20 +125,23 @@ pub(super) fn map_files(
                     ClipContent::Audio { file, .. } => f(file),
                     _ => None,
                 };
-                (own, take_files(c).any(|file| f(&file).is_some()))
+                let others = take_files(c).any(|file| f(&file).is_some())
+                    || custom_files(c).iter().any(|(file, _)| f(file).is_some());
+                (own, others)
             })
             .collect();
-        if new.iter().all(|(own, takes)| own.is_none() && !takes) {
+        if new.iter().all(|(own, others)| own.is_none() && !others) {
             continue;
         }
         let track = Arc::make_mut(track);
-        for (clip, (path, takes)) in track.clips.iter_mut().zip(new) {
-            if path.is_none() && !takes {
+        for (clip, (path, others)) in track.clips.iter_mut().zip(new) {
+            if path.is_none() && !others {
                 continue;
             }
             let clip = Arc::make_mut(clip);
-            if takes {
+            if others {
                 map_take_files(clip, &mut f);
+                map_custom_files(clip, &mut f);
             }
             if let Some(path) = path
                 && let ClipContent::Audio { file, .. } = &mut clip.content
@@ -111,8 +154,9 @@ pub(super) fn map_files(
     changed
 }
 
-/// Every file the project's audio clips play, once each: the takes that
-/// are not playing included, and the files frozen tracks play.
+/// Every file the project's clips use, once each: the takes that are not
+/// playing included, the media and the audio sound of custom clips, and the
+/// files frozen tracks play.
 pub fn files(project: &Project) -> BTreeSet<PathBuf> {
     project
         .all_tracks()
@@ -122,9 +166,23 @@ pub fn files(project: &Project) -> BTreeSet<PathBuf> {
                 ClipContent::Audio { file, .. } => Some(file.clone()),
                 _ => None,
             };
-            own.into_iter().chain(take_files(c))
+            own.into_iter()
+                .chain(take_files(c))
+                .chain(custom_files(c).into_iter().map(|(file, _)| file))
         })
         .chain(project.all_tracks().filter_map(|t| freeze::frozen_file(t)))
+        .collect()
+}
+
+/// The files of custom clips that a kind makes from other files: it makes
+/// them again when they are not there, so they are never missing and never
+/// collected.
+pub fn derived_files(project: &Project) -> BTreeSet<PathBuf> {
+    project
+        .all_tracks()
+        .flat_map(|t| &t.clips)
+        .flat_map(|c| custom_files(c))
+        .filter_map(|(file, derived)| derived.then_some(file))
         .collect()
 }
 
@@ -265,6 +323,7 @@ impl Finder {
     pub fn relink(&mut self, project: &mut Project, roots: &[PathBuf]) -> Found {
         let mut found = Found::default();
         let mut moved: HashMap<PathBuf, PathBuf> = HashMap::new();
+        let derived = derived_files(project);
         for file in files(project) {
             if file.is_file() {
                 continue;
@@ -275,6 +334,7 @@ impl Finder {
                     moved.insert(file.clone(), now.clone());
                     found.moved.push((file, now));
                 }
+                None if derived.contains(&file) => {}
                 None => found.missing.push(file),
             }
         }
@@ -436,9 +496,10 @@ impl Session {
 
     /// Files the project's clips play that are not there, once each.
     pub fn media_missing(&self) -> Vec<PathBuf> {
+        let derived = derived_files(&self.project);
         files(&self.project)
             .into_iter()
-            .filter(|f| !f.is_file())
+            .filter(|f| !f.is_file() && !derived.contains(f))
             .collect()
     }
 
@@ -514,8 +575,9 @@ impl Session {
         let media = dir.join("media");
         let mut copies: HashMap<PathBuf, PathBuf> = HashMap::new();
         let mut missing = Vec::new();
+        let derived = derived_files(&self.project);
         for file in files(&self.project) {
-            if tidy(&file).starts_with(&dir) {
+            if tidy(&file).starts_with(&dir) || derived.contains(&file) {
                 continue;
             }
             if !file.is_file() {
@@ -618,6 +680,28 @@ mod tests {
                 PathBuf::from("z.wav")
             ]
         );
+    }
+
+    #[test]
+    fn a_custom_clips_media_are_handled_like_sound_files() {
+        let content = serde_json::json!({
+            "kind": "custom", "type": "video", "data": { "json": "{}" },
+            "media": [
+                { "role": "source", "path": "/songs/a/media/film.mp4" },
+                { "role": "proxy", "path": "/cache/video-3f9a.flac", "derived": true },
+            ],
+            "sound": { "kind": "audio", "file": "/elsewhere/mix.wav", "offset": 0.0, "gain": 0.0 },
+        });
+        let mut c = clip(1, "");
+        c.content = serde_json::from_value(content).unwrap();
+        let mut p = Project::default();
+        Arc::make_mut(&mut p.master).clips = vec![Arc::new(c)].into();
+        assert_eq!(files(&p).len(), 3);
+        assert_eq!(derived_files(&p), BTreeSet::from([PathBuf::from("/cache/video-3f9a.flac")]));
+        let out = for_file(&p, Path::new("/songs/a/project.toml"));
+        let got: Vec<PathBuf> = files(&out).into_iter().collect();
+        assert!(got.contains(&PathBuf::from("media/film.mp4")), "{got:?}");
+        assert!(got.contains(&PathBuf::from("/elsewhere/mix.wav")), "{got:?}");
     }
 
     fn clip(id: u64, file: &str) -> crate::model::Clip {

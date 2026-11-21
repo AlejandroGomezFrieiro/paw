@@ -24,6 +24,12 @@ clips. For the steps to find lost files, see
   write "offline" before their names.
 - A save keeps the path of a file that paw cannot find.
 - Old projects with full paths open with no change.
+- The media of a custom clip (the files that its kind names) and the audio
+  file of its sound follow the same rules as sound files: `paw.media.list`
+  lists them, and `relink`, `search` and `collect` change them.
+- A kind can say that a file is derived: the kind makes it from other files
+  (in `media/derived`). paw never reports it as missing, and `collect` does
+  not copy it, because the kind makes it again.
 
 ## Commands
 
