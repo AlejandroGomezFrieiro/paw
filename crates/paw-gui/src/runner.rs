@@ -137,19 +137,38 @@ fn copy_sub_buffer(config: &Config, surface: &Surface<WindowSurface>) -> Option<
     use glutin::surface::{AsRawSurface as _, RawSurface};
     let display = config.display();
     let (RawDisplay::Glx(raw), RawSurface::Glx(drawable)) = (display.raw_display(), surface.raw_surface()) else { return None };
-    let query = display.get_proc_address(c"glXQueryExtensionsString");
-    let copy = display.get_proc_address(c"glXCopySubBufferMESA");
-    if query.is_null() || copy.is_null() {
+    // SAFETY: both types are the signatures of the GLX functions of these names:
+    // `const char *glXQueryExtensionsString(Display *, int)` and
+    // `void glXCopySubBufferMESA(Display *, GLXDrawable, int, int, int, int)`.
+    let query = unsafe { load_fn::<unsafe extern "C" fn(*const std::ffi::c_void, i32) -> *const std::ffi::c_char>(&display, c"glXQueryExtensionsString") }?;
+    // SAFETY: as above.
+    let copy = unsafe { load_fn::<unsafe extern "C" fn(*const std::ffi::c_void, u64, i32, i32, i32, i32)>(&display, c"glXCopySubBufferMESA") }?;
+    // SAFETY: `raw` is the X display of this GLX surface, which `config` keeps open; the
+    // answer is a NUL-terminated string that GLX owns, read before anything else is called.
+    let names = unsafe { query(raw, 0) };
+    // SAFETY: `names` is not null (checked) and points to such a string.
+    if names.is_null() || !unsafe { std::ffi::CStr::from_ptr(names) }.to_string_lossy().split(' ').any(|n| n == "GLX_MESA_copy_sub_buffer") {
         return None;
     }
-    unsafe {
-        let query: unsafe extern "C" fn(*const std::ffi::c_void, i32) -> *const std::ffi::c_char = std::mem::transmute(query);
-        let names = query(raw, 0);
-        if names.is_null() || !std::ffi::CStr::from_ptr(names).to_string_lossy().split(' ').any(|n| n == "GLX_MESA_copy_sub_buffer") {
-            return None;
-        }
-        Some(CopySub { copy: std::mem::transmute::<*const std::ffi::c_void, unsafe extern "C" fn(*const std::ffi::c_void, u64, i32, i32, i32, i32)>(copy), display: raw, drawable })
+    Some(CopySub { copy, display: raw, drawable })
+}
+
+/// A function of the OpenGL library by name, as the function type `F`; `None` where the
+/// display does not have it.
+///
+/// # Safety
+/// `F` must be an `unsafe extern "C" fn` type with the signature of the function that
+/// `name` is: a call through the result passes arguments as that function takes them.
+unsafe fn load_fn<F: Copy>(display: &glutin::display::Display, name: &std::ffi::CStr) -> Option<F> {
+    let at = display.get_proc_address(name);
+    if at.is_null() {
+        return None;
     }
+    assert_eq!(std::mem::size_of::<F>(), std::mem::size_of_val(&at), "`F` is a function pointer");
+    // SAFETY: `at` is the address of a function (not null, from the driver) and `F` is a
+    // function pointer of the same size (asserted), for which the caller vouches that the
+    // signature is right.
+    Some(unsafe { std::mem::transmute_copy::<*const std::ffi::c_void, F>(&at) })
 }
 
 impl Gl {
@@ -197,6 +216,8 @@ impl Gl {
                 NonZeroU32::new(w).unwrap_or(NonZeroU32::MIN),
                 NonZeroU32::new(h).unwrap_or(NonZeroU32::MIN),
             );
+            // SAFETY: the attributes hold the raw handle of `window`, which is alive here and
+            // is kept in the viewport next to the surface (the surface is dropped first).
             let surface = unsafe { self.config.display().create_window_surface(&self.config, &attributes)? };
             viewport.surface = Some(surface);
             self.current(id)?;
@@ -467,6 +488,8 @@ impl Runner {
             NonZeroU32::new(w).unwrap_or(NonZeroU32::MIN),
             NonZeroU32::new(h).unwrap_or(NonZeroU32::MIN),
         );
+        // SAFETY: the attributes hold the raw handle of `window`, which is alive here and is
+        // kept in the root viewport next to the surface.
         let surface = unsafe { config.display().create_window_surface(&config, &attributes)? };
         let current = context.make_current(&surface)?;
         let copy_sub = copy_sub_buffer(&config, &surface);
@@ -478,6 +501,8 @@ impl Runner {
         root.window = Some(Arc::new(window));
         root.surface = Some(surface);
         let display = config.display();
+        // SAFETY: the loader returns the driver's own function addresses (or null) for the
+        // context made current just above, on this thread.
         let gl = unsafe {
             glow::Context::from_loader_function(|name| {
                 let name = std::ffi::CString::new(name).unwrap_or_default();
@@ -499,6 +524,8 @@ impl Runner {
             copy_sub,
         };
         gl.open(ViewportId::ROOT, event_loop)?;
+        // SAFETY: the context is current on this thread (made current for the root surface);
+        // the parameter queries take no pointers.
         let info = unsafe {
             let raw = gl.painter.gl();
             let proxy = self.proxy.clone();
@@ -556,6 +583,7 @@ impl Runner {
         ];
         let mut context = Err(anyhow!("no OpenGL context"));
         for attributes in &tries {
+            // SAFETY: the attributes hold the raw handle of `window`, which is alive for the call.
             match unsafe { config.display().create_context(&config, attributes) } {
                 Ok(made) => {
                     context = Ok(made);
@@ -710,6 +738,8 @@ impl Runner {
         // shapes that reach into it, cut to it; all are drawn at once.
         let mut primitives = Vec::new();
         for rect in rects {
+            // SAFETY: the context of `gl` is current on this thread (the caller made it so), and
+            // these calls take values only, no pointers.
             unsafe {
                 raw.enable(glow::SCISSOR_TEST);
                 raw.scissor(rect[0], screen[1] as i32 - rect[3], rect[2] - rect[0], rect[3] - rect[1]);
@@ -745,6 +775,8 @@ impl Runner {
             }
             let parts = if all || refresh { vec![[0, 0, screen[0] as i32, h]] } else { changed };
             for r in parts {
+                // SAFETY: `copy` and `display` came together from `copy_sub_buffer` for this
+                // window's surface, which is alive while `gl.copy_sub` is set.
                 unsafe { (copy.copy)(copy.display, copy.drawable, r[0], h - r[3], r[2] - r[0], r[3] - r[1]) };
             }
             self.damage.shown();

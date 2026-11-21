@@ -1,6 +1,8 @@
 //! The kernel of paw: the project model, the engine it drives, and the Lua
 //! state that everything user-facing is written in.
 
+#![warn(clippy::undocumented_unsafe_blocks)]
+
 pub mod api;
 pub mod attr_map;
 pub mod clipfile;

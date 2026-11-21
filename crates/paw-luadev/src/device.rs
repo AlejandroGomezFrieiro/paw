@@ -133,6 +133,7 @@ fn lua_error(err: mlua::Error) -> anyhow::Error {
 fn load(path: &Path) -> mlua::Result<(Lua, Table)> {
     // All libraries, `ffi` and `jit` among them: the script is trusted with
     // its own process.
+    // SAFETY: the state is used only through `Running`, one thread at a time.
     let lua = unsafe { Lua::unsafe_new() };
     let started = Instant::now();
     lua.set_hook(
@@ -222,6 +223,7 @@ struct Running {
 // A Lua state may move between threads as long as one thread at a time uses
 // it: blocks run on the audio thread and calls on the main thread, each
 // holding the lock, and nothing else holds any of its values.
+// SAFETY: as that comment says: a lock guards every use of `lua`, `run` and `call`.
 unsafe impl Send for Running {}
 
 /// The state, shared by the device and its controller. A call takes it

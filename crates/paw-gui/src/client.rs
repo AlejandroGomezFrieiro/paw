@@ -256,6 +256,8 @@ pub fn start_kernel(args: &[String]) -> Result<(Client, Child)> {
         .stdin(Stdio::null());
     // If this program dies without saying goodbye, the kernel must not be left
     // running with the audio device.
+    // SAFETY: the closure runs between fork and exec and calls only `prctl`, which is
+    // async-signal-safe; it takes no lock and does not allocate.
     unsafe {
         child.pre_exec(|| {
             libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGTERM);

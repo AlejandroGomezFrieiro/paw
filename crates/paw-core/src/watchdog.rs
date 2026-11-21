@@ -28,7 +28,9 @@ const HOOK_KEY: &std::ffi::CStr = c"paw.limit.hook";
 const GONE: u64 = u64::MAX;
 
 struct StatePtr(*mut ffi::lua_State);
-// Only ever passed to `lua_sethook`, which LuaJIT allows from another thread.
+// SAFETY: only ever passed to `lua_sethook`, which LuaJIT allows from another thread, and
+// only while the mutex around it is held and `detach` has not cleared it (so the state is
+// alive).
 unsafe impl Send for StatePtr {}
 
 struct Inner {
@@ -48,6 +50,8 @@ pub struct Watchdog {
 }
 
 unsafe extern "C-unwind" fn hook(state: *mut ffi::lua_State, _ar: *mut ffi::lua_Debug) {
+    // SAFETY: LuaJIT calls this hook with the state that runs, on its own thread, so every
+    // call below is on a live state with the stack it is allowed to use.
     unsafe {
         // Once is enough: the Lua side asks again if it wants watching on.
         ffi::lua_sethook(state, None, 0, 0);
@@ -85,6 +89,7 @@ impl Watchdog {
     /// outside any coroutine.
     pub fn attach(&self, lua: &Lua) -> mlua::Result<()> {
         let mut main = std::ptr::null_mut();
+        // SAFETY: the closure only copies the pointer of the state out; it touches nothing.
         unsafe { lua.exec_raw::<()>((), |state| main = state)? };
         self.inner.deadline.store(0, Ordering::SeqCst);
         self.inner.state.lock().unwrap().0 = main;
@@ -150,6 +155,9 @@ fn watch(inner: &Inner) {
         {
             let state = inner.state.lock().unwrap();
             if !state.0.is_null() {
+                // SAFETY: the state is not null and the lock is held, so `detach` cannot clear
+                // it and the state cannot go away before the call returns; `hook` has the
+                // signature that LuaJIT calls.
                 unsafe { ffi::lua_sethook(state.0, Some(hook), ffi::LUA_MASKCOUNT, 1 as c_int) };
             }
         }
