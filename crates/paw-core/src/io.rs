@@ -12,7 +12,7 @@
 use std::collections::{BTreeMap, HashMap};
 use std::fs::OpenOptions;
 use std::io::{ErrorKind, Read, Write};
-use std::os::fd::{AsFd, AsRawFd};
+use std::os::fd::AsFd;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::os::unix::process::CommandExt;
 use std::path::PathBuf;
@@ -126,11 +126,14 @@ impl Io {
         // the program ends without stopping it, however it ends, the helper
         // is asked to finish.
         #[cfg(target_os = "linux")]
-        // SAFETY: the closure runs between fork and exec and calls only `prctl`, which is
-        // async-signal-safe; it takes no lock and does not allocate.
+        // SAFETY: the closure runs between fork and exec and calls only `prctl` (through
+        // rustix, a bare syscall), which is async-signal-safe; it takes no lock and does not
+        // allocate.
         unsafe {
             command.pre_exec(|| {
-                libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGTERM);
+                let _ = rustix::process::set_parent_process_death_signal(Some(
+                    rustix::process::Signal::TERM,
+                ));
                 Ok(())
             });
         }
@@ -143,11 +146,8 @@ impl Io {
             let from = child.stdout.take().context("no pipe from the program")?;
             // A write waits with a limit of its own rather than hold the
             // kernel up for as long as the program does not read.
-            // SAFETY: `fd` is the open descriptor of `input`, which lives past the calls;
-            // fcntl with F_GETFL and F_SETFL reads and sets flags only.
-            unsafe {
-                let fd = input.as_raw_fd();
-                libc::fcntl(fd, libc::F_SETFL, libc::fcntl(fd, libc::F_GETFL) | libc::O_NONBLOCK);
+            if let Ok(flags) = rustix::fs::fcntl_getfl(&input) {
+                let _ = rustix::fs::fcntl_setfl(&input, flags | rustix::fs::OFlags::NONBLOCK);
             }
             let output = Arc::new(Mutex::new(Output::default()));
             let reading = crate::io_runtime::handle().and_then(|runtime| {
@@ -244,10 +244,10 @@ impl Io {
             .get_mut(&id)
             .with_context(|| format!("no process {id}"))?;
         if child.try_wait()?.is_none() {
-            // SAFETY: the child has not been reaped (`try_wait` found it running), so its pid
-            // is still ours; kill reads no memory.
-            unsafe {
-                libc::kill(child.id() as libc::pid_t, libc::SIGTERM);
+            // The child has not been reaped (`try_wait` found it running), so its pid is
+            // still ours.
+            if let Some(pid) = rustix::process::Pid::from_raw(child.id() as i32) {
+                let _ = rustix::process::kill_process(pid, rustix::process::Signal::TERM);
             }
         }
         Ok(())

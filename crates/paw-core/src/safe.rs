@@ -74,15 +74,8 @@ pub fn sync_dir(dir: &Path) {
 
 /// Bytes free for this user on the file system that holds `dir`.
 pub fn free_space(dir: &Path) -> Option<u64> {
-    use std::os::unix::ffi::OsStrExt;
-    let path = std::ffi::CString::new(dir.as_os_str().as_bytes()).ok()?;
-    // SAFETY: statvfs fills the struct it is given and reads a C string.
-    let mut stat: libc::statvfs = unsafe { std::mem::zeroed() };
-    // SAFETY: `path` is a NUL-terminated string that outlives the call; `stat` is valid.
-    if unsafe { libc::statvfs(path.as_ptr(), &mut stat) } != 0 {
-        return None;
-    }
-    Some(stat.f_bavail as u64 * stat.f_frsize as u64)
+    let stat = rustix::fs::statvfs(dir).ok()?;
+    Some(stat.f_bavail * stat.f_frsize)
 }
 
 #[cfg(test)]

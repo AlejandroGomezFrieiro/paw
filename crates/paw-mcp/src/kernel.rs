@@ -154,10 +154,13 @@ impl Kernel {
         command.stdout(stderr.map_or_else(|_| Stdio::null(), Stdio::from));
         // If this server dies without saying goodbye, the kernel goes too.
         // SAFETY: the closure runs in the child between fork and exec, and
-        // only calls prctl, which is async-signal-safe.
+        // only calls prctl (through rustix, a bare syscall), which is
+        // async-signal-safe.
         unsafe {
             command.pre_exec(|| {
-                libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGTERM);
+                let _ = rustix::process::set_parent_process_death_signal(Some(
+                    rustix::process::Signal::TERM,
+                ));
                 Ok(())
             });
         }
@@ -220,22 +223,12 @@ impl Kernel {
     /// Whether the open connection's peer has hung up: a look at the socket
     /// that takes nothing from it and does not wait.
     fn stale(stream: &UnixStream) -> bool {
-        use std::os::fd::AsRawFd;
-        let mut byte = 0u8;
-        // SAFETY: `byte` is a valid buffer of one byte for the whole call, and
-        // the descriptor is open as long as `stream` is borrowed.
-        let n = unsafe {
-            libc::recv(
-                stream.as_raw_fd(),
-                (&mut byte as *mut u8).cast(),
-                1,
-                libc::MSG_PEEK | libc::MSG_DONTWAIT,
-            )
-        };
-        match n {
-            0 => true,
-            n if n > 0 => false,
-            _ => std::io::Error::last_os_error().kind() != std::io::ErrorKind::WouldBlock,
+        use rustix::net::RecvFlags;
+        let mut byte = [0u8];
+        match rustix::net::recv(stream, &mut byte, RecvFlags::PEEK | RecvFlags::DONTWAIT) {
+            Ok((0, _)) => true,
+            Ok(_) => false,
+            Err(err) => err != rustix::io::Errno::AGAIN,
         }
     }
 

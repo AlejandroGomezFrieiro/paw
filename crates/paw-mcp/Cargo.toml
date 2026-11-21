@@ -17,7 +17,7 @@ serde_json.workspace = true
 arrayvec = "0.7"
 hound = "3.5"
 realfft = "3.5"
-libc = "0.2"
+rustix = { version = "1", default-features = false, features = ["std", "net", "process"] }
 include_dir = "0.7"
 serde.workspace = true
 # The command line.
