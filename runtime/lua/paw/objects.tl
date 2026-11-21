@@ -665,7 +665,7 @@ end, track_field)
 function Track:get(): types.Track return api.track_get(self.id) end
 
 --- True if the track is still in the project.
-function Track:exists(): boolean return (pcall(api.track_get, self.id)) end
+function Track:exists(): boolean return (pcall(track_field, self.id, "id")) end
 
 --- Take the track out of the project, with its clips and devices.
 function Track:remove() api.track_remove(self.id) end
@@ -804,7 +804,7 @@ end
 
 --- Make a track from a snapshot, at a 1-based position in the track list.
 function M.restore_track(snap: TrackSnapshot, index?: integer): Track
-  local exists = function(id: integer): boolean return id ~= nil and (pcall(api.track_get, id)) end
+  local exists = function(id: integer): boolean return id ~= nil and (pcall(track_field, id, "id")) end
   local track = M.add_track({
     name = snap.name, volume = snap.volume, pan = snap.pan, color = snap.color, index = index,
     -- What it fed may be gone by now; then it goes to the master.

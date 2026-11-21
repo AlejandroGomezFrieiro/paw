@@ -488,9 +488,12 @@ spec("scope", { rank = 2, fn = function(ctx: Context): StatusText
 end })
 
 -- The project, with an amber dot when it has unsaved changes. Its name is
--- cut before anything is dropped.
-spec("project", { rank = 1, shrink = true, key = function(ctx: Context): string
-  return ctx.project.name .. (ctx.project.modified and "*" or "")
+-- cut before anything is dropped. Its key reads the two fields alone: the
+-- whole project (`ctx.project`) looks at every clip for its length, and
+-- the key is asked for on each frame while the song plays.
+local project_field = api.project_get as function(key: string): string | boolean
+spec("project", { rank = 1, shrink = true, key = function(_: Context): string
+  return tostring(project_field("name")) .. (project_field("modified") and "*" or "")
 end, fn = function(ctx: Context): StatusText
   local p = ctx.project
   local out: {Piece} = { { p.name, "StatusName" } }
