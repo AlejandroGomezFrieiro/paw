@@ -54,7 +54,7 @@ impl Session {
             }
         }
         if let Some(out) = &self.midi.out {
-            out.set_queue(self.handle.midi_output());
+            out.set_queue(self.engine.handle.midi_output());
         }
     }
 

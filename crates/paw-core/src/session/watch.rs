@@ -64,11 +64,11 @@ impl Session {
         }
         self.watch.last_look = Instant::now();
         // Another device was opened meanwhile: nothing to wait for.
-        if self.watch.gone.is_some() && self.stream.info.backend != BackendChoice::Null {
+        if self.watch.gone.is_some() && self.engine.stream.info.backend != BackendChoice::Null {
             self.watch.gone = None;
         }
         if self.watch.gone.is_none()
-            && let Some(why) = self.stream.lost.why()
+            && let Some(why) = self.engine.stream.lost.why()
         {
             self.device_lost(why);
         }
@@ -85,14 +85,14 @@ impl Session {
 
     /// Whether [`watch_devices`](Self::watch_devices) has anything to watch.
     pub(super) fn watching(&self) -> bool {
-        self.stream.info.backend != BackendChoice::Null
+        self.engine.stream.info.backend != BackendChoice::Null
             || self.watch.gone.is_some()
             || self.midi.inputs.is_some()
             || !self.midi.test_ports.is_empty()
     }
 
     fn device_lost(&mut self, why: String) {
-        let info = self.stream.info.clone();
+        let info = self.engine.stream.info.clone();
         let name = if info.input_device != "none" && info.input_device != info.device {
             format!("{} / {}", info.device, info.input_device)
         } else {
@@ -101,7 +101,7 @@ impl Session {
         let recording = self.rec.take.is_some();
         self.stop();
         // Open it again as it ran: the same rate and block, the same devices.
-        let mut wanted = self.backend.clone();
+        let mut wanted = self.engine.backend.clone();
         wanted.sample_rate = Some(info.sample_rate);
         if wanted.buffer_size.is_none() && info.buffer_size > 0 {
             wanted.buffer_size = Some(info.buffer_size);
@@ -124,7 +124,7 @@ impl Session {
                 .push(format!("could not go on without the device: {err:#}"));
         }
         // The engine it runs on now is not the one the program was told to use.
-        self.backend = wanted.clone();
+        self.engine.backend = wanted.clone();
         self.watch.gone = Some(Gone {
             wanted,
             name: name.clone(),
@@ -161,7 +161,7 @@ impl Session {
         let (wanted, name) = (gone.wanted.clone(), gone.name.clone());
         match self.engine_restart(&wanted) {
             Ok(())
-                if self.stream.info.backend != BackendChoice::Null
+                if self.engine.stream.info.backend != BackendChoice::Null
                     || wanted.backend == BackendChoice::Null =>
             {
                 self.watch.gone = None;
@@ -171,7 +171,7 @@ impl Session {
             }
             outcome => {
                 // Not as it was: go on without sound, and keep looking.
-                let rate = self.stream.info.sample_rate;
+                let rate = self.engine.stream.info.sample_rate;
                 let null = BackendOptions {
                     backend: BackendChoice::Null,
                     sample_rate: Some(rate),
@@ -179,10 +179,10 @@ impl Session {
                     input: false,
                     ..BackendOptions::default()
                 };
-                if self.stream.info.backend != BackendChoice::Null || outcome.is_err() {
+                if self.engine.stream.info.backend != BackendChoice::Null || outcome.is_err() {
                     let _ = self.engine_restart(&null);
                 }
-                self.backend = wanted;
+                self.engine.backend = wanted;
                 outcome.map(|_| false)
             }
         }

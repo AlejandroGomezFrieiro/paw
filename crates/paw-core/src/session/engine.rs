@@ -3,37 +3,53 @@
 use crate::events::{KernelEvent as E};
 use super::*;
 
+/// The running engine: the handle that talks to it, the ids it knows the
+/// project's things by, the audio stream it plays on, and what it was
+/// started with.
+pub(super) struct EngineLink {
+    pub handle: EngineHandle,
+    pub map: Mapper,
+    pub stream: Stream,
+    /// Threads to process tracks on, or 0 for as many as the machine has cores.
+    pub threads: usize,
+    /// Devices at rest sleep through silent blocks (`paw.opt.device_sleep`).
+    pub sleep: bool,
+    /// What the engine was last started with, to start it again with a
+    /// device changed.
+    pub backend: BackendOptions,
+}
+
 impl Session {
     pub fn engine_info(&self) -> Value {
-        let info: &StreamInfo = &self.stream.info;
+        let info: &StreamInfo = &self.engine.stream.info;
         json!({
             "backend": info.backend, "device": info.device, "sample_rate": info.sample_rate,
             "device_id": info.device_id, "input_device_id": info.input_device_id,
-            "buffer_size": info.buffer_size, "cpu": self.handle.shared.cpu(),
+            "buffer_size": info.buffer_size, "cpu": self.engine.handle.shared.cpu(),
             // Frames per callback as the device runs it, 0 until it has.
-            "block": self.handle.shared.period(),
-            "xruns": self.handle.shared.xruns(), "input_device": info.input_device,
+            "block": self.engine.handle.shared.period(),
+            "xruns": self.engine.handle.shared.xruns(), "input_device": info.input_device,
             "input_channels": info.input_channels,
-            "input_latency": self.handle.shared.input_latency() as f64 * 1000.0,
-            "output_latency": self.handle.shared.output_latency() as f64 * 1000.0,
+            "input_latency": self.engine.handle.shared.input_latency() as f64 * 1000.0,
+            "output_latency": self.engine.handle.shared.output_latency() as f64 * 1000.0,
             // How far the output is behind the transport because of devices
             // that look ahead, in milliseconds.
-            "latency": self.map.latency as f64 * 1000.0 / info.sample_rate as f64,
+            "latency": self.engine.map.latency as f64 * 1000.0 / info.sample_rate as f64,
             "midi": self.midi.inputs.is_some(),
-            "blocks": block_json(&self.handle.shared.blocks.summary(), info.sample_rate),
-            "leaked": self.handle.shared.leaked(),
+            "blocks": block_json(&self.engine.handle.shared.blocks.summary(), info.sample_rate),
+            "leaked": self.engine.handle.shared.leaked(),
             // Threads tracks are processed on, counting the audio thread, and
             // what was asked for (0 leaves it to the machine).
-            "threads": self.handle.shared.threads(),
-            "threads_wanted": self.threads,
+            "threads": self.engine.handle.shared.threads(),
+            "threads_wanted": self.engine.threads,
             // Whether devices at rest sleep through silence, and the blocks
             // of devices run and slept through since the engine started.
-            "device_sleep": self.sleep,
-            "device_runs": self.handle.shared.device_blocks().0,
-            "device_sleeps": self.handle.shared.device_blocks().1,
+            "device_sleep": self.engine.sleep,
+            "device_runs": self.engine.handle.shared.device_blocks().0,
+            "device_sleeps": self.engine.handle.shared.device_blocks().1,
             // Groups of tracks shared out between threads since the engine
             // started: one with little work runs on the audio thread alone.
-            "shared_groups": self.handle.shared.shared_groups(),
+            "shared_groups": self.engine.handle.shared.shared_groups(),
             // What went wrong while playing, for the status line: blocks
             // plugins did not deliver in time, MIDI events dropped, frames
             // of the take being recorded lost to a slow disk, devices that
@@ -57,7 +73,7 @@ impl Session {
                 "{threads} threads are too many: use up to {MAX_THREADS}, or 0 to leave it to the machine"
             );
         }
-        self.threads = threads;
+        self.engine.threads = threads;
         self.send_pool();
         Ok(())
     }
@@ -65,7 +81,7 @@ impl Session {
     /// Worker threads for an engine: for the live one, or with `threads`
     /// for a render that asks for a number of its own.
     pub(crate) fn pool(&self, threads: Option<usize>) -> Option<Box<Pool>> {
-        let threads = match threads.unwrap_or(self.threads) {
+        let threads = match threads.unwrap_or(self.engine.threads) {
             0 => default_threads(),
             threads => threads.min(MAX_THREADS),
         };
@@ -74,26 +90,26 @@ impl Session {
 
     pub(super) fn send_pool(&mut self) {
         let pool = self.pool(None);
-        self.handle.send(Msg::SetPool(pool));
-        self.handle.send(Msg::SetSleep(self.sleep));
+        self.engine.handle.send(Msg::SetPool(pool));
+        self.engine.handle.send(Msg::SetSleep(self.engine.sleep));
     }
 
     /// Whether devices at rest (a reverb whose tail has died away, a synth
     /// with no note sounding) sleep through silent blocks, which saves the
     /// processor their work. The sound is the same either way.
     pub fn set_sleep(&mut self, sleep: bool) {
-        self.sleep = sleep;
-        self.handle.send(Msg::SetSleep(sleep));
+        self.engine.sleep = sleep;
+        self.engine.handle.send(Msg::SetSleep(sleep));
     }
 
     /// Whether devices at rest sleep, for a render that does not say.
     pub(crate) fn sleep(&self) -> bool {
-        self.sleep
+        self.engine.sleep
     }
 
     /// The devices the system offers, and which are open.
     pub fn audio_devices(&self) -> Result<Value> {
-        let list = backend::list_devices(&self.backend)?;
+        let list = backend::list_devices(&self.engine.backend)?;
         let rows = |devices: &[backend::AudioDevice]| -> Vec<Value> {
             devices
                 .iter()
@@ -106,7 +122,7 @@ impl Session {
                 })
                 .collect()
         };
-        let info = &self.stream.info;
+        let info = &self.engine.stream.info;
         Ok(json!({
             "backend": list.backend, "outputs": rows(&list.outputs), "inputs": rows(&list.inputs),
             "output": info.device, "input": info.input_device,
@@ -131,10 +147,10 @@ impl Session {
         buffer: Option<u32>,
         choice: AudioChoice,
     ) -> Result<()> {
-        let mut opts = self.backend.clone();
-        if opts.backend == BackendChoice::Auto && self.stream.info.backend != BackendChoice::Null {
+        let mut opts = self.engine.backend.clone();
+        if opts.backend == BackendChoice::Auto && self.engine.stream.info.backend != BackendChoice::Null {
             // Keep to the backend that opened, rather than trying them all again.
-            opts.backend = self.stream.info.backend.clone();
+            opts.backend = self.engine.stream.info.backend.clone();
         }
         if let Some(word) = choice.backend.filter(|b| !b.is_empty()) {
             if !backend::backends().contains(&word) {
@@ -189,7 +205,7 @@ impl Session {
         }
         self.engine_restart(&opts)?;
         if let Some(path) = &self.device_file
-            && self.stream.info.backend != BackendChoice::Null
+            && self.engine.stream.info.backend != BackendChoice::Null
         {
             let remembered = crate::audio::Remembered {
                 output: opts.output_device.clone(),
@@ -208,8 +224,8 @@ impl Session {
 
     /// Peak level of each input channel of the device, as linear gain.
     pub fn input_levels(&self) -> Vec<f32> {
-        (0..self.stream.info.input_channels as usize)
-            .map(|ch| self.handle.shared.input_meter(ch))
+        (0..self.engine.stream.info.input_channels as usize)
+            .map(|ch| self.engine.handle.shared.input_meter(ch))
             .collect()
     }
 
@@ -217,16 +233,16 @@ impl Session {
     /// device, the blocks that device has run (not slept through). `None`
     /// for a device the engine does not have.
     pub fn blocks(&self, device: Option<Id>) -> Option<u64> {
-        let shared = &self.handle.shared;
+        let shared = &self.engine.handle.shared;
         match device {
             None => Some(shared.processed()),
-            Some(id) => self.map.devices.get(&id).map(|&slot| shared.device_processed(slot)),
+            Some(id) => self.engine.map.devices.get(&id).map(|&slot| shared.device_processed(slot)),
         }
     }
 
     /// Forget the processing times recorded so far.
     pub fn engine_reset_stats(&self) {
-        self.handle.shared.blocks.reset();
+        self.engine.handle.shared.blocks.reset();
     }
 
     /// Play a track from a sound file for now, as if it were frozen (see
@@ -237,8 +253,8 @@ impl Session {
             bail!("no track {track} to hold");
         }
         match file {
-            Some(file) => self.map.held_files.insert(track, file),
-            None => self.map.held_files.remove(&track),
+            Some(file) => self.engine.map.held_files.insert(track, file),
+            None => self.engine.map.held_files.remove(&track),
         };
         self.dirty = true;
         self.flush();
@@ -247,7 +263,7 @@ impl Session {
 
     /// The tracks held by [`hold`](Self::hold).
     pub fn held(&self) -> Vec<Id> {
-        let mut out: Vec<Id> = self.map.held_files.keys().copied().collect();
+        let mut out: Vec<Id> = self.engine.map.held_files.keys().copied().collect();
         out.sort_unstable();
         out
     }
@@ -255,10 +271,10 @@ impl Session {
     /// The track that plays MIDI input while no track is armed, as if it
     /// were monitored, or none. The project does not change.
     pub fn set_follow(&mut self, track: Option<Id>) {
-        if self.map.follow == track {
+        if self.engine.map.follow == track {
             return;
         }
-        self.map.follow = track;
+        self.engine.map.follow = track;
         self.dirty = true;
         self.flush();
     }
@@ -267,7 +283,7 @@ impl Session {
     /// (as a solo would, without the project's solos changing), or every
     /// track again with `None`.
     pub fn set_audible(&mut self, tracks: Option<Vec<Id>>) {
-        self.map.audible = tracks.map(|ids| ids.into_iter().collect());
+        self.engine.map.audible = tracks.map(|ids| ids.into_iter().collect());
         self.dirty = true;
         self.flush();
     }
@@ -277,27 +293,27 @@ impl Session {
     pub fn engine_restart(&mut self, opts: &BackendOptions) -> Result<()> {
         self.capture_states();
         let position = self.position();
-        let was_playing = self.playing;
+        let was_playing = self.play.playing;
         self.stop();
         let (handle, stream) = start_engine(opts)?;
-        self.backend = opts.clone();
+        self.engine.backend = opts.clone();
         // Assigning drops the old stream, which stops the old engine.
-        self.stream = stream;
-        self.handle = handle;
+        self.engine.stream = stream;
+        self.engine.handle = handle;
         self.send_pool();
         self.live.clear();
-        self.seeks = 0;
-        let held = std::mem::take(&mut self.map.held_files);
-        let audible = self.map.audible.take();
-        self.map = Mapper::new();
-        self.map.defer = self.loads.on;
-        (self.map.held_files, self.map.audible) = (held, audible);
+        self.play.seeks = 0;
+        let held = std::mem::take(&mut self.engine.map.held_files);
+        let audible = self.engine.map.audible.take();
+        self.engine.map = Mapper::new();
+        self.engine.map.defer = self.loads.on;
+        (self.engine.map.held_files, self.engine.map.audible) = (held, audible);
         self.loads.devices.clear();
         self.synced = Project::default();
         self.dirty = true;
-        self.warnings.extend(self.stream.info.warning.clone());
+        self.warnings.extend(self.engine.stream.info.warning.clone());
         self.connect_midi();
-        self.handle.send(Msg::SetTempo(self.project.tempo));
+        self.engine.handle.send(Msg::SetTempo(self.project.tempo));
         self.send_transport();
         let events = std::mem::take(&mut self.events);
         self.flush();

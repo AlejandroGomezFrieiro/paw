@@ -349,7 +349,7 @@ impl Session {
             return;
         }
         const AHEAD: f64 = 8.0;
-        let rate = self.handle.sample_rate as u32;
+        let rate = self.engine.handle.sample_rate as u32;
         let map = self.project.tempo_map();
         let now = map.seconds(beat);
         let mut windows = vec![(now, now + AHEAD)];
@@ -381,7 +381,7 @@ impl Session {
     /// [`read_ahead_from`](Self::read_ahead_from) the playhead, a few times
     /// a second while the song plays. Called every turn.
     pub fn read_ahead(&mut self) {
-        if self.playing && self.read_ahead_at.elapsed() >= std::time::Duration::from_millis(250) {
+        if self.play.playing && self.read_ahead_at.elapsed() >= std::time::Duration::from_millis(250) {
             self.read_ahead_from(self.position());
         }
     }

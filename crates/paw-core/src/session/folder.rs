@@ -1219,7 +1219,7 @@ impl super::Session {
                 .iter()
                 .all(|(rel, bytes)| std::fs::read(dir.join(rel)).is_ok_and(|old| &old == bytes))
         {
-            self.history.mark_saved(false);
+            self.undo.history.mark_saved(false);
         }
         Ok(done.written)
     }
@@ -1244,7 +1244,7 @@ impl super::Session {
         for problem in read.problems {
             self.warnings.push(problem);
         }
-        self.touched |= moved;
+        self.undo.touched |= moved;
         Ok(())
     }
 
@@ -1394,8 +1394,8 @@ impl super::Session {
             self.warnings.push(problem);
         }
         // It differs from what is on disk: the project file is damaged.
-        self.touched = true;
-        self.edits += 1;
+        self.undo.touched = true;
+        self.undo.edits += 1;
         Ok(Value::Null)
     }
 
@@ -1445,12 +1445,12 @@ impl super::Session {
         if let Some(name) = named {
             // Not an edit to undo: the saved state is the named one.
             self.project.name = name.clone();
-            self.checkpoint.name = name;
-            self.history.set_current_snapshot(self.checkpoint.clone());
+            self.undo.checkpoint.name = name;
+            self.undo.history.set_current_snapshot(self.undo.checkpoint.clone());
             self.dirty = true;
         }
         if only.is_none() {
-            self.history.mark_saved(false);
+            self.undo.history.mark_saved(false);
         }
         self.remember_for_panic();
         if renamed || !done.written.is_empty() || !done.moved.is_empty() {

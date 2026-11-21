@@ -54,9 +54,9 @@ impl Session {
             }
         };
         add(&self.project);
-        add(&self.checkpoint);
+        add(&self.undo.checkpoint);
         add(&self.synced);
-        for state in self.history.states() {
+        for state in self.undo.history.states() {
             add(&state.snapshot);
         }
         if let Some(shelf) = &self.shelf {
@@ -65,7 +65,7 @@ impl Session {
                 add(&state.snapshot);
             }
         }
-        keep.extend(self.map.held_files.values().cloned());
+        keep.extend(self.engine.map.held_files.values().cloned());
         self.audio.retain(&keep);
     }
 }

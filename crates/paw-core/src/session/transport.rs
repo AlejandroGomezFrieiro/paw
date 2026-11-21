@@ -3,16 +3,28 @@
 use crate::events::{KernelEvent as E, Nothing, Play, Position, Record};
 use super::*;
 
+/// Whether the song plays, and the seeks asked of the engine that it has
+/// not yet made.
+#[derive(Default)]
+pub(super) struct Playback {
+    pub playing: bool,
+    /// Beats of the count-in last asked of the engine: what is still to be
+    /// counted until the engine says otherwise.
+    pub count_sent: u32,
+    pub seeks: u32,
+    pub seek_target: f64,
+}
+
 impl Session {
     pub(super) fn send_transport(&mut self) {
         let t = &self.transport;
-        self.handle.send(Msg::SetLoop {
+        self.engine.handle.send(Msg::SetLoop {
             enabled: t.loop_enabled,
             start: t.loop_start,
             end: t.loop_end,
         });
-        self.handle.send(Msg::SetMetronome(t.metronome));
-        self.handle.send(Msg::SetClick {
+        self.engine.handle.send(Msg::SetMetronome(t.metronome));
+        self.engine.handle.send(Msg::SetClick {
             gain: paw_engine::db_to_gain(t.click_level),
             accent: t.click_accent,
             output: t.click_output as u16,
@@ -25,7 +37,7 @@ impl Session {
     /// inside the range or past it.
     pub(super) fn pre_roll_start(&self) -> Option<f64> {
         let t = &self.transport;
-        if !t.recording || self.playing || !t.punch_enabled || t.punch_end <= t.punch_start {
+        if !t.recording || self.play.playing || !t.punch_enabled || t.punch_end <= t.punch_start {
             return None;
         }
         if t.pre_roll == 0 && t.pre_roll_seconds <= 0.0 {
@@ -52,21 +64,21 @@ impl Session {
         }
         self.read_ahead_from(self.position());
         // A take begun with the song stopped is counted in first.
-        let count = (self.transport.recording && !self.playing && self.transport.count_in > 0)
+        let count = (self.transport.recording && !self.play.playing && self.transport.count_in > 0)
             .then(|| self.count_in())
             .flatten();
         let beats = match count {
             Some((msg, beats)) => {
-                self.handle.send(msg);
+                self.engine.handle.send(msg);
                 beats
             }
             None => {
-                self.handle.send(Msg::Play);
+                self.engine.handle.send(Msg::Play);
                 0
             }
         };
-        self.count_sent = beats;
-        self.playing = true;
+        self.play.count_sent = beats;
+        self.play.playing = true;
         let position = self.position();
         self.emit(E::TransportPlay(Play { position, count_in: beats as f64 }));
     }
@@ -79,7 +91,7 @@ impl Session {
         let map = self.project.tempo_map();
         let at = self.position();
         let (num, den) = map.signature(at);
-        let every = 60.0 / map.tempo(at) * 4.0 / den as f64 * self.handle.sample_rate;
+        let every = 60.0 / map.tempo(at) * 4.0 / den as f64 * self.engine.handle.sample_rate;
         let clicks = self.transport.count_in.min(16) * num;
         let frames = (clicks as f64 * every).round() as u64;
         (frames > 0).then_some((
@@ -96,25 +108,25 @@ impl Session {
     /// Beats of a count-in still to be counted before the song starts; 0
     /// when none is under way.
     pub fn counting(&self) -> u32 {
-        let shared = &self.handle.shared;
-        if !self.playing || shared.playing() {
+        let shared = &self.engine.handle.shared;
+        if !self.play.playing || shared.playing() {
             return 0;
         }
         // Until the engine has taken the count up, it is all still to come.
         match shared.counting() {
-            0 => self.count_sent,
+            0 => self.play.count_sent,
             left => left,
         }
     }
 
     pub fn stop(&mut self) {
-        if self.playing {
-            self.handle.send(Msg::Stop);
-            self.playing = false;
+        if self.play.playing {
+            self.engine.handle.send(Msg::Stop);
+            self.play.playing = false;
             // The engine stops at its next block. Wait for that, so that the
             // position read from here on is where it stopped.
             let deadline = Instant::now() + Duration::from_millis(200);
-            while self.handle.shared.playing() && Instant::now() < deadline {
+            while self.engine.handle.shared.playing() && Instant::now() < deadline {
                 std::thread::sleep(Duration::from_micros(200));
             }
             let position = self.position();
@@ -134,12 +146,12 @@ impl Session {
         // A take is continuous, so jumping ends it and starts another.
         let recording = self.rec.take.is_some();
         self.finish_take();
-        self.handle.send(Msg::Seek(beats));
-        self.seeks = self.seeks.wrapping_add(1);
-        self.seek_target = beats;
+        self.engine.handle.send(Msg::Seek(beats));
+        self.play.seeks = self.play.seeks.wrapping_add(1);
+        self.play.seek_target = beats;
         self.read_ahead_from(beats);
         self.emit(E::TransportSeek(Position { position: beats }));
-        if recording && self.playing {
+        if recording && self.play.playing {
             self.start_take();
         }
     }
@@ -147,7 +159,7 @@ impl Session {
     /// Turn on recording and play.
     pub fn record(&mut self) -> Result<()> {
         self.transport_set("recording", Value::Bool(true))?;
-        if !self.playing {
+        if !self.play.playing {
             self.play();
         }
         Ok(())
@@ -175,8 +187,8 @@ impl Session {
         self.rec.takes += 1;
         let number = self.rec.takes;
         let shared = Arc::new(TakeShared::default());
-        let sample_rate = self.handle.sample_rate as u32;
-        let inputs = self.stream.info.input_channels as usize;
+        let sample_rate = self.engine.handle.sample_rate as u32;
+        let inputs = self.engine.stream.info.input_channels as usize;
         let dir = self.media_dir();
         let mut audio = Vec::new();
         let mut captures = Vec::new();
@@ -244,7 +256,7 @@ impl Session {
                 ));
             }
         }
-        self.handle.send(Msg::SetTake(Some(Box::new(take))));
+        self.engine.handle.send(Msg::SetTake(Some(Box::new(take))));
         self.rec.take = Some(Recording {
             number,
             shared,
@@ -337,7 +349,7 @@ impl Session {
         }
         while let Ok(capture) = take.midi.pop() {
             let Some(track) = self
-                .map
+                .engine.map
                 .tracks
                 .iter()
                 .find(|(_, slot)| **slot == capture.slot)
@@ -386,10 +398,10 @@ impl Session {
         let Some(shared) = self.rec.take.as_ref().map(|t| t.shared.clone()) else {
             return;
         };
-        self.handle.send(Msg::SetTake(None));
+        self.engine.handle.send(Msg::SetTake(None));
         let deadline = Instant::now() + Duration::from_secs(2);
         while !shared.closed() && Instant::now() < deadline {
-            self.handle.collect_garbage();
+            self.engine.handle.collect_garbage();
             std::thread::sleep(Duration::from_millis(1));
         }
         // No engine is running to let go of the take, so let go of it here.
@@ -404,7 +416,7 @@ impl Session {
         }
         // The take as the times it went round the loop, or as the one
         // stretch it is.
-        let rate = self.handle.sample_rate;
+        let rate = self.engine.handle.sample_rate;
         let mut looped = take.looped.filter(|_| rounds > 0);
         let mut passes: Vec<Pass> = Vec::new();
         if let (Some(start), Some(punch)) = (start, take.punch) {
@@ -455,7 +467,7 @@ impl Session {
                         self.warnings.push(format!(
                             "recording stopped: writing {} failed ({err}); the {:.1} s before that are kept",
                             path.display(),
-                            written.frames as f64 / self.handle.sample_rate
+                            written.frames as f64 / self.engine.handle.sample_rate
                         ));
                     }
                     written.frames
@@ -512,7 +524,7 @@ impl Session {
     /// `start` and the take was let go of at `end`.
     pub(super) fn punched_passes(&self, take: &Recording, (from, to): (f64, f64), start: f64, end: f64) -> Vec<Pass> {
         let map = self.project.tempo_map();
-        let rate = self.handle.sample_rate;
+        let rate = self.engine.handle.sample_rate;
         // Capturing stops at the loop's end if that comes first, and after
         // a jump back starts again where the loop does if that is later.
         let (stop, again) = match take.looped {
@@ -813,12 +825,12 @@ impl Session {
     /// to: how late the output is heard, how late the input arrives (for
     /// audio), and the offset set by hand for what the system does not report.
     pub(super) fn record_latency(&self, audio: bool) -> f64 {
-        let info = &self.stream.info;
+        let info = &self.engine.stream.info;
         let mut seconds = self.rec.offset / 1000.0;
         if info.backend != BackendChoice::Null {
             seconds += info.buffer_size as f64 / info.sample_rate as f64;
             if audio {
-                seconds += self.handle.shared.input_latency() as f64;
+                seconds += self.engine.handle.shared.input_latency() as f64;
             }
         }
         seconds.max(0.0)
@@ -848,7 +860,7 @@ impl Session {
         if moved.is_empty() {
             return Ok(());
         }
-        for project in [&mut self.project, &mut self.checkpoint] {
+        for project in [&mut self.project, &mut self.undo.checkpoint] {
             media::map_files(project, |file| moved.get(file).cloned());
         }
         self.dirty = true;
