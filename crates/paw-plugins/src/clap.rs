@@ -1,5 +1,6 @@
-//! CLAP hosting, written against the C interface. The file's entry and its
-//! plugin factory go through Clack's host crate (`clack-host`); the rest is
+//! CLAP hosting. The file's entry, its plugin factory, the plugin instance
+//! and the host's callbacks go through Clack (`clack-host` and
+//! `clack-extensions`); processing, events and the plugin's extensions are
 //! still `clap-sys`.
 //!
 //! Threading follows the CLAP rules: a plugin is created, activated,
@@ -8,6 +9,7 @@
 //! and [`ClapController`] the main-thread half; both hold the same [`Shared`],
 //! which destroys the plugin when the last of them is dropped.
 
+use std::cell::RefCell;
 use std::ffi::{CStr, CString, c_char, c_void};
 use std::mem::ManuallyDrop;
 use std::path::{Path, PathBuf};
@@ -19,16 +21,29 @@ use std::sync::{Arc, Mutex};
 use anyhow::{Context, Result, bail};
 use clap_sys::audio_buffer::clap_audio_buffer;
 use clap_sys::entry::clap_plugin_entry;
+use clack_extensions::gui::{GuiSize, HostGui, HostGuiImpl};
+use clack_extensions::log::{HostLog, HostLogImpl, LogSeverity};
+use clack_extensions::params::{
+    HostParams, HostParamsImplMainThread, HostParamsImplShared, ParamClearFlags, ParamRescanFlags,
+};
+use clack_extensions::posix_fd::{FdFlags, HostPosixFd, HostPosixFdImpl};
+use clack_extensions::state::{HostState, HostStateImpl};
+use clack_extensions::thread_check::{HostThreadCheck, HostThreadCheckImpl};
+use clack_extensions::timer::{HostTimer, HostTimerImpl, TimerId};
 use clack_host::entry::{EntryDescriptor, PluginEntry, PluginEntryError};
+use clack_host::prelude::{
+    ClapId, HostError, HostExtensions, HostHandlers, HostInfo, MainThreadHandler,
+    PluginAudioConfiguration, PluginAudioProcessor, PluginInstance, PluginInstanceError,
+    SharedHandler,
+};
 use clap_sys::events::*;
 use clap_sys::ext::audio_ports::{
     CLAP_EXT_AUDIO_PORTS, clap_audio_port_info, clap_plugin_audio_ports,
 };
 use clap_sys::ext::gui::{
-    CLAP_EXT_GUI, CLAP_WINDOW_API_WAYLAND, CLAP_WINDOW_API_X11, clap_host_gui, clap_plugin_gui,
-    clap_window, clap_window_handle,
+    CLAP_EXT_GUI, CLAP_WINDOW_API_WAYLAND, CLAP_WINDOW_API_X11, clap_plugin_gui, clap_window,
+    clap_window_handle,
 };
-use clap_sys::ext::log::{CLAP_EXT_LOG, clap_host_log, clap_log_severity};
 use clap_sys::ext::note_name::{CLAP_EXT_NOTE_NAME, clap_note_name, clap_plugin_note_name};
 use clap_sys::ext::note_ports::{
     CLAP_EXT_NOTE_PORTS, CLAP_NOTE_DIALECT_CLAP, CLAP_NOTE_DIALECT_MIDI, CLAP_NOTE_DIALECT_MIDI2,
@@ -39,11 +54,10 @@ use clap_sys::ext::params::{
     CLAP_PARAM_IS_AUTOMATABLE_PER_KEY, CLAP_PARAM_IS_AUTOMATABLE_PER_NOTE_ID, CLAP_PARAM_IS_ENUM,
     CLAP_PARAM_IS_HIDDEN, CLAP_PARAM_IS_MODULATABLE_PER_CHANNEL, CLAP_PARAM_IS_MODULATABLE_PER_KEY,
     CLAP_PARAM_IS_MODULATABLE_PER_NOTE_ID, CLAP_PARAM_IS_READONLY, CLAP_PARAM_IS_STEPPED,
-    clap_host_params, clap_param_info, clap_plugin_params,
+    clap_param_info, clap_plugin_params,
 };
 use clap_sys::ext::posix_fd_support::{
-    CLAP_EXT_POSIX_FD_SUPPORT, CLAP_POSIX_FD_READ, clap_host_posix_fd_support,
-    clap_plugin_posix_fd_support,
+    CLAP_EXT_POSIX_FD_SUPPORT, CLAP_POSIX_FD_READ, clap_plugin_posix_fd_support,
 };
 use clap_sys::ext::preset_load::{
     CLAP_EXT_PRESET_LOAD, CLAP_EXT_PRESET_LOAD_COMPAT, clap_plugin_preset_load,
@@ -51,18 +65,13 @@ use clap_sys::ext::preset_load::{
 use clap_sys::ext::render::{
     CLAP_EXT_RENDER, CLAP_RENDER_OFFLINE, CLAP_RENDER_REALTIME, clap_plugin_render,
 };
-use clap_sys::ext::state::{CLAP_EXT_STATE, clap_host_state, clap_plugin_state};
-use clap_sys::ext::thread_check::{CLAP_EXT_THREAD_CHECK, clap_host_thread_check};
-use clap_sys::ext::timer_support::{
-    CLAP_EXT_TIMER_SUPPORT, clap_host_timer_support, clap_plugin_timer_support,
-};
-use clap_sys::factory::plugin_factory::clap_plugin_factory;
+use clap_sys::ext::state::{CLAP_EXT_STATE, clap_plugin_state};
+use clap_sys::ext::timer_support::{CLAP_EXT_TIMER_SUPPORT, clap_plugin_timer_support};
 use clap_sys::factory::preset_discovery::{
     CLAP_PRESET_DISCOVERY_FACTORY_ID, CLAP_PRESET_DISCOVERY_FACTORY_ID_COMPAT,
     clap_preset_discovery_factory,
 };
 use clap_sys::fixedpoint::{CLAP_BEATTIME_FACTOR, CLAP_SECTIME_FACTOR};
-use clap_sys::host::clap_host;
 use clap_sys::id::clap_id;
 use clap_sys::plugin::clap_plugin;
 use clap_sys::ext::tail::{CLAP_EXT_TAIL, clap_plugin_tail};
@@ -71,7 +80,6 @@ use clap_sys::process::{
     clap_process,
 };
 use clap_sys::stream::{clap_istream, clap_ostream};
-use clap_sys::version::CLAP_VERSION;
 use paw_engine::device::{Change, Rest, assign_keys, silent};
 use paw_engine::{
     Controller, Device, DeviceFactory, DeviceFormat, DeviceInfo, EventKind, Instance, Io,
@@ -89,17 +97,16 @@ struct Library {
     /// The file's entry, initialized. Kept for good in `load`'s list, so
     /// Clack never calls the entry's `deinit`.
     entry: PluginEntry,
-    factory: *const clap_plugin_factory,
     /// The file's preset-discovery factory, or null.
     presets: *const clap_preset_discovery_factory,
 }
 
-// The factory is only used from the main thread.
-// SAFETY: `factory` and `presets` point into the plugin file's static entry data, and the file is never
-// unloaded (ManuallyDrop), so moving a Library to another thread keeps them valid.
+// The preset-discovery factory is only used from the main thread.
+// SAFETY: `presets` points into the plugin file's static entry data, and the file is never
+// unloaded (ManuallyDrop), so moving a Library to another thread keeps it valid.
 unsafe impl Send for Library {}
-// SAFETY: The CLAP threading rules keep every call through `factory` and `presets` on the main
-// thread, and the fields are never written after `load`, so sharing a Library is sound.
+// SAFETY: The CLAP threading rules keep every call through `presets` on the main thread, and the
+// fields are never written after `load`, so sharing a Library is sound.
 unsafe impl Sync for Library {}
 
 /// Load a `.clap` file, or return it if it is loaded already.
@@ -125,12 +132,9 @@ fn load(path: &Path) -> Result<Arc<Library>> {
         PluginEntryError::EntryInitFailed => anyhow::anyhow!("the plugin refused to initialize"),
         err => anyhow::anyhow!("{err}"),
     })?;
-    let factory = entry
+    entry
         .get_plugin_factory()
-        .context("the file has no plugin factory")?
-        .raw()
-        .as_ptr()
-        .cast_const();
+        .context("the file has no plugin factory")?;
     // SAFETY: `get_factory` is the initialized entry's own function and gets static ids; a null
     // result means the file has no preset discovery.
     let presets = unsafe {
@@ -144,7 +148,6 @@ fn load(path: &Path) -> Result<Arc<Library>> {
     let library = Arc::new(Library {
         _lib: ManuallyDrop::new(lib),
         entry,
-        factory,
         presets: presets.cast(),
     });
     loaded.push((path.to_path_buf(), library.clone()));
@@ -287,6 +290,12 @@ impl HostFlags {
 
 /// The plugin instance and what both halves need to reach it.
 struct Shared {
+    /// The plugin, through Clack. Main thread only (see the `Send` and
+    /// `Sync` notes below): created, activated, deactivated and destroyed
+    /// there.
+    instance: RefCell<PluginInstance<PawHost>>,
+    /// The raw plugin, from `instance`, for the calls that are still
+    /// `clap-sys` (processing, events, the plugin's extensions).
     plugin: *const clap_plugin,
     params: *const clap_plugin_params,
     state: *const clap_plugin_state,
@@ -299,44 +308,63 @@ struct Shared {
     param_ids: Vec<(clap_id, *mut c_void)>,
     param_infos: Vec<ParamInfo>,
     flags: Arc<HostFlags>,
-    /// Held by the audio thread while the plugin processes a block, and by
-    /// the main thread while it is deactivated for an attachment
-    /// ([`ClapController::stopped`]): the audio thread only tries it, and
-    /// leaves the block to the plugin's stand-in when it cannot have it.
-    run: Mutex<()>,
-    /// The audio thread has started the plugin processing.
-    processing: AtomicBool,
-    /// The plugin was deactivated and activated again: the audio thread
-    /// starts it processing anew.
-    restarted: AtomicBool,
-    /// The plugin is active: between its `activate` and its `deactivate`.
-    active: AtomicBool,
+    /// The plugin's audio processor while the plugin is active. The audio
+    /// thread holds it while the plugin processes a block, and only tries
+    /// it: it leaves the block to the plugin's stand-in when it cannot have
+    /// it or finds none. The main thread takes the processor out to
+    /// deactivate the plugin ([`Shared::deactivate`]) and puts a new one
+    /// back when it activates it again ([`ClapController::stopped`]).
+    run: Mutex<Option<PluginAudioProcessor<PawHost>>>,
     sample_rate: f64,
     max_block: u32,
-    // Kept alive for the plugin, which holds pointers into both.
-    _host: Box<clap_host>,
+    // Kept alive for the plugin's preset-discovery factory.
     _library: Arc<Library>,
 }
 
-// The pointers are only followed under the CLAP threading rules: `plugin`'s
-// processing functions from the audio thread, everything else from the main
-// thread, with both halves dropped on the main thread.
-// SAFETY: The raw pointers in `Shared` are used under the CLAP threading rules (see the comment
-// above): the processing functions only on the audio thread, the rest only on the main thread.
-// Both halves are dropped on the main thread.
+// SAFETY: `PluginInstance` is not `Send` so that its main-thread functions are called from one
+// thread. `instance`, and the raw `plugin` and extension pointers outside of the processing
+// functions, are only used on the main thread: `ClapFactory::create` makes the `Shared` there, the
+// controller lives there, and both halves are dropped there (the engine drops a device on the main
+// thread once the audio thread has let it go). The audio thread reaches the plugin only through
+// the processor in `run` (which is `Send`), the raw `process` and `tail` while it holds `run`, and
+// the atomics and mutexes in `flags`.
 unsafe impl Send for Shared {}
-// SAFETY: What the two threads share is atomics, mutexes and the read-only `param_ids`, `param_infos`;
-// the plugin pointers follow the threading rules named above.
+// SAFETY: What the two threads share is `run` (a mutex), `flags` (atomics and mutexes) and the
+// read-only `param_ids`, `param_infos`, `sample_rate` and `max_block`. `instance` is a `RefCell`
+// that only the main thread touches (see above), so no two threads borrow it at once.
 unsafe impl Sync for Shared {}
 
+impl Shared {
+    /// Activate the plugin: its audio processor, not processing yet.
+    /// Main thread, with the plugin inactive.
+    fn activate(&self) -> Result<PluginAudioProcessor<PawHost>, PluginInstanceError> {
+        let configuration = PluginAudioConfiguration {
+            sample_rate: self.sample_rate,
+            min_frames_count: 1,
+            max_frames_count: self.max_block,
+        };
+        let processor = self.instance.borrow_mut().activate(|_, _| (), configuration)?;
+        Ok(processor.into())
+    }
+
+    /// Stop the plugin processing and deactivate it, taking its processor
+    /// out of `run`, which the caller holds. Main thread: `stop_processing`
+    /// is called from here while the audio thread is held off, since the
+    /// plugin may not be deactivated while it processes.
+    fn deactivate(&self, run: &mut Option<PluginAudioProcessor<PawHost>>) {
+        if let Some(processor) = run.take() {
+            self.instance.borrow_mut().deactivate(processor.into_stopped());
+        }
+    }
+}
+
 impl Drop for Shared {
+    /// The last half is dropped, on the main thread: the plugin is
+    /// deactivated if it is still active, then `instance` destroys it.
     fn drop(&mut self) {
-        // SAFETY: `plugin` was returned by `create_plugin` and is destroyed once, here, when the last
-        // half is dropped; the device has stopped and deactivated it already (`ClapDevice::drop`).
-        unsafe {
-            if let Some(destroy) = (*self.plugin).destroy {
-                destroy(self.plugin);
-            }
+        let run = self.run.get_mut().unwrap_or_else(|e| e.into_inner());
+        if let Some(processor) = run.take() {
+            self.instance.get_mut().deactivate(processor.into_stopped());
         }
     }
 }
@@ -359,62 +387,48 @@ impl DeviceFactory for ClapFactory {
 
     fn create(&self, sample_rate: f32, max_block: usize) -> Result<Instance> {
         let library = load(&self.path)?;
-        // SAFETY: The library is loaded and `factory` is a live plugin factory; the host given to the plugin
-        // is boxed, so its address stays put, and is kept alive in `Shared::_host`. Every plugin
-        // function called here (`init`, `activate`, the extensions) is called in the order the ABI
+        let flags = Arc::new(HostFlags::new());
+        let host = HostInfo::new("paw", "paw", "", "0.1.0")?;
+        let host_flags = flags.clone();
+        let instance = PluginInstance::<PawHost>::new(
+            move |_| HostShared { flags: host_flags },
+            |shared| HostMain { shared },
+            &library.entry,
+            &self.id,
+            &host,
+        )
+        .map_err(|err| match err {
+            PluginInstanceError::NullFactoryCreatePluginFunction => {
+                anyhow::anyhow!("no create_plugin")
+            }
+            PluginInstanceError::InstantiationFailed => {
+                anyhow::anyhow!("the plugin failed to initialize")
+            }
+            _ => anyhow::anyhow!("{} could not create the plugin", self.path.display()),
+        })?;
+        let plugin: *const clap_plugin = instance.raw_instance();
+        // SAFETY: `plugin` is the live, initialized instance, which `shared` owns from here. Every
+        // plugin function called here (the extensions, `activate`) is called in the order the ABI
         // requires, on the main thread, before the plugin is shared with the audio thread.
         unsafe {
-            let flags = Arc::new(HostFlags::new());
-            let host = Box::new(clap_host {
-                clap_version: CLAP_VERSION,
-                host_data: Arc::as_ptr(&flags) as *mut c_void,
-                name: c"paw".as_ptr(),
-                vendor: c"paw".as_ptr(),
-                url: c"".as_ptr(),
-                version: c"0.1.0".as_ptr(),
-                get_extension: Some(host_get_extension),
-                request_restart: Some(host_request_restart),
-                request_process: Some(host_request_process),
-                request_callback: Some(host_request_callback),
-            });
-            let factory = &*library.factory;
-            let plugin = factory.create_plugin.context("no create_plugin")?(
-                library.factory,
-                &*host,
-                self.id.as_ptr(),
-            );
-            if plugin.is_null() {
-                bail!("{} could not create the plugin", self.path.display());
-            }
             let mut shared = Shared {
+                instance: RefCell::new(instance),
                 plugin,
-                params: ptr::null(),
-                state: ptr::null(),
-                gui: ptr::null(),
-                timers: ptr::null(),
-                fds: ptr::null(),
-                tail: ptr::null(),
+                params: extension(plugin, CLAP_EXT_PARAMS),
+                state: extension(plugin, CLAP_EXT_STATE),
+                gui: extension(plugin, CLAP_EXT_GUI),
+                timers: extension(plugin, CLAP_EXT_TIMER_SUPPORT),
+                fds: extension(plugin, CLAP_EXT_POSIX_FD_SUPPORT),
+                tail: extension(plugin, CLAP_EXT_TAIL),
                 param_ids: Vec::new(),
                 param_infos: Vec::new(),
                 flags,
-                run: Mutex::new(()),
-                processing: AtomicBool::new(false),
-                restarted: AtomicBool::new(false),
-                active: AtomicBool::new(false),
+                run: Mutex::new(None),
                 sample_rate: sample_rate as f64,
-                max_block: max_block as u32,
-                _host: host,
+                // Clack refuses a longest block of 0 frames.
+                max_block: (max_block as u32).max(1),
                 _library: library,
             };
-            if !(*plugin).init.context("no init")?(plugin) {
-                bail!("the plugin failed to initialize");
-            }
-            shared.params = extension(plugin, CLAP_EXT_PARAMS);
-            shared.state = extension(plugin, CLAP_EXT_STATE);
-            shared.gui = extension(plugin, CLAP_EXT_GUI);
-            shared.timers = extension(plugin, CLAP_EXT_TIMER_SUPPORT);
-            shared.fds = extension(plugin, CLAP_EXT_POSIX_FD_SUPPORT);
-            shared.tail = extension(plugin, CLAP_EXT_TAIL);
             read_params(&mut shared);
 
             let ports: *const clap_plugin_audio_ports = extension(plugin, CLAP_EXT_AUDIO_PORTS);
@@ -446,11 +460,11 @@ impl DeviceFactory for ClapFactory {
             // Attachments take the plugin before it is active: ARA binds
             // a plugin to its document then.
             let attached = crate::attach::offer(c"clap", plugin.cast());
-            let activate = (*plugin).activate.context("no activate")?;
-            if !activate(plugin, sample_rate as f64, 1, max_block as u32) {
-                bail!("the plugin failed to activate");
-            }
-            shared.active.store(true, Relaxed);
+            let processor = shared.activate().map_err(|err| match err {
+                PluginInstanceError::NullActivateFunction => anyhow::anyhow!("no activate"),
+                _ => anyhow::anyhow!("the plugin failed to activate"),
+            })?;
+            *shared.run.get_mut().unwrap() = Some(processor);
             let shared = Arc::new(shared);
             let (changed, changes) = rtrb::RingBuffer::new(1024);
             let device = ClapDevice {
@@ -471,7 +485,6 @@ impl DeviceFactory for ClapFactory {
                 clap_notes,
                 midi,
                 midi2,
-                started: false,
                 failed: false,
                 steady_time: 0,
                 rest: Rest::default(),
@@ -753,7 +766,7 @@ struct ClapDevice {
     /// not a note.
     midi: bool,
     midi2: bool,
-    started: bool,
+    /// The plugin failed to start processing: it is not asked again.
     failed: bool,
     steady_time: i64,
     /// What the plugin said of itself after its last block (see
@@ -783,33 +796,26 @@ impl Device for ClapDevice {
         // The main thread has the plugin deactivated for an attachment:
         // this block is the stand-in's, silence for an instrument and the
         // input passed through for an effect.
-        // SAFETY: `shared` lives as long as `self`, which holds it.
-        let shared: &Shared = unsafe { &*Arc::as_ptr(&self.shared) };
-        let running = shared.run.try_lock();
-        if running.is_err() || !shared.active.load(Relaxed) {
+        let mut running = self.shared.run.try_lock().ok();
+        let Some(processor) = running.as_deref_mut().and_then(Option::as_mut) else {
             if self.inputs.ports.is_empty() {
                 io.left.fill(0.0);
                 io.right.fill(0.0);
             }
             return;
+        };
+        // Started anew after the main thread deactivated it; never again
+        // once it failed to start.
+        if !processor.is_started() && (self.failed || processor.start_processing().is_err()) {
+            self.failed = true;
+            return;
         }
-        if shared.restarted.swap(false, Relaxed) {
-            self.started = false;
-        }
-        // SAFETY: `plugin` is the live plugin and `shared.run` is held (the `try_lock` above), so the main
-        // thread cannot deactivate it; the buffers' pointers lead to `max_block` frames per channel
-        // and `n <= max_block`; `in_events`, `out_events`, `transport` and `process` live on this
-        // frame until `process` returns; `self.out` and `self.events` are not touched while the plugin
-        // holds them. Called on the audio thread, as `start_processing` and `process` require.
+        // SAFETY: `plugin` is the live plugin and `run` is held (the `try_lock` above), so the main
+        // thread cannot deactivate it, and its processor is started; the buffers' pointers lead to
+        // `max_block` frames per channel and `n <= max_block`; `in_events`, `out_events`, `transport`
+        // and `process` live on this frame until `process` returns; `self.out` and `self.events` are
+        // not touched while the plugin holds them. Called on the audio thread, as `process` requires.
         unsafe {
-            if !self.started && !self.failed {
-                self.started = (*plugin).start_processing.is_none_or(|start| start(plugin));
-                self.failed = !self.started;
-                shared.processing.store(self.started, Relaxed);
-            }
-            if !self.started {
-                return;
-            }
 
             if let Some(port) = self.inputs.channels.first_mut() {
                 match port.as_mut_slice() {
@@ -1023,22 +1029,8 @@ impl Device for ClapDevice {
 impl Drop for ClapDevice {
     /// Runs on the main thread, after the audio thread has let go of the device.
     fn drop(&mut self) {
-        let plugin = self.shared.plugin;
-        // SAFETY: `plugin` is live, and this runs on the main thread after the audio thread let the device
-        // go, so `stop_processing` and `deactivate` do not race with `process`.
-        unsafe {
-            if self.started
-                && self.shared.processing.load(Relaxed)
-                && let Some(stop) = (*plugin).stop_processing
-            {
-                stop(plugin);
-            }
-            if self.shared.active.swap(false, Relaxed)
-                && let Some(deactivate) = (*plugin).deactivate
-            {
-                deactivate(plugin);
-            }
-        }
+        let mut run = self.shared.run.lock().unwrap_or_else(|e| e.into_inner());
+        self.shared.deactivate(&mut run);
     }
 }
 
@@ -1357,12 +1349,7 @@ impl Controller for ClapController {
 
     fn idle(&mut self) {
         if self.shared.flags.callback.swap(false, Relaxed) {
-            // SAFETY: `plugin` is live and `on_main_thread` runs on the main thread, as the plugin asked.
-            unsafe {
-                if let Some(on_main_thread) = (*self.shared.plugin).on_main_thread {
-                    on_main_thread(self.shared.plugin);
-                }
-            }
+            self.shared.instance.borrow_mut().call_on_main_thread_callback();
         }
         self.run_editor();
     }
@@ -1709,31 +1696,15 @@ impl ClapController {
     /// waits, since the plugin may not be deactivated while it processes.
     fn stopped<R>(&self, f: impl FnOnce() -> R) -> Result<R> {
         let shared = &self.shared;
-        let plugin = shared.plugin;
-        let _held = shared.run.lock().unwrap_or_else(|e| e.into_inner());
-        // SAFETY: `plugin` is live, `shared.run` is held so the audio thread is off it, and the calls
-        // (`stop_processing`, `deactivate`, `activate`) are made from the main thread as the ABI wants.
-        unsafe {
-            if shared.processing.swap(false, Relaxed)
-                && let Some(stop) = (*plugin).stop_processing
-            {
-                stop(plugin);
-            }
-            if shared.active.swap(false, Relaxed)
-                && let Some(deactivate) = (*plugin).deactivate
-            {
-                deactivate(plugin);
-            }
-            let result = f();
-            let activate = (*plugin).activate.context("no activate")?;
-            if !activate(plugin, shared.sample_rate, 1, shared.max_block) {
-                bail!("the plugin failed to activate again");
-            }
-            shared.active.store(true, Relaxed);
-            shared.restarted.store(true, Relaxed);
-            shared.flags.wake.store(true, Relaxed);
-            Ok(result)
-        }
+        let mut run = shared.run.lock().unwrap_or_else(|e| e.into_inner());
+        shared.deactivate(&mut run);
+        let result = f();
+        *run = Some(shared.activate().map_err(|err| match err {
+            PluginInstanceError::NullActivateFunction => anyhow::anyhow!("no activate"),
+            _ => anyhow::anyhow!("the plugin failed to activate again"),
+        })?);
+        shared.flags.wake.store(true, Relaxed);
+        Ok(result)
     }
 }
 
@@ -1753,22 +1724,8 @@ impl Drop for ClapController {
         // Attachments let go of the plugin while it is still there, and not
         // active: it is not processed again.
         if !self.attached.is_empty() {
-            let shared = &self.shared;
-            let plugin = shared.plugin;
-            let _held = shared.run.lock().unwrap_or_else(|e| e.into_inner());
-            // SAFETY: `plugin` is live and the audio thread is held off by `run`, as in `stopped`.
-            unsafe {
-                if shared.processing.swap(false, Relaxed)
-                    && let Some(stop) = (*plugin).stop_processing
-                {
-                    stop(plugin);
-                }
-                if shared.active.swap(false, Relaxed)
-                    && let Some(deactivate) = (*plugin).deactivate
-                {
-                    deactivate(plugin);
-                }
-            }
+            let mut run = self.shared.run.lock().unwrap_or_else(|e| e.into_inner());
+            self.shared.deactivate(&mut run);
             self.attached.clear();
         }
     }
@@ -1776,171 +1733,142 @@ impl Drop for ClapController {
 
 // --- what the host offers the plugin -----------------------------------------
 
-unsafe fn flags<'a>(host: *const clap_host) -> &'a HostFlags {
-    // SAFETY: `host.host_data` is the `Arc<HostFlags>` pointer that `create` set, kept alive by
-    // `Shared::flags` as long as the plugin; the plugin gives back the host it was created with.
-    unsafe { &*((*host).host_data as *const HostFlags) }
+/// paw's side of a plugin instance, for Clack: the callbacks the plugin may
+/// make and the extensions it may ask for.
+struct PawHost;
+
+/// The callbacks the plugin may make from any thread: they only note what
+/// it asked for in [`HostFlags`], for the main thread to act on.
+struct HostShared {
+    flags: Arc<HostFlags>,
 }
 
-unsafe extern "C" fn host_request_restart(host: *const clap_host) {
-    // SAFETY: The plugin gives back the host it was created with (see `flags`).
-    unsafe { flags(host) }.restart.store(true, Relaxed);
+/// The callbacks the plugin makes from the main thread.
+struct HostMain<'a> {
+    shared: &'a HostShared,
 }
 
-unsafe extern "C" fn host_request_process(host: *const clap_host) {
-    // SAFETY: The plugin gives back the host it was created with (see `flags`).
-    unsafe { flags(host) }.wake.store(true, Relaxed);
+impl HostHandlers for PawHost {
+    type Shared<'a> = HostShared;
+    type MainThread<'a> = HostMain<'a>;
+    type AudioProcessor<'a> = ();
+
+    fn declare_extensions(builder: &mut HostExtensions<Self>, _: &HostShared) {
+        builder
+            .register::<HostThreadCheck>()
+            .register::<HostLog>()
+            .register::<HostParams>()
+            .register::<HostState>()
+            .register::<HostGui>()
+            .register::<HostTimer>()
+            .register::<HostPosixFd>();
+    }
 }
 
-unsafe extern "C" fn host_request_callback(host: *const clap_host) {
-    // SAFETY: The plugin gives back the host it was created with (see `flags`).
-    unsafe { flags(host) }.callback.store(true, Relaxed);
+impl SharedHandler<'_> for HostShared {
+    fn request_restart(&self) {
+        self.flags.restart.store(true, Relaxed);
+    }
+
+    fn request_process(&self) {
+        self.flags.wake.store(true, Relaxed);
+    }
+
+    fn request_callback(&self) {
+        self.flags.callback.store(true, Relaxed);
+    }
 }
 
-unsafe extern "C" fn host_is_main_thread(_: *const clap_host) -> bool {
-    is_main_thread()
+impl<'a> MainThreadHandler<'a> for HostMain<'a> {}
+
+impl HostThreadCheckImpl for HostShared {
+    fn is_main_thread(&self) -> bool {
+        is_main_thread()
+    }
+
+    fn is_audio_thread(&self) -> bool {
+        !is_main_thread()
+    }
 }
 
-unsafe extern "C" fn host_is_audio_thread(_: *const clap_host) -> bool {
-    !is_main_thread()
+impl HostLogImpl for HostShared {
+    fn log(&self, _: LogSeverity, _: &str) {}
 }
 
-unsafe extern "C" fn host_log(_: *const clap_host, _: clap_log_severity, _: *const c_char) {}
-
-unsafe extern "C" fn host_params_rescan(host: *const clap_host, _: u32) {
-    // SAFETY: The plugin gives back the host it was created with (see `flags`).
-    unsafe { flags(host) }.rescan.store(true, Relaxed);
+impl HostParamsImplShared for HostShared {
+    fn request_flush(&self) {}
 }
 
-unsafe extern "C" fn host_gui_request_resize(
-    host: *const clap_host,
-    width: u32,
-    height: u32,
-) -> bool {
-    // SAFETY: The plugin gives back the host it was created with (see `flags`).
-    *unsafe { flags(host) }.resize.lock().unwrap() = Some((width, height));
-    true
+impl HostParamsImplMainThread for HostMain<'_> {
+    fn rescan(&self, _: ParamRescanFlags) {
+        self.shared.flags.rescan.store(true, Relaxed);
+    }
+
+    fn clear(&self, _: ClapId, _: ParamClearFlags) {}
 }
 
-unsafe extern "C" fn host_gui_request_show(_: *const clap_host) -> bool {
-    true
+impl HostStateImpl for HostMain<'_> {
+    fn mark_dirty(&self) {}
 }
 
-unsafe extern "C" fn host_gui_closed(host: *const clap_host, _was_destroyed: bool) {
-    // SAFETY: The plugin gives back the host it was created with (see `flags`).
-    unsafe { flags(host) }.closed.store(true, Relaxed);
+impl HostGuiImpl for HostShared {
+    fn resize_hints_changed(&self) {}
+
+    fn request_resize(&self, size: GuiSize) -> Result<(), HostError> {
+        *self.flags.resize.lock().unwrap() = Some((size.width, size.height));
+        Ok(())
+    }
+
+    fn request_show(&self) -> Result<(), HostError> {
+        Ok(())
+    }
+
+    fn request_hide(&self) -> Result<(), HostError> {
+        Ok(())
+    }
+
+    fn closed(&self, _was_destroyed: bool) {
+        self.flags.closed.store(true, Relaxed);
+    }
 }
 
-unsafe extern "C" fn host_register_timer(
-    host: *const clap_host,
-    period_ms: u32,
-    id: *mut clap_id,
-) -> bool {
-    // SAFETY: The plugin gives back the host it was created with (see `flags`).
-    let flags = unsafe { flags(host) };
-    let timer = flags.next_timer.fetch_add(1, Relaxed);
-    flags
-        .watches
-        .lock()
-        .unwrap()
-        .add_timer(period_ms as u64, timer);
-    // SAFETY: The plugin gives a non-null `id` to write the timer id to, as the ABI requires.
-    unsafe { *id = timer };
-    true
+impl HostTimerImpl for HostMain<'_> {
+    fn register_timer(&self, period_ms: u32) -> Result<TimerId, HostError> {
+        let flags = &self.shared.flags;
+        let timer = flags.next_timer.fetch_add(1, Relaxed);
+        flags
+            .watches
+            .lock()
+            .unwrap()
+            .add_timer(period_ms as u64, timer);
+        Ok(TimerId(timer))
+    }
+
+    fn unregister_timer(&self, TimerId(id): TimerId) -> Result<(), HostError> {
+        self.shared.flags.watches.lock().unwrap().remove_timer(&id);
+        Ok(())
+    }
 }
 
-unsafe extern "C" fn host_unregister_timer(host: *const clap_host, id: clap_id) -> bool {
-    // SAFETY: The plugin gives back the host it was created with (see `flags`).
-    unsafe { flags(host) }
-        .watches
-        .lock()
-        .unwrap()
-        .remove_timer(&id);
-    true
-}
+impl HostPosixFdImpl for HostMain<'_> {
+    fn register_fd(&self, fd: i32, _: FdFlags) -> Result<(), HostError> {
+        self.shared.flags.watches.lock().unwrap().fds.push((fd, ()));
+        Ok(())
+    }
 
-unsafe extern "C" fn host_register_fd(host: *const clap_host, fd: i32, _flags: u32) -> bool {
-    // SAFETY: The plugin gives back the host it was created with (see `flags`).
-    unsafe { flags(host) }
-        .watches
-        .lock()
-        .unwrap()
-        .fds
-        .push((fd, ()));
-    true
-}
+    fn modify_fd(&self, _fd: i32, _: FdFlags) -> Result<(), HostError> {
+        Ok(())
+    }
 
-unsafe extern "C" fn host_modify_fd(_: *const clap_host, _fd: i32, _flags: u32) -> bool {
-    true
-}
-
-unsafe extern "C" fn host_unregister_fd(host: *const clap_host, fd: i32) -> bool {
-    // SAFETY: The plugin gives back the host it was created with (see `flags`).
-    unsafe { flags(host) }
-        .watches
-        .lock()
-        .unwrap()
-        .fds
-        .retain(|(known, ())| *known != fd);
-    true
-}
-
-unsafe extern "C" fn host_params_clear(_: *const clap_host, _: clap_id, _: u32) {}
-
-unsafe extern "C" fn host_noop(_: *const clap_host) {}
-
-static THREAD_CHECK: clap_host_thread_check = clap_host_thread_check {
-    is_main_thread: Some(host_is_main_thread),
-    is_audio_thread: Some(host_is_audio_thread),
-};
-static LOG: clap_host_log = clap_host_log {
-    log: Some(host_log),
-};
-static PARAMS: clap_host_params = clap_host_params {
-    rescan: Some(host_params_rescan),
-    clear: Some(host_params_clear),
-    request_flush: Some(host_noop),
-};
-static STATE: clap_host_state = clap_host_state {
-    mark_dirty: Some(host_noop),
-};
-
-static GUI: clap_host_gui = clap_host_gui {
-    resize_hints_changed: Some(host_noop),
-    request_resize: Some(host_gui_request_resize),
-    request_show: Some(host_gui_request_show),
-    request_hide: Some(host_gui_request_show),
-    closed: Some(host_gui_closed),
-};
-static TIMERS: clap_host_timer_support = clap_host_timer_support {
-    register_timer: Some(host_register_timer),
-    unregister_timer: Some(host_unregister_timer),
-};
-static FDS: clap_host_posix_fd_support = clap_host_posix_fd_support {
-    register_fd: Some(host_register_fd),
-    modify_fd: Some(host_modify_fd),
-    unregister_fd: Some(host_unregister_fd),
-};
-
-unsafe extern "C" fn host_get_extension(_: *const clap_host, id: *const c_char) -> *const c_void {
-    // SAFETY: The plugin gives a non-null NUL-terminated extension id that lives through the call.
-    let id = unsafe { CStr::from_ptr(id) };
-    if id == CLAP_EXT_THREAD_CHECK {
-        &THREAD_CHECK as *const _ as *const c_void
-    } else if id == CLAP_EXT_LOG {
-        &LOG as *const _ as *const c_void
-    } else if id == CLAP_EXT_PARAMS {
-        &PARAMS as *const _ as *const c_void
-    } else if id == CLAP_EXT_STATE {
-        &STATE as *const _ as *const c_void
-    } else if id == CLAP_EXT_GUI {
-        &GUI as *const _ as *const c_void
-    } else if id == CLAP_EXT_TIMER_SUPPORT {
-        &TIMERS as *const _ as *const c_void
-    } else if id == CLAP_EXT_POSIX_FD_SUPPORT {
-        &FDS as *const _ as *const c_void
-    } else {
-        ptr::null()
+    fn unregister_fd(&self, fd: i32) -> Result<(), HostError> {
+        self.shared
+            .flags
+            .watches
+            .lock()
+            .unwrap()
+            .fds
+            .retain(|(known, ())| *known != fd);
+        Ok(())
     }
 }
 
