@@ -5,9 +5,10 @@ use std::fs::File;
 use std::io::ErrorKind;
 use std::path::Path;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::Ordering;
 
 use anyhow::{Context, Result, bail};
+use atomic_float::AtomicF64;
 use symphonia::core::codecs::audio::AudioDecoderOptions;
 use symphonia::core::codecs::audio::well_known::{CODEC_ID_MP1, CODEC_ID_MP2, CODEC_ID_MP3};
 use symphonia::core::errors::Error;
@@ -225,7 +226,7 @@ pub struct AudioRegion {
 /// while it is made): up to where the making has got, fading out just
 /// before it, silent past it, and fading in again where it picks up once
 /// more is there. Only the audio thread that plays the region touches it.
-pub struct Hold(AtomicU64);
+pub struct Hold(AtomicF64);
 
 /// While the region has run out of sound.
 const STARVED: f64 = f64::INFINITY;
@@ -234,17 +235,17 @@ const PLAYING: f64 = f64::NEG_INFINITY;
 
 impl Default for Hold {
     fn default() -> Self {
-        Self(AtomicU64::new(PLAYING.to_bits()))
+        Self(AtomicF64::new(PLAYING))
     }
 }
 
 impl Hold {
     fn get(&self) -> f64 {
-        f64::from_bits(self.0.load(Ordering::Relaxed))
+        self.0.load(Ordering::Relaxed)
     }
 
     fn set(&self, at: f64) {
-        self.0.store(at.to_bits(), Ordering::Relaxed);
+        self.0.store(at, Ordering::Relaxed);
     }
 
     /// Whether playing has to look at the hold: the sound is still being

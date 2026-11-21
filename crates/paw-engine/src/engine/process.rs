@@ -173,7 +173,7 @@ impl Engine {
                 }
             }
         }
-        self.shared.position.store(self.position.to_bits(), Relaxed);
+        self.shared.position.store(self.position, Relaxed);
         self.shared.playing.store(self.playing, Relaxed);
         self.shared
             .counting
@@ -210,9 +210,7 @@ impl Engine {
             return;
         };
         let more = preview.mix(left, right, false);
-        self.shared
-            .preview_seconds
-            .store(preview.seconds().to_bits(), Relaxed);
+        self.shared.preview_seconds.store(preview.seconds(), Relaxed);
         self.shared
             .preview_id
             .store(if more { preview.id } else { 0 }, Relaxed);

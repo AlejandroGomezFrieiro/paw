@@ -149,6 +149,17 @@ What paw keeps as its own, and why:
   over D-Bus on Linux (a C library for the Nix build), and it does not copy
   the sound thread's own policy and priority as paw does. paw keeps
   `pthread_setschedparam` in `pool.rs` and `sandbox/serve.rs`.
+- **The engine's allocation test.** `assert_no_alloc` forbids allocations
+  only inside a closure, and counts them on the thread that made them. The
+  engine's `tests/no_alloc.rs` marks the worker pool's threads for good and
+  counts what they do while the engine plays on them. The crate cannot do
+  this, so the test keeps its own `GlobalAlloc`. The sampler, with one
+  audio thread, uses the crate.
+- **Denormals off.** The `no_denormals` crate gives only a scoped closure
+  (an `unsafe fn`, and a compile error off x86 and aarch64). paw's audio
+  threads turn denormals off for good, and the render holds the
+  `NoDenormals` guard across early returns. paw keeps `no_denormals()` and
+  `NoDenormals` in `backend.rs`.
 - **The sampler's formats** and other formats that are paw's own.
 
 ## Where paw does it by hand today (2026-11-20)
@@ -207,9 +218,9 @@ Found with grep at a72467cf. Each refactor part that owns the file fixes it.
   range reads several LU lower. The crate also does not give the blocks
   that the gate keeps (paw's mono loss uses them) or the two ends of the
   range (`lra_low`, `lra_high`).
-- **Real-time tools:** the `no_alloc.rs` test of paw-engine (own allocator;
-  the sampler's uses `assert_no_alloc`), `backend.rs` `no_denormals`, the atomic `f32`
-  in `devices/dsp.rs` and `engine/shared.rs`.
+- **Real-time tools:** done: paw-engine's atomic `f32` and `f64` use
+  `atomic_float`. The `no_alloc.rs` test and `no_denormals` stay paw's own,
+  for the reasons above.
 - **CLAP host:** `paw-plugins/src/clap.rs` calls `clap-sys` directly.
   Clack's host crate gives safe wrappers. If it is not on crates.io,
   the Nix build must pin its Git commit. Try it on the stub plugin and

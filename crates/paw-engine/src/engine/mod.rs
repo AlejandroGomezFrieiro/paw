@@ -344,13 +344,13 @@ impl Engine {
                 peak = peak.max(s.abs());
             }
             let meter = &self.shared.input_meters[ch];
-            let held = f32::from_bits(meter.load(Relaxed)) * fall;
-            meter.store(peak.max(held).to_bits(), Relaxed);
+            let held = meter.load(Relaxed) * fall;
+            meter.store(peak.max(held), Relaxed);
         }
         // Channels the device no longer has fall silent.
         for meter in &self.shared.input_meters[self.input_count..] {
-            if meter.load(Relaxed) != 0 {
-                meter.store(0, Relaxed);
+            if meter.load(Relaxed) != 0.0 {
+                meter.store(0.0, Relaxed);
             }
         }
     }

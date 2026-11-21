@@ -15,6 +15,9 @@ use paw_engine::{
     Registry, SchedEntry, Schedule, SendRt, StateChange, StateLane, Switch, TrackRt, TrackSlot,
 };
 
+// Not `assert_no_alloc`: it forbids only inside a closure and counts on the
+// thread that broke the rule, so it cannot mark the pool's workers for good and
+// count what they do while the engine plays on them ("playback on four threads").
 struct Guard;
 
 thread_local! {

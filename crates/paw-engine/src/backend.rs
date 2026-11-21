@@ -526,6 +526,9 @@ fn spawn_null(
 
 /// Make the CPU treat denormal floats as zero on this thread. Decaying filters
 /// and reverb tails otherwise get dramatically slower as they fade out.
+// Not the `no_denormals` crate: it gives only a scoped closure (an `unsafe fn`
+// that fails to compile off x86 and aarch64), while the audio threads set this
+// for good and the render holds `NoDenormals` across early returns.
 pub fn no_denormals() {
     #[cfg(target_arch = "x86_64")]
     set_csr(csr() | 0x8040);

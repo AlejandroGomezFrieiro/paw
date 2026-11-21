@@ -448,7 +448,7 @@ pub(super) fn fader(t: &mut TrackRt, slot: TrackSlot, block: &Block, shared: &Sh
         let peak = if t.quiet { 0.0 } else { peak };
         t.peak[ch] = peak.max(t.peak[ch] * block.meter_fall);
         if let Some(meter) = shared.meters.get(slot.index()) {
-            meter[ch].store(t.peak[ch].to_bits(), Relaxed);
+            meter[ch].store(t.peak[ch], Relaxed);
         }
     }
     t.started = true;
