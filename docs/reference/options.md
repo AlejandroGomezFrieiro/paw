@@ -41,6 +41,8 @@ An extension adds options of its own with `paw.option.define(name, default, spec
 | `paw.opt.octave` | `4` | The octave where note entry starts, -1 to 9. |
 | `paw.opt.roll_insert` | `"draw"` | How `i` and `a` enter notes in the piano roll: `"draw"` with the cursor, or `"keys"` with the keyboard as a piano. |
 | `paw.opt.bend_step` | `1` | The semitones that each `k` or `j` bends the note that you draw in the piano roll. |
+| `paw.opt.strum` | `0.0625` | The beats between the notes of a chord that `C` strums in the piano roll: a 64th note. |
+| `paw.opt.strum_dir` | `"up"` | Which way `C` strums: `"up"` from the lowest note, or `"down"`. |
 | `paw.opt.gdefault` | `false` | When `true`, `:s` changes every match without the flag `g`, and only the first match of each bar with it. |
 | `paw.opt.copy_imports` | `false` | An import copies the sound file into the `media` folder of the project. |
 | `paw.opt.send_level` | `-12` | The level of a new send, in dB, -150 to 24. |

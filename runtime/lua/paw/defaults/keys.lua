@@ -988,6 +988,12 @@ drawmap("<CR>", function() drawing.next("legato") end, "Keep the note, and draw 
 drawmap("<Space>", function() drawing.next("rest") end, "Keep the note, and draw the next after a step's rest")
 drawmap("c", function() drawing.pick_chord() end, "A chord here: choose or type its symbol (V7, ii, Cmaj7, F#m9/C#)")
 drawmap("m", function(ctx) drawing.mark(ctx.char) end, "A mark of the song here: mk a key, mt a tempo, ms a time signature, m' a marker", { char = true })
+drawmap("C", function() drawing.pick_chord(true) end, "A strummed chord here: its notes one after the other (strum, strum_dir)")
+drawmap("a", function() drawing.articulate() end, "An articulation on the note (from the articulations extension)")
+drawmap("e", function(ctx) drawing.expression(ctx.char) end, "A controller here: em modulation, ee expression, eb breath, es sustain, e and a number", { char = true })
+drawmap("<C-n>", function() drawing.suggest(1) end, "Suggest what comes next here: the next suggestion")
+drawmap("<C-p>", function() drawing.suggest(-1) end, "Suggest what comes next here: the suggestion before")
+drawmap("<C-e>", function() drawing.unsuggest() end, "Put back what was there before the suggestions")
 drawmap("x", function() drawing.erase() end, "Erase the note: a note of the clip goes when insert mode ends")
 drawmap("<BS>", function() drawing.back() end, "Take back the note kept last, to draw it again")
 drawmap("<C-w>", function() drawing.back() end, "Take back the note kept last, to draw it again")
@@ -1003,7 +1009,7 @@ drawmap("<C-o>", function()
   end)
 end, "One command of normal mode, then draw again")
 -- The piano's letters do nothing while drawing: said, not lost in silence.
-for _, lhs in ipairs({ "a", "w", "s", "e", "d", "f", "g", "y", "u", "p", ";" }) do
+for _, lhs in ipairs({ "w", "s", "d", "f", "g", "y", "u", "p", ";" }) do
   drawmap(lhs, function()
     paw.notify("drawing a note: h j k l shape it, Enter keeps it; I types notes as a piano (" .. lhs .. " is a key there)", "warn")
   end, "Not a key while drawing: says that I types notes")

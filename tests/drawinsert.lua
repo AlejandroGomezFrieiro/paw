@@ -426,3 +426,52 @@ test("pencil: m puts marks of the song at the pencil: a tempo, a key change for 
   typed("u")
   eq(melody(clip) .. "|" .. paw.tempo.at(0) .. "|" .. #paw.markers.list(), "|120|0", "one undo step takes all back")
 end)
+
+test("pencil: C strums a chord, its notes a 64th apart and ending together; a count is the 64ths", function()
+  local clip = empty()
+  typed("iCC<CR>4l")
+  eq(draw.label():match("^DRAW C strum end"), "DRAW C strum end", "a strum, shaped as one note")
+  typed("<Esc>")
+  eq(melody(clip), "60@0+1 64@0.0625+0.9375 67@0.125+0.875", "up from the lowest, a 64th apart, ending together")
+  roll:set(60, 2)
+  paw.opt.strum_dir = "down"
+  typed("i2CC<CR>4l<Esc>")
+  paw.opt.strum_dir = "up"
+  eq(melody(clip):match("60@2%.25%+0%.75"), "60@2.25+0.75", "2C: two 64ths apart, down from the highest")
+end)
+
+test("pencil: Ctrl-n and Ctrl-p suggest what comes next in place, Enter takes it, Ctrl-e puts back", function()
+  local clip = empty()
+  typed("i4l<CR><C-n>")
+  eq(select(2, draw.text()), "62@1+0", "after a note, the next note of the key")
+  typed("<C-n><C-p>")
+  eq(select(2, draw.text()), "62@1+0", "Ctrl-p the suggestion before")
+  typed("<C-e>")
+  eq(select(2, draw.text()), "60@1+0", "Ctrl-e puts back what was there")
+  typed("<C-n><CR>")
+  eq(select(2, draw.text()), "62@1+0", "Enter takes it, and stays")
+  typed("4l<CR>c<CR>4l<CR><C-n>")
+  eq(select(2, draw.text()), "67@3+0 71@3+0 74@3+0", "after a chord, the chord that often follows: V after ii")
+  typed("4l<Esc>")
+  eq(melody(clip), "60@0+1 62@1+1 62@2+1 65@2+1 69@2+1 67@3+1 71@3+1 74@3+1", "written")
+end)
+
+test("pencil: a region, controller points, and a word when no extension gives articulations", function()
+  local clip = empty()
+  typed("i4lmrVerse<CR>")
+  local region = paw.markers.regions()[1]
+  eq(region and region.name .. " " .. region.length, "Verse 1", "mr: a region from the pencil to the end of its note")
+  typed("100em")
+  local cc = clip:controls()[1]
+  eq(cc and cc.number .. " " .. math.floor(cc.value * 127 + 0.5), "1 100", "100em: the modulation wheel at 100 here")
+  typed("ee64<CR>")
+  eq(#clip:controls(), 2, "ee asks the value of expression")
+  local provider = draw.articulations
+  draw.articulations = nil
+  typed("a")
+  draw.articulations = provider
+  eq((paw.ui.message and paw.ui.message.text or ""):find("articulations", 1, true) ~= nil, true, "a without the extension says how to get it")
+  typed("<Esc>")
+  typed("u")
+  eq(#clip:controls() .. " " .. #paw.markers.list(), "0 0", "one undo step")
+end)

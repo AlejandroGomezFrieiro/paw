@@ -6549,6 +6549,15 @@ function paw.roll_draw.again() end
 --- starts a step on (`a`).
 function paw.roll_draw.append() end
 
+--- Give the notes being drawn an articulation (`a`): asked by name, with
+--- the names of the track's instrument to complete.
+function paw.roll_draw.articulate() end
+
+--- Set where `a` takes articulations from (the articulations extension
+--- does): `names(track)` and `apply(track, text, note)`.
+---@param provider any
+function paw.roll_draw.articulation(provider) end
+
 --- Take back the last note kept: it is the one being drawn again.
 function paw.roll_draw.back() end
 
@@ -6595,6 +6604,13 @@ function paw.roll_draw.edge_now() end
 --- Erase the notes being drawn (`x`): a clip's note goes when insert mode
 --- writes; the pencil stays, with nothing long.
 function paw.roll_draw.erase() end
+
+--- A point of expression at the pencil (`e` then what): `em` the
+--- modulation wheel, `ee` expression, `eb` breath, `es` the sustain pedal,
+--- `e` and a number any controller. A count first is the value (`100em`);
+--- else paw asks it.
+---@param what any
+function paw.roll_draw.expression(what) end
 
 --- End the drawing: write it, and forget it. Returns what it did, in words.
 function paw.roll_draw.finish() end
@@ -6663,7 +6679,8 @@ function paw.roll_draw.pen() end
 --- symbol typed (`V7/V`, `F#m9/C#`, `C4maj7`) is drawn as typed. The
 --- chord takes the note's place, its start and length, and the keys shape
 --- it as one note until Enter or Escape.
-function paw.roll_draw.pick_chord() end
+---@param strum any
+function paw.roll_draw.pick_chord(strum) end
 
 --- Move the notes being drawn by `semitones` (times the count), and hear
 --- the new pitch. `step(pitch, n)`, if given, says where `n` such moves go
@@ -6682,6 +6699,12 @@ function paw.roll_draw.start(how) end
 --- What the window says while in insert mode.
 function paw.roll_draw.status() end
 
+--- Show the next (`dir` 1, `<C-n>`) or the previous (-1, `<C-p>`)
+--- suggestion in place of the notes being drawn. Any key that edits takes
+--- it; `<C-e>` puts back what was there.
+---@param dir any
+function paw.roll_draw.suggest(dir) end
+
 --- The notes that you drew and kept, as "60@1+0.5 64@1+0.5" in the beats of
 --- the roll. The second value is the notes that you draw now, "67@1.5+0".
 function paw.roll_draw.text() end
@@ -6689,6 +6712,9 @@ function paw.roll_draw.text() end
 --- Change from drawing to the piano keys and stay in insert mode. paw
 --- writes the drawn notes, and the letters are notes from now on.
 function paw.roll_draw.to_keys() end
+
+--- Put back the notes that were there before the suggestions (`<C-e>`).
+function paw.roll_draw.unsuggest() end
 
 --- The velocity of the notes being drawn and of the next, by `dir` tens.
 ---@param dir any
@@ -6892,7 +6918,7 @@ function paw.scope.group_at(track) end
 --- The parts of the rest the engine plays from files now.
 function paw.scope.held() end
 
---- Whether a scope, or one of the levels above it, limits the tracks.
+--- True if a scope, or one of the levels above it, limits the tracks.
 ---@param s any
 function paw.scope.limits_tracks(s) end
 

@@ -112,6 +112,11 @@ the note and its edge: `DRAW C4 end  2 steps · 0.5 beats  vel 100`.
 | `>` `<` | Move the note one grid step later or earlier. |
 | `=` and a value | Sets the length as a note value: `=4` is a beat, `=8` an eighth, `=8.` a dotted eighth, `=8t` a triplet eighth. |
 | `c` | Makes the note a chord: see [Chords](#chords). |
+| `C` | Makes the note a strummed chord: see [Chords](#chords). |
+| `a` | Gives the note an articulation, by name. The names come from the articulations extension: the map of the track, or the usual words. |
+| `e` and a kind | Puts a controller point where the note starts: `em` the modulation wheel, `ee` expression, `eb` breath, `es` the sustain pedal, `e` and a number any controller. A count first is the value (`100em`), else paw asks for it. |
+| `Ctrl-n` `Ctrl-p` | Suggest what comes next, in place of the note: after a chord, the chords of the key that often follow it; after a note, the notes of the key near it. The next key that edits takes the suggestion, and `Enter` takes it and stays. |
+| `Ctrl-e` | Puts back the note from before the suggestions. |
 | `m` and a kind | Puts a mark of the song at the note: see [Marks of the song](#marks-of-the-song). |
 | `[` `]` | Change the velocity of the note and of the notes after it. |
 | `Enter` | Keeps the note, and draws the next one where it ends (legato). When a note starts there, the pencil takes it. |
@@ -171,6 +176,11 @@ The key is the key of the last key change (`mk`) before the note, else
 the key of the project (`:key`). With no key, paw tells you and uses C
 major.
 
+`C` opens the same list, and strums the chord: each note starts a 64th
+note after the note below it (`paw.opt.strum`, in beats). A count gives
+the 64ths: `2C`. `:set strum_dir=down` strums from the highest note. The
+notes of a strum end together.
+
 The chord replaces the note, and all of its notes are the note that you
 draw. `h` `l` `=` `<` `>` `+` `-` `k` `j` change all of them. The title
 gives the name of the chord. `Enter` keeps the chord and draws a
@@ -186,11 +196,14 @@ for its value. The marks are in the undo step of the insert.
 | `mk` | A key change, for example `D minor`. At the start of a song with no key, it sets the key of the project. Else it is a marker named `key D minor`. The chords after it use that key. |
 | `mt` | A tempo, for example `96`. `96~` ramps to the next tempo. |
 | `ms` | A time signature, for example `6/8`, from the bar of the note (or the next bar, when the note is in a bar). |
+| `mr` | A region from the note to its end (a bar when the note has no length), with a name or none. |
 | `m'` | A marker with a name. |
 
 ### Keys of extensions
 
 An extension adds keys to the pencil with `paw.roll_draw.key(lhs, spec)`.
+`paw.roll_draw.articulation(provider)` gives `a` its names and what they
+set on a note: the articulations extension does this.
 `spec.run(count, char)` changes the notes that `paw.roll_draw.pen()`
 gives, then calls `paw.roll_draw.shown()`. `paw.chords.quality(suffix,
 steps)` adds the name of a chord.

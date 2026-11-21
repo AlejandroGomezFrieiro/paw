@@ -1715,6 +1715,8 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.roll_draw.active()`: True if you draw a note now: insert mode in the piano roll, the kind that draws.
 - `paw.roll_draw.again()`: Keep the notes being drawn and draw them again where they end (`.`), count times.
 - `paw.roll_draw.append()`: The next insert mode takes up the note under the cursor at its end, or starts a step on (`a`).
+- `paw.roll_draw.articulate()`: Give the notes being drawn an articulation (`a`): asked by name, with the names of the track's instrument to complete.
+- `paw.roll_draw.articulation(provider)`: Set where `a` takes articulations from (the articulations extension does): `names(track)` and `apply(track, text, note)`.
 - `paw.roll_draw.back()`: Take back the last note kept: it is the one being drawn again.
 - `paw.roll_draw.back_all()`: Take back all that this insert drew (`Ctrl-u`): the pencil is where it began.
 - `paw.roll_draw.bend(dir)`: Bend the notes being drawn by `dir` steps of `bend_step` semitones (times the count): their own pitch bend rises (or falls) to that at their end, from half of each.
@@ -1726,6 +1728,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.roll_draw.edge(edge)`: Go to the other edge of the note (`o`), or to `edge`.
 - `paw.roll_draw.edge_now()`: The edge the cursor is on: "start" or "end", nil when not drawing.
 - `paw.roll_draw.erase()`: Erase the notes being drawn (`x`): a clip's note goes when insert mode writes; the pencil stays, with nothing long.
+- `paw.roll_draw.expression(what)`: A point of expression at the pencil (`e` then what): `em` the modulation wheel, `ee` expression, `eb` breath, `es` the sustain pedal, `e` and a number any controller. A count first is the value (`100em`); else paw asks it.
 - `paw.roll_draw.finish()`: End the drawing: write it, and forget it. Returns what it did, in words.
 - `paw.roll_draw.grow(steps)`: Move the edge under the cursor `steps` grid steps right, or left with a negative count: at the end, the note grows; at its start, it shrinks. No note grows over the next note of its pitch.
 - `paw.roll_draw.hidden(clip)`: The ids of a clip's notes that the pencil holds, which the roll does not draw where they were: they show where the pencil has them.
@@ -1742,13 +1745,15 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.roll_draw.next(how)`: Keep the notes and go on. "legato" starts the next note at the end, "rest" a step (or count steps) after it; a note of the clip that starts there is taken up. "chord" draws another note at the same start and as long (`chord`'s count stacks).
 - `paw.roll_draw.nudge(steps)`: Move the notes being drawn `steps` grid steps later, or earlier: `>` `<`.
 - `paw.roll_draw.pen()`: The notes being drawn now, as `{ pitch, start, length, velocity }` in project beats, the one under the cursor first. An extension's key changes them in place, then calls `paw.roll_draw.shown()`.
-- `paw.roll_draw.pick_chord()`: Choose a chord to draw at the pencil (`c`): the diatonic chord on the pencil's pitch first (`4c` its seventh, `5c` its ninth), the others of the key, then common chords on the pitch. Typing searches them; a symbol typed (`V7/V`, `F#m9/C#`, `C4maj7`) is drawn as typed. The chord takes the note's place, its start and length, and the keys shape it as one note until Enter or Escape.
+- `paw.roll_draw.pick_chord(strum)`: Choose a chord to draw at the pencil (`c`): the diatonic chord on the pencil's pitch first (`4c` its seventh, `5c` its ninth), the others of the key, then common chords on the pitch. Typing searches them; a symbol typed (`V7/V`, `F#m9/C#`, `C4maj7`) is drawn as typed. The chord takes the note's place, its start and length, and the keys shape it as one note until Enter or Escape.
 - `paw.roll_draw.pitch(semitones, step)`: Move the notes being drawn by `semitones` (times the count), and hear the new pitch. `step(pitch, n)`, if given, says where `n` such moves go instead: by steps of a scale, say.
 - `paw.roll_draw.shown()`: Show what an extension's key changed in the notes being drawn.
 - `paw.roll_draw.start(how)`: Start drawing at the cursor. `how` as `take` has it: "i" or "a".
 - `paw.roll_draw.status()`: What the window says while in insert mode.
+- `paw.roll_draw.suggest(dir)`: Show the next (`dir` 1, `<C-n>`) or the previous (-1, `<C-p>`) suggestion in place of the notes being drawn. Any key that edits takes it; `<C-e>` puts back what was there.
 - `paw.roll_draw.text()`: The notes that you drew and kept, as "60@1+0.5 64@1+0.5" in the beats of the roll. The second value is the notes that you draw now, "67@1.5+0".
 - `paw.roll_draw.to_keys()`: Change from drawing to the piano keys and stay in insert mode. paw writes the drawn notes, and the letters are notes from now on.
+- `paw.roll_draw.unsuggest()`: Put back the notes that were there before the suggestions (`<C-e>`).
 - `paw.roll_draw.velocity(dir)`: The velocity of the notes being drawn and of the next, by `dir` tens.
 
 ## Module paw.routes
@@ -1800,7 +1805,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.scope.group(s)`: The innermost group of a scope's path (the current scope by default): what a narrowed tab's tracks are shown under. Nil when no level is a group.
 - `paw.scope.group_at(track)`: The group of a track when you narrow: the track itself if it is a group. If not, the group that contains it.
 - `paw.scope.held()`: The parts of the rest the engine plays from files now.
-- `paw.scope.limits_tracks(s)`: Whether a scope, or one of the levels above it, limits the tracks.
+- `paw.scope.limits_tracks(s)`: True if a scope, or one of the levels above it, limits the tracks.
 - `paw.scope.local_bar(song_bar)`: The bar the current scope shows for a bar of the song.
 - `paw.scope.named(which)`: A scope by name: a group of that name, else a region of that name, else a group or a region whose name starts with it. A number is a group's id.
 - `paw.scope.narrow(which)`: Narrow to a group or a region, by its id, its track or its name (see `named`): `enter` of that scope. Returns the tab it shows in.

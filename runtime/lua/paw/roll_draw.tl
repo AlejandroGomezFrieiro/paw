@@ -55,6 +55,31 @@ local record Source
   length: number
 end
 
+--- What an articulation sets on a note: its MIDI 2.0 attribute, or its
+--- meta (where the core does not keep attributes).
+local record ArtFields
+  attr: types.NoteAttr
+  meta: types.Meta
+end
+
+--- Where the pencil's articulations come from (`M.articulation`): an
+--- extension that knows the instrument of a track. `names(track)` for
+--- completion, `apply(track, text, note)` the fields for a note, or nil
+--- and why not.
+local record ArtProvider
+  names: function(track: integer): {string}
+  apply: function(track: integer, text: string, note: types.Note): ArtFields, string
+end
+
+--- Candidates that `<C-n>` `<C-p>` step through in place: their pitches,
+--- their names, the one shown, and the pitches before.
+local record Suggest
+  list: {{integer}}
+  names: {string}
+  at: integer
+  before: {integer}
+end
+
 --- A note's own pitch bend as the pencil draws it: `semis` at its end,
 --- reached by a ramp that starts `ramp` beats before the end (half the
 --- note when nil).
@@ -76,6 +101,8 @@ local record Drawn
   bent: boolean
   --- The note being drawn, not one kept (for the look).
   pending: boolean
+  --- What an articulation gives the note (`a`): its attribute or meta.
+  fields: ArtFields
 end
 
 --- What insert mode holds: the notes kept so far, the notes being drawn
@@ -96,6 +123,10 @@ local record Session
   chord: string
   --- The undo state when the drawing began: what it edits joins one step.
   undo: integer
+  --- The notes being drawn are a strum: they end together.
+  strum: boolean
+  --- What `<C-n>` `<C-p>` offer now.
+  suggest: Suggest
 end
 
 --- An edited clip of the roll (paw/roll_clips.lua): its id, the clip, and
@@ -184,6 +215,10 @@ end
 
 local record M
   type Drawn = Drawn
+  type ArtFields = ArtFields
+  type ArtProvider = ArtProvider
+  --- Where `a` takes articulations from: set by an extension.
+  articulations: ArtProvider
   type Bend = Bend
   type PencilKey = PencilKey
   type Edge = Edge
@@ -199,6 +234,10 @@ M.keys = {}
 options.define("roll_insert", "draw")
 -- Semitones each `j` `k` bends the note being drawn.
 local bend_step = options.define("bend_step", 1 as number)
+-- Beats between the notes of a strum (`C`): a 64th note.
+local strum_step = options.define("strum", 1 / 16 as number)
+-- Which way a strum goes: "up" from the lowest note, or "down".
+local strum_dir = options.define("strum_dir", "up", { values = { "up", "down" } })
 
 local EPS = 1e-9
 -- How far a note's own bend reaches each way (MIDI 2.0's default, the engine's NOTE_BEND_RANGE).
@@ -395,13 +434,28 @@ local function take_count(): integer
   return n
 end
 
+--- True if a count was typed for the key that takes it now.
+local function counted(): boolean
+  local given = session.count ~= nil
+  return given
+end
+
 --- What every key of the pencil does first: the cursor's note, the count;
 --- the length typed after `=` and a pitch named by `r` end here.
 local function begin(): boolean
   if not session then return false end
   sync()
-  session.reading, session.named = nil, nil
+  session.reading, session.named, session.suggest = nil, nil, nil
   return true
+end
+
+--- A strum's notes end together, where the one that starts first ends.
+local function align()
+  if not session.strum then return end
+  local first = session.pen[1]
+  for _, d in ipairs(session.pen) do if d.start < first.start then first = d end end
+  local finish = first.start + first.length
+  for _, d in ipairs(session.pen) do d.length = math.max(0, finish - d.start) end
 end
 
 --- What the drawing edits after its first edit joins that step: the
@@ -468,6 +522,7 @@ function M.grow(steps: integer)
     if session.edge == "start" then d.start = d.start + delta end
     d.length = math.max(0, d.length + (session.edge == "end" and delta or -delta))
   end
+  if session.edge == "end" then align() end
   if hit then blocked(session.pen[1]) end
   place()
 end
@@ -599,7 +654,7 @@ end
 
 local function copy(d: Drawn): Drawn
   return { pitch = d.pitch, start = d.start, length = d.length, velocity = d.velocity,
-    bend = d.bend and { semis = d.bend.semis, ramp = d.bend.ramp }, bent = d.bend ~= nil }
+    bend = d.bend and { semis = d.bend.semis, ramp = d.bend.ramp }, bent = d.bend ~= nil, fields = d.fields }
 end
 
 --- Keep the notes and go on. "legato" starts the next note at the end,
@@ -607,6 +662,11 @@ end
 --- there is taken up. "chord" draws another note at the same start and as
 --- long (`chord`'s count stacks).
 function M.next(how: string)
+  if session and session.suggest and how == "legato" then
+    session.suggest = nil
+    paw.notify("taken")
+    return place()
+  end
   if not begin() then return end
   local n = take_count()
   local d = session.pen[1]
@@ -649,6 +709,7 @@ function M.chord(pitches: {integer}, name?: string)
   if not begin() then return end
   session.count = nil
   session.chord = name
+  session.strum = nil
   local d = session.pen[1]
   local list: {Drawn} = { d }
   for i = 2, #pitches do
@@ -743,6 +804,16 @@ local MARKS: {string:MarkKind} = {
       return true
     end,
   },
+  r = {
+    prompt = "Region from here to the end of the note (a name, or none): ",
+    text = function(_: number): string return "" end,
+    put = function(beat: number, text: string): boolean, string
+      local d = session and session.pen[1]
+      local length = d and d.length > 1e-9 and (d.start + d.length - beat) or paw.tempo.bar_start(paw.tempo.bar_of(beat) + 1) - beat
+      paw.markers.add(beat, text, { length = length })
+      return true
+    end,
+  },
   ["'"] = {
     prompt = "Marker here: ",
     text = function(_: number): string return paw.markers.default_name() end,
@@ -753,6 +824,59 @@ local MARKS: {string:MarkKind} = {
   },
 }
 
+-- The controllers `e` names: modulation, expression, breath, the sustain pedal.
+local EXPRESSIONS: {string:integer} = { m = 1, e = 11, b = 2, s = 64 }
+
+--- Put the value of a controller at the pencil's start in its clip, as one
+--- edit of the insert's undo step: a point of `number` at `value` (0 to 127).
+local function put_control(number: integer, value: integer)
+  local at = origin()
+  if not at then return end
+  local d = session.pen[1]
+  local part = clips().target(d.start - at)
+  if not part then return end
+  local start = d.start - part.start
+  local list: {types.Control} = {}
+  for _, c in ipairs(controls_of(part.id)) do
+    if not (c.type == "cc" and c.number == number and not c.key and math.abs(c.start - start) < EPS) then list[#list + 1] = c end
+  end
+  list[#list + 1] = { start = start, type = "cc", number = number, value = util.clamp(value, 0, 127) / 127 }
+  table.sort(list, function(a: types.Control, b: types.Control): boolean return a.start < b.start end)
+  join()
+  api.clip_set_controls(part.id, list)
+  paw.notify(string.format("CC %d at %d from %s", number, value, music.name(d.pitch)))
+  changed()
+end
+
+--- A point of expression at the pencil (`e` then what): `em` the
+--- modulation wheel, `ee` expression, `eb` breath, `es` the sustain pedal,
+--- `e` and a number any controller. A count first is the value (`100em`);
+--- else paw asks it.
+function M.expression(what: string)
+  if not begin() then return end
+  local given = counted()
+  local value = take_count()
+  local number = EXPRESSIONS[what or ""]
+  local function ask(n: integer)
+    if given then return put_control(n, value) end
+    paw.ui.input({ prompt = string.format("CC %d value (0 to 127): ", n), mode = "i" }, function(text: string)
+      local v = math.tointeger(tonumber(text))
+      if not v or v < 0 or v > 127 then return paw.notify("a value is 0 to 127", "warn") end
+      if session then put_control(n, v) end
+    end)
+  end
+  if number then return ask(number) end
+  if what and what:match("^%d$") then
+    paw.ui.input({ prompt = "Controller number: ", text = what, mode = "i" }, function(text: string)
+      local n = math.tointeger(tonumber(text))
+      if not n or n < 0 or n > 127 then return paw.notify("a controller is 0 to 127", "warn") end
+      if session then ask(n) end
+    end)
+    return
+  end
+  paw.notify("e then m modulation, e expression, b breath, s sustain, or a controller's number", "warn")
+end
+
 --- Put a mark of the song at the pencil's start (`m` then its kind): `k`
 --- a key change, `t` a tempo, `s` a time signature from the bar, `'` a
 --- marker. Each asks its value, and is in the insert's undo step.
@@ -760,7 +884,7 @@ function M.mark(kind: string)
   if not begin() then return end
   session.count = nil
   local spec = MARKS[kind]
-  if not spec then return paw.notify("m then k a key, t a tempo, s a time signature, ' a marker", "warn") end
+  if not spec then return paw.notify("m then k a key, t a tempo, s a time signature, r a region, ' a marker", "warn") end
   local beat = session.pen[1].start
   local complete: function(string): {string | CommandsModule.Entry}
   if spec.complete then
@@ -784,9 +908,13 @@ end
 --- symbol typed (`V7/V`, `F#m9/C#`, `C4maj7`) is drawn as typed. The
 --- chord takes the note's place, its start and length, and the keys shape
 --- it as one note until Enter or Escape.
-function M.pick_chord()
+function M.pick_chord(strum?: boolean)
   if not begin() then return end
+  local given = counted()
   local n = take_count()
+  -- `C` takes a count as the 64ths between the notes of its strum.
+  local lag = strum and (given and n / 16 or strum_step:get()) or 0
+  if strum then n = 3 end
   local key = key_here()
   local root = session.pen[1].pitch
   local items: {ChordsModule.Voiced} = {}
@@ -797,7 +925,23 @@ function M.pick_chord()
   for _, v in ipairs(paw.chords.offer(key, root)) do items[#items + 1] = v end
   local function draw(v: ChordsModule.Voiced)
     M.chord(v.pitches, v.name ~= "diatonic" and v.name or nil)
-    if session and v.name == "diatonic" then session.chord = nil end
+    if not session then return end
+    if v.name == "diatonic" then session.chord = nil end
+    if strum then
+      -- From the lowest up (or the highest down), each note a lag later.
+      local order: {Drawn} = {}
+      for i, d in ipairs(session.pen) do order[i] = d end
+      local down = strum_dir:get() == "down"
+      table.sort(order, function(a: Drawn, b: Drawn): boolean
+        if down then return a.pitch > b.pitch end
+        return a.pitch < b.pitch
+      end)
+      local base = session.pen[1].start
+      for k, d in ipairs(order) do d.start = base + (k - 1) * lag end
+      session.strum = true
+      align()
+      place()
+    end
   end
   local function line(v: ChordsModule.Voiced): string
     local notes: {string} = {}
@@ -805,7 +949,7 @@ function M.pick_chord()
     return string.format("%-10s %-8s %s", v.symbol, v.roman or "", table.concat(notes, " "))
   end
   paw.pick({
-    title = "Chord", prompt = "chord (a symbol, or search) > ", items = items, format = line,
+    title = strum and "Strum" or "Chord", prompt = (strum and "strum" or "chord") .. " (a symbol, or search) > ", items = items, format = line,
     search = function(v: ChordsModule.Voiced): string return v.symbol .. " " .. (v.name or "") .. " " .. (v.roman or "") end,
     on_choose = draw, choose = "draw it",
     actions = {
@@ -819,6 +963,138 @@ function M.pick_chord()
       end },
     },
   })
+end
+
+--- Pitches in words: "C4 E4 G4".
+local function pitches_text_of(list: {Drawn}): string
+  local names: {string} = {}
+  for i, d in ipairs(list) do names[i] = music.name(d.pitch) end
+  return table.concat(names, " ")
+end
+
+--- The track the pencil draws for: the active clip's.
+local function track_here(): integer
+  local clip = roll():clip()
+  return clip and api.clip_get(clip.id).track
+end
+
+--- Set where `a` takes articulations from (the articulations extension
+--- does): `names(track)` and `apply(track, text, note)`.
+function M.articulation(provider: ArtProvider)
+  M.articulations = provider
+end
+
+--- Give the notes being drawn an articulation (`a`): asked by name, with
+--- the names of the track's instrument to complete.
+function M.articulate()
+  if not begin() then return end
+  session.count = nil
+  local provider = M.articulations
+  if not provider then
+    return paw.notify("no articulations: `:ext.load articulations` gives the pencil its names", "warn")
+  end
+  local track = track_here()
+  local names = provider.names(track) or {}
+  local complete = function(typed: string): {string | CommandsModule.Entry}
+    local out: {string | CommandsModule.Entry} = {}
+    for _, k in ipairs(names) do if k:lower():find(typed:lower(), 1, true) == 1 then out[#out + 1] = k end end
+    return out
+  end
+  paw.ui.input({ prompt = "Articulation: ", mode = "i", complete = complete }, function(text: string)
+    if not session then return end
+    for _, d in ipairs(session.pen) do
+      local fields, why = provider.apply(track, text, { pitch = d.pitch, start = d.start, length = d.length, velocity = d.velocity })
+      if not fields then return paw.notify(why or ("no articulation " .. text), "warn") end
+      d.fields = fields
+    end
+    paw.notify(text .. " on " .. pitches_text_of(session.pen))
+    changed()
+  end)
+end
+
+-- Suggestions -----------------------------------------------------------------
+
+-- The degrees (0 the tonic) a chord on each degree goes to most, first.
+local NEXT_DEGREE: {{integer}} = {
+  { 3, 4, 5, 1, 2 }, { 4, 6, 0 }, { 5, 3, 1 }, { 4, 0, 1 }, { 0, 5, 3 }, { 3, 1, 4 }, { 0, 2 },
+}
+
+--- What may come next at the pencil: after a chord, chords of the key that
+--- often follow it (the chord kept last, or the one paw.harmony reads
+--- before the pencil); after a note, notes of the key near it.
+local function candidates(): {{integer}}, {string}
+  local key = key_here()
+  local pen = session.pen[1]
+  local list: {{integer}} = {}
+  local names: {string} = {}
+  local last = session.last
+  local before: {integer}
+  if last and #last > 0 then
+    before = {}
+    for i, d in ipairs(last) do before[i] = d.pitch end
+  end
+  local chordal = (before and #before > 1) or #session.pen > 1
+  if not before then
+    local c = paw.harmony.at(pen.start - 1e-6)
+    if c then chordal = true end
+    before = { c and (pen.pitch + ((c.root - pen.pitch) % 12)) or pen.pitch }
+  end
+  local low = before[1]
+  for _, p in ipairs(before) do low = math.min(low, p) end
+  local degree = paw.harmony.degree(key, low) % #key.steps
+  if chordal then
+    local romans = { "I", "II", "III", "IV", "V", "VI", "VII" }
+    for _, step in ipairs(NEXT_DEGREE[degree + 1] or { 0 }) do
+      local root = paw.harmony.degree_pitch(key, step)
+      root = root + 12 * math.floor((pen.pitch - root + 6) / 12)
+      local pitches = paw.chords.stack(root, 3, key)
+      list[#list + 1] = pitches
+      local minor = (pitches[2] - pitches[1]) % 12 == 3
+      local roman = minor and romans[step + 1]:lower() or romans[step + 1]
+      if (pitches[3] - pitches[1]) % 12 == 6 then roman = roman .. "o" end
+      local notes: {string} = {}
+      for i, q in ipairs(pitches) do notes[i] = music.name(q) end
+      names[#names + 1] = roman .. " " .. table.concat(notes, " ")
+    end
+  else
+    for _, step in ipairs({ 1, -1, 2, -2, 0, 4, -3 }) do
+      local p = paw.harmony.step(key, before[1], step)
+      list[#list + 1] = { p }
+      names[#names + 1] = music.name(p)
+    end
+  end
+  return list, names
+end
+
+--- Show the next (`dir` 1, `<C-n>`) or the previous (-1, `<C-p>`)
+--- suggestion in place of the notes being drawn. Any key that edits takes
+--- it; `<C-e>` puts back what was there.
+function M.suggest(dir: integer)
+  if not session then return end
+  sync()
+  local s = session.suggest
+  if not s then
+    local list, names = candidates()
+    if #list == 0 then return paw.notify("nothing to suggest here", "warn") end
+    local before: {integer} = {}
+    for i, d in ipairs(session.pen) do before[i] = d.pitch end
+    s = { list = list, names = names, at = dir > 0 and 0 or #list + 1, before = before }
+  end
+  s.at = (s.at + dir - 1) % #s.list + 1
+  local pitches = s.list[s.at]
+  M.chord(pitches)
+  session.suggest = s
+  paw.notify(string.format("%d/%d %s · Enter takes it, Ctrl-e puts back", s.at, #s.list, s.names[s.at]))
+  audition()
+end
+
+--- Put back the notes that were there before the suggestions (`<C-e>`).
+function M.unsuggest(): boolean
+  if not session or not session.suggest then return false end
+  local before = session.suggest.before
+  M.chord(before)
+  session.suggest = nil
+  return true
 end
 
 --- The notes being drawn now, as `{ pitch, start, length, velocity }` in
@@ -899,6 +1175,7 @@ function M.length_key(char?: string): boolean
       d.length = beats
       fit(d)
     end
+    align()
     session.edge = "end"
     place()
   end
@@ -1024,11 +1301,18 @@ local function write(): string
     if part and start > -EPS then
       local e = edit_of(part)
       if i then
-        e.set[#e.set + 1] = { index = i, pitch = n.pitch, start = start, length = n.length, velocity = n.velocity }
+        local change: types.NoteChange = { index = i, pitch = n.pitch, start = start, length = n.length, velocity = n.velocity }
+        if n.fields then change.attr, change.meta = n.fields.attr, n.fields.meta end
+        e.set[#e.set + 1] = change
         changed_n = changed_n + 1
       else
-        e.add[#e.add + 1] = (paw.ui.views.pianoroll as {string:function(objects.Clip, types.Note): types.Note}).new_note(part.clip,
+        local note = (paw.ui.views.pianoroll as {string:function(objects.Clip, types.Note): types.Note}).new_note(part.clip,
           { pitch = n.pitch, start = math.max(0, start), length = n.length, velocity = n.velocity })
+        if n.fields then
+          if n.fields.attr then note.attr = n.fields.attr end
+          if n.fields.meta then note.meta = n.fields.meta end
+        end
+        e.add[#e.add + 1] = note
         added = added + 1
         local found, spots = part.clip:notes({ from = start - EPS, to = start + 2 * EPS, low = n.pitch, high = n.pitch })
         for k, old in ipairs(found) do
@@ -1184,7 +1468,7 @@ end
 
 --- The pitches being drawn: "C4", or "C4 E4 G4" for a chord.
 local function pitches_text(): string
-  if session.chord and #session.pen > 1 then return session.chord end
+  if session.chord and #session.pen > 1 then return session.chord .. (session.strum and " strum" or "") end
   local names: {string} = {}
   for i, d in ipairs(session.pen) do names[i] = music.name(d.pitch) end
   return table.concat(names, " ")

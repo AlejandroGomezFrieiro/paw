@@ -216,7 +216,11 @@ is one undo step. See [Insert mode](insert-mode.md).
 | `>` `<` | the note a step later, earlier |
 | `=` and a value | the length as a note value: `=4` a beat, `=8.` dotted, `=8t` a triplet |
 | `c` | a chord at the note: choose it, or type its symbol (`V7`, `ii`, `V7/V`, `Cmaj7`, `F#m9/C#`) |
-| `m` and a kind | a mark of the song at the note: `mk` a key change, `mt` a tempo, `ms` a time signature, `m'` a marker |
+| `C` | a strummed chord: the same list, its notes a 64th apart (`2C` two 64ths; `strum_dir` down) |
+| `a` | an articulation on the note, by name (with the articulations extension) |
+| `e` and a kind | a controller at the note: `em` modulation, `ee` expression, `eb` breath, `es` sustain, `e` and a number any; a count first is the value: `100em` |
+| `<C-n>` `<C-p>` `<C-e>` | suggest the next note or chord in place, the one before; put back |
+| `m` and a kind | a mark of the song at the note: `mk` a key change, `mt` a tempo, `ms` a time signature, `mr` a region to the end of the note, `m'` a marker |
 | `<CR>` | keep it, draw the next where it ends (a note that starts there is taken) |
 | `<Space>` | keep it, draw the next after a step's rest |
 | `.` | keep it, draw it again after it (a count: more times) |

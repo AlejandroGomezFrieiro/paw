@@ -87,6 +87,8 @@ local record Opts
    send_level: number
    splitbelow: boolean
    splitright: boolean
+   strum: number
+   strum_dir: string
    termcolors: string | number
    threads: integer
    timeoutlen: number

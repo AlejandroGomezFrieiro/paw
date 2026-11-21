@@ -241,7 +241,7 @@ function M.contains(track: TrackRef, s?: Scope | integer): boolean
   return true
 end
 
---- Whether a scope, or one of the levels above it, limits the tracks.
+--- True if a scope, or one of the levels above it, limits the tracks.
 function M.limits_tracks(s?: Scope | integer): boolean
   local scope = resolve(s)
   while scope do

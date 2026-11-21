@@ -20,7 +20,7 @@ test("note entry: the start screen's i Enter then I types notes on a new track, 
   paw.keymap.feed("o")
   paw.keymap.feed("i<CR>")
   eq(paw.ui.focused .. " " .. paw.keymap.mode, "pianoroll i", "i Enter opens a clip to enter notes in")
-  paw.keymap.feed("a")
+  paw.keymap.feed("s")
   eq(paw.ui.message.text:find("I types notes as a piano", 1, true) ~= nil, true, "a letter while drawing says what it is not")
   paw.keymap.feed("I")
   eq(paw.ui.message.text:find("typing notes as a piano", 1, true) ~= nil, true, "I turns the keys into a piano")
