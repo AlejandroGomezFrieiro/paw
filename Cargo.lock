@@ -3108,7 +3108,6 @@ dependencies = [
  "quick-xml",
  "rcgen",
  "realfft",
- "ring",
  "rtrb",
  "rubato",
  "rustix 1.1.6",

@@ -9,26 +9,25 @@
 //! so a moved or copied file finds its entries again. `tool` names who made
 //! the entry ("paw.peaks/1"): a new baker is a new entry, never a wrong one.
 //!
-//! `H` is [`Hasher`]: SHA-256 (`ring`, linked already) until the workspace
-//! has `blake3`; the switch is the one type, and it changes every key, which
-//! only costs the cache.
+//! `H` is [`Hasher`], BLAKE3 (`media::hash`), the hash that names sources.
 
 use std::fmt;
-use std::io::Read;
 use std::path::Path;
 
 use serde::Serialize;
 use serde_json::Value;
 
+use crate::media::hash;
+
 /// The format of a key: a change of the canonical form is a new prefix.
 const PREFIX: &[u8] = b"paw.bake/1\n";
 
 /// The hash of keys and sources. The one place that names the algorithm.
-pub struct Hasher(ring::digest::Context);
+pub struct Hasher(hash::Incremental);
 
 impl Hasher {
     pub fn new() -> Self {
-        Self(ring::digest::Context::new(&ring::digest::SHA256))
+        Self(hash::Incremental::new())
     }
 
     pub fn update(&mut self, bytes: &[u8]) {
@@ -36,22 +35,12 @@ impl Hasher {
     }
 
     pub fn finish(self) -> Digest {
-        let mut out = [0u8; 32];
-        out.copy_from_slice(self.0.finish().as_ref());
-        Digest(out)
+        Digest(*self.0.finish().as_bytes())
     }
 
-    /// The hash of a file's bytes, read in pieces.
+    /// The hash of a file's bytes (a big file on all cores).
     pub fn file(path: &Path) -> std::io::Result<Digest> {
-        let mut file = std::fs::File::open(path)?;
-        let mut hasher = Self::new();
-        let mut buf = vec![0u8; 1 << 20];
-        loop {
-            match file.read(&mut buf)? {
-                0 => return Ok(hasher.finish()),
-                n => hasher.update(&buf[..n]),
-            }
-        }
+        Ok(Digest(*hash::file(path)?.as_bytes()))
     }
 }
 
@@ -214,13 +203,12 @@ mod tests {
             r#"{"inputs":[{"from":0,"hash":"0707070707070707070707070707070707070707070707070707070707070707","reverse":true,"stream":0,"to":960000}],"op":"stretch","output":{"rate":48000,"stream":"sound"},"params":{"formants":false,"mode":"tonal","warp":[[0,0],[20,30.5]]},"version":3}"#
         );
         // Golden: a change here is a change of every key, so of the format
-        // (a new PREFIX) or of the hash (a new Hasher): SHA-256 now, checked
-        // with Python's hashlib; blake3 changes both lines.
+        // (a new PREFIX) or of the hash (a new Hasher). Checked with b3sum.
         let key = EntryKey::new(&job, "paw.stretch/3");
         assert_eq!(key.input.to_string(), GOLDEN_INPUT);
         assert_eq!(key.id(), GOLDEN_ENTRY);
     }
 
-    const GOLDEN_INPUT: &str = "4715822839237d27a2da89080e797f33de98efc8e77983b1c2cee48b826d3889";
-    const GOLDEN_ENTRY: &str = "6f87884c99606eabc6fe6d68638725a0";
+    const GOLDEN_INPUT: &str = "29b50a8a744563c9d47c5a63e0abe1c2df24918aff9de716792a82c550f742c4";
+    const GOLDEN_ENTRY: &str = "421b5e8615317cc596377ea66e276c56";
 }
