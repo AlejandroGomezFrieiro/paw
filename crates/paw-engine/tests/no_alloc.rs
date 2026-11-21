@@ -38,29 +38,38 @@ thread_local! {
     static HERE: Cell<usize> = const { Cell::new(0) };
 }
 
+// SAFETY: every call goes on to `System` with the same arguments, so the
+// memory is `System`'s and keeps its guarantees. The counting before it does
+// not allocate: the thread-locals are const-initialized `Cell`s without a
+// destructor, and the counter is an atomic.
 unsafe impl GlobalAlloc for Guard {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         if audio() {
             VIOLATIONS.fetch_add(1, Ordering::Relaxed);
         }
+        // SAFETY: the caller's promises for `alloc`, passed on.
         unsafe { System.alloc(layout) }
     }
     unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
         if audio() {
             VIOLATIONS.fetch_add(1, Ordering::Relaxed);
         }
+        // SAFETY: the caller's promises for `alloc_zeroed`, passed on.
         unsafe { System.alloc_zeroed(layout) }
     }
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
         if audio() {
             VIOLATIONS.fetch_add(1, Ordering::Relaxed);
         }
+        // SAFETY: `ptr` came from this allocator with `layout`, so from
+        // `System` with it.
         unsafe { System.dealloc(ptr, layout) }
     }
     unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
         if audio() {
             VIOLATIONS.fetch_add(1, Ordering::Relaxed);
         }
+        // SAFETY: as in `dealloc`, and the caller's promise for `new_size`.
         unsafe { System.realloc(ptr, layout, new_size) }
     }
 }

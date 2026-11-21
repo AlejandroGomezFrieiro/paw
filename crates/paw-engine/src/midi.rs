@@ -166,14 +166,30 @@ mod imp {
     /// The key of each port by its address, from its name.
     type Keys = HashMap<Addr, u32>;
 
+    /// An event of either kind, copied out of the sequencer: what `drain`
+    /// reads of it.
+    struct Event {
+        type_: u32,
+        flags: u8,
+        source: snd_seq_addr_t,
+        dest: snd_seq_addr_t,
+        words: [u32; 4],
+        data: snd_seq_event_data_t,
+    }
+
     /// The sequencer handle, closed when dropped.
     struct Seq(*mut snd_seq_t);
 
-    // The handle is used by the one thread that owns the client.
+    // SAFETY: an ALSA sequencer handle may be used from any thread, one at a
+    // time. `Seq` is not `Sync` and not `Clone`: it is made on the thread
+    // that calls `start`, then moved whole into the client's thread, the only
+    // one that uses it from then on.
     unsafe impl Send for Seq {}
 
     impl Drop for Seq {
         fn drop(&mut self) {
+            // SAFETY: the handle came from a successful `snd_seq_open`, and
+            // this is its one owner, so it is closed once.
             unsafe {
                 snd_seq_close(self.0);
             }
@@ -192,13 +208,14 @@ mod imp {
         ports: Arc<Mutex<Vec<PortInfo>>>,
         rx: Receiver<Command>,
     ) -> Result<JoinHandle<()>> {
-        let mut client = unsafe {
-            let mut handle = std::ptr::null_mut();
-            check(
-                snd_seq_open(&mut handle, c"default".as_ptr(), OPEN_INPUT, NONBLOCK),
-                "opening the sequencer",
-            )?;
-            let seq = Seq(handle);
+        let mut handle = std::ptr::null_mut();
+        // SAFETY: `handle` is a live out-pointer and the name a C string.
+        let opened = unsafe { snd_seq_open(&mut handle, c"default".as_ptr(), OPEN_INPUT, NONBLOCK) };
+        check(opened, "opening the sequencer")?;
+        let seq = Seq(handle);
+        // SAFETY: `seq` holds an open handle; the names are C strings that
+        // outlive the calls, which only read them.
+        let (ump, me) = unsafe {
             check(
                 snd_seq_set_client_name(seq.0, c"paw".as_ptr()),
                 "naming the client",
@@ -225,18 +242,19 @@ mod imp {
                 snd_seq_connect_from(seq.0, port, SYSTEM_CLIENT, SYSTEM_ANNOUNCE),
                 "listening for ports",
             )?;
-            Client {
-                seq,
-                ump,
-                me,
-                sink,
-                ports,
-                select: None,
-                open: Vec::new(),
-                own: Vec::new(),
-                held: Held::new(),
-                keys: Keys::new(),
-            }
+            (ump, me)
+        };
+        let mut client = Client {
+            seq,
+            ump,
+            me,
+            sink,
+            ports,
+            select: None,
+            open: Vec::new(),
+            own: Vec::new(),
+            held: Held::new(),
+            keys: Keys::new(),
         };
         client.refresh();
         let thread = std::thread::Builder::new()
@@ -263,31 +281,38 @@ mod imp {
 
     impl Client {
         fn run(mut self, rx: Receiver<Command>) {
-            let mut fds = unsafe {
-                let count = snd_seq_poll_descriptors_count(self.seq.0, libc::POLLIN).max(0);
-                let mut fds = vec![
-                    libc::pollfd {
-                        fd: -1,
-                        events: 0,
-                        revents: 0
-                    };
-                    count as usize
-                ];
-                let filled = snd_seq_poll_descriptors(
+            // SAFETY: the handle is open.
+            let count = unsafe { snd_seq_poll_descriptors_count(self.seq.0, libc::POLLIN) }.max(0);
+            let mut fds = vec![
+                libc::pollfd {
+                    fd: -1,
+                    events: 0,
+                    revents: 0
+                };
+                count as usize
+            ];
+            // SAFETY: the handle is open, and `fds` has room for the `count`
+            // entries it may write; ALSA's `pollfd` is the C `struct pollfd`,
+            // as `libc::pollfd` is.
+            let filled = unsafe {
+                snd_seq_poll_descriptors(
                     self.seq.0,
                     fds.as_mut_ptr().cast(),
                     count as u32,
                     libc::POLLIN,
-                );
-                fds.truncate(filled.max(0) as usize);
-                // The descriptors belong to the sequencer handle, which this
-                // thread keeps open for as long as it polls.
-                fds.iter()
-                    .map(|fd| {
-                        PollFd::from_borrowed_fd(BorrowedFd::borrow_raw(fd.fd), PollFlags::IN)
-                    })
-                    .collect::<Vec<_>>()
+                )
             };
+            fds.truncate(filled.max(0) as usize);
+            let mut fds = fds
+                .iter()
+                .map(|fd| {
+                    // SAFETY: the sequencer filled this entry with one of its
+                    // open descriptors. The handle that owns them stays open
+                    // while this thread polls: `self` outlives `fds`.
+                    let fd = unsafe { BorrowedFd::borrow_raw(fd.fd) };
+                    PollFd::from_borrowed_fd(fd, PollFlags::IN)
+                })
+                .collect::<Vec<_>>();
             loop {
                 while let Ok(command) = rx.try_recv() {
                     match command {
@@ -327,69 +352,94 @@ mod imp {
         /// Take every event that is waiting.
         fn drain(&mut self) {
             let mut changed = false;
-            unsafe {
-                while snd_seq_event_input_pending(self.seq.0, 1) > 0 {
-                    // The two kinds of event start with the same fields.
-                    let (type_, flags, source, dest, words, data) = if self.ump {
-                        let mut ev: *mut snd_seq_ump_event_t = std::ptr::null_mut();
-                        if snd_seq_ump_event_input(self.seq.0, &mut ev) < 0 || ev.is_null() {
-                            break;
-                        }
-                        let ev = &*ev;
-                        (
-                            ev.type_ as u32,
-                            ev.flags,
-                            ev.source,
-                            ev.dest,
-                            ev.__bindgen_anon_1.ump,
-                            ev.__bindgen_anon_1.data,
-                        )
-                    } else {
-                        let mut ev: *mut snd_seq_event_t = std::ptr::null_mut();
-                        if snd_seq_event_input(self.seq.0, &mut ev) < 0 || ev.is_null() {
-                            break;
-                        }
-                        let ev = &*ev;
-                        (
-                            ev.type_ as u32,
-                            ev.flags,
-                            ev.source,
-                            ev.dest,
-                            [0; 4],
-                            ev.data,
-                        )
-                    };
-                    // What arrives at a port of our own is that port's,
-                    // whoever sent it.
-                    let at = dest.port as i32;
-                    let source = if at != self.me.1 && self.own.iter().any(|(port, _)| *port == at)
-                    {
-                        (OWN, at)
-                    } else {
-                        (source.client as i32, source.port as i32)
-                    };
-                    if flags & EVENT_UMP != 0 {
-                        // The group is the port's business; the channel is the event's.
-                        if let Some((_, kind)) = ump::decode(&words) {
-                            self.take(source, kind);
-                        }
-                        continue;
+            while let Some(Event {
+                type_,
+                flags,
+                source,
+                dest,
+                words,
+                data,
+            }) = self.next_event()
+            {
+                // What arrives at a port of our own is that port's,
+                // whoever sent it.
+                let at = dest.port as i32;
+                let source = if at != self.me.1 && self.own.iter().any(|(port, _)| *port == at)
+                {
+                    (OWN, at)
+                } else {
+                    (source.client as i32, source.port as i32)
+                };
+                if flags & EVENT_UMP != 0 {
+                    // The group is the port's business; the channel is the event's.
+                    if let Some((_, kind)) = ump::decode(&words) {
+                        self.take(source, kind);
                     }
-                    match type_ {
-                        SND_SEQ_EVENT_PORT_START
-                        | SND_SEQ_EVENT_PORT_EXIT
-                        | SND_SEQ_EVENT_CLIENT_EXIT
-                        | SND_SEQ_EVENT_PORT_UNSUBSCRIBED => changed = true,
-                        _ => {
-                            if let Some(kind) = legacy(type_, &data) {
-                                self.take(source, kind);
-                            }
+                    continue;
+                }
+                match type_ {
+                    SND_SEQ_EVENT_PORT_START
+                    | SND_SEQ_EVENT_PORT_EXIT
+                    | SND_SEQ_EVENT_CLIENT_EXIT
+                    | SND_SEQ_EVENT_PORT_UNSUBSCRIBED => changed = true,
+                    _ => {
+                        if let Some(kind) = legacy(type_, &data) {
+                            self.take(source, kind);
                         }
                     }
                 }
             }
             if changed {
                 self.refresh();
+            }
+        }
+
+        /// The next event that is waiting, copied out of the sequencer's
+        /// buffer, or `None` when there is none or it cannot be read.
+        fn next_event(&mut self) -> Option<Event> {
+            // SAFETY: the handle is open.
+            if unsafe { snd_seq_event_input_pending(self.seq.0, 1) } <= 0 {
+                return None;
+            }
+            // The two kinds of event start with the same fields.
+            if self.ump {
+                let mut ev: *mut snd_seq_ump_event_t = std::ptr::null_mut();
+                // SAFETY: the handle is open and `ev` a live out-pointer.
+                if unsafe { snd_seq_ump_event_input(self.seq.0, &mut ev) } < 0 || ev.is_null() {
+                    return None;
+                }
+                // SAFETY: the sequencer points `ev` at an event in its own
+                // buffer, valid until the next input call, and it is copied
+                // out here at once.
+                let ev = unsafe { &*ev };
+                // SAFETY: both fields of the union are plain integers (and
+                // a pointer that is not followed), so any bits are valid.
+                let (words, data) = unsafe { (ev.__bindgen_anon_1.ump, ev.__bindgen_anon_1.data) };
+                Some(Event {
+                    type_: ev.type_ as u32,
+                    flags: ev.flags,
+                    source: ev.source,
+                    dest: ev.dest,
+                    words,
+                    data,
+                })
+            } else {
+                let mut ev: *mut snd_seq_event_t = std::ptr::null_mut();
+                // SAFETY: the handle is open and `ev` a live out-pointer.
+                if unsafe { snd_seq_event_input(self.seq.0, &mut ev) } < 0 || ev.is_null() {
+                    return None;
+                }
+                // SAFETY: as for the packet above: an event in the
+                // sequencer's buffer, copied out before the next input call.
+                let ev = unsafe { &*ev };
+                Some(Event {
+                    type_: ev.type_ as u32,
+                    flags: ev.flags,
+                    source: ev.source,
+                    dest: ev.dest,
+                    words: [0; 4],
+                    data: ev.data,
+                })
             }
         }
 
@@ -417,6 +467,8 @@ mod imp {
             let Ok(text) = std::ffi::CString::new(name.as_str()) else {
                 return;
             };
+            // SAFETY: the handle is open, and `text` is a C string that
+            // outlives the call.
             let port = unsafe {
                 snd_seq_create_simple_port(
                     self.seq.0,
@@ -439,6 +491,8 @@ mod imp {
             let (port, _) = self.own.remove(at);
             self.release((OWN, port));
             self.keys.remove(&(OWN, port));
+            // SAFETY: the handle is open; a port number that is not ours
+            // any more is an error code, not UB.
             unsafe {
                 snd_seq_delete_simple_port(self.seq.0, port);
             }
@@ -466,11 +520,18 @@ mod imp {
                 if ptr.is_null() {
                     "?".to_string()
                 } else {
+                    // SAFETY: called below only with a name that ALSA gives
+                    // from an info object that is alive: a C string that
+                    // stays valid while that object does.
                     unsafe { CStr::from_ptr(ptr) }
                         .to_string_lossy()
                         .into_owned()
                 }
             };
+            // SAFETY: the handle is open. `client` and `port` are used only
+            // after their `malloc` succeeded, and each is freed once, on
+            // every way out after that. The names read from them are copied
+            // before they are freed.
             unsafe {
                 let mut client = std::ptr::null_mut();
                 let mut port = std::ptr::null_mut();
@@ -533,6 +594,8 @@ mod imp {
                 if !wanted(&self.select, info) {
                     continue;
                 }
+                // SAFETY: the handle is open; a port that went away is an
+                // error code, not UB.
                 let ok = self.open.contains(addr)
                     || unsafe { snd_seq_connect_from(self.seq.0, self.me.1, addr.0, addr.1) } >= 0;
                 if ok {
@@ -548,6 +611,7 @@ mod imp {
                 .collect();
             for addr in gone {
                 // Fails harmlessly when the port has disappeared already.
+                // SAFETY: the handle is open.
                 unsafe {
                     snd_seq_disconnect_from(self.seq.0, self.me.1, addr.0, addr.1);
                 }
@@ -566,67 +630,71 @@ mod imp {
         }
     }
 
-    /// A MIDI 1.0 event of the sequencer as the engine's.
-    ///
-    /// # Safety
-    /// `data` must be the data of an event of type `type_`.
-    unsafe fn legacy(type_: u32, data: &snd_seq_event_data_t) -> Option<EventKind> {
-        unsafe {
-            Some(match type_ {
-                SND_SEQ_EVENT_NOTEON | SND_SEQ_EVENT_NOTEOFF => {
-                    let note = data.note;
-                    let (key, ch) = (note.note & 127, note.channel & 15);
-                    if type_ == SND_SEQ_EVENT_NOTEON && note.velocity > 0 {
-                        EventKind::NoteOn {
-                            key,
-                            vel: ump::velocity7(note.velocity.min(127)),
-                            ch,
-                            attr: crate::event::Attr::NONE,
-                        }
-                    } else {
-                        EventKind::NoteOff { key, ch }
+    /// A MIDI 1.0 event of the sequencer as the engine's. `data` is the data
+    /// of an event of type `type_`, or the result means nothing.
+    fn legacy(type_: u32, data: &snd_seq_event_data_t) -> Option<EventKind> {
+        Some(match type_ {
+            SND_SEQ_EVENT_NOTEON | SND_SEQ_EVENT_NOTEOFF => {
+                // SAFETY: the union's `note` holds plain integers: any bits
+                // are a valid value.
+                let note = unsafe { data.note };
+                let (key, ch) = (note.note & 127, note.channel & 15);
+                if type_ == SND_SEQ_EVENT_NOTEON && note.velocity > 0 {
+                    EventKind::NoteOn {
+                        key,
+                        vel: ump::velocity7(note.velocity.min(127)),
+                        ch,
+                        attr: crate::event::Attr::NONE,
                     }
+                } else {
+                    EventKind::NoteOff { key, ch }
                 }
-                SND_SEQ_EVENT_KEYPRESS => EventKind::NoteControl {
-                    key: data.note.note & 127,
+            }
+            SND_SEQ_EVENT_KEYPRESS => {
+                // SAFETY: as above.
+                let note = unsafe { data.note };
+                EventKind::NoteControl {
+                    key: note.note & 127,
                     ctl: NoteCtl::Pressure,
-                    value: ump::unit7(data.note.velocity.min(127)),
-                    ch: data.note.channel & 15,
-                },
-                SND_SEQ_EVENT_CONTROLLER
-                | SND_SEQ_EVENT_PITCHBEND
-                | SND_SEQ_EVENT_CHANPRESS
-                | SND_SEQ_EVENT_PGMCHANGE => {
-                    let control = data.control;
-                    let ch = control.channel & 15;
-                    let seven = control.value.clamp(0, 127) as u8;
-                    match type_ {
-                        SND_SEQ_EVENT_CONTROLLER => EventKind::Control {
-                            ctl: Ctl::Cc((control.param & 127) as u8),
-                            value: ump::unit7(seven),
-                            ch,
-                        },
-                        // The sequencer has the wheel at rest as 0.
-                        SND_SEQ_EVENT_PITCHBEND => EventKind::Control {
-                            ctl: Ctl::Bend,
-                            value: ump::bend14((control.value.clamp(-8192, 8191) + 8192) as u16),
-                            ch,
-                        },
-                        SND_SEQ_EVENT_PGMCHANGE => EventKind::Program {
-                            program: seven,
-                            bank: None,
-                            ch,
-                        },
-                        _ => EventKind::Control {
-                            ctl: Ctl::Pressure,
-                            value: ump::unit7(seven),
-                            ch,
-                        },
-                    }
+                    value: ump::unit7(note.velocity.min(127)),
+                    ch: note.channel & 15,
                 }
-                _ => return None,
-            })
-        }
+            }
+            SND_SEQ_EVENT_CONTROLLER
+            | SND_SEQ_EVENT_PITCHBEND
+            | SND_SEQ_EVENT_CHANPRESS
+            | SND_SEQ_EVENT_PGMCHANGE => {
+                // SAFETY: the union's `control` holds plain integers: any
+                // bits are a valid value.
+                let control = unsafe { data.control };
+                let ch = control.channel & 15;
+                let seven = control.value.clamp(0, 127) as u8;
+                match type_ {
+                    SND_SEQ_EVENT_CONTROLLER => EventKind::Control {
+                        ctl: Ctl::Cc((control.param & 127) as u8),
+                        value: ump::unit7(seven),
+                        ch,
+                    },
+                    // The sequencer has the wheel at rest as 0.
+                    SND_SEQ_EVENT_PITCHBEND => EventKind::Control {
+                        ctl: Ctl::Bend,
+                        value: ump::bend14((control.value.clamp(-8192, 8191) + 8192) as u16),
+                        ch,
+                    },
+                    SND_SEQ_EVENT_PGMCHANGE => EventKind::Program {
+                        program: seven,
+                        bank: None,
+                        ch,
+                    },
+                    _ => EventKind::Control {
+                        ctl: Ctl::Pressure,
+                        value: ump::unit7(seven),
+                        ch,
+                    },
+                }
+            }
+            _ => return None,
+        })
     }
 }
 

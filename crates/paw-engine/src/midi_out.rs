@@ -180,11 +180,16 @@ mod imp {
 
     struct Seq(*mut snd_seq_t);
 
-    // The handle is used by the one thread that owns the client.
+    // SAFETY: an ALSA sequencer handle may be used from any thread, one at a
+    // time. `Seq` is not `Sync` and not `Clone`: it is made on the thread
+    // that calls `start`, then moved whole into the client's thread, the only
+    // one that uses it from then on.
     unsafe impl Send for Seq {}
 
     impl Drop for Seq {
         fn drop(&mut self) {
+            // SAFETY: the handle came from a successful `snd_seq_open`, and
+            // this is its one owner, so it is closed once.
             unsafe {
                 snd_seq_close(self.0);
             }
@@ -202,13 +207,15 @@ mod imp {
         ports: Arc<Mutex<Vec<PortInfo>>>,
         rx: Receiver<Command>,
     ) -> Result<JoinHandle<()>> {
-        let mut client = unsafe {
-            let mut handle = std::ptr::null_mut();
-            check(
-                snd_seq_open(&mut handle, c"default".as_ptr(), OPEN_OUTPUT, 0),
-                "opening the sequencer",
-            )?;
-            let seq = Seq(handle);
+        let mut handle = std::ptr::null_mut();
+        // SAFETY: `handle` is a live out-pointer and the name a C string.
+        let opened = unsafe { snd_seq_open(&mut handle, c"default".as_ptr(), OPEN_OUTPUT, 0) };
+        check(opened, "opening the sequencer")?;
+        let seq = Seq(handle);
+        // SAFETY: `seq` holds an open handle; the names are C strings that
+        // outlive the calls, which only read them, and the queue control
+        // takes no event (null).
+        let (ump, port, queue, me) = unsafe {
             check(
                 snd_seq_set_client_name(seq.0, c"paw out".as_ptr()),
                 "naming the client",
@@ -240,22 +247,24 @@ mod imp {
                 "starting the queue",
             )?;
             snd_seq_drain_output(seq.0);
-            Client {
-                me: check(snd_seq_client_id(seq.0), "asking the client's id")?,
-                sink: Sink {
-                    seq,
-                    queue,
-                    started: clock_ns(),
-                },
-                ump,
-                port,
-                rx: None,
-                own: Vec::new(),
-                dests: HashMap::new(),
-                converters: HashMap::new(),
-                ports,
-                refreshed: None,
-            }
+            let me = check(snd_seq_client_id(seq.0), "asking the client's id")?;
+            (ump, port, queue, me)
+        };
+        let mut client = Client {
+            me,
+            sink: Sink {
+                seq,
+                queue,
+                started: clock_ns(),
+            },
+            ump,
+            port,
+            rx: None,
+            own: Vec::new(),
+            dests: HashMap::new(),
+            converters: HashMap::new(),
+            ports,
+            refreshed: None,
         };
         client.refresh();
         let thread = std::thread::Builder::new()
@@ -401,69 +410,86 @@ mod imp {
         /// Put one message out, scheduled at `at` on [`clock_ns`] when that
         /// is still to come, else at once.
         fn output(&self, route: Route, wire: Wire, at: Option<u64>) {
-            unsafe {
-                // The two kinds of event start with the same fields.
-                let mut ump: snd_seq_ump_event_t = std::mem::zeroed();
-                let mut ev: snd_seq_event_t = std::mem::zeroed();
-                match wire {
-                    Wire::Ump(words) if route.ump => {
-                        ump.flags = EVENT_UMP;
-                        ump.__bindgen_anon_1.ump = [words[0], words[1], 0, 0];
-                    }
-                    Wire::Ump(_) => return,
-                    Wire::Midi1(bytes, _) => {
-                        let ch = bytes[0] & 15;
-                        let (type_, data) = match bytes[0] & 0xF0 {
-                            0x90 => (SND_SEQ_EVENT_NOTEON, note(ch, bytes[1], bytes[2])),
-                            0x80 => (SND_SEQ_EVENT_NOTEOFF, note(ch, bytes[1], 0)),
-                            0xA0 => (SND_SEQ_EVENT_KEYPRESS, note(ch, bytes[1], bytes[2])),
-                            0xB0 => (
-                                SND_SEQ_EVENT_CONTROLLER,
-                                control(ch, bytes[1] as u32, bytes[2] as i32),
-                            ),
-                            0xC0 => (SND_SEQ_EVENT_PGMCHANGE, control(ch, 0, bytes[1] as i32)),
-                            0xD0 => (SND_SEQ_EVENT_CHANPRESS, control(ch, 0, bytes[1] as i32)),
-                            0xE0 => (
-                                SND_SEQ_EVENT_PITCHBEND,
-                                control(ch, 0, (bytes[1] as i32 | (bytes[2] as i32) << 7) - 8192),
-                            ),
-                            _ => return,
-                        };
-                        ev.type_ = type_ as u8;
-                        ev.data = data;
-                    }
+            // The two kinds of event start with the same fields.
+            // SAFETY: both are plain C structs and unions of integers (and a
+            // pointer, null here): all zeros is a valid value, the empty event.
+            let mut ump: snd_seq_ump_event_t = unsafe { std::mem::zeroed() };
+            // SAFETY: as above.
+            let mut ev: snd_seq_event_t = unsafe { std::mem::zeroed() };
+            match wire {
+                Wire::Ump(words) if route.ump => {
+                    ump.flags = EVENT_UMP;
+                    ump.__bindgen_anon_1.ump = [words[0], words[1], 0, 0];
                 }
-                let (flags, queue, time) = match at.filter(|at| *at > clock_ns()) {
-                    Some(at) => {
-                        let from_start = at.saturating_sub(self.started);
-                        let mut time: snd_seq_timestamp_t = std::mem::zeroed();
-                        time.time.tv_sec = (from_start / 1_000_000_000) as u32;
-                        time.time.tv_nsec = (from_start % 1_000_000_000) as u32;
-                        (TIME_STAMP_REAL, self.queue as u8, time)
-                    }
-                    None => (0, QUEUE_DIRECT, std::mem::zeroed()),
-                };
-                if let Wire::Ump(_) = wire {
-                    ump.flags |= flags;
-                    ump.queue = queue;
-                    ump.time = time;
-                    ump.source.port = route.source as u8;
-                    ump.dest.client = route.dest.0;
-                    ump.dest.port = route.dest.1;
-                    snd_seq_ump_event_output(self.seq.0, &mut ump);
-                } else {
-                    ev.flags = flags;
-                    ev.queue = queue;
-                    ev.time = time;
-                    ev.source.port = route.source as u8;
-                    ev.dest.client = route.dest.0;
-                    ev.dest.port = route.dest.1;
-                    snd_seq_event_output(self.seq.0, &mut ev);
+                Wire::Ump(_) => return,
+                Wire::Midi1(bytes, _) => {
+                    let ch = bytes[0] & 15;
+                    let (type_, data) = match bytes[0] & 0xF0 {
+                        0x90 => (SND_SEQ_EVENT_NOTEON, note(ch, bytes[1], bytes[2])),
+                        0x80 => (SND_SEQ_EVENT_NOTEOFF, note(ch, bytes[1], 0)),
+                        0xA0 => (SND_SEQ_EVENT_KEYPRESS, note(ch, bytes[1], bytes[2])),
+                        0xB0 => (
+                            SND_SEQ_EVENT_CONTROLLER,
+                            control(ch, bytes[1] as u32, bytes[2] as i32),
+                        ),
+                        0xC0 => (SND_SEQ_EVENT_PGMCHANGE, control(ch, 0, bytes[1] as i32)),
+                        0xD0 => (SND_SEQ_EVENT_CHANPRESS, control(ch, 0, bytes[1] as i32)),
+                        0xE0 => (
+                            SND_SEQ_EVENT_PITCHBEND,
+                            control(ch, 0, (bytes[1] as i32 | (bytes[2] as i32) << 7) - 8192),
+                        ),
+                        _ => return,
+                    };
+                    ev.type_ = type_ as u8;
+                    ev.data = data;
                 }
+            }
+            let (flags, queue, time) = match at.filter(|at| *at > clock_ns()) {
+                Some(at) => {
+                    let from_start = at.saturating_sub(self.started);
+                    let time = snd_seq_timestamp_t {
+                        time: snd_seq_real_time_t {
+                            tv_sec: (from_start / 1_000_000_000) as u32,
+                            tv_nsec: (from_start % 1_000_000_000) as u32,
+                        },
+                    };
+                    (TIME_STAMP_REAL, self.queue as u8, time)
+                }
+                None => (
+                    0,
+                    QUEUE_DIRECT,
+                    snd_seq_timestamp_t {
+                        time: snd_seq_real_time_t {
+                            tv_sec: 0,
+                            tv_nsec: 0,
+                        },
+                    },
+                ),
+            };
+            if let Wire::Ump(_) = wire {
+                ump.flags |= flags;
+                ump.queue = queue;
+                ump.time = time;
+                ump.source.port = route.source as u8;
+                ump.dest.client = route.dest.0;
+                ump.dest.port = route.dest.1;
+                // SAFETY: the handle is open, and `ump` a whole event that
+                // the call only reads.
+                unsafe { snd_seq_ump_event_output(self.seq.0, &mut ump) };
+            } else {
+                ev.flags = flags;
+                ev.queue = queue;
+                ev.time = time;
+                ev.source.port = route.source as u8;
+                ev.dest.client = route.dest.0;
+                ev.dest.port = route.dest.1;
+                // SAFETY: as above, for `ev`.
+                unsafe { snd_seq_event_output(self.seq.0, &mut ev) };
             }
         }
 
         fn drain(&self) {
+            // SAFETY: the handle is open.
             unsafe {
                 snd_seq_drain_output(self.seq.0);
             }
@@ -478,6 +504,8 @@ mod imp {
             let Ok(text) = CString::new(name.as_str()) else {
                 return;
             };
+            // SAFETY: the handle is open, and `text` is a C string that
+            // outlives the call.
             let port = unsafe {
                 snd_seq_create_simple_port(
                     self.sink.seq.0,
@@ -501,6 +529,8 @@ mod imp {
             self.converters
                 .retain(|(port, _), _| *port != port_key(name));
             let (port, _) = self.own.remove(at);
+            // SAFETY: the handle is open; a port number that is not ours
+            // any more is an error code, not UB.
             unsafe {
                 snd_seq_delete_simple_port(self.sink.seq.0, port);
             }
@@ -515,11 +545,18 @@ mod imp {
                 if ptr.is_null() {
                     "?".to_string()
                 } else {
+                    // SAFETY: called below only with a name that ALSA gives
+                    // from an info object that is alive: a C string that
+                    // stays valid while that object does.
                     unsafe { CStr::from_ptr(ptr) }
                         .to_string_lossy()
                         .into_owned()
                 }
             };
+            // SAFETY: the handle is open. `client` and `port` are used only
+            // after their `malloc` succeeded, and each is freed once, on
+            // every way out after that. The names read from them are copied
+            // before they are freed.
             unsafe {
                 let mut client = std::ptr::null_mut();
                 let mut port = std::ptr::null_mut();
@@ -582,6 +619,8 @@ mod imp {
     }
 
     fn note(channel: u8, note: u8, velocity: u8) -> snd_seq_event_data_t {
+        // SAFETY: a C union of integer structs (and a pointer): all zeros is
+        // a valid value, and keeps the bytes past `note` zero.
         let mut data: snd_seq_event_data_t = unsafe { std::mem::zeroed() };
         data.note = snd_seq_ev_note_t {
             channel,
@@ -594,6 +633,7 @@ mod imp {
     }
 
     fn control(channel: u8, param: u32, value: i32) -> snd_seq_event_data_t {
+        // SAFETY: as in `note`.
         let mut data: snd_seq_event_data_t = unsafe { std::mem::zeroed() };
         data.control = snd_seq_ev_ctrl_t {
             channel,
