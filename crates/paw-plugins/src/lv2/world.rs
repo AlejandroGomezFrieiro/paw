@@ -254,15 +254,19 @@ unsafe fn missing_feature(plugin: *const LilvPlugin) -> Option<String> {
         LOAD_DEFAULT_STATE,
     ];
     // SAFETY: `plugin` is live and `required` is a node list that we own and free before returning;
-    // the URI strings are lilv's, valid until then and copied before.
+    // the URI strings are lilv's (checked for null), valid until then and copied before.
     unsafe {
         let required = lilv_plugin_get_required_features(plugin);
         let mut missing = None;
         let mut it = lilv_nodes_begin(required);
         while !lilv_nodes_is_end(required, it) {
-            let uri = CStr::from_ptr(lilv_node_as_uri(lilv_nodes_get(required, it)));
-            if !supported.contains(&uri) {
-                missing = Some(uri.to_string_lossy().into_owned());
+            // Null for a node that is not a URI, which names no feature.
+            let uri = lilv_node_as_uri(lilv_nodes_get(required, it));
+            if !uri.is_null() {
+                let uri = CStr::from_ptr(uri);
+                if !supported.contains(&uri) {
+                    missing = Some(uri.to_string_lossy().into_owned());
+                }
             }
             it = lilv_nodes_next(required, it);
         }
