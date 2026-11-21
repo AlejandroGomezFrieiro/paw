@@ -872,10 +872,18 @@ impl Scene {
         (self.pane(view, "p.x + p.w / 2"), place::AREA_TOP + self.pane(view, "p.y + p.h / 2"))
     }
 
-    /// The window's close button as a window manager sends it.
+    /// The window's close button as a window manager sends it: asked of
+    /// openbox by the window's id (`_NET_CLOSE_WINDOW`), which sends the
+    /// window WM_DELETE_WINDOW. Not Alt-F4, which goes through openbox's
+    /// grab of the key: on a loaded machine the F4 of a first key of the
+    /// session went past it to the window as a plain key, and nothing
+    /// closed (most likely while openbox grabbed its keys again after the
+    /// server changed to xdotool's keyboard).
     fn close_window(&self) {
-        self.mouse_to((self.size.0 / 2, self.size.1 / 2));
-        self.key("alt+F4");
+        let found = self.xdotool(&["search", "--onlyvisible", "--name", "^paw"]);
+        let id = found.lines().next().expect("the window");
+        self.xdotool(&["windowquit", id]);
+        self.pause(0.3);
     }
 
     /// The file menu, from the project's name at the left of the transport bar.
