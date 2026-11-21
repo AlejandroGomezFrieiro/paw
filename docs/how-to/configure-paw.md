@@ -93,7 +93,7 @@ See [Windows, buffers and tabs](../reference/windows.md#layouts).
 
 ## Examples
 
-- [config](../../config) has a fuller configuration and two small extensions. It loads the bundled extensions.
+- [config](../../config) has a fuller configuration and three small extensions. It loads the bundled extensions.
   To try it, start `paw --config config` in the source tree.
 - [extensions/utau](../../extensions/utau) is a larger extension: song
   synthesis with the engines of OpenUtau, a vocal editor and a lyric sheet.

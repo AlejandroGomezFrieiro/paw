@@ -52,7 +52,7 @@ end
 
 -- How things look and behave. These are the values the program starts with;
 -- change one and take the `--` away.
--- paw.opt.zoom = 4              -- columns per beat in the terminal's arrange view
+-- paw.opt.zoom = 2              -- columns per beat in the terminal's arrange view
 -- paw.opt.track_height = "auto" -- rows per track in the terminal; a number to fix it
 -- paw.opt.header_width = "auto" -- columns for the terminal's track headers
 -- paw.opt.termcolors = "auto"   -- "true" for 24-bit colour, "256", or "auto" to ask the terminal
