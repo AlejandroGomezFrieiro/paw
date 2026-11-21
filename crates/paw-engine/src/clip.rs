@@ -220,6 +220,37 @@ pub struct AudioRegion {
     pub declick_out: bool,
     /// Where the region stands with sound that is still being made.
     pub hold: Hold,
+    /// Which way it reads its source: forward unless made with
+    /// [`AudioRegion::reversed`].
+    pub direction: Direction,
+}
+
+impl AudioRegion {
+    /// The region played backwards: the same stretch of its source, from
+    /// its end to its start, live, without making a reversed copy. Only for
+    /// sound that is all there; a reverse of sound that is still being made
+    /// belongs in what makes it.
+    pub fn reversed(mut self) -> Result<Self> {
+        if !self.data.complete() {
+            bail!("only sound that is all there plays backwards: this sound is still being made");
+        }
+        self.direction = Direction { backward: true };
+        Ok(self)
+    }
+}
+
+/// Which way a region reads its source. Only [`AudioRegion::reversed`]
+/// turns it backwards, so that a backward region always reads sound that is
+/// all there, from its end, which sound still being made gets last.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Direction {
+    backward: bool,
+}
+
+impl Direction {
+    pub fn is_backward(self) -> bool {
+        self.backward
+    }
 }
 
 /// How a region plays sound that is still being made (a stretch played
@@ -331,25 +362,54 @@ pub struct Part {
     pub order: u64,
     /// Sorted as [`ClipSet::midi`] is.
     pub midi: Arc<[MidiEv]>,
-    pub audio: Vec<AudioRegion>,
+    /// Sorted by where they start, so that a block finds the few that
+    /// sound under it by a search, however many there are (a clip cut into
+    /// thousands of slices).
+    audio: Vec<AudioRegion>,
+    /// The longest of its regions, in beats: the regions that can sound
+    /// on a beat start at most this far before it.
+    reach: f64,
     /// The first and last beat it has anything on.
     from: f64,
     to: f64,
 }
 
 impl Part {
-    pub fn new(id: u64, order: u64, midi: Arc<[MidiEv]>, audio: Vec<AudioRegion>) -> Self {
+    /// A part of `midi` and of `audio` in any order.
+    pub fn new(id: u64, order: u64, midi: Arc<[MidiEv]>, mut audio: Vec<AudioRegion>) -> Self {
         let mut from = f64::INFINITY;
         let mut to = f64::NEG_INFINITY;
         if let (Some(first), Some(last)) = (midi.first(), midi.last()) {
             from = first.beat;
             to = last.beat;
         }
+        let mut reach = 0.0f64;
         for region in &audio {
             from = from.min(region.start);
             to = to.max(region.end);
+            reach = reach.max(region.end - region.start);
         }
-        Self { id, order, midi, audio, from, to }
+        // Stable: regions on the same beat keep their order, and so the
+        // order they are added up in.
+        audio.sort_by(|a, b| a.start.total_cmp(&b.start));
+        Self { id, order, midi, audio, reach, from, to }
+    }
+
+    /// Its regions, sorted by where they start.
+    pub fn audio(&self) -> &[AudioRegion] {
+        &self.audio
+    }
+
+    /// Its regions, sorted by where they start, for a list of its own.
+    pub fn into_audio(self) -> Vec<AudioRegion> {
+        self.audio
+    }
+
+    /// The regions that may sound from `start` to before `end`.
+    fn audio_in(&self, start: f64, end: f64) -> &[AudioRegion] {
+        let first = self.audio.partition_point(|r| r.start < start - self.reach);
+        let last = first + self.audio[first..].partition_point(|r| r.start < end);
+        &self.audio[first..last]
     }
 
     /// Whether it plays nothing: no part is kept for it.
@@ -515,12 +575,14 @@ impl ClipSet {
     }
 
     /// The sound of the list, then of each part found by
-    /// [`find_sounding`](Self::find_sounding), in their order.
-    pub fn regions(&self) -> impl Iterator<Item = &AudioRegion> {
+    /// [`find_sounding`](Self::find_sounding) for the same stretch, in
+    /// their order: of a part, only the regions that may sound from `start`
+    /// to before `end`.
+    pub fn regions(&self, start: f64, end: f64) -> impl Iterator<Item = &AudioRegion> {
         self.audio.iter().chain(
             self.sounding
                 .iter()
-                .flat_map(|&(i, _)| self.parts[i as usize].audio.iter()),
+                .flat_map(move |&(i, _)| self.parts[i as usize].audio_in(start, end)),
         )
     }
 

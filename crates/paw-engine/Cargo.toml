@@ -36,3 +36,7 @@ rustix = { version = "1", default-features = false, features = ["std", "event", 
 serde_json.workspace = true
 rtrb = "0.4"
 alsa-sys = "0.4"
+
+[[bench]]
+name = "regions"
+harness = false

@@ -152,6 +152,7 @@ fn audio_regions(
             fade_in: clip.fade_in,
             fade_out: clip.fade_out,
             hold: Default::default(),
+            direction: Default::default(),
         });
         return;
     };
@@ -196,6 +197,7 @@ fn audio_regions(
             fade_in: 0.0,
             fade_out: 0.0,
             hold: Default::default(),
+            direction: Default::default(),
         });
     }
     if let Some(r) = out.get_mut(first) {
@@ -386,7 +388,7 @@ pub(super) fn build_clips(
             let (parts, sent) = parts_of(clip, 0, cached.clips.get(&clip.id), tempo, ctx);
             for part in parts {
                 set.midi.extend_from_slice(&part.midi);
-                set.audio.extend(part.audio);
+                set.audio.extend(part.into_audio());
             }
             kept.clips.insert(clip.id, sent);
         }
@@ -524,6 +526,7 @@ pub(super) fn frozen_clips(file: &Path, tempo: &paw_engine::TempoMap, ctx: &mut 
             fade_in: 0.0,
             fade_out: 0.0,
             hold: Default::default(),
+            direction: Default::default(),
         });
     }
     set.finish();
