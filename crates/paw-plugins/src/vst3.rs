@@ -69,11 +69,17 @@ struct Module {
     _host: ComWrapper<Host>,
 }
 
-// Used from the main thread only.
 // SAFETY: The factory and the host object belong to a module that is never unloaded and sit in a
-// static list, so they are never dropped. By convention they are called from the main thread only.
+// static list, so they are never dropped. The host object holds `Rc`, `RefCell` and `Cell`, which
+// are not thread safe: these impls are sound only under the convention that every call through the
+// factory, and every call a plugin makes into the host's `IComponentHandler` and `IRunLoop`, is on
+// the main thread (the thread that called `crate::register`). paw keeps its side of it, and `load`
+// and the component handler check it in debug builds; a plugin keeps its side by the VST3 rule that
+// the edit controller and its host interfaces belong to the UI thread (a JUCE plugin, given the
+// host's `IRunLoop`, runs its message loop from it, on the main thread; one that calls from another
+// thread breaks the convention, which a debug build reports).
 unsafe impl Send for Module {}
-// SAFETY: See `Send`: every call through the factory and the host is on the main thread by convention.
+// SAFETY: See `Send`: every call through the factory and the host is on the main thread.
 unsafe impl Sync for Module {}
 
 /// The shared library inside a `.vst3` bundle.
@@ -88,6 +94,7 @@ fn library_path(bundle: &Path) -> PathBuf {
 }
 
 fn load(bundle: &Path) -> Result<Arc<Module>> {
+    crate::debug_assert_main_thread();
     static LOADED: Mutex<Vec<(PathBuf, Arc<Module>)>> = Mutex::new(Vec::new());
     let mut loaded = LOADED.lock().unwrap();
     if let Some((_, module)) = loaded.iter().find(|(p, _)| p == bundle) {
@@ -334,17 +341,20 @@ impl IHostApplicationTrait for Host {
 
 impl IComponentHandlerTrait for Host {
     unsafe fn beginEdit(&self, id: ParamID) -> tresult {
+        crate::debug_assert_main_thread();
         self.gestures.borrow_mut().push(id);
         OK
     }
 
     unsafe fn performEdit(&self, id: ParamID, value: ParamValue) -> tresult {
+        crate::debug_assert_main_thread();
         let gesture = self.gestures.borrow().contains(&id);
         self.edits.borrow_mut().push((id, value, gesture));
         OK
     }
 
     unsafe fn endEdit(&self, id: ParamID) -> tresult {
+        crate::debug_assert_main_thread();
         let mut gestures = self.gestures.borrow_mut();
         if let Some(at) = gestures.iter().position(|g| *g == id) {
             gestures.swap_remove(at);
@@ -353,6 +363,7 @@ impl IComponentHandlerTrait for Host {
     }
 
     unsafe fn restartComponent(&self, flags: i32) -> tresult {
+        crate::debug_assert_main_thread();
         if flags & PARAM_VALUES_CHANGED != 0 {
             self.rescan.set(true);
         }
@@ -790,19 +801,26 @@ struct Shared {
     host: ComWrapper<Host>,
     /// Rendering to a file, faster than real time.
     offline: AtomicBool,
+    /// Held by the audio thread while the processor runs a block, and by
+    /// the main thread while it stops the processor to set it up again
+    /// ([`Vst3Controller::set_offline`]): the audio thread only tries it,
+    /// and leaves the block as it is (silence added for an instrument, the
+    /// input passed through for an effect) when it cannot have it.
+    run: Mutex<()>,
     /// What the processor was set up with, to set it up again.
     max_block: i32,
     sample_rate: f64,
     _module: Arc<Module>,
 }
 
-// `processor.process` is called from the audio thread; everything else, and
-// the drop, happens on the main thread.
-// SAFETY: The COM pointers are used under the VST3 threading rules (see the comment above):
-// `process` from the audio thread, the rest and the drop on the main thread.
+// SAFETY: The COM pointers are used under the VST3 threading rules: the audio thread calls only
+// `processor.process`, holding `run`, and reads only `offline`, `param_ids` and the host's atomics
+// (`wake`, `blocks`); every other call, every use of the host's `RefCell`s, `Cell` and `Rc`, and
+// the drop are on the main thread (the convention named at `Module`), and the main thread stops,
+// sets up or starts the processor only while it holds `run`.
 unsafe impl Send for Shared {}
-// SAFETY: What the two threads share is atomics and read-only fields; the COM pointers follow the
-// threading rules named above.
+// SAFETY: See `Send`: what the two threads share is atomics, `run` and fields that do not change
+// after creation; the rest is used from the main thread only.
 unsafe impl Sync for Shared {}
 
 impl Drop for Shared {
@@ -958,6 +976,7 @@ impl DeviceFactory for Vst3Factory {
                 params: Vec::new(),
                 host: host.clone(),
                 offline: AtomicBool::new(false),
+                run: Mutex::new(()),
                 max_block: max_block as i32,
                 sample_rate: sample_rate as f64,
                 _module: module,
@@ -1158,6 +1177,12 @@ impl Device for Vst3Device {
         // Woken: its tail starts again from here.
         self.rest
             .begin(io, self.shared.host.wake.swap(false, Ordering::Relaxed));
+        // The main thread has the processor stopped to set it up again: this
+        // block is left as it came, which adds silence for an instrument and
+        // passes the input through for an effect.
+        let Ok(_running) = self.shared.run.try_lock() else {
+            return;
+        };
         if let Some(bus) = self.inputs.channels.first_mut() {
             match bus.as_mut_slice() {
                 [] => {}
@@ -1176,7 +1201,9 @@ impl Device for Vst3Device {
             self.keyed = crate::put_key(bus.as_mut_slice(), io.sidechain, self.keyed, n);
         }
 
-        // SAFETY: This is the audio thread, the only user of the event list, the queues and the buffers;
+        // SAFETY: This is the audio thread, holding `self.shared.run` (the `try_lock` above), so the main
+        // thread does not stop or set up the processor during the call; it is the only user of the
+        // event list, the queues and the buffers;
         // the pointers in `data` lead to live buffers of `max_block` frames per channel (`n` is at most
         // that) and to COM objects that the device owns, which live until `process` returns; the
         // zeroed `Event`, `ProcessContext` and `ProcessData` are plain data, filled before use.
@@ -1483,9 +1510,13 @@ impl Controller for Vst3Controller {
     fn set_offline(&mut self, offline: bool) {
         // The mode is part of the processing setup, which can only be
         // changed while the processor is stopped.
+        crate::debug_assert_main_thread();
         let shared = &self.shared;
-        // SAFETY: The controller's calls are on the main thread. Unlike the CLAP device's `run` lock,
-        // nothing here keeps the audio thread out of `process` while the component is deactivated.
+        // The audio thread waits at most one block for the lock, and then
+        // leaves the blocks alone until it is let go.
+        let _held = shared.run.lock().unwrap_or_else(|e| e.into_inner());
+        // SAFETY: The calls are on the main thread, and `shared.run` is held, so the audio thread is
+        // not in `process` while the processor is stopped, set up and started again, as VST3 wants.
         unsafe {
             shared.processor.setProcessing(0);
             shared.component.setActive(0);

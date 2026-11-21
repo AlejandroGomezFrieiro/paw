@@ -91,9 +91,14 @@ fn find_authority(runtime: Option<&std::path::Path>, home: Option<&std::path::Pa
 
 /// A terminal that has outlived a restart of the display still names the
 /// old display's authority file, and no window can be opened from it. Use
-/// the one the display has now. Called before anything else is started: it
-/// changes the environment, which the kernel started from here inherits.
-fn repair_display_env() {
+/// the one the display has now. It changes the environment, which the
+/// kernel started from here inherits.
+///
+/// # Safety
+///
+/// Call it before any other thread starts, while nothing else can read or
+/// write the environment at the same time.
+unsafe fn repair_display_env() {
     let runtime = std::env::var_os("XDG_RUNTIME_DIR").map(PathBuf::from);
     // The same for Wayland: a name with no compositor behind it would be
     // tried, fail, and leave no window at all. Without the name, X is used.
@@ -103,6 +108,7 @@ fn repair_display_env() {
             None => PathBuf::from(&name),
         };
         if !socket.exists() && std::env::var_os("DISPLAY").is_some() {
+            // SAFETY: No other thread runs yet, as the caller promised.
             unsafe { std::env::remove_var("WAYLAND_DISPLAY") };
         }
     }
@@ -112,6 +118,7 @@ fn repair_display_env() {
     }
     let home = std::env::var_os("HOME").map(PathBuf::from);
     if let Some(file) = find_authority(runtime.as_deref(), home.as_deref()) {
+        // SAFETY: No other thread runs yet, as the caller promised.
         unsafe { std::env::set_var("XAUTHORITY", file) };
     }
 }
@@ -183,7 +190,8 @@ fn key_event(key: egui::Key) -> egui::Event {
 }
 
 fn run() -> Result<()> {
-    repair_display_env();
+    // SAFETY: The first thing `main` does: no other thread has started yet.
+    unsafe { repair_display_env() };
     // A font for Japanese and the like is looked for while the rest starts.
     let cjk = std::thread::spawn(theme::cjk_font);
     let cli = args::Cli::parse();

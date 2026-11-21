@@ -46,6 +46,20 @@ pub(crate) fn is_main_thread() -> bool {
     MAIN_THREAD.get() == Some(&std::thread::current().id())
 }
 
+/// In a debug build, panic when a call that only the main thread may make
+/// (lilv's world, a VST3 module's objects) comes from another thread. Before
+/// [`register`] has named the main thread (a sandboxed plugin's process, a
+/// test), any thread passes.
+#[inline]
+pub(crate) fn debug_assert_main_thread() {
+    debug_assert!(
+        MAIN_THREAD
+            .get()
+            .is_none_or(|main| *main == std::thread::current().id()),
+        "a call that only the main thread may make came from another thread"
+    );
+}
+
 /// Find installed plugins and add a device kind for each: `clap:<id>`,
 /// `lv2:<uri>` and `vst3:<name>`. Call from the main thread. Returns notes
 /// about plugins that were found but could not be used.

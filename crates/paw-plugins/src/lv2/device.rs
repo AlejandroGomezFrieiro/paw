@@ -295,7 +295,8 @@ unsafe extern "C" fn set_port_value(
     type_: u32,
 ) {
     // SAFETY: lilv passes back the `shared` pointer given in `restore` (a live `&Shared`), a
-    // NUL-terminated port symbol and, for a 4-byte float or int type, a pointer to that many readable bytes.
+    // NUL-terminated port symbol and, for a 4-byte float or int type, a pointer to that many readable
+    // bytes, which need not be aligned: they are read with `read_unaligned`.
     unsafe {
         let shared = &*(shared as *const Shared);
         let Some(&slot) = shared.symbols.get(CStr::from_ptr(symbol)) else {
@@ -303,9 +304,9 @@ unsafe extern "C" fn set_port_value(
         };
         let u = urids();
         if type_ == u.float && size == 4 {
-            shared.set_control(slot, *(value as *const f32));
+            shared.set_control(slot, (value as *const f32).read_unaligned());
         } else if type_ == u.int && size == 4 {
-            shared.set_control(slot, *(value as *const i32) as f32);
+            shared.set_control(slot, (value as *const i32).read_unaligned() as f32);
         }
     }
 }

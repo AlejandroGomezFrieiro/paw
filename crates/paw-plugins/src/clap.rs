@@ -147,6 +147,18 @@ unsafe fn text(ptr: *const c_char) -> String {
     }
 }
 
+/// The text in a fixed-size buffer that a plugin filled: up to its first
+/// NUL, or the whole buffer when the plugin wrote none.
+fn buffer_text(buffer: &[c_char]) -> String {
+    // SAFETY: `c_char` and `u8` have the same size and alignment, and the
+    // slice is read only while `buffer` is borrowed.
+    let bytes: &[u8] = unsafe { std::slice::from_raw_parts(buffer.as_ptr().cast(), buffer.len()) };
+    match CStr::from_bytes_until_nul(bytes) {
+        Ok(text) => text.to_string_lossy().into_owned(),
+        Err(_) => String::from_utf8_lossy(bytes).into_owned(),
+    }
+}
+
 /// Load a file and list the plugins in it.
 /// What is in a plugin file, for the helper that looks into them.
 pub(crate) fn list_file(path: &Path) -> Result<Vec<Found>> {
@@ -503,14 +515,14 @@ unsafe fn read_params(shared: &mut Shared) {
             }
             shared.param_ids.push((info.id, info.cookie));
             let mut param = ParamInfo::new(
-                &text(info.name.as_ptr()),
+                &buffer_text(&info.name),
                 info.min_value as f32,
                 info.max_value as f32,
                 info.default_value as f32,
                 "",
             );
             param.id = info.id.to_string();
-            param.group = text(info.module.as_ptr()).trim_matches('/').to_string();
+            param.group = buffer_text(&info.module).trim_matches('/').to_string();
             let flags = info.flags;
             param.automatable = flags & CLAP_PARAM_IS_AUTOMATABLE != 0;
             param.read_only = flags & CLAP_PARAM_IS_READONLY != 0;
@@ -554,12 +566,11 @@ unsafe fn value_text(
     let to_text = params.value_to_text?;
     let mut buffer = [0 as c_char; 256];
     // SAFETY: `to_text` is the plugin's function; `buffer` is a live zeroed array, and the length passed
-    // is its size; the plugin writes a NUL-terminated string within it.
-    unsafe {
-        to_text(plugin, id, value, buffer.as_mut_ptr(), buffer.len() as u32)
-            .then(|| text(buffer.as_ptr()))
-            .filter(|t| !t.is_empty())
-    }
+    // is its size, so the plugin writes within it.
+    let written = unsafe { to_text(plugin, id, value, buffer.as_mut_ptr(), buffer.len() as u32) };
+    written
+        .then(|| buffer_text(&buffer))
+        .filter(|t| !t.is_empty())
 }
 
 /// The channel count and name of each of the plugin's audio ports in one
@@ -582,7 +593,7 @@ unsafe fn port_infos(
             .map(|index| {
                 let mut info: clap_audio_port_info = std::mem::zeroed();
                 if get(plugin, index, is_input, &mut info) {
-                    (info.channel_count as usize, text(info.name.as_ptr()))
+                    (info.channel_count as usize, buffer_text(&info.name))
                 } else {
                     (0, String::new())
                 }
@@ -934,6 +945,11 @@ impl Device for ClapDevice {
                 size: Some(events_size),
                 get: Some(events_get),
             };
+            // Set before `out_events` takes its pointer to `self.out`, which
+            // nothing else touches until `process` returns.
+            let loads = self.shared.flags.loads.load(Ordering::Acquire);
+            self.out.taking = loads != self.loads;
+            self.loads = loads;
             let out_events = clap_output_events {
                 ctx: &mut self.out as *mut Out as *mut c_void,
                 try_push: Some(events_push),
@@ -951,9 +967,6 @@ impl Device for ClapDevice {
             };
             self.steady_time += n as i64;
             let Some(run) = (*plugin).process else { return };
-            let loads = self.shared.flags.loads.load(Ordering::Acquire);
-            self.out.taking = loads != self.loads;
-            self.loads = loads;
             let status = run(plugin, &process);
             // Counted once the block is done: a state taken on in it, and
             // the plugin's words of it, are there before the count is.
@@ -1924,5 +1937,18 @@ unsafe extern "C" fn host_get_extension(_: *const clap_host, id: *const c_char) 
         &FDS as *const _ as *const c_void
     } else {
         ptr::null()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_buffer_text_stops_at_the_nul_and_reads_no_further_without_one() {
+        let mut buffer = [b'x' as c_char; 4];
+        assert_eq!(buffer_text(&buffer), "xxxx");
+        buffer[2] = 0;
+        assert_eq!(buffer_text(&buffer), "xx");
     }
 }

@@ -76,9 +76,14 @@ fn why_unreachable() -> String {
 /// places desktops keep them, and put the first that lets us in into the
 /// environment, where plugins look for it too when they open their windows.
 ///
-/// Call this before any thread is started: it changes the environment.
 /// Returns what it changed, for the log.
-pub fn repair_display_env() -> Option<String> {
+///
+/// # Safety
+///
+/// It changes the environment: call it before any other thread starts
+/// (in this process, or in a library it loaded), while nothing else can
+/// read or write the environment at the same time.
+pub unsafe fn repair_display_env() -> Option<String> {
     std::env::var_os("DISPLAY").filter(|d| !d.is_empty())?;
     let stale = std::env::var_os("XAUTHORITY").map(std::path::PathBuf::from);
     match &stale {
@@ -111,10 +116,8 @@ pub fn repair_display_env() -> Option<String> {
         ));
     }
     for (_, file) in candidates.into_iter().filter(|(_, file)| file.exists()) {
-        // Nothing else is running yet, as the caller promised.
-        // SAFETY: Editing the environment is sound only while no other thread reads or writes it. The
-        // contract of `repair_display_env` is to be called before any thread starts, which the
-        // compiler cannot enforce for a safe `pub fn`.
+        // SAFETY: No other thread is running yet, as the caller of this `unsafe fn` promised, so
+        // nothing reads or writes the environment at the same time.
         unsafe { std::env::set_var("XAUTHORITY", &file) };
         if x11rb::connect(None).is_ok() {
             return Some(format!(
@@ -127,9 +130,9 @@ pub fn repair_display_env() -> Option<String> {
         }
     }
     match stale {
-        // SAFETY: Same contract as above: the caller runs this before any other thread starts.
+        // SAFETY: As above: no other thread is running yet, as the caller promised.
         Some(file) => unsafe { std::env::set_var("XAUTHORITY", file) },
-        // SAFETY: Same contract as above: the caller runs this before any other thread starts.
+        // SAFETY: As above: no other thread is running yet, as the caller promised.
         None => unsafe { std::env::remove_var("XAUTHORITY") },
     }
     None

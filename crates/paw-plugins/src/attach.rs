@@ -84,7 +84,6 @@ struct Lib {
     _lib: ManuallyDrop<libloading::Library>,
 }
 
-// The entry is static data in a library that stays loaded.
 // SAFETY: A Lib holds a reference to static data in a library that is never unloaded (ManuallyDrop),
 // and a path and a name that nothing mutates, so moving it to another thread is sound.
 unsafe impl Send for Lib {}
@@ -183,9 +182,10 @@ pub(crate) struct Attached {
     handle: *mut c_void,
 }
 
-// Only used from the main thread, as the interface says.
-// SAFETY: An Attached holds a handle only the attachment reads, and the interface says calls come from
-// the main thread only; paw moves the value between threads but never uses it from two at once.
+// SAFETY: An Attached holds a handle only the attachment reads. It is not `Sync`, so it is used from
+// one thread at a time, and the attachment interface's convention is that every call through it is
+// on the main thread (the thread that called `crate::register`), which `call` checks in debug
+// builds; moving it between threads in between is sound.
 unsafe impl Send for Attached {}
 
 impl Attached {
@@ -195,6 +195,7 @@ impl Attached {
 
     /// Ask the attachment: its answer code and what it wrote.
     pub fn call(&self, method: &str, data: &[u8]) -> (i32, Vec<u8>) {
+        crate::debug_assert_main_thread();
         let Some(call) = self.lib.entry.call else {
             return (CALL_UNKNOWN, Vec::new());
         };
