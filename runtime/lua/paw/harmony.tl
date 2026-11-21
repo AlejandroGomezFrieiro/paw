@@ -9,8 +9,10 @@
 --
 -- The reading comes from providers: the highest-priority one that answers
 -- wins. The built-in one (`paw.harmony.read`) reads the notes themselves; a
--- language server can answer instead. A reading is kept until the project
--- changes, so asking on every key press costs nothing. `harmony.changed` is
+-- language server can answer instead. A reading is kept until the notes
+-- change, so asking on every key press costs nothing; after an edit, the
+-- built-in reading reads again only the clips that changed
+-- (paw/harmony/song.tl), in slices between keys. `harmony.changed` is
 -- emitted when it changes.
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
@@ -20,6 +22,7 @@ local kernel = require("paw.events.kernel")
 local options = require("paw.options")
 local util = require("paw.util")
 local read = require("paw.harmony.read")
+local song = require("paw.harmony.song")
 local voice = require("paw.harmony.voice")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
@@ -98,10 +101,7 @@ local record Provider
 end
 
 --- A note of the song, in project beats, with its track and its clip.
-local record SongNote is read.Note
-  track: integer
-  clip: integer
-end
+local type SongNote = song.Note
 
 --- An instrument's range: the words in a track's name or its devices'
 --- names that tell it, and the pitches of a part for it.
@@ -190,7 +190,7 @@ local record M
   changed: events.Event<Changed>
   parse_key: function(spec: KeyArg): Key
   key_name: function(key: KeyArg): string
-  key: function(beat?: number): Key
+  key: function(beat?: number, latest?: boolean): Key
   invalidate: function()
   schedule: function()
 end
@@ -510,6 +510,19 @@ function M.range(track: integer | types.Track): Range
   return M.default_range
 end
 
+-- The kind of each device, by id: a device's kind never changes.
+local kinds: {integer:string} = {}
+local function device_kind(id: integer): string
+  local kind = kinds[id]
+  if not kind then
+    local ok, d = pcall(api.device_get, id)
+    if not ok then return nil end
+    kind = d.kind
+    kinds[id] = kind
+  end
+  return kind
+end
+
 --- True if the harmony does not use a track: a drum track (a drum map in
 --- its meta, as the drums extension keeps it, or a drum device or name).
 function M.is_drums(track: integer | types.Track): boolean
@@ -521,8 +534,7 @@ function M.is_drums(track: integer | types.Track): boolean
     if name:find(word, 1, true) then return true end
   end
   for _, id in ipairs(t.devices or {}) do
-    local ok, d = pcall(api.device_get, id)
-    if ok and d.kind == "drums" then return true end
+    if device_kind(id) == "drums" then return true end
   end
   return false
 end
@@ -531,9 +543,28 @@ end
 
 -- One entry of the project: quicker than the whole project (api.rs).
 local project_edits = api.project_get as function(string): integer
+local project_field = api.project_get as function(string): string
 
-local cached_notes: {SongNote}
-local cached_edits: integer
+-- The edit count when the kernel last told what changed (`changed` comes
+-- after the events of the tracks and clips): a count past it means edits
+-- whose events have not come yet, so every track is looked at.
+local edits_seen: integer
+
+local function song_options(): song.Options
+  return { step = opt.harmony_step, bar = paw.time.bar(0), bar_start = paw.time.bar_start, is_drums = M.is_drums }
+end
+
+--- Bring the built-in reading up to date: at once, or for about `budget`
+--- milliseconds. True when it is.
+local function catch_up(budget?: number): boolean
+  local edits = project_edits("edits")
+  if edits ~= edits_seen then
+    song.mark()
+    edits_seen = edits
+  end
+  return song.update(song_options(), budget)
+end
+
 --- Each note of the pitched tracks, in project beats, each with `track` and
 --- `clip`. The list does not contain muted clips and tracks, or notes that a
 --- trim of the edges of the clip hides. paw keeps the list until the project
@@ -541,29 +572,8 @@ local cached_edits: integer
 --- context notes of the piano roll, `paw.roll_clips.context`, are what the
 --- roll shows, in its own beats, and only of the tracks selected to show.
 function M.notes(): {SongNote}
-  local edits = project_edits("edits")
-  if cached_edits == edits then return cached_notes end
-  local out: {SongNote} = {}
-  for _, id in ipairs(api.track_list()) do
-    local t = api.track_get(id)
-    if not t.mute and not M.is_drums(t) then
-      for _, c in ipairs(api.clip_list(id)) do
-        if c.kind == "midi" and not c.muted then
-          local notes = api.clip_notes(c.id)
-          for _, n in ipairs(notes) do
-            if n.start >= 0 and n.start < c.length then
-              out[#out + 1] = {
-                pitch = n.pitch, start = c.start + n.start, length = math.min(n.length, c.length - n.start),
-                velocity = n.velocity, track = id, clip = c.id,
-              }
-            end
-          end
-        end
-      end
-    end
-  end
-  cached_edits, cached_notes = edits, out
-  return out
+  catch_up()
+  return song.notes()
 end
 
 --- Bar starts from the first bar to past `last`, by the tempo map.
@@ -578,6 +588,12 @@ end
 
 --- The built-in provider: chords and keys read from the notes.
 function M.builtin(from: number, to: number): {ProvidedChord}, {ProvidedKey}
+  if from == 0 and to == math.huge then
+    -- The whole song: kept up to date clip by clip.
+    catch_up()
+    local chords, keys = song.reading()
+    return chords as {ProvidedChord}, keys as {ProvidedKey}
+  end
   local notes = M.notes()
   local last = 0.0
   for _, n in ipairs(notes) do last = math.max(last, n.start + n.length) end
@@ -619,10 +635,15 @@ local function complete_key(k: ProvidedKey): Key
   return { at = k.at, length = k.length, tonic = key.root, mode = key.scale, name = key.name, root = key.root, scale = key.scale, steps = key.steps }
 end
 
+--- What the reading is made of: the built-in reading's stamp, the step,
+--- the project's key and the providers. Another provider may read
+--- anything, so with one the edit count is part of it too.
 local function signature(): string
-  local stamp = project_edits("edits")
-  local parts = { tostring(stamp), tostring(opt.harmony_step) }
-  for _, p in ipairs(providers) do parts[#parts + 1] = p.name end
+  local parts = { tostring(song.stamp()), tostring(opt.harmony_step), tostring(project_field("key")) }
+  for _, p in ipairs(providers) do
+    parts[#parts + 1] = p.name
+    if p.name ~= "builtin" then parts[#parts + 1] = tostring(project_edits("edits")) end
+  end
   return table.concat(parts, "|")
 end
 
@@ -630,11 +651,25 @@ end
 --- immediately. A view that paw draws on each key asks this first, because
 --- to read a long song again takes some time.
 function M.fresh(): boolean
-  return cache.stamp == signature()
+  return not song.busy(song_options()) and project_edits("edits") == edits_seen and cache.stamp == signature()
+end
+
+--- The key at `beat` in reading `r`.
+local function key_in(r: Reading, beat?: number): Key
+  if r.set then return r.set end
+  beat = beat or 0
+  local found: Key
+  for _, k in ipairs(r.keys or {}) do
+    if k.at <= beat + 1e-9 then found = k end
+  end
+  found = found or (r.keys or {})[1]
+  if found then return found end
+  return M.parse_key("C major")
 end
 
 --- The whole song's reading: `{ chords, keys, provider }`.
 local function reading(): Reading
+  catch_up()
   local sig = signature()
   if cache.stamp == sig then return cache end
   -- The highest-priority provider that answers wins over the stretch its
@@ -695,7 +730,7 @@ local function reading(): Reading
   cache = { stamp = sig, chords = list, keys = full, set = set, provider = by }
   local parts: {string} = {}
   for _, chord in ipairs(list) do
-    local key = M.key(chord.at)
+    local key = key_in(cache, chord.at)
     chord.name = chord.name or M.chord_name(chord, key)
     chord.roman = chord.roman or M.chord_roman(chord, key)
     parts[#parts + 1] = string.format("%g:%g:%s", chord.at, chord.length, chord.name)
@@ -704,24 +739,29 @@ local function reading(): Reading
   parts[#parts + 1] = set and set.name or ""
   -- Listeners hear of a reading that differs from the one before.
   local text = table.concat(parts, " ")
-  if last_text and text ~= last_text then events.emit(M.changed, { provider = by }) end
+  if text ~= last_text then
+    if last_text then events.emit(M.changed, { provider = by }) end
+    -- The views drew the reading before this one.
+    api.ui_redraw()
+  end
   last_text = text
+  return cache
+end
+
+--- The reading as it stands, without waiting for one under way: what the
+--- views draw. Until the first reading lands, no chords.
+local function as_it_stands(): Reading
+  if not M.fresh() then M.schedule() end
+  if not cache.chords then return { chords = {}, keys = {}, set = M.project_key() } end
   return cache
 end
 
 --- The key at `beat` (the start when nil): the project's when one is set,
 --- else the one read there, else C major. `{ tonic, mode, name, ... }`.
-function M.key(beat?: number): Key
-  local r = cache.stamp == signature() and cache or reading()
-  if r.set then return r.set end
-  beat = beat or 0
-  local found: Key
-  for _, k in ipairs(r.keys) do
-    if k.at <= beat + 1e-9 then found = k end
-  end
-  found = found or r.keys[1]
-  if found then return found end
-  return M.parse_key("C major")
+--- With `latest`, the key of the reading as it stands, without waiting
+--- for a new one: what a view that is drawn on each key asks.
+function M.key(beat?: number, latest?: boolean): Key
+  return key_in(latest and as_it_stands() or reading(), beat)
 end
 
 --- The keys read over the song, `{ at, length, tonic, mode, name }` each.
@@ -737,18 +777,20 @@ function M.keys(): {Key}
 end
 
 --- The chords that sound between `from` and `to` (project beats; all of
---- them when nil), in time order.
-function M.chords(from?: number, to?: number): {Chord}
+--- them when nil), in time order. With `latest`, of the reading as it
+--- stands, without waiting for a new one.
+function M.chords(from?: number, to?: number, latest?: boolean): {Chord}
   local out: {Chord} = {}
-  for _, c in ipairs(reading().chords) do
+  for _, c in ipairs((latest and as_it_stands() or reading()).chords) do
     if (not to or c.at < to) and (not from or c.at + c.length > from) then out[#out + 1] = c end
   end
   return out
 end
 
---- The chord that sounds at `beat`, or nil.
-function M.at(beat: number): Chord
-  for _, c in ipairs(reading().chords) do
+--- The chord that sounds at `beat`, or nil. With `latest`, of the
+--- reading as it stands, without waiting for a new one.
+function M.at(beat: number, latest?: boolean): Chord
+  for _, c in ipairs((latest and as_it_stands() or reading()).chords) do
     if c.at <= beat + 1e-9 and beat < c.at + c.length - 1e-9 then return c end
   end
 end
@@ -789,11 +831,12 @@ end
 --- from `origin` (the start of a clip, or 0 for the song). Each symbol
 --- starts on the left edge of the cell where its chord starts. It stops
 --- where the next symbol starts. The labels are as `paw.opt.chords` (or
---- `how`) tells.
+--- `how`) tells. It draws the reading as it stands: after an edit, the
+--- one before it until the new one lands.
 function M.draw(buf: Buf, scroll: number, span: number, zoom: number, origin: number, how?: LabelHow)
   how = how or opt.chords
   if not how then return end
-  local list = M.chords(origin + scroll, origin + scroll + span)
+  local list = M.chords(origin + scroll, origin + scroll + span, true)
   local g = paw.draw.g
   for i, c in ipairs(list) do
     local x0 = math.floor((c.at - origin - scroll) * zoom + 0.5)
@@ -813,15 +856,46 @@ function M.draw(buf: Buf, scroll: number, span: number, zoom: number, origin: nu
 end
 
 local pending: integer
---- Some time after the project changes, paw makes the reading again. So
---- `harmony.changed` comes even when nothing asks.
+local SLICE = 4   -- milliseconds of reading at a time, so that a key comes in between
+
+--- A slice of the reading; the next one goes after the keys that wait.
+local function work()
+  pending = nil
+  if catch_up(SLICE) then
+    reading()
+  else
+    pending = paw.defer(work, 1)
+  end
+end
+
+--- Some time after the project changes, paw makes the reading again, in
+--- slices of a few milliseconds. So `harmony.changed` comes even when
+--- nothing asks.
 function M.schedule()
   if pending then return end
-  pending = paw.defer(function()
-    pending = nil
-    reading()
-  end, 30)
+  pending = paw.defer(work, 30)
 end
-events.on(kernel.changed, function() M.schedule() end)
+
+-- What the kernel says changed: the tracks to look at again.
+local function mark(e: kernel.Item)
+  song.mark(e.track)
+end
+for _, event in ipairs({ kernel.clip_added, kernel.clip_changed, kernel.clip_removed,
+  kernel.device_added, kernel.device_changed, kernel.device_removed }) do
+  events.on(event, mark)
+end
+for _, event in ipairs({ kernel.track_added, kernel.track_changed, kernel.track_removed }) do
+  events.on(event, function(e: kernel.TrackId) song.mark(e.id) end)
+end
+events.on(kernel.project_changed, function() song.retime() end)
+events.on(kernel.project_loaded, function()
+  -- Another project: nothing of the old one is drawn.
+  kinds, cache = {}, { stamp = nil }
+  song.reset()
+end)
+events.on(kernel.changed, function()
+  edits_seen = project_edits("edits")
+  M.schedule()
+end)
 
 return M

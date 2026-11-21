@@ -38,6 +38,37 @@ What is left, in order of what the user feels:
 1. Each edit reads the chords of the whole song again. Even after the fix
    it costs about 0.6 s on this project, and the next key waits for it.
    Without it, an edit costs 35 to 90 ms.
+
+   After: the reading keeps the notes of each clip by its stamp, and reads
+   again only the windows and bars where the notes changed. A change that
+   leaves the notes as they are (a volume, a device) reads nothing. The
+   work goes in slices of 4 ms, and the views show the reading from before
+   until the new one is complete. Measured under external load (load
+   average 6 to 22), old and new build in turns, 5 pairs, kernel time per
+   round:
+
+   | Keys | Before | After |
+   | --- | ---: | ---: |
+   | `x`, `u` | 989 ms (760 to 1 399) | 87 ms (81 to 223) |
+   | `<leader>mm`, `+`, `-`, `<leader>mm` | 821 ms (804 to 836) | 97 ms (96 to 103) |
+   | `dd`, `u` | 756 ms (742 to 764) | 235 ms (232 to 239) |
+
+   With the reading off, `x` and `u` cost 81 to 86 ms a round, and `dd` and
+   `u` 234 to 250 ms. That is no measurable difference: the rest of `dd`
+   is not the reading. The reading itself after one edit, 10 rounds:
+
+   - a clip removed: 7.2 ms (6.5 to 8.6), its undo 8.1 ms
+   - a note added: 8.3 ms
+   - a volume: 0.4 ms (nothing read)
+   - a track muted: 38 ms (its clips cover the whole song).
+
+   Before, each of these took 430 to 510 ms. To read the whole
+   project, when paw opens it, takes 145 ms (128 to 165). The readings are
+   the same. The hash of the chords and keys is the same as the old build's
+   on this project and its edits. It is also the same on 300 random note
+   sets with 6 random edits each, 2 100 readings in all. The notes of 100
+   sets start on sixteenths, and of 200 sets on ticks of 1/960 beat. A
+   reading after an edit is the same as a reading of all the notes.
 2. A full frame costs 7 to 12 ms: the clip list is made again as JSON on each
    frame.
 3. The live ticker draws 60 frames per second when an armed input changes

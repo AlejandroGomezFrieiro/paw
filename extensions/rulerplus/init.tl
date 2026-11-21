@@ -42,9 +42,9 @@ paw.ruler.add("chord", {
   order = 25,
   styles = { chord = "RulerChord" },
   render = function(bar: integer, ctx: Ctx): Cells
-    local chord = paw.harmony.at(ctx.beat)
+    local chord = paw.harmony.at(ctx.beat, true)
     if not chord then return nil end
-    local before = bar > 1 and paw.harmony.at(paw.time.bar_start(bar - 1)) or nil
+    local before = bar > 1 and paw.harmony.at(paw.time.bar_start(bar - 1), true) or nil
     if before and before.name == chord.name and before.at == chord.at then return nil end
     local text = fit(paw.harmony.label(chord), ctx.room)
     return text and { { text, ctx.styles.chord } } or nil
@@ -61,8 +61,8 @@ paw.ruler.add("key", {
   order = 30,
   styles = { key = "RulerTempo" },
   render = function(bar: integer, ctx: Ctx): Cells
-    local key = paw.harmony.key(ctx.beat)
-    if bar > 1 and paw.harmony.key(paw.time.bar_start(bar - 1)).name == key.name then return nil end
+    local key = paw.harmony.key(ctx.beat, true)
+    if bar > 1 and paw.harmony.key(paw.time.bar_start(bar - 1), true).name == key.name then return nil end
     -- Whole or not at all: a key cut short reads as another.
     local text = " " .. short(key)
     if paw.api.str_width(text) > ctx.room then return nil end

@@ -488,7 +488,7 @@ function view:render(buf, ctx)
   local ruler = buf:sub(KEYS, head - 1, tw, 1)
   if chords_row then
     buf:fill(0, chords_row, w, 1, " ", "Ruler")
-    local key = paw.harmony.key(c.start + self.scroll)
+    local key = paw.harmony.key(c.start + self.scroll, true)
     buf:text(0, chords_row, (key.name:gsub(" major", ""):gsub(" minor", "m")):sub(1, KEYS - 1), "RulerChordEdge")
     paw.harmony.draw(buf:sub(KEYS, chords_row, tw, 1), self.scroll, span, zoom, c.start)
   end

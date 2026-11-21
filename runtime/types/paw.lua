@@ -3460,9 +3460,11 @@ function paw.groups.remove(track, stay) end
 ---@param opts any
 function paw.groups.rows(opts) end
 
---- The chord that sounds at `beat`, or nil.
+--- The chord that sounds at `beat`, or nil. With `latest`, of the
+--- reading as it stands, without waiting for a new one.
 ---@param beat any
-function paw.harmony.at(beat) end
+---@param latest any
+function paw.harmony.at(beat, latest) end
 
 --- The built-in provider: chords and keys read from the notes.
 ---@param from any
@@ -3481,10 +3483,12 @@ function paw.harmony.chord_name(chord, key) end
 function paw.harmony.chord_roman(chord, key) end
 
 --- The chords that sound between `from` and `to` (project beats; all of
---- them when nil), in time order.
+--- them when nil), in time order. With `latest`, of the reading as it
+--- stands, without waiting for a new one.
 ---@param from any
 ---@param to any
-function paw.harmony.chords(from, to) end
+---@param latest any
+function paw.harmony.chords(from, to, latest) end
 
 --- A pitch as an absolute scale degree (0 is the root in octave -1) and the
 --- semitones it lies above that degree (non-zero for notes outside it).
@@ -3502,7 +3506,8 @@ function paw.harmony.degree_pitch(key, degree) end
 --- from `origin` (the start of a clip, or 0 for the song). Each symbol
 --- starts on the left edge of the cell where its chord starts. It stops
 --- where the next symbol starts. The labels are as `paw.opt.chords` (or
---- `how`) tells.
+--- `how`) tells. It draws the reading as it stands: after an edit, the
+--- one before it until the new one lands.
 ---@param buf any
 ---@param scroll any
 ---@param span any
@@ -3531,8 +3536,11 @@ function paw.harmony.is_drums(track) end
 
 --- The key at `beat` (the start when nil): the project's when one is set,
 --- else the one read there, else C major. `{ tonic, mode, name, ... }`.
+--- With `latest`, the key of the reading as it stands, without waiting
+--- for a new one: what a view that is drawn on each key asks.
 ---@param beat any
-function paw.harmony.key(beat) end
+---@param latest any
+function paw.harmony.key(beat, latest) end
 
 --- "D minor", "Bb major": the tonic spelled as its key writes it.
 ---@param key any
@@ -3612,8 +3620,9 @@ function paw.harmony.range(track) end
 --- Names of the known scales, sorted.
 function paw.harmony.scale_names() end
 
---- Some time after the project changes, paw makes the reading again. So
---- `harmony.changed` comes even when nothing asks.
+--- Some time after the project changes, paw makes the reading again, in
+--- slices of a few milliseconds. So `harmony.changed` comes even when
+--- nothing asks.
 function paw.harmony.schedule() end
 
 --- Set the project's key (one edit), or clear it with nil. Returns the key.
@@ -3639,6 +3648,14 @@ function paw.harmony.step(key, pitch, n) end
 ---@param quality any
 function paw.harmony.tones(root, quality) end
 
+--- How long each pitch class sounds from `from` to `to`, of `sorted`
+--- (notes sorted by start, the longest `longest` beats).
+---@param sorted any
+---@param longest any
+---@param from any
+---@param to any
+function paw.harmony.read.bar_weights(sorted, longest, from, to) end
+
 --- Chords over notes in project beats, from `from` to `to` (the notes'
 --- span when nil), in windows of `step` beats (0.5). Each chord:
 --- `{ at, length, root, quality, bass, tones }` with pitch classes 0..11.
@@ -3653,6 +3670,20 @@ function paw.harmony.read.chords(notes, opts) end
 ---@param tonic any
 function paw.harmony.read.correlate(h, profile, tonic) end
 
+--- The chords of a run of windows (`window` makes each, one after another
+--- with no gap): a chord holds across windows unless the next is better by
+--- more than what a change costs. Silence of `bar` beats ends a chord.
+---@param windows any
+---@param bar any
+function paw.harmony.read.decode(windows, bar) end
+
+--- The first of `sorted` (notes sorted by start) that can sound at `at`:
+--- the ones before it start more than `longest` beats before it.
+---@param sorted any
+---@param longest any
+---@param at any
+function paw.harmony.read.first(sorted, longest, at) end
+
 --- How well the chord `root` `quality` fits weights `w` with `bass` and `total`.
 ---@param w any
 ---@param bass any
@@ -3660,6 +3691,13 @@ function paw.harmony.read.correlate(h, profile, tonic) end
 ---@param root any
 ---@param q any
 function paw.harmony.read.fit(w, bass, total, root, q) end
+
+--- The keys from the pitch classes of each bar (`hist`, as `bar_weights`
+--- gives them, which it leaves as they are) and the chords, as `keys`.
+---@param notes_hist any
+---@param bars any
+---@param chords any
+function paw.harmony.read.key_path(notes_hist, bars, chords) end
 
 --- Keys over notes in project beats, bar by bar. `bars` is a list of bar
 --- starts, with the end after the last bar. When `chords` (as `chords`
@@ -3670,6 +3708,16 @@ function paw.harmony.read.fit(w, bass, total, root, q) end
 ---@param bars any
 ---@param chords any
 function paw.harmony.read.keys(notes, bars, chords) end
+
+--- One window of the chord reading, from `at`, `length` beats long:
+--- `sorted` are the notes sorted by start, `longest` the longest of them,
+--- `step` the length of a window.
+---@param sorted any
+---@param longest any
+---@param at any
+---@param length any
+---@param step any
+function paw.harmony.read.window(sorted, longest, at, length, step) end
 
 --- Each voicing of the chord in the range of the options, `{ pitches, style }`.
 ---@param tones any

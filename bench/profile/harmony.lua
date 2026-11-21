@@ -1,5 +1,6 @@
--- How long paw takes to read the chords and keys of a song again: what the
--- kernel does some 30 ms after each edit (paw/harmony.tl, `schedule`).
+-- How long paw takes to read all the chords and keys of a song: what the
+-- kernel does when it opens it. After an edit, it reads again only what the
+-- edit changed (paw/harmony/song.tl).
 --   paw --clean --no-plugins -l bench/profile/harmony.lua <project dir> [rounds]
 -- Prints one JSON line: the notes read, the chords found and the time of
 -- each reading (median, min and max of the rounds, in ms), with a hash of
@@ -12,10 +13,12 @@ rounds = tonumber(rounds) or 5
 paw.open(dir)
 paw.flush()
 local harmony = paw.harmony
+local song = require("paw.harmony.song")
 local times, chords = {}, nil
 for i = 1, rounds do
+  -- Forget what was read: the reading is made again from all the notes.
+  song.reset()
   harmony.invalidate()
-  -- A new stamp: the reading is made again from the notes.
   local t = api.now()
   chords = harmony.builtin(0, math.huge)
   times[i] = api.now() - t
