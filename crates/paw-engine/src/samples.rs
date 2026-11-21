@@ -20,97 +20,67 @@
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::ops::{Deref, DerefMut};
-use std::os::fd::AsRawFd;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use anyhow::{Context, Result};
+use memmap2::{Advice, Mmap, MmapOptions, MmapRaw};
 
 use crate::clip::AudioData;
 
-/// A file of samples mapped into memory, read-only.
-struct Map {
-    ptr: *mut libc::c_void,
-    bytes: usize,
+/// A file of samples that a [`Sink`] wrote, mapped into memory read-only.
+fn map_file(path: &Path, frames: usize) -> std::io::Result<Arc<Mmap>> {
+    let file = File::open(path)?;
+    let bytes = frames * 4;
+    if (file.metadata()?.len() as usize) < bytes || bytes == 0 {
+        return Err(std::io::ErrorKind::UnexpectedEof.into());
+    }
+    // SAFETY: the mapping is undefined if the file changes under it. This
+    // is a file of the cache, which only this program writes, and only
+    // before its description makes it used; afterwards it is removed, not
+    // truncated or rewritten, when the cache is tidied, which leaves
+    // mappings of it whole. A private read-only mapping, as before.
+    let map = unsafe { MmapOptions::new().len(bytes).map_copy_read_only(&file)? };
+    Ok(Arc::new(map))
 }
 
-// Read-only memory that lives until the last reference goes.
-unsafe impl Send for Map {}
-unsafe impl Sync for Map {}
-
-impl Map {
-    fn open(path: &Path, frames: usize) -> std::io::Result<Arc<Self>> {
-        let file = File::open(path)?;
-        let bytes = frames * 4;
-        if (file.metadata()?.len() as usize) < bytes || bytes == 0 {
-            return Err(std::io::ErrorKind::UnexpectedEof.into());
+/// Room for `bytes` that can be written, in memory, or in the file at `path`
+/// (made that long) when one is given. A raw mapping: one writer writes past
+/// what readers read, through the same shared mapping.
+fn writable(path: Option<&Path>, bytes: usize) -> std::io::Result<MmapRaw> {
+    // A mapping is never empty; an empty sound has room it never uses.
+    let bytes = bytes.max(4);
+    let mut room = MmapOptions::new();
+    room.len(bytes);
+    match path {
+        Some(path) => {
+            let file = File::options()
+                .read(true)
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .open(path)?;
+            file.set_len(bytes as u64)?;
+            room.map_raw(&file)
         }
-        // SAFETY: a private read-only mapping of a file this program wrote
-        // and never changes afterwards; it is removed, not truncated, when
-        // the cache is tidied, which leaves mappings of it whole.
-        let ptr = unsafe {
-            libc::mmap(
-                std::ptr::null_mut(),
-                bytes,
-                libc::PROT_READ,
-                libc::MAP_PRIVATE,
-                file.as_raw_fd(),
-                0,
-            )
-        };
-        if ptr == libc::MAP_FAILED {
-            return Err(std::io::Error::last_os_error());
-        }
-        Ok(Arc::new(Self { ptr, bytes }))
+        None => room.map_anon().map(MmapRaw::from),
     }
+}
 
-    /// Room for `bytes` that can be written, in memory, or in the file at
-    /// `path` (made that long) when one is given.
-    fn writable(path: Option<&Path>, bytes: usize) -> std::io::Result<Arc<Self>> {
-        // A mapping is never empty; an empty sound has room it never uses.
-        let bytes = bytes.max(4);
-        let file = match path {
-            Some(path) => {
-                let file = File::options()
-                    .read(true)
-                    .write(true)
-                    .create(true)
-                    .truncate(true)
-                    .open(path)?;
-                file.set_len(bytes as u64)?;
-                Some(file)
-            }
-            None => None,
-        };
-        let (flags, fd) = match &file {
-            Some(file) => (libc::MAP_SHARED, file.as_raw_fd()),
-            None => (libc::MAP_PRIVATE | libc::MAP_ANONYMOUS, -1),
-        };
-        // SAFETY: a fresh mapping, of a file this program just made that
-        // long, or of no file; only a growing sink writes to it.
-        let ptr = unsafe {
-            libc::mmap(
-                std::ptr::null_mut(),
-                bytes,
-                libc::PROT_READ | libc::PROT_WRITE,
-                flags,
-                fd,
-                0,
-            )
-        };
-        if ptr == libc::MAP_FAILED {
-            return Err(std::io::Error::last_os_error());
-        }
-        Ok(Arc::new(Self { ptr, bytes }))
-    }
+/// Mapped bytes as the f32s they hold.
+fn floats(bytes: &[u8]) -> &[f32] {
+    debug_assert!(bytes.as_ptr().cast::<f32>().is_aligned());
+    // SAFETY: a mapping starts on a page, so it is aligned for f32, and any
+    // four bytes are an f32.
+    unsafe { std::slice::from_raw_parts(bytes.as_ptr().cast(), bytes.len() / 4) }
 }
 
 /// Both channels of a sound being made, laid out whole, and how much of it
 /// has been written: readers see that much, and the one writer writes past
 /// it only.
 struct Growing {
-    maps: [Arc<Map>; 2],
+    maps: [MmapRaw; 2],
     frames: usize,
     ready: AtomicUsize,
 }
@@ -121,13 +91,6 @@ impl Growing {
     }
 }
 
-impl Drop for Map {
-    fn drop(&mut self) {
-        // SAFETY: the mapping made in `open`, unmapped once.
-        unsafe { libc::munmap(self.ptr, self.bytes) };
-    }
-}
-
 /// One channel's samples.
 #[derive(Clone)]
 pub struct Samples(Kind);
@@ -135,7 +98,7 @@ pub struct Samples(Kind);
 #[derive(Clone)]
 enum Kind {
     Memory(Vec<f32>),
-    Disk(Arc<Map>),
+    Disk(Arc<Mmap>),
     /// One channel (0 or 1) of a sound being made.
     Growing(Arc<Growing>, usize),
 }
@@ -169,18 +132,11 @@ impl Samples {
         let Kind::Disk(map) = &self.0 else {
             return;
         };
-        const PAGE: usize = 4096;
-        let start = (from * 4).min(map.bytes) / PAGE * PAGE;
-        let end = (to * 4).min(map.bytes);
+        let start = (from * 4).min(map.len());
+        let end = (to * 4).min(map.len());
         if end > start {
-            // SAFETY: a range inside the mapping, starting on a page.
-            unsafe {
-                libc::madvise(
-                    map.ptr.cast::<u8>().add(start).cast(),
-                    end - start,
-                    libc::MADV_WILLNEED,
-                )
-            };
+            // A hint: the samples read the same if it is not taken.
+            let _ = map.advise_range(Advice::WillNeed, start, end - start);
         }
     }
 }
@@ -191,16 +147,13 @@ impl Deref for Samples {
     fn deref(&self) -> &[f32] {
         match &self.0 {
             Kind::Memory(samples) => samples,
-            // SAFETY: the mapping is `bytes` long, page aligned, and holds
-            // nothing but f32s written by `Sink`.
-            Kind::Disk(map) => unsafe {
-                std::slice::from_raw_parts(map.ptr.cast::<f32>(), map.bytes / 4)
-            },
-            // SAFETY: the samples before `ready` were written before it was
-            // stored, and are never written again.
+            Kind::Disk(map) => floats(map),
+            // SAFETY: the mapping is page aligned and `frames` f32s long;
+            // the samples before `ready` were written before it was stored,
+            // and are never written again, so nothing writes what is read.
             Kind::Growing(growing, channel) => unsafe {
                 std::slice::from_raw_parts(
-                    growing.maps[*channel].ptr.cast::<f32>(),
+                    growing.maps[*channel].as_ptr().cast::<f32>(),
                     growing.ready(),
                 )
             },
@@ -279,10 +232,10 @@ impl DiskStore {
         let meta = std::fs::read_to_string(&meta_path).ok()?;
         let mut fields = meta.split_whitespace().map(|f| f.parse::<u64>().ok());
         let (rate, frames, channels) = (fields.next()??, fields.next()??, fields.next()??);
-        let left = Map::open(&self.path(name, "0"), frames as usize).ok()?;
+        let left = map_file(&self.path(name, "0"), frames as usize).ok()?;
         let right = match channels {
             1 => left.clone(),
-            _ => Map::open(&self.path(name, "1"), frames as usize).ok()?,
+            _ => map_file(&self.path(name, "1"), frames as usize).ok()?,
         };
         // Used now: the last to be tidied away.
         if let Ok(file) = File::options().append(true).open(&meta_path) {
@@ -423,12 +376,12 @@ impl Sink {
                 store.path(&format!("{name}.1"), &tmp),
             ]
         });
-        let map = |i: usize| -> std::io::Result<Arc<Map>> {
+        let map = |i: usize| -> std::io::Result<MmapRaw> {
             let path = files.as_ref().map(|f| f[i].as_path());
             if let Some(dir) = path.and_then(Path::parent) {
                 std::fs::create_dir_all(dir)?;
             }
-            Map::writable(path, frames * 4)
+            writable(path, frames * 4)
         };
         let maps = match (map(0), map(1)) {
             (Ok(left), Ok(right)) => [left, right],
@@ -493,7 +446,7 @@ impl Sink {
                 unsafe {
                     std::ptr::copy_nonoverlapping(
                         samples.as_ptr(),
-                        map.ptr.cast::<f32>().add(at),
+                        map.as_mut_ptr().cast::<f32>().add(at),
                         n,
                     )
                 };

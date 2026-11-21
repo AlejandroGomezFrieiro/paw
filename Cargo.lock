@@ -3091,6 +3091,7 @@ dependencies = [
  "cpal",
  "hound",
  "libc",
+ "memmap2",
  "realfft",
  "rtrb",
  "rustix 1.1.6",
