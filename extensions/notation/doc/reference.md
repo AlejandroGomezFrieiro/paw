@@ -310,6 +310,13 @@ chord keeps the part before, and the remainder becomes a rest. A note
 longer than what is left of the bar gets a tie over the barline. Note entry
 does not touch other voices or other staves.
 
+On a single staff, a note more than three ledger lines under or over the
+staff makes a grand staff. The note goes on the new staff, for example a
+bass under a melody. This occurs only for the first note after `i`, from the
+cursor line. The notes that follow it stay on the staff of the note before,
+on ledger lines, and replace what the voice had there. For example, the
+letters `g e a a` on a sketch of C4 D4 E4 F4 replace all four notes.
+
 | Keys | |
 | --- | --- |
 | `a` … `g`, `A` … `G` | enter a note and step on; enter it and stay |
