@@ -585,6 +585,7 @@ impl Session {
         {
             let mut ctx = SyncCtx {
                 registry: &self.registry,
+                sources: &self.sources,
                 audio: &mut self.audio,
                 live: &mut self.live,
                 sample_rate: self.engine.handle.sample_rate as f32,
@@ -630,7 +631,7 @@ impl Session {
         self.play_states();
         self.poll_preview();
         self.poll_loads();
-        self.poll_stretches();
+        self.poll_bakes();
         self.watch_devices();
         self.poll_file_changes();
         let mut scan = self.scan_devices();

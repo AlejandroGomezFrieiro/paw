@@ -567,7 +567,7 @@ impl Session {
 
     /// Tell once of each file that holds other bytes than the project
     /// recorded: its clips play the new file.
-    fn tell_changed(&mut self, changed: Vec<Changed>) {
+    pub(super) fn tell_changed(&mut self, changed: Vec<Changed>) {
         for Changed(path) in changed {
             self.warnings.push(format!(
                 "{} changed since the project was saved: its clips play the new file",

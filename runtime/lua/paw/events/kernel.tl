@@ -138,6 +138,16 @@ local record kernel
       seconds: number
    end
 
+   --- How much paw is baking (stretches, and later other bakes): the bakes
+   --- being made and waiting, and how far the running ones are together
+   --- (`fraction`, 0 to 1). Sent at most 4 times a second, and once when all
+   --- are done (both counts 0).
+   record BakeProgress is Payload
+      running: integer
+      waiting: integer
+      fraction: number
+   end
+
    --- A render that stopped: its file, and why when it failed.
    record RenderEnd is Payload
       path: string
@@ -223,6 +233,7 @@ local record kernel
    render_done: events.Event<types.RenderResult>
    render_failed: events.Event<RenderEnd>
    render_cancelled: events.Event<RenderEnd>
+   bake_progress: events.Event<BakeProgress>
    media_missing: events.Event<MediaMissing>
    proc_output: events.Event<ProcOutput>
    files_changed: events.Event<FilesChanged>
@@ -268,6 +279,7 @@ kernel.render_progress = { name = "render.progress" }
 kernel.render_done = { name = "render.done" }
 kernel.render_failed = { name = "render.failed" }
 kernel.render_cancelled = { name = "render.cancelled" }
+kernel.bake_progress = { name = "bake.progress" }
 kernel.media_missing = { name = "media.missing" }
 kernel.proc_output = { name = "proc.output" }
 kernel.files_changed = { name = "files.changed" }

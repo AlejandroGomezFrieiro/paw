@@ -496,16 +496,26 @@ fn clip_audio(
 ) {
     let rate = ctx.sample_rate as u32;
     // A stretched, warped or shifted clip plays a version made for it, in
-    // which its file's moments are where its warp puts them (`warp.rs`); it
-    // is silent until that is started, and then plays it as far as it is made.
+    // which its file's moments are where its warp puts them (`warp.rs`):
+    // a rough preview until its bake starts (or its file has a hash), then the version as far as it
+    // is made. A render waits for the bakes, and never plays a preview.
     let warp = crate::warp::of(clip, tempo);
-    let data = match crate::stretched::Key::of(clip, rate, tempo) {
-        Some(key) => ctx.audio.stretched(&key, ctx.warnings),
-        None => ctx.audio.get(file, rate, ctx.warnings),
+    let offset = warp.as_ref().map_or(offset, |w| w.forward(offset));
+    let gain = db_to_gain(gain);
+    let Some(key) = crate::stretched::Key::of(clip, rate, tempo, ctx.sources) else {
+        if let Some(data) = ctx.audio.get(file, rate, ctx.warnings) {
+            audio_regions(clip, data, offset, gain, tempo, out);
+        }
+        return;
     };
-    if let Some(data) = data {
-        let offset = warp.map_or(offset, |w| w.forward(offset));
-        audio_regions(clip, data, offset, db_to_gain(gain), tempo, out);
+    if let Some(data) = ctx.audio.stretched(&key, ctx.warnings) {
+        audio_regions(clip, data, offset, gain, tempo, out);
+    } else if !ctx.offline
+        && ctx.audio.renders.status(&key) != crate::bake::scheduler::Status::Failed
+        && let Some(source) = ctx.audio.get(file, rate, ctx.warnings)
+    {
+        let warp = warp.unwrap_or_else(|| crate::warp::Warp::even(1.0));
+        crate::stretched::preview(clip, source, (offset, gain), &warp, tempo, out);
     }
 }
 

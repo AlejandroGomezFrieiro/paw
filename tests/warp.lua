@@ -90,7 +90,8 @@ test("a long stretched clip is heard at once, while its sound is still being mad
   paw.transport.stop()
   eq(heard ~= nil, true, "heard")
   eq(heard.stretching, true, "while it is being made")
-  eq(heard.made > 0 and heard.made < 1, true, "a part of it made: " .. tostring(heard.made))
+  -- The rough preview first, then what is made.
+  eq(heard.made < 1, true, "before all of it is made: " .. tostring(heard.made))
   -- The playhead far past what is made: silent there, not broken.
   paw.transport.seek(400)
   paw.transport.play()

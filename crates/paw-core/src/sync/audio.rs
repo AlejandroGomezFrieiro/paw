@@ -28,8 +28,10 @@ pub struct AudioCache {
     /// Where the decoded sound of long files is kept and played from,
     /// instead of memory; nowhere when `None`.
     pub store: Option<DiskStore>,
-    /// Stretched and shifted versions of files, made apart: `stretched.rs`.
+    /// The bakes of stretched and shifted clips: `stretched.rs`.
     pub renders: crate::stretched::Renders,
+    /// Exports, progress and tidying of those bakes.
+    pub upkeep: crate::stretched::Upkeep,
 }
 
 /// File, offset and length in seconds (as bits, to hash them), and points.
@@ -113,22 +115,27 @@ impl AudioCache {
         self.summaries.retain(|path, _| keep.contains(path));
         self.peaks.retain(|key, _| keep.contains(&key.0));
         self.converted.retain(|key, _| keep.contains(&key.0));
-        self.renders.retain(Some(keep));
+        self.renders.retain(|k| keep.contains(&k.file));
     }
 
-    /// What a stretched or shifted clip plays, if it has been made; if not,
-    /// it is queued to be made (see `stretched.rs`).
+    /// What a stretched or shifted clip plays, if its bake has started (as
+    /// far as it is made); if not, it is asked for (see `stretched.rs`).
     pub fn stretched(
         &mut self,
         key: &crate::stretched::Key,
         warnings: &mut Vec<String>,
     ) -> Option<Arc<AudioData>> {
-        let store = self.store.clone();
-        if self.renders.known(key) {
-            return self.renders.get(key, store.as_ref(), || None);
+        if key.source.is_none() {
+            // Asked again once the file has a hash: its preview plays meanwhile.
+            self.upkeep.unhashed.insert(key.file.clone());
+            return None;
         }
-        let source = self.get(&key.file, key.rate, warnings);
-        self.renders.get(key, store.as_ref(), || source)
+        if !self.renders.known(key) {
+            let source = self.get(&key.file, key.rate, warnings);
+            let (bakes, disk) = (self.bakes.clone(), self.store.clone());
+            self.renders.ask(key, || Some(crate::stretched::bake(key.clone(), source?, bakes, disk)));
+        }
+        self.renders.sound(key)
     }
 
     /// What the engine plays of a file at `rate`, if it has been loaded:
@@ -153,7 +160,7 @@ impl AudioCache {
     pub fn forget_loaded(&mut self) {
         self.files.clear();
         self.converted.clear();
-        self.renders.retain(None);
+        self.renders.retain(|_| false);
     }
 
     /// How many files are held, decoded or known to be unreadable.

@@ -179,6 +179,17 @@ pub struct RenderProgress {
     pub seconds: f64,
 }
 
+/// How much paw is baking (stretches, and later other bakes): the bakes
+/// being made and waiting, and how far the running ones are together
+/// (`fraction`, 0 to 1). Sent at most 4 times a second, and once when all
+/// are done (both counts 0).
+#[derive(Debug, Clone, Copy, Serialize)]
+pub struct BakeProgress {
+    pub running: usize,
+    pub waiting: usize,
+    pub fraction: f64,
+}
+
 /// A render that stopped: its file, and why when it failed.
 #[derive(Debug, Clone, Serialize)]
 pub struct RenderEnd {
@@ -316,6 +327,8 @@ pub enum KernelEvent {
     RenderFailed(RenderEnd),
     #[serde(rename = "render.cancelled")]
     RenderCancelled(RenderEnd),
+    #[serde(rename = "bake.progress")]
+    BakeProgress(BakeProgress),
     #[serde(rename = "media.missing")]
     MediaMissing(MediaMissing),
     #[serde(rename = "proc.output")]

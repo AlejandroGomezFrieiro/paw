@@ -177,9 +177,9 @@ An audio clip has two kinds of change that keep its file as it is:
   order. The clip plays a version of its file that paw makes with them,
   on a different thread, as it makes a stretched clip.
 
-- paw keeps a large version in the cache (`paw.api.media_store`). The
-  version comes again from the file and the list, so to delete the
-  cache loses nothing.
+- paw keeps a large version in the bake cache, `$XDG_CACHE_HOME/paw/bakes`
+  (`paw.api.media_store` sets its size). The version comes again from the
+  file and the list, so to delete the cache loses nothing.
 - In a project folder, the edit list is the file of the clip:
   `tracks/<track>/clips/<clip>.edits.json`. `track.json` names it as
   `edits_file`.

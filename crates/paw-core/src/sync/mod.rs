@@ -38,6 +38,7 @@ pub use self::audio::AudioCache;
 pub use self::automation::is_active;
 pub use self::devices::{TakesClips, clips_json, deliver_clips, install, is_host, rekey};
 pub use self::mapper::Mapper;
+pub use self::clips::repeats;
 pub use crate::events::ModelEvent;
 
 use self::automation::{build_automation, release_targets, vca_volume_lane, vcas_of};
@@ -72,6 +73,8 @@ pub type LiveDevices = HashMap<Id, LiveDevice>;
 
 pub struct SyncCtx<'a> {
     pub registry: &'a Registry,
+    /// The hashes of the files, which name stretched versions.
+    pub sources: &'a crate::media::Sources,
     pub audio: &'a mut AudioCache,
     pub live: &'a mut LiveDevices,
     pub sample_rate: f32,

@@ -144,12 +144,12 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
                     let store = paw_engine::DiskStore { dir, limit: (megabytes * 1_048_576.0) as u64 };
                     std::thread::spawn(move || store.tidy((keep.max(0.0) * 1_073_741_824.0) as u64));
                 }
+                let pins = session.bake_pins();
                 if let (Some(keep), Some(bakes)) = (keep, session.bakes_mut()) {
                     bakes.limit = (keep.max(0.0) * 1_073_741_824.0) as u64;
                     let bakes = bakes.clone();
                     std::thread::spawn(move || {
-                        // Nothing is pinned before the scheduler bakes (M3).
-                        bakes.tidy(&Default::default());
+                        bakes.tidy(&pins);
                         // Where overviews were kept before the bake cache.
                         let _ = std::fs::remove_dir_all(bakes.root().with_file_name("peaks"));
                     });
