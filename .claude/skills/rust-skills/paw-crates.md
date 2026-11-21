@@ -221,9 +221,17 @@ Found with grep at a72467cf. Each refactor part that owns the file fixes it.
 - **Real-time tools:** done: paw-engine's atomic `f32` and `f64` use
   `atomic_float`. The `no_alloc.rs` test and `no_denormals` stay paw's own,
   for the reasons above.
-- **CLAP host:** `paw-plugins/src/clap.rs` calls `clap-sys` directly.
-  Clack's host crate gives safe wrappers. If it is not on crates.io,
-  the Nix build must pin its Git commit. Try it on the stub plugin and
-  the plugin tests first.
+- **CLAP host:** started. `clack-host` 0.2 (crates.io, on the same
+  `clap-sys` 0.5) covers all that `paw-plugins/src/clap.rs` uses: the
+  file's entry and its plugin factory go through it now. paw still opens
+  the file itself (`libs.rs`) and gives Clack the entry
+  (`PluginEntry::load_from_raw`), and keeps it for good, so Clack never
+  calls `deinit`. Still on `clap-sys`: the instance, process, events,
+  parameters, state, editor, the host's callbacks and `presets.rs`. Port
+  them with `clack-extensions` (same version). The device and the
+  controller must share the `PluginInstance` (it is not `Send`), with the
+  audio processor behind the `run` lock, so that `stopped` can take it back
+  to deactivate. Pass the block length with `InputAudioBuffers::from_raw_buffers`:
+  the safe builders give a plugin with no audio ports 0 frames.
 - **`rubato` 0.16** in paw-core: crates.io has 5.1. Update it with the
   sample-rate tests.
