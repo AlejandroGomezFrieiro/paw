@@ -1,4 +1,6 @@
-//! CLAP hosting, written against the C interface.
+//! CLAP hosting, written against the C interface. The file's entry and its
+//! plugin factory go through Clack's host crate (`clack-host`); the rest is
+//! still `clap-sys`.
 //!
 //! Threading follows the CLAP rules: a plugin is created, activated,
 //! deactivated and destroyed on the main thread, and `start_processing` and
@@ -17,6 +19,7 @@ use std::sync::{Arc, Mutex};
 use anyhow::{Context, Result, bail};
 use clap_sys::audio_buffer::clap_audio_buffer;
 use clap_sys::entry::clap_plugin_entry;
+use clack_host::entry::{EntryDescriptor, PluginEntry, PluginEntryError};
 use clap_sys::events::*;
 use clap_sys::ext::audio_ports::{
     CLAP_EXT_AUDIO_PORTS, clap_audio_port_info, clap_plugin_audio_ports,
@@ -53,7 +56,7 @@ use clap_sys::ext::thread_check::{CLAP_EXT_THREAD_CHECK, clap_host_thread_check}
 use clap_sys::ext::timer_support::{
     CLAP_EXT_TIMER_SUPPORT, clap_host_timer_support, clap_plugin_timer_support,
 };
-use clap_sys::factory::plugin_factory::{CLAP_PLUGIN_FACTORY_ID, clap_plugin_factory};
+use clap_sys::factory::plugin_factory::clap_plugin_factory;
 use clap_sys::factory::preset_discovery::{
     CLAP_PRESET_DISCOVERY_FACTORY_ID, CLAP_PRESET_DISCOVERY_FACTORY_ID_COMPAT,
     clap_preset_discovery_factory,
@@ -83,6 +86,9 @@ use crate::{Found, HeldNotes, PluginFormat, is_main_thread, write_output};
 /// static state behind that do not survive it.
 struct Library {
     _lib: ManuallyDrop<libloading::Library>,
+    /// The file's entry, initialized. Kept for good in `load`'s list, so
+    /// Clack never calls the entry's `deinit`.
+    entry: PluginEntry,
     factory: *const clap_plugin_factory,
     /// The file's preset-discovery factory, or null.
     presets: *const clap_preset_discovery_factory,
@@ -103,34 +109,44 @@ fn load(path: &Path) -> Result<Arc<Library>> {
     if let Some((_, library)) = loaded.iter().find(|(p, _)| p == path) {
         return Ok(library.clone());
     }
-    // SAFETY: The file is opened by `open_library` and never unloaded; `clap_entry` is the symbol the CLAP
-    // ABI names and has the type `clap_plugin_entry`; `init` gets a NUL-terminated path that lives
-    // through the call, and `get_factory` gets static ids. Everything read from `entry` is checked
-    // for null first. This runs on the main thread, once per file (under the LOADED lock).
-    let library = unsafe {
-        let lib = libloading::Library::from(crate::libs::open_library(path)?);
-        let entry: *const clap_plugin_entry =
-            *lib.get::<*const clap_plugin_entry>(b"clap_entry\0")?;
-        let entry = entry.as_ref().context("no entry point")?;
-        let c_path = CString::new(path.to_string_lossy().as_bytes())?;
-        if !entry.init.context("no init")?(c_path.as_ptr()) {
-            bail!("the plugin refused to initialize");
-        }
-        let factory = entry.get_factory.context("no factory")?(CLAP_PLUGIN_FACTORY_ID.as_ptr());
-        if factory.is_null() {
-            bail!("the file has no plugin factory");
-        }
-        let get_factory = entry.get_factory.unwrap();
-        let mut presets = get_factory(CLAP_PRESET_DISCOVERY_FACTORY_ID.as_ptr());
-        if presets.is_null() {
-            presets = get_factory(CLAP_PRESET_DISCOVERY_FACTORY_ID_COMPAT.as_ptr());
-        }
-        Arc::new(Library {
-            _lib: ManuallyDrop::new(lib),
-            factory: factory.cast(),
-            presets: presets.cast(),
-        })
+    let lib = libloading::Library::from(crate::libs::open_library(path)?);
+    // SAFETY: `clap_entry` is the symbol the CLAP ABI names and has the type `clap_plugin_entry`.
+    // The file is never unloaded (`ManuallyDrop` below), so the entry it points to is `'static`.
+    let entry: &'static EntryDescriptor = unsafe {
+        let entry = *lib.get::<*const clap_plugin_entry>(b"clap_entry\0")?;
+        entry.as_ref().context("no entry point")?
     };
+    entry.init.context("no init")?;
+    let get_factory = entry.get_factory.context("no factory")?;
+    let c_path = CString::new(path.to_string_lossy().as_bytes())?;
+    // SAFETY: `entry` is the file's own entry, valid for good (see above). Clack checks its CLAP
+    // version and calls its `init` once with the path, on the main thread (under the LOADED lock).
+    let entry = unsafe { PluginEntry::load_from_raw(entry, &c_path) }.map_err(|err| match err {
+        PluginEntryError::EntryInitFailed => anyhow::anyhow!("the plugin refused to initialize"),
+        err => anyhow::anyhow!("{err}"),
+    })?;
+    let factory = entry
+        .get_plugin_factory()
+        .context("the file has no plugin factory")?
+        .raw()
+        .as_ptr()
+        .cast_const();
+    // SAFETY: `get_factory` is the initialized entry's own function and gets static ids; a null
+    // result means the file has no preset discovery.
+    let presets = unsafe {
+        let presets = get_factory(CLAP_PRESET_DISCOVERY_FACTORY_ID.as_ptr());
+        if presets.is_null() {
+            get_factory(CLAP_PRESET_DISCOVERY_FACTORY_ID_COMPAT.as_ptr())
+        } else {
+            presets
+        }
+    };
+    let library = Arc::new(Library {
+        _lib: ManuallyDrop::new(lib),
+        entry,
+        factory,
+        presets: presets.cast(),
+    });
     loaded.push((path.to_path_buf(), library.clone()));
     Ok(library)
 }
@@ -167,37 +183,25 @@ pub(crate) fn list_file(path: &Path) -> Result<Vec<Found>> {
 
 fn list(path: &Path) -> Result<Vec<Found>> {
     let library = load(path)?;
-    let mut found = Vec::new();
-    // SAFETY: `library.factory` was checked non-null in `load` and the file stays loaded; descriptors
-    // are valid while the factory is, and their `features` list ends with a null pointer, as the
-    // ABI requires. Main thread only.
-    unsafe {
-        let factory = &*library.factory;
-        let count = factory.get_plugin_count.context("no plugin count")?;
-        let get = factory.get_plugin_descriptor.context("no descriptors")?;
-        for index in 0..count(library.factory) {
-            let Some(desc) = get(library.factory, index).as_ref() else {
-                continue;
-            };
-            let mut instrument = false;
-            let mut features = Vec::new();
-            let mut feature = desc.features;
-            while !feature.is_null() && !(*feature).is_null() {
-                instrument |= CStr::from_ptr(*feature).to_bytes() == b"instrument";
-                features.push(text(*feature));
-                feature = feature.add(1);
-            }
-            found.push(Found {
-                id: text(desc.id),
-                name: text(desc.name),
-                vendor: text(desc.vendor),
-                instrument,
-                version: text(desc.version),
-                features,
-            });
-        }
-    }
-    Ok(found)
+    let factory = library
+        .entry
+        .get_plugin_factory()
+        .context("the file has no plugin factory")?;
+    let raw = factory.raw().get();
+    raw.get_plugin_count.context("no plugin count")?;
+    raw.get_plugin_descriptor.context("no descriptors")?;
+    let text = |text: Option<&CStr>| text.map_or_else(String::new, |t| t.to_string_lossy().into_owned());
+    Ok(factory
+        .plugin_descriptors()
+        .map(|desc| Found {
+            id: text(desc.id()),
+            name: text(desc.name()),
+            vendor: text(desc.vendor()),
+            instrument: desc.features().any(|f| f.to_bytes() == b"instrument"),
+            version: text(desc.version()),
+            features: desc.features().map(|f| text(Some(f))).collect(),
+        })
+        .collect())
 }
 
 /// CLAP, for [`scan_in`](crate::scan_in): a `.clap` is a single shared

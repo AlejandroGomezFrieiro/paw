@@ -125,7 +125,7 @@ real-time crates, read its code for the audio thread rules.
 | FLAC, write | `flacenc` (paw uses it) | |
 | Sample-rate conversion | `rubato` (paw uses it) | |
 | FFT | `realfft` (paw uses it) | a radix-2 FFT by hand |
-| Loudness (BS.1770, EBU R 128: integrated, short-term, range, true peak) | `ebur128` | own K-weighting and gates |
+| Loudness (BS.1770, EBU R 128: integrated, short-term, range, true peak) | paw's own in `measure/analysis.rs` (see below) | `ebur128` |
 | Lock-free queues to the audio thread | `rtrb` (paw uses it) | |
 | A test that the audio thread does not allocate | `assert_no_alloc` | an own `GlobalAlloc` in each test |
 | Denormals off on a thread | `no_denormals` | own MXCSR code |
@@ -149,6 +149,17 @@ What paw keeps as its own, and why:
   over D-Bus on Linux (a C library for the Nix build), and it does not copy
   the sound thread's own policy and priority as paw does. paw keeps
   `pthread_setschedparam` in `pool.rs` and `sandbox/serve.rs`.
+- **The engine's allocation test.** `assert_no_alloc` forbids allocations
+  only inside a closure, and counts them on the thread that made them. The
+  engine's `tests/no_alloc.rs` marks the worker pool's threads for good and
+  counts what they do while the engine plays on them. The crate cannot do
+  this, so the test keeps its own `GlobalAlloc`. The sampler, with one
+  audio thread, uses the crate.
+- **Denormals off.** The `no_denormals` crate gives only a scoped closure
+  (an `unsafe fn`, and a compile error off x86 and aarch64). paw's audio
+  threads turn denormals off for good, and the render holds the
+  `NoDenormals` guard across early returns. paw keeps `no_denormals()` and
+  `NoDenormals` in `backend.rs`.
 - **The sampler's formats** and other formats that are paw's own.
 
 ## Where paw does it by hand today (2026-11-20)
@@ -195,19 +206,32 @@ Found with grep at a72467cf. Each refactor part that owns the file fixes it.
 - **WAV writers:** `paw-engine/src/record.rs` (a take, header kept valid
   as it grows: `hound`'s `WavWriter::flush` does this),
   and `paw-listen/src/lib.rs`. (The sampler's `audio.rs` is on `hound` now.)
-- **FFT:** `paw-mcp/src/audio.rs` and `paw-engine/src/devices/dsp.rs` (`rfft`,
-  main thread only: no device calls an FFT in `process`) use `realfft` now.
-  `paw-core/src/measure/analysis.rs` still has a radix-2 transform by hand.
-- **Loudness:** `paw-core/src/measure/analysis.rs` has its own BS.1770
-  K-weighting, gates, loudness range and true peak. Compare it with
-  `ebur128` on the tests in `measure/tests.rs`, and change to the crate if
-  the numbers agree.
-- **Real-time tools:** the `no_alloc.rs` test of paw-engine (own allocator;
-  the sampler's uses `assert_no_alloc`), `backend.rs` `no_denormals`, the atomic `f32`
-  in `devices/dsp.rs` and `engine/shared.rs`.
-- **CLAP host:** `paw-plugins/src/clap.rs` calls `clap-sys` directly.
-  Clack's host crate gives safe wrappers. If it is not on crates.io,
-  the Nix build must pin its Git commit. Try it on the stub plugin and
-  the plugin tests first.
+- **FFT:** done. `paw-mcp/src/audio.rs`, `paw-engine/src/devices/dsp.rs`
+  (`rfft`, main thread only: no device calls an FFT in `process`) and
+  `paw-core/src/measure/analysis.rs` use `realfft`.
+- **Loudness:** `paw-core/src/measure/analysis.rs` keeps its own BS.1770
+  K-weighting, gates, loudness range and true peak. Compared with `ebur128`
+  0.1.11 (2026-11-21): integrated, momentary and short-term agree to 0.001
+  LU and true peak to 0.1 dB, but the crate takes the short-term blocks for
+  loudness range once a second, and EBU Tech 3342 (version 3 and later)
+  asks for at least 10 Hz. On quiet and loud passages that alternate, its
+  range reads several LU lower. The crate also does not give the blocks
+  that the gate keeps (paw's mono loss uses them) or the two ends of the
+  range (`lra_low`, `lra_high`).
+- **Real-time tools:** done: paw-engine's atomic `f32` and `f64` use
+  `atomic_float`. The `no_alloc.rs` test and `no_denormals` stay paw's own,
+  for the reasons above.
+- **CLAP host:** started. `clack-host` 0.2 (crates.io, on the same
+  `clap-sys` 0.5) covers all that `paw-plugins/src/clap.rs` uses: the
+  file's entry and its plugin factory go through it now. paw still opens
+  the file itself (`libs.rs`) and gives Clack the entry
+  (`PluginEntry::load_from_raw`), and keeps it for good, so Clack never
+  calls `deinit`. Still on `clap-sys`: the instance, process, events,
+  parameters, state, editor, the host's callbacks and `presets.rs`. Port
+  them with `clack-extensions` (same version). The device and the
+  controller must share the `PluginInstance` (it is not `Send`), with the
+  audio processor behind the `run` lock, so that `stopped` can take it back
+  to deactivate. Pass the block length with `InputAudioBuffers::from_raw_buffers`:
+  the safe builders give a plugin with no audio ports 0 frames.
 - **`rubato` 0.16** in paw-core: crates.io has 5.1. Update it with the
   sample-rate tests.

@@ -8,11 +8,17 @@ description = "Hosts CLAP, LV2 and VST3 plugins as engine devices."
 [dependencies]
 paw-engine.workspace = true
 anyhow.workspace = true
+bitflags.workspace = true
+hex.workspace = true
 rtrb = "0.4"
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 clap-sys = "0.5"
+# Safe wrappers over clap-sys for the CLAP host: the entry and the plugin
+# factory so far (clap.rs). paw opens the file itself (libs.rs), so not
+# Clack's own loader.
+clack-host = { version = "0.2", default-features = false }
 lilv-sys = "0.3"
 vst3 = "0.3"
 libloading = "0.8"

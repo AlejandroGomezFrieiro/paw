@@ -427,6 +427,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
+name = "atomic_float"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "628d228f918ac3b82fe590352cc719d30664a0c13ca3a60266fe02c7132d480a"
+
+[[package]]
 name = "audio-codec-algorithms"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -732,6 +738,26 @@ dependencies = [
  "num-traits",
  "serde",
  "windows-link",
+]
+
+[[package]]
+name = "clack-common"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0ca905d78f46117492bce49e64a765f8b3f5c71794486a1369242721860e2640"
+dependencies = [
+ "bitflags 2.13.2",
+ "clap-sys",
+]
+
+[[package]]
+name = "clack-host"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "103a00f784a6477d82dc4580ea125e875074729c2703ccb29e5e9fb40bea5308"
+dependencies = [
+ "clack-common",
+ "clap-sys",
 ]
 
 [[package]]
@@ -3025,6 +3051,7 @@ dependencies = [
  "paw-proto",
  "paw-raster",
  "paw-scene",
+ "percent-encoding",
  "quick-xml",
  "rcgen",
  "realfft",
@@ -3047,6 +3074,7 @@ version = "0.1.0"
 dependencies = [
  "alsa-sys",
  "anyhow",
+ "atomic_float",
  "bitflags 2.13.2",
  "cpal",
  "hound",
@@ -3131,7 +3159,10 @@ name = "paw-plugins"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bitflags 2.13.2",
+ "clack-host",
  "clap-sys",
+ "hex",
  "hound",
  "libc",
  "libloading",

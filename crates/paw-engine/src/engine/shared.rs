@@ -2,6 +2,8 @@
 
 use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU32, AtomicU64, Ordering::Relaxed};
 
+use atomic_float::{AtomicF32, AtomicF64};
+
 use crate::guard::Fault;
 use crate::launch::{self, LaunchState};
 use crate::slot::{DeviceSlot, TrackSlot};
@@ -11,19 +13,19 @@ use super::{MAX_DEVICES, MAX_INPUTS, MAX_TRACKS};
 
 /// State the audio thread publishes for everyone else to read.
 pub struct Shared {
-    pub(super) position: AtomicU64,
+    pub(super) position: AtomicF64,
     pub(super) playing: AtomicBool,
-    pub(super) meters: Vec<[AtomicU32; 2]>,
-    pub(super) cpu: AtomicU32,
+    pub(super) meters: Vec<[AtomicF32; 2]>,
+    pub(super) cpu: AtomicF32,
     pub(super) xruns: AtomicU32,
     pub(super) leaked: AtomicU32,
     pub(super) seeks: AtomicU32,
-    pub(super) input_latency: AtomicU32,
-    pub(super) output_latency: AtomicU32,
+    pub(super) input_latency: AtomicF32,
+    pub(super) output_latency: AtomicF32,
     /// Frames the backend asked for in its last callback.
     pub(super) period: AtomicU32,
     /// Peak level of each input channel, falling as track meters do.
-    pub(super) input_meters: [AtomicU32; MAX_INPUTS],
+    pub(super) input_meters: [AtomicF32; MAX_INPUTS],
     pub(super) latency: AtomicU32,
     pub(super) threads: AtomicU32,
     /// Clicks of a count-in still to come before the song starts; 0 when
@@ -39,7 +41,7 @@ pub struct Shared {
     /// The sound file being heard on its own: its id (0 for none) and
     /// where it has got to, in seconds of the file.
     pub(super) preview_id: AtomicU32,
-    pub(super) preview_seconds: AtomicU64,
+    pub(super) preview_seconds: AtomicF64,
     /// Blocks of devices that were run, and that slept (see
     /// [`Device::resting`]), since the engine was made.
     pub(super) device_runs: AtomicU64,
@@ -59,19 +61,19 @@ impl Shared {
     /// Everything at rest: stopped at the start, no meters, no faults.
     pub(super) fn new() -> Self {
         Self {
-            position: AtomicU64::new(0f64.to_bits()),
+            position: AtomicF64::new(0.0),
             playing: AtomicBool::new(false),
             meters: (0..MAX_TRACKS)
-                .map(|_| [AtomicU32::new(0), AtomicU32::new(0)])
+                .map(|_| [AtomicF32::new(0.0), AtomicF32::new(0.0)])
                 .collect(),
-            cpu: AtomicU32::new(0),
+            cpu: AtomicF32::new(0.0),
             xruns: AtomicU32::new(0),
             leaked: AtomicU32::new(0),
             seeks: AtomicU32::new(0),
-            input_latency: AtomicU32::new(0),
-            output_latency: AtomicU32::new(0),
+            input_latency: AtomicF32::new(0.0),
+            output_latency: AtomicF32::new(0.0),
             period: AtomicU32::new(0),
-            input_meters: std::array::from_fn(|_| AtomicU32::new(0)),
+            input_meters: std::array::from_fn(|_| AtomicF32::new(0.0)),
             latency: AtomicU32::new(0),
             threads: AtomicU32::new(1),
             counting: AtomicU32::new(0),
@@ -79,7 +81,7 @@ impl Shared {
             faults: (0..MAX_DEVICES).map(|_| AtomicU8::new(0)).collect(),
             launch: (0..MAX_TRACKS).map(|_| LaunchState::default()).collect(),
             preview_id: AtomicU32::new(0),
-            preview_seconds: AtomicU64::new(0),
+            preview_seconds: AtomicF64::new(0.0),
             device_runs: AtomicU64::new(0),
             device_sleeps: AtomicU64::new(0),
             shared_groups: AtomicU64::new(0),
@@ -131,7 +133,7 @@ impl Shared {
 
     /// Transport position in beats.
     pub fn position(&self) -> f64 {
-        f64::from_bits(self.position.load(Relaxed))
+        self.position.load(Relaxed)
     }
 
     pub fn playing(&self) -> bool {
@@ -149,7 +151,7 @@ impl Shared {
     pub fn preview(&self) -> Option<(u32, f64)> {
         match self.preview_id.load(Relaxed) {
             0 => None,
-            id => Some((id, f64::from_bits(self.preview_seconds.load(Relaxed)))),
+            id => Some((id, self.preview_seconds.load(Relaxed))),
         }
     }
 
@@ -161,21 +163,18 @@ impl Shared {
     /// Post-fader peak level of a track as linear `(left, right)`.
     pub fn meter(&self, slot: TrackSlot) -> (f32, f32) {
         match self.meters.get(slot.index()) {
-            Some(m) => (
-                f32::from_bits(m[0].load(Relaxed)),
-                f32::from_bits(m[1].load(Relaxed)),
-            ),
+            Some(m) => (m[0].load(Relaxed), m[1].load(Relaxed)),
             None => (0.0, 0.0),
         }
     }
 
     /// Fraction of the available time the last callbacks spent processing.
     pub fn cpu(&self) -> f32 {
-        f32::from_bits(self.cpu.load(Relaxed))
+        self.cpu.load(Relaxed)
     }
 
     pub fn set_cpu(&self, load: f32) {
-        self.cpu.store(load.to_bits(), Relaxed);
+        self.cpu.store(load, Relaxed);
     }
 
     pub fn xruns(&self) -> u32 {
@@ -214,21 +213,21 @@ impl Shared {
 
     /// Seconds the backend holds input back before the engine sees it.
     pub fn input_latency(&self) -> f32 {
-        f32::from_bits(self.input_latency.load(Relaxed))
+        self.input_latency.load(Relaxed)
     }
 
     pub fn set_input_latency(&self, seconds: f32) {
-        self.input_latency.store(seconds.to_bits(), Relaxed);
+        self.input_latency.store(seconds, Relaxed);
     }
 
     /// Seconds from the engine producing a block to it being heard, as the
     /// backend reports it.
     pub fn output_latency(&self) -> f32 {
-        f32::from_bits(self.output_latency.load(Relaxed))
+        self.output_latency.load(Relaxed)
     }
 
     pub fn set_output_latency(&self, seconds: f32) {
-        self.output_latency.store(seconds.to_bits(), Relaxed);
+        self.output_latency.store(seconds, Relaxed);
     }
 
     /// Frames per callback as the backend last asked for them, 0 before the first.
@@ -245,6 +244,6 @@ impl Shared {
     pub fn input_meter(&self, channel: usize) -> f32 {
         self.input_meters
             .get(channel)
-            .map_or(0.0, |m| f32::from_bits(m.load(Relaxed)))
+            .map_or(0.0, |m| m.load(Relaxed))
     }
 }

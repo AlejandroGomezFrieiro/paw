@@ -13,6 +13,9 @@ midi = ["dep:alsa-sys"]
 anyhow.workspace = true
 serde.workspace = true
 rtrb = "0.4"
+# Atomic f32 and f64 for meters and positions: plain loads and stores of the
+# bits, as `AtomicU32`/`AtomicU64` with `from_bits`, no lock.
+atomic_float = "1.1"
 realfft = "3.5"
 hound = "3.5"
 # Pure Rust, so the Nix build needs no codec libraries. Only what audio clips use.

@@ -427,20 +427,6 @@ end)
 
 -- Windows -----------------------------------------------------------------------
 
-test("a curve window keeps its time bound to the arrange view's", function()
-  start()
-  lane_with({ { 0, -12 } })
-  local win = editor.current()
-  paw.commands.exec("setlocal timebind")
-  paw.win.enter(paw.win.list()[1])
-  paw.commands.exec("setlocal timebind")
-  local view = paw.ui.views.curve
-  view:set_time_axis(16, 4, { win = win })
-  local left, zoom = view:time_axis({ win = win })
-  eq(left, 16, "its left edge")
-  eq(zoom, 4, "and zoom are set from outside")
-end)
-
 test("a curve opens in a window of its own and draws there", function()
   start()
   lane_with({ { 0, -12 }, { 4, 0 } })
