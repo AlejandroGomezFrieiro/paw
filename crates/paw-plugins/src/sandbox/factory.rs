@@ -33,7 +33,7 @@ pub(super) const PARAM_VALUE: &str = "paw.param.value";
 
 /// How long a plugin may take to be made: [`CREATE_LIMIT`], or the seconds
 /// in `PAW_PLUGIN_CREATE_LIMIT` (for tests).
-pub(super) fn create_limit() -> Duration {
+fn create_limit() -> Duration {
     std::env::var("PAW_PLUGIN_CREATE_LIMIT")
         .ok()
         .and_then(|text| text.parse::<f64>().ok())
@@ -52,7 +52,7 @@ pub(super) fn silence(err: &std::io::Error) -> bool {
 impl RemoteFactory {
     /// Start the helper, which makes the plugin. Its first word, read with
     /// [`made`](Self::made), says whether that worked.
-    pub(super) fn spawn(&self, sample_rate: f32, max_block: usize) -> Result<(RemoteController, UnixStream)> {
+    fn spawn(&self, sample_rate: f32, max_block: usize) -> Result<(RemoteController, UnixStream)> {
         let argv = match &self.argv {
             Some(argv) => argv,
             None => host_command().context("plugins are hosted in-process here")?,
@@ -135,7 +135,7 @@ impl RemoteFactory {
     }
 
     /// The device and its controller, from the helper's first word.
-    pub(super) fn made(&self, mut controller: RemoteController, hello: Hello) -> Instance {
+    fn made(&self, mut controller: RemoteController, hello: Hello) -> Instance {
         controller.params = hello.params;
         controller.values = hello.values;
         controller.values.resize(controller.params.len(), 0.0);
@@ -164,11 +164,11 @@ impl RemoteFactory {
 }
 
 /// A plugin being made in its helper while a thread of ours waits for it.
-pub(super) struct RemoteStarting {
-    pub(super) factory: RemoteFactory,
-    pub(super) controller: Option<RemoteController>,
+struct RemoteStarting {
+    factory: RemoteFactory,
+    controller: Option<RemoteController>,
     /// The plugin made (the helper's first word), its state loaded, or why not.
-    pub(super) answer: std::sync::mpsc::Receiver<Result<Hello, HelperError>>,
+    answer: std::sync::mpsc::Receiver<Result<Hello, HelperError>>,
 }
 
 impl Starting for RemoteStarting {
@@ -198,7 +198,7 @@ impl Starting for RemoteStarting {
 
 /// Wait on a thread of its own for the helper to make the plugin, and
 /// load `state` into it.
-pub(super) fn wait_for_helper(
+fn wait_for_helper(
     mut stream: UnixStream,
     state: Option<Vec<u8>>,
     limit: Duration,
@@ -304,7 +304,7 @@ impl DeviceFactory for RemoteFactory {
 }
 
 /// A start that failed before it began.
-pub(super) struct Failed(Option<anyhow::Error>);
+struct Failed(Option<anyhow::Error>);
 
 impl Starting for Failed {
     fn poll(&mut self) -> Option<Result<Instance>> {

@@ -24,18 +24,18 @@ use super::*;
 /// Modeler then played some renders differently.)
 pub(super) struct Worker {
     /// Written by `schedule_work`, which the plugin calls from its `run`.
-    pub(super) requests: UnsafeCell<rtrb::Producer<u8>>,
+    requests: UnsafeCell<rtrb::Producer<u8>>,
     /// Read by the device after each `run`.
     pub(super) responses: UnsafeCell<rtrb::Consumer<u8>>,
     /// Rendering: the device waits after each block for the work it asked.
     pub(super) offline: AtomicBool,
     /// Pieces of work asked for and not done yet.
     pub(super) pending: Arc<AtomicU32>,
-    pub(super) stop: Arc<AtomicBool>,
-    pub(super) thread: Option<JoinHandle<()>>,
+    stop: Arc<AtomicBool>,
+    thread: Option<JoinHandle<()>>,
 }
 
-pub(super) unsafe extern "C" fn respond(queue: *mut c_void, size: u32, data: *const c_void) -> u32 {
+unsafe extern "C" fn respond(queue: *mut c_void, size: u32, data: *const c_void) -> u32 {
     unsafe {
         let queue = &mut *(queue as *mut rtrb::Producer<u8>);
         let data = std::slice::from_raw_parts(data as *const u8, size as usize);
@@ -43,7 +43,7 @@ pub(super) unsafe extern "C" fn respond(queue: *mut c_void, size: u32, data: *co
     }
 }
 
-pub(super) struct SendPtr<T>(*mut T);
+struct SendPtr<T>(*mut T);
 unsafe impl<T> Send for SendPtr<T> {}
 
 pub(super) fn write_message(queue: &mut rtrb::Producer<u8>, data: &[u8]) -> bool {

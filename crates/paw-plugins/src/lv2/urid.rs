@@ -10,7 +10,7 @@ use crate::lv2_patch::PatchUrids;
 // --- URIDs -------------------------------------------------------------------
 
 /// Every URI any plugin or the host has asked a number for. Numbers start at 1.
-pub(super) static URIDS: Mutex<Vec<CString>> = Mutex::new(Vec::new());
+static URIDS: Mutex<Vec<CString>> = Mutex::new(Vec::new());
 
 pub(super) fn urid(uri: &CStr) -> u32 {
     let mut uris = URIDS.lock().unwrap();

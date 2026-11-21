@@ -22,13 +22,13 @@ use super::worker::*;
 pub(super) struct HostData {
     pub(super) map: UridMap,
     pub(super) unmap: UridUnmap,
-    pub(super) schedule: WorkerSchedule,
+    schedule: WorkerSchedule,
     pub(super) options: [OptionsOption; 4],
-    pub(super) features: Vec<Feature>,
+    features: Vec<Feature>,
     pub(super) feature_list: Vec<*const Feature>,
-    pub(super) max_block: i32,
-    pub(super) min_block: i32,
-    pub(super) sample_rate: f32,
+    max_block: i32,
+    min_block: i32,
+    sample_rate: f32,
     pub(super) worker: OnceLock<Worker>,
 }
 

@@ -329,7 +329,7 @@ impl DeviceFactory for Lv2Factory {
 }
 
 /// A port's name without the side it carries, for the pair it begins.
-pub(super) fn side_less(name: &str) -> String {
+fn side_less(name: &str) -> String {
     [" Left", " left", " L", " l"]
         .iter()
         .find_map(|side| name.strip_suffix(side))
@@ -339,7 +339,7 @@ pub(super) fn side_less(name: &str) -> String {
 
 /// Whether an audio input takes a side-chain: it says so, or belongs to a
 /// group that is the side-chain of another.
-pub(super) unsafe fn takes_key(plugin: *const LilvPlugin, port: *const LilvPort, w: &World) -> bool {
+unsafe fn takes_key(plugin: *const LilvPlugin, port: *const LilvPort, w: &World) -> bool {
     unsafe {
         if lilv_port_has_property(plugin, port, w.side_chain) {
             return true;

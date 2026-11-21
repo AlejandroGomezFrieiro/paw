@@ -24,7 +24,7 @@ use super::*;
 #[repr(C)]
 pub(super) struct Header {
     pub(super) magic: u32,
-    pub(super) max_block: u32,
+    max_block: u32,
     /// The number of the block asked for, and of the last one finished.
     pub(super) request: AtomicU32,
     pub(super) done: AtomicU32,
@@ -34,7 +34,7 @@ pub(super) struct Header {
     pub(super) policy: AtomicU32,
     pub(super) priority: AtomicU32,
     /// One block's context: reached only through a [`Block`].
-    pub(super) context: UnsafeCell<BlockContext>,
+    context: UnsafeCell<BlockContext>,
     // What the helper's main thread tells the DAW's.
     pub(super) latency: AtomicU32,
     pub(super) editor_open: AtomicU32,
@@ -45,7 +45,7 @@ pub(super) struct Header {
     /// Why the helper stopped the device and ended, when it knows: written
     /// before it ends, read once it has.
     pub(super) reason_len: AtomicU32,
-    pub(super) reason: UnsafeCell<[u8; REASON]>,
+    reason: UnsafeCell<[u8; REASON]>,
 }
 
 /// One block's context and counts, in the header. The audio thread whose
@@ -132,13 +132,13 @@ pub(super) struct ChangeSlot {
 
 /// The mapping, and where each part of it is.
 pub(super) struct Shm {
-    pub(super) base: NonNull<u8>,
-    pub(super) len: usize,
+    base: NonNull<u8>,
+    len: usize,
     pub(super) max_block: usize,
-    pub(super) layout: Layout,
+    layout: Layout,
     pub(super) fd: OwnedFd,
     /// The [`Turn`] has been handed out.
-    pub(super) turn_taken: AtomicBool,
+    turn_taken: AtomicBool,
 }
 
 // SAFETY: the mapping is plain memory. Its header is atomics and cells that
@@ -155,7 +155,7 @@ unsafe impl Sync for Shm {}
 /// header's `request` and `done`.
 pub(super) struct Turn {
     /// The mapping it belongs to, as an address.
-    pub(super) base: usize,
+    base: usize,
 }
 
 /// The parts of the shared memory that carry one block, borrowed from the
@@ -167,11 +167,11 @@ pub(super) struct Block<'a> {
     /// The side-chain's two channels.
     pub(super) key: [&'a mut [f32]; 2],
     /// The further output pairs, left and right one after the other.
-    pub(super) outs: &'a mut [f32],
+    outs: &'a mut [f32],
     pub(super) events: &'a mut [Event],
     pub(super) params: &'a mut [ParamMove],
     pub(super) messages: &'a mut [u8],
-    pub(super) max_block: usize,
+    max_block: usize,
 }
 
 impl Block<'_> {
@@ -183,7 +183,7 @@ impl Block<'_> {
 }
 
 impl Shm {
-    pub(super) fn layout(max_block: usize) -> Layout {
+    fn layout(max_block: usize) -> Layout {
         let align = |n: usize| n.div_ceil(64) * 64;
         let left = align(std::mem::size_of::<Header>());
         let right = align(left + max_block * 4);
@@ -278,7 +278,7 @@ impl Shm {
     /// another part borrowed at the same time, and is not touched by the
     /// other process while it is borrowed.
     #[allow(clippy::mut_from_ref)]
-    pub(super) unsafe fn part<T>(&self, offset: usize, count: usize) -> &mut [T] {
+    unsafe fn part<T>(&self, offset: usize, count: usize) -> &mut [T] {
         debug_assert!(offset + count * std::mem::size_of::<T>() <= self.len);
         // SAFETY: as the caller promises.
         unsafe { std::slice::from_raw_parts_mut(self.base.as_ptr().add(offset).cast(), count) }
@@ -316,7 +316,7 @@ impl Shm {
     }
 
     /// Where `slot` of the changes ring is.
-    pub(super) fn change_at(&self, slot: u32) -> *mut ChangeSlot {
+    fn change_at(&self, slot: u32) -> *mut ChangeSlot {
         let at = self.layout.changes + (slot as usize % CHANGES) * size_of::<ChangeSlot>();
         // SAFETY: the ring has CHANGES slots from `layout.changes`, in the
         // mapping.
@@ -341,16 +341,16 @@ impl Shm {
 }
 
 /// Where each part of the shared memory starts, and its whole length.
-pub(super) struct Layout {
-    pub(super) left: usize,
-    pub(super) right: usize,
-    pub(super) key: usize,
-    pub(super) outs: usize,
-    pub(super) events: usize,
-    pub(super) params: usize,
-    pub(super) changes: usize,
-    pub(super) messages: usize,
-    pub(super) len: usize,
+struct Layout {
+    left: usize,
+    right: usize,
+    key: usize,
+    outs: usize,
+    events: usize,
+    params: usize,
+    changes: usize,
+    messages: usize,
+    len: usize,
 }
 
 impl Drop for Shm {

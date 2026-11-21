@@ -45,7 +45,7 @@ pub(super) struct UiDescriptor {
     pub(super) extension_data: Option<unsafe extern "C" fn(*const c_char) -> *const c_void>,
 }
 
-pub(super) type WriteFn = unsafe extern "C" fn(*mut c_void, u32, u32, u32, *const c_void);
+type WriteFn = unsafe extern "C" fn(*mut c_void, u32, u32, u32, *const c_void);
 
 #[repr(C)]
 pub(super) struct UiResize {
@@ -107,8 +107,8 @@ pub(super) unsafe extern "C" fn ui_port_index(link: *mut c_void, symbol: *const 
     }
 }
 
-pub(super) const UI: &str = "http://lv2plug.in/ns/extensions/ui#";
-pub(super) const EXTERNAL_UI: &CStr = c"http://kxstudio.sf.net/ns/lv2ext/external-ui#Widget";
+const UI: &str = "http://lv2plug.in/ns/extensions/ui#";
+const EXTERNAL_UI: &CStr = c"http://kxstudio.sf.net/ns/lv2ext/external-ui#Widget";
 pub(super) const EXTERNAL_HOST: &CStr = c"http://kxstudio.sf.net/ns/lv2ext/external-ui#Host";
 pub(super) const SHOW_INTERFACE: &CStr = c"http://lv2plug.in/ns/extensions/ui#showInterface";
 pub(super) const IDLE_INTERFACE: &CStr = c"http://lv2plug.in/ns/extensions/ui#idleInterface";

@@ -39,7 +39,7 @@ pub(super) struct Lv2Controller {
 }
 
 /// Note the value a message from the plugin gives a property.
-pub(super) fn note_property(values: &mut HashMap<u32, serde_json::Value>, atom: &[u8]) {
+fn note_property(values: &mut HashMap<u32, serde_json::Value>, atom: &[u8]) {
     if let Some((property, value)) = lv2_patch::parse_set(&urids().patch, atom) {
         values.insert(property, value);
     }
@@ -48,7 +48,7 @@ pub(super) fn note_property(values: &mut HashMap<u32, serde_json::Value>, atom: 
 impl Lv2Controller {
     /// The host set the controls from a state itself: what they hold now
     /// are the state's values, for the echo.
-    pub(super) fn expect_values(&mut self) {
+    fn expect_values(&mut self) {
         let values: Vec<Option<f64>> =
             (0..self.shared.param_slots.len()).map(|i| self.value(i)).collect();
         self.echo.given(values);
@@ -56,7 +56,7 @@ impl Lv2Controller {
 
     /// Send a patch message to the plugin's control port. False when the
     /// plugin takes none, or the way to it is full.
-    pub(super) fn send_patch(&mut self, atom: &[u8]) -> bool {
+    fn send_patch(&mut self, atom: &[u8]) -> bool {
         let Some(port) = self.shared.patch_port else {
             return false;
         };
@@ -73,7 +73,7 @@ impl Lv2Controller {
 
     /// Take what the plugin sent while no editor is open: the new values of
     /// its properties.
-    pub(super) fn read_plugin(&mut self) {
+    fn read_plugin(&mut self) {
         while read_message(&mut self.from_plugin, &mut self.message) {
             if let Some((_, atom)) = self.message.split_at_checked(4) {
                 note_property(&mut self.values, atom);
@@ -81,7 +81,7 @@ impl Lv2Controller {
         }
     }
 
-    pub(super) fn properties_json(&mut self) -> Vec<u8> {
+    fn properties_json(&mut self) -> Vec<u8> {
         if self.ui.is_none() {
             self.read_plugin();
         }
@@ -95,7 +95,7 @@ impl Lv2Controller {
     }
 
     /// Set a property from `{ "property": name, "value": value }`.
-    pub(super) fn set_property(&mut self, data: &[u8]) -> Result<()> {
+    fn set_property(&mut self, data: &[u8]) -> Result<()> {
         let (urid, value, message) = self.property_message(data)?;
         if !self.send_patch(&message) {
             bail!("the plugin did not take the message: try again");
@@ -107,7 +107,7 @@ impl Lv2Controller {
     /// The `patch:Set` that sets a property from `{ "property": name,
     /// "value": value }`, with the property's URID and the value: checked,
     /// not sent.
-    pub(super) fn property_message(&self, data: &[u8]) -> Result<(u32, serde_json::Value, Vec<u8>)> {
+    fn property_message(&self, data: &[u8]) -> Result<(u32, serde_json::Value, Vec<u8>)> {
         #[derive(serde::Deserialize)]
         struct Set {
             property: String,
@@ -146,7 +146,7 @@ impl Lv2Controller {
         Ok((property.urid, set.value, message))
     }
     /// Keep the open editor up to date and let it do its work.
-    pub(super) fn run_editor(&mut self) {
+    fn run_editor(&mut self) {
         let Some(ui) = self.ui.as_mut() else { return };
         let shared = &self.shared;
         let mut close = self.link.closed.replace(false);

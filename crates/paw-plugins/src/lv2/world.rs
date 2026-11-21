@@ -26,21 +26,21 @@ pub(super) struct World {
     pub(super) time_position: *mut LilvNode,
     pub(super) free_wheeling: *mut LilvNode,
     pub(super) toggled: *mut LilvNode,
-    pub(super) instrument: *mut LilvNode,
+    instrument: *mut LilvNode,
     pub(super) x11_ui: *mut LilvNode,
     /// A port, or a group of ports, that takes a side-chain.
     pub(super) side_chain: *mut LilvNode,
     pub(super) group: *mut LilvNode,
     pub(super) side_chain_of: *mut LilvNode,
-    pub(super) integer: *mut LilvNode,
-    pub(super) enumeration: *mut LilvNode,
-    pub(super) not_automatic: *mut LilvNode,
-    pub(super) unit: *mut LilvNode,
-    pub(super) unit_symbol: *mut LilvNode,
+    integer: *mut LilvNode,
+    enumeration: *mut LilvNode,
+    not_automatic: *mut LilvNode,
+    unit: *mut LilvNode,
+    unit_symbol: *mut LilvNode,
     pub(super) label: *mut LilvNode,
-    pub(super) name: *mut LilvNode,
-    pub(super) minor_version: *mut LilvNode,
-    pub(super) micro_version: *mut LilvNode,
+    name: *mut LilvNode,
+    minor_version: *mut LilvNode,
+    micro_version: *mut LilvNode,
     // Properties set with patch messages (see `lv2_patch`).
     pub(super) patch_writable: *mut LilvNode,
     pub(super) patch_readable: *mut LilvNode,
@@ -206,7 +206,7 @@ pub(super) unsafe fn describe_port(
 }
 
 /// The symbol of one of LV2's own units, from its URI.
-pub(super) fn unit_symbol(uri: &str) -> &str {
+fn unit_symbol(uri: &str) -> &str {
     match uri.rsplit('#').next().unwrap_or_default() {
         "hz" => "Hz",
         "khz" => "kHz",
@@ -233,7 +233,7 @@ pub(super) fn unit_symbol(uri: &str) -> &str {
 }
 
 /// The first feature the plugin cannot do without that this host lacks.
-pub(super) unsafe fn missing_feature(plugin: *const LilvPlugin) -> Option<String> {
+unsafe fn missing_feature(plugin: *const LilvPlugin) -> Option<String> {
     let supported = [
         URID_MAP,
         URID_UNMAP,
@@ -261,7 +261,7 @@ pub(super) unsafe fn missing_feature(plugin: *const LilvPlugin) -> Option<String
 /// What the installed LV2 bundles look like: each bundle with the latest
 /// modification time of the bundle and the files directly in it. Adding,
 /// removing or changing a bundle changes this.
-pub(super) fn bundle_stamps() -> Vec<(PathBuf, u64)> {
+fn bundle_stamps() -> Vec<(PathBuf, u64)> {
     let dirs = search_dirs("LV2_PATH", "lv2");
     crate::find_bundles(&dirs, "lv2")
         .into_iter()
@@ -309,7 +309,7 @@ pub(crate) fn scan(registry: &mut Registry, cache: &mut crate::Cache, notes: &mu
 }
 
 /// Load every bundle with lilv and list the plugins this host can run.
-pub(super) fn scan_world(bundles: Vec<(PathBuf, u64)>) -> crate::Lv2Cache {
+fn scan_world(bundles: Vec<(PathBuf, u64)>) -> crate::Lv2Cache {
     let w = world();
     let mut found = crate::Lv2Cache {
         bundles,

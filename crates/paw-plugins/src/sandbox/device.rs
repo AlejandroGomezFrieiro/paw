@@ -52,7 +52,7 @@ pub(super) struct RemoteDevice {
 impl RemoteDevice {
     /// What is heard when the helper has no answer: nothing from an
     /// instrument, the input untouched from an effect.
-    pub(super) fn without(&self, io: &mut Io) {
+    fn without(&self, io: &mut Io) {
         if self.instrument {
             io.left.fill(0.0);
             io.right.fill(0.0);

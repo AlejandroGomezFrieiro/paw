@@ -72,7 +72,7 @@ pub(super) const TAIL_SECONDS: f64 = 5.0;
 impl Lv2Device {
     /// Put the messages state lanes handed into their atom inputs: those
     /// for the first frame, or (`later`) the others.
-    pub(super) fn push_queued(&mut self, n: usize, later: bool) {
+    fn push_queued(&mut self, n: usize, later: bool) {
         let mut at = 0;
         while let Some(head) = self.queued.get(at..at + 12) {
             let word = |i: usize| u32::from_le_bytes(head[i..i + 4].try_into().unwrap()) as usize;
@@ -277,7 +277,7 @@ pub(super) unsafe extern "C" fn get_port_value(
     }
 }
 
-pub(super) unsafe extern "C" fn set_port_value(
+unsafe extern "C" fn set_port_value(
     symbol: *const c_char,
     shared: *mut c_void,
     value: *const c_void,
