@@ -23,7 +23,7 @@ use serde_json::{Map, Value, json};
 use crate::history::{self, History};
 use crate::model::{
     Clip, ClipContent, Control, DeviceInst, Id, Lane, LaneState, MASTER_ID, MidiInput, Note, NoteAttr, Notes, Project, Segment,
-    Send, Shape, StretchMode, Target, Timebase, Track, WarpMarker, parse_input,
+    Send, Shape, StretchMode, Target, Timebase, Track, WarpMarker, InputChannels,
 };
 use crate::sync::{AudioCache, LiveDevices, Mapper, ModelEvent, SyncCtx, sync};
 

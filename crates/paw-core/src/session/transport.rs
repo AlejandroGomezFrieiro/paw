@@ -193,14 +193,14 @@ impl Session {
         let mut audio = Vec::new();
         let mut captures = Vec::new();
         for track in self.project.tracks.iter().filter(|t| t.armed) {
-            let Some((first, channels)) = track.input_channels() else {
+            let Some(input) = track.input else {
                 continue;
             };
+            let (first, channels) = (usize::from(input.first), usize::from(input.count));
             if first + channels > inputs {
                 self.warnings.push(format!(
-                    "{} records input {} but the audio device has {inputs} input channels",
-                    track.name,
-                    track.input.as_deref().unwrap_or("")
+                    "{} records input {input} but the audio device has {inputs} input channels",
+                    track.name
                 ));
             }
             let started = std::fs::create_dir_all(&dir)

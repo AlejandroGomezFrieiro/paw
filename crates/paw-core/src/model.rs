@@ -122,7 +122,7 @@ pub struct Track {
     /// Audio input channels, counting from 1: `"1"` for a mono input, `"1/2"`
     /// for a stereo pair, `None` for none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub input: Option<String>,
+    pub input: Option<InputChannels>,
     /// Hear the input even when the track is not armed.
     #[serde(default)]
     pub monitor: bool,
@@ -343,23 +343,55 @@ impl Track {
         }
     }
 
-    /// The first input channel, counting from 0, and how many channels.
-    pub fn input_channels(&self) -> Option<(usize, usize)> {
-        parse_input(self.input.as_deref()?)
+}
+
+/// An audio input: one channel (`"3"`) or a stereo pair (`"3/4"`), counting
+/// from 1 in text. A project stores these plain forms.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct InputChannels {
+    /// The first channel, counting from 0.
+    pub first: u8,
+    /// How many channels: 1 or 2.
+    pub count: u8,
+}
+
+impl std::str::FromStr for InputChannels {
+    type Err = String;
+
+    fn from_str(spec: &str) -> Result<Self, String> {
+        let bad = || format!("bad input `{spec}`: give a channel like \"1\" or a pair like \"1/2\"");
+        let number = |p: &str| p.trim().parse::<u8>().ok().filter(|n| (1..255).contains(n));
+        let mut parts = spec.trim().split('/');
+        let first = parts.next().and_then(number).ok_or_else(bad)?;
+        match (parts.next(), parts.next()) {
+            (None, _) => Ok(Self { first: first - 1, count: 1 }),
+            (Some(second), None) if number(second) == Some(first + 1) => {
+                Ok(Self { first: first - 1, count: 2 })
+            }
+            _ => Err(bad()),
+        }
     }
 }
 
-/// Read an input as `"3"` or `"3/4"` into its first channel, counting from 0,
-/// and its number of channels.
-pub fn parse_input(spec: &str) -> Option<(usize, usize)> {
-    let mut parts = spec.trim().split('/');
-    let first: usize = parts.next()?.trim().parse().ok().filter(|n| *n >= 1)?;
-    match (parts.next(), parts.next()) {
-        (None, _) => Some((first - 1, 1)),
-        (Some(second), None) if second.trim().parse::<usize>().ok()? == first + 1 => {
-            Some((first - 1, 2))
-        }
-        _ => None,
+impl std::fmt::Display for InputChannels {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let first = u16::from(self.first) + 1;
+        if self.count == 1 { write!(f, "{first}") } else { write!(f, "{first}/{}", first + 1) }
+    }
+}
+
+impl TryFrom<String> for InputChannels {
+    type Error = String;
+
+    fn try_from(spec: String) -> Result<Self, String> {
+        spec.parse()
+    }
+}
+
+impl From<InputChannels> for String {
+    fn from(input: InputChannels) -> String {
+        input.to_string()
     }
 }
 
@@ -1780,6 +1812,20 @@ fn check_lane(t: &Track, l: &Lane) -> anyhow::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn input_channels_round_trip_as_plain_strings() {
+        for (text, first, count) in [("1", 0, 1), ("3", 2, 1), ("1/2", 0, 2), (" 3 / 4 ", 2, 2)] {
+            let input: InputChannels = text.parse().unwrap();
+            assert_eq!(input, InputChannels { first, count }, "{text}");
+            let plain = input.to_string();
+            assert_eq!(serde_json::to_string(&input).unwrap(), format!("\"{plain}\""));
+            assert_eq!(serde_json::from_str::<InputChannels>(&format!("\"{plain}\"")).unwrap(), input);
+        }
+        for bad in ["", "0", "x", "1/3", "2/1", "1/2/3", "300"] {
+            assert!(bad.parse::<InputChannels>().unwrap_err().contains("bad input"), "{bad}");
+        }
+    }
 
     /// A project as files were written before tracks had a height of their
     /// own and before anything could lie hidden before a clip's start.
