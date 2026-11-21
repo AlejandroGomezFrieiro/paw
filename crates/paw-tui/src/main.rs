@@ -24,35 +24,31 @@ fn config_dir() -> PathBuf {
 }
 
 /// The terminal's stderr, kept while fd 2 points at a log file.
-static REAL_STDERR: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(-1);
+static REAL_STDERR: std::sync::Mutex<Option<std::os::fd::OwnedFd>> = std::sync::Mutex::new(None);
 
 /// Send everything written to stderr into a file instead of the terminal.
 fn quiet_stderr(log: &std::path::Path) {
-    use std::os::fd::AsRawFd;
     if let Some(dir) = log.parent() {
         let _ = std::fs::create_dir_all(dir);
     }
     let Ok(file) = std::fs::File::create(log) else {
         return;
     };
-    // SAFETY: dup and dup2 take descriptors by number; `file` is open here, and descriptor 2
-    // is replaced on purpose (the old one is saved first).
-    unsafe {
-        REAL_STDERR.store(libc::dup(2), std::sync::atomic::Ordering::Relaxed);
-        libc::dup2(file.as_raw_fd(), 2);
+    let Ok(saved) = rustix::io::dup(rustix::stdio::stderr()) else {
+        return;
+    };
+    // Descriptor 2 is replaced on purpose; the old one is saved first.
+    if rustix::stdio::dup2_stderr(&file).is_ok() {
+        *REAL_STDERR.lock().unwrap_or_else(|e| e.into_inner()) = Some(saved);
     }
 }
 
 /// Undo [`quiet_stderr`], so that a final error message reaches the terminal.
 fn restore_stderr() {
-    let saved = REAL_STDERR.swap(-1, std::sync::atomic::Ordering::Relaxed);
-    if saved >= 0 {
-        // SAFETY: `saved` is the duplicate that `quiet_stderr` made; the swap above took it
-        // out of the static, so nothing else closes it, and it is closed once, here.
-        unsafe {
-            libc::dup2(saved, 2);
-            libc::close(saved);
-        }
+    let saved = REAL_STDERR.lock().unwrap_or_else(|e| e.into_inner()).take();
+    if let Some(saved) = saved {
+        // Dropping `saved` closes the duplicate `quiet_stderr` made, once.
+        let _ = rustix::stdio::dup2_stderr(&saved);
     }
 }
 
