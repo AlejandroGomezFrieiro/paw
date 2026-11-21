@@ -148,7 +148,7 @@ What paw keeps as its own, and why:
 - **Real-time thread priority.** `audio_thread_priority` goes through RtKit
   over D-Bus on Linux (a C library for the Nix build), and it does not copy
   the sound thread's own policy and priority as paw does. paw keeps
-  `pthread_setschedparam` in `pool.rs` and `sandbox.rs`.
+  `pthread_setschedparam` in `pool.rs` and `sandbox/serve.rs`.
 - **The sampler's formats** and other formats that are paw's own.
 
 ## Where paw does it by hand today (2026-11-20)
@@ -179,7 +179,7 @@ Found with grep at a72467cf. Each refactor part that owns the file fixes it.
 - **Signals:** `paw-tui/src/terminal.rs` (SIGTERM, SIGHUP), and
   `paw-engine/src/record.rs` (SIGXFSZ).
 - **Memory maps:** `paw-engine/src/samples.rs`, `paw-engine/src/host.rs`,
-  `paw-plugins/src/sandbox.rs`, `paw-raster/src/kitty.rs` (shared memory). Use
+  `paw-plugins/src/sandbox/shm.rs`, `paw-raster/src/kitty.rs` (shared memory). Use
   `memmap2` for files and `rustix` for shared memory. Keep the layouts.
 - **Bit flags:** `paw-plugins/src/vst3.rs` (the VST3 process-context flags),
   `paw-engine/src/midi.rs` (ALSA capabilities), the engine's faults.

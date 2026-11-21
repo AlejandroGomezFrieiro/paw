@@ -1,6 +1,6 @@
 //! A plugin's own presets, where its format says how to find them: CLAP's
 //! preset discovery and preset-load extension, VST3 `.vstpreset` files in the
-//! standard directories, LV2 presets (in `lv2.rs`, through lilv).
+//! standard directories, LV2 presets (in `lv2/controller.rs`, through lilv).
 //!
 //! Each format's controller answers two calls with these: `presets` gives a
 //! JSON list of `{ id, name, category }`, and `preset.load` takes an `id`
