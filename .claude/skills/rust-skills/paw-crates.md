@@ -165,9 +165,10 @@ Found with grep at a72467cf. Each refactor part that owns the file fixes it.
   socket and the network server, `paw-core/src/rpc.rs`, run on it with
   `tokio-rustls`, and so do the readers of helper processes in
   `paw-core/src/io.rs`. The sockets of `io.rs` stay polled from a timer,
-  because `paw.api` polls them. `paw-proto`, the client, has its own
-  current-thread runtime, `paw-proto/src/runtime.rs`, on one thread,
-  `paw-client`, under a blocking `Connection`.)
+  because `paw.api` polls them. The runtime is `paw-proto/src/runtime.rs`
+  (`paw_proto::runtime::handle()`), which the client's blocking
+  `Connection` uses too: one I/O thread per process, kernel or client
+  or both.)
   `paw-core/src/session/encode.rs` (ffmpeg jobs),
   `paw-mcp/src/kernel.rs`, `paw-luadev` (its helper process),
   `paw-gui/src/client.rs` and the attach path of `paw-tui`. Use `tokio`.

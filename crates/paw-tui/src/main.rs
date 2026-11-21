@@ -179,8 +179,26 @@ fn attach(options: &Attach) -> Result<()> {
         (None, false) => None,
     };
     let mut connection = connect(&options.connect)?;
-    let (input, typed) = std::sync::mpsc::channel();
-    let (mut screen, width, height) = terminal::Terminal::start(move |event| input.send(event).is_ok())?;
+    // What was typed and what the instance sends come in on one channel,
+    // so that the loop sleeps until there is one or the other.
+    let (incoming, arrived) = std::sync::mpsc::channel();
+    let typed = incoming.clone();
+    let (mut screen, width, height) =
+        terminal::Terminal::start(move |event| typed.send(Incoming::Typed(event)).is_ok())?;
+    let events = std::mem::replace(&mut connection.events, std::sync::mpsc::channel().1);
+    // Ends when the connection does (its reader drops the sender) or when
+    // this function returns (the channel's receiver is gone).
+    std::thread::Builder::new()
+        .name("paw-attach".into())
+        .spawn(move || {
+            for (name, payload) in events {
+                if incoming.send(Incoming::Sent(name, payload)).is_err() {
+                    return;
+                }
+            }
+            let _ = incoming.send(Incoming::Ended);
+        })
+        .context("starting the thread that waits for the instance")?;
     connection.call("ui.attach", serde_json::json!([width, height, screen.caps().to_json()]))?;
     let mut player = None;
     if hear.is_some() {
@@ -188,47 +206,45 @@ fn attach(options: &Attach) -> Result<()> {
     }
     let mut grid = paw_core::grid::Grid::new(width, height);
     use paw_core::Frontend;
-    loop {
-        // What was typed goes out; what the instance shows comes in.
-        let mut idle = true;
-        while let Ok(event) = typed.try_recv() {
-            idle = false;
-            connection.notify("ui.input", serde_json::json!([paw_core::remote::input_json(&event)]))?;
-        }
-        loop {
-            match connection.events.try_recv() {
-                Ok((name, payload)) => {
-                    idle = false;
-                    match name.as_str() {
-                        "ui.grid" => {
-                            let cursor = paw_core::remote::apply(&mut grid, &payload)?;
-                            screen.present(&grid, cursor)?;
-                        }
-                        "ui.detached" => return Ok(()),
-                        // `:upload`: a file on this machine, for the instance.
-                        "file.wanted" => send_wanted(&mut connection, &payload),
-                        "audio.frame" => {
-                            if let Some(player) = &player {
-                                let _ = player.push(&payload);
-                            }
-                        }
-                        // `:listen`: start or stop hearing the instance here.
-                        "monitor.toggle" => {
-                            let wanted = player.is_none().then(|| hear.clone().unwrap_or(Hear::Device));
-                            listen(&mut connection, &mut player, wanted.as_ref());
-                        }
-                        _ => {}
+    // What was typed goes out; what the instance shows comes in.
+    for arrival in arrived {
+        match arrival {
+            Incoming::Typed(event) => {
+                connection.notify("ui.input", serde_json::json!([paw_core::remote::input_json(&event)]))?;
+            }
+            Incoming::Sent(name, payload) => match name.as_str() {
+                "ui.grid" => {
+                    let cursor = paw_core::remote::apply(&mut grid, &payload)?;
+                    screen.present(&grid, cursor)?;
+                }
+                "ui.detached" => return Ok(()),
+                // `:upload`: a file on this machine, for the instance.
+                "file.wanted" => send_wanted(&mut connection, &payload),
+                "audio.frame" => {
+                    if let Some(player) = &player {
+                        let _ = player.push(&payload);
                     }
                 }
-                Err(std::sync::mpsc::TryRecvError::Empty) => break,
-                // The instance ended, or the connection did.
-                Err(std::sync::mpsc::TryRecvError::Disconnected) => return Ok(()),
-            }
-        }
-        if idle {
-            std::thread::sleep(std::time::Duration::from_millis(4));
+                // `:listen`: start or stop hearing the instance here.
+                "monitor.toggle" => {
+                    let wanted = player.is_none().then(|| hear.clone().unwrap_or(Hear::Device));
+                    listen(&mut connection, &mut player, wanted.as_ref());
+                }
+                _ => {}
+            },
+            // The instance ended, or the connection did.
+            Incoming::Ended => return Ok(()),
         }
     }
+    Ok(())
+}
+
+/// What an attached terminal waits for: a key or the mouse here, an event
+/// from the instance, or the end of the connection.
+enum Incoming {
+    Typed(paw_core::InputEvent),
+    Sent(String, Value),
+    Ended,
 }
 
 /// Send the file a `file.wanted` event names, from this machine, and import
