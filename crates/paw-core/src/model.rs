@@ -14,8 +14,13 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 mod clips;
+mod custom;
 mod notes;
 pub use clips::Clips;
+pub use custom::{
+    ClipKindId, CustomContent, CustomError, KindData, MediaRef, MediaRole, OscAddress, OscArg,
+    PortName, RESERVED, RawJson, Signal, SignalTo, Sound, Timeline, Word,
+};
 pub use notes::Notes;
 
 pub type Id = u64;
@@ -569,6 +574,15 @@ impl Clip {
         let length = self.loop_length.filter(|l| *l > 0.0)?;
         self.looped.then_some((self.loop_start, length))
     }
+
+    /// What the clip plays: its own MIDI or audio, or a custom clip's
+    /// sound.
+    pub fn playable(&self) -> Option<&ClipContent> {
+        match &self.content {
+            ClipContent::Custom(custom) => custom.sound.as_ref().map(Sound::content),
+            built_in => Some(built_in),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -591,13 +605,18 @@ pub enum ClipContent {
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         edits: Vec<crate::edits::AudioEdit>,
     },
+    /// A clip of a kind that an extension defines. Boxed: the enum stays
+    /// as small as it was, and MIDI clips, most clips, pay nothing.
+    Custom(Box<CustomContent>),
 }
 
 impl ClipContent {
-    pub fn kind(&self) -> &'static str {
+    /// `midi`, `audio`, or the name of a custom clip's kind.
+    pub fn kind(&self) -> &str {
         match self {
             ClipContent::Midi { .. } => "midi",
             ClipContent::Audio { .. } => "audio",
+            ClipContent::Custom(custom) => custom.kind.as_str(),
         }
     }
 }
@@ -874,7 +893,8 @@ impl Clip {
                     };
                     notes.weight_over(was) + controls.capacity() * size_of::<Control>()
                 }
-                ClipContent::Audio { .. } => 0,
+                // Its data, media and signals are shared behind `Arc`s.
+                ClipContent::Audio { .. } | ClipContent::Custom(_) => 0,
             }
     }
 }
@@ -1726,6 +1746,11 @@ fn check_clip(c: &Clip) -> anyhow::Result<()> {
                 .all(|w| w[1].source > w[0].source && w[1].target > w[0].target);
             if !finite || !ordered {
                 bail!("the warp markers of clip {} are out of order", c.id);
+            }
+        }
+        ClipContent::Custom(custom) => {
+            if !custom.offset.is_finite() {
+                bail!("{} clip {} has offset {}", custom.kind, c.id, custom.offset);
             }
         }
     }

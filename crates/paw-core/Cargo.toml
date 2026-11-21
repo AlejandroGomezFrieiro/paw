@@ -13,7 +13,9 @@ paw-raster.workspace = true
 paw-scene.workspace = true
 anyhow.workspace = true
 serde.workspace = true
-serde_json.workspace = true
+# raw_value: a custom clip's data is kept as the JSON text it was given.
+serde_json = { workspace = true, features = ["raw_value"] }
+thiserror.workspace = true
 mlua = { version = "0.12", features = ["luajit", "vendored", "serde"] }
 include_dir = "0.7"
 unicode-width = "0.2"
