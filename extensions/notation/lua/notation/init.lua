@@ -1871,8 +1871,11 @@ function view:open_target(target)
   open(self, clip)
 end
 
---- What a saved layout keeps of the window: the number of its clip.
-function view:window_target() return self.clip_id end
+--- What a saved layout keeps of the window: the number of its clip, if
+--- the clip is there (not undone or deleted).
+function view:window_target()
+  if self.clip_id and pcall(api.clip_get, self.clip_id) then return self.clip_id end
+end
 
 --- The clip to open: the piano roll's when it has the keyboard, else the
 --- one under the arrange cursor.
