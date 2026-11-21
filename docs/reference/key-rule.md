@@ -33,7 +33,7 @@ For the reasons of the rule, see [About the key rule](../explanation/about-the-k
 | `A` | Automate the main value: a point at the cursor on the volume of the track, the parameter, the lane. |
 | `c` | Change what is under the cursor: an operator over clips and notes. On a lane point or a parameter, type its value. On a device, choose a preset. |
 | `~` | Switch a property of what is under the cursor: the mute of a clip, the shape of a part of a curve, the vibrato of a note. |
-| `]x` `[x` | The next and the previous item of a list: `]d` diagnostics, `]t` takes, `]p` presets (phonemes in the vocal editor), `]c` curves (vocal editor), `]'` markers. `]g` `[g` change the grid. |
+| `]x` `[x` | The next and the previous item of a list: `]d` diagnostics, `]t` takes, `]p` presets (phonemes in the vocal editor), `]c` chords (piano roll) and clips of the same kind (arrange view), `]e` curves (vocal editor), `]'` markers. `]g` `[g` change the grid. |
 | `Ctrl-d` `Ctrl-u` | A big step along `j` `k`: four tracks, an octave (piano roll, score, vocal editor), ten steps of a curve. |
 
 ## The main and the second value
@@ -120,5 +120,5 @@ them again. The changes:
 | Session | `s` `S` stop, `b` `B` back, `e` notes | `S` `gS`, `B` `gB`, `i`. `s` solos |
 | Virtual inputs | `h` `l`, `H` `L` the setting | `+` `-`, with a count |
 | Score | `+` `-` length, `Alt-h` `Alt-l` move the chord, `J` `K` octave, `ge` respell | `Alt-l` `Alt-h`, `H` `L`, `Ctrl-d` `Ctrl-u`, `g~`. `+` `-` sharpen and flatten |
-| Vocal editor | `+` `-` length, `J` `K` octave, `Ctrl-a` select all, `Ctrl-x` cut, `gc` `gC` curves, `gA` phrase | `Alt-l` `Alt-h`, `Ctrl-d` `Ctrl-u`, `gA`, `d`, `]c` `[c`, `vap`. `+` `-` `Ctrl-a` `Ctrl-x` the pitch |
+| Vocal editor | `+` `-` length, `J` `K` octave, `Ctrl-a` select all, `Ctrl-x` cut, `gc` `gC` curves, `gA` phrase | `Alt-l` `Alt-h`, `Ctrl-d` `Ctrl-u`, `gA`, `d`, `]e` `[e`, `vap`. `+` `-` `Ctrl-a` `Ctrl-x` the pitch |
 | Lyric sheet | `K` kana, `Esc` closes | `~`, `q` |

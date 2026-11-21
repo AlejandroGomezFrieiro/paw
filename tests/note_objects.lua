@@ -61,6 +61,11 @@ test("the piano roll's text objects take notes, chords, phrases, voices and pitc
   roll:set(60, 0)
   keys(")")
   eq(roll.pitch .. "@" .. roll.beat, "60@5", ") goes to the next phrase")
+  roll:set(74, 1)
+  keys("]c")
+  eq(roll.pitch .. "@" .. roll.beat, "50@2", "]c goes to the next chord")
+  keys("[c")
+  eq(roll.pitch .. "@" .. roll.beat, "48@0", "[c to the one before")
 
   roll:set(52, 0)
   keys("yiv")

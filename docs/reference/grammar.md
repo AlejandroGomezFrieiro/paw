@@ -28,6 +28,7 @@ A motion moves the cursor. A count repeats it: `3W` moves three bars.
 | `0` `^` `$` | the start of the project, the first clip of the track, the end of its last clip | the start of the clip, the first note, the end of the clip |
 | `gg` `G`, `5G` | the first and the last track, track 5 | the highest and the lowest note |
 | `)` `(` | | the next phrase, the start of this phrase or the one before |
+| `]c` `[c` | | the next chord, the chord before: where two or more notes start together |
 | `9\|`, `:9` | bar 9 | |
 | `/name`, `n` `N`, `*` | finds a clip or track by name, the next match, the previous match, the next clip with the name of this clip | finds a note by its pitch name (`/c4`) |
 | `gP` | the playhead | |

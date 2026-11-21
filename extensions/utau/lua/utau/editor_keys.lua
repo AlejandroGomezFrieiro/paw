@@ -98,11 +98,11 @@ emap("<leader><Space>", function() editor:play_from_cursor() end, "Play from the
 
 -- Curves -----------------------------------------------------------------------------
 
--- `]c` `[c` go through the curves, as `]t` `[t` go through takes: `gc` mutes
+-- `]e` `[e` go through the curves (the expressions), as `]t` `[t` go through takes: `gc` mutes
 -- and `gC` opens a curve in every other view.
 local function next_curve(dir) return function(ctx) for _ = 1, ctx.count or 1 do editor:next_curve(dir) end end end
-emap("]c", next_curve(1), "Show the next curve under the notes")
-emap("[c", next_curve(-1), "Show the previous curve under the notes")
+emap("]e", next_curve(1), "Show the next curve under the notes")
+emap("[e", next_curve(-1), "Show the previous curve under the notes")
 keymap.classic("gc", next_curve(1), { view = "utau", desc = "Show the next curve under the notes" })
 keymap.classic("gC", next_curve(-1), { view = "utau", desc = "Show the previous curve under the notes" })
 

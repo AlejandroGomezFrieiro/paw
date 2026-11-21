@@ -504,6 +504,44 @@ local function to_phrase(dir, count)
   end
   roll:set(pitch, beat)
 end
+-- The chords: `]c` the start of the next place where two or more notes
+-- start together, `[c` of the one before (`ic` is the chord).
+local function to_chord(dir, count)
+  local notes = here()
+  if not notes then return end
+  local starts = {}
+  -- The lowest note of each chord: the first of the notes of one start.
+  for i, n in ipairs(notes) do
+    local before, after = notes[i - 1], notes[i + 1]
+    local first = not before or math.abs(before.start - n.start) > 1e-9
+    if first and after and math.abs(after.start - n.start) < 1e-9 then starts[#starts + 1] = n end
+  end
+  local at = roll.beat
+  local found
+  for _ = 1, count or 1 do
+    local step
+    if dir > 0 then
+      for _, n in ipairs(starts) do
+        if n.start > at + 1e-9 then
+          step = n
+          break
+        end
+      end
+    else
+      for i = #starts, 1, -1 do
+        if starts[i].start < at - 1e-9 then
+          step = starts[i]
+          break
+        end
+      end
+    end
+    if not step then break end
+    found, at = step, step.start
+  end
+  if found then roll:set(found.pitch, found.start) end
+end
+pmap("]c", function(ctx) to_chord(1, ctx.count) end, "Next chord", far)
+pmap("[c", function(ctx) to_chord(-1, ctx.count) end, "Previous chord", far)
 pmap(")", function(ctx) to_phrase(1, ctx.count) end, "Next phrase", far)
 pmap("(", function(ctx) to_phrase(-1, ctx.count) end, "Start of this phrase, or the one before", far)
 pmap("gp", function()

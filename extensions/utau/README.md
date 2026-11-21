@@ -17,7 +17,7 @@ paw.render("vocal.wav")   -- waits until every phrase is sung at final quality
 
 ![A vocal track added to the demo song with :track.add vocal, its singer chosen with \Vs and its phonemizer with :utau.phonemizer, the melody pasted in, lyrics typed in romaji with :utau.lyrics and made kana with :utau.batch. The phrases turn green as the engine sings them](images/tui-utau.gif)
 
-![The vocal editor on the sung melody: the phonemes under the notes, ~ puts a vibrato on the long note, \]c and } raise its dynamics, r sings it again, and Space pressed twice plays it](images/tui-utau-editor.gif)
+![The vocal editor on the sung melody: the phonemes under the notes, ~ puts a vibrato on the long note, \]e and } raise its dynamics, r sings it again, and Space pressed twice plays it](images/tui-utau-editor.gif)
 
 ## Try it
 
@@ -85,7 +85,7 @@ When the file of the device changes, paw loads it again
 ### How to shape the voice
 
 - To switch vibrato on a note, press `~`.
-- To choose the curve under the notes, press `]c` or `[c`. To raise or
+- To choose the curve under the notes, press `]e` or `[e`. To raise or
   lower it at the cursor, press `}` or `{`.
 - To apply a tuning preset, type `:utau.preset` and choose one.
 
@@ -151,7 +151,7 @@ These keys work from every view. They are in the domain `<Space>u` (utau).
 | `+` `-` (`C-a` `C-x` with a count), `A-l` `A-h`, `H` `L` | up, down a semitone. Longer, shorter. Move. The selected notes, else the note under the cursor |
 | `gA`, `ip` `ap` | select every note. The phrase as a text object (`yip`, `vap`) |
 | `<C-c>`, `d` `x` | copy the selected notes (or the note), cut them. `p` `P` paste, with their pitches |
-| `]c` `[c`, `:utau.curve <abbr>` | the curve under the notes: next, previous, by name |
+| `]e` `[e`, `:utau.curve <abbr>` | the curve under the notes: next, previous, by name |
 | `}` `{` | raise or lower that curve at the cursor (the pitch by 10 cents, the others by their own step. A count multiplies) |
 | `=` | an operator: reset that curve to its default over what it covers. `=in` under the note, `==` in the full clip, `=` on a selection |
 | `[p` `]p` | choose the previous or next phoneme (in the phoneme row and the bottom line) |

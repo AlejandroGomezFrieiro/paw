@@ -307,7 +307,7 @@ the local leader `\`.
 | in a picker | Tab marks a line, Ctrl-q sends the marked (or all) to the quickfix list; Ctrl-v, Ctrl-x, Ctrl-t open it beside, below, in a tab; Ctrl-r steps fuzzy, exact, regex; Alt-d deletes; Ctrl-Up what was typed before |
 | `:vimgrep /pizz/` | every text in the project that matches, in the quickfix list |
 | `:select clip[name~=pizz] > note[pitch>=C5]` | choose what a query finds; `:query` lists it |
-| `]c` `[c` | next, previous clip of the same kind on the track (R: `]n` `[n`, note of the same pitch) |
+| `]c` `[c` | next, previous clip of the same kind on the track (R: next, previous chord; `]n` `[n`, note of the same pitch) |
 | `]s` `[s` | next, previous track in the group (in a score, instrument in the group) |
 | `]]` `[[` | with the sections extension, the next and previous section in A (in a score, the next and previous instrument) |
 | `[{` `]}` | up to the group the track is in; its last track (in a score, the group's first and last instrument); `[u` is `[{` too |
