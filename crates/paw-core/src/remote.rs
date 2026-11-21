@@ -59,16 +59,26 @@ fn color_of(value: &Value) -> Color {
     }
 }
 
+/// A run being gathered by [`runs`].
+struct Run {
+    /// Where it starts.
+    x: usize,
+    y: usize,
+    /// The style of its cells (the first one's).
+    cell: Cell,
+    text: String,
+    /// The column after its last cell.
+    next: usize,
+}
+
 /// The cells of `grid` that differ from `shown` (all of them without it),
 /// as runs of one style.
 pub fn runs(grid: &Grid, shown: Option<&Grid>) -> Vec<Value> {
     let width = grid.width as usize;
     let mut out = Vec::new();
-    // The run being gathered: where it starts, its style, its text, and the
-    // column after its last cell.
-    let mut run: Option<(usize, usize, Cell, String, usize)> = None;
-    let mut close = |run: &mut Option<(usize, usize, Cell, String, usize)>| {
-        if let Some((x, y, cell, text, _)) = run.take() {
+    let mut run: Option<Run> = None;
+    let mut close = |run: &mut Option<Run>| {
+        if let Some(Run { x, y, cell, text, .. }) = run.take() {
             out.push(json!([
                 x,
                 y,
@@ -84,7 +94,7 @@ pub fn runs(grid: &Grid, shown: Option<&Grid>) -> Vec<Value> {
         // The second half of a wide character goes with its first.
         if cell.ch == '\0' {
             if let Some(run) = &mut run {
-                run.4 = x + 1;
+                run.next = x + 1;
             }
             continue;
         }
@@ -93,10 +103,10 @@ pub fn runs(grid: &Grid, shown: Option<&Grid>) -> Vec<Value> {
             shown.cells[index] == *cell
                 && (!wide || shown.cells.get(index + 1).is_some_and(|c| c.ch == '\0'))
         });
-        let joins = run.as_ref().is_some_and(|(_, row, style, _, next)| {
-            *row == y
-                && *next == x
-                && (style.fg, style.bg, style.attrs) == (cell.fg, cell.bg, cell.attrs)
+        let joins = run.as_ref().is_some_and(|run| {
+            run.y == y
+                && run.next == x
+                && (run.cell.fg, run.cell.bg, run.cell.attrs) == (cell.fg, cell.bg, cell.attrs)
         });
         if unchanged {
             close(&mut run);
@@ -104,11 +114,11 @@ pub fn runs(grid: &Grid, shown: Option<&Grid>) -> Vec<Value> {
         }
         if !joins {
             close(&mut run);
-            run = Some((x, y, *cell, String::new(), x));
+            run = Some(Run { x, y, cell: *cell, text: String::new(), next: x });
         }
         if let Some(run) = &mut run {
-            run.3.push(cell.ch);
-            run.4 = x + 1;
+            run.text.push(cell.ch);
+            run.next = x + 1;
         }
     }
     close(&mut run);

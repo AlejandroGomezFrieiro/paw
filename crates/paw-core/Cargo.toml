@@ -52,3 +52,6 @@ rcgen = { version = "0.14", default-features = false, features = ["crypto", "rin
 # Compiles the Lua runtime to bytecode (build.rs), with the LuaJIT the
 # program runs it on.
 mlua = { version = "0.12", features = ["luajit", "vendored"] }
+
+[dev-dependencies]
+tempfile = "3"

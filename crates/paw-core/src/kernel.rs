@@ -13,7 +13,7 @@ use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender, channel};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context, Result, anyhow, bail};
 use paw_engine::backend::BackendOptions;
 use paw_engine::Registry;
 use include_dir::{Dir, include_dir};
@@ -299,7 +299,7 @@ impl Kernel {
 
     /// The calls that are the kernel's own business rather than Lua's: a
     /// connection becoming a terminal, typing into it, and leaving.
-    fn remote_ui(&mut self, client: ClientId, method: &str, params: &Value) -> Result<Value, String> {
+    fn remote_ui(&mut self, client: ClientId, method: &str, params: &Value) -> Result<Value> {
         match method {
             "ui.attach" => {
                 let size = |v: &Value, default| v.as_u64().map_or(default, |n| n.clamp(1, 1000) as u16);
@@ -319,9 +319,9 @@ impl Kernel {
             }
             "ui.input" => {
                 if !self.frontends.iter().any(|(id, _)| *id == client) {
-                    return Err("`ui.attach` first".into());
+                    bail!("`ui.attach` first");
                 }
-                let event = remote::input_of(&params[0]).ok_or("not an input event")?;
+                let event = remote::input_of(&params[0]).context("not an input event")?;
                 // Lua may ask which terminal a key came from (`:detach`).
                 self.shared.input_from.set(client);
                 self.input(client, event);
@@ -332,7 +332,7 @@ impl Kernel {
                 self.detach(client);
                 Ok(Value::Bool(true))
             }
-            _ => Err(format!("no method `{method}`")),
+            _ => bail!("no method `{method}`"),
         }
     }
 
@@ -478,11 +478,12 @@ impl Kernel {
                         let value: LuaValue = self.call("rpc", (method, params, client))?;
                         self.lua.from_value::<Value>(value)
                     })()
-                    .map_err(|err| told(&err));
+                    .map_err(|err| anyhow!(told(&err)));
                     self.shared.input_from.set(0);
                     result
                 };
-                let _ = reply.send(result);
+                // The one place an error becomes the text a client sees.
+                let _ = reply.send(result.map_err(|err| format!("{err:#}")));
             }
             KernelMsg::Gone(client) => {
                 self.detach(client);
