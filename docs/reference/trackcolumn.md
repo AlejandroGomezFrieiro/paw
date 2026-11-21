@@ -87,6 +87,21 @@ To change the order, give a new `order`. To replace a part, add a part
 with its name. To remove one, use `paw.trackcolumn.remove`, or take its
 name out of `paw.opt.trackcolumn`.
 
+`set` does not change the table of the part. It puts a changed copy in
+`paw.trackcolumn.components` and returns it. To put a part back as it
+was, keep its table before you change it and add it again:
+
+```lua
+local fold = paw.trackcolumn.components.fold
+paw.trackcolumn.set("fold", { glyphs = { open = "-" } })
+paw.trackcolumn.add("fold", fold)   -- the folds of paw again
+```
+
+paw records each part, sign and change that an extension makes. When
+the extension unloads, paw removes its parts and signs, and puts back
+each part that it changed. The field `ext` of a part names the
+extension that added it or changed it last.
+
 | Part | Glyphs | Styles |
 | --- | --- | --- |
 | `number` | | `number`, `relative`, `cursor` |
@@ -132,7 +147,8 @@ or `B` go to it. A part shows after the parts of a lower order.
 it. `paw.ruler.remove("odd")` removes the part.
 
 `paw.ruler.set(name, patch)` changes a part that exists: its `order`,
-its `render`, its `glyphs` and its `styles`. The part `number` has the
+its `render`, its `glyphs` and its `styles`. As `paw.trackcolumn.set`,
+it puts a changed copy in `paw.ruler.labels`. The part `number` has the
 styles `cursor` and `relative`:
 
 ```lua
@@ -149,7 +165,16 @@ the playhead, and `K` describes the track and the clip at the cursor.
 | `relative` | How many `W` or `B` go to the bar. Nil when `relativebar` is off. |
 | `cursor` | True on the bar of the cursor. |
 | `style` | The style of the bar number there: in the loop, in the punch range. |
+| `room` | The columns that the parts before this part left, up to the next label. A part that needs more columns shows less, or nothing. |
 | `g` | The glyphs. |
+
+## Examples
+
+[How to personalize the track column and the
+ruler](../how-to/personalize-the-track-column-and-the-ruler.md) gives
+the steps. Two bundled extensions use all of this API:
+[columnplus](../../extensions/columnplus/README.md) for the track column
+and [rulerplus](../../extensions/rulerplus/README.md) for the bar labels.
 
 ## Highlight groups
 

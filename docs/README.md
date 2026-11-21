@@ -40,6 +40,7 @@ below link the main ones.
 - [How to use your own plugins](how-to/use-your-own-plugins.md): CLAP, VST3, LV2, where paw looks, Windows plugins through yabridge
 - [How to configure paw](how-to/configure-paw.md): `init.lua`, options, colors, commands, keys, events
 - [How to change the status line](how-to/change-the-status-line.md): sections and components in `init.lua`
+- [How to personalize the track column and the ruler](how-to/personalize-the-track-column-and-the-ruler.md): glyphs, styles, signs and parts of your own, and two extensions to copy
 - [How to load an extension](how-to/load-an-extension.md): a bundled extension, your own, or one from Nix
 - [How to check all the hardware](../extensions/doctor/README.md#how-to-check-all-the-hardware): the doctor's guided check and its report
 

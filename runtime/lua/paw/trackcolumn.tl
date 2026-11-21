@@ -133,31 +133,42 @@ function M.sign(name: string, spec: Sign)
   api.ui_redraw()
 end
 
---- Copy the fields of `patch` that are given into `into`: `glyphs` and
---- `styles` are merged into what it has.
-local function patch_into(into: Patch, patch: Patch)
+--- A copy of `from` with the fields of `patch` that are given: `glyphs`
+--- and `styles` are merged into its own. A copy, not a change in place,
+--- so that the registry holds a new value and an extension that unloads
+--- puts back the one it found (paw/ext.lua). `ext` names the extension
+--- whose code made the change, nil for the user's.
+local function patched(from: Patch, patch: Patch): Patch
+  local out: {string:Field} = {}
+  for k, v in pairs(from as {string:Field}) do out[k] = v end
   for k, v in pairs(patch as {string:Field}) do
     if k == "glyphs" or k == "styles" then
-      local own = (into as {string:{string:string}})[k] or {}
+      local own: {string:string} = {}
+      for name, value in pairs((from as {string:{string:string}})[k] or {}) do own[name] = value end
       for name, value in pairs(v as {string:string}) do own[name] = value end
-      (into as {string:{string:string}})[k] = own
+      out[k] = own as Field
     else
-      (into as {string:Field})[k] = v
+      out[k] = v
     end
   end
+  out.ext = paw.ext.caller() as Field
+  return out as Patch
 end
 
 --- Change a component that is there, the built-in ones too: its `order`
 --- (to put it elsewhere), `width`, `render`, `click`, `describe`, and the
---- `glyphs` and `styles` it draws with (merged into its own).
+--- `glyphs` and `styles` it draws with (merged into its own). The
+--- component becomes a changed copy: `paw.trackcolumn.add(name, old)`
+--- with the table it had before puts that back.
 ---   paw.trackcolumn.set("fold", { order = 5, glyphs = { open = "-", closed = "+" } })
 ---   paw.trackcolumn.set("number", { width = 4, styles = { cursor = "Title" } })
 function M.set(name: string, patch: Patch): Component
   local c = M.components[name]
   if not c then error("no track column component `" .. tostring(name) .. "`", 2) end
-  patch_into(c as Patch, patch)
+  local copy = patched(c as Patch, patch) as Component
+  M.components[name] = copy
   api.ui_redraw()
-  return c
+  return copy
 end
 
 --- Change a sign that is there, as `set` changes a component: its
@@ -166,9 +177,10 @@ end
 function M.set_sign(name: string, patch: Patch): Sign
   local s = M.signs[name]
   if not s then error("no track column sign `" .. tostring(name) .. "`", 2) end
-  patch_into(s as Patch, patch)
+  local copy = patched(s as Patch, patch) as Sign
+  M.signs[name] = copy
   api.ui_redraw()
-  return s
+  return copy
 end
 
 --- A glyph of a component, by name: its own (`set`), else paw's (`paw.draw.g`).

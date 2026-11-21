@@ -90,23 +90,25 @@ end
 
 --- Change a part that is there, the built-in `number` too: its `order`,
 --- `render`, and the `glyphs` and `styles` it draws with (merged into its
---- own).
+--- own). The part becomes a changed copy, as with `paw.trackcolumn.set`:
+--- `paw.ruler.add(name, old)` puts back the table it had before.
 ---   paw.ruler.set("number", { styles = { cursor = "Title" } })
 function M.set(name: string, patch: contracts.RulerPatch): Label
   local l = M.labels[name]
   if not l then error("no bar label part `" .. tostring(name) .. "`", 2) end
-  if patch.order then l.order = patch.order end
-  if patch.render then l.render = patch.render end
+  local copy: Label = {
+    name = l.name, order = patch.order or l.order, render = patch.render or l.render,
+    hidden = l.hidden, ext = paw.ext.caller(),
+  }
   for _, field in ipairs({ "glyphs", "styles" }) do
-    local given = (patch as {string:{string:string}})[field]
-    if given then
-      local own = (l as {string:{string:string}})[field] or {}
-      for k, v in pairs(given) do own[k] = v end
-      ;(l as {string:{string:string}})[field] = own
-    end
+    local own: {string:string} = {}
+    for k, v in pairs((l as {string:{string:string}})[field] or {}) do own[k] = v end
+    for k, v in pairs((patch as {string:{string:string}})[field] or {}) do own[k] = v end
+    ;(copy as {string:{string:string}})[field] = own
   end
+  M.labels[name] = copy
   api.ui_redraw()
-  return l
+  return copy
 end
 
 -- Styles, by name: `cursor` (the cursor's bar, with `relativebar`) and
@@ -125,7 +127,9 @@ M.add("number", {
 
 --- The pieces of bar `bar`'s label, from the parts in `paw.opt.barlabel`
 --- in their order. `style` is the style of the bar's number there.
-function M.label(bar: integer, beat: number, style: string, cursor_beat: number): {Piece}
+--- `room` is how many columns the label has before the next bar's: each
+--- part gets what the parts before it left (`ctx.room`).
+function M.label(bar: integer, beat: number, style: string, cursor_beat: number, room?: integer): {Piece}
   local list: {Label} = {}
   for _, name in ipairs(opt.barlabel as {string}) do
     local l = M.labels[name]
@@ -140,16 +144,21 @@ function M.label(bar: integer, beat: number, style: string, cursor_beat: number)
     cursor = paw.time.bar_of(cursor_beat) == bar,
     relative = opt.relativebar and M.relative(bar, cursor_beat) or nil,
   }
+  local left: integer = room or 1000
   local out: {Piece} = {}
+  local function put(text: string, group: string)
+    out[#out + 1] = { text, group }
+    left = left - api.str_width(text)
+  end
   for _, l in ipairs(list) do
-    ctx.glyphs, ctx.styles = l.glyphs or {}, l.styles or {}
+    ctx.glyphs, ctx.styles, ctx.room = l.glyphs or {}, l.styles or {}, math.max(0, left)
     local ok, cells = pcall(l.render, bar, ctx)
     if not ok then
-      out[#out + 1] = { "!", "Error" }
+      put("!", "Error")
     elseif cells is string then
-      out[#out + 1] = { cells, style }
+      put(cells, style)
     elseif cells is {Piece} then
-      for _, piece in ipairs(cells) do out[#out + 1] = { piece[1], piece[2] or style } end
+      for _, piece in ipairs(cells) do put(piece[1], piece[2] or style) end
     end
   end
   return out

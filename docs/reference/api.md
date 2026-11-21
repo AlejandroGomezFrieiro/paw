@@ -1712,10 +1712,10 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.ruler
 
 - `paw.ruler.add(name, spec)`: Add a part of the bar labels, or put a new one in place of one of that name. It goes into `paw.opt.barlabel` (unless `hidden`).
-- `paw.ruler.label(bar, beat, style, cursor_beat)`: The pieces of bar `bar`'s label, from the parts in `paw.opt.barlabel` in their order. `style` is the style of the bar's number there.
+- `paw.ruler.label(bar, beat, style, cursor_beat, room)`: The pieces of bar `bar`'s label, from the parts in `paw.opt.barlabel` in their order. `style` is the style of the bar's number there. `room` is how many columns the label has before the next bar's: each part gets what the parts before it left (`ctx.room`).
 - `paw.ruler.relative(bar, beat)`: How many `W` (ahead) or `B` (behind) reach bar `bar` from the cursor at `beat`: from inside a bar, the first `B` goes to its own start (paw/defaults/cursor.lua). Nil for the cursor's own bar.
 - `paw.ruler.remove(name)`: Take a part away, and its name out of `paw.opt.barlabel`.
-- `paw.ruler.set(name, patch)`: Change a part that is there, the built-in `number` too: its `order`, `render`, and the `glyphs` and `styles` it draws with (merged into its own).
+- `paw.ruler.set(name, patch)`: Change a part that is there, the built-in `number` too: its `order`, `render`, and the `glyphs` and `styles` it draws with (merged into its own). The part becomes a changed copy, as with `paw.trackcolumn.set`: `paw.ruler.add(name, old)` puts back the table it had before.
 
   ```lua
   paw.ruler.set("number", { styles = { cursor = "Title" } })
@@ -1957,7 +1957,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.trackcolumn.draw(buf, L, y, track, ctx)`: Draw one line of the column for `track` at line `y` of `buf` (the column's own part of the view), with what `ctx` says of the line.
 - `paw.trackcolumn.layout(frame, room)`: The column for one draw over the tracks of `frame`, at most `room` columns wide: the components named in `paw.opt.trackcolumn`, in their order, each as wide as it says. A component that fails takes no room.
 - `paw.trackcolumn.remove(name)`: Take a component away, and its name out of `paw.opt.trackcolumn`.
-- `paw.trackcolumn.set(name, patch)`: Change a component that is there, the built-in ones too: its `order` (to put it elsewhere), `width`, `render`, `click`, `describe`, and the `glyphs` and `styles` it draws with (merged into its own).
+- `paw.trackcolumn.set(name, patch)`: Change a component that is there, the built-in ones too: its `order` (to put it elsewhere), `width`, `render`, `click`, `describe`, and the `glyphs` and `styles` it draws with (merged into its own). The component becomes a changed copy: `paw.trackcolumn.add(name, old)` with the table it had before puts that back.
 
   ```lua
   paw.trackcolumn.set("fold", { order = 5, glyphs = { open = "-", closed = "+" } })

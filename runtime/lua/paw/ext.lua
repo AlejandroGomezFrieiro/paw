@@ -243,6 +243,20 @@ M.registries = {
       paw.statusline.components[key] = value
       api.ui_redraw()
     end),
+  -- The parts of the track column, its signs and the parts of the bar
+  -- labels: `set` puts a changed copy in, so unloading puts back the part
+  -- that was there (a built-in one too), and takes away a new one with its
+  -- name in `paw.opt.trackcolumn` or `paw.opt.barlabel`.
+  keyed("trackcolumn", "parts of the track column", function() return paw.trackcolumn and paw.trackcolumn.components end,
+    function(key, value)
+      if value then paw.trackcolumn.add(key, value) else paw.trackcolumn.remove(key) end
+    end),
+  keyed("trackcolumn_signs", "signs of the track column", function() return paw.trackcolumn and paw.trackcolumn.signs end,
+    function(key, value) paw.trackcolumn.sign(key, value) end),
+  keyed("barlabel", "parts of the bar labels", function() return paw.ruler and paw.ruler.labels end,
+    function(key, value)
+      if value then paw.ruler.add(key, value) else paw.ruler.remove(key) end
+    end),
   keyed("grep", "grep sources", function() return paw.grep and paw.grep.sources end, function(key, value)
     local g = paw.grep
     if value and not g.sources[key] then g.order[#g.order + 1] = key end
@@ -591,8 +605,15 @@ function M.unload(name, opts)
     left = what .. " left there until removed"
   end
   paw.emit("ext.unloading", { name = name })
+  -- Its hooks and timers go first, so that none of its code runs on what
+  -- the rest of the unload changes (an option that goes emits
+  -- `option.changed`); then the others, the last registered first.
+  local order = {}
   for i = #M.registries, 1, -1 do
-    local reg = M.registries[i]
+    local kind = M.registries[i].kind
+    if kind == "hooks" or kind == "timers" then table.insert(order, 1, M.registries[i]) else order[#order + 1] = M.registries[i] end
+  end
+  for _, reg in ipairs(order) do
     local list = entry.owned and entry.owned[reg.kind] or {}
     local now = reg.snapshot()
     for j = #list, 1, -1 do

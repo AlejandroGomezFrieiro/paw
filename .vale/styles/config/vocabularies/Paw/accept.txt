@@ -46,6 +46,8 @@ mixdiag
 plugstate
 musicops
 undotree
+columnplus
+rulerplus
 midilsp
 projdiff
 luafx
