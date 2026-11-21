@@ -38,6 +38,9 @@ rubato = "5"
 # FFTs for the phase vocoder that stretches clips (stretch.rs).
 realfft = "3.5"
 rustls.workspace = true
+# The hash of bake keys and sources (bake/key.rs), until blake3 is in the
+# workspace: linked already for TLS.
+ring = "0.17"
 # I/O that waits (io_runtime.rs): the control socket and the network
 # server (rpc.rs) and the output of helper processes (io.rs), on one thread.
 tokio = { workspace = true, features = ["rt", "net", "io-util", "time", "sync", "macros", "process"] }
