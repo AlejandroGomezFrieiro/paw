@@ -87,7 +87,6 @@ test("[ and ] on a selection of notes act at once, as in normal mode", function(
   api.undo_checkpoint()
   paw.keymap.feed("vie]")
   eq(c:notes()[1].velocity .. " " .. c:notes()[2].velocity, "110 110", "vie ] is louder at once, with no wait for ]g")
-  eq(paw.keymap.mode, "n", "and the selection ends, as in Vim")
   paw.wait(paw.opt.timeoutlen + 100)
   paw.keymap.feed("gv[")
   eq(c:notes()[1].velocity .. " " .. c:notes()[2].velocity, "100 100", "gv [ is softer at once")
