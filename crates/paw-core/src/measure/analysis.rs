@@ -456,104 +456,123 @@ impl Analyzer {
     pub fn push(&mut self, left: &[f32], right: &[f32]) {
         let n = left.len().min(right.len());
         let (left, right) = (&left[..n], &right[..n]);
-        let hop_frames = self.hop_frames;
-        let per_second = self.rate.round() as usize;
         for i in 0..n {
-            let (l, r) = (left[i], right[i]);
-            let (lf, rf) = (l as f64, r as f64);
-            let frame = self.frames + i;
-
-            let [[l1, l2], [r1, r2]] = &mut self.k;
-            let kl = l2.run(l1.run(lf));
-            let kr = r2.run(r1.run(rf));
-            let h = &mut self.current;
-            h.kl += kl * kl;
-            h.kr += kr * kr;
-            h.kmono += (kl + kr) * (kl + kr) * 0.5;
-            h.lr += lf * rf;
-            h.ll += lf * lf;
-            h.rr += rf * rf;
-            let peak = l.abs().max(r.abs());
-            if peak > h.sample_peak {
-                h.sample_peak = peak;
-            }
-            if peak > self.sample_peak {
-                self.sample_peak = peak;
-                self.sample_peak_at = frame;
-            }
-            if peak > SOUND_THRESHOLD {
-                self.sound = Some(match self.sound {
-                    Some((first, _)) => (first, frame),
-                    None => (frame, frame),
-                });
-            }
-
-            self.energy[0] += lf * lf;
-            self.energy[1] += rf * rf;
-            self.sum[0] += lf;
-            self.sum[1] += rf;
-            let (m, s) = ((lf + rf) * 0.5, (lf - rf) * 0.5);
-            self.mid += m * m;
-            self.side += s * s;
-            self.second[0] += lf;
-            self.second[1] += rf;
-            self.in_second += 1;
-            if self.in_second == per_second {
-                for ch in 0..2 {
-                    self.second_means[ch].push(self.second[ch] / per_second as f64);
-                }
-                self.second = [0.0; 2];
-                self.in_second = 0;
-            }
-
-            for x in [l.abs(), r.abs()] {
-                if x >= FULL_SCALE {
-                    self.clipped += 1;
-                }
-                if x > 1.0 {
-                    self.overs += 1;
-                }
-            }
-            if peak >= FULL_SCALE {
-                self.streak += 1;
-                match &mut self.open {
-                    Some((_, last, top)) => {
-                        *last = frame;
-                        *top = top.max(peak);
-                    }
-                    None if self.streak >= RUN_START || peak > 1.0 => {
-                        self.open = Some((frame + 1 - self.streak, frame, peak));
-                    }
-                    None => {}
-                }
-            } else {
-                self.streak = 0;
-                if let Some((_, last, _)) = self.open
-                    && frame - last >= RUN_END
-                {
-                    self.close_run();
-                }
-            }
-
-            self.fft_buf.push(m);
-            if self.fft_buf.len() == self.fft_size {
-                self.spectrum_frame();
-            }
-
-            self.in_hop += 1;
-            if self.in_hop == hop_frames {
-                self.hops.push(self.current);
-                self.current = Hop::default();
-                self.in_hop = 0;
-            }
+            self.frame(left[i], right[i], self.frames + i);
         }
         self.frames += n;
 
         // True peaks arrive a few samples late; put each in its hop.
+        let hop_frames = self.hop_frames;
         let (hops, current, best) = (&mut self.hops, &mut self.current, &mut self.tp_best);
         self.tp.push(left, right, |at, peak| {
             place_true_peak(hops, current, hop_frames, best, at, peak)
         });
+    }
+
+    /// One frame: the sums of its hop, the totals, clipping, the spectrum
+    /// and the end of the hop.
+    fn frame(&mut self, l: f32, r: f32, frame: usize) {
+        let (lf, rf) = (l as f64, r as f64);
+        let peak = l.abs().max(r.abs());
+        self.hop_sums(lf, rf, peak, frame);
+        let mid = self.totals(lf, rf);
+        self.clipping(l, r, peak, frame);
+
+        self.fft_buf.push(mid);
+        if self.fft_buf.len() == self.fft_size {
+            self.spectrum_frame();
+        }
+
+        self.in_hop += 1;
+        if self.in_hop == self.hop_frames {
+            self.hops.push(self.current);
+            self.current = Hop::default();
+            self.in_hop = 0;
+        }
+    }
+
+    /// K-weighted energy and plain products of the hop, the sample peak and
+    /// where the sound starts and ends.
+    fn hop_sums(&mut self, lf: f64, rf: f64, peak: f32, frame: usize) {
+        let [[l1, l2], [r1, r2]] = &mut self.k;
+        let kl = l2.run(l1.run(lf));
+        let kr = r2.run(r1.run(rf));
+        let h = &mut self.current;
+        h.kl += kl * kl;
+        h.kr += kr * kr;
+        h.kmono += (kl + kr) * (kl + kr) * 0.5;
+        h.lr += lf * rf;
+        h.ll += lf * lf;
+        h.rr += rf * rf;
+        if peak > h.sample_peak {
+            h.sample_peak = peak;
+        }
+        if peak > self.sample_peak {
+            self.sample_peak = peak;
+            self.sample_peak_at = frame;
+        }
+        if peak > SOUND_THRESHOLD {
+            self.sound = Some(match self.sound {
+                Some((first, _)) => (first, frame),
+                None => (frame, frame),
+            });
+        }
+    }
+
+    /// Totals over the whole signal (energy, sum, mid and side, the mean of
+    /// each second); gives the mid sample.
+    fn totals(&mut self, lf: f64, rf: f64) -> f64 {
+        self.energy[0] += lf * lf;
+        self.energy[1] += rf * rf;
+        self.sum[0] += lf;
+        self.sum[1] += rf;
+        let (m, s) = ((lf + rf) * 0.5, (lf - rf) * 0.5);
+        self.mid += m * m;
+        self.side += s * s;
+        self.second[0] += lf;
+        self.second[1] += rf;
+        self.in_second += 1;
+        let per_second = self.rate.round() as usize;
+        if self.in_second == per_second {
+            for ch in 0..2 {
+                self.second_means[ch].push(self.second[ch] / per_second as f64);
+            }
+            self.second = [0.0; 2];
+            self.in_second = 0;
+        }
+        m
+    }
+
+    /// Clipped and over samples, and the runs of clipped samples.
+    fn clipping(&mut self, l: f32, r: f32, peak: f32, frame: usize) {
+        for x in [l.abs(), r.abs()] {
+            if x >= FULL_SCALE {
+                self.clipped += 1;
+            }
+            if x > 1.0 {
+                self.overs += 1;
+            }
+        }
+        if peak >= FULL_SCALE {
+            self.streak += 1;
+            match &mut self.open {
+                Some((_, last, top)) => {
+                    *last = frame;
+                    *top = top.max(peak);
+                }
+                None if self.streak >= RUN_START || peak > 1.0 => {
+                    self.open = Some((frame + 1 - self.streak, frame, peak));
+                }
+                None => {}
+            }
+        } else {
+            self.streak = 0;
+            if let Some((_, last, _)) = self.open
+                && frame - last >= RUN_END
+            {
+                self.close_run();
+            }
+        }
     }
 
     fn close_run(&mut self) {
@@ -588,7 +607,10 @@ impl Analyzer {
         self.fft_buf.drain(..n / 2);
     }
 
-    pub fn finish(mut self) -> Analysis {
+    /// Settle what is still open: late true peaks, a partial last hop, a
+    /// run of clipped samples, the last spectrum frame. Gives the number of
+    /// complete hops.
+    fn flush(&mut self) -> usize {
         let hop_frames = self.hop_frames;
         let (hops, current, best) = (&mut self.hops, &mut self.current, &mut self.tp_best);
         self.tp
@@ -603,15 +625,14 @@ impl Analyzer {
             self.fft_buf.resize(self.fft_size, 0.0);
             self.spectrum_frame();
         }
+        complete
+    }
 
+    /// The gated loudness, the maxima and the loudness range, over the
+    /// `complete` hops.
+    fn loudness(&self, complete: usize) -> Loudness {
         let hop_frames = self.hop_frames as f64;
         let hops = &self.hops;
-        // Mean-square sums over a window of hops ending at `end` (inclusive).
-        let window = |end: usize, len: usize, f: &dyn Fn(&Hop) -> f64| -> f64 {
-            let first = (end + 1).saturating_sub(len);
-            let sum: f64 = hops[first..=end].iter().map(f).sum();
-            sum / ((end + 1 - first) as f64 * hop_frames)
-        };
         let stereo = |h: &Hop| h.kl + h.kr;
         let mono = |h: &Hop| h.kmono;
 
@@ -621,46 +642,55 @@ impl Analyzer {
                 return Vec::new();
             }
             (MOMENTARY_HOPS - 1..complete)
-                .map(|end| window(end, MOMENTARY_HOPS, f))
+                .map(|end| window(hops, hop_frames, end, MOMENTARY_HOPS, f))
                 .collect()
         };
         let stereo_blocks = blocks(&stereo);
         let mono_blocks = blocks(&mono);
         let kept = gate(&stereo_blocks);
-        let integrated = mean_of(&stereo_blocks, &kept);
-        let mono_integrated = gated(&mono_blocks);
-        // The loss in mono over the same blocks as the stereo reading, so
-        // that passages which cancel count instead of being gated away.
-        let mono_same = mean_of(&mono_blocks, &kept);
-        let momentary_max = stereo_blocks
-            .iter()
-            .cloned()
-            .fold(None, |m: Option<f64>, p| Some(m.map_or(p, |m| m.max(p))));
-
         let short_blocks: Vec<f64> = if complete >= SHORT_TERM_HOPS {
             (SHORT_TERM_HOPS - 1..complete)
-                .map(|end| window(end, SHORT_TERM_HOPS, &stereo))
+                .map(|end| window(hops, hop_frames, end, SHORT_TERM_HOPS, &stereo))
                 .collect()
         } else {
             Vec::new()
         };
-        let short_term_max = short_blocks
-            .iter()
-            .cloned()
-            .fold(None, |m: Option<f64>, p| Some(m.map_or(p, |m| m.max(p))));
-        let (lra, lra_low, lra_high) = loudness_range(&short_blocks);
+        Loudness {
+            integrated: mean_of(&stereo_blocks, &kept),
+            mono_integrated: gated(&mono_blocks),
+            // The loss in mono over the same blocks as the stereo reading, so
+            // that passages which cancel count instead of being gated away.
+            mono_same: mean_of(&mono_blocks, &kept),
+            momentary_max: max_of(&stereo_blocks),
+            short_term_max: max_of(&short_blocks),
+            range: loudness_range(&short_blocks),
+        }
+    }
 
+    /// The values every 100 ms.
+    fn series(&self) -> Series {
+        let hop_frames = self.hop_frames as f64;
+        let hops = &self.hops;
+        let stereo = |h: &Hop| h.kl + h.kr;
         let mut series = Series {
             hop: HOP_SECONDS,
             ..Default::default()
         };
         for end in 0..hops.len() {
-            series
-                .momentary
-                .push(lufs(window(end, MOMENTARY_HOPS, &stereo)));
-            series
-                .short_term
-                .push(lufs(window(end, SHORT_TERM_HOPS, &stereo)));
+            series.momentary.push(lufs(window(
+                hops,
+                hop_frames,
+                end,
+                MOMENTARY_HOPS,
+                &stereo,
+            )));
+            series.short_term.push(lufs(window(
+                hops,
+                hop_frames,
+                end,
+                SHORT_TERM_HOPS,
+                &stereo,
+            )));
             let first = (end + 1).saturating_sub(MOMENTARY_HOPS);
             let (mut lr, mut ll, mut rr, mut st, mut mo) = (0.0, 0.0, 0.0, 0.0, 0.0);
             for h in &hops[first..=end] {
@@ -691,9 +721,33 @@ impl Analyzer {
                 .true_peak
                 .push(amp_db(hops[end].true_peak.max(hops[end].sample_peak) as f64));
         }
+        series.dc_left = self.second_means[0].clone();
+        series.dc_right = self.second_means[1].clone();
+        series
+    }
 
+    /// DC offset per channel: the median of the 1 s means, and the plain mean.
+    fn dc(&self) -> ([f64; 2], [f64; 2]) {
         let frames = self.frames;
-        let total: f64 = hops.iter().map(|h| h.lr).sum();
+        let dc_mean = if frames > 0 {
+            [self.sum[0] / frames as f64, self.sum[1] / frames as f64]
+        } else {
+            [0.0; 2]
+        };
+        let dc = if self.second_means[0].is_empty() {
+            dc_mean
+        } else {
+            [median(&self.second_means[0]), median(&self.second_means[1])]
+        };
+        (dc, dc_mean)
+    }
+
+    pub fn finish(mut self) -> Analysis {
+        let complete = self.flush();
+        let loud = self.loudness(complete);
+        let series = self.series();
+        let frames = self.frames;
+        let total: f64 = self.hops.iter().map(|h| h.lr).sum();
         let (ll, rr): (f64, f64) = (self.energy[0], self.energy[1]);
         let true_peak = self.tp_best.0.max(self.sample_peak);
         let true_peak_at = if self.tp_best.0 >= self.sample_peak {
@@ -706,32 +760,21 @@ impl Analyzer {
         } else {
             0.0
         };
-        let dc_mean = if frames > 0 {
-            [self.sum[0] / frames as f64, self.sum[1] / frames as f64]
-        } else {
-            [0.0; 2]
-        };
-        let dc = if self.second_means[0].is_empty() {
-            dc_mean
-        } else {
-            [median(&self.second_means[0]), median(&self.second_means[1])]
-        };
-
-        series.dc_left = self.second_means[0].clone();
-        series.dc_right = self.second_means[1].clone();
+        let (dc, dc_mean) = self.dc();
         let bands = self.bands();
         let true_peak_db = amp_db(true_peak as f64);
         let sample_peak_db = amp_db(self.sample_peak as f64);
+        let integrated = loud.integrated;
         Analysis {
             sample_rate: self.rate,
             frames,
             seconds: frames as f64 / self.rate,
             integrated: integrated.map(lufs),
-            momentary_max: momentary_max.map(lufs),
-            short_term_max: short_term_max.map(lufs),
-            lra,
-            lra_low,
-            lra_high,
+            momentary_max: loud.momentary_max.map(lufs),
+            short_term_max: loud.short_term_max.map(lufs),
+            lra: loud.range.0,
+            lra_low: loud.range.1,
+            lra_high: loud.range.2,
             true_peak: true_peak_db,
             true_peak_at: true_peak_at as f64 / self.rate,
             sample_peak: sample_peak_db,
@@ -758,9 +801,9 @@ impl Analyzer {
             } else {
                 FLOOR_DB
             },
-            mono_integrated: mono_integrated.map(lufs),
+            mono_integrated: loud.mono_integrated.map(lufs),
             mono_loss: integrated.map(|s| {
-                let m = mono_same.unwrap_or(0.0);
+                let m = loud.mono_same.unwrap_or(0.0);
                 if m > 0.0 {
                     (10.0 * (s / m).log10()).min(-FLOOR_DB)
                 } else {
@@ -813,6 +856,32 @@ impl Analyzer {
             })
             .collect()
     }
+}
+
+/// What the gating gives, before the logarithm: mean powers.
+struct Loudness {
+    integrated: Option<f64>,
+    mono_integrated: Option<f64>,
+    /// The mono mean over the blocks the stereo reading kept.
+    mono_same: Option<f64>,
+    momentary_max: Option<f64>,
+    short_term_max: Option<f64>,
+    /// LRA, its low and its high, in LU and LUFS.
+    range: (Option<f64>, Option<f64>, Option<f64>),
+}
+
+/// Mean-square sums over a window of `len` hops ending at `end` (inclusive).
+fn window(hops: &[Hop], hop_frames: f64, end: usize, len: usize, f: &dyn Fn(&Hop) -> f64) -> f64 {
+    let first = (end + 1).saturating_sub(len);
+    let sum: f64 = hops[first..=end].iter().map(f).sum();
+    sum / ((end + 1 - first) as f64 * hop_frames)
+}
+
+fn max_of(values: &[f64]) -> Option<f64> {
+    values
+        .iter()
+        .cloned()
+        .fold(None, |m: Option<f64>, p| Some(m.map_or(p, |m| m.max(p))))
 }
 
 fn correlation(lr: f64, ll: f64, rr: f64, frames: f64) -> f64 {
