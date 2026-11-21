@@ -363,6 +363,7 @@ mod tests {
             sample_rate: 0.0,
             channels: 0,
         };
+        // SAFETY: `c_path` is a live NUL-terminated string and `info` a live `AudioInfo`.
         let audio = unsafe { (HOST.audio_open)(c_path.as_ptr(), &mut info) };
         assert!(!audio.is_null());
         assert_eq!(
@@ -372,14 +373,18 @@ mod tests {
         let mut left = [9.0f32; 4];
         let mut right = [9.0f32; 4];
         let outs = [left.as_mut_ptr(), right.as_mut_ptr()];
+        // SAFETY: `audio` is open; `outs` holds 2 pointers to buffers of 4 floats each.
         assert!(unsafe { (HOST.audio_read)(audio, 98, 4, outs.as_ptr(), 2) });
         assert_eq!(left, [0.98, 0.99, 0.0, 0.0]);
         assert_eq!(right, left, "a mono file reads the same on both channels");
+        // SAFETY: as above; `audio` is still open.
         assert!(unsafe { (HOST.audio_read)(audio, -2, 4, outs.as_ptr(), 2) });
         assert_eq!(left, [0.0, 0.0, 0.0, 0.01]);
+        // SAFETY: `audio` came from `audio_open` and is closed once, here.
         unsafe { (HOST.audio_close)(audio) };
 
         let missing = CString::new("/nonexistent/paw.wav").unwrap();
+        // SAFETY: `missing` is a live NUL-terminated string and `info` a live `AudioInfo`.
         assert!(unsafe { (HOST.audio_open)(missing.as_ptr(), &mut info) }.is_null());
         std::fs::remove_dir_all(&dir).ok();
     }
