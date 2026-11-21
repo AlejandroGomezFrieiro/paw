@@ -3011,10 +3011,12 @@ version = "0.1.0"
 dependencies = [
  "alsa-sys",
  "anyhow",
+ "bitflags 2.13.2",
  "cpal",
  "hound",
  "libc",
  "rtrb",
+ "rustix 1.1.6",
  "serde",
  "serde_json",
  "symphonia",

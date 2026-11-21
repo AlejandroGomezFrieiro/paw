@@ -5,6 +5,8 @@
 //! in, and atomics plus a garbage queue coming out. Nothing here knows about the
 //! project model, Lua or any UI.
 
+#[cfg(feature = "midi")]
+mod alsa;
 pub mod automation;
 pub mod backend;
 pub mod clip;

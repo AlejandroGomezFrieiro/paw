@@ -145,27 +145,15 @@ fn wanted(select: &Option<Vec<String>>, port: &PortInfo) -> bool {
 mod imp {
     use std::collections::HashMap;
     use std::ffi::{CStr, c_int};
+    use std::os::fd::BorrowedFd;
     use std::time::Duration;
 
     use alsa_sys::*;
+    use rustix::event::{PollFd, PollFlags, Timespec, poll};
 
     use super::*;
+    use crate::alsa::*;
 
-    // What the headers define as macros, which the bindings leave out.
-    const OPEN_INPUT: c_int = 2;
-    const NONBLOCK: c_int = 1;
-    const CAP_READ: u32 = 1 << 0;
-    const CAP_WRITE: u32 = 1 << 1;
-    const CAP_SUBS_READ: u32 = 1 << 5;
-    const CAP_SUBS_WRITE: u32 = 1 << 6;
-    const CAP_NO_EXPORT: u32 = 1 << 7;
-    const TYPE_MIDI_GENERIC: u32 = 1 << 1;
-    const TYPE_APPLICATION: u32 = 1 << 20;
-    /// Set on an event that carries a Universal MIDI Packet.
-    const EVENT_UMP: u8 = 1 << 5;
-    const MIDI_2_0: c_int = 2;
-    const SYSTEM_CLIENT: c_int = 0;
-    const SYSTEM_ANNOUNCE: c_int = 1;
     /// Stands for this client in the address of one of its own ports, which
     /// no client of the sequencer has as its number.
     const OWN: i32 = -1;
@@ -223,8 +211,8 @@ mod imp {
                 snd_seq_create_simple_port(
                     seq.0,
                     c"input".as_ptr(),
-                    CAP_WRITE | CAP_SUBS_WRITE,
-                    TYPE_MIDI_GENERIC | TYPE_APPLICATION,
+                    (Caps::WRITE | Caps::SUBS_WRITE).bits(),
+                    (PortType::MIDI_GENERIC | PortType::APPLICATION).bits(),
                 ),
                 "making the input port",
             )?;
@@ -292,7 +280,13 @@ mod imp {
                     libc::POLLIN,
                 );
                 fds.truncate(filled.max(0) as usize);
-                fds
+                // The descriptors belong to the sequencer handle, which this
+                // thread keeps open for as long as it polls.
+                fds.iter()
+                    .map(|fd| {
+                        PollFd::from_borrowed_fd(BorrowedFd::borrow_raw(fd.fd), PollFlags::IN)
+                    })
+                    .collect::<Vec<_>>()
             };
             loop {
                 while let Ok(command) = rx.try_recv() {
@@ -316,8 +310,14 @@ mod imp {
                     }
                 }
                 // Wake at least every 50 ms to look at commands.
-                let ready = unsafe { libc::poll(fds.as_mut_ptr(), fds.len() as libc::nfds_t, 50) };
-                if ready < 0 || fds.is_empty() {
+                let ready = poll(
+                    &mut fds,
+                    Some(&Timespec {
+                        tv_sec: 0,
+                        tv_nsec: 50_000_000,
+                    }),
+                );
+                if ready.is_err() || fds.is_empty() {
                     std::thread::sleep(Duration::from_millis(50));
                 }
                 self.drain();
@@ -421,8 +421,8 @@ mod imp {
                 snd_seq_create_simple_port(
                     self.seq.0,
                     text.as_ptr(),
-                    CAP_WRITE | CAP_SUBS_WRITE,
-                    TYPE_MIDI_GENERIC | TYPE_APPLICATION,
+                    (Caps::WRITE | Caps::SUBS_WRITE).bits(),
+                    (PortType::MIDI_GENERIC | PortType::APPLICATION).bits(),
                 )
             };
             if port >= 0 {
@@ -497,9 +497,9 @@ mod imp {
                     snd_seq_port_info_set_client(port, id);
                     snd_seq_port_info_set_port(port, -1);
                     while snd_seq_query_next_port(self.seq.0, port) >= 0 {
-                        let caps = snd_seq_port_info_get_capability(port);
-                        let readable = CAP_READ | CAP_SUBS_READ;
-                        if caps & readable != readable || caps & CAP_NO_EXPORT != 0 {
+                        let caps = Caps::from_bits_retain(snd_seq_port_info_get_capability(port));
+                        let readable = Caps::READ | Caps::SUBS_READ;
+                        if !caps.contains(readable) || caps.contains(Caps::NO_EXPORT) {
                             continue;
                         }
                         let addr = (id, snd_seq_port_info_get_port(port));
