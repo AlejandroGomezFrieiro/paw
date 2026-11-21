@@ -6,7 +6,7 @@
 use egui::{Align2, Color32, CornerRadius, Id, Order, Pos2, Rect, Sense, Stroke, StrokeKind, Ui, pos2, vec2};
 use serde_json::json;
 
-use crate::app::View;
+use crate::app::{FloatPage, View};
 use crate::icons;
 use crate::live::Part;
 use crate::model::{flag, int, number, rows, text};
@@ -179,8 +179,8 @@ impl View {
         let part = self.live.begin(ui.painter(), Part::Load { rect: meter });
         self.load(ui.painter(), meter);
         self.live.end(ui.painter(), part);
-        let (said, colour) = match &self.note {
-            Some((message, error, _)) => (message.clone(), if *error { t.error } else { t.text_3 }),
+        let (said, colour) = match &self.messages.note {
+            Some(note) => (note.text.clone(), if note.error { t.error } else { t.text_3 }),
             None => (text(&self.s.project["engine"]), t.text_3),
         };
         let room = engine.width() - 6.0 - 40.0 - 8.0;
@@ -401,14 +401,13 @@ impl View {
         let line_h = ui.fonts_mut(|f| f.row_height(&mono(12.0)));
         let cols = ((screen.width() - 80.0) / char_w).floor().max(20.0) as usize;
         let lines = ((screen.height() - 112.0) / line_h).floor().max(5.0) as usize;
-        if (cols, lines) != self.float_size {
-            self.float_size = (cols, lines);
-            if self.float.is_some() {
-                let page = self.ask("return paw.frontend.float(...)", json!([cols, lines]));
-                self.float = Some((text(&page["title"]), rows(&page["lines"]).iter().map(text).collect()));
+        if (cols, lines) != self.float.size {
+            self.float.size = (cols, lines);
+            if self.float.page.is_some() {
+                self.float.page = Some(self.ask_float());
             }
         }
-        let Some((title, page)) = self.float.clone() else { return };
+        let Some(FloatPage { title, lines: page }) = self.float.page.clone() else { return };
         let width = page.iter().map(|l| l.chars().count()).max().unwrap_or(0) as f32 * char_w + 28.0;
         let width = width.clamp(300.0, screen.width() - 40.0);
         let height = (page.len().max(1) as f32 * line_h + 52.0).min(screen.height() - 60.0);

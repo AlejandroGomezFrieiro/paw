@@ -128,7 +128,7 @@ impl View {
     /// None when a pass must run; the state taken is kept for it.
     pub fn replay(&mut self, ctx: &egui::Context, raw: &egui::RawInput) -> Option<Vec<(u32, Vec<ClippedShape>)>> {
         let quiet = raw.events.is_empty() && raw.hovered_files.is_empty() && raw.dropped_files.is_empty();
-        if !quiet || !self.canvases.is_empty() || self.portal_busy || self.gone || self.s.tick.is_null() {
+        if !quiet || !self.canvases.is_empty() || self.portal.busy || self.gone || self.s.tick.is_null() {
             return None;
         }
         // What the kernel sent: anything but the live values needs a pass.
