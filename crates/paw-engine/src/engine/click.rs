@@ -3,6 +3,7 @@
 use crate::tempo::TempoMap;
 
 use super::Engine;
+use super::work::Block;
 
 /// The most frames of one call whose clicks can go to an output of their
 /// own: as many as a backend hands the engine at once.
@@ -61,6 +62,43 @@ impl Count {
 pub(super) const MAX_CLICKS: usize = 64;
 
 impl Engine {
+    /// Sound the clicks that start in a block: the metronome's while
+    /// playing, and a count-in's whether or not the metronome is on.
+    /// `behind` is how far, in seconds, what is heard is behind the
+    /// transport.
+    pub(super) fn sound_clicks(
+        &mut self,
+        block: &Block,
+        behind: f64,
+        out_l: &mut [f32],
+        out_r: &mut [f32],
+    ) {
+        let Block {
+            ref ctx,
+            n,
+            end,
+            map,
+            ..
+        } = *block;
+        let playing = ctx.playing;
+        let mut starts = [(usize::MAX, false); MAX_CLICKS];
+        let mut count = 0;
+        if playing && self.metronome {
+            let from = ctx.seconds - behind;
+            let to = map.seconds(end) - behind;
+            self.metronome_clicks(n, map, from, to, &mut starts, &mut count);
+        }
+        if let Some(counting) = self.count.as_mut() {
+            counting.clicks(n, &mut starts, &mut count);
+            starts[..count].sort_unstable_by_key(|s| s.0);
+        }
+        if (playing && self.metronome) || self.count.is_some() {
+            self.click(out_l, out_r, &starts[..count]);
+        } else {
+            self.click.env = 0.0;
+        }
+    }
+
     /// Where the metronome clicks in a block of `n` frames, for the
     /// signature beats heard from `from` to `to` (in seconds), the first
     /// beat of each bar marked to be higher.

@@ -109,12 +109,41 @@ pub fn to_velocity7(vel: f32) -> u8 {
 pub fn decode(words: &[u32]) -> Option<(u8, EventKind)> {
     let w0 = *words.first()?;
     let group = ((w0 >> 24) & 15) as u8;
-    let status = (w0 >> 20) & 15;
-    let ch = ((w0 >> 16) & 15) as u8;
-    let (b3, b4) = (((w0 >> 8) & 0x7f) as u8, (w0 & 0x7f) as u8);
+    let head = Head::of(w0);
     let kind = match w0 >> 28 {
-        // MIDI 1.0 channel voice, in one word.
-        2 => match status {
+        2 => head.midi1()?,
+        4 => head.midi2(*words.get(1)?)?,
+        _ => return None,
+    };
+    Some((group, kind))
+}
+
+/// The first word of a channel voice message, cut into its fields.
+#[derive(Clone, Copy)]
+struct Head {
+    word: u32,
+    status: u32,
+    ch: u8,
+    /// The third and fourth bytes, seven bits each.
+    b3: u8,
+    b4: u8,
+}
+
+impl Head {
+    fn of(word: u32) -> Self {
+        Self {
+            word,
+            status: (word >> 20) & 15,
+            ch: ((word >> 16) & 15) as u8,
+            b3: ((word >> 8) & 0x7f) as u8,
+            b4: (word & 0x7f) as u8,
+        }
+    }
+
+    /// A MIDI 1.0 channel voice message, in one word.
+    fn midi1(self) -> Option<EventKind> {
+        let Self { status, ch, b3, b4, .. } = self;
+        Some(match status {
             0x8 => EventKind::NoteOff { key: b3, ch },
             0x9 if b4 == 0 => EventKind::NoteOff { key: b3, ch },
             0x9 => EventKind::NoteOn {
@@ -150,89 +179,94 @@ pub fn decode(words: &[u32]) -> Option<(u8, EventKind)> {
                 ch,
             },
             _ => return None,
-        },
-        // MIDI 2.0 channel voice, in two words.
-        4 => {
-            let data = *words.get(1)?;
-            match status {
-                0x0 | 0x1 => EventKind::NoteControl {
-                    key: b3,
-                    // The index is a whole byte here, not seven bits.
-                    ctl: if status == 0 {
-                        NoteCtl::Registered((w0 & 0xff) as u8)
-                    } else {
-                        NoteCtl::Assignable((w0 & 0xff) as u8)
+        })
+    }
+
+    /// A MIDI 2.0 channel voice message, in two words: this and `data`.
+    fn midi2(self, data: u32) -> Option<EventKind> {
+        let Self {
+            word: w0,
+            status,
+            ch,
+            b3,
+            b4,
+        } = self;
+        Some(match status {
+            0x0 | 0x1 => EventKind::NoteControl {
+                key: b3,
+                // The index is a whole byte here, not seven bits.
+                ctl: if status == 0 {
+                    NoteCtl::Registered((w0 & 0xff) as u8)
+                } else {
+                    NoteCtl::Assignable((w0 & 0xff) as u8)
+                },
+                value: unit(data),
+                ch,
+            },
+            0x2 => EventKind::Control {
+                ctl: Ctl::Registered(b3, b4),
+                value: unit(data),
+                ch,
+            },
+            0x3 => EventKind::Control {
+                ctl: Ctl::Assignable(b3, b4),
+                value: unit(data),
+                ch,
+            },
+            0x6 => EventKind::NoteControl {
+                key: b3,
+                ctl: NoteCtl::Bend,
+                value: bipolar(data),
+                ch,
+            },
+            0x8 => EventKind::NoteOff { key: b3, ch },
+            // Unlike MIDI 1.0, a velocity of 0 is still a note-on. The
+            // attribute's type is the first word's last byte, its data
+            // the second word's lower half.
+            0x9 => EventKind::NoteOn {
+                key: b3,
+                vel: ((data >> 16) as f64 / 65535.0) as f32,
+                ch,
+                attr: match (w0 & 0xff) as u8 {
+                    0 => Attr::NONE,
+                    kind => Attr {
+                        kind,
+                        data: data as u16,
                     },
-                    value: unit(data),
-                    ch,
                 },
-                0x2 => EventKind::Control {
-                    ctl: Ctl::Registered(b3, b4),
-                    value: unit(data),
-                    ch,
-                },
-                0x3 => EventKind::Control {
-                    ctl: Ctl::Assignable(b3, b4),
-                    value: unit(data),
-                    ch,
-                },
-                0x6 => EventKind::NoteControl {
-                    key: b3,
-                    ctl: NoteCtl::Bend,
-                    value: bipolar(data),
-                    ch,
-                },
-                0x8 => EventKind::NoteOff { key: b3, ch },
-                // Unlike MIDI 1.0, a velocity of 0 is still a note-on. The
-                // attribute's type is the first word's last byte, its data
-                // the second word's lower half.
-                0x9 => EventKind::NoteOn {
-                    key: b3,
-                    vel: ((data >> 16) as f64 / 65535.0) as f32,
-                    ch,
-                    attr: match (w0 & 0xff) as u8 {
-                        0 => Attr::NONE,
-                        kind => Attr {
-                            kind,
-                            data: data as u16,
-                        },
-                    },
-                },
-                0xA => EventKind::NoteControl {
-                    key: b3,
-                    ctl: NoteCtl::Pressure,
-                    value: unit(data),
-                    ch,
-                },
-                0xB => EventKind::Control {
-                    ctl: Ctl::Cc(b3),
-                    value: unit(data),
-                    ch,
-                },
-                0xC => EventKind::Program {
-                    program: ((data >> 24) & 0x7f) as u8,
-                    bank: (w0 & 1 != 0)
-                        .then_some((((data >> 8) & 0x7f) << 7 | (data & 0x7f)) as u16),
-                    ch,
-                },
-                0xD => EventKind::Control {
-                    ctl: Ctl::Pressure,
-                    value: unit(data),
-                    ch,
-                },
-                0xE => EventKind::Control {
-                    ctl: Ctl::Bend,
-                    value: bipolar(data),
-                    ch,
-                },
-                // Relative controllers and per-note management carry
-                // nothing the engine keeps.
-                _ => return None,
-            }
-        }
-        _ => return None,
-    };
-    Some((group, kind))
+            },
+            0xA => EventKind::NoteControl {
+                key: b3,
+                ctl: NoteCtl::Pressure,
+                value: unit(data),
+                ch,
+            },
+            0xB => EventKind::Control {
+                ctl: Ctl::Cc(b3),
+                value: unit(data),
+                ch,
+            },
+            0xC => EventKind::Program {
+                program: ((data >> 24) & 0x7f) as u8,
+                bank: (w0 & 1 != 0)
+                    .then_some((((data >> 8) & 0x7f) << 7 | (data & 0x7f)) as u16),
+                ch,
+            },
+            0xD => EventKind::Control {
+                ctl: Ctl::Pressure,
+                value: unit(data),
+                ch,
+            },
+            0xE => EventKind::Control {
+                ctl: Ctl::Bend,
+                value: bipolar(data),
+                ch,
+            },
+            // Relative controllers and per-note management carry
+            // nothing the engine keeps.
+            _ => return None,
+        })
+    }
 }
 
 /// An event as a MIDI 2.0 channel voice message for a group. `None` for

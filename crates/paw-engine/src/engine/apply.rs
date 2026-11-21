@@ -20,6 +20,7 @@ use crate::midi_out::MidiOut;
 use crate::preview::Preview;
 use crate::record::Take;
 use crate::slot::{DeviceSlot, TrackSlot};
+use crate::tempo::TempoMap;
 
 use super::Engine;
 use super::click::Count;
@@ -47,66 +48,33 @@ impl Engine {
             Msg::SetKey { device, key } => self.set_key(device, key),
             Msg::SetOutputs { device, outs } => self.set_outputs(device, outs),
             Msg::SetHost { device, path } => self.set_host(device, path),
-            Msg::SetDeviceLatency { device, frames } => {
-                if let Some(host) = self.device_mut(device).and_then(|s| s.host.as_mut()) {
-                    host.set_latency(frames);
-                }
-            }
+            Msg::SetDeviceLatency { device, frames } => self.set_device_latency(device, frames),
             Msg::SetParam {
                 device,
                 param,
                 value,
-            } => {
-                if let Some(slot) = self.device_mut(device) {
-                    slot.set_param(param, value);
-                }
-                self.reapply = true;
-            }
-            Msg::SetBypass { device, bypass } => {
-                if let Some(slot) = self.device_mut(device) {
-                    slot.bypass = bypass;
-                }
-            }
+            } => self.set_param(device, param, value),
+            Msg::SetBypass { device, bypass } => self.set_bypass(device, bypass),
             Msg::SetClips { track, clips } => self.set_clips(track, clips),
             Msg::EditClips { track, edit } => self.edit_clips(track, edit),
             Msg::SetAutomation { track, automation } => self.set_automation(track, automation),
             Msg::StatesHeld => self.states_held(),
             Msg::SetSlots { track, slots } => self.set_slots(track, slots),
             Msg::Launch(launches) => self.launch(launches),
-            Msg::SetTempoMap(map) => {
-                if let Some(old) = self.map.replace(map) {
-                    self.discard(Garbage::TempoMap(old));
-                }
-            }
-            Msg::SetTempo(tempo) => {
-                if let Some(map) = self.map.as_deref_mut() {
-                    map.set_first_tempo(tempo);
-                }
-            }
-            Msg::SetTimeSig { num, den } => {
-                if let Some(map) = self.map.as_deref_mut() {
-                    map.set_first_signature(num, den);
-                }
-            }
+            Msg::SetTempoMap(map) => self.set_tempo_map(map),
+            Msg::SetTempo(tempo) => self.set_tempo(tempo),
+            Msg::SetTimeSig { num, den } => self.set_time_sig(num, den),
             Msg::SetLoop {
                 enabled,
                 start,
                 end,
-            } => {
-                self.loop_enabled = enabled && end > start;
-                self.loop_start = start;
-                self.loop_end = end;
-            }
+            } => self.set_loop(enabled, start, end),
             Msg::SetMetronome(on) => self.metronome = on,
             Msg::SetClick {
                 gain,
                 accent,
                 output,
-            } => {
-                self.click_gain = gain;
-                self.click_accent = accent;
-                self.click_output = output;
-            }
+            } => self.set_click(gain, accent, output),
             Msg::Play => self.play(),
             Msg::CountIn {
                 frames,
@@ -116,13 +84,7 @@ impl Engine {
             } => self.count_in(frames, every, clicks, per_bar),
             Msg::Stop => self.stop(),
             Msg::Seek(position) => self.seek(position),
-            Msg::Live { track, event } => {
-                if let Some(t) = self.track_mut(track)
-                    && t.live.len() < t.live.capacity()
-                {
-                    t.live.push(event);
-                }
-            }
+            Msg::Live { track, event } => self.play_live(track, event),
             Msg::SetInput {
                 track,
                 first,
@@ -146,11 +108,7 @@ impl Engine {
             Msg::SetMidiOut(out) => self.set_midi_out(out),
             Msg::SetMonitor(monitor) => self.set_monitor(monitor),
             Msg::SetPreview(preview) => self.set_preview(preview),
-            Msg::SetPreviewGain(gain) => {
-                if let Some(preview) = self.preview.as_deref_mut() {
-                    preview.set_gain(gain);
-                }
-            }
+            Msg::SetPreviewGain(gain) => self.set_preview_gain(gain),
             Msg::SetSleep(sleep) => self.sleep = sleep,
             Msg::SetPool(pool) => {
                 if let Some(old) = self.set_pool(pool) {
@@ -292,6 +250,25 @@ impl Engine {
             None => self.discard(Garbage::Host(path)),
         }
     }
+
+    fn set_device_latency(&mut self, device: DeviceSlot, frames: u32) {
+        if let Some(host) = self.device_mut(device).and_then(|s| s.host.as_mut()) {
+            host.set_latency(frames);
+        }
+    }
+
+    fn set_param(&mut self, device: DeviceSlot, param: u32, value: f32) {
+        if let Some(slot) = self.device_mut(device) {
+            slot.set_param(param, value);
+        }
+        self.reapply = true;
+    }
+
+    fn set_bypass(&mut self, device: DeviceSlot, bypass: bool) {
+        if let Some(slot) = self.device_mut(device) {
+            slot.bypass = bypass;
+        }
+    }
 }
 
 /// What tracks play: their clips, lanes and launcher slots.
@@ -390,8 +367,38 @@ impl Engine {
     }
 }
 
-/// The transport.
+/// The transport, the tempo, the loop and the click.
 impl Engine {
+    fn set_tempo_map(&mut self, map: Box<TempoMap>) {
+        if let Some(old) = self.map.replace(map) {
+            self.discard(Garbage::TempoMap(old));
+        }
+    }
+
+    fn set_tempo(&mut self, tempo: f64) {
+        if let Some(map) = self.map.as_deref_mut() {
+            map.set_first_tempo(tempo);
+        }
+    }
+
+    fn set_time_sig(&mut self, num: u32, den: u32) {
+        if let Some(map) = self.map.as_deref_mut() {
+            map.set_first_signature(num, den);
+        }
+    }
+
+    fn set_loop(&mut self, enabled: bool, start: f64, end: f64) {
+        self.loop_enabled = enabled && end > start;
+        self.loop_start = start;
+        self.loop_end = end;
+    }
+
+    fn set_click(&mut self, gain: f32, accent: bool, output: u16) {
+        self.click_gain = gain;
+        self.click_accent = accent;
+        self.click_output = output;
+    }
+
     fn play(&mut self) {
         self.playing = true;
         self.chase = true;
@@ -516,6 +523,22 @@ impl Engine {
         let old = std::mem::replace(&mut self.preview, preview);
         if let Some(gone) = std::mem::replace(&mut self.preview_leaving, old) {
             self.discard(Garbage::Preview(gone));
+        }
+    }
+
+    fn set_preview_gain(&mut self, gain: f32) {
+        if let Some(preview) = self.preview.as_deref_mut() {
+            preview.set_gain(gain);
+        }
+    }
+
+    /// What was played live goes into the track's next block, as far as
+    /// there is room.
+    fn play_live(&mut self, track: TrackSlot, event: EventKind) {
+        if let Some(t) = self.track_mut(track)
+            && t.live.len() < t.live.capacity()
+        {
+            t.live.push(event);
         }
     }
 }

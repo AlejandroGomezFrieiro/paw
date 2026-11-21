@@ -129,47 +129,12 @@ impl Work<'_> {
     /// stop and to chase, what was played live, the clips' or the playing
     /// slot's), the sound of its audio clips, and its input.
     fn gather(&self, t: &mut TrackRt, slack: f64) {
-        let Block {
-            ref ctx,
-            n,
-            start,
-            end,
-            map,
-            ..
-        } = *self.block;
+        let Block { ref ctx, n, start, .. } = *self.block;
         let playing = ctx.playing;
-        let sr = ctx.sample_rate as f64;
-        // A launch due now: what played stops, and what plays from here
-        // starts with its held notes.
-        if let Some(change) = t.launcher.commit(start, slack) {
-            t.flush = true;
-            t.chase |= change.chase;
-        }
-        // The track's own flags are used up here even when the whole
-        // engine is flushing or chasing anyway; left set, they would
-        // stop and restart the track's notes again one block later.
-        let track_flush = std::mem::take(&mut t.flush);
-        let flush = self.block.flush || track_flush;
-        // Chasing waits for playback, as it does for the whole engine.
-        let track_chase = playing && std::mem::take(&mut t.chase);
-        let chase = self.block.chase || track_chase;
-
+        let (flush, chase) = self.flush_and_chase(t, slack);
         t.events.clear();
         if flush {
-            t.events.push(Event {
-                frame: 0,
-                kind: EventKind::AllNotesOff,
-            });
-            // A pedal held down or a wheel left bent when playback stopped
-            // would stay that way for whatever is played next.
-            for ctl in [Ctl::Cc(64), Ctl::Bend] {
-                let kind = EventKind::Control {
-                    ctl,
-                    value: 0.0,
-                    ch: 0,
-                };
-                t.events.push(Event { frame: 0, kind });
-            }
+            stop_notes(t);
         }
         if chase {
             // Start the notes that began before this position and are
@@ -184,45 +149,9 @@ impl Work<'_> {
             t.events.push(Event { frame: 0, kind });
         }
         if playing && !t.launcher.follows_arrangement() {
-            // A slot plays instead of the timeline, or nothing does.
-            if let Some((slot, phase)) = t.launcher.slot() {
-                let [left, right] = &mut t.buf;
-                launch::play(
-                    slot,
-                    phase,
-                    end - start,
-                    n,
-                    &mut t.events,
-                    &mut left[..n],
-                    &mut right[..n],
-                    ctx,
-                );
-            }
-            t.launcher.advance(end - start);
+            self.play_slot(t);
         } else if playing {
-            t.clips.find_sounding(start, end);
-            let bpf = self.block.bpf;
-            let events = &mut t.events;
-            t.clips.events(start, end, |ev| {
-                let frame = match bpf {
-                    Some(bpf) => ((ev.beat - start) / bpf) as usize,
-                    None => ((map.seconds(ev.beat) - ctx.seconds) * sr) as usize,
-                };
-                events.push(Event {
-                    frame: frame.min(n - 1) as u32,
-                    kind: ev.kind,
-                });
-            });
-            let [left, right] = &mut t.buf;
-            mix_audio(
-                &t.clips,
-                &mut left[..n],
-                &mut right[..n],
-                (start, end),
-                map,
-                self.block.bpf,
-                ctx,
-            );
+            self.play_clips(t);
         }
         if t.monitor {
             add_input(self.inputs, t, n);
@@ -235,6 +164,88 @@ impl Work<'_> {
             t.sent
                 .extend(t.events.as_slice().iter().take(room).copied());
         }
+    }
+
+    /// Whether the track stops its notes, and whether it chases those held
+    /// at the block's start: for the whole engine, or for the track alone.
+    fn flush_and_chase(&self, t: &mut TrackRt, slack: f64) -> (bool, bool) {
+        // A launch due now: what played stops, and what plays from here
+        // starts with its held notes.
+        if let Some(change) = t.launcher.commit(self.block.start, slack) {
+            t.flush = true;
+            t.chase |= change.chase;
+        }
+        // The track's own flags are used up here even when the whole
+        // engine is flushing or chasing anyway; left set, they would
+        // stop and restart the track's notes again one block later.
+        let track_flush = std::mem::take(&mut t.flush);
+        let flush = self.block.flush || track_flush;
+        // Chasing waits for playback, as it does for the whole engine.
+        let track_chase = self.block.ctx.playing && std::mem::take(&mut t.chase);
+        let chase = self.block.chase || track_chase;
+        (flush, chase)
+    }
+
+    /// A slot plays instead of the timeline, or nothing does.
+    fn play_slot(&self, t: &mut TrackRt) {
+        let Block {
+            ref ctx,
+            n,
+            start,
+            end,
+            ..
+        } = *self.block;
+        if let Some((slot, phase)) = t.launcher.slot() {
+            let [left, right] = &mut t.buf;
+            launch::play(
+                slot,
+                phase,
+                end - start,
+                n,
+                &mut t.events,
+                &mut left[..n],
+                &mut right[..n],
+                ctx,
+            );
+        }
+        t.launcher.advance(end - start);
+    }
+
+    /// The timeline plays: the events of the track's clips in the block,
+    /// each on its frame, and the sound of its audio clips.
+    fn play_clips(&self, t: &mut TrackRt) {
+        let Block {
+            ref ctx,
+            n,
+            start,
+            end,
+            map,
+            bpf,
+            ..
+        } = *self.block;
+        let sr = ctx.sample_rate as f64;
+        t.clips.find_sounding(start, end);
+        let events = &mut t.events;
+        t.clips.events(start, end, |ev| {
+            let frame = match bpf {
+                Some(bpf) => ((ev.beat - start) / bpf) as usize,
+                None => ((map.seconds(ev.beat) - ctx.seconds) * sr) as usize,
+            };
+            events.push(Event {
+                frame: frame.min(n - 1) as u32,
+                kind: ev.kind,
+            });
+        });
+        let [left, right] = &mut t.buf;
+        mix_audio(
+            &t.clips,
+            &mut left[..n],
+            &mut right[..n],
+            (start, end),
+            map,
+            bpf,
+            ctx,
+        );
     }
 
     /// While playing, the automation lanes set the track's fader and pan
@@ -491,5 +502,23 @@ pub(super) fn add_input(inputs: &[Vec<f32>], t: &mut TrackRt, n: usize) {
     }
     for (d, s) in right[..n].iter_mut().zip(&second[..n]) {
         *d += s;
+    }
+}
+
+/// Stop what the track plays: its notes, and a pedal held down or a wheel
+/// left bent when playback stopped, which would stay that way for whatever
+/// is played next.
+fn stop_notes(t: &mut TrackRt) {
+    t.events.push(Event {
+        frame: 0,
+        kind: EventKind::AllNotesOff,
+    });
+    for ctl in [Ctl::Cc(64), Ctl::Bend] {
+        let kind = EventKind::Control {
+            ctl,
+            value: 0.0,
+            ch: 0,
+        };
+        t.events.push(Event { frame: 0, kind });
     }
 }
