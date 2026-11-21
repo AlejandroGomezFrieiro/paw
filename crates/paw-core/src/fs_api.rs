@@ -8,6 +8,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use mlua::{Lua, Table};
+use percent_encoding::{utf8_percent_encode, AsciiSet, NON_ALPHANUMERIC};
 
 fn fail(what: String) -> mlua::Error {
     mlua::Error::runtime(what)
@@ -84,19 +85,20 @@ fn free_name(dir: &Path, name: &str) -> String {
         .unwrap()
 }
 
+/// Everything but ASCII letters, digits and `/-_.~` is escaped.
+const ESCAPED: &AsciiSet = &NON_ALPHANUMERIC
+    .remove(b'/')
+    .remove(b'-')
+    .remove(b'_')
+    .remove(b'.')
+    .remove(b'~');
+
 fn percent_encode(path: &str) -> String {
-    let mut out = String::new();
-    for b in path.bytes() {
-        if b.is_ascii_alphanumeric() || b"/-_.~".contains(&b) {
-            out.push(b as char);
-        } else {
-            out.push_str(&format!("%{b:02X}"));
-        }
-    }
-    out
+    utf8_percent_encode(path, ESCAPED).to_string()
 }
 
 /// Now, local time, as the trash records it: `2026-11-17T09:30:00`.
+// libc, not jiff or chrono: the spec wants local time with no zone, and `localtime_r` gives it with no new dependency.
 fn deletion_date() -> String {
     unsafe {
         let now = libc::time(std::ptr::null_mut());
@@ -244,4 +246,14 @@ pub fn install(lua: &Lua, api: &Table) -> mlua::Result<()> {
         })?,
     )?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::percent_encode;
+
+    #[test]
+    fn percent_encode_escapes_all_but_the_safe_bytes() {
+        assert_eq!(percent_encode("/a b/100%/ü#?.wav~-_"), "/a%20b/100%25/%C3%BC%23%3F.wav~-_");
+    }
 }

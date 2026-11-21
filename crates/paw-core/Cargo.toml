@@ -28,6 +28,8 @@ toml_edit = "0.25"
 quick-xml = "0.41"
 rtrb = "0.4"
 libc = "0.2"
+# The path of a .trashinfo record (fs_api.rs).
+percent-encoding = "2.3"
 # Pure Rust FLAC encoder, for renders to .flac.
 flacenc = { version = "0.5", default-features = false }
 # Band-limited sample-rate conversion of sound files (resample.rs).
