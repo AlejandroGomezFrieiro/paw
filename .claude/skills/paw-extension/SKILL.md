@@ -15,8 +15,8 @@ the source of truth; this page is the map):
 - `docs/reference/extensions.md` — layout, manifests and versions, what an
   extension owns and `:ext.unload`, views in the graphical window, health
   checks, what the core gives an extension (devices, track kinds, native
-  engines, Nix packaging). `docs/reference/pictures.md` — strips and
-  `paw.plot`.
+  engines, Nix packaging). `docs/reference/pictures.md` — strips,
+  pictures of pixels (`paw.canvas.image`, `buf:image`) and `paw.plot`.
 - `docs/reference/scripting.md` and the `lua-*.md` pages beside it — the API by area; `docs/reference/events.md` (every hook, one
   table) and buffer types / text buffer kinds.
 - `docs/reference/api.md` (`:help paw.<name>`) — every public function, generated.
@@ -48,7 +48,8 @@ take out what your extension adds. An extension's README follows
    cells with `buf:text`/`buf:fill`; the window renders the same scene (see
    docs/reference/extensions.md "Views in the graphical window"). For pixels, use
    strips (`buf:strip`, `paw.plot.*`) under the cells, with the cell drawing
-   as the fallback. Never write a second window-only UI.
+   as the fallback; for a picture of pixels, `buf:image` (half blocks where
+   there are no pictures). Never write a second window-only UI.
 4. **Everything undoable, everything said.** Edits go through the API so they
    are undo steps (one per user action); every action gives feedback
    (`paw.notify`) and every failure a clear message, never a stack trace.

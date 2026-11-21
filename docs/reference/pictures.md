@@ -3,8 +3,8 @@
 <!-- tags: extensions-pictures-in-the-terminal graphics kitty-graphics strips -->
 
 This page describes how a view shows pixels in the terminal and in the
-graphical window: strips, `paw.plot`, and what a frontend does with
-strips. "What paw asks the terminal" below tells
+graphical window. It tells about strips, pictures of pixels, `paw.plot`,
+and what a frontend does with strips. "What paw asks the terminal" below tells
 which terminals show pictures.
 
 ## Strips
@@ -60,6 +60,42 @@ attach` from such a terminal. The view then draws its cells there.
   only the pieces that it changed.
 - `buf:surface(x, y, w, h)` is the same, over the text, for the full
   `paint` of a view.
+
+## Pictures of pixels
+
+A view can show a picture of pixels: a frame of a video, a spectrogram, a
+cover. paw keeps the picture under a key. The view shows it by its key.
+
+```lua
+local f = assert(io.open("cover.png", "rb"))
+local key, w, h = paw.canvas.image(f:read("*a"))   -- PNG, or RGBA with its size
+f:close()
+
+render = function(self, buf, ctx)
+  buf:image(0, 0, buf.width, buf.height, key)      -- in cells
+end
+
+paint = function(self, g, ctx)
+  g:image(0, 0, ctx.width, ctx.height, key)        -- in pixels
+end
+```
+
+| Function | Effect |
+| --- | --- |
+| `paw.canvas.image(bytes, w, h, format)` | Keeps a picture. `bytes` is a PNG file, or straight RGBA of `w` by `h` pixels, row by row. `format` is `"png"` or `"rgba"`. paw knows a PNG file without it. Returns the key, the width and the height |
+| `buf:image(x, y, w, h, key)` | Shows the picture over the cells. Where the terminal or the window shows images, it is a strip under the cells. Else paw writes half blocks (`▀`), two pixels in each cell, in the colors of the picture. Returns true where it is an image, as `buf:strip` does |
+| `g:image(x, y, w, h, key)` | Paints the picture over the rectangle in pixels. What is outside the painter is cut off |
+
+- The key comes from the pixels. The same pixels have the same key. A
+  frontend that has a picture does not get it again. The terminal keeps
+  each piece of a strip by the hash of its operations, so a picture that
+  did not change sends no pixels.
+- A picture stretches to the rectangle. Larger than its pixels, each pixel
+  shows as a block. Smaller, the pixels mix.
+- paw keeps the pictures that views used last, up to 256 MB. A picture
+  that paw does not keep any more draws nothing. Keep it again with
+  `paw.canvas.image`.
+- SVG and PDF files that `paw.canvas` writes do not contain the pictures.
 
 ## `paw.plot`
 
@@ -122,7 +158,7 @@ of cells and its strips. Each strip is a `Surface`
 | `whole` | the size of the full strip in cells, when a part is off its window. (0, 0) when all of it shows |
 | `offset` | the cells of the strip to the left of `rect` and above it |
 | `cell` | the size of a cell in pixels, for the drawing |
-| `ops` | the drawing, in pixels from the corner of the full strip: the operations of `paw.canvas` (`r` rectangles, `p` paths, `t` text, `m` runs of cells, `g` music glyphs, `cut` where it can be cut into pieces, `layer` for what comes next) |
+| `ops` | the drawing, in pixels from the corner of the full strip: the operations of `paw.canvas` (`r` rectangles, `p` paths, `t` text, `m` runs of cells, `g` music glyphs, `i` pictures of pixels by their key, `cut` where it can be cut into pieces, `layer` for what comes next) |
 | `under` | false: the cells of the strip are blank, and the picture is over all of `rect`. true: draw the picture after the backgrounds of the cells and before their text |
 | `covered` | a flag for each cell, row by row (`covered_runs` over the wire): cells that something draws over the strip later (a menu, a floating view). Do not draw the picture in them |
 
@@ -155,6 +191,8 @@ protocol](protocol.md)).
 - The window draws the backgrounds of the cells first, then the pictures
   under the text, then the text in its own font. A view that paints is one
   picture.
+- A picture of pixels in a drawing (`i`) comes by its key. The window
+  asks for its pixels once (`scene.pixels`) and keeps them.
 - So the curve editor and the vocal editor show curves in pixels in the
   window, and nothing in `crates/paw-gui` knows about strips.
 - The scene is made from the writes of the view. So a view must draw only
@@ -232,7 +270,9 @@ reports them. Else it goes to the middle of the cell.
 
 `paw attach` from a terminal that shows images shows them too. It tells
 the instance what its terminal can do. The instance sends the drawing of
-each strip (only when it changes), and `paw attach` makes the pixels.
+each strip (only when it changes), and `paw attach` makes the pixels. It
+asks the instance one time for each picture of pixels that a drawing
+names (`scene.pixels`).
 
 Where the terminal shows no images, the view draws in cells. This occurs
 in tmux (which does not send images through), in a terminal without the

@@ -18,6 +18,8 @@ local record api
    base64_encode: function(data: string, opts?: types.Base64Options): string
    blocks: function(device?: integer): integer
    canvas_export: function(path: string, format: string, pages: {types.CanvasPage}, scale?: number)
+   canvas_image: function(bytes: string, w?: integer, h?: integer, format?: string): string, integer, integer
+   canvas_pixels: function(key: string): types.PictureBlob
    chain_write: function(track: integer, file: string): {string}
    checkpoint_delete: function(file: string)
    checkpoint_dir: function(): string
@@ -101,6 +103,7 @@ local record api
    fs_stat: function(path: string): types.FileStat
    fs_trash: function(path: string): string
    grid_fill: function(x: number, y: number, w: number, h: number, fill?: string, style: string | types.CellStyle, cx: number, cy: number, cw: number, ch: number)
+   grid_image: function(key: string, x: number, y: number, w: number, h: number, cx: number, cy: number, cw: number, ch: number): boolean
    grid_live_begin: function(x: number, y: number, w: number, h: number, cx: number, cy: number, cw: number, ch: number): integer
    grid_live_end: function(index: integer)
    grid_live_restore: function(): integer

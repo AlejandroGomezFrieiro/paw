@@ -128,6 +128,7 @@ local record contracts
       sub: function(self: Buf, x: number, y: number, w: number, h: number): Buf
       surface: function(self: Buf, x: number, y: number, w: number, h: number, name?: string): boolean
       strip: function(self: Buf, x: number, y: number, w: number, h: number, opts: StripOptions): boolean
+      image: function(self: Buf, x: number, y: number, w: number, h: number, key: string): boolean
       mark: function(self: Buf, role: string, x: number, y: number, w: number, h: number, props?: MarkProps): Buf
       hit: function(self: Buf, x: number, y: number, w: number, h: number, action: HitAction)
       plane: function(self: Buf, x: number, y: number, w: number, h: number, opts: PlaneOptions): Plane
@@ -170,6 +171,7 @@ local record contracts
       line: function(self: Painter, x0: number, y0: number, x1: number, y1: number, style: PaintStyle)
       mono: function(self: Painter, x: number, y: number, text: string, style: PaintStyle, cells?: integer)
       glyph: function(self: Painter, x: number, y: number, size: number, codepoint: integer, colour: string, font?: string)
+      image: function(self: Painter, x: number, y: number, w: number, h: number, key: string)
       cut: function(self: Painter, x: number, y0: number, y1: number)
       layer: function(self: Painter, name: string)
       contains: function(self: Painter, x: number, y: number): boolean

@@ -111,6 +111,8 @@ fn shapes(items: &[Item]) -> Vec<Shape> {
                     out.push(Shape { segments: moved(&path, at), fill: Some(*colour), stroke: None });
                 }
             }
+            // A picture of pixels is not a vector shape: left out.
+            Op::Image { .. } => {}
         }
     }
     out

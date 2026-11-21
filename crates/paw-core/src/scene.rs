@@ -247,6 +247,11 @@ impl Scenes {
             if let Kind::Picture(picture) = &mut node.kind
                 && let Some(ops) = picture.ops.take()
             {
+                // The pictures of pixels it shows are in use: kept before
+                // those that are not.
+                for key in paw_raster::pixels::keys_in(&ops) {
+                    paw_raster::pixels::get(key);
+                }
                 let text = ops.to_string();
                 if text.len() <= BLOB_SIZE {
                     picture.ops = Some(ops);

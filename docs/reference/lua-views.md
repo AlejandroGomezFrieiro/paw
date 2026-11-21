@@ -112,8 +112,10 @@ local pictured = buf:strip(0, 1, buf.width, buf.height - 1, { key = "level", und
 if not pictured then draw_it_in_cells() end
 ```
 
-`buf:strip`, `buf:surface` and `paw.plot` are in [Pictures in the
-terminal](pictures.md).
+A picture of pixels (a frame of a video, a spectrogram) shows with
+`buf:image(x, y, w, h, key)`. Where there are no pictures, paw writes it
+in half blocks. `buf:strip`, `buf:surface`, `buf:image` and `paw.plot` are
+in [Pictures in the terminal](pictures.md).
 
 ## Roles
 

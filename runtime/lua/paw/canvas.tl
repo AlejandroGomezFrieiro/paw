@@ -28,6 +28,14 @@
 -- there too. Keys go to the view as they do in the terminal: through the
 -- key mappings made for it, or its `on_key`.
 --
+-- Pictures of pixels (a frame of a video, a spectrogram, a photo) are kept
+-- by paw under a content key: `paw.canvas.image(bytes, w, h)` keeps one
+-- and returns its key, `g:image(x, y, w, h, key)` paints it, and
+-- `buf:image(x, y, w, h, key)` shows it in cells: as an image where the
+-- terminal or the window shows images, else in half blocks. A picture that
+-- did not change keeps its key, and a frontend that has it is not sent it
+-- again.
+--
 -- `g:sub(x, y, w, h)` gives a painter for part of the area: what is drawn
 -- through it is placed from its corner and cut off at its edges, which is
 -- how a view scrolls. Colours are `#rrggbb` or `#rrggbbaa`.
@@ -140,6 +148,14 @@ local record Ui
   focus: function(name: string)
   close: function()
   visible: function(name: string): boolean
+end
+
+--- A buffer's part of the screen that it may draw on (paw/buf.tl).
+local record InnerBuf is contracts.Buf
+  cx: integer
+  cy: integer
+  cw: integer
+  ch: integer
 end
 
 local record Panes
@@ -412,6 +428,18 @@ function Painter:text(x: number, y: number, text: string, style: PaintStyle)
   local room = style.align == "center" and 2 * math.min(left, right) or style.align == "right" and left or right
   room = math.min(style.width or 1e9, room)
   self.ops[#self.ops + 1] = { "t", x0, y0, tostring(text), style.color or c.text, size, style.bold and 1 or 0, style.align or "left", room }
+end
+
+--- The picture of pixels `key` (`paw.canvas.image`) stretched over the
+--- rectangle `x, y, w, h`; what is outside the painter is cut off.
+function Painter:image(x: number, y: number, w: number, h: number, key: string)
+  if w <= 0 or h <= 0 then return end
+  local x0, y0 = self:origin_x() + x, self:origin_y() + y
+  local l, t = math.max(x0, self.x), math.max(y0, self.y)
+  local r, b = math.min(x0 + w, self.x + self.width), math.min(y0 + h, self.y + self.height)
+  if r <= l or b <= t then return end
+  -- The part of the picture that shows, in fractions of it.
+  self.ops[#self.ops + 1] = { "i", l, t, r - l, b - t, key, (l - x0) / w, (t - y0) / h, (r - l) / w, (b - t) / h }
 end
 
 --- Cut a segment to the painter's rectangle. Returns nil when it misses.
@@ -1144,6 +1172,38 @@ function M.paint(name: string, width: number, height: number, opts?: PaintOption
   if under > 0 then bars(ops, width, full - under) end
   if not opts.glyphs then ops = without_glyphs(ops) end
   return { title = window and window.title or name, ops = ops }
+end
+
+--- Keep a picture of pixels for views to show (`g:image`, `buf:image`).
+--- `bytes` is a PNG file, or straight RGBA of `w` by `h` pixels row by
+--- row (`format` `"png"` or `"rgba"`; a PNG file is known without it).
+--- Returns its key, its width and its height. The key comes from the
+--- pixels: the same pixels have the same key, and a frontend that has the
+--- picture is not sent it again. paw keeps the pictures used last, up to
+--- 256 MB; keep a picture again to use it after a long time.
+---   local f = assert(io.open("cover.png", "rb"))
+---   local key, w, h = paw.canvas.image(f:read("*a"))
+---   f:close()
+function M.image(bytes: string, w?: integer, h?: integer, format?: string): string, integer, integer
+  return api.canvas_image(bytes, w, h, format)
+end
+
+--- Show the picture `key` over the cells `x, y, w, h` of `buf`: see
+--- `buf:image`. In a terminal that shows images and in a window, it is a
+--- strip (`buf:strip`) under the cells, and the result is true; elsewhere
+--- half blocks, two pixels a cell.
+function M.place(buf: contracts.Buf, x: number, y: number, w: number, h: number, key: string): boolean
+  local inner = buf as InnerBuf
+  if w <= 0 or h <= 0 then return false end
+  local function draw(g: contracts.Painter, px: Pixels) g:image(0, 0, px.w, px.h, key) end
+  -- A strip of its own for each place of each view and window.
+  local win = paw.ui.drawing_win
+  local name = ("%s#%s@%d,%d"):format(paw.ui.drawing or "?", win and win.id or "float", math.floor(inner.x + x), math.floor(inner.y + y))
+  if buf:strip(x, y, w, h, { key = name, under = true, draw = draw }) or buf:strip(x, y, w, h, { key = name, draw = draw }) then
+    return true
+  end
+  api.grid_image(key, inner.x + x, inner.y + y, w, h, inner.cx, inner.cy, inner.cw, inner.ch)
+  return false
 end
 
 --- The operations that a function draws on a painter of `px.w` by `px.h`

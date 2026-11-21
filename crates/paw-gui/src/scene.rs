@@ -4,7 +4,8 @@
 //! as it changes (`scene.patch`), and every frame draws from the copy kept
 //! here, asking nothing: the cells as text in the window's monospace font,
 //! block characters, braille and sextants as rectangles, the pictures as
-//! images made again only when their drawing changes, the roles it knows
+//! images made again only when their drawing changes (the pictures of
+//! pixels they name fetched once, `scene.pixels`), the roles it knows
 //! (crate::roles: faders, meters, switches...) as widgets, the meters moved
 //! by the live values (`scene.live`). The window tells the kernel how big
 //! each window is, in cells (`scene.area`), and passes the pointer on in
@@ -661,7 +662,8 @@ impl View {
     }
 
     /// Take in what the kernel pushed of the scenes, fetching the drawings
-    /// sent by their key that are not here yet.
+    /// sent by their key, and the pictures of pixels they name, that are
+    /// not here yet.
     pub fn scene_patches(&mut self) {
         if let Some(live) = self.k.borrow_mut().live() {
             self.scenes.live = live;
@@ -681,11 +683,20 @@ impl View {
                 continue;
             }
             for node in &patch.set {
-                if let Kind::Picture(paw_scene::Picture { blob: Some(key), .. }) = &node.kind
+                let Kind::Picture(picture) = &node.kind else { continue };
+                if let Some(key) = &picture.blob
                     && !self.scenes.blobs.contains_key(key)
                 {
                     let ops = self.k.borrow_mut().call("scene.blob", json!([key])).unwrap_or(Value::Null);
                     self.scenes.blobs.insert(key.clone(), ops);
+                }
+                let ops = picture.ops.as_ref().or_else(|| picture.blob.as_ref().and_then(|key| self.scenes.blobs.get(key)));
+                for key in ops.into_iter().flat_map(paw_raster::pixels::keys_in) {
+                    if paw_raster::pixels::get(key).is_none()
+                        && let Some(pixmap) = self.k.borrow_mut().call("scene.pixels", json!([key])).ok().as_ref().and_then(paw_raster::pixels::from_blob)
+                    {
+                        paw_raster::pixels::keep_as(key, pixmap);
+                    }
                 }
             }
             let shown = self.scenes.shown.entry(patch.win.clone()).or_default();
@@ -823,6 +834,25 @@ mod tests {
         let text = Patch { win: "1".into(), rev: 3, set: vec![run("abd")], ..Patch::default() };
         shown.take(&text, &blobs);
         assert!(shown.shapes.is_none(), "a run changed: the cells are laid out again");
+    }
+
+    #[test]
+    fn a_picture_of_pixels_is_drawn_from_the_blob_the_kernel_sent() {
+        // Red, green; blue, white: as `scene.pixels` replies it.
+        let rgba = [[255, 0, 0, 255], [0, 255, 0, 255], [0, 0, 255, 255], [255, 255, 255, 255]].concat();
+        let blob = paw_raster::pixels::to_blob(&paw_raster::pixels::decode(&rgba, None, Some((2, 2))).unwrap());
+        let pixmap = paw_raster::pixels::from_blob(&blob).unwrap();
+        let key = paw_raster::pixels::key_of(&pixmap);
+        paw_raster::pixels::keep_as(&key, pixmap);
+        // Its right half, over the whole picture.
+        let ops = json!([["i", 0, 0, 20, 20, key, 0.5, 0, 0.5, 1]]);
+        let node = Node::new("p", Kind::Picture(paw_scene::Picture { ops: Some(ops), blob: None, px: [20.0, 20.0], under: true }), [0.0, 0.0, 2.0, 1.0]);
+        let mut shown = Shown::default();
+        let full = Patch { win: "1".into(), rev: 1, full: true, size: Some([2.0, 1.0]), root: Some(vec!["p".into()]), set: vec![node], ..Patch::default() };
+        shown.take(&full, &HashMap::new());
+        let image = raster([20, 20], &shown.pictures[0].drawing.page, tiny_skia::Transform::identity());
+        assert_eq!(image.pixels[5 * 20 + 5], Color32::from_rgb(0, 255, 0), "the top right pixel, stretched");
+        assert_eq!(image.pixels[15 * 20 + 15], Color32::WHITE);
     }
 
     #[test]

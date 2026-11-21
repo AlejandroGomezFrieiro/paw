@@ -146,6 +146,7 @@ The painter `g`:
 | `g:poly(points, style)` | A line through the points. `style` has `color`, `width`. |
 | `g:sub(x, y, w, h)` | A painter for a part of the area. What it draws starts at its corner and is cut at its edges. A view scrolls with it. |
 | `g:mono(x, y, text, style)` | A run of monospace cells. `style` has `color`, `background`. |
+| `g:image(x, y, w, h, key)` | A picture of pixels that `paw.canvas.image` keeps, stretched to the rectangle. See [Pictures of pixels](pictures.md#pictures-of-pixels). |
 | `g:glyph(x, y, size, codepoint, color, font)` | A glyph of a SMuFL music font in the program (Leland, Bravura, Petaluma), `size` pixels to the em. |
 | `g:layer(name)` | Starts a layer: the page's `"ink"`, or what moves over it (`"selection"`, `"caret"`, `"ghost"`, `"diagnostic"`, `"playhead"`). A frontend can keep the page and draw the other layers over it. Draws nothing. |
 | `g:cut(x, y0, y1)` | A barline at `x`, across `y0` to `y1` (a system): where a frontend can cut the page into images. Draws nothing. |

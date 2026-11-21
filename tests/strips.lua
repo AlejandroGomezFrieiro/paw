@@ -169,3 +169,25 @@ test("the piano roll's controller strip is a strip under its cells, the moves ma
   T.after(function() paw.opt.graphics = true end)
   eq(screen("pianoroll", 30), cells, "graphics off draws the same cells")
 end)
+
+test("a picture of pixels is half blocks in a terminal without images and a picture in a window's scene", function()
+  fresh()
+  -- Red, green; blue and clear below.
+  local key = paw.canvas.image(string.char(255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 0, 0, 0, 0), 2, 2)
+  paw.ui.view("image_test", { render = function(_, buf) buf:image(1, 0, 2, 1, key) end })
+  local snap, runs = api.ui_view_snapshot("image_test", 4, 1), {}
+  for _, run in ipairs(snap.rows[1]) do
+    if run.text:find("[^ ]") then runs[#runs + 1] = run.text .. " " .. run.fg .. " " .. run.bg end
+  end
+  eq(table.concat(runs, ", "), "▀ #ff0000 #0000ff, ▀ #00ff00 " .. snap.bg, "two pixels a cell, the clear one the background")
+  api.scene_forget(0, "image")
+  paw.ui.render_scene("image_test", 4, 1, { w = 8, h = 16 })
+  local patch = api.json_decode(api.scene_end(0, "image"))
+  local picture
+  for _, n in ipairs(patch.set) do
+    if n.t == "picture" then picture = n end
+  end
+  eq(api.json_encode(picture and picture.ops), api.json_encode({ { "i", 0, 0, 16, 16, key, 0, 0, 1, 1 } }), "the window gets the picture by its key")
+  eq(api.canvas_pixels(key).w, 2, "and asks for its pixels once")
+  api.scene_forget(0)
+end)
