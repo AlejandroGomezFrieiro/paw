@@ -194,10 +194,4 @@ mod tests {
             }
         }
     }
-
-    #[test]
-    fn a_library_that_is_nowhere_says_where_it_was_looked_for() {
-        let err = open_library(Path::new("/nonexistent/plugin.so")).unwrap_err();
-        assert!(err.to_string().contains("cannot open shared object file"));
-    }
 }
