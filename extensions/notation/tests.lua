@@ -1396,10 +1396,10 @@ test("notation page: a cursor move draws the page from what was engraved; an edi
   surface_paint()
   eq(cache.count, made + 1, "an edit in one bar engraves that bar again")
   local bench = require("notation.bench")
-  local r = bench.run(16, { glyphs = true, surface = true, cell = { w = 13, h = 27 } }, 5)
-  -- Loose bounds, for a busy machine: the targets are 8 and 30 ms.
-  eq(r.cursor < 80, true, "a cursor move paints quickly (" .. string.format("%.1f", r.cursor) .. " ms)")
-  eq(r.edit < 300, true, "an edit paints quickly (" .. string.format("%.1f", r.edit) .. " ms)")
+  local r = bench.run(16, { glyphs = true, surface = true, cell = { w = 13, h = 27 } }, 5, nil, T.cpu_ms)
+  -- Processor time, the targets of 8 and 30 ms as the scale.
+  T.quick(r.cursor, 8, "a cursor move paints quickly")
+  T.quick(r.edit, 30, "an edit paints quickly")
 end)
 
 test("notation page: the galley is one long system that keeps the cursor in view", function()
