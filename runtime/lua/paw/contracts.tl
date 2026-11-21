@@ -883,6 +883,9 @@ local record contracts
       styles: {string:string}
       --- Added, but not put in `paw.opt.trackcolumn`.
       hidden: boolean
+      --- The extension whose code added or last changed it, nil for the
+      --- user's (paw/ext.lua: what an extension owns).
+      ext: string
    end
 
    --- A sign of the `signs` component (`paw.trackcolumn.sign`): one
@@ -896,6 +899,9 @@ local record contracts
       describe: function(track: integer, ctx: TrackColumnContext): string
       glyphs: {string:string}
       styles: {string:string}
+      --- The extension whose code added or last changed it, nil for the
+      --- user's (paw/ext.lua: what an extension owns).
+      ext: string
    end
 
    --- What a bar label of the ruler draws one bar from. `bar` is the
@@ -903,10 +909,12 @@ local record contracts
    --- `B`, behind the cursor) reach it, nil while `paw.opt.relativebar`
    --- is off; `cursor` true on the bar the cursor is in; `style` the style
    --- the bar's number has there (in the loop, in the punch range);
-   --- `glyphs` and `styles` the label's own.
+   --- `glyphs` and `styles` the label's own; `room` the columns left for
+   --- the part before the next bar's label.
    record RulerContext
       bar: integer
       beat: number
+      room: integer
       relative: integer
       cursor: boolean
       style: string
@@ -926,6 +934,9 @@ local record contracts
       styles: {string:string}
       --- Added, but not put in `paw.opt.barlabel`.
       hidden: boolean
+      --- The extension whose code added or last changed it, nil for the
+      --- user's (paw/ext.lua: what an extension owns).
+      ext: string
    end
 
    --- What `paw.ruler.set` changes of a part of the bar labels: only the

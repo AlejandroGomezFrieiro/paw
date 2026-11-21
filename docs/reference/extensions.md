@@ -15,6 +15,7 @@ made by the scenes in its `images/make` (`docs/images/make/make.sh <name>`).
 | --- | --- |
 | [`ara`](../../extensions/ara/README.md) | ARA plugins on audio tracks: the plugin reads whole clips (Melodyne, audio to MIDI), and its edits stay in the project |
 | [`articulations`](../../extensions/articulations/README.md) | the articulation of each note as its MIDI 2.0 attribute, with names for each instrument from `.art.toml` maps, and keyswitches for MIDI 1.0 instruments. Maps from SFZ, Decent Sampler, folders and Reaticulate banks, and maps of plugins (MODO BASS 2, SINE Player) that bind themselves |
+| [`columnplus`](../../extensions/columnplus/README.md) | an example that personalizes the track column: a color strip, clip counts, signs for takes and frozen tracks, other fold glyphs |
 | [`continue`](../../extensions/continue/README.md) | a small completion source: how the phrase before the cursor in the piano roll can continue |
 | [`doctor`](../../extensions/doctor/README.md) | a guided check of the hardware (audio, MIDI, recording, plugins), with a written report, also from the shell |
 | [`drums`](../../extensions/drums/README.md) | drum tracks in one step, and a grid of the pieces of the kit by name |
@@ -28,6 +29,7 @@ made by the scenes in its `images/make` (`docs/images/make/make.sh <name>`).
 | [`pattern`](../../extensions/pattern/README.md) | clips written as patterns of text, as in TidalCycles |
 | [`plugstate`](../../extensions/plugstate/README.md) | the models, impulse responses and instrument files of plugins, set without their windows, and snapshots of the state of a device |
 | [`projdiff`](../../extensions/projdiff/README.md) | the changes between two versions of a project, and three-way merges for git |
+| [`rulerplus`](../../extensions/rulerplus/README.md) | an example that personalizes the bar labels of the ruler: phrase marks, the chord and the key, signed relative bars |
 | [`sampler`](../../extensions/sampler/README.md) | the sample player of paw, a CLAP plugin written in Rust |
 | [`sections`](../../extensions/sections/README.md) | named sections of the song as text objects, and edits by section |
 | [`snippets`](../../extensions/snippets/README.md) | a set of snippets to start with: chords, parts and voices |
@@ -102,6 +104,9 @@ paw records all that an extension registers while it loads:
   of track
 - picker sources, query fields, fields and views of `:s` and `:g`,
   completers, status line components, grep sources
+- the parts and signs of the track column and the parts of the bar
+  labels (`paw.trackcolumn`, `paw.ruler`), also the parts of paw that it
+  changes with `set`
 - curve providers, address schemes, completion sources, layers, health
   checks, hooks (`paw.on`), options, timers (`paw.every`, `paw.defer`)
 - its directory of devices written in Lua, and the plugin directories that
@@ -132,10 +137,13 @@ vocal track) gives no warning.
 
 `paw.ext.unload(name)` removes all that the extension owns.
 
+- paw removes its hooks and stops its timers first, so that its code
+  does not run while paw removes the rest.
 - paw restores what the extension replaced:
   - a key of the core that it mapped again
   - a command that it defined again
   - an option of the core with a different default
+  - a part of the track column or of the bar labels that it changed
 - Its options go, with their values. Its timers stop.
 - paw no longer offers its devices in Lua and the plugins in its
   directories. A script with the same name in another place takes their

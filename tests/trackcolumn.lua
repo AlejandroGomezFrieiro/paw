@@ -75,8 +75,7 @@ test("track column: an extension's part shows in its order, and set moves a buil
   local fold = paw.trackcolumn.components.fold
   after(function()
     paw.trackcolumn.remove("ext")
-    paw.trackcolumn.set("fold", { order = 30 })
-    fold.glyphs = {}
+    paw.trackcolumn.add("fold", fold)
   end)
   paw.flush()
   eq(after_number(row("Strings")), "E▾ ", "after the number (10), before the fold (30)")

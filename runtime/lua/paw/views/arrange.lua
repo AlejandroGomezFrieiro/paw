@@ -923,7 +923,9 @@ function view:render(buf, ctx)
         local style = in_punch(line.x) and "RulerPunch" or in_loop(line.x) and "RulerLoop" or "RulerBar"
         -- Its label: the parts of `paw.opt.barlabel` (paw/ruler.tl).
         local x = line.x
-        for _, piece in ipairs(paw.ruler.label(line.bar, line.beat, style, cursor.beat)) do
+        -- Its room: up to a column before the next bar whose label shows.
+        local room = math.max(1, math.floor(paw.time.bar(line.beat) * zoom * every) - 1)
+        for _, piece in ipairs(paw.ruler.label(line.bar, line.beat, style, cursor.beat, room)) do
           x = x + ruler:text(x, 0, piece[1], piece[2])
         end
         free, label_end[line.x] = x + 1, x

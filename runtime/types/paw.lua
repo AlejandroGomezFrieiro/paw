@@ -6576,11 +6576,14 @@ function paw.ruler.add(name, spec) end
 
 --- The pieces of bar `bar`'s label, from the parts in `paw.opt.barlabel`
 --- in their order. `style` is the style of the bar's number there.
+--- `room` is how many columns the label has before the next bar's: each
+--- part gets what the parts before it left (`ctx.room`).
 ---@param bar any
 ---@param beat any
 ---@param style any
 ---@param cursor_beat any
-function paw.ruler.label(bar, beat, style, cursor_beat) end
+---@param room any
+function paw.ruler.label(bar, beat, style, cursor_beat, room) end
 
 --- How many `W` (ahead) or `B` (behind) reach bar `bar` from the cursor
 --- at `beat`: from inside a bar, the first `B` goes to its own start
@@ -6595,7 +6598,8 @@ function paw.ruler.remove(name) end
 
 --- Change a part that is there, the built-in `number` too: its `order`,
 --- `render`, and the `glyphs` and `styles` it draws with (merged into its
---- own).
+--- own). The part becomes a changed copy, as with `paw.trackcolumn.set`:
+--- `paw.ruler.add(name, old)` puts back the table it had before.
 ---   paw.ruler.set("number", { styles = { cursor = "Title" } })
 ---@param name any
 ---@param patch any
@@ -7596,7 +7600,9 @@ function paw.trackcolumn.remove(name) end
 
 --- Change a component that is there, the built-in ones too: its `order`
 --- (to put it elsewhere), `width`, `render`, `click`, `describe`, and the
---- `glyphs` and `styles` it draws with (merged into its own).
+--- `glyphs` and `styles` it draws with (merged into its own). The
+--- component becomes a changed copy: `paw.trackcolumn.add(name, old)`
+--- with the table it had before puts that back.
 ---   paw.trackcolumn.set("fold", { order = 5, glyphs = { open = "-", closed = "+" } })
 ---   paw.trackcolumn.set("number", { width = 4, styles = { cursor = "Title" } })
 ---@param name any

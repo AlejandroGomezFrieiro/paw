@@ -1065,3 +1065,52 @@ test("guide: write an extension in Teal, with the contracts and an option", func
   local found = paw.lang.check({ file })
   eq(found[1] and found[1].msg:find("unknown field on_keys", 1, true) ~= nil, true, "the misspelled field")
 end)
+
+test("guide: personalize the track column and the ruler", function()
+  fresh()
+  local fold, number = paw.trackcolumn.components.fold, paw.trackcolumn.components.number
+  T.after(function()
+    paw.trackcolumn.add("fold", fold)
+    paw.trackcolumn.add("number", number)
+    paw.trackcolumn.sign("armed", nil)
+    paw.ruler.remove("eight")
+    paw.opt.trackcolumn = { "number", "signs", "fold" }
+    paw.opt.track_height = "auto"
+  end)
+  paw.opt.track_height = 1
+  local drums = paw.add_track({ name = "Drums" })
+  local bass = paw.add_track({ name = "Bass" })
+  paw.groups.make({ drums, bass }, "Band")
+  -- The code of the guide, as it gives it.
+  paw.trackcolumn.set("fold", { order = 5, glyphs = { open = "-", closed = "+" } })
+  paw.trackcolumn.set("number", { styles = { cursor = "Title" } })
+  paw.trackcolumn.sign("armed", {
+    priority = 20,
+    render = function(track)
+      if paw.track(track).armed then return { { "●", "Armed" } } end
+    end,
+    describe = function(track)
+      if paw.track(track).armed then return "ready to record" end
+    end,
+  })
+  paw.ruler.add("eight", {
+    order = 5,
+    render = function(bar)
+      if bar > 1 and bar % 8 == 1 then return { { "·", "RulerTempo" } } end
+    end,
+  })
+  bass.armed = true
+  paw.cursor.set_track(bass)
+  paw.flush()
+  local text = screen(160, 30)
+  eq(text:find("\n%- +1 ") ~= nil, true, "the folds at the far left, with a minus sign:\n" .. text)
+  eq(text:find("3 ●", 1, true) ~= nil, true, "the armed track has its sign:\n" .. text)
+  eq(text:find("·9", 1, true) ~= nil and text:find("·8", 1, true) == nil, true, "a dot before bar 9:\n" .. text)
+  paw.keymap.feed("K")
+  local described = screen(160, 30)
+  while paw.ui.float do paw.ui.close() end
+  eq(described:find("ready to record", 1, true) ~= nil, true, "K tells it:\n" .. described)
+  keys(":set trackcolumn-=signs<CR>:set barlabel-=eight<CR>")
+  text = table.concat(api.ui_snapshot(160, 30), "\n", 1, 4)
+  eq(text:find("●", 1, true) == nil and text:find("·9", 1, true) == nil, true, ":set -= hides them:\n" .. text)
+end)
