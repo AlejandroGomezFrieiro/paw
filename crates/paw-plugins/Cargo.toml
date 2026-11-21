@@ -17,6 +17,8 @@ lilv-sys = "0.3"
 vst3 = "0.3"
 libloading = "0.8"
 libc = "0.2"
+# Safe Unix calls for the plugin sandbox: memfd, mmap, futex, kill, prctl.
+rustix = { version = "1", features = ["fs", "mm", "param", "process", "thread"] }
 x11rb = "0.13"
 
 [dev-dependencies]
