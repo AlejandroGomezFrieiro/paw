@@ -209,12 +209,14 @@ test("guide: lower the latency", function()
   keys(":audio<CR>")
   shows("frames", "the top line gives the block")
   keys("128 frames<CR>")
-  eq(api.engine_get().block, 128, "the block chosen in the list")
+  -- The device starts again with the new block, and says its block (0
+  -- until then) at its first callback.
+  T.until_(function() return api.engine_get().block == 128 end, "the block chosen in the list")
   keys(":engine.status<CR>")
   local said = paw.messages and paw.messages()[#paw.messages()] or nil
   eq(said == nil or tostring(said.text or said):find("xruns", 1, true) ~= nil, true, ":engine.status gives the xruns")
   keys(":audio.buffer 256<CR>")
-  eq(api.engine_get().block, 256, ":audio.buffer sets it")
+  T.until_(function() return api.engine_get().block == 256 end, ":audio.buffer to set it")
   keys(":audio.buffer 0<CR>")
 end)
 

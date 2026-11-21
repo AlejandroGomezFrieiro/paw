@@ -71,6 +71,41 @@ local function until_(cond, what, ms)
   end
 end
 
+--- Milliseconds of processor time that this thread has used. A test of
+--- speed measures this, not the time on the clock: on a loaded machine the
+--- clock runs on while other programs have the processor, and this does
+--- not.
+local ffi = require("ffi")
+pcall(ffi.cdef, "struct paw_timespec { long tv_sec; long tv_nsec; }; int clock_gettime(int, struct paw_timespec *);")
+local cpu_now = ffi.new("struct paw_timespec")
+local function cpu_ms()
+  ffi.C.clock_gettime(3, cpu_now) -- CLOCK_THREAD_CPUTIME_ID
+  return tonumber(cpu_now.tv_sec) * 1000 + tonumber(cpu_now.tv_nsec) / 1e6
+end
+
+--- How many times more work there is than processors (1 at least): the
+--- load average of the last minute over the processors.
+local function overload()
+  local f = io.open("/proc/loadavg")
+  local load = f and tonumber(f:read("*l"):match("^(%S+)")) or 0
+  if f then f:close() end
+  local p = io.popen("nproc 2>/dev/null")
+  local cpus = p and tonumber(p:read("*l") or "") or 1
+  if p then p:close() end
+  return math.max(1, load / cpus)
+end
+
+--- Check that `ms` of processor time (`cpu_ms`) is under `limit`. Programs
+--- that share the processor's caches and memory make the same work take
+--- more processor time: the limit grows with the overload of the machine.
+local function quick(ms, limit, what)
+  local over = overload()
+  if ms >= limit * over then
+    error(string.format("%s: %.0f ms of processor time, the limit %.0f ms (%d ms times an overload of %.1f)",
+      what, ms, limit * over, limit, over), 2)
+  end
+end
+
 --- Wait until the engine has run `n` (1 if not given) whole audio blocks
 --- after this call, so that what was sent to it before is in effect: a
 --- parameter, a note, a change to a track. Changes not yet sent are sent
@@ -268,7 +303,7 @@ end
 --   T.test("the widget counts", function() T.fresh() T.eq(1 + 1, 2, "sum") end)
 
 local T = {
-  test = test, last = last, after = after, eq = eq, near = near, fails = fails, fresh = fresh, render = render, tone = tone,
+  test = test, last = last, after = after, eq = eq, near = near, fails = fails, fresh = fresh, render = render, tone = tone, cpu_ms = cpu_ms, quick = quick,
   until_ = until_, next_block = next_block, until_beat = until_beat,
   scratch = scratch, read_file = read_file, write_file = write_file, frequency = frequency,
   channel_peaks = channel_peaks, three_clips = three_clips, layout = layout, melody = melody, keys = keys,

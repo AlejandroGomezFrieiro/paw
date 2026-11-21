@@ -333,7 +333,8 @@ test("notation layout: zp lays the systems on pages under the title, and export 
     eq(sys.y >= page.y + eng.geometry.margin and sys.y + sys.height <= page.y + eng.geometry.height - eng.geometry.margin + 1, true,
       "each system within its page's margins")
   end
-  local base = "target/test-scratch/layout-test"
+  -- In the run's own scratch: two suites side by side would share one in target/.
+  local base = T.scratch .. "/layout-test"
   paw.cmd("notation.export", { base .. ".pdf" })
   local f = io.open(base .. ".pdf", "rb")
   local pdf = f and f:read("*a") or ""

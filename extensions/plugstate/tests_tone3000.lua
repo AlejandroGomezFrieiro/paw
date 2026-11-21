@@ -155,9 +155,10 @@ local function mock()
   return m
 end
 
---- Serve the mock and look at the requests until `done()` (ten seconds at most).
+--- Serve the mock and look at the requests until `done()` (30 seconds at
+--- most, the limit of T.until_: a loaded machine is slow, not wrong).
 local function wait(m, done, what)
-  local deadline = api.now() + 10000
+  local deadline = api.now() + 30000
   while api.now() < deadline do
     if m then m.serve() end
     client.pump()
