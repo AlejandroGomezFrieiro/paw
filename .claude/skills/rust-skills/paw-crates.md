@@ -236,11 +236,16 @@ Found with grep at a72467cf. Each refactor part that owns the file fixes it.
      the audio thread only tries the lock and starts the processor;
      `stopped` and the drops take it out, stop it, deactivate the plugin
      (`Shared::deactivate`), and `stopped` puts a new one back.
-  3. Next: `process` through `StartedPluginAudioProcessor::process`, with
-     Clack's events and buffers. Pass the block length with
-     `InputAudioBuffers::from_raw_buffers`: the safe builders give a plugin
-     with no audio ports 0 frames. Keep the audio path allocation-free.
-  4. The plugin's extensions through `clack-extensions` (parameters, state,
+  3. Done: `process` goes through `StartedPluginAudioProcessor::process`.
+     paw's `ClapEvents` (a list of its `ClapEvent` union) is an
+     `InputEventBuffer`, `Out` is an `OutputEventBuffer`, the transport is a
+     `TransportEvent`, and the tail is `PluginTail` with the processor's
+     handle. The buffers go through `InputAudioBuffers::from_raw_buffers`
+     and `OutputAudioBuffers::from_raw_buffers` with the block length: the
+     safe builders give a plugin with no audio ports 0 frames.
+     `tests/no_alloc.rs` of paw-plugins runs the stub plugin with an
+     allocator that counts the audio thread's allocations.
+  4. Next: the plugin's extensions through `clack-extensions` (parameters, state,
      editor, timer, posix-fd, tail, render, note ports and names, audio
      ports): their callers need a `PluginMainThreadHandle`
      (`instance.borrow_mut().plugin_handle()`). Clack's extension types
