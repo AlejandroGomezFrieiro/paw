@@ -205,6 +205,48 @@ test("a script that fails is shown as stopped with its error, and starts again",
   eq(fx:get().stopped, nil, "and starts again")
 end)
 
+test("a note played while the device is late still sounds, and its note-off still ends it", function()
+  fresh()
+  -- Holds the notes it is given, a tenth each, and is slow for one block
+  -- each time its stall parameter changes.
+  scripts({ ["late_once.lua"] = [[
+    local dsp = require("paw.dsp")
+    local dev = dsp.device {
+      category = "instrument",
+      params = { { key = "stall", min = 0, max = 10, default = 0 } },
+    }
+    local held, stalls = 0, 0
+    function dev.process(b)
+      if b.params.stall ~= stalls then
+        stalls = b.params.stall
+        local began = os.clock()
+        while os.clock() - began < 0.3 do end
+      end
+      for i = 0, b.nevents - 1 do
+        local e = b.events[i]
+        if e.type == dsp.NOTE_ON then held = held + 1 elseif e.type == dsp.NOTE_OFF then held = held - 1 end
+      end
+      for i = 0, b.frames - 1 do b.left[i], b.right[i] = held / 10, held / 10 end
+    end
+    return dev
+  ]] })
+  local t = paw.add_track({ name = "late" })
+  local dev = t:add_device("lua:late_once")
+  local function late() return tonumber(api.device_call(dev.id, "sandbox.late")) end
+  -- The key is played once the engine has given up a block on the helper:
+  -- the blocks after it, while the helper is still slow, are skipped.
+  local function while_late(stall, play)
+    local before = late()
+    dev:set("stall", stall)
+    T.until_(function() return late() > before end, "the helper to be late")
+    play()
+  end
+  while_late(1, function() t:note_on("C5", 100) end)
+  T.until_(function() return t:meter() >= 0.09 end, "the note to sound")
+  while_late(2, function() t:note_off("C5") end)
+  T.until_(function() return t:meter() < 0.01 end, "the note to end")
+end)
+
 test("a script that does not load says why, and nothing else is hurt", function()
   fresh()
   local _, found = scripts({

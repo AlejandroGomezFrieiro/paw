@@ -154,6 +154,7 @@ impl RemoteFactory {
                 turn: controller.link.shm.turn(),
                 moves: Vec::with_capacity(PARAMS),
             messages: Vec::with_capacity(MESSAGES),
+                pending: Pending::new(),
                 told_priority: false,
                 rest: Rest::default(),
                 offline_limit: if self.argv.is_some() { STALL_LIMIT } else { OFFLINE_LIMIT },

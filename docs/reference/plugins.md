@@ -192,7 +192,9 @@ again.
   graphical window) starts the plugin again, with its last state in the
   project.
 - The audio thread waits for a plugin for about the time of one block. A
-  slow plugin costs its own track a block, and not a dropout for all.
+  slow plugin costs its own track a block of sound, and not a dropout for
+  all. The notes and controllers of that block are not lost: the plugin
+  gets them at the start of the next block that it takes.
 - A plugin that gives no block for two seconds has hung. paw stops it and
   reports it as a crash.
 - A render waits for a block of a plugin for 20 seconds at most, one time.

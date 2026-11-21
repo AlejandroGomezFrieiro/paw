@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use paw_engine::device::{Device, Io, Rest};
-use paw_engine::{MAX_PAIRS, ProcessCtx};
+use paw_engine::{Event, EventKind, MAX_PAIRS, ProcessCtx};
 use super::*;
 use super::shm::*;
 
@@ -40,6 +40,9 @@ pub(super) struct RemoteDevice {
     pub(super) moves: Vec<ParamMove>,
     /// Messages for the next block, as the shared memory carries them.
     pub(super) messages: Vec<u8>,
+    /// Events of blocks the helper was too late to take, for the next
+    /// block it takes. Never longer than [`EVENTS`] (see [`Pending`]).
+    pub(super) pending: Pending,
     pub(super) told_priority: bool,
     /// The plugin said it was at rest after the last block.
     pub(super) rest: Rest,
@@ -60,11 +63,70 @@ impl RemoteDevice {
     }
 }
 
+/// The events of blocks that a late helper did not take, kept for the
+/// first block it takes, at its first frame and in their order: a note-on
+/// given up with its block would never sound, and a note-off would leave
+/// its note hanging. The list holds at most [`EVENTS`], which it has room
+/// for from the start, so the audio thread never allocates. When it is
+/// full a note-off still goes in, in place of the last event that is not
+/// one; what is left out is counted with the MIDI events dropped.
+pub(super) struct Pending {
+    events: Vec<Event>,
+}
+
+impl Pending {
+    pub(super) fn new() -> Self {
+        Self {
+            events: Vec::with_capacity(EVENTS),
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.events.is_empty()
+    }
+
+    /// Keep `event` at `frame`; false if an event was left out: it, or
+    /// the one it took the place of.
+    fn keep(&mut self, frame: u32, event: &Event) -> bool {
+        let event = Event { frame, ..*event };
+        if self.events.len() < EVENTS {
+            self.events.push(event);
+            return true;
+        }
+        let ends = |kind: &EventKind| matches!(kind, EventKind::NoteOff { .. } | EventKind::AllNotesOff);
+        if !ends(&event.kind) {
+            return false;
+        }
+        match self.events.iter().rposition(|e| !ends(&e.kind)) {
+            Some(at) => {
+                self.events.remove(at);
+                self.events.push(event);
+                // The one it took the place of is left out instead.
+                false
+            }
+            None => false,
+        }
+    }
+
+    /// Keep each of a block's events, at the first frame of a later block
+    /// (`at_start`) or at its own.
+    fn keep_all(&mut self, events: &[Event], at_start: bool) {
+        for event in events {
+            if !self.keep(if at_start { 0 } else { event.frame }, event) {
+                paw_engine::event::count_dropped();
+            }
+        }
+    }
+}
+
 impl Device for RemoteDevice {
     /// As the plugin said after its last block, unless a parameter has
-    /// moved since.
+    /// moved since or events wait for it.
     fn resting(&self) -> bool {
-        self.rest.resting() && self.moves.is_empty() && !self.link.wake.load(Ordering::Relaxed)
+        self.rest.resting()
+            && self.moves.is_empty()
+            && self.pending.is_empty()
+            && !self.link.wake.load(Ordering::Relaxed)
     }
 
     fn process(&mut self, ctx: &ProcessCtx, io: &mut Io) {
@@ -74,6 +136,7 @@ impl Device for RemoteDevice {
         let header = shm.header();
         // A helper that has said why it stopped is ending, or has ended.
         if link.dead.load(Ordering::Relaxed) || header.reason_len.load(Ordering::Acquire) > 0 {
+            self.pending.events.clear();
             return self.without(io);
         }
         if self.outstanding {
@@ -81,6 +144,7 @@ impl Device for RemoteDevice {
             // another until it has caught up.
             if header.done.load(Ordering::Acquire) != self.seq {
                 link.late.fetch_add(1, Ordering::Relaxed);
+                self.pending.keep_all(io.events.as_slice(), true);
                 return self.without(io);
             }
             self.outstanding = false;
@@ -103,7 +167,14 @@ impl Device for RemoteDevice {
                 .store(param.sched_priority as u32, Ordering::Relaxed);
             header.policy.store(policy as u32, Ordering::Relaxed);
         }
-        let events = io.events.as_slice();
+        // Events kept from blocks the helper did not take go first, then
+        // this block's own.
+        let events = if self.pending.is_empty() {
+            io.events.as_slice()
+        } else {
+            self.pending.keep_all(io.events.as_slice(), false);
+            self.pending.events.as_slice()
+        };
         let count = events.len().min(EVENTS);
         {
             let block = shm.block(&mut self.turn);
@@ -137,6 +208,7 @@ impl Device for RemoteDevice {
                 key_r[..frames].copy_from_slice(&r[..frames]);
             }
             block.events[..count].copy_from_slice(&events[..count]);
+            self.pending.events.clear();
             block.params[..self.moves.len()].copy_from_slice(&self.moves);
             self.moves.clear();
             block.messages[..self.messages.len()].copy_from_slice(&self.messages);
@@ -229,6 +301,28 @@ impl Device for RemoteDevice {
         } else if self.moves.len() < PARAMS {
             self.moves.push(ParamMove { index, value });
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_full_list_of_kept_events_still_takes_note_offs() {
+        let on = |key| Event { frame: 9, kind: EventKind::NoteOn { key, vel: 1.0, ch: 0, attr: Default::default() } };
+        let off = |key| Event { frame: 9, kind: EventKind::NoteOff { key, ch: 0 } };
+        let mut pending = Pending::new();
+        let full: Vec<Event> = (0..EVENTS).map(|i| if i == 0 { off(1) } else { on(2) }).collect();
+        pending.keep_all(&full, true);
+        assert!(!pending.keep(0, &on(3)), "a note-on is left out");
+        assert!(!pending.keep(0, &off(2)), "a note-off goes in, in place of a note-on");
+        let kept = &pending.events;
+        assert_eq!(kept.len(), EVENTS);
+        assert_eq!(kept[0], Event { frame: 0, ..off(1) }, "at the block's first frame");
+        assert_eq!(kept[EVENTS - 1], Event { frame: 0, ..off(2) });
+        let ons = kept.iter().filter(|e| **e == Event { frame: 0, ..on(2) }).count();
+        assert_eq!(ons, EVENTS - 2, "the last note-on made room");
     }
 }
 

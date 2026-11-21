@@ -172,7 +172,12 @@ singer, is too big for a string on each call.
 Each Lua device runs in a helper process, as a plugin does, with a LuaJIT
 state of its own. The engine gives the helper each block through shared
 memory and waits for it inside the block. So a Lua device adds no latency,
-and a slow script costs its own track a block. A script that hangs or
-crashes (`ffi` can crash) stops without an effect on other devices. This
-is also true with `--plugins-in-process`. For why, see
+and a slow script costs its own track a block of sound.
+
+The events of that block go to the script at the start of the next block
+that it takes. A note that you play at that time sounds, and a note-off
+is not lost.
+
+A script that hangs or crashes (`ffi` can crash) stops without an effect
+on other devices. This is also true with `--plugins-in-process`. For why, see
 [About the plugin sandbox](../explanation/about-the-plugin-sandbox.md).
