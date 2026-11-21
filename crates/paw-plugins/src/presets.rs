@@ -6,13 +6,27 @@
 //! JSON list of `{ id, name, category }`, and `preset.load` takes an `id`
 //! from it. Ids are stable across runs, so a project or a script can keep one.
 
+use std::cell::Cell;
 use std::ffi::{CStr, CString, c_char, c_void};
 use std::path::{Path, PathBuf};
 use std::ptr;
 
-use anyhow::{Context, Result, bail};
-use clap_sys::factory::preset_discovery::*;
-use clap_sys::universal_plugin_id::clap_universal_plugin_id;
+use anyhow::{Context, Result};
+use clack_extensions::preset_discovery::factory::PresetDiscoveryFactory;
+use clack_extensions::preset_discovery::indexer::IndexerImpl;
+use clack_extensions::preset_discovery::metadata_receiver::MetadataReceiverImpl;
+use clack_extensions::preset_discovery::preset_data::{
+    FileType, Flags, Location, LocationInfo, Soundpack,
+};
+use clack_extensions::preset_discovery::provider::Provider;
+use clack_host::entry::{EntryDescriptor, PluginEntry};
+use clack_host::factory::{Factory, RawFactoryPointer};
+use clack_host::prelude::{HostError, HostInfo};
+use clack_host::utils::{Timestamp, UniversalPluginId};
+use clap_sys::factory::preset_discovery::{
+    CLAP_PRESET_DISCOVERY_FACTORY_ID, CLAP_PRESET_DISCOVERY_FACTORY_ID_COMPAT,
+    clap_preset_discovery_factory,
+};
 use clap_sys::version::CLAP_VERSION;
 use serde_json::{Value, json};
 
@@ -78,11 +92,51 @@ fn category(root: &Path, file: &Path) -> String {
 /// Separates the parts of a CLAP preset's id: location kind, location, load key.
 const SEP: char = '\u{1f}';
 
-/// What the indexer and the metadata receiver collect.
+/// What a provider declares when it starts: the file types and locations
+/// of its presets.
 #[derive(Default)]
-struct Found {
+struct Indexer {
     extensions: Vec<String>,
-    locations: Vec<(u32, Option<String>, String)>,
+    /// Each location, with its path (none for the plugin's own presets).
+    locations: Vec<(u32, Option<String>)>,
+}
+
+impl IndexerImpl for Indexer {
+    fn declare_filetype(&mut self, file_type: FileType) -> Result<(), HostError> {
+        let ext = file_type
+            .file_extension
+            .map(|e| e.to_string_lossy().to_lowercase())
+            .unwrap_or_default();
+        if !ext.is_empty() {
+            self.extensions.push(ext);
+        }
+        Ok(())
+    }
+
+    fn declare_location(&mut self, location: LocationInfo) -> Result<(), HostError> {
+        let path = location
+            .location
+            .file_path()
+            .map(|p| p.to_string_lossy().into_owned());
+        self.locations.push((kind(location.location), path));
+        Ok(())
+    }
+
+    fn declare_soundpack(&mut self, _: Soundpack) -> Result<(), HostError> {
+        Ok(())
+    }
+}
+
+/// The number of a location's kind, as preset ids keep it.
+const fn kind(location: Location) -> u32 {
+    location.to_raw().0
+}
+const PLUGIN: u32 = kind(Location::Plugin);
+const FILE: u32 = kind(Location::File { path: c"" });
+
+/// Takes the presets of one location as the provider describes them.
+#[derive(Default)]
+struct Receiver {
     /// Where the presets being received now are.
     kind: u32,
     location: String,
@@ -91,254 +145,106 @@ struct Found {
     presets: Vec<(Preset, Vec<String>)>,
 }
 
-unsafe fn text(ptr: *const c_char) -> String {
-    if ptr.is_null() {
-        String::new()
-    } else {
-        // SAFETY: `ptr` is non-null (checked above) and `text` requires (its # Safety) a NUL-terminated
-        // string that stays valid for the call; the bytes are copied out before it returns.
-        unsafe { CStr::from_ptr(ptr) }
-            .to_string_lossy()
-            .into_owned()
-    }
-}
+impl MetadataReceiverImpl for Receiver {
+    fn on_error(&mut self, _: i32, _: Option<&CStr>) {}
 
-unsafe fn found<'a>(data: *mut c_void) -> &'a mut Found {
-    // SAFETY: `data` is the `indexer_data` or `receiver_data` that `scan_provider` set to a live
-    // `Box<Found>` that outlives the provider, and the plugin calls back one at a time on the
-    // thread that called it, so no other reference to the Found exists.
-    unsafe { &mut *(data as *mut Found) }
-}
-
-unsafe extern "C" fn declare_filetype(
-    indexer: *const clap_preset_discovery_indexer,
-    filetype: *const clap_preset_discovery_filetype,
-) -> bool {
-    // SAFETY: The plugin calls this with the indexer it was given in `create` (alive during
-    // the scan) and a filetype it owns for the call; `indexer_data` is the Found (see `found`).
-    unsafe {
-        let found = found((*indexer).indexer_data);
-        if let Some(filetype) = filetype.as_ref() {
-            let ext = text(filetype.file_extension).to_lowercase();
-            if !ext.is_empty() {
-                found.extensions.push(ext);
-            }
-        }
-        true
-    }
-}
-
-unsafe extern "C" fn declare_location(
-    indexer: *const clap_preset_discovery_indexer,
-    location: *const clap_preset_discovery_location,
-) -> bool {
-    // SAFETY: The plugin passes the indexer given to it in `create`, which holds our Found in
-    // `indexer_data`, and a location it owns for the duration of the call; strings are NUL-terminated.
-    unsafe {
-        let found = found((*indexer).indexer_data);
-        if let Some(l) = location.as_ref() {
-            let path = (!l.location.is_null()).then(|| text(l.location));
-            found.locations.push((l.kind, path, text(l.name)));
-        }
-        true
-    }
-}
-
-unsafe extern "C" fn declare_soundpack(
-    _: *const clap_preset_discovery_indexer,
-    _: *const clap_preset_discovery_soundpack,
-) -> bool {
-    true
-}
-
-unsafe extern "C" fn indexer_extension(
-    _: *const clap_preset_discovery_indexer,
-    _: *const c_char,
-) -> *const c_void {
-    ptr::null()
-}
-
-unsafe extern "C" fn on_error(
-    _: *const clap_preset_discovery_metadata_receiver,
-    _: i32,
-    _: *const c_char,
-) {
-}
-
-unsafe extern "C" fn begin_preset(
-    receiver: *const clap_preset_discovery_metadata_receiver,
-    name: *const c_char,
-    load_key: *const c_char,
-) -> bool {
-    // SAFETY: The plugin passes the metadata receiver given to it, whose `receiver_data` is our Found;
-    // `name` and `load_key` are NUL-terminated strings (or null) it owns for the call.
-    unsafe {
-        let found = found((*receiver).receiver_data);
+    fn begin_preset(&mut self, name: Option<&CStr>, load_key: Option<&CStr>) -> Result<(), HostError> {
+        let text = |s: Option<&CStr>| s.map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
         let key = text(load_key);
-        let id = format!("{}{SEP}{}{SEP}{}", found.kind, found.location, key);
+        let id = format!("{}{SEP}{}{SEP}{}", self.kind, self.location, key);
         let mut name = text(name);
-        let root = found.root.clone();
-        let file = Path::new(&found.location);
+        let file = Path::new(&self.location);
         if name.is_empty() {
             name = file
                 .file_stem()
                 .map(|s| s.to_string_lossy().into_owned())
                 .unwrap_or_else(|| key.clone());
         }
-        let category = if found.kind == CLAP_PRESET_DISCOVERY_LOCATION_FILE {
-            category(&root, file)
+        let category = if self.kind == FILE {
+            category(&self.root, file)
         } else {
             String::new()
         };
-        found
-            .presets
-            .push((Preset { id, name, category }, Vec::new()));
-        true
+        self.presets.push((Preset { id, name, category }, Vec::new()));
+        Ok(())
     }
-}
 
-unsafe extern "C" fn add_plugin_id(
-    receiver: *const clap_preset_discovery_metadata_receiver,
-    plugin_id: *const clap_universal_plugin_id,
-) {
-    // SAFETY: The plugin passes the receiver given to it (`receiver_data` is our Found), and the
-    // plugin id it owns for the call; null pointers are handled by as_ref and `text`.
-    unsafe {
-        let found = found((*receiver).receiver_data);
-        if let (Some(last), Some(id)) = (found.presets.last_mut(), plugin_id.as_ref()) {
-            last.1.push(text(id.id));
+    fn add_plugin_id(&mut self, plugin_id: UniversalPluginId) {
+        if let Some(last) = self.presets.last_mut() {
+            last.1.push(plugin_id.id.to_string_lossy().into_owned());
         }
     }
-}
 
-unsafe extern "C" fn ignore_text(
-    _: *const clap_preset_discovery_metadata_receiver,
-    _: *const c_char,
-) {
-}
-unsafe extern "C" fn ignore_flags(_: *const clap_preset_discovery_metadata_receiver, _: u32) {}
-unsafe extern "C" fn ignore_times(
-    _: *const clap_preset_discovery_metadata_receiver,
-    _: u64,
-    _: u64,
-) {
-}
-unsafe extern "C" fn ignore_pair(
-    _: *const clap_preset_discovery_metadata_receiver,
-    _: *const c_char,
-    _: *const c_char,
-) {
+    fn set_soundpack_id(&mut self, _: &CStr) {}
+    fn set_flags(&mut self, _: Flags) {}
+    fn add_creator(&mut self, _: &CStr) {}
+    fn set_description(&mut self, _: &CStr) {}
+    fn set_timestamps(&mut self, _: Option<Timestamp>, _: Option<Timestamp>) {}
+    fn add_feature(&mut self, _: &CStr) {}
+    fn add_extra_info(&mut self, _: &CStr, _: &CStr) {}
 }
 
 /// The presets the plugin file's preset-discovery providers know of for
-/// the plugin `plugin_id`. `factory` is what the file's entry gave for
-/// the preset-discovery factory id, or null.
-///
-/// # Safety
-/// `factory` must be null or a preset-discovery factory of a loaded file,
-/// and this runs on the main thread.
-pub unsafe fn clap_presets(
-    factory: *const clap_preset_discovery_factory,
-    plugin_id: &str,
-) -> Vec<Preset> {
+/// the plugin `plugin_id`. Runs on the main thread.
+pub fn clap_presets(entry: &PluginEntry, plugin_id: &str) -> Vec<Preset> {
     let mut out = Vec::new();
-    // SAFETY: The caller got `factory` from the plugin's entry for this call, so it is null or a live factory.
-    let Some(f) = (unsafe { factory.as_ref() }) else {
+    let Ok(host) = HostInfo::new("paw", "paw", "", "0.1.0") else {
         return out;
     };
-    let (Some(count), Some(get), Some(create)) = (f.count, f.get_descriptor, f.create) else {
-        return out;
-    };
-    // SAFETY: `count` is the factory's own function, called with the factory it belongs to.
-    for index in 0..unsafe { count(factory) } {
-        // SAFETY: `get` is the factory's function, called with the factory and an index below `count`;
-        // the descriptor it returns is null or valid as long as the factory.
-        let Some(desc) = (unsafe { get(factory, index).as_ref() }) else {
-            continue;
-        };
-        let mut data = Box::new(Found::default());
-        let indexer = clap_preset_discovery_indexer {
-            clap_version: CLAP_VERSION,
-            name: c"paw".as_ptr(),
-            vendor: c"paw".as_ptr(),
-            url: c"".as_ptr(),
-            version: c"0.1.0".as_ptr(),
-            indexer_data: &mut *data as *mut Found as *mut c_void,
-            declare_filetype: Some(declare_filetype),
-            declare_location: Some(declare_location),
-            declare_soundpack: Some(declare_soundpack),
-            get_extension: Some(indexer_extension),
-        };
-        // SAFETY: `create` is the factory's function; `factory` is live, `indexer` lives on this stack frame
-        // until the provider is destroyed below, and `desc.id` is the descriptor's own NUL-terminated id.
-        let provider = unsafe { create(factory, &indexer, desc.id) };
-        // SAFETY: `create` returns null or a provider that stays valid until `destroy`.
-        let Some(p) = (unsafe { provider.as_ref() }) else {
-            continue;
-        };
-        // SAFETY: `init` is the provider's function, called once with its own provider, before any other call.
-        if !p.init.is_some_and(|init| unsafe { init(provider) }) {
-            if let Some(destroy) = p.destroy {
-                // SAFETY: `destroy` is the provider's function; the provider is not used again (the loop `continue`s).
-                unsafe { destroy(provider) };
-            }
-            continue;
+    // A file that has only the draft factory is seen through an entry that
+    // answers for it under the final id.
+    let draft;
+    let entry = match draft_entry(entry) {
+        Some(entry) => {
+            draft = entry;
+            &draft
         }
-        let receiver = clap_preset_discovery_metadata_receiver {
-            receiver_data: &mut *data as *mut Found as *mut c_void,
-            on_error: Some(on_error),
-            begin_preset: Some(begin_preset),
-            add_plugin_id: Some(add_plugin_id),
-            set_soundpack_id: Some(ignore_text),
-            set_flags: Some(ignore_flags),
-            add_creator: Some(ignore_text),
-            set_description: Some(ignore_text),
-            set_timestamps: Some(ignore_times),
-            add_feature: Some(ignore_text),
-            add_extra_info: Some(ignore_pair),
+        None => entry,
+    };
+    let Some(factory) = entry.get_factory::<PresetDiscoveryFactory>() else {
+        return out;
+    };
+    for desc in factory.provider_descriptors() {
+        let Some(provider_id) = desc.id() else {
+            continue;
         };
-        let locations = std::mem::take(&mut data.locations);
-        let extensions = data.extensions.clone();
-        if let Some(get_metadata) = p.get_metadata {
-            for (kind, location, _) in locations {
-                if kind == CLAP_PRESET_DISCOVERY_LOCATION_PLUGIN {
-                    data.kind = kind;
-                    data.location.clear();
-                    data.root = PathBuf::new();
-                    // SAFETY: `get_metadata` is the provider's function, called after a successful `init` with its own
-                    // provider and a receiver that lives on this stack frame for the call; a null path means the plugin's own presets.
-                    unsafe { get_metadata(provider, kind, ptr::null(), &receiver) };
+        let Ok(mut provider) = Provider::instantiate(Indexer::default(), entry, provider_id, &host)
+        else {
+            continue;
+        };
+        let indexer = std::mem::take(provider.indexer_mut());
+        let mut receiver = Receiver::default();
+        for (kind, location) in indexer.locations {
+            if kind == PLUGIN {
+                receiver.kind = kind;
+                receiver.location.clear();
+                receiver.root = PathBuf::new();
+                provider.get_metadata(Location::Plugin, &mut receiver);
+                continue;
+            }
+            let Some(location) = location else { continue };
+            let root = PathBuf::from(&location);
+            let mut files = Vec::new();
+            if root.is_dir() {
+                files_under(&root, &indexer.extensions, 20_000, &mut files);
+            } else {
+                files.push(root.clone());
+            }
+            for file in files {
+                let Ok(c_path) = CString::new(file.to_string_lossy().as_bytes()) else {
                     continue;
-                }
-                let Some(location) = location else { continue };
-                let root = PathBuf::from(&location);
-                let mut files = Vec::new();
-                if root.is_dir() {
-                    files_under(&root, &extensions, 20_000, &mut files);
-                } else {
-                    files.push(root.clone());
-                }
-                for file in files {
-                    let Ok(c_path) = CString::new(file.to_string_lossy().as_bytes()) else {
-                        continue;
-                    };
-                    data.kind = kind;
-                    data.location = file.to_string_lossy().into_owned();
-                    data.root = root.clone();
-                    // SAFETY: `get_metadata` is the provider's function, called after a successful `init`; `c_path` is
-                    // a CString that lives through the call and `receiver` lives on this stack frame.
-                    unsafe { get_metadata(provider, kind, c_path.as_ptr(), &receiver) };
-                }
+                };
+                receiver.kind = kind;
+                receiver.location = file.to_string_lossy().into_owned();
+                receiver.root = root.clone();
+                provider.get_metadata(Location::File { path: &c_path }, &mut receiver);
             }
         }
-        if let Some(destroy) = p.destroy {
-            // SAFETY: `destroy` is called once for a provider that was created and initialized here, after
-            // its last use, and the provider is not touched afterwards.
-            unsafe { destroy(provider) };
-        }
+        drop(provider);
         out.extend(
-            data.presets
-                .drain(..)
+            receiver
+                .presets
+                .into_iter()
                 .filter(|(_, ids)| ids.is_empty() || ids.iter().any(|id| id == plugin_id))
                 .map(|(preset, _)| preset),
         );
@@ -346,12 +252,92 @@ pub unsafe fn clap_presets(
     out
 }
 
-/// The parts of a CLAP preset id: location kind, location (none for one
-/// inside the plugin), load key (none when there is none).
-pub fn clap_preset_parts(id: &str) -> Result<(u32, Option<CString>, Option<CString>)> {
+/// The preset-discovery factory under its draft id, which Clack's
+/// [`PluginEntry::get_factory`] does not ask for: it asks only for the
+/// final one.
+#[derive(Clone, Copy)]
+struct DraftFactory<'a>(RawFactoryPointer<'a, clap_preset_discovery_factory>);
+
+// SAFETY: The draft id names the same table as the final one, `clap_preset_discovery_factory`.
+unsafe impl<'a> Factory<'a> for DraftFactory<'a> {
+    const IDENTIFIERS: &'static [&'static CStr] = &[CLAP_PRESET_DISCOVERY_FACTORY_ID_COMPAT];
+    type Raw = clap_preset_discovery_factory;
+
+    unsafe fn from_raw(raw: RawFactoryPointer<'a, Self::Raw>) -> Self {
+        Self(raw)
+    }
+}
+
+thread_local! {
+    /// The draft factory that [`DRAFT_ENTRY`] gives now, or null.
+    static DRAFT: Cell<*const c_void> = const { Cell::new(ptr::null()) };
+}
+
+/// An entry with no plugins whose preset-discovery factory is [`DRAFT`]:
+/// how a provider of a file that has only the draft factory is made
+/// through Clack, which finds the factory through an entry and only by the
+/// final id.
+static DRAFT_ENTRY: EntryDescriptor = EntryDescriptor {
+    clap_version: CLAP_VERSION,
+    init: Some(draft_init),
+    deinit: Some(draft_deinit),
+    get_factory: Some(draft_get_factory),
+};
+
+unsafe extern "C" fn draft_init(_: *const c_char) -> bool {
+    true
+}
+
+unsafe extern "C" fn draft_deinit() {}
+
+unsafe extern "C" fn draft_get_factory(id: *const c_char) -> *const c_void {
+    // SAFETY: Clack calls this with a NUL-terminated factory id that lives for the call.
+    let id = unsafe { CStr::from_ptr(id) };
+    if id == CLAP_PRESET_DISCOVERY_FACTORY_ID {
+        DRAFT.get()
+    } else {
+        ptr::null()
+    }
+}
+
+/// When `entry` has the draft preset-discovery factory and not the final
+/// one, an entry that answers with it under the final id, for this thread
+/// until the scan of the next file.
+fn draft_entry(entry: &PluginEntry) -> Option<PluginEntry> {
+    if entry.get_factory::<PresetDiscoveryFactory>().is_some() {
+        return None;
+    }
+    let draft = entry.get_factory::<DraftFactory>()?;
+    DRAFT.set(draft.0.as_ptr().cast_const().cast());
+    // SAFETY: `DRAFT_ENTRY` is static, its `init` and `deinit` do nothing, and its factory is
+    // the draft factory of `entry`'s file, which is never unloaded (see clap.rs's `Library`).
+    unsafe { PluginEntry::load_from_raw(&DRAFT_ENTRY, c"paw-draft-presets") }.ok()
+}
+
+/// Where a CLAP preset is: what [`clap_preset_parts`] reads from its id.
+#[derive(Debug, PartialEq)]
+pub enum PresetLocation {
+    /// Inside the plugin.
+    Plugin,
+    /// In a file.
+    File(CString),
+}
+
+impl PresetLocation {
+    pub fn as_location(&self) -> Location<'_> {
+        match self {
+            Self::Plugin => Location::Plugin,
+            Self::File(path) => Location::File { path },
+        }
+    }
+}
+
+/// The parts of a CLAP preset id: its location (none when the kind is not
+/// one paw knows) and load key (none when there is none).
+pub fn clap_preset_parts(id: &str) -> Result<(Option<PresetLocation>, Option<CString>)> {
     // A file named by a script: `file:<path>`.
     if let Some(path) = id.strip_prefix("file:").filter(|p| !p.is_empty()) {
-        return Ok((CLAP_PRESET_DISCOVERY_LOCATION_FILE, Some(CString::new(path)?), None));
+        return Ok((Some(PresetLocation::File(CString::new(path)?)), None));
     }
     let mut parts = id.splitn(3, SEP);
     let kind: u32 = parts
@@ -367,10 +353,17 @@ pub fn clap_preset_parts(id: &str) -> Result<(u32, Option<CString>, Option<CStri
             Some(CString::new(s)?)
         })
     };
-    if kind == CLAP_PRESET_DISCOVERY_LOCATION_FILE && location.is_empty() {
-        bail!("not a preset of this plugin");
-    }
-    Ok((kind, c(location)?, c(key)?))
+    let location = c(location)?;
+    let location = if kind == PLUGIN {
+        Some(PresetLocation::Plugin)
+    } else if kind == FILE {
+        Some(PresetLocation::File(
+            location.context("not a preset of this plugin")?,
+        ))
+    } else {
+        None
+    };
+    Ok((location, c(key)?))
 }
 
 // --- VST3 ---------------------------------------------------------------------
@@ -495,9 +488,8 @@ mod tests {
 
     #[test]
     fn clap_ids_split_into_their_parts() {
-        let (kind, location, key) = clap_preset_parts("0\u{1f}/a/b.fxp\u{1f}").unwrap();
-        assert_eq!(kind, CLAP_PRESET_DISCOVERY_LOCATION_FILE);
-        assert_eq!(location.unwrap().to_str().unwrap(), "/a/b.fxp");
+        let (location, key) = clap_preset_parts("0\u{1f}/a/b.fxp\u{1f}").unwrap();
+        assert_eq!(location, Some(PresetLocation::File(c"/a/b.fxp".into())));
         assert!(key.is_none());
         assert!(clap_preset_parts("junk").is_err());
     }

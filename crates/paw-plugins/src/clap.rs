@@ -58,10 +58,6 @@ use clack_host::prelude::{
 use clack_host::utils::{Cookie, FixedPoint};
 use clap_sys::events::*;
 use clap_sys::ext::preset_load::{CLAP_EXT_PRESET_LOAD_COMPAT, clap_plugin_preset_load};
-use clap_sys::factory::preset_discovery::{
-    CLAP_PRESET_DISCOVERY_FACTORY_ID, CLAP_PRESET_DISCOVERY_FACTORY_ID_COMPAT,
-    clap_preset_discovery_factory,
-};
 use clap_sys::id::clap_id;
 use clap_sys::plugin::clap_plugin;
 use paw_engine::device::{Change, Rest, assign_keys, silent};
@@ -71,6 +67,7 @@ use paw_engine::{
 };
 
 use crate::echo::Echo;
+use crate::presets::PresetLocation;
 use crate::window::{HostWindow, Watches, WindowEvent, ui_scale};
 use crate::{Found, HeldNotes, PluginFormat, is_main_thread, write_output};
 
@@ -81,17 +78,7 @@ struct Library {
     /// The file's entry, initialized. Kept for good in `load`'s list, so
     /// Clack never calls the entry's `deinit`.
     entry: PluginEntry,
-    /// The file's preset-discovery factory, or null.
-    presets: *const clap_preset_discovery_factory,
 }
-
-// The preset-discovery factory is only used from the main thread.
-// SAFETY: `presets` points into the plugin file's static entry data, and the file is never
-// unloaded (ManuallyDrop), so moving a Library to another thread keeps it valid.
-unsafe impl Send for Library {}
-// SAFETY: The CLAP threading rules keep every call through `presets` on the main thread, and the
-// fields are never written after `load`, so sharing a Library is sound.
-unsafe impl Sync for Library {}
 
 /// Load a `.clap` file, or return it if it is loaded already.
 fn load(path: &Path) -> Result<Arc<Library>> {
@@ -108,7 +95,7 @@ fn load(path: &Path) -> Result<Arc<Library>> {
         entry.as_ref().context("no entry point")?
     };
     entry.init.context("no init")?;
-    let get_factory = entry.get_factory.context("no factory")?;
+    entry.get_factory.context("no factory")?;
     let c_path = CString::new(path.to_string_lossy().as_bytes())?;
     // SAFETY: `entry` is the file's own entry, valid for good (see above). Clack checks its CLAP
     // version and calls its `init` once with the path, on the main thread (under the LOADED lock).
@@ -119,20 +106,9 @@ fn load(path: &Path) -> Result<Arc<Library>> {
     entry
         .get_plugin_factory()
         .context("the file has no plugin factory")?;
-    // SAFETY: `get_factory` is the initialized entry's own function and gets static ids; a null
-    // result means the file has no preset discovery.
-    let presets = unsafe {
-        let presets = get_factory(CLAP_PRESET_DISCOVERY_FACTORY_ID.as_ptr());
-        if presets.is_null() {
-            get_factory(CLAP_PRESET_DISCOVERY_FACTORY_ID_COMPAT.as_ptr())
-        } else {
-            presets
-        }
-    };
     let library = Arc::new(Library {
         _lib: ManuallyDrop::new(lib),
         entry,
-        presets: presets.cast(),
     });
     loaded.push((path.to_path_buf(), library.clone()));
     Ok(library)
@@ -1392,10 +1368,8 @@ impl Controller for ClapController {
         }
         match method {
             paw_engine::device::method::PRESETS => {
-                // SAFETY: `presets` is null or the plugin file's preset-discovery factory, which lives as
-                // long as the (never unloaded) file; this runs on the main thread.
-                let presets = self.presets.get_or_insert_with(|| unsafe {
-                    crate::presets::clap_presets(self.shared._library.presets, &self.plugin_id)
+                let presets = self.presets.get_or_insert_with(|| {
+                    crate::presets::clap_presets(&self.shared._library.entry, &self.plugin_id)
                 });
                 Ok(crate::presets::to_json(presets))
             }
@@ -1441,10 +1415,8 @@ fn load_preset(plugin: &PluginMainThreadHandle, id: &[u8]) -> Result<()> {
         ),
     };
     let id = String::from_utf8_lossy(id);
-    let (kind, location, key) = crate::presets::clap_preset_parts(&id)?;
-    let path = location.as_deref().map_or(ptr::null(), CStr::as_ptr);
-    // SAFETY: `path` is null or the CString `location`, which lives to the end of this function.
-    let location = unsafe { Location::from_raw(kind, path) };
+    let (location, key) = crate::presets::clap_preset_parts(&id)?;
+    let location = location.as_ref().map(PresetLocation::as_location);
     let key = key.as_deref();
     let loaded = location.is_some_and(|location| match (standard, compat) {
         (Some(ext), _) => ext.load_from_location(plugin, location, key).is_ok(),
