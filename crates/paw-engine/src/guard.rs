@@ -53,9 +53,15 @@ pub fn finite(samples: &[f32]) -> bool {
     sum == 0.0
 }
 
-/// What [`fault`](crate::Shared::fault) reports about a device.
-pub const PANICKED: u8 = 1;
-pub const NOT_FINITE: u8 = 2;
+bitflags::bitflags! {
+    /// What [`fault`](crate::Shared::fault) reports about a device. The engine keeps
+    /// the bits in one atomic byte per slot.
+    #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+    pub struct Fault: u8 {
+        const PANICKED = 1;
+        const NOT_FINITE = 2;
+    }
+}
 
 /// Devices that fail on purpose, for tests: `test.panic` panics in
 /// `process` while its `fail` parameter is on, and `test.nan` puts out NaN

@@ -635,14 +635,14 @@ impl Session {
                 let fault = self
                     .handle
                     .shared
-                    .fault(slot, paw_engine::guard::NOT_FINITE);
-                if fault & paw_engine::guard::PANICKED != 0 && live.stopped.is_none() {
+                    .fault(slot, paw_engine::guard::Fault::NOT_FINITE);
+                if fault.contains(paw_engine::guard::Fault::PANICKED) && live.stopped.is_none() {
                     let why =
                         "it crashed while processing; it is bypassed until restarted".to_string();
                     live.stopped = Some(why.clone());
                     stopped.push((*id, why));
                 }
-                if fault & paw_engine::guard::NOT_FINITE != 0 {
+                if fault.contains(paw_engine::guard::Fault::NOT_FINITE) {
                     invalid.push(*id);
                 }
             }
