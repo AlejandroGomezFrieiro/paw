@@ -125,7 +125,7 @@ real-time crates, read its code for the audio thread rules.
 | FLAC, write | `flacenc` (paw uses it) | |
 | Sample-rate conversion | `rubato` (paw uses it) | |
 | FFT | `realfft` (paw uses it) | a radix-2 FFT by hand |
-| Loudness (BS.1770, EBU R 128: integrated, short-term, range, true peak) | `ebur128` | own K-weighting and gates |
+| Loudness (BS.1770, EBU R 128: integrated, short-term, range, true peak) | paw's own in `measure/analysis.rs` (see below) | `ebur128` |
 | Lock-free queues to the audio thread | `rtrb` (paw uses it) | |
 | A test that the audio thread does not allocate | `assert_no_alloc` | an own `GlobalAlloc` in each test |
 | Denormals off on a thread | `no_denormals` | own MXCSR code |
@@ -194,13 +194,19 @@ Found with grep at a72467cf. Each refactor part that owns the file fixes it.
 - **WAV writers:** `paw-engine/src/record.rs` (a take, header kept valid
   as it grows: `hound`'s `WavWriter::flush` does this),
   and `paw-listen/src/lib.rs`. (The sampler's `audio.rs` is on `hound` now.)
-- **FFT:** three radix-2 transforms by hand: `paw-core/src/measure/analysis.rs`,
-  `paw-mcp/src/audio.rs`, `paw-engine/src/devices/dsp.rs`. Use `realfft`.
+- **FFT:** two radix-2 transforms by hand: `paw-mcp/src/audio.rs`,
+  `paw-engine/src/devices/dsp.rs`. Use `realfft`, as
+  `paw-core/src/measure/analysis.rs` does.
   The one in `dsp.rs` stays only if a device calls it on the audio thread.
-- **Loudness:** `paw-core/src/measure/analysis.rs` has its own BS.1770
-  K-weighting, gates, loudness range and true peak. Compare it with
-  `ebur128` on the tests in `measure/tests.rs`, and change to the crate if
-  the numbers agree.
+- **Loudness:** `paw-core/src/measure/analysis.rs` keeps its own BS.1770
+  K-weighting, gates, loudness range and true peak. Compared with `ebur128`
+  0.1.11 (2026-11-21): integrated, momentary and short-term agree to 0.001
+  LU and true peak to 0.1 dB, but the crate takes the short-term blocks for
+  loudness range once a second, and EBU Tech 3342 (version 3 and later)
+  asks for at least 10 Hz. On quiet and loud passages that alternate, its
+  range reads several LU lower. The crate also does not give the blocks
+  that the gate keeps (paw's mono loss uses them) or the two ends of the
+  range (`lra_low`, `lra_high`).
 - **Real-time tools:** the `no_alloc.rs` test of paw-engine (own allocator;
   the sampler's uses `assert_no_alloc`), `backend.rs` `no_denormals`, the atomic `f32`
   in `devices/dsp.rs` and `engine/shared.rs`.

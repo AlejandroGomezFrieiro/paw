@@ -6,7 +6,19 @@
 //! [`Analyzer`] takes the signal in pieces of any length and keeps per-100 ms
 //! sums, so that a long song needs only a little memory and the series that
 //! findings are placed by fall out of the same pass.
+//!
+//! Why not the `ebur128` crate: its integrated, momentary and short-term
+//! readings agree with these to 0.001 LU, but it takes the short-term
+//! blocks for loudness range only once a second (libebur128's 2 s overlap).
+//! Tech 3342 asks for at least 10 Hz since its version 3, and on music
+//! that alternates quiet and loud passages the two differ by several LU. The
+//! crate also hides what the analysis needs from the gate: the blocks it
+//! keeps (for the mono loss) and the two ends of the loudness range.
 
+use std::sync::Arc;
+
+use realfft::num_complex::Complex;
+use realfft::{RealFftPlanner, RealToComplex};
 use serde::Serialize;
 
 /// Time between two points of every series, and the step of the gating blocks.
@@ -380,7 +392,10 @@ pub struct Analyzer {
     run_count: usize,
     // Spectrum of the mid signal.
     fft_size: usize,
+    fft: Arc<dyn RealToComplex<f64>>,
     fft_buf: Vec<f64>,
+    fft_in: Vec<f64>,
+    fft_out: Vec<Complex<f64>>,
     window: Vec<f64>,
     spectrum: Vec<f64>,
 }
@@ -394,6 +409,9 @@ impl Analyzer {
         let window = (0..fft_size)
             .map(|i| 0.5 - 0.5 * (2.0 * std::f64::consts::PI * i as f64 / fft_size as f64).cos())
             .collect();
+        let fft = RealFftPlanner::<f64>::new().plan_fft_forward(fft_size);
+        let fft_in = fft.make_input_vec();
+        let fft_out = fft.make_output_vec();
         Self {
             rate,
             hop_frames: ((rate * HOP_SECONDS).round() as usize).max(1),
@@ -421,7 +439,10 @@ impl Analyzer {
             runs: Vec::new(),
             run_count: 0,
             fft_size,
+            fft,
             fft_buf: Vec::with_capacity(fft_size),
+            fft_in,
+            fft_out,
             window,
             spectrum: vec![0.0; fft_size / 2 + 1],
         }
@@ -553,16 +574,15 @@ impl Analyzer {
         // Without the frame's mean, so that a DC offset (reported on its own)
         // does not leak into the lowest bands through the window.
         let mean = self.fft_buf.iter().sum::<f64>() / n as f64;
-        let mut re: Vec<f64> = self
-            .fft_buf
-            .iter()
-            .zip(&self.window)
-            .map(|(x, w)| (x - mean) * w)
-            .collect();
-        let mut im = vec![0.0; n];
-        fft(&mut re, &mut im);
-        for (k, power) in self.spectrum.iter_mut().enumerate() {
-            *power += re[k] * re[k] + im[k] * im[k];
+        for ((x, w), out) in self.fft_buf.iter().zip(&self.window).zip(&mut self.fft_in) {
+            *out = (x - mean) * w;
+        }
+        // The input is a whole frame of the planned length, so this cannot fail.
+        self.fft
+            .process(&mut self.fft_in, &mut self.fft_out)
+            .expect("an FFT frame of the planned length");
+        for (power, bin) in self.spectrum.iter_mut().zip(&self.fft_out) {
+            *power += bin.norm_sqr();
         }
         // Half overlap: with a Hann window the frames then add up to a constant.
         self.fft_buf.drain(..n / 2);
@@ -869,45 +889,6 @@ fn median(values: &[f64]) -> f64 {
         v[n / 2]
     } else {
         (v[n / 2 - 1] + v[n / 2]) / 2.0
-    }
-}
-
-/// In-place radix-2 FFT; `re.len()` must be a power of two.
-fn fft(re: &mut [f64], im: &mut [f64]) {
-    let n = re.len();
-    let mut j = 0;
-    for i in 1..n {
-        let mut bit = n >> 1;
-        while j & bit != 0 {
-            j ^= bit;
-            bit >>= 1;
-        }
-        j |= bit;
-        if i < j {
-            re.swap(i, j);
-            im.swap(i, j);
-        }
-    }
-    let mut len = 2;
-    while len <= n {
-        let angle = -2.0 * std::f64::consts::PI / len as f64;
-        let (wr, wi) = (angle.cos(), angle.sin());
-        for start in (0..n).step_by(len) {
-            let (mut cr, mut ci) = (1.0, 0.0);
-            for k in 0..len / 2 {
-                let (a, b) = (start + k, start + k + len / 2);
-                let tr = re[b] * cr - im[b] * ci;
-                let ti = re[b] * ci + im[b] * cr;
-                re[b] = re[a] - tr;
-                im[b] = im[a] - ti;
-                re[a] += tr;
-                im[a] += ti;
-                let next = cr * wr - ci * wi;
-                ci = cr * wi + ci * wr;
-                cr = next;
-            }
-        }
-        len <<= 1;
     }
 }
 
