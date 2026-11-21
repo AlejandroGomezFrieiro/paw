@@ -329,6 +329,12 @@ When the notation extension is loaded too:
 | `art_auto_map` | `true` | a plugin added to a track with no map binds the map whose `match` names it |
 | `art_from_notation` | `true` | a mark or technique written in the score sets the articulation of the notes |
 
+### Events
+
+| Event | Payload | When |
+| --- | --- | --- |
+| `articulations.bound` | `{ track, map }` | a map was bound to a track. With no `map`, the binding was taken away |
+
 ### Limits
 
 - The articulations have no menu of their own in the graphical window.

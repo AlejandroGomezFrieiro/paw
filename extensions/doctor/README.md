@@ -265,6 +265,12 @@ An error in a check ends it as failed. A `pcall` in a check must raise
 again an error that is a table. The doctor uses such an error to end a
 check that you cancel or that times out.
 
+### Events
+
+| Event | Payload | When |
+| --- | --- | --- |
+| `doctor.done` | `{ report, problem }` | a run ended. `report` is the path of the report, `problem` what went wrong, or nil |
+
 ### Limits
 
 The doctor ran on the null backend only. There, a test input gives two

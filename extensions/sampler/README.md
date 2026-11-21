@@ -231,6 +231,12 @@ it.
 | 16 | 3.1 % | 1.3 % | 525 ms | 211 ms |
 | 64 | 8.1 % (at most 13 %) | 3.5 % (at most 5 %) | 1549 ms | 506 ms |
 
+### Events
+
+| Event | Payload | When |
+| --- | --- | --- |
+| `sampler.loaded` | `{ device, path }` | an instrument file loaded into a sampler device |
+
 ### Tests
 
 - `cargo test` in `native/` (in the dev shell):
