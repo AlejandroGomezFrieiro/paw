@@ -45,9 +45,12 @@ loaded machine is slow, but it is not wrong. Use these rules:
   processor time of the thread with `T.cpu_ms()`, not the time on the
   clock, and check it with `T.quick(ms, limit, what)`. Other programs
   share the caches and the memory of the processor, so the same work
-  takes more processor time on a loaded machine. `T.quick` multiplies the
-  limit by the load average over the number of processors, when that is
-  more than 1. Keep the limit a few times the target.
+  takes more processor time on a loaded machine, up to four times more.
+  `T.quick` runs a fixed piece of work three times, and compares the best
+  time with its time on an idle machine. It multiplies the limit by the
+  larger of this slowdown and the load average over the number of
+  processors, at most 8 times and at least 1. The message of a failure
+  shows both numbers. Keep the limit a few times the target.
 
 ## Run the Rust tests
 
