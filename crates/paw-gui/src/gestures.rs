@@ -16,6 +16,7 @@ use egui_kittest::kittest::Queryable;
 use serde_json::{Value, json};
 
 use crate::app::{Kernel, View};
+use crate::model::text;
 
 const FIXTURE: &str = include_str!("../tests/fixture.json");
 
@@ -42,6 +43,11 @@ impl Kernel for Fake {
             json!({ "modified": true, "name": "song" })
         } else if code.contains("paw.frontend.act.lane(") {
             json!(7)
+        } else if code.contains("paw.mouse.gesture()") {
+            // A press on a clip makes a gesture that moves it: the clip
+            // once the press has come.
+            let pressed = self.calls.borrow().iter().any(|(m, p)| m == "scene.input" && p[1]["kind"] == "down");
+            if pressed { json!(5) } else { Value::Null }
         } else {
             Value::Null
         })
@@ -674,6 +680,30 @@ fn the_device_panel_is_painted_from_its_scene_and_a_parameter_a_lane_moves_follo
     h.run_steps(2);
     let text = drawn_text(&h);
     assert!(text.contains("8.5 kHz") && !text.contains("1.2 kHz"), "and it moves with them: {text}");
+}
+
+#[test]
+fn a_clip_dragged_onto_another_window_in_one_frame_is_dropped_there() {
+    let (mut h, calls, patches) = arrange_window();
+    patches.borrow_mut().push(serde_json::to_value(device_scene()).unwrap());
+    h.run_steps(2);
+    calls.borrow_mut().clear();
+    // A loaded machine draws few frames: the press on the clip, the moves
+    // and the release over the device panel all come in one.
+    let from = h.get_by_label("verse").rect().center();
+    let to = h.get_by_label("name of Synth").rect().center();
+    let events = &mut h.input_mut().events;
+    events.push(Event::PointerMoved(from));
+    events.push(Event::PointerButton { pos: from, button: PointerButton::Primary, pressed: true, modifiers: Modifiers::NONE });
+    for step in 1..=8 {
+        events.push(Event::PointerMoved(from + (to - from) * step as f32 / 8.0));
+    }
+    events.push(Event::PointerButton { pos: to, button: PointerButton::Primary, pressed: false, modifiers: Modifiers::NONE });
+    h.run_steps(2);
+    let inputs: Vec<(String, String)> = calls.borrow().iter().filter(|(m, _)| m == "scene.input").map(|(_, p)| (text(&p[0]), text(&p[1]["kind"]))).collect();
+    let first = |window: &str, kind: &str| inputs.iter().position(|(w, k)| w == window && k == kind);
+    let (press, drop) = (first("1", "down"), first("3", "drop"));
+    assert!(press.is_some() && drop.is_some() && press < drop, "the press on the clip, then the drop on the panel: {inputs:?}");
 }
 
 #[test]

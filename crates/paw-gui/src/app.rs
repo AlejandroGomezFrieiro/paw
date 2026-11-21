@@ -275,6 +275,21 @@ impl View {
     /// Send what was gathered in the frame.
     pub fn flush(&mut self) {
         let acts: Vec<(String, Value)> = std::mem::take(&mut *self.acts.borrow_mut());
+        self.send(acts);
+    }
+
+    /// Send what was gathered in the frame before the first release of a
+    /// pointer button, which stays for the end of the frame.
+    pub fn flush_before_release(&mut self) {
+        let early: Vec<(String, Value)> = {
+            let mut acts = self.acts.borrow_mut();
+            let release = acts.iter().position(|(m, p)| m == "scene.input" && p[1]["kind"] == "up").unwrap_or(acts.len());
+            acts.drain(..release).collect()
+        };
+        self.send(early);
+    }
+
+    fn send(&mut self, acts: Vec<(String, Value)>) {
         if acts.is_empty() {
             return;
         }

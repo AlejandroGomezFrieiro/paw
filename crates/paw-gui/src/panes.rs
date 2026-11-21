@@ -43,37 +43,43 @@ pub fn pointer_event(kind: &str, at: Pos2, button: &str, m: egui::Modifiers) -> 
 pub fn pointer_events(ui: &Ui, rect: Rect, id: Id) -> Vec<Value> {
     let response = ui.interact(rect, id, Sense::click_and_drag());
     let mut out = Vec::new();
-    let held = ui.data(|d| d.get_temp::<bool>(id)).unwrap_or(false);
-    ui.input(|i| {
-        let m = i.modifiers;
-        let at = |p: Pos2| (p - rect.min).to_pos2();
-        for event in &i.events {
-            match event {
-                egui::Event::PointerButton { pos, button, pressed, modifiers } => {
-                    let name = match button {
-                        egui::PointerButton::Secondary => "right",
-                        egui::PointerButton::Middle => "middle",
-                        _ => "left",
-                    };
-                    if *pressed && response.hovered() {
-                        out.push(pointer_event("down", at(*pos), name, *modifiers));
-                    } else if !*pressed && (held || response.hovered()) {
-                        out.push(pointer_event("up", at(*pos), name, *modifiers));
-                    }
+    // Held from a press in an earlier frame, or in this one: on a loaded
+    // machine a press, the moves and the release can all come in one frame.
+    let mut held = ui.data(|d| d.get_temp::<bool>(id)).unwrap_or(false);
+    // A press here whose pointer has left by the end of the frame: where
+    // the press was, on this window and not on a menu above it.
+    let visible = ui.clip_rect().intersect(rect);
+    let over = |p: Pos2| visible.contains(p) && ui.ctx().layer_id_at(p).is_none_or(|l| l == ui.layer_id());
+    // Out of `input`, which holds the lock of the context that `over` asks.
+    let (events, m, hover) = ui.input(|i| (i.events.clone(), i.modifiers, i.pointer.hover_pos()));
+    let at = |p: Pos2| (p - rect.min).to_pos2();
+    for event in &events {
+        match event {
+            egui::Event::PointerButton { pos, button, pressed, modifiers } => {
+                let name = match button {
+                    egui::PointerButton::Secondary => "right",
+                    egui::PointerButton::Middle => "middle",
+                    _ => "left",
+                };
+                if *pressed && (response.hovered() || (!response.contains_pointer() && over(*pos))) {
+                    out.push(pointer_event("down", at(*pos), name, *modifiers));
+                    held = true;
+                } else if !*pressed && (held || response.hovered()) {
+                    out.push(pointer_event("up", at(*pos), name, *modifiers));
+                    held = false;
                 }
-                egui::Event::PointerMoved(pos) if held => out.push(pointer_event("move", at(*pos), "left", m)),
-                egui::Event::PointerMoved(pos) if response.hovered() => out.push(pointer_event("hover", at(*pos), "left", m)),
-                egui::Event::MouseWheel { delta, modifiers, .. } if response.hovered() => {
-                    if let Some(pos) = i.pointer.hover_pos() {
-                        let p = at(pos);
-                        out.push(json!({ "kind": "wheel", "x": p.x, "y": p.y, "dx": delta.x, "dy": delta.y, "ctrl": modifiers.ctrl, "shift": modifiers.shift }));
-                    }
-                }
-                _ => {}
             }
+            egui::Event::PointerMoved(pos) if held => out.push(pointer_event("move", at(*pos), "left", m)),
+            egui::Event::PointerMoved(pos) if response.hovered() => out.push(pointer_event("hover", at(*pos), "left", m)),
+            egui::Event::MouseWheel { delta, modifiers, .. } if response.hovered() => {
+                if let Some(pos) = hover {
+                    let p = at(pos);
+                    out.push(json!({ "kind": "wheel", "x": p.x, "y": p.y, "dx": delta.x, "dy": delta.y, "ctrl": modifiers.ctrl, "shift": modifiers.shift }));
+                }
+            }
+            _ => {}
         }
-    });
-    // Not within `input`: a response asks the context, and the lock is held.
+    }
     if response.double_clicked()
         && let Some(pos) = ui.input(|i| i.pointer.interact_pos())
     {

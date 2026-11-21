@@ -735,6 +735,10 @@ impl View {
     /// view (`kind = "drop"`, `clip`), which takes it if it can (a view's
     /// `on_drop`). True when the event was that.
     fn drop_clip(&mut self, event: &mut Value) -> bool {
+        // The press, in a window drawn before this one, may be in this
+        // frame too (a loaded machine draws few): it goes to the kernel
+        // first, which makes the gesture; its release stays queued.
+        self.flush_before_release();
         let Some(clip) = self.ask("local g = paw.mouse.gesture(); return g and g.clip", json!([])).as_i64() else {
             return false;
         };

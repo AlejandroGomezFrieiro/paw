@@ -673,9 +673,10 @@ impl Scene {
     }
 
     /// Wait for a Lua expression to hold, as the kernel will take a moment
-    /// over what a gesture meant.
+    /// over what a gesture meant. The limit is for a loaded machine, which
+    /// is slow, not wrong: the time the slowest needs, not the usual time.
     fn expect(&self, what: &str, condition: &str) {
-        let Err(last) = self.wait_for(condition, 15) else {
+        let Err(last) = self.wait_for(condition, 30) else {
             return;
         };
         let now = self
@@ -707,8 +708,10 @@ impl Scene {
         );
     }
 
+    /// Wait for the window to end (a minute at most: it waits for the
+    /// kernel to end, which a loaded machine makes slow).
     fn wait_gone(&mut self, what: &str) {
-        let deadline = Instant::now() + Duration::from_secs(20);
+        let deadline = Instant::now() + Duration::from_secs(60);
         while Instant::now() < deadline {
             if !self.alive() {
                 return;
@@ -1029,9 +1032,10 @@ impl Scene {
         }
     }
 
-    /// Wait for `text` to show and say where.
+    /// Wait for `text` to show and say where (30 seconds at most, the
+    /// limit of `expect`: a loaded machine draws late).
     fn find_text(&self, text: &str, nth: i32) -> Point {
-        let deadline = Instant::now() + Duration::from_secs(10);
+        let deadline = Instant::now() + Duration::from_secs(30);
         loop {
             let screens = self.screens(text, nth);
             if let Some(at) = Scene::locate(&screens, text, nth) {
@@ -1054,6 +1058,20 @@ impl Scene {
         let deadline = Instant::now() + Duration::from_secs(seconds);
         loop {
             if Scene::locate(&self.screens(text, 0), text, 0).is_some() {
+                return true;
+            }
+            if Instant::now() > deadline {
+                return false;
+            }
+            self.pause(0.3);
+        }
+    }
+
+    /// Whether `text` has left the screen within `seconds`.
+    fn hides(&self, text: &str, seconds: u64) -> bool {
+        let deadline = Instant::now() + Duration::from_secs(seconds);
+        loop {
+            if Scene::locate(&self.screens(text, 0), text, 0).is_none() {
                 return true;
             }
             if Instant::now() > deadline {
@@ -1241,7 +1259,22 @@ fn look(w: &Scene, partial: bool) -> Vec<[u8; 3]> {
         w.ctl("paw.opt.window_cache = false");
         w.pause(1.0);
     }
-    w.pixels((0, 0), (1400, 860))
+    still(w)
+}
+
+/// The window's pixels once they stay the same for a second: a loaded
+/// machine draws the last frames late (a minute at most).
+fn still(w: &Scene) -> Vec<[u8; 3]> {
+    let deadline = Instant::now() + Duration::from_secs(60);
+    let mut before = w.pixels((0, 0), (1400, 860));
+    loop {
+        w.pause(1.0);
+        let now = w.pixels((0, 0), (1400, 860));
+        if now == before || Instant::now() > deadline {
+            return now;
+        }
+        before = now;
+    }
 }
 
 /// How many pixels differ, and how many of them by more than 2 in a
@@ -1338,7 +1371,8 @@ fn closing_with_unsaved_changes_asks() {
     w.close_window();
     w.shot("closing.png");
     w.click_text("Cancel");
-    w.pause(1.0);
+    // The next close comes once this dialog has gone, not while it is up.
+    assert!(w.hides("Cancel", 30), "the dialog stayed after Cancel");
     w.assert_alive("after Cancel");
     w.expect(
         "the project still unsaved",
@@ -1995,7 +2029,6 @@ fn a_window_connects_to_a_kernel_over_tcp_and_a_wrong_token_is_refused() {
 fn a_window_told_not_to_listen_stops_at_once_and_says_why() {
     let xdg = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("no-listen-{}", std::process::id()));
     std::fs::create_dir_all(&xdg).unwrap();
-    let began = Instant::now();
     let out = Command::new(env!("CARGO_BIN_EXE_paw-gui"))
         .args(["--no-listen", "--no-plugins", "--audio", "null"])
         .env("PAW_BIN", kernel_binary())
@@ -2013,7 +2046,10 @@ fn a_window_told_not_to_listen_stops_at_once_and_says_why() {
     let said = String::from_utf8_lossy(&out.stderr).to_string() + &String::from_utf8_lossy(&out.stdout);
     assert!(!out.status.success(), "{said}");
     assert!(said.contains("--no-listen"), "{said}");
-    assert!(began.elapsed() < Duration::from_secs(60), "it waited for a socket that never came: {said}");
+    // It saw the kernel end, and did not wait out its limit for a socket
+    // that never came: a time on the clock would also count the build of
+    // the kernel and a loaded machine.
+    assert!(said.contains("the kernel stopped before it was ready"), "it waited for a socket that never came: {said}");
 }
 
 /// How reliably the screen is read, for whoever changes how: every text the
