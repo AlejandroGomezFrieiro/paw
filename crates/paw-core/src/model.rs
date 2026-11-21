@@ -1521,35 +1521,46 @@ impl Project {
     /// of the program does not expect: a tempo of 0 (renders that never
     /// end), two things with one id, routing loops, numbers out of range.
     pub fn validate(&self) -> anyhow::Result<()> {
-        use anyhow::bail;
-        let range = |what: &str, v: f64, lo: f64, hi: f64| -> anyhow::Result<()> {
-            if !(lo..=hi).contains(&v) {
-                bail!("{what} is {v}, which is outside {lo} to {hi}");
-            }
-            Ok(())
-        };
-        range("the tempo", self.tempo, 1.0, 999.0)?;
+        self.check_tempo_and_signature()?;
+        self.check_master_and_ids()?;
+        let tracks: std::collections::HashMap<Id, &Track> =
+            self.all_tracks().map(|t| (t.id, &**t)).collect();
+        for t in self.all_tracks() {
+            check_track(t, &tracks)?;
+        }
+        self.check_routing_loops(&tracks)
+    }
+
+    /// The tempo, the tempo changes and the time signatures are in range.
+    fn check_tempo_and_signature(&self) -> anyhow::Result<()> {
+        check_range("the tempo", self.tempo, 1.0, 999.0)?;
         for c in &self.tempo_changes {
-            range("a tempo change's tempo", c.bpm, 1.0, 999.0)?;
-            range("a tempo change's beat", c.beat, 0.0, 1e9)?;
+            check_range("a tempo change's tempo", c.bpm, 1.0, 999.0)?;
+            check_range("a tempo change's beat", c.beat, 0.0, 1e9)?;
         }
         for c in &self.sig_changes {
-            range("a signature change's beat", c.beat, 0.0, 1e9)?;
-            range("a signature's numerator", c.num as f64, 1.0, 64.0)?;
-            range("a signature's denominator", c.den as f64, 1.0, 64.0)?;
+            check_range("a signature change's beat", c.beat, 0.0, 1e9)?;
+            check_range("a signature's numerator", c.num as f64, 1.0, 64.0)?;
+            check_range("a signature's denominator", c.den as f64, 1.0, 64.0)?;
         }
-        range(
+        check_range(
             "the time signature's numerator",
             self.sig_num as f64,
             1.0,
             64.0,
         )?;
-        range(
+        check_range(
             "the time signature's denominator",
             self.sig_den as f64,
             1.0,
             64.0,
         )?;
+        Ok(())
+    }
+
+    /// The master is the master, and no two things have one id.
+    fn check_master_and_ids(&self) -> anyhow::Result<()> {
+        use anyhow::bail;
         if self.master.id != MASTER_ID
             || self.master.output.is_some()
             || !self.master.sends.is_empty()
@@ -1575,133 +1586,16 @@ impl Project {
                 unique(l.id)?;
             }
         }
-        let tracks: std::collections::HashMap<Id, &Track> =
-            self.all_tracks().map(|t| (t.id, &**t)).collect();
-        for t in self.all_tracks() {
-            let name = format!("track {} ({})", t.id, t.name);
-            range(&format!("the volume of {name}"), t.volume, -120.0, 24.0)?;
-            range(&format!("the pan of {name}"), t.pan, -1.0, 1.0)?;
-            for target in t.output.iter().chain(t.sends.iter().map(|s| &s.target)) {
-                if *target == t.id || *target == MASTER_ID || !tracks.contains_key(target) {
-                    bail!("{name} is routed to track {target}, which it cannot be");
-                }
-            }
-            for s in &t.sends {
-                range(&format!("a send level of {name}"), s.level, -120.0, 24.0)?;
-            }
-            for d in &t.devices {
-                if let Some((key, v)) = d.params.iter().find(|(_, v)| !v.is_finite()) {
-                    bail!("parameter {key} of device {} is {v}", d.id);
-                }
-            }
-            if t.cues.iter().any(|c| c.start != 0.0) {
-                bail!("{name} has a clip off the timeline that does not start at 0");
-            }
-            for c in t.clips.iter().chain(&t.cues) {
-                if !c.start.is_finite() || c.start < 0.0 || !c.length.is_finite() || c.length <= 0.0
-                {
-                    bail!(
-                        "clip {} starts at {} and is {} long: it needs a start of at least 0 and a length above 0",
-                        c.id,
-                        c.start,
-                        c.length
-                    );
-                }
-                match &c.content {
-                    ClipContent::Midi { notes, controls } => {
-                        if let Some((control, problem)) = controls
-                            .iter()
-                            .find_map(|c| c.problem().map(|problem| (c, problem)))
-                        {
-                            bail!(
-                                "clip {} holds a controller move {control:?}: {problem}",
-                                c.id
-                            );
-                        }
-                        if let Some(n) = notes.iter().find(|n| {
-                            !n.start.is_finite()
-                                || !n.length.is_finite()
-                                || n.length <= 0.0
-                                || n.pitch > 127
-                                || n.velocity > 127
-                        }) {
-                            bail!("clip {} holds a note that cannot be played: {n:?}", c.id);
-                        }
-                    }
-                    ClipContent::Audio { offset, gain, .. } => {
-                        if !offset.is_finite() || *offset < 0.0 {
-                            bail!("audio clip {} has offset {offset}", c.id);
-                        }
-                        range(&format!("the gain of clip {}", c.id), *gain, -120.0, 24.0)?;
-                        let (lo, hi) = crate::stretch::RATIO_RANGE;
-                        range(&format!("the stretch of clip {}", c.id), c.stretch, lo, hi)?;
-                        let most = crate::stretch::PITCH_RANGE;
-                        range(&format!("the pitch of clip {}", c.id), c.pitch, -most, most)?;
-                        if let Some(bpm) = c.source_tempo {
-                            range(&format!("the tempo of clip {}", c.id), bpm, 1.0, 999.0)?;
-                        }
-                        let finite = c
-                            .warp
-                            .iter()
-                            .all(|m| m.source.is_finite() && m.target.is_finite());
-                        let ordered = c
-                            .warp
-                            .windows(2)
-                            .all(|w| w[1].source > w[0].source && w[1].target > w[0].target);
-                        if !finite || !ordered {
-                            bail!("the warp markers of clip {} are out of order", c.id);
-                        }
-                    }
-                }
-                if let Some(length) = c.loop_length {
-                    let what = format!("the loop length of clip {}", c.id);
-                    range(&what, length, 1e-6, 1e9)?;
-                }
-                let what = format!("the loop start of clip {}", c.id);
-                range(&what, c.loop_start, -1e9, 1e9)?;
-            }
-            for l in &t.lanes {
-                if l.points
-                    .iter()
-                    .any(|(b, v)| !b.is_finite() || !v.is_finite() || *b < 0.0)
-                {
-                    bail!(
-                        "automation lane {} has a point that is not a finite beat and value",
-                        l.id
-                    );
-                }
-                if l.shapes.iter().any(|s| !s.beat.is_finite() || !s.tension.is_finite()) {
-                    bail!("automation lane {} has a shape that is not at a finite beat", l.id);
-                }
-                let limits = match &l.target {
-                    Target::Volume => Some((-120.0, 24.0)),
-                    Target::Pan => Some((-1.0, 1.0)),
-                    Target::Param { .. } => None,
-                    Target::State { .. } => Some((0.0, l.states.len().saturating_sub(1) as f64)),
-                };
-                if let Some((lo, hi)) = limits {
-                    for (_, v) in &l.points {
-                        range(&format!("a point of automation lane {}", l.id), *v, lo, hi)?;
-                    }
-                }
-                if matches!(l.target, Target::State { .. })
-                    && !l.points.is_empty()
-                    && l.states.is_empty()
-                {
-                    bail!("state lane {} has points but no states", l.id);
-                }
-                if let Some(device) = l.target.device()
-                    && !t.devices.iter().any(|d| d.id == device)
-                {
-                    bail!(
-                        "automation lane {} is for device {device}, which is not on its track",
-                        l.id
-                    );
-                }
-            }
-        }
-        // Routing must not go round in a circle: a depth-first walk along
-        // outputs and sends that never comes back to a track on its own path.
+        Ok(())
+    }
+
+    /// Routing must not go round in a circle: a depth-first walk along
+    /// outputs and sends that never comes back to a track on its own path.
+    fn check_routing_loops(
+        &self,
+        tracks: &std::collections::HashMap<Id, &Track>,
+    ) -> anyhow::Result<()> {
+        use anyhow::bail;
         let mut state: std::collections::HashMap<Id, u8> = std::collections::HashMap::new();
         for start in &self.tracks {
             if state.contains_key(&start.id) {
@@ -1738,6 +1632,149 @@ impl Project {
         }
         Ok(())
     }
+}
+
+fn check_range(what: &str, v: f64, lo: f64, hi: f64) -> anyhow::Result<()> {
+    if !(lo..=hi).contains(&v) {
+        anyhow::bail!("{what} is {v}, which is outside {lo} to {hi}");
+    }
+    Ok(())
+}
+
+/// One track: its levels, routing, devices, clips and lanes.
+fn check_track(t: &Track, tracks: &std::collections::HashMap<Id, &Track>) -> anyhow::Result<()> {
+    use anyhow::bail;
+    let name = format!("track {} ({})", t.id, t.name);
+    check_range(&format!("the volume of {name}"), t.volume, -120.0, 24.0)?;
+    check_range(&format!("the pan of {name}"), t.pan, -1.0, 1.0)?;
+    for target in t.output.iter().chain(t.sends.iter().map(|s| &s.target)) {
+        if *target == t.id || *target == MASTER_ID || !tracks.contains_key(target) {
+            bail!("{name} is routed to track {target}, which it cannot be");
+        }
+    }
+    for s in &t.sends {
+        check_range(&format!("a send level of {name}"), s.level, -120.0, 24.0)?;
+    }
+    for d in &t.devices {
+        if let Some((key, v)) = d.params.iter().find(|(_, v)| !v.is_finite()) {
+            bail!("parameter {key} of device {} is {v}", d.id);
+        }
+    }
+    if t.cues.iter().any(|c| c.start != 0.0) {
+        bail!("{name} has a clip off the timeline that does not start at 0");
+    }
+    for c in t.clips.iter().chain(&t.cues) {
+        check_clip(c)?;
+    }
+    for l in &t.lanes {
+        check_lane(t, l)?;
+    }
+    Ok(())
+}
+
+/// One clip: its place, its content and its loop.
+fn check_clip(c: &Clip) -> anyhow::Result<()> {
+    use anyhow::bail;
+    if !c.start.is_finite() || c.start < 0.0 || !c.length.is_finite() || c.length <= 0.0 {
+        bail!(
+            "clip {} starts at {} and is {} long: it needs a start of at least 0 and a length above 0",
+            c.id,
+            c.start,
+            c.length
+        );
+    }
+    match &c.content {
+        ClipContent::Midi { notes, controls } => {
+            if let Some((control, problem)) = controls
+                .iter()
+                .find_map(|c| c.problem().map(|problem| (c, problem)))
+            {
+                bail!(
+                    "clip {} holds a controller move {control:?}: {problem}",
+                    c.id
+                );
+            }
+            if let Some(n) = notes.iter().find(|n| {
+                !n.start.is_finite()
+                    || !n.length.is_finite()
+                    || n.length <= 0.0
+                    || n.pitch > 127
+                    || n.velocity > 127
+            }) {
+                bail!("clip {} holds a note that cannot be played: {n:?}", c.id);
+            }
+        }
+        ClipContent::Audio { offset, gain, .. } => {
+            if !offset.is_finite() || *offset < 0.0 {
+                bail!("audio clip {} has offset {offset}", c.id);
+            }
+            check_range(&format!("the gain of clip {}", c.id), *gain, -120.0, 24.0)?;
+            let (lo, hi) = crate::stretch::RATIO_RANGE;
+            check_range(&format!("the stretch of clip {}", c.id), c.stretch, lo, hi)?;
+            let most = crate::stretch::PITCH_RANGE;
+            check_range(&format!("the pitch of clip {}", c.id), c.pitch, -most, most)?;
+            if let Some(bpm) = c.source_tempo {
+                check_range(&format!("the tempo of clip {}", c.id), bpm, 1.0, 999.0)?;
+            }
+            let finite = c
+                .warp
+                .iter()
+                .all(|m| m.source.is_finite() && m.target.is_finite());
+            let ordered = c
+                .warp
+                .windows(2)
+                .all(|w| w[1].source > w[0].source && w[1].target > w[0].target);
+            if !finite || !ordered {
+                bail!("the warp markers of clip {} are out of order", c.id);
+            }
+        }
+    }
+    if let Some(length) = c.loop_length {
+        let what = format!("the loop length of clip {}", c.id);
+        check_range(&what, length, 1e-6, 1e9)?;
+    }
+    let what = format!("the loop start of clip {}", c.id);
+    check_range(&what, c.loop_start, -1e9, 1e9)
+}
+
+/// One automation lane of track `t`: its points, shapes and target.
+fn check_lane(t: &Track, l: &Lane) -> anyhow::Result<()> {
+    use anyhow::bail;
+    if l.points
+        .iter()
+        .any(|(b, v)| !b.is_finite() || !v.is_finite() || *b < 0.0)
+    {
+        bail!(
+            "automation lane {} has a point that is not a finite beat and value",
+            l.id
+        );
+    }
+    if l.shapes.iter().any(|s| !s.beat.is_finite() || !s.tension.is_finite()) {
+        bail!("automation lane {} has a shape that is not at a finite beat", l.id);
+    }
+    let limits = match &l.target {
+        Target::Volume => Some((-120.0, 24.0)),
+        Target::Pan => Some((-1.0, 1.0)),
+        Target::Param { .. } => None,
+        Target::State { .. } => Some((0.0, l.states.len().saturating_sub(1) as f64)),
+    };
+    if let Some((lo, hi)) = limits {
+        for (_, v) in &l.points {
+            check_range(&format!("a point of automation lane {}", l.id), *v, lo, hi)?;
+        }
+    }
+    if matches!(l.target, Target::State { .. }) && !l.points.is_empty() && l.states.is_empty() {
+        bail!("state lane {} has points but no states", l.id);
+    }
+    if let Some(device) = l.target.device()
+        && !t.devices.iter().any(|d| d.id == device)
+    {
+        bail!(
+            "automation lane {} is for device {device}, which is not on its track",
+            l.id
+        );
+    }
+    Ok(())
 }
 
 #[cfg(test)]

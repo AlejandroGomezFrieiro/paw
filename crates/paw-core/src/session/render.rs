@@ -39,6 +39,66 @@ use crate::sync::{LiveDevices, Mapper, SyncCtx, sync};
 /// than any reverb or delay rings for.
 const MAX_TAIL: f64 = 600.0;
 
+/// An engine built for a render, with what the render needs from the sync.
+struct BuiltEngine {
+    engine: Engine,
+    handle: paw_engine::EngineHandle,
+    live: LiveDevices,
+    latency: usize,
+    mapper_states: std::collections::HashMap<Id, Vec<bool>>,
+    mapper_devices: std::collections::HashMap<Id, paw_engine::DeviceSlot>,
+}
+
+/// Only these tracks of a render, with what they pass through on the way
+/// to the master: as when they are soloed. A frozen track alone, or none.
+fn select_render_tracks(project: &mut Project, opts: &RenderOpts) -> Result<()> {
+    if let Some(id) = opts.freeze {
+        if !opts.tracks.is_empty() {
+            bail!("a render is of a frozen track or of a list of tracks, not both");
+        }
+        crate::freeze::alone(project, id)?;
+    }
+    if !opts.tracks.is_empty() {
+        if let Some(id) = opts.tracks.iter().find(|id| project.track(**id).is_none()) {
+            bail!("no track {id} to render");
+        }
+        for track in project.tracks.iter_mut() {
+            let wanted = opts.tracks.contains(&track.id);
+            if track.solo != wanted {
+                Arc::make_mut(track).solo = wanted;
+            }
+        }
+    }
+    if !opts.master {
+        bypass_master(project);
+    }
+    Ok(())
+}
+
+/// The checks of the levels and of the folder of a render.
+fn check_render_target(opts: &RenderOpts, path: &Path) -> Result<()> {
+    if let Some(level) = opts.normalize
+        && (!level.is_finite() || level > 0.0)
+    {
+        bail!("normalize to a level in dB at or below 0, such as -1");
+    }
+    if let Some(level) = opts.loudness
+        && (!level.is_finite() || !(-70.0..=0.0).contains(&level))
+    {
+        bail!("loudness is a level in LUFS between -70 and 0, such as -14");
+    }
+    if let Some(dir) = path.parent().filter(|d| !d.as_os_str().is_empty())
+        && !dir.is_dir()
+    {
+        bail!(
+            "cannot render {}: there is no directory {}",
+            path.display(),
+            dir.display()
+        );
+    }
+    Ok(())
+}
+
 /// A kind of file a render can write.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Format {
@@ -342,212 +402,24 @@ impl Session {
         path: &Path,
         opts: &RenderOpts,
     ) -> Result<()> {
-        let format = format_of(path, opts.ffmpeg.as_deref())?;
-        let quality = opts
-            .quality
-            .as_deref()
-            .map_or(Ok(Quality::High), Quality::parse)?;
-        if opts.bitrate.is_some_and(|k| !(8..=512).contains(&k)) {
-            bail!("bitrate is in kbit/s, from 8 to 512");
-        }
-        // What is rendered: a lossy format is encoded from 32-bit float.
-        let bits = if format.lossy().is_some() { 32 } else { opts.bits };
-        // One that has finished but not been reported yet is reported now.
-        self.render_poll();
-        if let Some(job) = &self.render_job {
-            bail!(
-                "{} is being rendered: wait for it or cancel it first",
-                job.path.display()
-            );
-        }
-        if format.lossy().is_none() && !format.bits().contains(&opts.bits) {
-            let bits: Vec<String> = format.bits().iter().map(u16::to_string).collect();
-            bail!(
-                "cannot render {} at {} bits: use {}",
-                format.name(),
-                opts.bits,
-                bits.join(", ")
-            );
-        }
-        if !matches!(opts.channels, 1 | 2) {
-            bail!(
-                "a render has 1 channel (mono) or 2 (stereo), not {}",
-                opts.channels
-            );
-        }
-        if let Some(id) = opts.freeze {
-            if !opts.tracks.is_empty() {
-                bail!("a render is of a frozen track or of a list of tracks, not both");
-            }
-            crate::freeze::alone(&mut project, id)?;
-        }
-        if !opts.tracks.is_empty() {
-            // Only these tracks, with what they pass through on the way to
-            // the master: as when they are soloed.
-            if let Some(id) = opts.tracks.iter().find(|id| project.track(**id).is_none()) {
-                bail!("no track {id} to render");
-            }
-            for track in project.tracks.iter_mut() {
-                let wanted = opts.tracks.contains(&track.id);
-                if track.solo != wanted {
-                    Arc::make_mut(track).solo = wanted;
-                }
-            }
-        }
-        if !opts.master {
-            bypass_master(&mut project);
-        }
+        let (format, quality, bits) = self.check_render_opts(path, opts)?;
+        select_render_tracks(&mut project, opts)?;
         let project = &project;
-        let sample_rate = opts.sample_rate.unwrap_or(self.engine.stream.info.sample_rate);
-        check_sample_rate(sample_rate)?;
-        let end = opts.end.unwrap_or_else(|| project.end());
-        if !opts.start.is_finite() || !end.is_finite() || !opts.tail.is_finite() {
-            bail!("a render needs a finite start, end and tail");
-        }
-        if opts.tail > MAX_TAIL {
-            bail!("a render's tail is at most {MAX_TAIL} seconds, not {}", opts.tail);
-        }
-        if end <= opts.start {
-            bail!(
-                "nothing to render between beat {} and beat {end}",
-                opts.start
-            );
-        }
-        let seconds = project.tempo_map().seconds_between(opts.start, end) + opts.tail.max(0.0);
-        let frames = (seconds * sample_rate as f64).ceil();
-        // A WAV file holds at most 4 GiB of samples.
-        let bytes = frames * opts.channels as f64 * (bits / 8) as f64;
-        if (format == Format::Wav || format.lossy().is_some()) && bytes >= u32::MAX as f64 - 64.0 {
-            bail!(
-                "{seconds:.0} s at {sample_rate} Hz and {bits} bits is more than a WAV file can hold"
-            );
-        }
-        let frames = frames as usize;
+        let (sample_rate, frames) = self.render_extent(project, opts, format, bits)?;
         // Stretched clips play versions made apart: wait for those too.
         self.await_stretches(project, sample_rate, Duration::from_secs(120))?;
-        if let Some(level) = opts.normalize
-            && (!level.is_finite() || level > 0.0)
-        {
-            bail!("normalize to a level in dB at or below 0, such as -1");
-        }
-        if let Some(level) = opts.loudness
-            && (!level.is_finite() || !(-70.0..=0.0).contains(&level))
-        {
-            bail!("loudness is a level in LUFS between -70 and 0, such as -14");
-        }
-        if let Some(dir) = path.parent().filter(|d| !d.as_os_str().is_empty())
-            && !dir.is_dir()
-        {
-            bail!(
-                "cannot render {}: there is no directory {}",
-                path.display(),
-                dir.display()
-            );
-        }
+        check_render_target(opts, path)?;
 
         let cover = opts
             .tags
             .load_cover(self.path.as_deref().and_then(Path::parent))?;
 
-        let (mut engine, mut handle) = Engine::new(sample_rate as f64);
-        engine.set_pool(self.pool(opts.threads));
-        engine.set_sleep(opts.sleep.unwrap_or(self.sleep()));
-        engine.set_offline(true);
-        // The render gets its own instances of every device, plugins included.
-        let mut live = LiveDevices::new();
-        let latency;
-        let mapper_states;
-        let mapper_devices;
-        {
-            // Nothing else is driving this engine, so make room by pumping it.
-            let mut send = |msg| {
-                let mut msg = msg;
-                while let Err(back) = handle.try_send(msg) {
-                    msg = back;
-                    engine.pump();
-                }
-            };
-            send(Msg::SetTempo(project.tempo));
-            send(Msg::SetTimeSig {
-                num: project.sig_num,
-                den: project.sig_den,
-            });
-            let mut ctx = SyncCtx {
-                registry: &self.registry,
-                audio: &mut self.audio,
-                live: &mut live,
-                sample_rate: sample_rate as f32,
-                warnings: &mut self.warnings,
-                offline: true,
-            };
-            let mut mapper = Mapper::new();
-            sync(
-                &Project::default(),
-                project,
-                &mut mapper,
-                &mut ctx,
-                &mut send,
-                &mut Vec::new(),
-            );
-            latency = mapper.latency as usize;
-            mapper_states = mapper.state_main.clone();
-            mapper_devices = mapper.devices.clone();
-        }
-        // A state lane's saved states: the one in force at the start is
-        // given now, the others where the render stops for them.
-        let (first, stops) = {
-            let mut mapper = Mapper::new();
-            mapper.state_main = mapper_states;
-            let map = project.tempo_map().clone();
-            let t0 = map.seconds(opts.start);
-            let sr = sample_rate as f64;
-            statelanes::render_stops(project, &mapper, opts.start, |beat| {
-                let x = (map.seconds(beat) - t0) * sr;
-                if (x - x.round()).abs() < 1e-6 { x.round() as u64 } else { x.ceil() as u64 }
-            })
-        };
-        // Each state lane's state at the start is given now, whole, so
-        // that the plugin holds it from the first frame.
-        let starting = statelanes::states_at(project, opts.start);
-        for (id, state) in &starting {
-            let Some(device) = live.get_mut(id) else { continue };
-            match statelanes::give_all(device, state) {
-                Ok(params) => {
-                    if let Some(&slot) = mapper_devices.get(id) {
-                        for (param, value) in params {
-                            handle.send_while(Msg::SetParam { device: slot, param, value }, &mut engine);
-                        }
-                    }
-                }
-                Err(err) => self
-                    .warnings
-                    .push(format!("state `{}` of a lane: {err:#}", state.name)),
-            }
-        }
-        drop(first);
-        settle_plugins(&mut engine, &live);
+        let mut built = self.build_render_engine(project, sample_rate, opts);
+        let stops = self.start_render_engine(&mut built, project, opts, sample_rate);
+        let BuiltEngine { engine, handle, live, latency, .. } = built;
         // A plugin that loads in the background (a model) is given time
         // to be ready before the first frame.
         let settle = Duration::from_secs_f64(opts.settle.clamp(0.0, 600.0));
-        if starting.is_empty() {
-            Settle::start(settle).wait(&mut live, None);
-        } else {
-            Settle::new(settle).wait(&mut live, None);
-        }
-        // A plugin that has loaded a model can fade over to it as it plays
-        // (TONE3000 takes about a third of a second): half a second of
-        // silence, with the song stopped, lets it finish before the first
-        // frame, so that each render starts the same.
-        if live.values().any(|d| d.controller.is_some()) {
-            let mut scratch = vec![0.0f32; 2 * paw_engine::MAX_BLOCK];
-            let (left, right) = scratch.split_at_mut(paw_engine::MAX_BLOCK);
-            for _ in 0..(sample_rate as usize / 2).div_ceil(paw_engine::MAX_BLOCK) {
-                engine.process(left, right);
-            }
-        }
-        handle.send_while(Msg::Seek(opts.start), &mut engine);
-        handle.send_while(Msg::StatesHeld, &mut engine);
-        handle.send_while(Msg::Play, &mut engine);
         // The handle stays with the engine: dropping it would leave the
         // engine's side of the channel without its other end.
         let progress = Arc::new(Progress::default());
@@ -599,6 +471,201 @@ impl Session {
             settle,
         });
         Ok(())
+    }
+
+    /// The format, quality and bit depth of a render, after the checks
+    /// that need only its options and whether another render runs.
+    fn check_render_opts(&mut self, path: &Path, opts: &RenderOpts) -> Result<(Format, Quality, u16)> {
+        let format = format_of(path, opts.ffmpeg.as_deref())?;
+        let quality = opts
+            .quality
+            .as_deref()
+            .map_or(Ok(Quality::High), Quality::parse)?;
+        if opts.bitrate.is_some_and(|k| !(8..=512).contains(&k)) {
+            bail!("bitrate is in kbit/s, from 8 to 512");
+        }
+        // What is rendered: a lossy format is encoded from 32-bit float.
+        let bits = if format.lossy().is_some() { 32 } else { opts.bits };
+        // One that has finished but not been reported yet is reported now.
+        self.render_poll();
+        if let Some(job) = &self.render_job {
+            bail!(
+                "{} is being rendered: wait for it or cancel it first",
+                job.path.display()
+            );
+        }
+        if format.lossy().is_none() && !format.bits().contains(&opts.bits) {
+            let bits: Vec<String> = format.bits().iter().map(u16::to_string).collect();
+            bail!(
+                "cannot render {} at {} bits: use {}",
+                format.name(),
+                opts.bits,
+                bits.join(", ")
+            );
+        }
+        if !matches!(opts.channels, 1 | 2) {
+            bail!(
+                "a render has 1 channel (mono) or 2 (stereo), not {}",
+                opts.channels
+            );
+        }
+        Ok((format, quality, bits))
+    }
+
+    /// The sample rate and the number of frames of a render, after the
+    /// checks of its range and of the size of the file.
+    fn render_extent(
+        &self,
+        project: &Project,
+        opts: &RenderOpts,
+        format: Format,
+        bits: u16,
+    ) -> Result<(u32, usize)> {
+        let sample_rate = opts.sample_rate.unwrap_or(self.engine.stream.info.sample_rate);
+        check_sample_rate(sample_rate)?;
+        let end = opts.end.unwrap_or_else(|| project.end());
+        if !opts.start.is_finite() || !end.is_finite() || !opts.tail.is_finite() {
+            bail!("a render needs a finite start, end and tail");
+        }
+        if opts.tail > MAX_TAIL {
+            bail!("a render's tail is at most {MAX_TAIL} seconds, not {}", opts.tail);
+        }
+        if end <= opts.start {
+            bail!(
+                "nothing to render between beat {} and beat {end}",
+                opts.start
+            );
+        }
+        let seconds = project.tempo_map().seconds_between(opts.start, end) + opts.tail.max(0.0);
+        let frames = (seconds * sample_rate as f64).ceil();
+        // A WAV file holds at most 4 GiB of samples.
+        let bytes = frames * opts.channels as f64 * (bits / 8) as f64;
+        if (format == Format::Wav || format.lossy().is_some()) && bytes >= u32::MAX as f64 - 64.0 {
+            bail!(
+                "{seconds:.0} s at {sample_rate} Hz and {bits} bits is more than a WAV file can hold"
+            );
+        }
+        Ok((sample_rate, frames as usize))
+    }
+
+    /// A private engine with its own instances of every device, plugins
+    /// included, and the project synced into it.
+    fn build_render_engine(
+        &mut self,
+        project: &Project,
+        sample_rate: u32,
+        opts: &RenderOpts,
+    ) -> BuiltEngine {
+        let (mut engine, mut handle) = Engine::new(sample_rate as f64);
+        engine.set_pool(self.pool(opts.threads));
+        engine.set_sleep(opts.sleep.unwrap_or(self.sleep()));
+        engine.set_offline(true);
+        let mut live = LiveDevices::new();
+        // Nothing else is driving this engine, so make room by pumping it.
+        let mut send = |msg| {
+            let mut msg = msg;
+            while let Err(back) = handle.try_send(msg) {
+                msg = back;
+                engine.pump();
+            }
+        };
+        send(Msg::SetTempo(project.tempo));
+        send(Msg::SetTimeSig {
+            num: project.sig_num,
+            den: project.sig_den,
+        });
+        let mut ctx = SyncCtx {
+            registry: &self.registry,
+            audio: &mut self.audio,
+            live: &mut live,
+            sample_rate: sample_rate as f32,
+            warnings: &mut self.warnings,
+            offline: true,
+        };
+        let mut mapper = Mapper::new();
+        sync(
+            &Project::default(),
+            project,
+            &mut mapper,
+            &mut ctx,
+            &mut send,
+            &mut Vec::new(),
+        );
+        BuiltEngine {
+            latency: mapper.latency as usize,
+            mapper_states: mapper.state_main.clone(),
+            mapper_devices: mapper.devices.clone(),
+            engine,
+            handle,
+            live,
+        }
+    }
+
+    /// Bring the built engine to the first frame: the state lanes' states
+    /// in force at the start, the plugins settled, the song at the start
+    /// and playing. Returns the stops where the render waits for states.
+    fn start_render_engine(
+        &mut self,
+        built: &mut BuiltEngine,
+        project: &Project,
+        opts: &RenderOpts,
+        sample_rate: u32,
+    ) -> Vec<Stop> {
+        let BuiltEngine { engine, handle, live, mapper_states, mapper_devices, .. } = built;
+        // A state lane's saved states: the one in force at the start is
+        // given now, the others where the render stops for them.
+        let (first, stops) = {
+            let mut mapper = Mapper::new();
+            mapper.state_main = mapper_states.clone();
+            let map = project.tempo_map().clone();
+            let t0 = map.seconds(opts.start);
+            let sr = sample_rate as f64;
+            statelanes::render_stops(project, &mapper, opts.start, |beat| {
+                let x = (map.seconds(beat) - t0) * sr;
+                if (x - x.round()).abs() < 1e-6 { x.round() as u64 } else { x.ceil() as u64 }
+            })
+        };
+        // Each state lane's state at the start is given now, whole, so
+        // that the plugin holds it from the first frame.
+        let starting = statelanes::states_at(project, opts.start);
+        for (id, state) in &starting {
+            let Some(device) = live.get_mut(id) else { continue };
+            match statelanes::give_all(device, state) {
+                Ok(params) => {
+                    if let Some(&slot) = mapper_devices.get(id) {
+                        for (param, value) in params {
+                            handle.send_while(Msg::SetParam { device: slot, param, value }, engine);
+                        }
+                    }
+                }
+                Err(err) => self
+                    .warnings
+                    .push(format!("state `{}` of a lane: {err:#}", state.name)),
+            }
+        }
+        drop(first);
+        settle_plugins(engine, live);
+        let settle = Duration::from_secs_f64(opts.settle.clamp(0.0, 600.0));
+        if starting.is_empty() {
+            Settle::start(settle).wait(live, None);
+        } else {
+            Settle::new(settle).wait(live, None);
+        }
+        // A plugin that has loaded a model can fade over to it as it plays
+        // (TONE3000 takes about a third of a second): half a second of
+        // silence, with the song stopped, lets it finish before the first
+        // frame, so that each render starts the same.
+        if live.values().any(|d| d.controller.is_some()) {
+            let mut scratch = vec![0.0f32; 2 * paw_engine::MAX_BLOCK];
+            let (left, right) = scratch.split_at_mut(paw_engine::MAX_BLOCK);
+            for _ in 0..(sample_rate as usize / 2).div_ceil(paw_engine::MAX_BLOCK) {
+                engine.process(left, right);
+            }
+        }
+        handle.send_while(Msg::Seek(opts.start), engine);
+        handle.send_while(Msg::StatesHeld, engine);
+        handle.send_while(Msg::Play, engine);
+        stops
     }
 
     /// Ask the running render to stop. It leaves no file behind. Returns
