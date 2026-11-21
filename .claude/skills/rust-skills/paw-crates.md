@@ -221,7 +221,7 @@ Found with grep at a72467cf. Each refactor part that owns the file fixes it.
 - **Real-time tools:** done: paw-engine's atomic `f32` and `f64` use
   `atomic_float`. The `no_alloc.rs` test and `no_denormals` stay paw's own,
   for the reasons above.
-- **CLAP host:** started. `clack-host` 0.2 (crates.io, on the same
+- **CLAP host:** done. `clack-host` 0.2 (crates.io, on the same
   `clap-sys` 0.5) covers all that `paw-plugins/src/clap.rs` uses, with
   `clack-extensions` (same version). paw still opens the file itself
   (`libs.rs`) and gives Clack the entry (`PluginEntry::load_from_raw`),
@@ -256,6 +256,23 @@ Found with grep at a72467cf. Each refactor part that owns the file fixes it.
      preset-load extension's compatible id is paw's own `PresetLoadCompat`,
      and `dev.paw.call/1` is paw's own `PawCall` (both `unsafe impl
      Extension`).
-  5. Next: `presets.rs` (preset discovery).
+  5. Done: `presets.rs` finds the presets through `clack-extensions`'
+     `preset_discovery` (`PresetDiscoveryFactory`, `Provider`, paw's
+     `IndexerImpl` and `MetadataReceiverImpl`), from the `PluginEntry`;
+     `Library` keeps no factory pointer. A preset id's location is a
+     `PresetLocation`, so the load of a preset needs no `Location::from_raw`.
+     Clack asks for a factory by its first id only, so a file that has only
+     the draft factory (`.../draft-2`) is seen through `DraftFactory` and a
+     static entry, `DRAFT_ENTRY`, that gives that factory under the final
+     id (a thread-local holds it for the scan).
+
+  What stays raw, and why. paw uses the types and ids of `clap-sys` that
+  Clack takes or does not name: the entry symbol, `clap_audio_buffer` for
+  `from_raw_buffers`, event structs, `clap_id` and the draft ids. The
+  attachments get `raw_instance()`, because `attach.rs` takes a
+  `clap_plugin`. paw calls three tables that Clack does not have: the draft
+  preset-load table (`PresetLoadCompat`), `dev.paw.call/1` (`PawCall`) and
+  the draft entry of preset discovery. Each is one small `unsafe` block
+  with a SAFETY comment.
 - **`rubato` 0.16** in paw-core: crates.io has 5.1. Update it with the
   sample-rate tests.
