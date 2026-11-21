@@ -100,15 +100,15 @@ impl Tools {
     fn get_project(&mut self, _a: &Args) -> Outcome {
         let r = self.lua("project", json!({}))?;
         let meter = Meter::from_project(&r["project"]);
-        Ok(Self::reply(format::project(&r["project"]), &r, meter))
+        Ok(Self::reply(format::project(&r["project"]), &r, &meter))
     }
 
     fn get_track(&mut self, a: &Map<String, Value>) -> Outcome {
         let meter = self.meter()?;
         let r = self.lua("track", json!({ "track": a["track"] }))?;
         let mut out = String::new();
-        format::track(&mut out, &r["track"], meter, true);
-        Ok(Self::reply(out, &r, meter))
+        format::track(&mut out, &r["track"], &meter, true);
+        Ok(Self::reply(out, &r, &meter))
     }
 
     fn get_clip(&mut self, a: &Map<String, Value>) -> Outcome {
@@ -116,7 +116,7 @@ impl Tools {
         let mut filter = Map::new();
         for key in ["from", "to"] {
             if let Some(v) = a.get(key) {
-                filter.insert(key.into(), json!(music::position(v, meter, key)?));
+                filter.insert(key.into(), json!(music::position(v, &meter, key)?));
             }
         }
         if let Some(p) = a.get("pitches") {
@@ -125,8 +125,8 @@ impl Tools {
         let filter = (!filter.is_empty()).then_some(Value::Object(filter));
         let r = self.lua("clip", json!({ "clip": a["clip"], "filter": filter }))?;
         let mut out = String::new();
-        format::clip(&mut out, &r["clip"], meter);
-        Ok(Self::reply(out, &r, meter))
+        format::clip(&mut out, &r["clip"], &meter);
+        Ok(Self::reply(out, &r, &meter))
     }
 
     fn get_device(&mut self, a: &Map<String, Value>) -> Outcome {
@@ -140,7 +140,7 @@ impl Tools {
         if let Some(track) = d["track_name"].as_str() {
             let _ = writeln!(out, "on track \"{track}\"");
         }
-        Ok(Self::reply(out, &r, Meter::default()))
+        Ok(Self::reply(out, &r, &Meter::default()))
     }
 
     fn find_devices(&mut self, a: &Map<String, Value>) -> Outcome {
@@ -189,7 +189,7 @@ impl Tools {
                 );
             }
         }
-        Ok(Self::reply(out, &r, Meter::default()))
+        Ok(Self::reply(out, &r, &Meter::default()))
     }
 
     fn get_status(&mut self, a: &Map<String, Value>) -> Outcome {
@@ -197,11 +197,11 @@ impl Tools {
         let p = &r["project"];
         let meter = Meter::from_project(p);
         let e = &r["engine"];
-        let mut out = format::project_header(p, meter);
+        let mut out = format::project_header(p, &meter);
         let _ = writeln!(
             out,
             "\nTransport: {}",
-            format::transport(&r["transport"], meter)
+            format::transport(&r["transport"], &meter)
         );
         let _ = writeln!(
             out,
@@ -219,7 +219,7 @@ impl Tools {
             format::messages(&mut out, &r["messages"]);
         }
         let mut data = r.clone();
-        enrich(&mut data, meter);
+        enrich(&mut data, &meter);
         data["socket"] = json!(self.kernel.socket.display().to_string());
         Ok(Reply { text: out, data })
     }
@@ -246,7 +246,7 @@ impl Tools {
                 n["text"].as_str().unwrap_or("")
             );
         }
-        Ok(Self::reply(out, &r, self.meter()?))
+        Ok(Self::reply(out, &r, &self.meter()?))
     }
 
     fn diagnose(&mut self, a: &Map<String, Value>) -> Outcome {
@@ -303,6 +303,6 @@ impl Tools {
                 );
             }
         }
-        Ok(Self::reply(out, &r, Meter::default()))
+        Ok(Self::reply(out, &r, &Meter::default()))
     }
 }

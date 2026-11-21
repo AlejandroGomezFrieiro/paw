@@ -78,6 +78,6 @@ impl Tools {
         if r["edited"].as_bool() == Some(true) {
             out.push_str("(the project changed: one undo step)\n");
         }
-        Ok(Self::reply(out, &r, Meter::default()))
+        Ok(Self::reply(out, &r, &Meter::default()))
     }
 }

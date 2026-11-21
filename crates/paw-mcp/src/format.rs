@@ -22,12 +22,12 @@ fn s(value: &Value) -> &str {
 }
 
 /// `8 (3.1)`: beats, and where that is in bars.
-pub fn at(beats: f64, meter: Meter) -> String {
+pub fn at(beats: f64, meter: &Meter) -> String {
     format!("{} ({})", num(beats), meter.format(beats))
 }
 
 /// A length in beats, with bars when it is a whole number of them.
-pub fn span(beats: f64, meter: Meter) -> String {
+pub fn span(beats: f64, meter: &Meter) -> String {
     let bars = beats / meter.bar();
     if (bars - bars.round()).abs() < 1e-6 && bars >= 1.0 {
         let n = bars.round() as i64;
@@ -86,7 +86,7 @@ pub fn loudness(l: &Value) -> Option<String> {
     Some(out)
 }
 
-pub fn transport(t: &Value, meter: Meter) -> String {
+pub fn transport(t: &Value, meter: &Meter) -> String {
     let mut out = format!(
         "{} at {}",
         if t["playing"].as_bool() == Some(true) {
@@ -116,7 +116,7 @@ pub fn transport(t: &Value, meter: Meter) -> String {
     out
 }
 
-pub fn project_header(p: &Value, meter: Meter) -> String {
+pub fn project_header(p: &Value, meter: &Meter) -> String {
     let file = match p["path"].as_str() {
         Some(path) => format!("file {path}"),
         None => "never saved".into(),
@@ -142,7 +142,7 @@ pub fn project_header(p: &Value, meter: Meter) -> String {
 
 /// " · then 90 BPM at 5.1 (ramping to the next), 6/8 at 9.1" for a song
 /// whose tempo or signature changes along the way.
-fn tempo_changes(p: &Value, meter: Meter) -> String {
+fn tempo_changes(p: &Value, meter: &Meter) -> String {
     let mut changes: Vec<(f64, String)> = Vec::new();
     for c in items(&p["tempo_changes"]) {
         let ramp = if c["ramp"].as_bool() == Some(true) {
@@ -178,26 +178,26 @@ fn tempo_changes(p: &Value, meter: Meter) -> String {
 
 pub fn project(p: &Value) -> String {
     let meter = Meter::from_project(p);
-    let mut out = project_header(p, meter);
-    let _ = writeln!(out, "\nTransport: {}", transport(&p["transport"], meter));
+    let mut out = project_header(p, &meter);
+    let _ = writeln!(out, "\nTransport: {}", transport(&p["transport"], &meter));
     let tracks = items(&p["tracks"]);
     let _ = writeln!(out, "Tracks ({}):", tracks.len());
     for t in tracks {
-        track(&mut out, t, meter, false);
+        track(&mut out, t, &meter, false);
     }
-    track(&mut out, &p["master"], meter, false);
+    track(&mut out, &p["master"], &meter, false);
     let markers = items(&p["markers"]);
     if !markers.is_empty() {
         let _ = writeln!(out, "Markers and regions ({}):", markers.len());
         for m in markers {
-            let _ = writeln!(out, "  {}", marker_line(m, meter));
+            let _ = writeln!(out, "  {}", marker_line(m, &meter));
         }
     }
     out
 }
 
 /// `[id 2] region "Chorus" at 9.1, 8 beats = 2 bars, to 11.1`.
-pub fn marker_line(m: &Value, meter: Meter) -> String {
+pub fn marker_line(m: &Value, meter: &Meter) -> String {
     let beat = f(&m["beat"]);
     let mut line = format!(
         "[id {}] {} \"{}\" at {}",
@@ -221,7 +221,7 @@ pub fn marker_line(m: &Value, meter: Meter) -> String {
     line
 }
 
-fn track_line(t: &Value, meter: Meter) -> String {
+fn track_line(t: &Value, meter: &Meter) -> String {
     let _ = meter;
     let mut line = if t["master"].as_bool() == Some(true) {
         "Master [id 0]".to_string()
@@ -258,7 +258,7 @@ fn track_line(t: &Value, meter: Meter) -> String {
     line
 }
 
-pub fn track(out: &mut String, t: &Value, meter: Meter, detail: bool) {
+pub fn track(out: &mut String, t: &Value, meter: &Meter, detail: bool) {
     let _ = writeln!(out, "{}", track_line(t, meter));
     let sends = items(&t["sends"]);
     if !sends.is_empty() {
@@ -326,7 +326,7 @@ fn device_short(d: &Value) -> String {
     text
 }
 
-pub fn clip_line(c: &Value, meter: Meter) -> String {
+pub fn clip_line(c: &Value, meter: &Meter) -> String {
     let start = f(&c["start"]);
     let length = f(&c["length"]);
     let mut line = format!(
@@ -364,7 +364,7 @@ pub fn clip_line(c: &Value, meter: Meter) -> String {
 }
 
 /// A clip, and its notes when they are there.
-pub fn clip(out: &mut String, c: &Value, meter: Meter) {
+pub fn clip(out: &mut String, c: &Value, meter: &Meter) {
     let _ = writeln!(out, "{}", clip_line(c, meter));
     if let Some(track) = c["track_name"].as_str() {
         let _ = writeln!(out, "on track \"{track}\" [id {}]", f(&c["track"]));
@@ -471,7 +471,7 @@ pub fn device(out: &mut String, d: &Value, indent: &str, limit: usize) {
     }
 }
 
-pub fn lane(l: &Value, meter: Meter) -> String {
+pub fn lane(l: &Value, meter: &Meter) -> String {
     let target = match s(&l["target"]) {
         "param" => format!(
             "device [id {}] parameter {}",

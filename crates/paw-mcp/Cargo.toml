@@ -12,6 +12,7 @@ path = "src/main.rs"
 [dependencies]
 anyhow.workspace = true
 serde_json.workspace = true
+arrayvec = "0.7"
 hound = "3.5"
 realfft = "3.5"
 libc = "0.2"

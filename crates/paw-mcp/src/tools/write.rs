@@ -362,7 +362,7 @@ pub(super) fn tools() -> Vec<Tool> {
 }
 
 /// Put `keys` of `a`, read as positions, into `args` in beats.
-fn positions(a: &Args, args: &mut Args, meter: Meter, keys: &[&str]) -> Result<(), ToolError> {
+fn positions(a: &Args, args: &mut Args, meter: &Meter, keys: &[&str]) -> Result<(), ToolError> {
     for key in keys {
         if let Some(v) = a.get(*key) {
             args.insert((*key).into(), json!(music::position(v, meter, key)?));
@@ -372,7 +372,7 @@ fn positions(a: &Args, args: &mut Args, meter: Meter, keys: &[&str]) -> Result<(
 }
 
 /// Put `a`'s `length`, read as a length, into `args` in beats.
-fn length_in_beats(a: &Args, args: &mut Args, meter: Meter) -> Result<(), ToolError> {
+fn length_in_beats(a: &Args, args: &mut Args, meter: &Meter) -> Result<(), ToolError> {
     if let Some(length) = a.get("length") {
         args.insert("length".into(), json!(music::length(length, meter, "length")?));
     }
@@ -382,7 +382,7 @@ fn length_in_beats(a: &Args, args: &mut Args, meter: Meter) -> Result<(), ToolEr
 // Each `prepare_*` gives a tool's arguments in the kernel's units: positions
 // and lengths in beats, pitches as numbers, paths made absolute.
 impl Tools {
-    fn clip_args(&self, c: &Args, meter: Meter) -> Result<Args, ToolError> {
+    fn clip_args(&self, c: &Args, meter: &Meter) -> Result<Args, ToolError> {
         let mut out = Map::new();
         if let Some(name) = c.get("name") {
             out.insert("name".into(), name.clone());
@@ -405,7 +405,7 @@ impl Tools {
         Ok(out)
     }
 
-    fn prepare_add_track(&self, a: &Args, meter: Meter) -> Result<Args, ToolError> {
+    fn prepare_add_track(&self, a: &Args, meter: &Meter) -> Result<Args, ToolError> {
         let mut args = a.clone();
         if let Some(clips) = a.get("clips") {
             let mut list = Vec::new();
@@ -423,13 +423,13 @@ impl Tools {
         Ok(args)
     }
 
-    fn prepare_add_clip(&self, a: &Args, meter: Meter) -> Result<Args, ToolError> {
+    fn prepare_add_clip(&self, a: &Args, meter: &Meter) -> Result<Args, ToolError> {
         let mut clip = self.clip_args(a, meter)?;
         clip.insert("track".into(), a["track"].clone());
         Ok(clip)
     }
 
-    fn prepare_edit_clip(&self, a: &Args, meter: Meter) -> Result<Args, ToolError> {
+    fn prepare_edit_clip(&self, a: &Args, meter: &Meter) -> Result<Args, ToolError> {
         let mut args = a.clone();
         positions(a, &mut args, meter, &["start"])?;
         length_in_beats(a, &mut args, meter)?;
@@ -480,19 +480,19 @@ impl Tools {
         Ok(args)
     }
 
-    fn prepare_duplicate_clip(&self, a: &Args, meter: Meter) -> Result<Args, ToolError> {
+    fn prepare_duplicate_clip(&self, a: &Args, meter: &Meter) -> Result<Args, ToolError> {
         let mut args = a.clone();
         positions(a, &mut args, meter, &["at"])?;
         Ok(args)
     }
 
-    fn prepare_repeat_bars(&self, a: &Args, meter: Meter) -> Result<Args, ToolError> {
+    fn prepare_repeat_bars(&self, a: &Args, meter: &Meter) -> Result<Args, ToolError> {
         let mut args = a.clone();
         positions(a, &mut args, meter, &["from", "to", "at"])?;
         Ok(args)
     }
 
-    fn prepare_automate(&self, a: &Args, meter: Meter) -> Result<Args, ToolError> {
+    fn prepare_automate(&self, a: &Args, meter: &Meter) -> Result<Args, ToolError> {
         let mut args = a.clone();
         if let Some(points) = a.get("points") {
             let mut list = Vec::new();
@@ -519,7 +519,7 @@ impl Tools {
         Ok(args)
     }
 
-    fn prepare_set_project(&self, a: &Args, meter: Meter) -> Result<Args, ToolError> {
+    fn prepare_set_project(&self, a: &Args, meter: &Meter) -> Result<Args, ToolError> {
         let mut args = a.clone();
         if let Some(sig) = a.get("signature").and_then(Value::as_str) {
             let (n, d) = music::signature(sig)?;
@@ -548,14 +548,14 @@ impl Tools {
         Ok(args)
     }
 
-    fn prepare_marker(&self, a: &Args, meter: Meter) -> Result<Args, ToolError> {
+    fn prepare_marker(&self, a: &Args, meter: &Meter) -> Result<Args, ToolError> {
         let mut args = a.clone();
         positions(a, &mut args, meter, &["at"])?;
         length_in_beats(a, &mut args, meter)?;
         Ok(args)
     }
 
-    fn prepare_remove(&self, a: &Args, _meter: Meter) -> Result<Args, ToolError> {
+    fn prepare_remove(&self, a: &Args, _meter: &Meter) -> Result<Args, ToolError> {
         if a.values().all(|v| items(v).is_empty()) {
             return err("nothing to remove: give tracks, clips, devices, automation or markers");
         }
@@ -580,7 +580,7 @@ impl Tools {
             })?;
             let args = as_map(&step["arguments"]);
             validate(&tool.schema, &args).map_err(at)?;
-            let prepared = self.prepare(tool, &args, meter).map_err(at)?;
+            let prepared = self.prepare(tool, &args, &meter).map_err(at)?;
             ops.push(json!({ "tool": name, "args": prepared }));
             tools.push(tool);
         }
@@ -592,7 +592,7 @@ impl Tools {
         let mut out = format!("Did {} steps as one undo step ({label}):\n", tools.len());
         let mut data = Vec::new();
         for (i, (tool, result)) in tools.iter().zip(items(&r["results"])).enumerate() {
-            let shown = Self::show(tool, result, meter);
+            let shown = Self::show(tool, result, &meter);
             let _ = write!(
                 out,
                 "{}. {}: {}",
@@ -614,25 +614,25 @@ impl Tools {
 
 // Each `show_*` gives a writing tool's answer as text.
 
-fn show_add_track(r: &Value, meter: Meter) -> String {
+fn show_add_track(r: &Value, meter: &Meter) -> String {
     let mut out = String::from("Added track:\n");
     format::track(&mut out, &r["track"], meter, false);
     out
 }
 
-fn show_set_track(r: &Value, meter: Meter) -> String {
+fn show_set_track(r: &Value, meter: &Meter) -> String {
     let mut out = String::from("Track now:\n");
     format::track(&mut out, &r["track"], meter, false);
     out
 }
 
-fn show_add_clip(r: &Value, meter: Meter) -> String {
+fn show_add_clip(r: &Value, meter: &Meter) -> String {
     let mut out = String::from("Added clip ");
     format::clip(&mut out, &r["clip"], meter);
     out
 }
 
-fn show_edit_clip(r: &Value, meter: Meter) -> String {
+fn show_edit_clip(r: &Value, meter: &Meter) -> String {
     let c = &r["clip"];
     let mut out = String::from("Clip now: ");
     format::clip(&mut out, c, meter);
@@ -653,7 +653,7 @@ fn show_edit_clip(r: &Value, meter: Meter) -> String {
 }
 
 /// The answer of `duplicate_clip` and `repeat_bars`: the copies.
-fn show_copies(r: &Value, meter: Meter) -> String {
+fn show_copies(r: &Value, meter: &Meter) -> String {
     let mut out = String::new();
     let clips = items(&r["clips"]);
     let _ = writeln!(
@@ -677,13 +677,13 @@ fn show_copies(r: &Value, meter: Meter) -> String {
     out
 }
 
-fn show_add_device(r: &Value, _meter: Meter) -> String {
+fn show_add_device(r: &Value, _meter: &Meter) -> String {
     let mut out = String::from("Added device:\n");
     format::device(&mut out, &r["device"], "", 48);
     out
 }
 
-fn show_set_device(r: &Value, _meter: Meter) -> String {
+fn show_set_device(r: &Value, _meter: &Meter) -> String {
     let mut out = String::from("Device now:\n");
     format::device(&mut out, &r["device"], "", 48);
     out
@@ -698,7 +698,7 @@ fn joined(r: &Value, key: &str) -> String {
         .join(", ")
 }
 
-fn show_automate(r: &Value, meter: Meter) -> String {
+fn show_automate(r: &Value, meter: &Meter) -> String {
     let mut out = String::new();
     if r["removed"].is_array() {
         let _ = writeln!(out, "Removed {}", joined(r, "removed"));
@@ -724,14 +724,14 @@ fn show_automate(r: &Value, meter: Meter) -> String {
     out
 }
 
-fn show_set_project(r: &Value, _meter: Meter) -> String {
+fn show_set_project(r: &Value, _meter: &Meter) -> String {
     let p = &r["project"];
-    let mut out = format::project_header(p, Meter::from_project(p));
+    let mut out = format::project_header(p, &Meter::from_project(p));
     out.push('\n');
     out
 }
 
-fn show_marker(r: &Value, meter: Meter) -> String {
+fn show_marker(r: &Value, meter: &Meter) -> String {
     let mut out = String::new();
     if r["removed"].is_array() {
         let _ = writeln!(out, "Removed {}.", joined(r, "removed"));
@@ -750,6 +750,6 @@ fn show_marker(r: &Value, meter: Meter) -> String {
     out
 }
 
-fn show_remove(r: &Value, _meter: Meter) -> String {
+fn show_remove(r: &Value, _meter: &Meter) -> String {
     format!("Removed {}.\n", joined(r, "removed"))
 }

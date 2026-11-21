@@ -3154,6 +3154,7 @@ name = "paw-mcp"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "arrayvec",
  "clap",
  "hound",
  "include_dir",
