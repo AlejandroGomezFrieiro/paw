@@ -14,7 +14,7 @@ The clip `riff` is open in the piano roll. Its notes are C D E G E D C, each one
 
 ## The idea
 
-Learn the grammar one time and use it in each view. The operators are the same (`d` `y` `c` `>` `<` `=` `gl`). The motions are the same keys (`w` `b` `e` `0` `$` `W` `B`, and `j` `k` by pitch). The text objects are `in` (the note), `ib` (the bar), `ie` (the whole clip) and `ic` (the chord). A note is part of the range where it starts. So `dw` from the middle of a gap deletes nothing.
+Learn the grammar one time and use it in each view. The operators are the same (`d` `y` `c` `>` `<` `=` `gl`). The motions are the same keys (`w` `b` `e` `0` `$` `W` `B`, and `j` `k` by pitch). The text objects are `in` (the note), `ib` (the bar), `ie` (the whole clip) and `ic` (the chord). Longer songs also have `ip` (the phrase) and `iv` (the voice). `)` and `]c` go to the next phrase and the next chord. A note is part of the range where it starts. So `dw` from the middle of a gap deletes nothing.
 
 ## If you know Vim
 

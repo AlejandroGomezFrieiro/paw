@@ -83,14 +83,15 @@ paw.on("harmony.changed", fn)    -- the reading changed
 
 | Function | Result |
 | --- | --- |
-| `paw.harmony.chords(from, to)` | The chords in a range. |
-| `paw.harmony.at(beat)`, `next(beat)`, `prev(beat)` | The chord at a beat, after it, before it. Nil if there is none. |
-| `paw.harmony.key(beat)` | The key at a beat. |
+| `paw.harmony.chords(from, to, latest)` | The chords in a range. With `latest`, those of the reading as it stands. |
+| `paw.harmony.at(beat, latest)`, `next(beat)`, `prev(beat)` | The chord at a beat, after it, before it. Nil if there is none. |
+| `paw.harmony.key(beat, latest)` | The key at a beat. |
 | `paw.harmony.keys()` | Each key that paw reads, with `at`, `length`, `tonic`, `mode`, `name`. |
 | `paw.harmony.set_key(name)` | Set the key of the project. |
 | `paw.harmony.project_key()` | The key that is set, or nil. |
 | `paw.harmony.provider()` | The name of the provider whose reading paw uses. |
 | `paw.harmony.invalidate()` | Tell paw that the answer of a provider changed. |
+| `paw.harmony.fresh()` | True if the reading agrees with the notes now, so that `chords`, `at` and `key` answer at once. A view that is drawn on each key asks this first. |
 | `paw.harmony.read` | The built-in reading, as pure functions on lists of notes. |
 
 The event `harmony.changed` comes when the reading changes.

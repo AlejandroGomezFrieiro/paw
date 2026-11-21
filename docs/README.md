@@ -68,6 +68,8 @@ below link the main ones.
 
 - [How to move, copy, split and trim clips](how-to/move-copy-split-and-trim-clips.md)
 - [How to change the velocity, length and pitch of notes, and quantize them](how-to/edit-notes.md)
+- [How to select a chord, a phrase, a voice or a pitch in the piano roll](how-to/select-musical-objects-in-the-piano-roll.md): `ic`, `ip`, `iv`, `i=`, and `]c`, `)` to move
+- [How to insert clips, regions and markers with keys](how-to/insert-with-keys.md): `i` in the arrange view, then `m`, `r`, `'`
 - [How to humanize a phrase](../extensions/musicops/README.md#how-to-humanize-a-phrase): and strum, arpeggiate, keep notes in a key
 - [How to enter notes in a score](../extensions/notation/README.md#how-to-enter-notes): a clip as notation, also printed and as MusicXML
 - [How to change a beat while the song plays](../extensions/pattern/README.md#how-to-change-a-beat-while-the-song-plays): clips written as a line of text
@@ -84,6 +86,7 @@ below link the main ones.
 - [How to undo, and return to an earlier state](how-to/undo-and-return-to-an-earlier-state.md): the undo tree
 - [How to compare two versions by ear](../extensions/undotree/README.md#how-to-compare-two-versions-by-ear)
 - [How to work on one group of a large project](how-to/work-on-one-group.md)
+- [How to work on one section of a song](how-to/work-on-one-section-of-a-song.md): a region in a tab of its own, bars from 1
 - [How to arrange your screen: windows, tabs and layouts](how-to/arrange-your-screen.md): one view full screen, two clips side by side, a layout of your own
 
 ### Find things
