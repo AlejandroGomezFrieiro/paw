@@ -1,0 +1,458 @@
+//! Clips of a kind that an extension defines: video, lyrics, light cues.
+//!
+//! The core never reads such a clip's data. It keeps four things for it:
+//! the kind's **data** (JSON or text, kept as the bytes it was given), the
+//! **media** files it uses, the **sound** it makes you hear (a built-in MIDI
+//! or audio content that the kind compiled) and the **signals** it sends
+//! (timed messages to the kernel or to an OSC port). The sound and the
+//! signals are saved with the project, so that a project plays without the
+//! extension.
+//!
+//! JSON that the core keeps but does not read ([`RawJson`]) is saved as a
+//! string that holds its text. serde reads an internally tagged enum such
+//! as [`ClipContent`] through a buffer that keeps values, not bytes, so JSON
+//! written in place would come back with its keys sorted and its numbers
+//! and spaces rewritten. A string comes back as it was.
+
+use std::fmt;
+use std::path::PathBuf;
+use std::str::FromStr;
+use std::sync::Arc;
+
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde_json::value::RawValue;
+
+use super::ClipContent;
+
+/// Words that a kind of clip cannot have: the built-in contents, and words
+/// kept for those to come, so that a new built-in content never meets an
+/// extension's kind of the same name in a project.
+pub const RESERVED: &[&str] = &["midi", "audio", "empty", "folder", "custom"];
+
+/// A bad name or a bad content in a custom clip.
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+pub enum CustomError {
+    #[error(
+        "`{0}` is not a name: use a lowercase word of 1 to 32 letters, digits, `_` and `-` that starts with a letter"
+    )]
+    BadWord(String),
+    #[error("`{0}` is a built-in kind of clip: an extension cannot define it")]
+    Reserved(String),
+    #[error("`{0}` is not an OSC address: it starts with `/` and has no spaces")]
+    BadAddress(String),
+    #[error("the sound of a clip is MIDI or audio, not a clip of the kind `{0}`")]
+    NestedCustom(String),
+    #[error("not JSON: {0}")]
+    BadJson(String),
+}
+
+/// A lowercase word, `[a-z][a-z0-9_-]{0,31}`, shared by clips that use it:
+/// the role of a media file, the name of an OSC port.
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct Word(Arc<str>);
+
+impl Word {
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl FromStr for Word {
+    type Err = CustomError;
+
+    fn from_str(text: &str) -> Result<Self, CustomError> {
+        let mut chars = text.chars();
+        let first = chars.next().is_some_and(|c| c.is_ascii_lowercase());
+        let rest =
+            chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_' || c == '-');
+        if first && rest && text.len() <= 32 {
+            Ok(Word(text.into()))
+        } else {
+            Err(CustomError::BadWord(text.to_string()))
+        }
+    }
+}
+
+impl TryFrom<String> for Word {
+    type Error = CustomError;
+
+    fn try_from(text: String) -> Result<Self, CustomError> {
+        text.parse()
+    }
+}
+
+impl From<Word> for String {
+    fn from(word: Word) -> String {
+        word.0.to_string()
+    }
+}
+
+impl fmt::Display for Word {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+/// What a media file is to its clip, in the kind's words: `source`,
+/// `proxy`, `thumbs`.
+pub type MediaRole = Word;
+
+/// The name of an OSC port: the project names it, and the machine's
+/// setting says where it goes.
+pub type PortName = Word;
+
+/// The name of a kind of clip that an extension defines: a lowercase word
+/// (`video`, `lyrics`), never one of [`RESERVED`]. Clips of one kind share
+/// the name, so a clone is a count.
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct ClipKindId(Word);
+
+impl ClipKindId {
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
+}
+
+impl FromStr for ClipKindId {
+    type Err = CustomError;
+
+    fn from_str(text: &str) -> Result<Self, CustomError> {
+        let word: Word = text.parse()?;
+        if RESERVED.contains(&text) {
+            return Err(CustomError::Reserved(text.to_string()));
+        }
+        Ok(ClipKindId(word))
+    }
+}
+
+impl TryFrom<String> for ClipKindId {
+    type Error = CustomError;
+
+    fn try_from(text: String) -> Result<Self, CustomError> {
+        text.parse()
+    }
+}
+
+impl From<ClipKindId> for String {
+    fn from(kind: ClipKindId) -> String {
+        kind.0.into()
+    }
+}
+
+impl fmt::Display for ClipKindId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+/// JSON that the core keeps and never reads, as the text it was given.
+/// Saved as a string that holds the text (see the module's comment).
+#[derive(Clone, Debug)]
+pub struct RawJson(Arc<RawValue>);
+
+impl RawJson {
+    /// The JSON text, byte for byte as it was given.
+    pub fn get(&self) -> &str {
+        self.0.get()
+    }
+}
+
+impl FromStr for RawJson {
+    type Err = CustomError;
+
+    fn from_str(text: &str) -> Result<Self, CustomError> {
+        let raw = RawValue::from_string(text.to_string())
+            .map_err(|err| CustomError::BadJson(err.to_string()))?;
+        Ok(RawJson(raw.into()))
+    }
+}
+
+impl PartialEq for RawJson {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0) || self.get() == other.get()
+    }
+}
+
+impl Serialize for RawJson {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.get())
+    }
+}
+
+impl<'de> Deserialize<'de> for RawJson {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let text = String::deserialize(deserializer)?;
+        text.parse().map_err(serde::de::Error::custom)
+    }
+}
+
+/// What a custom clip's own positions count.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Timeline {
+    /// Beats: the data follows the tempo, as notes do.
+    #[default]
+    Beats,
+    /// Seconds: the data follows time, as a film does.
+    Seconds,
+}
+
+/// The data of a custom clip: the kind's own, which the core keeps byte
+/// for byte and never reads.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum KindData {
+    Json(RawJson),
+    /// Text in the kind's own format (an `.lrc` file), with the file
+    /// extension that it is saved with.
+    Text {
+        ext: Word,
+        text: Arc<str>,
+    },
+}
+
+/// A file that a custom clip uses.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MediaRef {
+    pub role: MediaRole,
+    pub path: PathBuf,
+    /// Made from other files by the kind, and named by the hash of what
+    /// made it: it can be made again.
+    #[serde(default, skip_serializing_if = "super::is_false")]
+    pub derived: bool,
+}
+
+/// What a custom clip makes you hear: a built-in MIDI or audio content,
+/// never a custom one, so that a clip's sound never holds a sound.
+#[derive(Clone, Debug, Serialize)]
+#[serde(transparent)]
+pub struct Sound(ClipContent);
+
+impl Sound {
+    pub fn content(&self) -> &ClipContent {
+        &self.0
+    }
+}
+
+impl TryFrom<ClipContent> for Sound {
+    type Error = CustomError;
+
+    fn try_from(content: ClipContent) -> Result<Self, CustomError> {
+        match content {
+            ClipContent::Custom(custom) => Err(CustomError::NestedCustom(custom.kind.to_string())),
+            built_in => Ok(Sound(built_in)),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for Sound {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        Sound::try_from(ClipContent::deserialize(deserializer)?).map_err(serde::de::Error::custom)
+    }
+}
+
+/// A timed message of a custom clip that is not sound.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Signal {
+    /// Where it happens, in the clip's timeline from the start of its data.
+    pub at: f64,
+    /// How many milliseconds early it goes, so that a slow receiver acts
+    /// on time.
+    #[serde(default, skip_serializing_if = "is_zero_u16")]
+    pub lead_ms: u16,
+    /// Signals with the same latch are states: after a jump, the last one
+    /// before the play position is given again.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub latch: Option<Arc<str>>,
+    pub to: SignalTo,
+}
+
+fn is_zero_u16(value: &u16) -> bool {
+    *value == 0
+}
+
+/// Where a signal goes.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "lowercase")]
+pub enum SignalTo {
+    /// To the kind's code in the kernel, with this payload.
+    Kernel { body: RawJson },
+    /// An OSC message to a port that the machine's setting names.
+    Osc {
+        port: PortName,
+        address: OscAddress,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        args: Vec<OscArg>,
+    },
+}
+
+/// The address of an OSC message: `/cue/1/go`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct OscAddress(Arc<str>);
+
+impl OscAddress {
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl FromStr for OscAddress {
+    type Err = CustomError;
+
+    fn from_str(text: &str) -> Result<Self, CustomError> {
+        if text.starts_with('/') && !text.chars().any(|c| c.is_whitespace() || c.is_control()) {
+            Ok(OscAddress(text.into()))
+        } else {
+            Err(CustomError::BadAddress(text.to_string()))
+        }
+    }
+}
+
+impl TryFrom<String> for OscAddress {
+    type Error = CustomError;
+
+    fn try_from(text: String) -> Result<Self, CustomError> {
+        text.parse()
+    }
+}
+
+impl From<OscAddress> for String {
+    fn from(address: OscAddress) -> String {
+        address.0.to_string()
+    }
+}
+
+/// An argument of an OSC message, written as the JSON value it is: `1` is
+/// an integer, `1.0` a float.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OscArg {
+    Bool(bool),
+    Int(i32),
+    Float(f32),
+    Str(Arc<str>),
+}
+
+/// The content of a clip of a kind that an extension defines.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CustomContent {
+    /// The kind, saved as `type` (`kind` says that the content is custom).
+    #[serde(rename = "type")]
+    pub kind: ClipKindId,
+    /// The version of the kind's data, for the kind's migrations.
+    #[serde(default = "one_u32", skip_serializing_if = "is_one_u32")]
+    pub version: u32,
+    #[serde(default, skip_serializing_if = "is_beats")]
+    pub timeline: Timeline,
+    /// Where the clip starts in its data, in its timeline: what trimming
+    /// the start or slipping changes. The data does not change.
+    #[serde(default, skip_serializing_if = "super::is_zero")]
+    pub offset: f64,
+    pub data: KindData,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub media: Vec<MediaRef>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sound: Option<Sound>,
+    /// In the clip's timeline, from the start of its data.
+    #[serde(default = "no_signals", skip_serializing_if = "<[Signal]>::is_empty")]
+    pub signals: Arc<[Signal]>,
+}
+
+fn one_u32() -> u32 {
+    1
+}
+
+fn is_one_u32(value: &u32) -> bool {
+    *value == 1
+}
+
+fn is_beats(timeline: &Timeline) -> bool {
+    *timeline == Timeline::Beats
+}
+
+fn no_signals() -> Arc<[Signal]> {
+    Arc::new([])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::Clip;
+
+    fn clip(content: serde_json::Value) -> serde_json::Value {
+        serde_json::json!({ "id": 1, "name": "c", "start": 0.0, "length": 4.0, "muted": false,
+            "content": content })
+    }
+
+    #[test]
+    fn an_unknown_kinds_data_round_trips_byte_for_byte() {
+        let data = "{ \"zeta\": 1.50, \"alpha\" :[3,  2] }";
+        let body = "{\"b\":1e3,\"a\":0}";
+        let content = serde_json::json!({ "kind": "custom", "type": "unknown", "data": { "json": data },
+            "signals": [{ "at": 1.0, "to": { "kind": "kernel", "body": body } },
+                { "at": 2.0, "to": { "kind": "osc", "port": "qlc", "address": "/go", "args": [1, 0.5, "x"] } }],
+            "sound": { "kind": "midi", "notes": [] } });
+        let first: Clip = serde_json::from_value(clip(content)).unwrap();
+        let text = serde_json::to_string_pretty(&first).unwrap();
+        let read: Clip = serde_json::from_str(&text).unwrap();
+        let ClipContent::Custom(custom) = &read.content else {
+            panic!("a custom clip")
+        };
+        let KindData::Json(json) = &custom.data else {
+            panic!("JSON data")
+        };
+        assert_eq!(json.get(), data);
+        let SignalTo::Kernel { body: read_body } = &custom.signals[0].to else {
+            panic!("a kernel signal")
+        };
+        assert_eq!(read_body.get(), body);
+        assert!(
+            matches!(read.playable(), Some(ClipContent::Midi { .. })),
+            "it plays its sound"
+        );
+        assert_eq!(
+            serde_json::to_string_pretty(&read).unwrap(),
+            text,
+            "and is saved as it was read"
+        );
+    }
+
+    #[test]
+    fn midi_and_audio_clips_still_save_and_load() {
+        for text in [
+            r#"{"kind":"midi","notes":[{"start":0.0,"length":1.0,"pitch":60,"velocity":90}]}"#,
+            r#"{"kind":"audio","file":"a.wav","offset":0.5,"gain":-3.0}"#,
+        ] {
+            let content: ClipContent = serde_json::from_str(text).unwrap();
+            assert_eq!(serde_json::to_string(&content).unwrap(), text);
+        }
+    }
+
+    #[test]
+    fn a_sound_is_never_custom() {
+        let text = r#"{ "kind": "custom", "type": "inner", "data": { "json": "1" } }"#;
+        let inner: ClipContent = serde_json::from_str(text).unwrap();
+        assert_eq!(
+            Sound::try_from(inner).unwrap_err().to_string(),
+            "the sound of a clip is MIDI or audio, not a clip of the kind `inner`"
+        );
+        let nested = format!(
+            r#"{{ "kind": "custom", "type": "outer", "data": {{ "json": "1" }}, "sound": {text} }}"#
+        );
+        let err = serde_json::from_str::<ClipContent>(&nested).unwrap_err();
+        assert!(err.to_string().contains("not a clip of the kind `inner`"), "{err}");
+    }
+
+    #[test]
+    fn a_kind_is_a_word_that_is_not_built_in() {
+        assert_eq!(
+            "midi".parse::<ClipKindId>().unwrap_err().to_string(),
+            "`midi` is a built-in kind of clip: an extension cannot define it"
+        );
+        assert!("Video".parse::<ClipKindId>().is_err());
+        assert_eq!("video".parse::<ClipKindId>().unwrap().as_str(), "video");
+    }
+}

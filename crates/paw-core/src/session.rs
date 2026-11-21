@@ -930,6 +930,7 @@ fn clip_json(c: &Clip, track: Id) -> Value {
                 v["source_tempo"] = json!(bpm);
             }
         }
+        ClipContent::Custom(_) => {}
     }
     v["loop"] = json!(c.looped);
     v["loop_start"] = json!(c.loop_start);

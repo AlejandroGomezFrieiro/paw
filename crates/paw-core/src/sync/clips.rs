@@ -327,6 +327,8 @@ fn parts_of(
             ClipContent::Audio { file, offset, gain, .. } => {
                 clip_audio(clip, (file, *offset, *gain), tempo, ctx, &mut audio)
             }
+            // A custom clip does not play its sound yet.
+            ClipContent::Custom(_) => {}
         }
     }
     let mut parts = Vec::with_capacity(pieces.len().max(1));
@@ -350,7 +352,7 @@ fn parts_of(
 fn orders_taken(clip: &Clip) -> u64 {
     match &clip.content {
         ClipContent::Midi { notes, .. } => notes.runs().len() as u64 + 1,
-        ClipContent::Audio { .. } => 1,
+        ClipContent::Audio { .. } | ClipContent::Custom(_) => 1,
     }
 }
 
@@ -587,6 +589,7 @@ pub(super) fn build_cues(
             ClipContent::Audio { file, offset, gain, .. } => {
                 clip_audio(clip, (file, *offset, *gain), tempo, ctx, &mut clips.audio)
             }
+            ClipContent::Custom(_) => {}
         }
         out[row] = Some(SlotClip {
             clips,
