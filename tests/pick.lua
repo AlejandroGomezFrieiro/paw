@@ -183,14 +183,14 @@ test("pick: stays quick with thousands of items", function()
   for i = 1, 6000 do
     items[i] = "clap:vendor." .. words[i % #words + 1] .. " " .. words[(i * 7) % #words + 1] .. " " .. i
   end
-  local t0 = api.now()
+  local t0 = T.cpu_ms()
   paw.pick({ items = items, on_choose = function() end })
   for _, key in ipairs({ "d", "r", "a", "<Space>", "h", "<BS>", "<BS>", "g" }) do
     paw.keymap.feed(key)
     api.ui_snapshot(120, 40)
   end
-  local ms = api.now() - t0
-  eq(ms < 1000, true, "eight keys over 6000 items took " .. math.floor(ms) .. " ms")
+  local ms = T.cpu_ms() - t0
+  eq(ms < 1000, true, "eight keys over 6000 items took " .. math.floor(ms) .. " ms of processor time")
   eq(#pick.state().matches > 0, true, "and found some")
   paw.keymap.feed("<Esc>")
 end)

@@ -1,4 +1,5 @@
--- How long notation takes on a big clip. Loaded by tests/suite.lua.
+-- How long notation takes on a big clip, in processor time (T.cpu_ms).
+-- Loaded by tests/suite.lua.
 local T = ...
 local test, eq, fresh = T.test, T.eq, T.fresh
 local paw = require("paw")
@@ -19,20 +20,21 @@ test("notation: a clip of ten thousand notes opens and is drawn in well under a 
   paw.cursor.beat = 0
   api.ui_snapshot(150, 45)
   collectgarbage()
-  local t = api.now()
+  local t = T.cpu_ms()
   paw.keymap.feed(":notation<CR>")
   local text = table.concat(api.ui_snapshot(150, 45), "\n")
-  local took = api.now() - t
+  local took = T.cpu_ms() - t
   eq(view.clip_id, clip.id, "the clip is open")
   eq(paw.ui.focused, "notation", "and has the keyboard")
   eq(text:find("big", 1, true) ~= nil, true, "and is drawn, named")
-  -- The target is 200 ms; the bound is loose, for a busy machine.
+  -- The target is 200 ms; the bound leaves room for caches that other
+  -- programs share.
   eq(took < 1000, true, string.format("opened and drawn in %.0f ms", took))
   -- The cursor moves at once, the events sorted once for the layout.
-  t = api.now()
+  t = T.cpu_ms()
   for _ = 1, 20 do paw.keymap.feed("l") end
   api.ui_snapshot(150, 45)
-  took = api.now() - t
+  took = T.cpu_ms() - t
   eq(view.beat > 0, true, "the cursor moved")
   eq(took < 1000, true, string.format("twenty moves and a draw in %.0f ms", took))
   paw.ui.focus("arrange")

@@ -563,8 +563,9 @@ test("musicops: legato on ten thousand notes is quick", function()
   load()
   local notes = {}
   for i = 1, 10000 do notes[i] = N(60 + i % 12, (i - 1) * 0.25 + (i % 3) * 0.01, 0.1) end
-  local t0 = api.now()
+  local t0 = T.cpu_ms()
   local out = mo.legato(notes)
+  local took = T.cpu_ms() - t0
   eq(#out, 10000, "every note kept")
-  eq(api.now() - t0 < 200, true, "in well under a second: " .. (api.now() - t0) .. " ms")
+  eq(took < 200, true, "in well under a second: " .. took .. " ms of processor time")
 end)

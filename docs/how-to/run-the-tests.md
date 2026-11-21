@@ -27,6 +27,25 @@ each of these files, in the order of their names.
   `PAW_TEST_TONE3000=<store path> PAW_TEST_SOUNDSHED=<store path> tests/tools/suite.sh plugins plugstate`.
   In this mode, the plugins get a scratch `HOME`.
 
+## Write a test that a loaded machine does not break
+
+The tests run on a machine that also builds and runs other programs. A
+loaded machine is slow, but it is not wrong. Use these rules:
+
+- Wait for the event or the state, not for a time. `T.until_` waits for a
+  condition, `T.next_block` for the audio blocks, and `T.until_beat` for
+  the playhead. In the window tests, `expect` waits for a condition in the
+  kernel.
+- A limit on a wait is the time that the slowest machine needs, not the
+  usual time: 30 seconds for a wait in the kernel. A wait that reaches its
+  limit shows a fault.
+- Do not compare two drawings of a value that changes with the time,
+  for example a meter. Hold the value still while the test draws.
+- Measure the speed only when the speed is the behavior. Then measure the
+  processor time of the thread with `T.cpu_ms()`, not the time on the
+  clock. Keep the limit a few times the target, because other programs
+  share the caches of the processor.
+
 ## Run the Rust tests
 
 1. Run `cargo test`. This also runs the Lua suite once, from

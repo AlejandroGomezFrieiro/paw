@@ -67,7 +67,10 @@ local function oauth(m, opts)
   local polls = opts.polls or {}
   m.device = { device_code = "dc-1", user_code = "BCDF-GHJK", verification_uri = "https://www.tone3000.com/activate",
     verification_uri_complete = "https://www.tone3000.com/activate?user_code=BCDF-GHJK",
-    expires_in = opts.expires_in or 600, interval = 5 }
+    -- A second lasts a millisecond here (auth.SECOND): ten minutes would
+    -- be 0.6 s, which a loaded machine spends on the polls. The code
+    -- expires only in the test that asks for it.
+    expires_in = opts.expires_in or 3600000, interval = 5 }
   m.polled, m.renewals = 0, 0
   m.reply = function(req)
     if req.path == "/api/v1/oauth/device_authorization" then

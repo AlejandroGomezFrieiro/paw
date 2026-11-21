@@ -71,6 +71,19 @@ local function until_(cond, what, ms)
   end
 end
 
+--- Milliseconds of processor time that this thread has used. A test of
+--- speed measures this, not the time on the clock: on a loaded machine the
+--- clock runs on while other programs have the processor, and this does
+--- not. The bound stays a few times the target, for the caches that other
+--- programs share.
+local ffi = require("ffi")
+pcall(ffi.cdef, "struct paw_timespec { long tv_sec; long tv_nsec; }; int clock_gettime(int, struct paw_timespec *);")
+local cpu_now = ffi.new("struct paw_timespec")
+local function cpu_ms()
+  ffi.C.clock_gettime(3, cpu_now) -- CLOCK_THREAD_CPUTIME_ID
+  return tonumber(cpu_now.tv_sec) * 1000 + tonumber(cpu_now.tv_nsec) / 1e6
+end
+
 --- Wait until the engine has run `n` (1 if not given) whole audio blocks
 --- after this call, so that what was sent to it before is in effect: a
 --- parameter, a note, a change to a track. Changes not yet sent are sent
@@ -268,7 +281,7 @@ end
 --   T.test("the widget counts", function() T.fresh() T.eq(1 + 1, 2, "sum") end)
 
 local T = {
-  test = test, last = last, after = after, eq = eq, near = near, fails = fails, fresh = fresh, render = render, tone = tone,
+  test = test, last = last, after = after, eq = eq, near = near, fails = fails, fresh = fresh, render = render, tone = tone, cpu_ms = cpu_ms,
   until_ = until_, next_block = next_block, until_beat = until_beat,
   scratch = scratch, read_file = read_file, write_file = write_file, frequency = frequency,
   channel_peaks = channel_peaks, three_clips = three_clips, layout = layout, melody = melody, keys = keys,
