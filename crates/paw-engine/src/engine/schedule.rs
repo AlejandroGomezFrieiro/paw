@@ -124,6 +124,40 @@ impl Schedule {
             }
     }
 
+    /// Whether a group after `group`, which ends at entry `last`, is worth
+    /// sharing between threads.
+    pub(super) fn worth_sharing_after(&self, group: usize, last: usize) -> bool {
+        let mut first = last;
+        for later in group + 1..self.groups.len() {
+            let end = self.groups[later];
+            if self.worth_sharing(later, first, end) {
+                return true;
+            }
+            first = end;
+        }
+        false
+    }
+
+    /// The work of all the groups, as last measured.
+    pub(super) fn cost(&self) -> u64 {
+        self.costs.iter().map(|c| c.0).sum()
+    }
+
+    /// Keep what a group's tracks took, whichever threads did them, without
+    /// the waiting: smoothed, so that one block the thread was held up in
+    /// does not change how the next is done.
+    pub(super) fn note_cost(&mut self, group: usize, spent: u64, shared: bool) {
+        if let Some(slot) = self.costs.get_mut(group) {
+            *slot = ((slot.0 * 3 + spent) / 4, shared);
+        }
+    }
+
+    /// After a block played: the most work a block has taken, which falls
+    /// by half in about 7000 blocks, a minute at 256 frames.
+    pub(super) fn hold_peak(&mut self) {
+        self.peak = self.cost().max(self.peak - self.peak / 10_000);
+    }
+
     /// Where the group that starts at entry `first` ends.
     pub(super) fn group_end(&self, first: usize) -> usize {
         let at = self.groups.partition_point(|end| *end <= first);

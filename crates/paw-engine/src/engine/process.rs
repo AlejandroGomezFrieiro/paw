@@ -6,15 +6,93 @@ use crate::device::ProcessCtx;
 use crate::midi_out::MidiOut;
 use crate::record::PUNCH_EPS;
 use crate::slot::TrackSlot;
+use crate::tempo::TempoMap;
 
-use super::click::{CLICK_FRAMES, Count, MAX_CLICKS};
+use super::click::{CLICK_FRAMES, Count};
 use super::device_rt::DeviceRt;
 use super::guarded::Guarded;
 use super::msg::Garbage;
-use super::schedule::SchedEntry;
-use super::track::KeyRt;
+use super::schedule::{SchedEntry, Schedule};
+use super::track::{KeyRt, TrackRt};
 use super::work::{Block, Work, fader};
 use super::{Engine, MAX_BLOCK, METER_FALL_SECONDS};
+
+/// One block of a callback: where it starts, how many frames it has, and
+/// where it ends, on the timeline.
+struct Cut {
+    start: f64,
+    n: usize,
+    end: f64,
+    /// The block ends at the loop's end: the next starts at its start.
+    wrap: bool,
+}
+
+impl Cut {
+    /// End the block `frames` into it, if that is inside it: something
+    /// happens on that frame, and the next block starts with it.
+    fn end_on(&mut self, frames: usize) {
+        if frames > 0 && frames < self.n {
+            self.n = frames;
+            self.wrap = false;
+        }
+    }
+}
+
+/// Beats and frames from the start of a block, while playing.
+struct Clock<'a> {
+    map: &'a TempoMap,
+    start: f64,
+    /// Seconds at `start`.
+    t0: f64,
+    sample_rate: f64,
+    /// One tempo throughout: beats per frame, as plain arithmetic.
+    bpf: Option<f64>,
+}
+
+impl<'a> Clock<'a> {
+    fn new(map: &'a TempoMap, start: f64, sample_rate: f64) -> Self {
+        Self {
+            map,
+            start,
+            t0: map.seconds(start),
+            sample_rate,
+            bpf: map
+                .is_constant()
+                .then(|| map.first_tempo() / (60.0 * sample_rate)),
+        }
+    }
+
+    /// Frames from the start to `beat`, not rounded.
+    fn frames(&self, beat: f64) -> f64 {
+        match self.bpf {
+            Some(bpf) => (beat - self.start) / bpf,
+            None => (self.map.seconds(beat) - self.t0) * self.sample_rate,
+        }
+    }
+
+    /// The first frame at or after `beat`.
+    fn frames_to(&self, beat: f64) -> usize {
+        self.frames(beat).ceil() as usize
+    }
+
+    /// The frame `beat` is on: a point a rounding error off a frame is on it.
+    fn frames_on(&self, beat: f64) -> usize {
+        let x = self.frames(beat);
+        if (x - x.round()).abs() < 1e-6 {
+            x.round() as usize
+        } else {
+            x.ceil() as usize
+        }
+    }
+
+    /// The beat `n` frames after the start.
+    fn beat_after(&self, n: usize) -> f64 {
+        match self.bpf {
+            Some(bpf) => self.start + n as f64 * bpf,
+            None => self.map.beat(self.t0 + n as f64 / self.sample_rate),
+        }
+    }
+}
 
 impl Engine {
     /// Render the next `left.len()` frames with no input. `left` and `right`
@@ -25,6 +103,10 @@ impl Engine {
 
     /// Render the next `left.len()` frames, with `input` holding as many
     /// frames of `channels` interleaved input channels.
+    ///
+    /// The frames are cut into blocks, each ending where something has to
+    /// happen on its frame (see [`cut_block`](Self::cut_block)), and each
+    /// block is run through the graph by [`segment`](Self::segment).
     pub fn process_input(
         &mut self,
         input: &[f32],
@@ -34,155 +116,177 @@ impl Engine {
     ) {
         let began = std::time::Instant::now();
         let callback_ns = crate::midi_out::clock_ns();
+        let total = left.len().min(right.len());
+        self.begin_callback(total);
+        let mut done = 0;
+        while done < total {
+            self.start_counted_song();
+            let cut = self.cut_block(total - done);
+            let n = cut.n;
+            self.load_input(input, channels, done, n);
+            self.capture(n, cut.start);
+            self.stamp_midi_out(callback_ns, done);
+            self.click_at = done;
+            self.segment(
+                &mut left[done..done + n],
+                &mut right[done..done + n],
+                cut.start,
+                cut.end,
+            );
+            done += n;
+            self.end_block(&cut);
+        }
+        self.publish_transport();
+        self.play_preview(&mut left[..total], &mut right[..total]);
+        self.feed_monitor(&left[..total], &right[..total]);
+        let ns = u64::try_from(began.elapsed().as_nanos()).unwrap_or(u64::MAX);
+        self.shared.blocks.record(ns, total);
+        self.shared.processed.fetch_add(1, Relaxed);
+    }
+
+    /// What a callback does before its first block: take the main
+    /// thread's messages, and clear the click's own output.
+    fn begin_callback(&mut self, total: usize) {
         self.pump();
         if let Some(pool) = &self.pool {
             // Fewer than it was given, if its workers were refused the
             // priority of this thread.
             self.shared.threads.store(pool.threads() as u32, Relaxed);
         }
-        let total = left.len().min(right.len());
-        let sr = self.sample_rate;
         if self.click_output > 0 {
             let room = total.min(CLICK_FRAMES);
             self.click_buf[0][..room].fill(0.0);
             self.click_buf[1][..room].fill(0.0);
         }
-        let mut done = 0;
-        while done < total {
-            // A count-in that has run its course starts the song on this frame.
-            if let Some(count) = self.count.as_mut()
-                && !count.started
-                && count.elapsed >= count.frames
-            {
-                count.started = true;
-                self.playing = true;
-                self.chase = true;
-                self.reapply = true;
-                self.restate = true;
+    }
+
+    /// A count-in that has run its course starts the song on this frame.
+    fn start_counted_song(&mut self) {
+        if let Some(count) = self.count.as_mut()
+            && !count.started
+            && count.elapsed >= count.frames
+        {
+            count.started = true;
+            self.playing = true;
+            self.chase = true;
+            self.reapply = true;
+            self.restate = true;
+        }
+    }
+
+    /// The next block, of at most `left` frames, from the play position.
+    ///
+    /// While playing, a block ends early on the frame where something has
+    /// to happen: the loop's end, a launch, a punch in or out, a state
+    /// lane's point. Each is one [`Cut::end_on`].
+    fn cut_block(&mut self, left: usize) -> Cut {
+        let mut n = left.min(MAX_BLOCK);
+        if let Some(count) = self.count.as_ref().filter(|c| !c.started) {
+            n = n.min((count.frames - count.elapsed) as usize);
+        }
+        let start = self.position;
+        let mut cut = Cut {
+            start,
+            n,
+            end: start,
+            wrap: false,
+        };
+        let launch_at = if self.launching && self.playing {
+            self.next_launch(start)
+        } else {
+            None
+        };
+        let Some(map) = self.map.as_deref().filter(|_| self.playing) else {
+            return cut;
+        };
+        let clock = Clock::new(map, start, self.sample_rate);
+        if self.loop_enabled && start < self.loop_end {
+            let to_loop_end = clock.frames_to(self.loop_end);
+            if to_loop_end <= cut.n {
+                cut.n = to_loop_end.max(1);
+                cut.wrap = true;
             }
-            let mut n = (total - done).min(MAX_BLOCK);
-            if let Some(count) = self.count.as_ref().filter(|c| !c.started) {
-                n = n.min((count.frames - count.elapsed) as usize);
-            }
-            let start = self.position;
-            let mut end = start;
-            let mut wrap = false;
-            let launch_at = if self.launching && self.playing {
-                self.next_launch(start)
-            } else {
-                None
-            };
-            if let Some(map) = self.map.as_deref().filter(|_| self.playing) {
-                let t0 = map.seconds(start);
-                // One tempo throughout: beats per frame, as plain arithmetic.
-                let bpf = map.is_constant().then(|| map.first_tempo() / (60.0 * sr));
-                let frames_to = |beat: f64| match bpf {
-                    Some(bpf) => ((beat - start) / bpf).ceil() as usize,
-                    None => ((map.seconds(beat) - t0) * sr).ceil() as usize,
-                };
-                if self.loop_enabled && start < self.loop_end {
-                    let to_loop_end = frames_to(self.loop_end);
-                    if to_loop_end <= n {
-                        n = to_loop_end.max(1);
-                        wrap = true;
-                    }
-                }
-                // On the frame: a point a rounding error off a frame is on it.
-                let frames_on = |beat: f64| {
-                    let x = match bpf {
-                        Some(bpf) => (beat - start) / bpf,
-                        None => (map.seconds(beat) - t0) * sr,
-                    };
-                    if (x - x.round()).abs() < 1e-6 {
-                        x.round() as usize
-                    } else {
-                        x.ceil() as usize
-                    }
-                };
-                // A launch happens on its frame: the block ends there.
-                if let Some(frames) = launch_at.map(frames_on)
-                    && frames > 0
-                    && frames < n
-                {
-                    n = frames;
-                    wrap = false;
-                }
-                // A punched take starts and stops capturing on the frame:
-                // the block ends where it punches in or out.
-                if let Some((from, to)) = self.take.as_ref().and_then(|t| t.punch) {
-                    for edge in [from, to] {
-                        if edge - start > PUNCH_EPS {
-                            let frames = frames_on(edge).max(1);
-                            if frames < n {
-                                n = frames;
-                                wrap = false;
-                            }
-                        }
-                    }
-                }
-                // A state changes on its point's frame: the block ends there.
-                if self.has_states
-                    && let Some(frames) = self.next_state_point(start).map(frames_on)
-                    && frames > 0
-                    && frames < n
-                {
-                    n = frames;
-                    wrap = false;
-                }
-                end = match (wrap, bpf) {
-                    (true, _) => self.loop_end,
-                    (false, Some(bpf)) => start + n as f64 * bpf,
-                    (false, None) => map.beat(t0 + n as f64 / sr),
-                };
-            }
-            self.load_input(input, channels, done, n);
-            self.capture(n, start);
-            if self.midi_out.is_some() {
-                // The block is heard after the plugins' delay and the
-                // output's, and the MIDI sent with it goes as late.
-                let late = self.schedule.as_ref().map_or(0, |s| s.latency) as f64 / sr
-                    + self.shared.output_latency() as f64;
-                self.heard_ns = callback_ns + ((done as f64 / sr + late) * 1e9) as u64;
-            }
-            self.click_at = done;
-            self.segment(
-                &mut left[done..done + n],
-                &mut right[done..done + n],
-                start,
-                end,
-            );
-            done += n;
-            if let Some(count) = self.count.as_mut() {
-                count.elapsed += n as u64;
-                if count.started && count.next >= count.clicks {
-                    self.count = None;
-                }
-            }
-            if wrap && let Some(take) = self.take.as_deref_mut().filter(|_| self.playing) {
-                // A take goes round with the loop: where it did is kept, so
-                // that each time round can be told from the others.
-                take.pass += 1;
-                let _ = take.wraps.push(take.frames);
-            }
-            if self.playing {
-                self.position = if wrap { self.loop_start } else { end };
-                self.flush_notes |= wrap;
-                self.chase |= wrap;
-                if wrap {
-                    self.requantize(self.loop_start);
+        }
+        // A launch happens on its frame.
+        if let Some(beat) = launch_at {
+            cut.end_on(clock.frames_on(beat));
+        }
+        // A punched take starts and stops capturing on the frame.
+        if let Some((from, to)) = self.take.as_ref().and_then(|t| t.punch) {
+            for edge in [from, to] {
+                if edge - start > PUNCH_EPS {
+                    cut.end_on(clock.frames_on(edge).max(1));
                 }
             }
         }
+        // A state changes on its point's frame.
+        if self.has_states
+            && let Some(beat) = self.next_state_point(start)
+        {
+            cut.end_on(clock.frames_on(beat));
+        }
+        cut.end = if cut.wrap {
+            self.loop_end
+        } else {
+            clock.beat_after(cut.n)
+        };
+        cut
+    }
+
+    /// When the block that starts `done` frames into this callback is
+    /// heard, for the MIDI sent with it.
+    fn stamp_midi_out(&mut self, callback_ns: u64, done: usize) {
+        if self.midi_out.is_some() {
+            let sr = self.sample_rate;
+            // The block is heard after the plugins' delay and the
+            // output's, and the MIDI sent with it goes as late.
+            let late = self.schedule.as_ref().map_or(0, |s| s.latency) as f64 / sr
+                + self.shared.output_latency() as f64;
+            self.heard_ns = callback_ns + ((done as f64 / sr + late) * 1e9) as u64;
+        }
+    }
+
+    /// After a block: the count-in counts it, a take notes the loop's
+    /// wrap, and the play position moves on.
+    fn end_block(&mut self, cut: &Cut) {
+        if let Some(count) = self.count.as_mut() {
+            count.elapsed += cut.n as u64;
+            if count.started && count.next >= count.clicks {
+                self.count = None;
+            }
+        }
+        let wrap = cut.wrap;
+        if wrap && let Some(take) = self.take.as_deref_mut().filter(|_| self.playing) {
+            // A take goes round with the loop: where it did is kept, so
+            // that each time round can be told from the others.
+            take.pass += 1;
+            let _ = take.wraps.push(take.frames);
+        }
+        if self.playing {
+            self.position = if wrap { self.loop_start } else { cut.end };
+            self.flush_notes |= wrap;
+            self.chase |= wrap;
+            if wrap {
+                self.requantize(self.loop_start);
+            }
+        }
+    }
+
+    /// Tell the main thread where the transport is, after a callback.
+    fn publish_transport(&self) {
         self.shared.position.store(self.position, Relaxed);
         self.shared.playing.store(self.playing, Relaxed);
         self.shared
             .counting
             .store(self.count.as_ref().map_or(0, Count::left), Relaxed);
         self.shared.seeks.store(self.seeks, Relaxed);
-        self.play_preview(&mut left[..total], &mut right[..total]);
+    }
+
+    /// Hand what was played to the listener, if there is one.
+    fn feed_monitor(&mut self, left: &[f32], right: &[f32]) {
         if let Some(monitor) = self.monitor.as_deref_mut() {
             // What does not fit is dropped: the listener has fallen behind.
-            let frames = total.min(monitor.slots() / 2);
+            let frames = left.len().min(monitor.slots() / 2);
             if let Ok(chunk) = monitor.write_chunk_uninit(frames * 2) {
                 let samples = left[..frames]
                     .iter()
@@ -191,9 +295,6 @@ impl Engine {
                 chunk.fill_from_iter(samples);
             }
         }
-        let ns = u64::try_from(began.elapsed().as_nanos()).unwrap_or(u64::MAX);
-        self.shared.blocks.record(ns, total);
-        self.shared.processed.fetch_add(1, Relaxed);
     }
 
     /// Add the sound file being heard on its own, and the one fading out
@@ -222,40 +323,11 @@ impl Engine {
     /// Run the whole graph for one block covering beats `start..end`.
     pub(super) fn segment(&mut self, out_l: &mut [f32], out_r: &mut [f32], start: f64, end: f64) {
         let n = out_l.len();
-        let playing = self.playing;
         let flush = std::mem::take(&mut self.flush_notes);
         let Some(map) = self.map.take() else {
             return;
         };
-        let seconds = map.seconds(start);
-        let (sig_num, sig_den) = map.signature(start);
-        let bar = map.bar_of(start);
-        let block = Block {
-            ctx: ProcessCtx {
-                sample_rate: self.sample_rate as f32,
-                tempo: map.tempo(start),
-                sig_num,
-                sig_den,
-                playing,
-                position: start,
-                seconds,
-                bar,
-                bar_start: map.bar_start(bar),
-            },
-            n,
-            start,
-            end,
-            map: &map,
-            bpf: map
-                .is_constant()
-                .then(|| map.first_tempo() / (60.0 * self.sample_rate)),
-            flush,
-            chase: playing && std::mem::take(&mut self.chase),
-            reapply: playing && std::mem::take(&mut self.reapply),
-            restate: playing && std::mem::take(&mut self.restate),
-            sleep: self.sleep,
-            meter_fall: (-(n as f32) / (self.sample_rate as f32 * METER_FALL_SECONDS)).exp(),
-        };
+        let block = self.block(&map, n, start, end, flush);
         out_l.fill(0.0);
         out_r.fill(0.0);
 
@@ -263,6 +335,61 @@ impl Engine {
             self.map = Some(map);
             return;
         };
+        self.clear_buffers(&mut schedule, n, flush);
+        self.run_groups(&mut schedule, &block, out_l, out_r);
+        if block.ctx.playing {
+            schedule.hold_peak();
+        }
+        // The click belongs with what is heard, which is this far behind.
+        let behind = schedule.latency as f64 / self.sample_rate;
+        self.schedule = Some(schedule);
+        self.sound_clicks(&block, behind, out_l, out_r);
+        self.map = Some(map);
+    }
+
+    /// What every track of the block `start..end` shares. Uses up the
+    /// engine's wishes to chase, reapply and restate, while playing.
+    fn block<'m>(
+        &mut self,
+        map: &'m TempoMap,
+        n: usize,
+        start: f64,
+        end: f64,
+        flush: bool,
+    ) -> Block<'m> {
+        let playing = self.playing;
+        let sr = self.sample_rate;
+        let (sig_num, sig_den) = map.signature(start);
+        let bar = map.bar_of(start);
+        Block {
+            ctx: ProcessCtx {
+                sample_rate: sr as f32,
+                tempo: map.tempo(start),
+                sig_num,
+                sig_den,
+                playing,
+                position: start,
+                seconds: map.seconds(start),
+                bar,
+                bar_start: map.bar_start(bar),
+            },
+            n,
+            start,
+            end,
+            map,
+            bpf: map.is_constant().then(|| map.first_tempo() / (60.0 * sr)),
+            flush,
+            chase: playing && std::mem::take(&mut self.chase),
+            reapply: playing && std::mem::take(&mut self.reapply),
+            restate: playing && std::mem::take(&mut self.restate),
+            sleep: self.sleep,
+            meter_fall: (-(n as f32) / (sr as f32 * METER_FALL_SECONDS)).exp(),
+        }
+    }
+
+    /// Silence the buffers the block's tracks are sent into, and on a
+    /// flush, what their delays still hold.
+    fn clear_buffers(&mut self, schedule: &mut Schedule, n: usize, flush: bool) {
         for entry in schedule.entries.iter_mut() {
             if let Some(track) = self.track_mut(entry.slot) {
                 track.buf[0][..n].fill(0.0);
@@ -298,114 +425,116 @@ impl Engine {
                 }
             }
         }
+    }
 
+    /// Make and route the tracks of the schedule, group by group.
+    ///
+    /// The tracks of a group do not feed each other: each makes its own
+    /// sound, on whichever thread takes it. What they send on is then
+    /// added up here, in the order of the entries, so the sums are the same
+    /// however many threads ran.
+    fn run_groups(
+        &mut self,
+        schedule: &mut Schedule,
+        block: &Block,
+        out_l: &mut [f32],
+        out_r: &mut [f32],
+    ) {
         // Live, a block that one thread does in a quarter of the time it
         // has is done on one: the other threads are not woken at all.
-        let total: u64 = schedule.costs.iter().map(|c| c.0).sum();
-        let budget = (n as f64 / self.sample_rate * 1e9) as u64;
-        let held = if playing { schedule.peak } else { 0 };
-        let share = self.offline || total.max(held) >= budget / 4;
+        let budget = (block.n as f64 / self.sample_rate * 1e9) as u64;
+        let held = if block.ctx.playing { schedule.peak } else { 0 };
+        let share = self.offline || schedule.cost().max(held) >= budget / 4;
         let mut first = 0;
         let mut group = 0;
         while first < schedule.entries.len() {
             let last = schedule.group_end(first);
-            let worth = share && schedule.worth_sharing(group, first, last);
             let spent = AtomicU64::new(0);
-            // The tracks of a group do not feed each other: each makes its
-            // own sound, on whichever thread takes it. What they send on is
-            // then added up here, in the order of the entries, so the sums
-            // are the same however many threads ran.
-            let threads = match self.pool.as_deref_mut() {
-                Some(pool) if last - first > 1 && pool.threads() > 1 && worth => {
-                    let work = Work {
-                        block: &block,
-                        entries: &schedule.entries[first..last],
-                        tracks: &self.tracks,
-                        devices: &self.devices,
-                        inputs: &self.inputs[..self.input_count],
-                        shared: &self.shared,
-                        spent: &spent,
-                    };
-                    pool.run(last - first, &|index| work.track(index));
-                    self.shared.shared_groups.fetch_add(1, Relaxed);
-                    // No more sharing in this block: the workers need not
-                    // look for any.
-                    let mut rest = last;
-                    let mut more = false;
-                    for later in group + 1..schedule.groups.len() {
-                        let end = schedule.groups[later];
-                        more |= share && schedule.worth_sharing(later, rest, end);
-                        rest = end;
-                    }
-                    // A render goes on to the next block at once, where the
-                    // workers are wanted again.
-                    if !more && !self.offline {
-                        pool.idle();
-                    }
-                    let threads = pool.threads().min(last - first);
-                    for entry in schedule.entries[first..last].iter_mut() {
-                        self.route(entry, &block, out_l, out_r);
-                    }
-                    threads
-                }
-                // Alone, a track is sent on while its block is still at hand.
-                _ => {
-                    for entry in schedule.entries[first..last].iter_mut() {
-                        Work {
-                            block: &block,
-                            entries: std::slice::from_ref(entry),
-                            tracks: &self.tracks,
-                            devices: &self.devices,
-                            inputs: &self.inputs[..self.input_count],
-                            shared: &self.shared,
-                            spent: &spent,
-                        }
-                        .track(0);
-                        self.route(entry, &block, out_l, out_r);
-                    }
-                    1
-                }
+            let shared_out = share
+                && schedule.worth_sharing(group, first, last)
+                && last - first > 1
+                && self.pool.as_deref().is_some_and(|pool| pool.threads() > 1);
+            let threads = if shared_out {
+                let more = schedule.worth_sharing_after(group, last);
+                let entries = &mut schedule.entries[first..last];
+                self.run_shared(entries, block, &spent, more, out_l, out_r)
+            } else {
+                let entries = &mut schedule.entries[first..last];
+                self.run_alone(entries, block, &spent, out_l, out_r);
+                1
             };
-            // The work of the tracks themselves, whichever threads did it,
-            // without the waiting: smoothed, so that one block the thread
-            // was held up in does not change how the next is done.
-            if let Some(slot) = schedule.costs.get_mut(group) {
-                *slot = ((slot.0 * 3 + spent.load(Relaxed)) / 4, threads > 1);
-            }
+            schedule.note_cost(group, spent.load(Relaxed), threads > 1);
             first = last;
             group += 1;
         }
         if let Some(pool) = self.pool.as_deref().filter(|_| !self.offline) {
             pool.idle();
         }
-        if playing {
-            // Falls by half in about 7000 blocks: a minute at 256 frames.
-            let total: u64 = schedule.costs.iter().map(|c| c.0).sum();
-            schedule.peak = total.max(schedule.peak - schedule.peak / 10_000);
-        }
-        // The click belongs with what is heard, which is this far behind.
-        let behind = schedule.latency as f64 / self.sample_rate;
-        self.schedule = Some(schedule);
+    }
 
-        // Where clicks start in this block: the metronome's while playing,
-        // and a count-in's whether or not the metronome is on.
-        let mut starts = [(usize::MAX, false); MAX_CLICKS];
-        let mut count = 0;
-        if playing && self.metronome {
-            let from = seconds - behind;
-            let to = map.seconds(end) - behind;
-            self.metronome_clicks(n, &map, from, to, &mut starts, &mut count);
+    /// Make a group's tracks on the pool's threads, then route them in the
+    /// order of the entries. `more` tells whether a later group of the
+    /// block is shared out too. Gives how many threads took part.
+    fn run_shared(
+        &mut self,
+        entries: &mut [SchedEntry],
+        block: &Block,
+        spent: &AtomicU64,
+        more: bool,
+        out_l: &mut [f32],
+        out_r: &mut [f32],
+    ) -> usize {
+        let Some(pool) = self.pool.as_deref_mut() else {
+            self.run_alone(entries, block, spent, out_l, out_r);
+            return 1;
+        };
+        let work = Work {
+            block,
+            entries,
+            tracks: &self.tracks,
+            devices: &self.devices,
+            inputs: &self.inputs[..self.input_count],
+            shared: &self.shared,
+            spent,
+        };
+        pool.run(entries.len(), &|index| work.track(index));
+        self.shared.shared_groups.fetch_add(1, Relaxed);
+        // No more sharing in this block: the workers need not look for
+        // any. A render goes on to the next block at once, where the
+        // workers are wanted again.
+        if !more && !self.offline {
+            pool.idle();
         }
-        if let Some(counting) = self.count.as_mut() {
-            counting.clicks(n, &mut starts, &mut count);
-            starts[..count].sort_unstable_by_key(|s| s.0);
+        let threads = pool.threads().min(entries.len());
+        for entry in entries.iter_mut() {
+            self.route(entry, block, out_l, out_r);
         }
-        if (playing && self.metronome) || self.count.is_some() {
-            self.click(out_l, out_r, &starts[..count]);
-        } else {
-            self.click.env = 0.0;
+        threads
+    }
+
+    /// Make a group's tracks one by one on this thread. Alone, a track is
+    /// sent on while its block is still at hand.
+    fn run_alone(
+        &mut self,
+        entries: &mut [SchedEntry],
+        block: &Block,
+        spent: &AtomicU64,
+        out_l: &mut [f32],
+        out_r: &mut [f32],
+    ) {
+        for entry in entries.iter_mut() {
+            Work {
+                block,
+                entries: std::slice::from_ref(entry),
+                tracks: &self.tracks,
+                devices: &self.devices,
+                inputs: &self.inputs[..self.input_count],
+                shared: &self.shared,
+                spent,
+            }
+            .track(0);
+            self.route(entry, block, out_l, out_r);
         }
-        self.map = Some(map);
     }
 
     /// Send a processed track's block on: to its output and its sends, or
@@ -426,111 +555,136 @@ impl Engine {
             return;
         };
         let t = &mut *track;
-        if t.midi_out != 0
-            && let Some(out) = self.midi_out.as_deref_mut()
-        {
-            let ns_per_frame = 1e9 / self.sample_rate;
-            let channel = t.midi_out_channel.checked_sub(1);
-            for ev in t.sent.drain(..) {
-                let message = MidiOut {
-                    at: self.heard_ns + (ev.frame as f64 * ns_per_frame) as u64,
-                    port: t.midi_out,
-                    form: t.midi_out_form,
-                    kind: crate::midi_out::on_channel(ev.kind, channel),
-                };
-                if out.push(message).is_err() {
-                    crate::event::count_dropped();
-                }
-            }
-        }
+        self.send_midi_out(t);
         if entry.taps_pre() {
-            // Sends from before the fader ignore it and the pan, but not the
-            // mute. The fader was left for now, so that they could be taken.
-            let pre = if t.mute || t.quiet { 0.0 } else { 1.0 };
-            let pre_from = if t.started { t.applied_pre } else { pre };
-            t.applied_pre = pre;
-            for send in entry.sends.iter_mut().filter(|send| send.pre) {
-                if let Some(dst) = self
-                    .tracks
-                    .get_mut(send.target.index())
-                    .and_then(|t| t.get_mut().as_deref_mut())
-                {
-                    let src = [&t.buf[0][..n], &t.buf[1][..n]];
-                    let [l, r] = &mut dst.buf;
-                    send.delay.mix(
-                        src,
-                        [&mut l[..n], &mut r[..n]],
-                        send.gain * pre_from,
-                        send.gain * pre,
-                    );
-                }
-            }
-            for key in entry.keys.iter_mut().filter(|key| key.pre) {
-                key_into(&mut self.devices, key, [&t.buf[0][..n], &t.buf[1][..n]]);
-            }
-            fader(t, entry.slot, block, &self.shared);
+            self.route_pre_fader(entry, t, block);
         }
-
         if entry.slot == TrackSlot::MASTER {
             out_l.copy_from_slice(&t.buf[0][..n]);
             out_r.copy_from_slice(&t.buf[1][..n]);
         } else {
-            // A track silenced by another's solo is not heard, moving there
-            // smoothly, but its side-chains are still taken from it.
-            let heard = if t.quiet { 0.0 } else { 1.0 };
-            let heard_from = std::mem::replace(&mut t.applied_heard, heard);
-            let src = [&t.buf[0][..n], &t.buf[1][..n]];
+            self.route_post_fader(entry, t, n);
+            self.route_outs(entry, n);
+        }
+        *self.tracks[entry.slot.index()].get_mut() = Some(track);
+    }
+
+    /// What the track played goes out of its MIDI output port, as late as
+    /// its block is heard.
+    fn send_midi_out(&mut self, t: &mut TrackRt) {
+        if t.midi_out == 0 {
+            return;
+        }
+        let Some(out) = self.midi_out.as_deref_mut() else {
+            return;
+        };
+        let ns_per_frame = 1e9 / self.sample_rate;
+        let channel = t.midi_out_channel.checked_sub(1);
+        for ev in t.sent.drain(..) {
+            let message = MidiOut {
+                at: self.heard_ns + (ev.frame as f64 * ns_per_frame) as u64,
+                port: t.midi_out,
+                form: t.midi_out_form,
+                kind: crate::midi_out::on_channel(ev.kind, channel),
+            };
+            if out.push(message).is_err() {
+                crate::event::count_dropped();
+            }
+        }
+    }
+
+    /// Take the sends and side-chains from before the fader, then apply
+    /// the fader, which was left for now so that they could be taken.
+    fn route_pre_fader(&mut self, entry: &mut SchedEntry, t: &mut TrackRt, block: &Block) {
+        let n = block.n;
+        // Sends from before the fader ignore it and the pan, but not the
+        // mute.
+        let pre = if t.mute || t.quiet { 0.0 } else { 1.0 };
+        let pre_from = if t.started { t.applied_pre } else { pre };
+        t.applied_pre = pre;
+        for send in entry.sends.iter_mut().filter(|send| send.pre) {
             if let Some(dst) = self
                 .tracks
-                .get_mut(entry.output.index())
+                .get_mut(send.target.index())
                 .and_then(|t| t.get_mut().as_deref_mut())
             {
+                let src = [&t.buf[0][..n], &t.buf[1][..n]];
                 let [l, r] = &mut dst.buf;
-                entry
-                    .delay
-                    .mix(src, [&mut l[..n], &mut r[..n]], heard_from, heard);
-            }
-            for send in entry.sends.iter_mut().filter(|send| !send.pre) {
-                if let Some(dst) = self
-                    .tracks
-                    .get_mut(send.target.index())
-                    .and_then(|t| t.get_mut().as_deref_mut())
-                {
-                    let [l, r] = &mut dst.buf;
-                    send.delay.mix(
-                        src,
-                        [&mut l[..n], &mut r[..n]],
-                        send.gain * heard_from,
-                        send.gain * heard,
-                    );
-                }
-            }
-            for key in entry.keys.iter_mut().filter(|key| !key.pre) {
-                key_into(&mut self.devices, key, src);
-            }
-            for out in entry.outs.iter_mut() {
-                let (Some(pair), Some(dst)) = (
-                    self.devices
-                        .get_mut(out.device.index())
-                        .and_then(|d| d.get_mut().as_mut())
-                        .and_then(|d| d.outs.as_deref())
-                        .and_then(|outs| outs.get(out.pair)?.as_ref()),
-                    self.tracks
-                        .get_mut(out.target.index())
-                        .and_then(|t| t.get_mut().as_deref_mut()),
-                ) else {
-                    continue;
-                };
-                let [l, r] = &mut dst.buf;
-                out.delay.mix(
-                    [&pair[0][..n], &pair[1][..n]],
+                send.delay.mix(
+                    src,
                     [&mut l[..n], &mut r[..n]],
-                    1.0,
-                    1.0,
+                    send.gain * pre_from,
+                    send.gain * pre,
                 );
             }
         }
-        *self.tracks[entry.slot.index()].get_mut() = Some(track);
+        for key in entry.keys.iter_mut().filter(|key| key.pre) {
+            key_into(&mut self.devices, key, [&t.buf[0][..n], &t.buf[1][..n]]);
+        }
+        fader(t, entry.slot, block, &self.shared);
+    }
+
+    /// Send the track's faded block to its output, its sends from after
+    /// the fader, and the side-chains that listen there.
+    fn route_post_fader(&mut self, entry: &mut SchedEntry, t: &mut TrackRt, n: usize) {
+        // A track silenced by another's solo is not heard, moving there
+        // smoothly, but its side-chains are still taken from it.
+        let heard = if t.quiet { 0.0 } else { 1.0 };
+        let heard_from = std::mem::replace(&mut t.applied_heard, heard);
+        let src = [&t.buf[0][..n], &t.buf[1][..n]];
+        if let Some(dst) = self
+            .tracks
+            .get_mut(entry.output.index())
+            .and_then(|t| t.get_mut().as_deref_mut())
+        {
+            let [l, r] = &mut dst.buf;
+            entry
+                .delay
+                .mix(src, [&mut l[..n], &mut r[..n]], heard_from, heard);
+        }
+        for send in entry.sends.iter_mut().filter(|send| !send.pre) {
+            if let Some(dst) = self
+                .tracks
+                .get_mut(send.target.index())
+                .and_then(|t| t.get_mut().as_deref_mut())
+            {
+                let [l, r] = &mut dst.buf;
+                send.delay.mix(
+                    src,
+                    [&mut l[..n], &mut r[..n]],
+                    send.gain * heard_from,
+                    send.gain * heard,
+                );
+            }
+        }
+        for key in entry.keys.iter_mut().filter(|key| !key.pre) {
+            key_into(&mut self.devices, key, src);
+        }
+    }
+
+    /// Send the further output pairs of the track's devices where they go.
+    fn route_outs(&mut self, entry: &mut SchedEntry, n: usize) {
+        for out in entry.outs.iter_mut() {
+            let (Some(pair), Some(dst)) = (
+                self.devices
+                    .get_mut(out.device.index())
+                    .and_then(|d| d.get_mut().as_mut())
+                    .and_then(|d| d.outs.as_deref())
+                    .and_then(|outs| outs.get(out.pair)?.as_ref()),
+                self.tracks
+                    .get_mut(out.target.index())
+                    .and_then(|t| t.get_mut().as_deref_mut()),
+            ) else {
+                continue;
+            };
+            let [l, r] = &mut dst.buf;
+            out.delay.mix(
+                [&pair[0][..n], &pair[1][..n]],
+                [&mut l[..n], &mut r[..n]],
+                1.0,
+                1.0,
+            );
+        }
     }
 }
 

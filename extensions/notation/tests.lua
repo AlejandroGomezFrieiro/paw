@@ -454,6 +454,12 @@ test("notation: insert mode enters notes by letter, nearest the note before", fu
   eq(notes_of(clip), "G4@0+0.5 A5@0.5+0.5 D4@1+1 E4@2+1 B3@3+1", "eighths replace what was there; ' lifts the last an octave")
 end)
 
+test("notation: notes entered a little under a sketch's staff replace what that voice had there", function()
+  local _, clip = song({ N(60, 0, 1), N(62, 1, 1), N(64, 2, 1), N(65, 3, 1) })
+  keys("0g5igeaa")
+  eq(notes_of(clip), "G3@0+1 E3@1+1 A3@2+1 A3@3+1", "each letter replaces the quarter it is written on")
+end)
+
 test("notation: entering in a key takes its sharps and flats; + and - change the last note", function()
   local view, clip = song()
   paw.cmd("notation.key", { "D", "major" })

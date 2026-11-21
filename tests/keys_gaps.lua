@@ -75,6 +75,23 @@ test("[ and ] act at once in the mixer and on velocity, also pressed fast, and ]
   eq(c:notes()[1].velocity, 110, "each press is one undo step")
 end)
 
+test("[ and ] on a selection of notes act at once, as in normal mode", function()
+  start()
+  local t = paw.add_track({ name = "A" })
+  local c = t:add_clip({ start = 0, length = 4, notes = { { "C4", 0, 1 }, { "E4", 1, 1 } } })
+  local roll = paw.ui.views.pianoroll
+  roll:edit(c)
+  T.after(function() roll.clip_id = nil paw.ui.hide("pianoroll") end)
+  paw.ui.focus("pianoroll")
+  roll:set(60, 0)
+  api.undo_checkpoint()
+  paw.keymap.feed("vie]")
+  eq(c:notes()[1].velocity .. " " .. c:notes()[2].velocity, "110 110", "vie ] is louder at once, with no wait for ]g")
+  paw.wait(paw.opt.timeoutlen + 100)
+  paw.keymap.feed("gv[")
+  eq(c:notes()[1].velocity .. " " .. c:notes()[2].velocity, "100 100", "gv [ is softer at once")
+end)
+
 test("? and Space fk search the whole description of a key, not the part that 80 columns show", function()
   start()
   local size = api.ui_size

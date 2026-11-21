@@ -3824,6 +3824,13 @@ function paw.help.owned(index, topic, exact) end
 ---@param topic any
 function paw.help.owners(topic) end
 
+--- Make the index of help at idle, in slices. What has not changed since
+--- the last build is not made again.
+function paw.help.prepare() end
+
+--- Whether the index of help is being made at idle.
+function paw.help.preparing() end
+
 --- The directories that can be a copy of the source tree, with the manual
 --- and the bundled extensions in it. These are `$PAW_HOME` (where an
 --- installed program keeps them), the parent of the runtime (`--runtime`),
@@ -4121,7 +4128,7 @@ function paw.keymap.selection() end
 --- longer mappings run at once, without the wait for more keys. Each key
 --- with `role` "second+" or "second-" (the `[` and `]` of a view) does so. The same key again is a second press. Another key soon after it
 --- that makes a longer mapping (`]g`, `]q`) takes back its change and runs
---- that mapping.
+--- that mapping. On a selection, the selection opens again for that mapping.
 ---@param lhs any
 ---@param rhs any
 ---@param opts any
@@ -6150,7 +6157,7 @@ function paw.remote.wake() end
 
 paw.render.cancel = paw.render_cancel
 
---- The file a render writes when no file is named: the project's name, beside it.
+--- The file a render writes when no file is named: the project's name, in `renders_dir()`.
 function paw.render.default_path() end
 
 --- Render the project to a file: WAV or FLAC, or MP3, Ogg Vorbis or Opus
@@ -6191,6 +6198,11 @@ function paw.render.default_path() end
 ---@param path any
 ---@param opts any
 function paw.render.render(path, opts) end
+
+--- The folder that renders go to when no place is named: `renders/` in
+--- the project's folder, apart from the files of the project; the folder
+--- of a project kept in one file; nil before the first save.
+function paw.render.renders_dir() end
 
 paw.render.status = paw.render_status
 
@@ -6849,8 +6861,8 @@ function paw.stems.confirm(plan, dir, opts) end
 function paw.stems.names_group(word) end
 
 --- What the stems would be: a list of `{ id, name, file, holds }`, in the
---- order of the track list. `opts`: `dir` (where; the project's directory
---- and "<project> stems" by default), `format` ("wav", the default, "flac",
+--- order of the track list. `opts`: `dir` (where; `stems` in the renders
+--- folder by default, see `paw.render.renders_dir`), `format` ("wav", the default, "flac",
 --- "mp3", "ogg", "opus"), `tracks` (one per track, not per group), `group`
 --- (that group, or track, alone). In a narrowed tab, the parts of its group.
 ---@param opts any

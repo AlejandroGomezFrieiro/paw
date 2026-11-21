@@ -550,6 +550,7 @@ command("track.color.pick", function()
       return now .. string.format("%-8s %s", item.name, item.value or "the theme's, in turn")
     end,
     on_choose = function(item)
+      api.undo_label("color of " .. track.name)
       track.color = item.value
       paw.notify(track.name .. " is " .. item.name)
     end,

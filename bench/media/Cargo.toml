@@ -1,0 +1,17 @@
+[package]
+name = "media-bench"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+# Not a member of paw's workspace: it adds the AAC decoder, which paw does
+# not build, only to measure it. Build it with its own target folder:
+#   CARGO_TARGET_DIR=/tmp/paw-media-bench nix develop -c cargo build --release --manifest-path bench/media/Cargo.toml
+[workspace]
+
+[dependencies]
+paw-core = { path = "../../crates/paw-core" }
+paw-engine = { path = "../../crates/paw-engine" }
+blake3 = { version = "1", default-features = false, features = ["std", "mmap", "rayon"] }
+libc = "0.2"
+symphonia = { version = "0.6", default-features = false, features = ["wav", "pcm", "flac", "mpa", "aac", "isomp4"] }

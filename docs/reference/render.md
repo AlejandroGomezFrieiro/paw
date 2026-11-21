@@ -15,14 +15,14 @@ the steps, see [How to export a song as WAV, FLAC or MP3](../how-to/export-a-son
 | `:render.tags` | Show or set the tags of the project (see Tags). |
 | `:render stems` | Render one file for each group (see Stems). |
 | `:render.regions out` | Render each region to a file of its own (see Regions). |
-| `:stems out` | Render one file for each track into `out` (default: `stems`), as `paw.render_stems`. |
+| `:stems out` | Render one file for each track into `out` (default: `renders/stems`), as `paw.render_stems`. |
 | `:track.bounce` | Render a track to a new audio track (see Bounce). |
 
 ## `:render`
 
 `:render mix.flac` renders the song to a file. The extension of the file
-sets the format. With no name, the file is `<project>.wav` next to the
-project.
+sets the format. With no name, the file is `<project>.wav` in the folder
+`renders` of the project (see [The renders folder](#the-renders-folder)).
 
 - The render runs on a thread of its own. The status line shows
   `rendering mix.flac 43% · Esc cancels`. A message tells when the render
@@ -33,6 +33,19 @@ project.
 - paw writes the file as `.mix.flac.part` next to the target, and gives it
   its name when it is complete. A render that fails or that you cancel
   leaves no file with that name.
+
+### The renders folder
+
+A render with no name goes into `renders` in the folder of the project:
+`song/renders/song.wav`, and the stems in `song/renders/stems`. paw makes
+the folder at the first render. The folder keeps the rendered files apart
+from the files of the project, so a save never moves them to `unused`. To
+keep them out of git, add `renders/` to a `.gitignore` file.
+
+- A project in one JSON file renders next to its file.
+- Before the first save, paw renders into the folder where it started.
+- A name without a folder (`:render mix.flac`) goes into the folder of the
+  project, or into the folder that `:cd` set.
 
 ### Options
 
@@ -190,7 +203,7 @@ alone. It acts on a stem differently than on the sum, so there the files
 are a little different.
 
 `:render stems` writes one file for each group, with the name of the
-group, into `<project> stems`:
+group, into `renders/stems`:
 
 - each group at the top level, and each track outside a group that has
   clips, each with all that its sound goes through. So these files also
@@ -200,10 +213,10 @@ group, into `<project> stems`:
 
 | Command | Effect |
 | --- | --- |
-| `:render stems` | One file for each group, into `<project> stems`. |
+| `:render stems` | One file for each group, into `renders/stems`. |
 | `:render stems out` | The same, into `out`. |
 | `:render stems tracks` | One file for each track. |
-| `:render Strings` | One group, to `Strings.wav` next to the project. |
+| `:render Strings` | One group, to `renders/Strings.wav`. |
 
 - In a narrowed tab, `:render stems` writes the parts of its group.
 - The options of `:render` apply (`format=flac`, `tail=`, `bits=`,

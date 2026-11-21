@@ -232,99 +232,16 @@ impl Converter {
 
     fn mpe(&mut self, kind: EventKind, emit: &mut impl FnMut(Wire)) {
         let mut mpe = self.mpe.take().expect("an MPE converter has a zone");
-        if !mpe.ready {
-            mpe.ready = true;
-            // The zone: channel 1 manages, `members` channels follow
-            // (registered parameter 6 on the manager channel).
-            for message in rpn(0, 6, mpe.members) {
-                emit(message);
-            }
-            // Each member channel bends as far as a note's own bend reaches.
-            for ch in 1..=mpe.members {
-                for message in rpn(ch, 0, MPE_BEND_RANGE) {
-                    emit(message);
-                }
-            }
-        }
+        mpe.announce(emit);
         match kind {
-            EventKind::NoteOn { key, vel, ch, .. } => {
-                let (from, key) = ((ch & 15) as usize, key & 127);
-                // A note started again ends where it was first.
-                let was = mpe.channel_of[from][key as usize];
-                if was != NONE {
-                    mpe.count[was as usize] = mpe.count[was as usize].saturating_sub(1);
-                    self.out(Wire::Midi1([0x80 | was, key, 0], 3), emit);
-                }
-                let to = mpe.allocate();
-                mpe.channel_of[from][key as usize] = to;
-                mpe.count[to as usize] += 1;
-                let early = std::mem::replace(&mut mpe.early[from][key as usize], [f32::NAN; 3]);
-                // The channel's bend is the note's own from its start, so
-                // the bend another note left there is put back first.
-                let bend = if early[EARLY_BEND].is_nan() {
-                    CENTRE
-                } else {
-                    ump::to_bend14(early[EARLY_BEND] as f64)
-                };
-                if mpe.bend[to as usize] != bend {
-                    mpe.bend[to as usize] = bend;
-                    emit(bend_message(to, bend));
-                }
-                if !early[EARLY_PRESSURE].is_nan() {
-                    emit(Wire::Midi1([0xD0 | to, ump::to7(early[EARLY_PRESSURE] as f64), 0], 2));
-                }
-                if !early[EARLY_BRIGHTNESS].is_nan() {
-                    emit(Wire::Midi1([0xB0 | to, 74, ump::to7(early[EARLY_BRIGHTNESS] as f64)], 3));
-                }
-                self.out(Wire::Midi1([0x90 | to, key, ump::to_velocity7(vel)], 3), emit);
-            }
-            EventKind::NoteOff { key, ch } => {
-                let (from, key) = ((ch & 15) as usize, key & 127);
-                mpe.early[from][key as usize] = [f32::NAN; 3];
-                let to = std::mem::replace(&mut mpe.channel_of[from][key as usize], NONE);
-                if to != NONE {
-                    mpe.count[to as usize] = mpe.count[to as usize].saturating_sub(1);
-                    mpe.used[to as usize] = mpe.next();
-                    self.out(Wire::Midi1([0x80 | to, key, 0], 3), emit);
-                }
-            }
+            EventKind::NoteOn { key, vel, ch, .. } => self.mpe_note_on(&mut mpe, ch, key, vel, emit),
+            EventKind::NoteOff { key, ch } => self.mpe_note_off(&mut mpe, ch, key, emit),
             EventKind::NoteControl {
                 key,
                 ctl,
                 value,
                 ch,
-            } => {
-                let (from, key) = ((ch & 15) as usize, key & 127);
-                let to = mpe.channel_of[from][key as usize];
-                if to == NONE {
-                    // Before the note: kept for when it starts.
-                    let slot = match ctl {
-                        NoteCtl::Bend => Some(EARLY_BEND),
-                        NoteCtl::Pressure => Some(EARLY_PRESSURE),
-                        NoteCtl::Registered(74) => Some(EARLY_BRIGHTNESS),
-                        _ => None,
-                    };
-                    if let Some(slot) = slot {
-                        mpe.early[from][key as usize][slot] = value as f32;
-                    }
-                } else {
-                    match ctl {
-                        NoteCtl::Bend => {
-                            let bend = ump::to_bend14(value);
-                            mpe.bend[to as usize] = bend;
-                            emit(bend_message(to, bend));
-                        }
-                        NoteCtl::Pressure => emit(Wire::Midi1([0xD0 | to, ump::to7(value), 0], 2)),
-                        // A registered per-note controller means what the
-                        // control change of its number does; the channel is
-                        // the note's alone.
-                        NoteCtl::Registered(index @ 0..=119) => {
-                            emit(Wire::Midi1([0xB0 | to, index, ump::to7(value)], 3))
-                        }
-                        NoteCtl::Registered(_) | NoteCtl::Assignable(_) => {}
-                    }
-                }
-            }
+            } => mpe.note_control(ch, key, ctl, value, emit),
             // What is the whole instrument's goes on the manager channel.
             EventKind::Control { ctl, value, .. } => {
                 self.plain(EventKind::Control { ctl, value, ch: 0 }, emit)
@@ -336,9 +253,123 @@ impl Converter {
         }
         self.mpe = Some(mpe);
     }
+
+    /// A note starts on a member channel of its own, with what came for it
+    /// before it started.
+    fn mpe_note_on(
+        &mut self,
+        mpe: &mut Mpe,
+        ch: u8,
+        key: u8,
+        vel: f32,
+        emit: &mut impl FnMut(Wire),
+    ) {
+        let (from, key) = ((ch & 15) as usize, key & 127);
+        // A note started again ends where it was first.
+        let was = mpe.channel_of[from][key as usize];
+        if was != NONE {
+            mpe.count[was as usize] = mpe.count[was as usize].saturating_sub(1);
+            self.out(Wire::Midi1([0x80 | was, key, 0], 3), emit);
+        }
+        let to = mpe.allocate();
+        mpe.channel_of[from][key as usize] = to;
+        mpe.count[to as usize] += 1;
+        let early = std::mem::replace(&mut mpe.early[from][key as usize], [f32::NAN; 3]);
+        // The channel's bend is the note's own from its start, so
+        // the bend another note left there is put back first.
+        let bend = if early[EARLY_BEND].is_nan() {
+            CENTRE
+        } else {
+            ump::to_bend14(early[EARLY_BEND] as f64)
+        };
+        if mpe.bend[to as usize] != bend {
+            mpe.bend[to as usize] = bend;
+            emit(bend_message(to, bend));
+        }
+        if !early[EARLY_PRESSURE].is_nan() {
+            emit(Wire::Midi1([0xD0 | to, ump::to7(early[EARLY_PRESSURE] as f64), 0], 2));
+        }
+        if !early[EARLY_BRIGHTNESS].is_nan() {
+            emit(Wire::Midi1([0xB0 | to, 74, ump::to7(early[EARLY_BRIGHTNESS] as f64)], 3));
+        }
+        self.out(Wire::Midi1([0x90 | to, key, ump::to_velocity7(vel)], 3), emit);
+    }
+
+    /// A note ends on its member channel, which is then free.
+    fn mpe_note_off(&mut self, mpe: &mut Mpe, ch: u8, key: u8, emit: &mut impl FnMut(Wire)) {
+        let (from, key) = ((ch & 15) as usize, key & 127);
+        mpe.early[from][key as usize] = [f32::NAN; 3];
+        let to = std::mem::replace(&mut mpe.channel_of[from][key as usize], NONE);
+        if to != NONE {
+            mpe.count[to as usize] = mpe.count[to as usize].saturating_sub(1);
+            mpe.used[to as usize] = mpe.next();
+            self.out(Wire::Midi1([0x80 | to, key, 0], 3), emit);
+        }
+    }
 }
 
 impl Mpe {
+    /// Announce the zone, before the first message.
+    fn announce(&mut self, emit: &mut impl FnMut(Wire)) {
+        if self.ready {
+            return;
+        }
+        self.ready = true;
+        // The zone: channel 1 manages, `members` channels follow
+        // (registered parameter 6 on the manager channel).
+        for message in rpn(0, 6, self.members) {
+            emit(message);
+        }
+        // Each member channel bends as far as a note's own bend reaches.
+        for ch in 1..=self.members {
+            for message in rpn(ch, 0, MPE_BEND_RANGE) {
+                emit(message);
+            }
+        }
+    }
+
+    /// A note's own controller goes on its member channel; before the note
+    /// starts, it is kept for when it does.
+    fn note_control(
+        &mut self,
+        ch: u8,
+        key: u8,
+        ctl: NoteCtl,
+        value: f64,
+        emit: &mut impl FnMut(Wire),
+    ) {
+        let (from, key) = ((ch & 15) as usize, key & 127);
+        let to = self.channel_of[from][key as usize];
+        if to == NONE {
+            // Before the note: kept for when it starts.
+            let slot = match ctl {
+                NoteCtl::Bend => Some(EARLY_BEND),
+                NoteCtl::Pressure => Some(EARLY_PRESSURE),
+                NoteCtl::Registered(74) => Some(EARLY_BRIGHTNESS),
+                _ => None,
+            };
+            if let Some(slot) = slot {
+                self.early[from][key as usize][slot] = value as f32;
+            }
+            return;
+        }
+        match ctl {
+            NoteCtl::Bend => {
+                let bend = ump::to_bend14(value);
+                self.bend[to as usize] = bend;
+                emit(bend_message(to, bend));
+            }
+            NoteCtl::Pressure => emit(Wire::Midi1([0xD0 | to, ump::to7(value), 0], 2)),
+            // A registered per-note controller means what the
+            // control change of its number does; the channel is
+            // the note's alone.
+            NoteCtl::Registered(index @ 0..=119) => {
+                emit(Wire::Midi1([0xB0 | to, index, ump::to7(value)], 3))
+            }
+            NoteCtl::Registered(_) | NoteCtl::Assignable(_) => {}
+        }
+    }
+
     fn next(&mut self) -> u64 {
         self.tick += 1;
         self.tick

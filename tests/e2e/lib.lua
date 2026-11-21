@@ -243,9 +243,7 @@ E.files_of = files_of
 --- Files that a save after open may write again, each with the reason: a
 --- known bug, printed on each run until it is fixed. Remove the entry with
 --- the fix.
-E.known_unstable = {
-  ["./screen.json"] = "the piano roll's window forgets its clip (`target`) when the project opens",
-}
+E.known_unstable = {}
 
 --- The project opened from disk is the model of the days before, and a
 --- save with no change writes the same bytes.

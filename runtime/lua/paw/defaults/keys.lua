@@ -324,7 +324,8 @@ amap("gx", "marker.remove", "Remove the marker or region at the cursor")
 amap("<leader>ax", "lane.clear", "Clear the volume automation")
 
 -- Arrange: on a selection.
-local function ax(lhs, fn, desc) map(lhs, nil, { view = "arrange", mode = "x", operator = fn, desc = desc }) end
+-- `role` as in normal mode: `]` `[` run at once, as they do there, though `]g` waits for its `g`.
+local function ax(lhs, fn, desc, role) map(lhs, nil, { view = "arrange", mode = "x", operator = fn, desc = desc, role = role }) end
 ax("x", function(region, ctx) keymap.setreg(edit.arrange.delete(region), ctx.register) end, "Delete")
 ax("p", function(region, ctx)
   local value = keymap.getreg(ctx.register)
@@ -379,8 +380,8 @@ ax("<C-a>", main_value(1), "Tracks louder, or the clips' notes up")
 ax("<C-x>", main_value(-1), "Tracks softer, or the clips' notes down")
 ax("+", main_value(1), "Tracks louder, or the clips' notes up")
 ax("-", main_value(-1), "Tracks softer, or the clips' notes down")
-ax("]", pan_value(1), "Pan the tracks right")
-ax("[", pan_value(-1), "Pan the tracks left")
+ax("]", pan_value(1), "Pan the tracks right", "second+")
+ax("[", pan_value(-1), "Pan the tracks left", "second-")
 ax("L", function(region, ctx) shift(region, ctx.count or 1) end, "Move the clips right")
 ax("H", function(region, ctx) shift(region, -(ctx.count or 1)) end, "Move the clips left")
 
@@ -696,8 +697,8 @@ command("lsp", function(ctx) paw.lsp.command(ctx) end,
   { desc = "Language servers: `lsp info`, `lsp start|stop|restart [name]`, `lsp log`", complete = function() return paw.lsp.command_complete() end })
 
 -- Piano roll: on a selection.
-local function px(lhs, fn, desc)
-  map(lhs, nil, { view = "pianoroll", mode = "x", desc = desc, operator = function(region, ctx)
+local function px(lhs, fn, desc, role)
+  map(lhs, nil, { view = "pianoroll", mode = "x", desc = desc, role = role, operator = function(region, ctx)
     if roll:clip() then fn(editing(), region, ctx) end
   end })
 end
@@ -717,8 +718,8 @@ px("<C-x>", function(clip, region, ctx)
   local by = ctx.count or 1
   edit.roll.each(clip, region, function(n) n.pitch = math.max(0, n.pitch - by) end)
 end, "Down a semitone")
-px("]", function(clip, region) edit.roll.each(clip, region, function(n) n.velocity = math.min(127, n.velocity + 10) end) end, "Louder")
-px("[", function(clip, region) edit.roll.each(clip, region, function(n) n.velocity = math.max(1, n.velocity - 10) end) end, "Softer")
+px("]", function(clip, region) edit.roll.each(clip, region, function(n) n.velocity = math.min(127, n.velocity + 10) end) end, "Louder", "second+")
+px("[", function(clip, region) edit.roll.each(clip, region, function(n) n.velocity = math.max(1, n.velocity - 10) end) end, "Softer", "second-")
 local function lengthen_region(clip, region)
   edit.roll.each(clip, region, function(n) n.length = n.length + paw.opt.note_grid end)
 end
