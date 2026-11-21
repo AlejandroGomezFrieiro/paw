@@ -56,6 +56,7 @@ color. The track of the cursor has a brighter header and a tinted lane.
 | `\fx` | Crossfades the audio clip into the next clip, over a grid step. A count gives the beats. |
 | `grC` | Chooses the color of the track from the colors of the theme. |
 | `Enter` | Edits the notes of the clip in the piano roll. |
+| `i` | Starts insert mode. Then `m` inserts a MIDI clip at the cursor, `a` an automation point, `r` a region, `'` a marker, `f` a file. `Enter` opens what you inserted. `i` `Enter` enters notes at the cursor. See [Insert mode](insert-mode.md). |
 | `K` | Describes what is under the cursor. A kind of track also says what it is. |
 | `a` | Adds a device. The list shows instruments first on a track with no instrument, else effects first. |
 | `ge` | Shows the window of the plugin. |

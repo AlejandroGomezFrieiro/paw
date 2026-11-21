@@ -41,6 +41,7 @@ local record Opts
    header_width: integer | string
    hint_delay: number
    hints: boolean
+   insertkeys: {string | number}
    keybar: boolean
    keys: string
    layout: string

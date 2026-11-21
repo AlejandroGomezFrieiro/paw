@@ -257,6 +257,12 @@ M.registries = {
     function(key, value)
       if value then paw.ruler.add(key, value) else paw.ruler.remove(key) end
     end),
+  -- The keys of the arrange view's insert mode: `set` puts a changed copy
+  -- in, so unloading puts back the kind that was on the key.
+  keyed("insert", "keys of insert mode", function() return paw.insert and paw.insert.kinds end,
+    function(key, value)
+      if value then paw.insert.add(key, value) else paw.insert.remove(key) end
+    end, function(key) return key .. " (insert mode)" end),
   keyed("grep", "grep sources", function() return paw.grep and paw.grep.sources end, function(key, value)
     local g = paw.grep
     if value and not g.sources[key] then g.order[#g.order + 1] = key end

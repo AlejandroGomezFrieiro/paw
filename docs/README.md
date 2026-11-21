@@ -41,6 +41,7 @@ below link the main ones.
 - [How to configure paw](how-to/configure-paw.md): `init.lua`, options, colors, commands, keys, events
 - [How to change the status line](how-to/change-the-status-line.md): sections and components in `init.lua`
 - [How to personalize the track column and the ruler](how-to/personalize-the-track-column-and-the-ruler.md): glyphs, styles, signs and parts of your own, and two extensions to copy
+- [How to personalize insert mode](how-to/personalize-insert-mode.md): what the keys of insert mode insert, keys of your own for clips with notes in them
 - [How to load an extension](how-to/load-an-extension.md): a bundled extension, your own, or one from Nix
 - [How to check all the hardware](../extensions/doctor/README.md#how-to-check-all-the-hardware): the doctor's guided check and its report
 
@@ -178,6 +179,7 @@ below link the main ones.
 ### Views and the screen
 
 - [The arrange view](reference/arrange-view.md): its keys, waveforms, lanes as rows, the tempo lane, take lanes
+- [Insert mode in the arrange view](reference/insert-mode.md): the keys that insert clips, regions, markers and automation points, `paw.insert`
 - [The piano roll](reference/piano-roll.md): its keys, insert mode, several clips, suggestions
 - [Several clips in the piano roll](reference/roll-clips.md): context notes, edit many clips, `paw.roll_clips`, layers
 - [The device panel](reference/device-panel.md): its keys

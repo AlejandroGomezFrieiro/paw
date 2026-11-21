@@ -31,6 +31,7 @@ local type GroupsModule = require("paw.groups")
 local type HarmonyModule = require("paw.harmony")
 local type HelpModule = require("paw.help")
 local type HooksModule = require("paw.hooks")
+local type InsertModule = require("paw.insert")
 local type LanesModule = require("paw.lanes")
 local type LangModule = require("paw.lang")
 local type LayoutModule = require("paw.layout")
@@ -122,6 +123,7 @@ global record paw
    help: HelpModule
    hooks: HooksModule
    import_audio: Untyped
+   insert: InsertModule
    inspect: function<T>(value: T, indent?: string, seen?: {UtilModule.Data:boolean}): string
    is_audio_file: Untyped
    is_chain_file: Untyped

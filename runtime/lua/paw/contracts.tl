@@ -962,6 +962,97 @@ local record contracts
       styles: {string:string}
    end
 
+   -- Insert mode in the arrange view ------------------------------------------------
+
+   --- How long an inserted item is: a number of beats, or text: `"2 bars"`,
+   --- `"3 steps"` (grid steps), `"8 beats"`, or `"marker"` (up to the next
+   --- marker, or the start or the end of a region, after the cursor).
+   type InsertLength = number | string
+
+   --- What an insert key gets (`paw.insert`): the key and the kind as it is
+   --- for the cursor's track (`per_track` applied), the cursor's track
+   --- (nil when the cursor is on no track, 0 on the master track) and lane
+   --- (the automation lane row it is on, or nil), the beat, the length in
+   --- beats (from the kind's `length`), and `index` of `count` (`3m` makes
+   --- three: 1, 2, 3). `name` is the kind's `name`, with `%d` made a number:
+   --- the number of the clip on its track, of the marker or of the region.
+   --- `placed(item)` is for a kind that asks first (a file): it gives the
+   --- item when it is made, as `insert` returns it otherwise.
+   record InsertContext
+      key: string
+      spec: InsertKind
+      track: integer
+      lane: integer
+      beat: number
+      length: number
+      index: integer
+      count: integer
+      name: string
+      placed: function(item: InsertedItem)
+   end
+
+   --- What an insert key made. `what` is a word (`clip`, `marker`,
+   --- `region`, `point`, or the kind's own) and `id` its id. The cursor
+   --- steps on by `length` beats (a grid step when nil). `remove` takes it
+   --- back (`<BS>`). `text` says what it is, in the message.
+   record InsertedItem
+      what: string
+      id: integer
+      start: number
+      length: number
+      text: string
+      remove: function()
+   end
+
+   --- A key of the arrange view's insert mode (`paw.insert.add`): what it
+   --- inserts at the cursor. `kind` is `midi`, `audio` (a file, asked
+   --- for), `region`, `marker`, `automation` (a point of the lane), or the
+   --- name of a kind of clip (`paw.clip_kinds`); `insert(ctx)` in place of
+   --- what the kind does gives full control. The data of what it inserts:
+   --- `length`, `name` (`"Verse %d"`), `notes` that a MIDI clip starts
+   --- with, `args` for a kind of clip's `create`. `tracks` lists the kinds
+   --- of track it goes on (`track` for a track of no kind; nil for every
+   --- one), and `per_track` changes it on a kind of track. `open(ctx,
+   --- item)` is what `<CR>` does after it: open the item in its editor.
+   --- `order` places it in the hints; `hidden` keeps it out of
+   --- `paw.opt.insertkeys`.
+   record InsertKind
+      key: string
+      kind: string
+      desc: string
+      length: InsertLength
+      name: string
+      notes: {objects.NoteInput}
+      args: {string}
+      tracks: {string}
+      per_track: {string:InsertPatch}
+      insert: function(ctx: InsertContext): InsertedItem, string
+      open: function(ctx: InsertContext, item: InsertedItem)
+      order: number
+      hidden: boolean
+      --- The extension whose code added or last changed it, nil for the
+      --- user's (paw/ext.lua: what an extension owns).
+      ext: string
+   end
+
+   --- What `paw.insert.set` changes of a key: only the fields given. `key`
+   --- moves it to another key.
+   record InsertPatch
+      key: string
+      kind: string
+      desc: string
+      length: InsertLength
+      name: string
+      notes: {objects.NoteInput}
+      args: {string}
+      tracks: {string}
+      per_track: {string:InsertPatch}
+      insert: function(ctx: InsertContext): InsertedItem, string
+      open: function(ctx: InsertContext, item: InsertedItem)
+      order: number
+      hidden: boolean
+   end
+
    -- Pickers ----------------------------------------------------------------------
 
    --- What `audition(item)` gives: a label, and with `loading()` whether
@@ -1279,11 +1370,14 @@ local record contracts
    --- in the kind's `timeline`, from the start of the data. `describe`
    --- gives a few words for `K`, `look` how the clip is drawn, and
    --- `editor` opens it. `on_signal`, `chase`, `chase_back` and `on_stop`
-   --- run at play.
+   --- run at play. `insert` is a key of the arrange view's insert mode
+   --- that inserts a clip of the kind (`paw.insert`), and `editor` is what
+   --- `<CR>` does after it.
    record ClipKind<D>
       name: string
       title: string
       letter: string
+      insert: string
       version: integer
       timeline: types.Timeline
       ext: string

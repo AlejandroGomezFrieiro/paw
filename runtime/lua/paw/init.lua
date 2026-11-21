@@ -286,6 +286,8 @@ function K.startup()
   paw.scope = require("paw.scope")
   paw.stems = require("paw.stems")
   paw.markers = require("paw.markers")
+  -- Insert mode in the arrange view, and what its keys insert (paw/insert.tl).
+  paw.insert = require("paw.insert")
   -- Listings edited as text (`:e paw://tracks`), and the kinds built in.
   paw.textbuf = require("paw.textbuf")
   require("paw.views.tracklist")

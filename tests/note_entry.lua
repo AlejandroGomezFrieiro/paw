@@ -10,7 +10,7 @@ local function roll_notes()
   return clip and #clip:notes() or -1
 end
 
-test("note entry: the start screen's i then I types notes on a new track, and letters while drawing say what to do", function()
+test("note entry: the start screen's i Enter then I types notes on a new track, and letters while drawing say what to do", function()
   T.fresh()
   paw.ui.focus("arrange")
   paw.keymap.feed("<Esc><Esc>")
@@ -18,8 +18,8 @@ test("note entry: the start screen's i then I types notes on a new track, and le
   eq(screen:find("then I", 1, true) ~= nil and screen:find("enter notes: a clip opens to draw them", 1, true) ~= nil, true,
     "the start screen says i, then I")
   paw.keymap.feed("o")
-  paw.keymap.feed("i")
-  eq(paw.ui.focused .. " " .. paw.keymap.mode, "pianoroll i", "i opens a clip to enter notes in")
+  paw.keymap.feed("i<CR>")
+  eq(paw.ui.focused .. " " .. paw.keymap.mode, "pianoroll i", "i Enter opens a clip to enter notes in")
   paw.keymap.feed("a")
   eq(paw.ui.message.text:find("I types notes as a piano", 1, true) ~= nil, true, "a letter while drawing says what it is not")
   paw.keymap.feed("I")

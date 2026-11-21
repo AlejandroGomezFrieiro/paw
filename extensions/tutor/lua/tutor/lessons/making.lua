@@ -13,11 +13,12 @@ no sound until it has an instrument.]],
   idea = [[
 In normal mode, lowercase letters do an action on the item under the cursor.
 `o` opens a new track below, as `o` opens a new line in Vim. `a` adds a
-device, `i` adds notes, `x` deletes the clip and `&` repeats it. `u` undoes
+device, `i` inserts clips and notes, `x` deletes the clip and `&` repeats it. `u` undoes
 and `<C-r>` redoes. So each change that you make here is safe.]],
   vim = [[
-`o` and `O` add a track below and above, as for lines. `i` opens the clip
-under the cursor (or a new clip) in the piano roll, in insert mode. There,
+`o` and `O` add a track below and above, as for lines. `i` starts insert
+mode, where each key inserts an item: `m` a MIDI clip, `r` a region, `'`
+a marker. `<CR>` opens the clip in the piano roll, in insert mode. There,
 the cursor draws notes, not text. `grn` renames, as in the LSP keys of Neovim.]],
   setup = function(look)
     paw.project.tempo = 100
@@ -49,8 +50,8 @@ the cursor draws notes, not text. `grn` renames, as in the LSP keys of Neovim.]]
       hint = "`a` opens a list of all the devices. The text that you type makes the list shorter. `<CR>` selects the first item.",
     },
     {
-      say = "`i` makes a clip at the cursor and opens it in insert mode, where you draw notes. Press `i`.",
-      keys = { "i" },
+      say = "`i` starts insert mode. There, `m` inserts a MIDI clip at the cursor, and `<CR>` opens it in the piano roll, where you draw notes. Press `i`, `m` and `<CR>`.",
+      keys = { "i", "m", "<CR>" },
       check = function(_, look) return look.mode() == "i" and look.focused() == "pianoroll" end,
       done = "The mode is INSERT. The piano roll is open on C4, and its title row shows the note that you draw.",
     },

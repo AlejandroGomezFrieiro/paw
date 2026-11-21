@@ -946,6 +946,30 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.hooks.turn()`: The end of a turn, after its events are delivered: the kernel's `settle`.
 - `paw.hooks.views_shown()`: The names of the views on screen.
 
+## Module paw.insert
+
+- `paw.insert.add(key, spec)`: Add a key, or put a new kind in place of the one on it. It goes into `paw.opt.insertkeys` (unless `hidden`), so it works at once.
+
+  ```lua
+  paw.insert.add("M", { kind = "midi", desc = "A 4-bar clip", length = "4 bars" })
+  ```
+- `paw.insert.back()`: `<BS>`: take back the last thing inserted, and the cursor with it.
+- `paw.insert.count()`: The count typed so far in insert mode, or nil.
+- `paw.insert.describe()`: What `K` says in insert mode: each key and what it inserts.
+- `paw.insert.digit(d)`: A digit typed in insert mode: a count for the next key.
+- `paw.insert.get(key)`: What a key inserts, or nil.
+- `paw.insert.insert(key, count)`: Insert what `key` inserts at the cursor, as if typed in insert mode (`count` times).
+- `paw.insert.list()`: The keys that work, in the order of `paw.opt.insertkeys`, each with what it inserts.
+- `paw.insert.open()`: `<CR>`: open what was inserted last, and end insert mode; with nothing inserted, enter notes at the cursor, in a new clip if there is none.
+- `paw.insert.remove(key)`: Take a key away, and out of `paw.opt.insertkeys`.
+- `paw.insert.set(key, patch)`: Change what a key inserts, a built-in key too: only the fields of `patch` that are given. With `key`, the kind moves to that key (in the same place of `paw.opt.insertkeys`). The key gets a changed copy.
+
+  ```lua
+  paw.insert.set("r", { name = "Verse %d", length = "marker" })
+  paw.insert.set("m", { length = "1 bar", key = "n" })
+  ```
+- `paw.insert.start()`: Start insert mode in the arrange view.
+
 ## Module paw.keymap
 
 - `paw.keymap.after_next(fn)`: Run `fn` after paw gets and does the next whole command. Insert mode uses it for Ctrl-o, to return to insert mode after one command.

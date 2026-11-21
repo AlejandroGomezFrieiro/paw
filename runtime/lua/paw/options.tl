@@ -107,6 +107,9 @@ local defaults: {string:Value} = {
   -- parts of each label shown (paw/ruler.tl).
   relativebar = false,
   barlabel = { "number" },
+  -- The keys of the arrange view's insert mode, in the order the hints
+  -- show them: what each inserts at the cursor (paw/insert.tl).
+  insertkeys = { "m", "a", "r", "'", "f" },
   termcolors = "auto",     -- "true" for 24-bit colour, "256", or "auto" to ask the environment
   ascii = false,           -- draw with plain ASCII characters only
   braille = true,          -- false draws curves with lines, whatever curve_glyphs says
