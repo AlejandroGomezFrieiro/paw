@@ -3030,6 +3030,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "ashpd",
+ "clap",
  "egui",
  "egui-winit",
  "egui_glow",
