@@ -39,9 +39,7 @@ impl Session {
 
 /// The directory `:recover` looks in (`runtime/lua/paw/autosave.lua`).
 fn recovery_dir() -> PathBuf {
-    std::env::var_os("XDG_STATE_HOME")
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".local/state")))
+    paw_proto::dirs::state()
         .unwrap_or_else(std::env::temp_dir)
         .join("paw/recovery")
 }

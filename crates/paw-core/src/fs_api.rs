@@ -62,10 +62,7 @@ fn copy_tree(from: &Path, to: &Path) -> io::Result<()> {
 
 /// The user's trash directory (freedesktop.org Trash specification).
 fn trash_dir() -> Option<PathBuf> {
-    let base = std::env::var_os("XDG_DATA_HOME")
-        .filter(|v| !v.is_empty())
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".local/share")))?;
+    let base = paw_proto::dirs::data()?;
     Some(base.join("Trash"))
 }
 

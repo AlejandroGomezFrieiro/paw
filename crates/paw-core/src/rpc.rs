@@ -137,10 +137,7 @@ impl Drop for Server {
 
 /// Where the control socket lives unless told otherwise.
 pub fn default_path() -> PathBuf {
-    let dir = std::env::var_os("XDG_RUNTIME_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(std::env::temp_dir);
-    dir.join("paw.sock")
+    paw_proto::dirs::listen_socket()
 }
 
 /// Listen on `path` and forward calls to the kernel.

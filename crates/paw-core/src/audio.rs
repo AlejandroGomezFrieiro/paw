@@ -29,10 +29,7 @@ pub struct Remembered {
 
 /// Where the choice is kept.
 pub fn file() -> PathBuf {
-    let base = std::env::var_os("XDG_STATE_HOME")
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".local/state")))
-        .unwrap_or_else(std::env::temp_dir);
+    let base = paw_proto::dirs::state().unwrap_or_else(std::env::temp_dir);
     base.join("paw").join("audio.json")
 }
 

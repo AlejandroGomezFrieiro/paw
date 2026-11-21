@@ -11,6 +11,7 @@ path = "src/main.rs"
 
 [dependencies]
 paw-core.workspace = true
+paw-proto.workspace = true
 paw-engine.workspace = true
 paw-luadev.workspace = true
 paw-plugins.workspace = true

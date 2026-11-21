@@ -8,6 +8,7 @@
 //! [`Connection`] is a blocking facade over it: a call waits for its
 //! answer, and what the kernel pushes waits in a channel until it is taken.
 
+pub mod dirs;
 pub mod monitor;
 pub mod runtime;
 pub mod tls;
@@ -39,11 +40,7 @@ pub const VERSION: u32 = 3;
 /// Where this program keeps what it learns on this machine:
 /// `$XDG_STATE_HOME/paw`, by default `~/.local/state/paw`.
 pub fn state_dir() -> PathBuf {
-    std::env::var_os("XDG_STATE_HOME")
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".local/state")))
-        .unwrap_or_else(std::env::temp_dir)
-        .join("paw")
+    dirs::state().unwrap_or_else(std::env::temp_dir).join("paw")
 }
 
 /// A connection, as the kernel names it. 0 is no connection at all: the

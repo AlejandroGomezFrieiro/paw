@@ -116,9 +116,7 @@ pub fn stored(dir: &Path, file: &Path) -> Option<(PathBuf, u64)> {
 
 /// The cache directory overviews are kept in: `$XDG_CACHE_HOME/paw/peaks`.
 pub fn cache_dir() -> PathBuf {
-    std::env::var_os("XDG_CACHE_HOME")
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".cache")))
+    paw_proto::dirs::cache()
         .unwrap_or_else(std::env::temp_dir)
         .join("paw")
         .join("peaks")
