@@ -39,6 +39,7 @@ fn region(level: f32, start: f64, end: f64) -> AudioRegion {
         declick_in: false,
         declick_out: false,
         hold: Default::default(),
+        direction: Default::default(),
     }
 }
 
