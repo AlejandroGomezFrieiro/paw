@@ -929,6 +929,8 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.help.open(topic)`: `:help topic`: go to the best tag for it, or say there is none.
 - `paw.help.owned(index, topic, exact)`: The tag a topic an extension owns goes to: its place in the owner's pages (where `exact` is not already), else the owner's first page.
 - `paw.help.owners(topic)`: The extensions that own what a topic names: the command's (`:name`), or a key's when only extensions map it (a key the core maps is the core's). A list, empty for the core's.
+- `paw.help.prepare()`: Make the index of help at idle, in slices. What has not changed since the last build is not made again.
+- `paw.help.preparing()`: Whether the index of help is being made at idle.
 - `paw.help.roots()`: The directories that can be a copy of the source tree, with the manual and the bundled extensions in it. These are `$PAW_HOME` (where an installed program keeps them), the parent of the runtime (`--runtime`), the tree of a loaded extension, and the current directory.
 - `paw.help.show(source, row, col)`: Show a page at a row. It shows in the help window, or in a window split from the current window (as the `:help` of Vim splits). In a graphical frontend, it shows as a docked pane (`gw` moves it to a separate window). Returns the window.
 - `paw.help.slug(text)`: A heading's words as a tag: `Ex: ranges, :s and :g` is `ex-ranges-s-and-g`.
@@ -1013,7 +1015,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
   `ctx` has `count`, `register` and, for mappings made with `char = true`, the key typed after the mapping as `char`.
 
-  The options are `mode` (one mode or a list, default "n"), `view` and `desc`. `motion = true` is for a mapping that only moves the cursor. Such a mapping also works in visual mode and after an operator. `linewise = true` is for a motion across rows. `jump = true` keeps the position of the cursor for `<C-o>`. With `repeatable = false`, `.` does not repeat the mapping. `nowait = true` makes a key that also starts longer mappings run at once, without the wait for more keys. Each key with `role` "second+" or "second-" (the `[` and `]` of a view) does so. The same key again is a second press. Another key soon after it that makes a longer mapping (`]g`, `]q`) takes back its change and runs that mapping.
+  The options are `mode` (one mode or a list, default "n"), `view` and `desc`. `motion = true` is for a mapping that only moves the cursor. Such a mapping also works in visual mode and after an operator. `linewise = true` is for a motion across rows. `jump = true` keeps the position of the cursor for `<C-o>`. With `repeatable = false`, `.` does not repeat the mapping. `nowait = true` makes a key that also starts longer mappings run at once, without the wait for more keys. Each key with `role` "second+" or "second-" (the `[` and `]` of a view) does so. The same key again is a second press. Another key soon after it that makes a longer mapping (`]g`, `]q`) takes back its change and runs that mapping. On a selection, the selection opens again for that mapping.
 - `paw.keymap.set_mode(mode)`: Change mode. When visual mode stops, the selection closes. `gv` opens it again.
 - `paw.keymap.setreg(value, name, yank)`: Put a value in a register: the unnamed register, and `name` if given. With `yank` and no name, it also goes to `"0`, which a delete never changes. A value is a table with a `kind`. The code that yanks and pastes it decides what else it contains. `"_` discards.
 - `paw.keymap.textobject(lhs, fn, opts)`: Define a text object: `fn(ctx)` returns a region, or nil when there is nothing of that kind at the cursor.
@@ -1590,7 +1592,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.render
 
 - `paw.render.cancel`: the same as `paw.render_cancel`.
-- `paw.render.default_path()`: The file a render writes when no file is named: the project's name, beside it.
+- `paw.render.default_path()`: The file a render writes when no file is named: the project's name, in `renders_dir()`.
 - `paw.render.render(path, opts)`: Render the project to a file: WAV or FLAC, or MP3, Ogg Vorbis or Opus when ffmpeg is installed (`paw.opt.ffmpeg` says where it is, if not on the PATH), by the file's extension. A lossy file is rendered to a temporary WAV, which ffmpeg then encodes. `opts` (all optional):
 
   ```lua
@@ -1620,6 +1622,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   ```
 
   When it is done, it returns `types.RenderResult`. This has the path, the frames, the seconds, the peak, the gain and the loudness. It also has the format, the bits (nil for a lossy format) and the channels. paw emits `render.before` first. Its handlers run before the render starts, so an extension that makes audio of its own can complete it. paw refuses a file that it cannot write before it renders. When a render fails or stops, no file has the name that you gave.
+- `paw.render.renders_dir()`: The folder that renders go to when no place is named: `renders/` in the project's folder, apart from the files of the project; the folder of a project kept in one file; nil before the first save.
 - `paw.render.status`: the same as `paw.render_status`.
 - `paw.render.stems`: the same as `paw.render_stems`.
 - `paw.render.tags`: the same as `paw.render_tags`.
@@ -1789,7 +1792,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.stems.command(ctx, opts)`: What `:render stems` and `:render <group>` do with the command's options.
 - `paw.stems.confirm(plan, dir, opts)`: Show a plan and render it on `y`.
 - `paw.stems.names_group(word)`: True if `:render <word>` names a group to render alone, and not a file: the name of a group, with no file ending.
-- `paw.stems.plan(opts)`: What the stems would be: a list of `{ id, name, file, holds }`, in the order of the track list. `opts`: `dir` (where; the project's directory and "<project> stems" by default), `format` ("wav", the default, "flac", "mp3", "ogg", "opus"), `tracks` (one per track, not per group), `group` (that group, or track, alone). In a narrowed tab, the parts of its group.
+- `paw.stems.plan(opts)`: What the stems would be: a list of `{ id, name, file, holds }`, in the order of the track list. `opts`: `dir` (where; `stems` in the renders folder by default, see `paw.render.renders_dir`), `format` ("wav", the default, "flac", "mp3", "ogg", "opus"), `tracks` (one per track, not per group), `group` (that group, or track, alone). In a narrowed tab, the parts of its group.
 - `paw.stems.render(plan, opts)`: Write the stems of a plan, with `paw.render`'s options (`background` renders them one after another). Returns the files.
 
 ## Module paw.stretch

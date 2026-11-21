@@ -36,8 +36,8 @@ local function holds(id)
 end
 
 --- What the stems would be: a list of `{ id, name, file, holds }`, in the
---- order of the track list. `opts`: `dir` (where; the project's directory
---- and "<project> stems" by default), `format` ("wav", the default, "flac",
+--- order of the track list. `opts`: `dir` (where; `stems` in the renders
+--- folder by default, see `paw.render.renders_dir`), `format` ("wav", the default, "flac",
 --- "mp3", "ogg", "opus"), `tracks` (one per track, not per group), `group`
 --- (that group, or track, alone). In a narrowed tab, the parts of its group.
 function M.plan(opts)
@@ -46,8 +46,8 @@ function M.plan(opts)
   local ext = opts.format or "wav"
   local dir = opts.dir
   if not dir then
-    local base = require("paw.render").default_path():gsub("%.wav$", "")
-    dir = opts.group and (base:match("^(.*)/[^/]*$") or ".") or (base .. " stems")
+    local renders = require("paw.render").renders_dir() or "."
+    dir = opts.group and renders or (renders .. "/stems")
   end
   local ids = {}
   if opts.group then
@@ -153,7 +153,7 @@ function M.command(ctx, opts)
   local how = { format = a.format, tracks = a[2] == "tracks" or nil }
   if a[1] == "stems" then
     local dir = a[2] ~= "tracks" and a[2] or a[3]
-    how.dir = dir and paw.util.expand_path(tostring(dir)) or nil
+    how.dir = dir and paw.files.path(tostring(dir)) or nil
   else
     how.group = paw.scope.find(a[1])
   end

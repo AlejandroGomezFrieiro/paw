@@ -114,6 +114,8 @@ local record M
   before: events.Event<Before>
   --- The event `render.finished`: what a render in the foreground wrote.
   finished: events.Event<types.RenderResult>
+  --- The folder that renders go to when no place is named (defined below).
+  renders_dir: function(): string
   --- `paw.render(path, opts)` is `paw.render.render(path, opts)`.
   metamethod __call: function(self: M, path: string, opts?: Options): types.RenderResult
 end
@@ -235,6 +237,9 @@ end
 function M.render(path: string, opts?: Options): types.RenderResult
   path = util.expand_path(path)
   check(path)
+  -- The renders folder is made when the first render goes into it.
+  local dir = M.renders_dir()
+  if dir and path:match("^(.*)/[^/]+$") == dir then pcall(api.fs_mkdir, dir) end
   local background = opts and opts.background
   local kopts = kernel_opts(opts)
   if background then
@@ -409,11 +414,23 @@ M.options = {
   { "cover=", nil, "tag: a PNG or JPEG file" },
 }
 
---- The file a render writes when no file is named: the project's name, beside it.
+--- The folder that renders go to when no place is named: `renders/` in
+--- the project's folder, apart from the files of the project; the folder
+--- of a project kept in one file; nil before the first save.
+function M.renders_dir(): string
+  local p = api.project_get()
+  local path = p.path and tostring(p.path)
+  if not path or path == "" then return nil end
+  local dir = path:match("^(.*)/[^/]+$") or "."
+  if path:match("/project%.toml$") then return dir .. "/renders" end
+  return dir
+end
+
+--- The file a render writes when no file is named: the project's name, in `renders_dir()`.
 function M.default_path(): string
   local p = api.project_get()
   local name = (p.name and p.name ~= "" and p.name or "render"):gsub("[^%w%-_ ]", "_")
-  local dir = p.path and tostring(p.path):match("^(.*)/[^/]+$")
+  local dir = M.renders_dir()
   return (dir and dir .. "/" or "") .. name .. ".wav"
 end
 
@@ -457,7 +474,7 @@ commands.define("render", function(ctx: commands.Context): commands.Result
     return stems.command(ctx, opts)
   end
   if a.stems == true then
-    local dir = a[1] and (paw.files as Files).path(tostring(a[1])) or (M.default_path():gsub("%.wav$", "") .. " stems")
+    local dir = a[1] and (paw.files as Files).path(tostring(a[1])) or ((M.renders_dir() or ".") .. "/stems")
     local made = M.stems(dir, over(opts, { format = a.format as string }))
     return paw.notify(string.format("rendering %d stem%s into %s", #made, #made == 1 and "" or "s", dir))
   end
@@ -517,7 +534,7 @@ commands.define("render.cancel", function(): commands.Result
 end, { desc = "Stop the render running in the background; it leaves no file" })
 
 commands.define("stems", function(ctx: commands.Context): commands.Result
-  local dir = (paw.files as Files).path(tostring(ctx.args[1] or "stems"))
+  local dir = ctx.args[1] and (paw.files as Files).path(tostring(ctx.args[1])) or ((M.renders_dir() or ".") .. "/stems")
   local made = M.stems(dir, {
     tail = tonumber(ctx.args.tail), bits = tonumber(ctx.args.bits) as integer, format = ctx.args.format as string,
     quality = ctx.args.quality and tostring(ctx.args.quality) or nil, bitrate = tonumber(ctx.args.bitrate) as integer,

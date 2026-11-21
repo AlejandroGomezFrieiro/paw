@@ -322,6 +322,11 @@ pub fn curve(painter: &Painter, p: &CurveProps, rect: Rect, (cw, _): (f32, f32))
     }
 }
 
+/// Where a level stands on the fader's scale, -60 to +6 dB, from 0 to 1.
+fn hmeter_reach(peak: f32) -> f32 {
+    ((20.0 * peak.max(1e-6).log10() + 60.0) / 66.0).clamp(0.0, 1.0)
+}
+
 /// A level across a row: a well lit from the left in the meter colours by
 /// how far it reaches on the fader's scale, both sides a half each, the
 /// loudest of late a line; with `at`, a fader's cap where the volume stands.
@@ -341,7 +346,7 @@ pub fn hmeter(painter: &Painter, p: &HmeterProps, bind: Option<&str>, live: &Val
     painter.rect(well, CornerRadius::same(2), t.meter_well, Stroke::new(1.0, t.divider), StrokeKind::Outside);
     // On the fader's scale, -60 to +6 dB, so that a level stands where the
     // fader's cap would stand for it.
-    let reach = |peak: f32| ((20.0 * peak.max(1e-6).log10() + 60.0) / 66.0).clamp(0.0, 1.0);
+    let reach = hmeter_reach;
     let bands = |part: Rect, peak: f32| {
         let end = part.left() + part.width() * reach(peak);
         let mut from = part.left();
@@ -361,7 +366,8 @@ pub fn hmeter(painter: &Painter, p: &HmeterProps, bind: Option<&str>, live: &Val
     let half = well.height() / 2.0;
     bands(Rect::from_min_size(well.min, vec2(well.width(), half - 0.5)), left);
     bands(Rect::from_min_size(well.min + vec2(0.0, half + 0.5), vec2(well.width(), half - 0.5)), right);
-    if hold > 1e-5 {
+    // A held peak below the scale draws nothing, not a line at the left edge.
+    if reach(hold) > 0.0 {
         let x = well.left() + well.width() * reach(hold);
         painter.vline(x, well.y_range(), Stroke::new(1.0, if hold >= 1.0 { t.meter_clip } else { t.text_2 }));
     }
@@ -403,5 +409,16 @@ impl View {
         }
         self.repaint = true;
         ctx.request_repaint();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::hmeter_reach;
+
+    #[test]
+    fn a_peak_below_the_scale_does_not_reach_it() {
+        assert_eq!(hmeter_reach(1e-4), 0.0, "-80 dB is off the -60 dB scale");
+        assert!(hmeter_reach(0.01) > 0.0, "-40 dB is on it");
     }
 }

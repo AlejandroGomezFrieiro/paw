@@ -10,7 +10,7 @@ static RUNTIME: Dir = include_dir!("$CARGO_MANIFEST_DIR/../../runtime/lua");
 /// The files of `crates/paw-core/src/api/`, in the order of the sections
 /// of the reference. A file left out of this list loses its functions from
 /// the reference: the test `every_file_of_the_api_is_read` checks it.
-const API: [(&str, &str); 15] = [
+const API: [(&str, &str); 16] = [
     ("mod.rs", include_str!("../../paw-core/src/api/mod.rs")),
     ("project.rs", include_str!("../../paw-core/src/api/project.rs")),
     ("tracks.rs", include_str!("../../paw-core/src/api/tracks.rs")),
@@ -26,6 +26,7 @@ const API: [(&str, &str); 15] = [
     ("processes.rs", include_str!("../../paw-core/src/api/processes.rs")),
     ("formats.rs", include_str!("../../paw-core/src/api/formats.rs")),
     ("system.rs", include_str!("../../paw-core/src/api/system.rs")),
+    ("kind_data.rs", include_str!("../../paw-core/src/api/kind_data.rs")),
 ];
 
 /// The text between `fn name(` and the `) {` that ends the signature, as

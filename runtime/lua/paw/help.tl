@@ -16,7 +16,8 @@
 -- the link or look up the word under the cursor, `K` to look a word up,
 -- `Ctrl-o` and `Ctrl-t` to go back.
 --
--- Tags are made, the first time help is asked for, from the headings (the
+-- Tags are made at idle after paw starts (see `M.prepare`), or the first
+-- time help is asked for before that, from the headings (the
 -- page's name for its title, the heading's words joined by `-` below it,
 -- after the extension's name or `course-N` in theirs), from `<!-- tags: a b
 -- -->` comments, and from every key, command (`:s`), option (`'timebind'`),
@@ -29,6 +30,8 @@ local api = require("paw.api")
 local util = require("paw.util")
 local md = require("paw.markdown")
 local seats = require("paw.seats")
+local events = require("paw.events")
+local kernel = require("paw.events.kernel")
 local A = require("paw.address")
 local options = require("paw.options")
 local commands = require("paw.commands")
@@ -786,8 +789,9 @@ end
 
 --- Read every page, give its headings their tags, make it into lines and
 --- gather the tags. Done again when a page changed, an extension was loaded
---- or a page was added.
-local function build(): Index
+--- or a page was added. `pause()`, if given, is called between pieces of
+--- the work, where a build made at idle stops for a while.
+local function build_now(pause?: function()): Index
   -- The files are looked at again at most every two seconds.
   local names: {string} = {}
   for _, entry in ipairs(ext.list()) do names[#names + 1] = entry.name .. tostring(entry.ok) end
@@ -807,6 +811,7 @@ local function build(): Index
       end
       source.blocks = cached.blocks
       source.loaded = not source.ext or ext_loaded(source.ext)
+      if pause then pause() end
       parts[#parts + 1] = source.path .. "\0" .. tostring(cached) .. "\0" .. tostring(source.loaded)
     end
   end
@@ -857,7 +862,7 @@ local function build(): Index
       for j, block in ipairs(note) do table.insert(blocks, at + 1 + j, block) end
       table.insert(blocks, at + 2 + #note, { type = "blank" })
     end
-    source.doc = md.render(blocks, { width = M.width, heading_tag = function(block: md.Block): string return block.tag end })
+    source.doc = md.render(blocks, { width = M.width, heading_tag = function(block: md.Block): string return block.tag end, pause = pause })
     source.anchors = {}
     for _, alias in ipairs(source.aliases) do add(alias, source, 1, 0, 0) end
     local heading_at = 0
@@ -896,6 +901,78 @@ local function build(): Index
     ext_tags = ext_tags }
   return built
 end
+
+-- Made at idle --------------------------------------------------------------------
+--
+-- To read and render every page takes more than a second of processor time.
+-- An interactive session does it after it starts, in slices of a few
+-- milliseconds between keys, so that the first `:help` finds it done. A
+-- call that needs the index before then finishes it at once.
+
+--- Milliseconds of work in one slice, and between two slices.
+local SLICE_MS, GAP_MS = 4, 10
+
+--- The build being made at idle, and when its slice ends (`api.now()`).
+local preparing: thread
+local slice_end = math.huge
+
+local function pause()
+  if api.now() >= slice_end then coroutine.yield() end
+end
+
+--- Finish the build being made at idle, now.
+local function finish_preparing()
+  local co = preparing
+  if not co or coroutine.status(co) ~= "suspended" then return end
+  slice_end = math.huge
+  local ok, err = coroutine.resume(co)
+  preparing = nil
+  if not ok then api.log("help: the index made at idle failed: " .. tostring(err)) end
+end
+
+local function build(): Index
+  finish_preparing()
+  return build_now()
+end
+
+--- Make the index of help at idle, in slices. What has not changed since
+--- the last build is not made again.
+function M.prepare()
+  if preparing then return end
+  local co = coroutine.create(function() build_now(pause) end)
+  preparing = co
+  local function step()
+    if preparing ~= co then return end
+    slice_end = api.now() + SLICE_MS
+    local ok, err = coroutine.resume(co)
+    slice_end = math.huge
+    if not ok then
+      preparing = nil
+      api.log("help: the index made at idle failed: " .. tostring(err))
+    elseif coroutine.status(co) == "dead" then
+      preparing = nil
+    else
+      paw.defer(step, GAP_MS)
+    end
+  end
+  paw.defer(step, GAP_MS)
+end
+
+--- Whether the index of help is being made at idle.
+function M.preparing(): boolean return preparing ~= nil end
+
+-- A second after paw starts, and after an extension is loaded or unloaded
+-- (its pages change the index): not in a run of a script (`-l`), which
+-- asks for help, if at all, when it needs it.
+local function prepare_soon()
+  if not api.env().scripted then paw.defer(M.prepare, 1000) end
+end
+local startup: events.Event<kernel.Nothing> = events.event("startup")
+local ext_loaded_event: events.Event<kernel.Nothing> = events.event("ext.loaded")
+local ext_unloaded: events.Event<kernel.Nothing> = events.event("ext.unloaded")
+events.on(startup, prepare_soon)
+events.on(ext_loaded_event, prepare_soon)
+events.on(ext_unloaded, prepare_soon)
 
 --- What help knows: `{ sources, tags = name -> { name, source, row, col }, list }`.
 function M.index(): Index return build() end

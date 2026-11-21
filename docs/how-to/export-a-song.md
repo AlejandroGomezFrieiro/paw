@@ -8,7 +8,7 @@ option, see [Render](../reference/render.md).
 
 1. Save the project with `:w`.
 2. Type `:render`. paw renders the song to a WAV file with the name of the
-   project, in the folder of the project: `song/song.wav`.
+   project, in the folder `renders` of the project: `song/renders/song.wav`.
 3. Wait for the message that gives the length and the peak of the file.
    The status line shows the progress. To stop the render, press `Esc`.
 
@@ -27,7 +27,8 @@ If you give a name without a folder, for example `:render mix.flac`,
 the file goes into the folder of the project. Before the first save, it
 goes into the folder where you started paw.
 
-`:render` with no name always writes into the folder of the project.
+`:render` with no name always writes into the folder `renders` of the
+project. It keeps the rendered files apart from the files of the project.
 
 If `:render song.mp3` fails because there is no `ffmpeg`, install
 `ffmpeg`. WAV and FLAC need no other program.

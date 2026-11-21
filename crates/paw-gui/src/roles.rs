@@ -664,7 +664,7 @@ fn meter(painter: &Painter, rect: Rect, p: &MeterProps, bind: Option<&str>, live
                 break;
             }
         }
-        if hold > 1e-5 {
+        if level(hold) > 0.0 {
             let y = column.bottom() - column.height() * level(hold);
             painter.hline(column.x_range(), y, Stroke::new(1.0, if hold >= 1.0 { t.meter_clip } else { t.text_2 }));
         }

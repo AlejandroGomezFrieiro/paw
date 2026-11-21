@@ -98,9 +98,12 @@ and position. A change of the engine rate converts again.
 
 ## Waveforms
 
-paw keeps the waveform overview of each file in `~/.cache/paw/peaks`, by
-the path, size and modification time of the file. So paw draws a long file
-zoomed out from the overview after the first time, without a decode.
+paw keeps the waveform overview of each file in the bake cache,
+`~/.cache/paw/bakes`, by a hash of the bytes of the file. So paw draws a
+long file zoomed out from the overview after the first time, without a
+decode. This is also true after you move or copy the file or the project,
+and for each project that uses the same file. A changed file gets a new
+overview.
 
 ## Long files
 

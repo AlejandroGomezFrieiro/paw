@@ -78,10 +78,7 @@ days[1] = function(E)
   local dk = E.draw(phrase(r, 3, 4, 60, 72))
   for _, k in ipairs(dk) do keys[#keys + 1] = k end
   keys[#keys + 1] = "<C-w>p"
-  -- Two undo steps: `i` made the clip, the drawing filled it. One `u`
-  -- leaves an empty clip (a finding of the first run of this scenario: the
-  -- user sees it and presses `u` again).
-  keys[#keys + 1] = "u"
+  -- One undo step: the clip that `i` made and the notes drawn into it.
   keys[#keys + 1] = "u"
   E:act({ name = "draw a second bar of lead, and undo it", keys = keys, focus = "arrange" })
   E:act({ name = "mark the intro", keys = { "<Esc>", "1|", ":marker Intro<CR>" }, says = "Intro",
@@ -490,7 +487,7 @@ days[11] = function(E)
       end
     end })
   -- A stem for each track that sounds: not muted, with clips. Its name is
-  -- the track's, in "<project> stems" inside the project's folder.
+  -- the track's, in renders/stems inside the project's folder.
   E:act({ name = "render a stem for each track", keys = { ":render stems tracks<CR>", "y" }, slow = true,
     check = function(self)
       local want = {}
@@ -498,7 +495,7 @@ days[11] = function(E)
         if not t.mute and (t.clips == M.ANY or #t.clips > 0) then want[#want + 1] = t.name .. ".wav" end
       end
       table.sort(want)
-      local dir = self.workdir .. "/project/project stems"
+      local dir = self.workdir .. "/project/renders/stems"
       local got
       self:until_(function()
         got = {}

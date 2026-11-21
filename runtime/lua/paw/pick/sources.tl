@@ -763,6 +763,7 @@ local function make(pick: Pick): Sources
     on_choose = function(info: DeviceInfo)
       local track = need_track()
       if not track then return end
+      api.undo_label("add " .. info.name .. " to " .. track.name)
       paw.fx.add(track, info.kind, { query = typed })
       paw.notify("added " .. info.name .. " to " .. track.name)
     end,
@@ -780,6 +781,7 @@ local function make(pick: Pick): Sources
           return ok and d.status == "loading"
         end,
         keep = function()
+          api.undo_label("add " .. info.name .. " to " .. track.name)
           paw.fx.added(device, info.kind, { query = typed })
           paw.notify("added " .. info.name .. " to " .. track.name)
         end,

@@ -7,6 +7,7 @@ use std::sync::Arc;
 
 use paw_engine::{AudioData, DiskStore};
 
+use crate::bake::{self, Store};
 use crate::peaks::{self, Summary};
 
 /// Decoded audio files, loaded once and shared between clips.
@@ -18,9 +19,10 @@ pub struct AudioCache {
     peaks: HashMap<PeaksKey, Arc<Vec<[f32; 3]>>>,
     /// Files at another rate than the engine's, converted, by file and rate.
     converted: HashMap<(PathBuf, u32), Arc<AudioData>>,
-    /// Where waveform overviews are kept between runs (`peaks::Summary`),
-    /// so that drawing a file need not decode it; nowhere when `None`.
-    pub peak_dir: Option<PathBuf>,
+    /// The bake cache, where waveform overviews are kept between runs
+    /// (`peaks::Summary`), so that drawing a file need not decode it;
+    /// nowhere when `None`.
+    pub bakes: Option<Store>,
     /// Where the decoded sound of long files is kept and played from,
     /// instead of memory; nowhere when `None`.
     pub store: Option<DiskStore>,
@@ -32,10 +34,10 @@ pub struct AudioCache {
 type PeaksKey = (PathBuf, u64, u64, usize);
 
 impl AudioCache {
-    /// A cache that keeps waveform overviews in `dir` between runs.
-    pub fn with_peak_dir(dir: PathBuf) -> Self {
+    /// A cache that keeps waveform overviews in `store` between runs.
+    pub fn with_bakes(store: Store) -> Self {
         Self {
-            peak_dir: Some(dir),
+            bakes: Some(store),
             ..Self::default()
         }
     }
@@ -159,27 +161,32 @@ impl AudioCache {
         self.files.is_empty()
     }
 
-    /// A file's waveform overview: kept in memory, read from the peak
-    /// directory when it was made before for the file as it is now, or made
-    /// from the samples and kept there.
+    /// A file's waveform overview: kept in memory, read from the bake
+    /// cache when it was made before for the same bytes, or made from the
+    /// samples and kept there.
     fn summary(&mut self, path: &Path) -> anyhow::Result<Arc<Summary>> {
         if let Some(summary) = self.summaries.get(path) {
             return Ok(summary.clone());
         }
-        let stored = self
-            .peak_dir
-            .as_deref()
-            .and_then(|dir| peaks::stored(dir, path));
-        let summary = match stored
-            .as_ref()
-            .and_then(|(cached, _)| Summary::read(cached))
-        {
+        // The hash of the bytes names the overview wherever the file is.
+        // TODO(M1): the media table's hash, not a read of the whole file.
+        let bake = self
+            .bakes
+            .clone()
+            .and_then(|store| Some((store, peaks::bake(bake::Hasher::file(path).ok()?))));
+        let kept = bake.as_ref().and_then(|(store, (_, key))| {
+            Summary::read(&store.open(key)?.file(peaks::FILE))
+        });
+        let summary = match kept {
             Some(summary) => summary,
             None => {
                 let summary = Summary::new(&*self.load(path)?);
-                if let Some((cached, _)) = &stored {
+                if let Some((store, (job, key))) = &bake
+                    && let Ok(bake::Write::Make(entry)) = store.writer(job, key)
+                    && summary.write(&entry.file(peaks::FILE)).is_ok()
+                {
                     // A cache that cannot be written only costs time.
-                    let _ = summary.write(cached);
+                    let _ = entry.commit();
                 }
                 summary
             }

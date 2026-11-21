@@ -181,7 +181,7 @@ end
 --- longer mappings run at once, without the wait for more keys. Each key
 --- with `role` "second+" or "second-" (the `[` and `]` of a view) does so. The same key again is a second press. Another key soon after it
 --- that makes a longer mapping (`]g`, `]q`) takes back its change and runs
---- that mapping.
+--- that mapping. On a selection, the selection opens again for that mapping.
 function M.set(lhs, rhs, opts)
   opts = opts or {}
   local default = opts.motion and { "n", "x", "o" } or { "n" }
@@ -363,6 +363,11 @@ local function stop_timer()
   end
 end
 
+-- The undo state current when insert mode began. What is done from then
+-- until insert mode ends (the clip `i` made, the notes drawn into it) is
+-- one undo step, as an insert is in Vim: the steps after the first join it.
+local insert_undo
+
 --- Change mode. When visual mode stops, the selection closes. `gv` opens it again.
 function M.set_mode(mode)
   if mode == "v" then mode = "x" end
@@ -376,8 +381,10 @@ function M.set_mode(mode)
     M.visual = nil
   end
   if mode == old then return end
+  if mode == "i" then insert_undo = api.undo_current() end
   M.mode = mode
   paw.emit("mode.changed", { mode = mode, old = old })
+  if old == "i" then insert_undo = nil end
   api.ui_redraw()
 end
 
@@ -959,10 +966,26 @@ handle = function(key)
     eager = nil
     stop_timer()
     local exact, longer
+    -- A key that ran on a selection closed it: the longer mapping is looked
+    -- for, and runs, on the selection open again (`v]n` after `]`).
+    local reopened
+    if first.visual and M.mode ~= "x" then
+      local g = grid()
+      reopened = { last = M.last_visual, cursor = g and { g.get() } }
+      M.visual_restore()
+      if M.mode ~= "x" then reopened = nil end
+    end
     -- The same key again is a second step (`]]` pans twice), unless the
     -- view maps the pair itself (`]]` to the next section).
     exact, longer = lookup(first.key .. key)
     if key == first.key and not exact then exact, longer = nil, nil end
+    if reopened and not (exact or longer) then
+      -- Closed again as the key left it.
+      M.set_mode("n")
+      M.last_visual = reopened.last
+      local g = grid()
+      if g and reopened.cursor then g.set(reopened.cursor[1], reopened.cursor[2]) end
+    end
     if exact or longer then
       if first.after ~= first.before and api.project_get("edits") == first.after then paw.undo() end
       if track.keys then track.edits = api.project_get("edits") end
@@ -1032,10 +1055,11 @@ handle = function(key)
       -- It runs now; the wait is only for a key that makes a longer one.
       -- Its change is a step of its own, so that one undo takes it back.
       api.undo_checkpoint()
-      local before, typed_count, typed_register = api.project_get("edits"), count, register
+      local before, typed_count, typed_register, visual = api.project_get("edits"), count, register, M.mode == "x"
       take(exact)
       pending = { key }
-      eager = { key = key, before = before, after = api.project_get("edits"), count = typed_count, register = typed_register }
+      eager = { key = key, before = before, after = api.project_get("edits"), count = typed_count, register = typed_register,
+        visual = visual }
       timer = api.timer_start(paw.opt.timeoutlen, false, function()
         timer = nil
         if not eager then return end
@@ -1109,6 +1133,8 @@ function M.dispatch(key)
     if paw.ui.grabber and paw.ui.grabber ~= grabber then return end
   end
   if macro and depth == 0 then macro.keys[#macro.keys + 1] = key end
+  -- A key of insert mode: its edits join the step the insert made first.
+  if M.mode == "i" and insert_undo and api.undo_current() ~= insert_undo then api.undo_join(api.undo_current()) end
   if not track.keys then track.keys, track.edits, track.texts = {}, api.project_get("edits"), text_changes end
   track.keys[#track.keys + 1] = key
   local ok, err = xpcall(handle, debug.traceback, key)

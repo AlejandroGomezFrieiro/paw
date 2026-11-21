@@ -86,7 +86,7 @@ clip. `:set undo_steps=200` removes the oldest steps at once.
 | Option | Default | Effect |
 | --- | --- | --- |
 | `paw.opt.media_stream` | `64` | A sound file with more decoded audio than this, in megabytes, plays from the disk. `0` keeps every file in memory. |
-| `paw.opt.media_cache` | `16` | The gigabytes of decoded sound kept in the cache between runs. |
+| `paw.opt.media_cache` | `16` | The gigabytes that each cache keeps between runs: the decoded sound of long files, and the bakes (`~/.cache/paw/bakes`). |
 | `paw.opt.ffmpeg` | `"ffmpeg"` | The program that renders MP3, Ogg and Opus: a name on the `PATH`, or a path. |
 | `paw.opt.render_loudest` | `-9` | A render louder than this, in LUFS, goes into the quickfix list. |
 | `paw.opt.loudness_target` | `-14` | The loudness in LUFS that a mix server aims at. |

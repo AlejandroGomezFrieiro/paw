@@ -871,7 +871,7 @@ local function close(p: Picker)
   if paw.ui.float and paw.ui.float.name == "pick" then paw.ui.close() end
 end
 
-local function choose(p: Picker)
+local function choose_item(p: Picker)
   local item = current(p)
   local keep = p.hearing and p.hearing.keep
   local kept = keep and item ~= nil and p.heard == item and not (p.multi and next(p.marked))
@@ -898,6 +898,13 @@ local function choose(p: Picker)
     return
   end
   if p.spec.on_choose then p.spec.on_choose(item) end
+end
+
+local function choose(p: Picker)
+  choose_item(p)
+  -- What the choice changed is an undo step named by the picker's title,
+  -- unless the choice named it itself.
+  if p.spec.title then api.undo_label(p.spec.title) end
 end
 
 local function cancel(p: Picker)
