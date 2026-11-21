@@ -362,17 +362,13 @@ impl HelperError {
 mod tests {
     use super::*;
 
-    fn hex(bytes: &[u8]) -> String {
-        bytes.iter().map(|b| format!("{b:02x}")).collect()
-    }
-
     fn answered(reply: Result<&[u8], &str>) -> String {
         let (mut ours, mut theirs) = UnixStream::pair().unwrap();
         answer(&mut ours, reply).unwrap();
         drop(ours);
         let mut bytes = Vec::new();
         theirs.read_to_end(&mut bytes).unwrap();
-        hex(&bytes)
+        hex::encode(&bytes)
     }
 
     /// The bytes of each request and answer as they were before the
@@ -426,7 +422,7 @@ mod tests {
         ];
         for (request, today) in cases {
             let frame = request.frame();
-            assert_eq!(hex(&frame), today, "{request:?}");
+            assert_eq!(hex::encode(&frame), today, "{request:?}");
             let op = Op::try_from(frame[4]).unwrap();
             assert_eq!(Request::decode(op, &frame[5..]), Some(request));
         }

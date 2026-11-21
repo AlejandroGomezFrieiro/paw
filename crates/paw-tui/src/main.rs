@@ -1,6 +1,8 @@
 //! The `paw` command: start the kernel with a terminal UI, without one, to run
 //! a script, or to talk to an instance that is already running.
 
+#![warn(clippy::undocumented_unsafe_blocks)]
+
 mod args;
 mod graphics;
 mod terminal;
@@ -33,6 +35,8 @@ fn quiet_stderr(log: &std::path::Path) {
     let Ok(file) = std::fs::File::create(log) else {
         return;
     };
+    // SAFETY: dup and dup2 take descriptors by number; `file` is open here, and descriptor 2
+    // is replaced on purpose (the old one is saved first).
     unsafe {
         REAL_STDERR.store(libc::dup(2), std::sync::atomic::Ordering::Relaxed);
         libc::dup2(file.as_raw_fd(), 2);
@@ -43,6 +47,8 @@ fn quiet_stderr(log: &std::path::Path) {
 fn restore_stderr() {
     let saved = REAL_STDERR.swap(-1, std::sync::atomic::Ordering::Relaxed);
     if saved >= 0 {
+        // SAFETY: `saved` is the duplicate that `quiet_stderr` made; the swap above took it
+        // out of the static, so nothing else closes it, and it is closed once, here.
         unsafe {
             libc::dup2(saved, 2);
             libc::close(saved);
@@ -345,10 +351,10 @@ fn dispatch(cli: Cli) -> Result<Start> {
         Some(Command::PluginHost(raw)) => {
             let args = raw.args;
             // A device written in Lua is held the way a plugin is.
-            // SAFETY: This process is the helper that the DAW's sandbox started: the socket and the
-            // memory named in `args` are descriptors it inherited and that only these calls take,
-            // and no thread has started yet (`main` has only parsed its arguments).
             if args.first().is_some_and(|kind| kind.starts_with("lua:")) {
+                // SAFETY: This process is the helper that the DAW's sandbox started: the socket and the
+                // memory named in `args` are descriptors it inherited and that only these calls take,
+                // and no thread has started yet (`main` has only parsed its arguments).
                 return Ok(Start::Done(unsafe {
                     paw_plugins::sandbox::serve_with(&args, |_, rate, block| {
                         paw_luadev::serve_make(rate, block)

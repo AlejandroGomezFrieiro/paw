@@ -360,6 +360,9 @@ impl Kernel {
     pub fn boot(&mut self) -> Result<()> {
         self.shared.timers.borrow_mut().clear();
         // Extensions get the whole standard library, including `ffi` and `debug`.
+        // SAFETY: the kernel's own Lua, as trusted as a user's extension; it is used only on
+        // this thread, and the watchdog is detached from the old state before the new one
+        // takes over.
         let lua = unsafe { Lua::unsafe_new() };
         api::install(&lua, &self.shared).map_err(lua_error)?;
         install_loader(&lua, &self.shared.env).map_err(lua_error)?;
@@ -391,6 +394,7 @@ impl Kernel {
         // Loading the runtime frees many megabytes that the C library keeps
         // for later: give them back to the system.
         #[cfg(target_env = "gnu")]
+        // SAFETY: malloc_trim takes an integer and only returns free memory to the system.
         unsafe {
             libc::malloc_trim(0);
         }

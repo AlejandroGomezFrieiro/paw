@@ -78,6 +78,7 @@ pub fn free_space(dir: &Path) -> Option<u64> {
     let path = std::ffi::CString::new(dir.as_os_str().as_bytes()).ok()?;
     // SAFETY: statvfs fills the struct it is given and reads a C string.
     let mut stat: libc::statvfs = unsafe { std::mem::zeroed() };
+    // SAFETY: `path` is a NUL-terminated string that outlives the call; `stat` is valid.
     if unsafe { libc::statvfs(path.as_ptr(), &mut stat) } != 0 {
         return None;
     }

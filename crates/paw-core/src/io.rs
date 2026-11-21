@@ -126,6 +126,8 @@ impl Io {
         // the program ends without stopping it, however it ends, the helper
         // is asked to finish.
         #[cfg(target_os = "linux")]
+        // SAFETY: the closure runs between fork and exec and calls only `prctl`, which is
+        // async-signal-safe; it takes no lock and does not allocate.
         unsafe {
             command.pre_exec(|| {
                 libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGTERM);
@@ -141,6 +143,8 @@ impl Io {
             let from = child.stdout.take().context("no pipe from the program")?;
             // A write waits with a limit of its own rather than hold the
             // kernel up for as long as the program does not read.
+            // SAFETY: `fd` is the open descriptor of `input`, which lives past the calls;
+            // fcntl with F_GETFL and F_SETFL reads and sets flags only.
             unsafe {
                 let fd = input.as_raw_fd();
                 libc::fcntl(fd, libc::F_SETFL, libc::fcntl(fd, libc::F_GETFL) | libc::O_NONBLOCK);
@@ -240,6 +244,8 @@ impl Io {
             .get_mut(&id)
             .with_context(|| format!("no process {id}"))?;
         if child.try_wait()?.is_none() {
+            // SAFETY: the child has not been reaped (`try_wait` found it running), so its pid
+            // is still ours; kill reads no memory.
             unsafe {
                 libc::kill(child.id() as libc::pid_t, libc::SIGTERM);
             }

@@ -5,6 +5,8 @@
 //! goes back as commands. With `--socket` it attaches to a kernel that is
 //! already running; otherwise it starts one of its own and stops it on exit.
 
+#![warn(clippy::undocumented_unsafe_blocks)]
+
 use std::path::PathBuf;
 use std::process::Child;
 
@@ -201,6 +203,9 @@ fn run() -> Result<()> {
     let asked = args::renderer_choice(cli.renderer, env.as_deref())? == Renderer::Software;
     if asked {
         // Mesa draws on the processor; any other driver is not asked.
+        // SAFETY: the font thread started above is the only other thread; it runs `fc-list`
+        // through std's `Command`, which takes the same lock as std's `set_var`, and reads
+        // no variable in any other way.
         unsafe {
             std::env::set_var("LIBGL_ALWAYS_SOFTWARE", "1");
             std::env::set_var("GALLIUM_DRIVER", "llvmpipe");
@@ -280,6 +285,7 @@ fn run() -> Result<()> {
     .map_err(|err| {
         // A kernel started for a window that never opened ends with it.
         if let Some(pid) = kernel_pid {
+            // SAFETY: kill reads no memory; `pid` is the kernel this program started.
             unsafe { libc::kill(pid as libc::pid_t, libc::SIGTERM) };
         }
         anyhow::anyhow!("the window could not start (OpenGL is needed: {err})")

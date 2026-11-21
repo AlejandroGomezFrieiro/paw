@@ -59,7 +59,10 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // @return types.DiskSpace
         fn fs_space(lua, _sh, path => String) {
             let c = std::ffi::CString::new(path.clone()).map_err(|e| mlua::Error::runtime(format!("{e}")))?;
+            // SAFETY: statvfs is plain integers, for which all zeros is a valid value.
             let mut st: libc::statvfs = unsafe { std::mem::zeroed() };
+            // SAFETY: `c` is a NUL-terminated string that outlives the call, and `st` is a
+            // valid struct that statvfs fills.
             if unsafe { libc::statvfs(c.as_ptr(), &mut st) } != 0 {
                 return Err(mlua::Error::runtime(format!("{path}: {}", std::io::Error::last_os_error())));
             }

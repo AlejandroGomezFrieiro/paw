@@ -97,6 +97,9 @@ fn percent_encode(path: &str) -> String {
 /// Now, local time, as the trash records it: `2026-11-17T09:30:00`.
 // libc, not jiff or chrono: the spec wants local time with no zone, and `localtime_r` gives it with no new dependency.
 fn deletion_date() -> String {
+    // SAFETY: `time` accepts a null pointer; `tm` is plain integers (and a pointer that
+    // `localtime_r` sets), valid as all zeros; `localtime_r` writes only into `tm` and is
+    // thread-safe.
     unsafe {
         let now = libc::time(std::ptr::null_mut());
         let mut tm: libc::tm = std::mem::zeroed();

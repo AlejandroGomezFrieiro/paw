@@ -181,6 +181,8 @@ mod tests {
     #[test]
     fn without_a_session_bus_the_answer_is_that_there_is_no_portal() {
         // The only test that sets these, and the only place that asks a portal.
+        // SAFETY: only this test sets these variables, and no other test of the binary asks a
+        // portal; other threads may still read the environment in C (a data race, in theory).
         unsafe {
             std::env::set_var("DBUS_SESSION_BUS_ADDRESS", "unix:path=/nonexistent/bus");
             std::env::set_var("XDG_RUNTIME_DIR", "/nonexistent");
