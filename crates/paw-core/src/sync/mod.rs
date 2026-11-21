@@ -73,6 +73,8 @@ pub type LiveDevices = HashMap<Id, LiveDevice>;
 
 pub struct SyncCtx<'a> {
     pub registry: &'a Registry,
+    /// The hashes of the files, which name stretched versions.
+    pub sources: &'a crate::media::Sources,
     pub audio: &'a mut AudioCache,
     pub live: &'a mut LiveDevices,
     pub sample_rate: f32,

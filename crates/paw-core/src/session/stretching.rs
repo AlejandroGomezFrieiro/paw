@@ -26,6 +26,7 @@ use crate::stretch::{PITCH_RANGE, RATIO_RANGE};
 use crate::bake::scheduler::{Busy, Priority, Status};
 use crate::events::{BakeProgress, KernelEvent as E};
 use crate::stretched::{Key, SETTLE};
+use crate::media::Sources;
 use crate::warp;
 
 /// The clip fields set here rather than in `Session::clip_set`.
@@ -126,12 +127,12 @@ const REPORT: Duration = Duration::from_millis(250);
 const UNDO_PINS: usize = 8;
 
 /// The versions every stretched clip of `project` plays at `rate`.
-fn wanted(project: &Project, rate: u32) -> HashSet<Key> {
+fn wanted(project: &Project, rate: u32, sources: &Sources) -> HashSet<Key> {
     let map = project.tempo_map();
     project
         .all_tracks()
         .flat_map(|t| t.clips.iter().chain(&t.cues))
-        .filter_map(|c| Key::of(c, rate, map))
+        .filter_map(|c| Key::of(c, rate, map, sources))
         .collect()
 }
 
@@ -250,9 +251,13 @@ impl Session {
     /// warp markers are, as beats of the song.
     pub(super) fn note_stretching(&self, clip: &Clip, view: &mut Value) {
         let map = self.project.tempo_map();
-        let key = Key::of(clip, self.engine.handle.sample_rate as u32, map);
+        let key = Key::of(clip, self.engine.handle.sample_rate as u32, map, &self.sources);
         if let Some(key) = key.as_ref() {
-            let status = self.audio.renders.status(key);
+            // A file with no hash yet waits for it, as a bake waits to start.
+            let status = match key.source {
+                None if self.audio.upkeep.unhashed.contains(&key.file) => Status::Waiting,
+                _ => self.audio.renders.status(key),
+            };
             if matches!(status, Status::Waiting | Status::Running) {
                 // Played as far as it is made: how far that is.
                 view["stretching"] = json!(true);
@@ -409,13 +414,13 @@ impl Session {
         };
         for track in self.project.all_tracks() {
             for clip in &track.clips {
-                if let Some(key) = Key::of(clip, rate, map) {
+                if let Some(key) = Key::of(clip, rate, map, &self.sources) {
                     let soon = clip.start < to && clip.start + clip.length > from;
                     want(key, if soon { Priority::Playing } else { Priority::Background });
                 }
             }
             // Clips off the timeline play when they are launched: any time.
-            for key in track.cues.iter().filter_map(|c| Key::of(c, rate, map)) {
+            for key in track.cues.iter().filter_map(|c| Key::of(c, rate, map, &self.sources)) {
                 want(key, Priority::Background);
             }
         }
@@ -429,11 +434,11 @@ impl Session {
     /// project as it is, of the last undo states, and of a running render.
     pub(crate) fn bake_pins(&self) -> HashSet<String> {
         let rate = self.engine.handle.sample_rate as u32;
-        let mut keys = wanted(&self.project, rate);
+        let mut keys = wanted(&self.project, rate, &self.sources);
         let mut states: Vec<_> = self.undo.history.states().collect();
         states.sort_by_key(|s| std::cmp::Reverse(s.id));
         for state in states.into_iter().take(UNDO_PINS) {
-            keys.extend(wanted(&state.snapshot, rate));
+            keys.extend(wanted(&state.snapshot, rate, &self.sources));
         }
         keys.extend(self.audio.upkeep.exporting.iter().cloned());
         self.audio.renders.entries(keys.iter()).cloned().collect()
@@ -516,8 +521,14 @@ impl Session {
         if self.render_job.is_none() {
             self.audio.upkeep.exporting.clear();
         }
+        let hashed: HashSet<std::path::PathBuf> = self
+            .audio
+            .upkeep
+            .unhashed
+            .extract_if(|file| self.sources.record(file).is_some())
+            .collect();
         let renders = &self.audio.renders;
-        if !renders.busy() && renders.finished.is_empty() {
+        if !renders.busy() && renders.finished.is_empty() && hashed.is_empty() {
             return;
         }
         let rate = self.engine.handle.sample_rate as u32;
@@ -526,7 +537,7 @@ impl Session {
         self.warnings.append(&mut self.audio.renders.failures);
         self.report_bakes();
         let finished: HashSet<Key> = self.audio.renders.finished.drain(..).collect();
-        if finished.is_empty() {
+        if finished.is_empty() && hashed.is_empty() {
             return;
         }
         if finished.iter().any(|k| self.audio.renders.status(k) == Status::Ready) {
@@ -537,8 +548,10 @@ impl Session {
         // this thread and sent as any edit is, the clip's new regions take
         // the place of its old ones (the preview's, say) at a block boundary.
         let map = self.project.tempo_map().clone();
-        let touched =
-            |c: &Arc<Clip>| Key::of(c, rate, &map).is_some_and(|k| finished.contains(&k));
+        let sources = &self.sources;
+        let touched = |c: &Arc<Clip>| {
+            Key::of(c, rate, &map, sources).is_some_and(|k| finished.contains(&k) || hashed.contains(&k.file))
+        };
         let synced = &mut self.synced;
         for track in std::iter::once(&mut synced.master).chain(synced.tracks.iter_mut()) {
             if track.clips.iter().any(touched) {
@@ -570,7 +583,21 @@ impl Session {
         rate: u32,
         limit: Duration,
     ) -> Result<()> {
-        let keys = wanted(project, rate);
+        // A render cannot wait for the background hashing: its files are
+        // hashed now, so that each stretched clip has a key.
+        let files: Vec<std::path::PathBuf> = project
+            .all_tracks()
+            .flat_map(|t| t.clips.iter().chain(&t.cues))
+            .filter_map(|c| match c.playable() {
+                Some(ClipContent::Audio { file, .. }) => Some(file.clone()),
+                _ => None,
+            })
+            .collect();
+        let changed = self.sources.complete(files.iter().map(std::path::PathBuf::as_path));
+        if !changed.is_empty() {
+            self.tell_changed(changed);
+        }
+        let keys = wanted(project, rate, &self.sources);
         if keys.is_empty() {
             return Ok(());
         }
@@ -601,7 +628,7 @@ impl Session {
         };
         let map = self.project.tempo_map().clone();
         let seconds = map.seconds_between(clip.start, clip.start + clip.length);
-        let key = Key::of(clip, self.engine.handle.sample_rate as u32, &map);
+        let key = Key::of(clip, self.engine.handle.sample_rate as u32, &map, &self.sources);
         let warp = warp::of(clip, &map).unwrap_or_else(|| warp::Warp::even(1.0));
         let source = self.sources.record(file).map(|r| r.hash);
         let audio = &mut self.audio;

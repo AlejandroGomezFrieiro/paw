@@ -58,6 +58,7 @@ fn compiled(map: &Mapper) -> HashMap<*const MidiEv, usize> {
 fn engine(states: &[&Project]) -> (Engine, EngineHandle, (Vec<&'static str>, usize)) {
     let (mut engine, mut handle) = Engine::new(48000.0);
     let registry = Registry::with_builtins();
+    let sources = crate::media::Sources::default();
     let (mut audio, mut live, mut warnings) = (AudioCache::default(), LiveDevices::new(), Vec::new());
     let mut map = Mapper::new();
     let empty = Project::default();
@@ -67,6 +68,7 @@ fn engine(states: &[&Project]) -> (Engine, EngineHandle, (Vec<&'static str>, usi
     for state in states {
         let mut ctx = SyncCtx {
             registry: &registry,
+            sources: &sources,
             audio: &mut audio,
             live: &mut live,
             sample_rate: 48000.0,

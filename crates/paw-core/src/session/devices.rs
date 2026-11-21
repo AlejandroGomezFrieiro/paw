@@ -585,6 +585,7 @@ impl Session {
         {
             let mut ctx = SyncCtx {
                 registry: &self.registry,
+                sources: &self.sources,
                 audio: &mut self.audio,
                 live: &mut self.live,
                 sample_rate: self.engine.handle.sample_rate as f32,

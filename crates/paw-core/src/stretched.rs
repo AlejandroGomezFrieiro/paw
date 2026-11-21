@@ -11,19 +11,20 @@
 //! kernel thread, sent to the engine as every edit is.
 //!
 //! In the bake cache, a version is known by its [`BakeJob`]: the hash of
-//! its file's bytes and what is made of it, so that it is found again in
+//! its file's bytes (`media::Sources`; until it is known, the preview plays) and what is made of it, so that it is found again in
 //! later runs and by other projects. Large versions are kept there.
 
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use paw_engine::{AudioData, AudioRegion, DiskStore, Sink, TempoMap};
 use serde_json::json;
 
 use crate::bake::scheduler::{Bake, Made, Scheduler, Task};
-use crate::bake::{BakeJob, Digest, EntryKey, Hasher, Input, Output, Store, Stream, Write};
+use crate::bake::{BakeJob, EntryKey, Input, Output, Store, Stream, Write};
+use crate::media::{SourceHash, Sources};
 use crate::model::{Clip, ClipContent};
 use crate::stretch::{self, Mode, Params};
 use crate::warp::{self, Warp};
@@ -37,6 +38,9 @@ pub type Renders = Scheduler<Key>;
 /// waits for, the last `bake.progress` told, and the cache's tidying.
 #[derive(Default)]
 pub struct Upkeep {
+    /// Files of stretched clips with no hash yet: their clips play the
+    /// preview, and are built again once the hash is there.
+    pub unhashed: std::collections::HashSet<PathBuf>,
     /// The keys of a running render, pinned in the cache while it runs.
     pub exporting: std::collections::HashSet<Key>,
     /// When `bake.progress` was last sent, and what it said.
@@ -72,12 +76,15 @@ pub struct Key {
     edits: String,
     /// Not stretched or shifted: the edits alone.
     plain: bool,
+    /// The hash of the file's bytes, once it is known (`media::Sources`):
+    /// it names the bake, so a changed file is baked again.
+    pub source: Option<SourceHash>,
 }
 
 impl Key {
     /// What `clip` plays at `rate` with the song's tempo `map`, if it is an
     /// audio clip stretched, warped or shifted, or with an edit list.
-    pub fn of(clip: &Clip, rate: u32, map: &TempoMap) -> Option<Self> {
+    pub fn of(clip: &Clip, rate: u32, map: &TempoMap, sources: &Sources) -> Option<Self> {
         let Some(ClipContent::Audio { file, edits, .. }) = clip.playable() else {
             return None;
         };
@@ -96,6 +103,7 @@ impl Key {
             formants: !plain && clip.formants && clip.pitch != 0.0,
             edits: if edits.is_empty() { String::new() } else { crate::edits::text(edits) },
             plain,
+            source: sources.record(file).map(|r| r.hash),
         })
     }
 
@@ -112,10 +120,11 @@ impl Key {
         }
     }
 
-    /// The bake of this version of the file whose bytes hash to `source`.
-    pub fn job(&self, source: Digest) -> BakeJob {
+    /// The bake of this version, once its file has a hash.
+    pub fn job(&self) -> Option<BakeJob> {
+        let source = self.source?;
         let edits: serde_json::Value = serde_json::from_str(&self.edits).unwrap_or_default();
-        BakeJob {
+        Some(BakeJob {
             op: if self.plain { "edit".into() } else { "stretch".into() },
             version: 1,
             // Floats as their bits: exact, and never NaN in the JSON.
@@ -128,7 +137,7 @@ impl Key {
             }),
             inputs: vec![Input::File { source }],
             output: Output { stream: Stream::Sound, rate: Some(self.rate), format: None },
-        }
+        })
     }
 }
 
@@ -156,16 +165,11 @@ impl Stretch {
     pub fn run(&self, task: &Task) -> Result<Made> {
         let key = &self.key;
         let cache = self.bakes.as_ref().zip(self.disk.as_ref());
-        let entry = match cache {
-            Some(_) => {
-                let source = Hasher::file(&key.file).with_context(|| format!("reading {}", key.file.display()))?;
-                let job = key.job(source);
-                let entry = EntryKey::new(&job, TOOL);
-                task.entry(entry.id());
-                Some((job, entry))
-            }
-            None => None,
-        };
+        let entry = cache.and_then(|_| key.job()).map(|job| {
+            let entry = EntryKey::new(&job, TOOL);
+            task.entry(entry.id());
+            (job, entry)
+        });
         let mut writer = None;
         if let (Some((store, disk)), Some((job, entry))) = (cache, &entry) {
             let found = match store.open(entry) {
@@ -293,6 +297,7 @@ pub fn preview(
                     declick_in: from > 1e-6,
                     declick_out: true,
                     hold: Default::default(),
+                    direction: Default::default(),
                 });
             }
             t = e;

@@ -125,6 +125,11 @@ impl AudioCache {
         key: &crate::stretched::Key,
         warnings: &mut Vec<String>,
     ) -> Option<Arc<AudioData>> {
+        if key.source.is_none() {
+            // Asked again once the file has a hash: its preview plays meanwhile.
+            self.upkeep.unhashed.insert(key.file.clone());
+            return None;
+        }
         if !self.renders.known(key) {
             let source = self.get(&key.file, key.rate, warnings);
             let (bakes, disk) = (self.bakes.clone(), self.store.clone());
