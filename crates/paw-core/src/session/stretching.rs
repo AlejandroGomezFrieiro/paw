@@ -464,6 +464,7 @@ impl Session {
         let seconds = map.seconds_between(clip.start, clip.start + clip.length);
         let key = Key::of(clip, self.engine.handle.sample_rate as u32, &map);
         let warp = warp::of(clip, &map).unwrap_or_else(|| warp::Warp::even(1.0));
+        let source = self.sources.record(file).map(|r| r.hash);
         let audio = &mut self.audio;
         // `seconds` of what plays from `from`, in seconds of what plays.
         let mut part = |from: f64, seconds: f64, n: usize| -> Result<Vec<[f32; 3]>> {
@@ -480,7 +481,7 @@ impl Session {
             }
             let start = warp.inverse(from).max(0.0);
             let end = warp.inverse(from + seconds).max(start);
-            Ok(audio.peaks(file, start, end - start, n)?.to_vec())
+            Ok(audio.peaks(file, source, start, end - start, n)?.to_vec())
         };
         let begin = warp.forward(*offset);
 

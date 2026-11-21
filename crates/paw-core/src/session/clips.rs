@@ -293,7 +293,8 @@ impl Session {
         if seconds <= 0.0 || n == 0 {
             return Ok(Vec::new());
         }
-        Ok(self.audio.peaks(file, offset.max(0.0), seconds, n)?.to_vec())
+        let source = self.sources.record(file).map(|r| r.hash);
+        Ok(self.audio.peaks(file, source, offset.max(0.0), seconds, n)?.to_vec())
     }
 
     /// How many beats of sound an audio clip's file holds from where the

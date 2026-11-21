@@ -105,6 +105,10 @@ decode. This is also true after you move or copy the file or the project,
 and for each project that uses the same file. A changed file gets a new
 overview.
 
+The hash is the hash of [What a file is](#what-a-file-is). Until paw
+knows the hash of a new file, paw makes its overview from the sound. When
+paw knows the hash, the overview goes into the cache.
+
 ## Long files
 
 A file whose decoded sound is larger than `paw.opt.media_stream` megabytes
