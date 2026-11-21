@@ -121,7 +121,7 @@ The same views open in the graphical window, for the mouse:
 
 ![:e ~/music shows a folder of sounds as text. cw renames a file. A new name moves one into samples/, and dd deletes one. :w shows the plan](docs/images/tui-files.gif)
 
-![The song has two groups. The views narrow to the rhythm section, and the other tracks play from files. Then the other group is rendered](docs/images/tui-narrow.gif)
+![The song has two groups. The views narrow to the rhythm section, and the other tracks play from files. Then the view narrows to a region, and the other group is rendered](docs/images/tui-narrow.gif)
 
 ![Loop recording into takes (a script plays the notes), and a comp of one take](docs/images/tui-takes.gif)
 

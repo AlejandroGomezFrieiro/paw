@@ -19,5 +19,5 @@ renders the rest in the background and plays the files.
 
 To narrow to a group by name, type `:narrow Strings`.
 
-To see only one section of the song, for example the bridge, see
+To see one section, for example the bridge, see
 [How to work on one section of a song](work-on-one-section-of-a-song.md).
