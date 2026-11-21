@@ -108,7 +108,7 @@ test("undo and redo are heard of, with the states and the step's label", functio
   eq(undos[2].how, "goto", "and says how")
   paw.undo()
   paw.undo()
-  eq(#undos <= 3, true, "nothing to undo is not heard of")
+  eq(#undos, 2, "nothing to undo is not heard of")
 end)
 
 test("project.saving may refuse a save, and project.saved comes after one", function()
