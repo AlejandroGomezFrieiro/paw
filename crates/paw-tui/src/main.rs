@@ -314,23 +314,31 @@ fn clip_cat(file: &std::path::Path) -> Result<()> {
     Ok(())
 }
 
-fn run() -> Result<i32> {
-    let cli = Cli::parse();
-    let (args, doctor) = match cli.command {
-        None => (cli.run, false),
+/// What the command line asks for after the subcommands that finish at once.
+enum Start {
+    /// A subcommand ran; this is the exit code.
+    Done(i32),
+    /// Start the kernel; the flag is `paw doctor`.
+    Kernel(Box<args::Run>, bool),
+}
+
+/// Run the subcommands that need no kernel, or pick the options to start one.
+fn dispatch(cli: Cli) -> Result<Start> {
+    Ok(match cli.command {
+        None => Start::Kernel(Box::new(cli.run), false),
         Some(Command::Clip { command: ClipCommand::Cat { file } }) => {
             clip_cat(&file)?;
-            return Ok(0);
+            Start::Done(0)
         }
         Some(Command::Ctl(call)) => {
             ctl(call)?;
-            return Ok(0);
+            Start::Done(0)
         }
         Some(Command::Attach(options)) => {
             let result = attach(&options);
             terminal::restore();
             result?;
-            return Ok(0);
+            Start::Done(0)
         }
         // Started by a running instance to hold one plugin, or to look into
         // one plugin file, in a process of its own.
@@ -341,21 +349,21 @@ fn run() -> Result<i32> {
             // memory named in `args` are descriptors it inherited and that only these calls take,
             // and no thread has started yet (`main` has only parsed its arguments).
             if args.first().is_some_and(|kind| kind.starts_with("lua:")) {
-                return Ok(unsafe {
+                return Ok(Start::Done(unsafe {
                     paw_plugins::sandbox::serve_with(&args, |_, rate, block| {
                         paw_luadev::serve_make(rate, block)
                     })
-                });
+                }));
             }
             // SAFETY: As above.
-            return Ok(unsafe { paw_plugins::sandbox::serve(&args) });
+            Start::Done(unsafe { paw_plugins::sandbox::serve(&args) })
         }
         Some(Command::PluginScan(raw)) => {
             let args = raw.args;
             if args.first().map(String::as_str) == Some("lua") {
-                return Ok(paw_luadev::scan_main(&args[1..]));
+                return Ok(Start::Done(paw_luadev::scan_main(&args[1..])));
             }
-            return Ok(paw_plugins::scan_main(&args));
+            Start::Done(paw_plugins::scan_main(&args))
         }
         Some(Command::Doctor(doctor)) => {
             let own = doctor.script_args();
@@ -363,19 +371,14 @@ fn run() -> Result<i32> {
             run.script = std::iter::once(doctor_script()?.to_string_lossy().into_owned())
                 .chain(own)
                 .collect();
-            (run, true)
+            Start::Kernel(Box::new(run), true)
         }
-    };
-    // paw-gui starts the kernel with `--listen`: a kernel that would not
-    // listen must stop at once rather than leave it waiting for the socket.
-    if args.no_listen && args.listen.is_some() {
-        bail!("--no-listen and --listen contradict each other (the window always talks to the kernel through a socket)");
-    }
-    let script = args.script_path();
-    let script_args = args.script_args();
-    let scripted = script.is_some();
-    // A project that a running paw has open: this terminal joins it as a
-    // new seat, so that two people edit the one project, not two copies.
+    })
+}
+
+/// A project that a running paw has open: this terminal joins it as a
+/// new seat, so that two people edit the one project, not two copies.
+fn join_running(args: &args::Run, scripted: bool) -> Result<bool> {
     if !scripted
         && !args.headless
         && args.listen.is_none()
@@ -389,20 +392,14 @@ fn run() -> Result<i32> {
         let result = attach(&Attach::default());
         terminal::restore();
         result?;
-        return Ok(0);
+        return Ok(true);
     }
-    // A terminal older than the display it names cannot open a plugin's
-    // window. Put that right while this is still the only thread.
-    // SAFETY: Called from `main` before any thread starts: only the arguments were parsed and, at
-    // most, a running paw asked over its socket, so nothing else reads or writes the environment.
-    let display_note = unsafe { paw_plugins::repair_display_env() };
+    Ok(false)
+}
 
-    // A script only makes sound if it asks for a device.
-    let backend = match args.audio.as_deref() {
-        Some(word) => BackendChoice::from(word),
-        None if scripted && !doctor => BackendChoice::Null,
-        None => BackendChoice::Auto,
-    };
+/// The registry of devices, with the plugin scan. Returns the scan's notes
+/// and how many of them come from the scan itself.
+fn build_registry(args: &args::Run, display_note: Option<String>) -> (Registry, Vec<String>, usize) {
     let mut registry = Registry::with_builtins();
     // Devices written in Lua always run in helpers: Lua must not run on
     // the audio thread.
@@ -440,29 +437,12 @@ fn run() -> Result<i32> {
     // What the scan said, apart from the note about the display.
     let scanned = plugin_notes.len();
     plugin_notes.extend(display_note);
-    let mut kernel = Kernel::new(KernelOpts {
-        registry,
-        backend: BackendOptions {
-            backend,
-            sample_rate: args.rate,
-            buffer_size: args.buffer,
-            input: !args.no_input,
-            output_device: args.output.clone(),
-            input_device: args.input.clone(),
-            test_input: None,
-        },
-        config_dir: args.config.clone().unwrap_or_else(config_dir),
-        runtime_dir: args
-            .runtime
-            .clone()
-            .or_else(|| std::env::var_os("PAW_RUNTIME").map(PathBuf::from)),
-        clean: args.clean,
-        scripted,
-        argv: script_args.clone(),
-    })?;
+    (registry, plugin_notes, scanned)
+}
 
-    // A panic anywhere but inside a device (which the engine catches, bypasses
-    // and reports) writes a safety copy of the project before the program ends.
+/// A panic anywhere but inside a device (which the engine catches, bypasses
+/// and reports) writes a safety copy of the project before the program ends.
+fn install_safety_copy_hook() {
     let hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
         if paw_engine::guard::in_device() {
@@ -477,40 +457,38 @@ fn run() -> Result<i32> {
             );
         }
     }));
-    // What the terminal said about itself, for the log.
-    let mut described = None;
-    if !scripted && !args.headless {
-        // Plugins write to stderr whenever they like, which would land in the
-        // middle of the screen.
-        quiet_stderr(&cache_dir().join("stderr.log"));
-        let sender = kernel.sender();
-        let (terminal, width, height) = terminal::Terminal::start(move |event| {
-            sender.send(paw_core::KernelMsg::Input(event)).is_ok()
-        })?;
-        // A panic message printed into the alternate screen would be lost.
-        // Only one on the main thread ends the program; a device's is caught.
-        let hook = std::panic::take_hook();
-        std::panic::set_hook(Box::new(move |info| {
-            if !paw_engine::guard::in_device() && std::thread::current().name() == Some("main") {
-                terminal::restore();
-                restore_stderr();
-            }
-            hook(info);
-        }));
-        kernel.set_caps(terminal.caps());
-        described = Some(terminal.describe());
-        kernel.attach(Box::new(terminal), width, height);
-    }
-    kernel.boot()?;
-    if let Some(line) = &described {
-        kernel.eval("paw.api.log(...)", &[line])?;
-    }
-    if !scripted {
-        // Opening a project or adding a plugin does not wait for plugins
-        // to be made: they come in as they are ready.
-        kernel.eval("paw.api.load_apart(true)", &[])?;
-    }
-    for note in &plugin_notes {
+}
+
+/// Start the terminal and attach it to the kernel. Returns what the terminal
+/// said about itself, for the log.
+fn attach_terminal(kernel: &mut Kernel) -> Result<String> {
+    // Plugins write to stderr whenever they like, which would land in the
+    // middle of the screen.
+    quiet_stderr(&cache_dir().join("stderr.log"));
+    let sender = kernel.sender();
+    let (terminal, width, height) = terminal::Terminal::start(move |event| {
+        sender.send(paw_core::KernelMsg::Input(event)).is_ok()
+    })?;
+    // A panic message printed into the alternate screen would be lost.
+    // Only one on the main thread ends the program; a device's is caught.
+    let hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        if !paw_engine::guard::in_device() && std::thread::current().name() == Some("main") {
+            terminal::restore();
+            restore_stderr();
+        }
+        hook(info);
+    }));
+    kernel.set_caps(terminal.caps());
+    let described = terminal.describe();
+    kernel.attach(Box::new(terminal), width, height);
+    Ok(described)
+}
+
+/// Tell the log, the notifications and the quickfix list what the plugin
+/// scan said. `scanned` notes come from the scan, the rest from elsewhere.
+fn report_plugin_notes(kernel: &mut Kernel, plugin_notes: &[String], scanned: usize) -> Result<()> {
+    for note in plugin_notes {
         kernel.eval("paw.api.log('plugin scan: ' .. ...)", &[note])?;
         // Plugin files passed over because they failed before, in one line.
         if note.starts_with("skipped ") {
@@ -522,8 +500,13 @@ fn run() -> Result<i32> {
         let notes: Vec<&str> = plugin_notes[..scanned].iter().map(String::as_str).collect();
         kernel.eval("paw.emit('plugins.scanned', { notes = { ... } })", &notes)?;
     }
+    Ok(())
+}
 
-    let _server = if scripted || args.no_listen {
+/// The control socket, and the TCP listener if asked for. The returned
+/// server must live as long as the kernel runs.
+fn serve_listeners(args: &args::Run, scripted: bool, kernel: &mut Kernel) -> Result<Option<rpc::Server>> {
+    let server = if scripted || args.no_listen {
         None
     } else {
         let path = args.listen.clone().unwrap_or_else(rpc::default_path);
@@ -540,30 +523,39 @@ fn run() -> Result<i32> {
             Err(err) => return Err(err),
         }
     };
-
     if let Some(address) = &args.listen_tcp {
-        // Other machines may connect, if they know the token.
-        let token_file = args.token_file.clone().unwrap_or_else(rpc::token_path);
-        let token = rpc::token_at(&token_file)?;
-        let identity = if args.no_tls {
-            None
-        } else {
-            Some(paw_core::tls::identity(&paw_core::tls::default_dir())?)
-        };
-        let config = identity.as_ref().map(|identity| identity.config.clone());
-        let bound = rpc::serve_tcp(address, token, config, kernel.sender(), kernel.clients())?;
-        let how = match &identity {
-            Some(identity) => format!("in TLS, certificate {}", identity.fingerprint),
-            None => "in the clear (--no-tls)".to_string(),
-        };
-        let note = format!(
-            "listening on {bound} for connections that know the token in {}, {how}",
-            token_file.display()
-        );
-        // Without a terminal attached this goes to stderr as well.
-        kernel.eval("paw.notify(...)", &[&note])?;
+        listen_tcp(args, address, kernel)?;
     }
+    Ok(server)
+}
 
+/// Other machines may connect to `address`, if they know the token.
+fn listen_tcp(args: &args::Run, address: &str, kernel: &mut Kernel) -> Result<()> {
+    let token_file = args.token_file.clone().unwrap_or_else(rpc::token_path);
+    let token = rpc::token_at(&token_file)?;
+    let identity = if args.no_tls {
+        None
+    } else {
+        Some(paw_core::tls::identity(&paw_core::tls::default_dir())?)
+    };
+    let config = identity.as_ref().map(|identity| identity.config.clone());
+    let bound = rpc::serve_tcp(address, token, config, kernel.sender(), kernel.clients())?;
+    let how = match &identity {
+        Some(identity) => format!("in TLS, certificate {}", identity.fingerprint),
+        None => "in the clear (--no-tls)".to_string(),
+    };
+    let note = format!(
+        "listening on {bound} for connections that know the token in {}, {how}",
+        token_file.display()
+    );
+    // Without a terminal attached this goes to stderr as well.
+    kernel.eval("paw.notify(...)", &[&note])?;
+    Ok(())
+}
+
+/// Open the project named on the command line, or the last one, then run the
+/// expressions and keys that were passed.
+fn open_and_feed(args: &args::Run, kernel: &mut Kernel) -> Result<()> {
     if let Some(project) = &args.project {
         // A project, or a sound file to start a project from.
         let open = if args.plugins_offline {
@@ -590,6 +582,77 @@ fn run() -> Result<i32> {
     for keys in &args.keys {
         kernel.eval("paw.keymap.feed(...)", &[keys])?;
     }
+    Ok(())
+}
+
+fn run() -> Result<i32> {
+    let (args, doctor) = match dispatch(Cli::parse())? {
+        Start::Done(code) => return Ok(code),
+        Start::Kernel(args, doctor) => (*args, doctor),
+    };
+    // paw-gui starts the kernel with `--listen`: a kernel that would not
+    // listen must stop at once rather than leave it waiting for the socket.
+    if args.no_listen && args.listen.is_some() {
+        bail!("--no-listen and --listen contradict each other (the window always talks to the kernel through a socket)");
+    }
+    let script = args.script_path();
+    let script_args = args.script_args();
+    let scripted = script.is_some();
+    if join_running(&args, scripted)? {
+        return Ok(0);
+    }
+    // A terminal older than the display it names cannot open a plugin's
+    // window. Put that right while this is still the only thread.
+    // SAFETY: Called from `main` before any thread starts: only the arguments were parsed and, at
+    // most, a running paw asked over its socket, so nothing else reads or writes the environment.
+    let display_note = unsafe { paw_plugins::repair_display_env() };
+
+    // A script only makes sound if it asks for a device.
+    let backend = match args.audio.as_deref() {
+        Some(word) => BackendChoice::from(word),
+        None if scripted && !doctor => BackendChoice::Null,
+        None => BackendChoice::Auto,
+    };
+    let (registry, plugin_notes, scanned) = build_registry(&args, display_note);
+    let mut kernel = Kernel::new(KernelOpts {
+        registry,
+        backend: BackendOptions {
+            backend,
+            sample_rate: args.rate,
+            buffer_size: args.buffer,
+            input: !args.no_input,
+            output_device: args.output.clone(),
+            input_device: args.input.clone(),
+            test_input: None,
+        },
+        config_dir: args.config.clone().unwrap_or_else(config_dir),
+        runtime_dir: args
+            .runtime
+            .clone()
+            .or_else(|| std::env::var_os("PAW_RUNTIME").map(PathBuf::from)),
+        clean: args.clean,
+        scripted,
+        argv: script_args.clone(),
+    })?;
+
+    install_safety_copy_hook();
+    let described = if !scripted && !args.headless {
+        Some(attach_terminal(&mut kernel)?)
+    } else {
+        None
+    };
+    kernel.boot()?;
+    if let Some(line) = &described {
+        kernel.eval("paw.api.log(...)", &[line])?;
+    }
+    if !scripted {
+        // Opening a project or adding a plugin does not wait for plugins
+        // to be made: they come in as they are ready.
+        kernel.eval("paw.api.load_apart(true)", &[])?;
+    }
+    report_plugin_notes(&mut kernel, &plugin_notes, scanned)?;
+    let _server = serve_listeners(&args, scripted, &mut kernel)?;
+    open_and_feed(&args, &mut kernel)?;
     if let Some(script) = &script {
         kernel.run_file(script, script_args)?;
         return Ok(kernel.exit_code().unwrap_or(0));
