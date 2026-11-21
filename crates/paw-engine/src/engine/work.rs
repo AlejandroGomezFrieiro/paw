@@ -396,13 +396,13 @@ impl Work<'_> {
                     dev.failed = true;
                     left[..n].fill(0.0);
                     right[..n].fill(0.0);
-                    self.shared.set_fault(slot, guard::PANICKED);
+                    self.shared.set_fault(slot, guard::Fault::PANICKED);
                 } else if !guard::finite(&left[..n]) || !guard::finite(&right[..n]) {
                     left[..n].fill(0.0);
                     right[..n].fill(0.0);
                     if !dev.flagged {
                         dev.flagged = true;
-                        self.shared.set_fault(slot, guard::NOT_FINITE);
+                        self.shared.set_fault(slot, guard::Fault::NOT_FINITE);
                     }
                 }
             }

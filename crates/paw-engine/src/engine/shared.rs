@@ -2,6 +2,7 @@
 
 use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU32, AtomicU64, Ordering::Relaxed};
 
+use crate::guard::Fault;
 use crate::launch::{self, LaunchState};
 use crate::slot::{DeviceSlot, TrackSlot};
 
@@ -30,8 +31,8 @@ pub struct Shared {
     pub(super) counting: AtomicU32,
     /// Processing time of every callback.
     pub blocks: BlockStats,
-    /// What has gone wrong with each device slot: [`PANICKED`](crate::guard::PANICKED),
-    /// [`NOT_FINITE`](crate::guard::NOT_FINITE). Cleared when a device is put in the slot.
+    /// What has gone wrong with each device slot: [`Fault::PANICKED`](crate::guard::Fault::PANICKED),
+    /// [`Fault::NOT_FINITE`](crate::guard::Fault::NOT_FINITE). Cleared when a device is put in the slot.
     pub(super) faults: Vec<AtomicU8>,
     /// Each track's clip launcher.
     pub(super) launch: Vec<LaunchState>,
@@ -182,17 +183,17 @@ impl Shared {
     }
 
     /// What has gone wrong with the device in `slot` since it was put there
-    /// ([`PANICKED`](crate::guard::PANICKED), [`NOT_FINITE`](crate::guard::NOT_FINITE)); the bits in `clear` are
+    /// ([`Fault::PANICKED`](crate::guard::Fault::PANICKED), [`NOT_FINITE`](crate::guard::NOT_FINITE)); the bits in `clear` are
     /// taken, so that each is reported once.
-    pub fn fault(&self, slot: DeviceSlot, clear: u8) -> u8 {
-        self.faults
-            .get(slot.index())
-            .map_or(0, |f| f.fetch_and(!clear, Relaxed))
+    pub fn fault(&self, slot: DeviceSlot, clear: Fault) -> Fault {
+        self.faults.get(slot.index()).map_or(Fault::empty(), |f| {
+            Fault::from_bits_retain(f.fetch_and(!clear.bits(), Relaxed))
+        })
     }
 
-    pub(super) fn set_fault(&self, slot: DeviceSlot, fault: u8) {
+    pub(super) fn set_fault(&self, slot: DeviceSlot, fault: Fault) {
         if let Some(f) = self.faults.get(slot.index()) {
-            f.fetch_or(fault, Relaxed);
+            f.fetch_or(fault.bits(), Relaxed);
         }
     }
 
