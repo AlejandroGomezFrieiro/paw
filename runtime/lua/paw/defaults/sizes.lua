@@ -79,7 +79,9 @@ command("view.width", function(ctx)
   if name ~= "arrange" and node and in_row then return resize(name .. "_width", by, name, "width", 12) end
   if not arrange_alone() and paw.layout.resize(nil, "width", by, true) then return end
   local now = tonumber(paw.opt.header_width)
-  if not now then now = paw.ui.views.arrange.geometry and paw.ui.views.arrange.geometry.hw or 24 end
+  -- The headers' own width, without the track column at their left.
+  local g = paw.ui.views.arrange.geometry
+  if not now then now = g and g.hw - g.layout.column.width or 24 end
   paw.opt.header_width = util.clamp(now + by, 8, 60)
   paw.notify("header width " .. paw.opt.header_width)
 end, { desc = "A wider side panel, or track header in the arrange view: `view.width 4`, `view.width -2`" })

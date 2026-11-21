@@ -188,6 +188,7 @@ below link the main ones.
 - [The terminal screen](reference/screen.md): the parts of the screen, the bottom line, colors
 - [Pictures in the terminal](reference/pictures.md): pixels in terminals that show images, strips, `paw.plot`
 - [The status line](reference/status-line.md): sections, components, `paw.statusline`
+- [The track column and the bar labels](reference/trackcolumn.md): numbers, signs, group folds and bar labels, `paw.trackcolumn`, `paw.ruler`
 - [The graphical window](reference/window.md): its command line, each gesture, the panes and the views in windows of their own
 
 ### Find

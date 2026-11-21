@@ -11,6 +11,7 @@ local record Opts
    audition_delay: number
    audition_level: number
    autosave: number
+   barlabel: {string | number}
    braille: boolean
    chords: string | boolean
    click_accent: boolean
@@ -60,6 +61,7 @@ local record Opts
    note_grid: number
    note_snap: boolean
    note_zoom: number
+   number: boolean
    octave: integer
    on_external_change: string
    pianoroll_height: number
@@ -68,6 +70,8 @@ local record Opts
    project_screen: boolean
    qf_diagnostics: string
    qf_height: number
+   relativebar: boolean
+   relativenumber: boolean
    render_loudest: number
    reopen_last: boolean
    ripple: boolean
@@ -82,6 +86,7 @@ local record Opts
    threads: integer
    timeoutlen: number
    track_height: integer | string
+   trackcolumn: {string | number}
    true_peak_target: number
    undo_memory: number
    undo_steps: integer

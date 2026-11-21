@@ -63,7 +63,7 @@ test("lenses: a server for the mix marks a hot fader in every view, says what it
 
   -- The terminal: the header, the status line, the mixer's strip and its label.
   local text = screen()
-  has(text, "1!Bass", "the header of the hot track is marked")
+  has(text, " 1 !", "the track column signs the hot track")
   has(text, "W1", "the status line counts it")
   paw.ui.show("mixer")
   text = screen()

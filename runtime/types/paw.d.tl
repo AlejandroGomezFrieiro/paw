@@ -53,6 +53,7 @@ local type RegexModule = require("paw.regex")
 local type RemoteModule = require("paw.remote")
 local type RenderModule = require("paw.render")
 local type RolesModule = require("paw.roles")
+local type RulerModule = require("paw.ruler")
 local type SceneModule = require("paw.scene")
 local type SeatsModule = require("paw.seats")
 local type SnippetModule = require("paw.snippet")
@@ -61,6 +62,7 @@ local type TakesModule = require("paw.takes")
 local type TempoModule = require("paw.tempo")
 local type TempolaneModule = require("paw.tempolane")
 local type TextbufModule = require("paw.textbuf")
+local type TrackcolumnModule = require("paw.trackcolumn")
 local type UiModule = require("paw.ui")
 local type UtilModule = require("paw.util")
 local type VcaModule = require("paw.vca")
@@ -179,6 +181,7 @@ global record paw
    roll_clips: Untyped
    roll_draw: Untyped
    routes: Untyped
+   ruler: RulerModule
    scene: SceneModule
    scope: Untyped
    seats: SeatsModule
@@ -197,6 +200,7 @@ global record paw
    toml: Untyped
    track: function(which: number | string): ObjectsModule.Track
    track_kinds: Partial.TrackKinds
+   trackcolumn: TrackcolumnModule
    tracks: function(): {ObjectsModule.Track}
    transport: ObjectsModule.Transport
    try: Untyped

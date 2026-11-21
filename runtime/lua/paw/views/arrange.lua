@@ -123,6 +123,15 @@ end
 function view:layout(w, h)
   local tracks = paw.groups.rows()
   local hw = view.header_width(w)
+  -- The track column (paw/trackcolumn.tl) at the left of the headers takes
+  -- its columns from the timeline, as Neovim's number column takes them
+  -- from the text: the headers keep their width. `count` is how far the
+  -- counts of `j` and `k` go: over lane rows too, in normal mode, when
+  -- lanes are open.
+  local count = #tracks
+  if paw.lanes.any_open() and paw.keymap.mode == "n" then count = #paw.lanes.lines() end
+  local column = paw.trackcolumn.layout({ rows = tracks, count = count }, math.max(0, w - hw - 8))
+  hw = hw + column.width
   -- The ruler, its second row if something asks for one, a row for each
   -- band of an extension's (`paw.frontend.bands`) that has entries, and
   -- the tempo lane's two rows when it is shown.
@@ -148,7 +157,7 @@ function view:layout(w, h)
   if lane_lines > 0 or own then
     local rows, y = self:rows_with_lanes(tracks, th, ruler_rows, room, cursor_index)
     return {
-      hw = hw, tw = w - hw, th = th, ruler_rows = ruler_rows, tempo_rows = tempo_rows, rows = rows, tracks = tracks,
+      hw = hw, tw = w - hw, column = column, th = th, ruler_rows = ruler_rows, tempo_rows = tempo_rows, rows = rows, tracks = tracks,
       used = y, master = { kind = "master", id = 0, y = h - master_rows, h = master_rows }, bands = bands, band_y = band_y,
     }
   end
@@ -165,7 +174,7 @@ function view:layout(w, h)
     y = y + th
   end
   return {
-    hw = hw, tw = w - hw, th = th, ruler_rows = ruler_rows, tempo_rows = tempo_rows, rows = rows, tracks = tracks,
+    hw = hw, tw = w - hw, column = column, th = th, ruler_rows = ruler_rows, tempo_rows = tempo_rows, rows = rows, tracks = tracks,
     used = y, master = { kind = "master", id = 0, y = h - master_rows, h = master_rows }, bands = bands, band_y = band_y,
   }
 end
@@ -231,12 +240,14 @@ local function header(self, buf, y, height, t, index, selected, lanes, hue)
     color = draw.track_colour(t, index), selected = selected or nil,
   })
   local narrow = w < 16
-  if not narrow then buf:text(1, y, string.format("%2s", index or ""), selected and "TrackInfo" or "TrackIndex") end
-  local name_at = narrow and 2 or 4
+  -- The track's number is in the track column (paw/trackcolumn.tl), at
+  -- the left of the header; the lines under the name start further in.
+  local body_at = narrow and 2 or 4
+  local name_at = 2
   -- The free column before the name, for what modules mark there. A kind
-  -- of track's letter stands clear of the number and of the name.
-  local mark_at = name_at - 1
-  if not narrow and not t.master and paw.track_kinds.spec(t.id) then mark_at, name_at = 4, 6 end
+  -- of track's letter stands clear of the stripe and of the name.
+  local mark_at = 1
+  if not narrow and not t.master and paw.track_kinds.spec(t.id) then mark_at, name_at = 2, 4 end
 
   -- The chips on the right: M S R I with room, MSRI in less, only those
   -- that are on in less still.
@@ -260,7 +271,7 @@ local function header(self, buf, y, height, t, index, selected, lanes, hue)
         letter = chip[1], on = chip[2] or false, style = chip[3], tone = chip_tones[chip[4]],
         icon = chip[4] == "monitor" and "speaker" or nil, label = chip[4],
       })
-      if not narrow then self.flags[chip[4]] = x end
+      if not narrow then self.flags[chip[4]] = x + (self.column_width or 0) end
     end
   end
   local before = chips_w > 0 and chips_at - 1 or right
@@ -290,15 +301,16 @@ local function header(self, buf, y, height, t, index, selected, lanes, hue)
       before = before - #vol - 1
     end
   end
-  -- A member of a group stands a step in under it; a group has a mark
-  -- that says whether it is open, and when folded how many tracks it holds.
+  -- A folded group says how many tracks it holds. The track column's
+  -- `fold` shows the groups as a tree; without it, a member stands a step
+  -- in under its group, and a group has a mark that says whether it is open.
   local name = t.name
   if not t.master then
     local groups = paw.groups
-    name = string.rep(" ", groups.depth(t.id)) .. name
-    if groups.is_group(t.id) then
-      name = (groups.folded(t.id) and g.closed or g.open) .. " " .. name
-        .. (groups.folded(t.id) and (" +" .. #groups.members(t.id)) or "")
+    if groups.is_group(t.id) and groups.folded(t.id) then name = name .. " +" .. #groups.members(t.id) end
+    if not paw.trackcolumn.shows("fold") then
+      name = string.rep(" ", groups.depth(t.id)) .. name
+      if groups.is_group(t.id) then name = (groups.folded(t.id) and g.closed or g.open) .. " " .. name end
     end
   end
   local room = math.max(1, before - name_at)
@@ -313,10 +325,10 @@ local function header(self, buf, y, height, t, index, selected, lanes, hue)
     local left, r, hold, clipped = draw.track_peak(t.id)
     local vol = draw.db_text(t.volume)
     local vol_at = right - #vol
-    if vol_at - 1 > name_at then
+    if vol_at - 1 > body_at then
       -- A window moves it with the live values, and shows the volume on it
       -- and the clip light at its end. The master's has both sides.
-      buf:mark("hmeter", name_at, y + 1, vol_at - 1 - name_at, 1, {
+      buf:mark("hmeter", body_at, y + 1, vol_at - 1 - body_at, 1, {
         levels = { left, r }, hold = hold, clipped = clipped, stereo = t.master or nil, at = fader_at(t.volume),
         bind = "meter:" .. t.id,
       })
@@ -340,7 +352,7 @@ local function header(self, buf, y, height, t, index, selected, lanes, hue)
   for i, kind in ipairs(lines) do
     local row = y + 1 + i
     if row >= y + height then break end
-    local x = name_at
+    local x = body_at
     local width = right - x
     if kind == "route" then
       local pan = draw.pan_text(t.pan or 0)
@@ -690,6 +702,44 @@ function view:draw_lane_row(headers, timeline, row, lines)
   timeline:fill(x, y + 1, cw, 1, nil, "CursorTail")
 end
 
+--- Where each row is among the lines that the counts of `j` and `k` go
+--- over, and the cursor's: rows of tracks, and the lane rows too in normal
+--- mode while lanes are open (paw/cursor.tl `move_track`). A take lane and,
+--- in other modes, a lane row is on no line.
+local function counted_lines(L, cursor_track, cursor_lane)
+  local line_of, at = {}, nil
+  if paw.lanes.any_open() and paw.keymap.mode == "n" then
+    local lines = paw.lanes.lines()
+    local index = {}
+    for i, l in ipairs(lines) do index[l.track .. ":" .. (l.lane or "")] = i end
+    for _, row in ipairs(L.rows) do
+      if row.kind ~= "take" then line_of[row] = index[row.id .. ":" .. (row.lane and row.lane.id or "")] end
+    end
+    at = cursor_track == 0 and #lines + 1 or index[tostring(cursor_track) .. ":" .. (cursor_lane or "")]
+  else
+    for _, row in ipairs(L.rows) do
+      if row.kind == "track" then line_of[row] = row.index end
+    end
+    at = paw.cursor.row()
+  end
+  return line_of, at
+end
+
+--- The track column (paw/trackcolumn.tl) on each line of each row shown.
+function view:draw_column(column, L, cursor_track, cursor_lane)
+  local line_of, at = counted_lines(L, cursor_track, cursor_lane)
+  for _, row in ipairs(L.rows) do
+    local line = line_of[row]
+    local on = row.id == cursor_track and (row.kind == "track" and not cursor_lane or row.kind == "lane" and row.lane.id == cursor_lane)
+    for k = 0, row.h - 1 do
+      paw.trackcolumn.draw(column, L.column, row.y + k, row.id, {
+        row = row.index, line = k, kind = row.kind, lane = row.lane and row.lane.id or nil,
+        relative = line and at and math.abs(line - at) or nil, cursor = on or nil,
+      })
+    end
+  end
+end
+
 --- The tempo lane: the header says what the tempo is at the cursor, the
 --- timeline draws the map as a curve, a step where a change holds and a slope
 --- where it ramps, a mark on each change. `:tempo.lane` or `zT` hides it.
@@ -822,8 +872,13 @@ function view:render(buf, ctx)
   buf:hit(0, 0, w, h, { kind = "arrange" })
   -- The rule between the headers and the timeline, from top to bottom.
   buf:fill(hw - 1, 0, 1, h, g.rule, "Rule")
-  local headers, lanes = buf:sub(0, 0, hw - 1, h), buf:sub(hw, 0, tw, h)
-  headers:fill(0, 0, hw - 1, h, " ", "TrackHeader")
+  -- The track column at the left, then the headers.
+  local cw = L.column.width
+  -- Where the chips are, for the pointer, in the view's columns.
+  self.column_width = cw
+  local column = cw > 0 and buf:sub(0, 0, cw, h) or nil
+  local headers, lanes = buf:sub(cw, 0, hw - 1 - cw, h), buf:sub(hw, 0, tw, h)
+  buf:fill(0, 0, hw - 1, h, " ", "TrackHeader")
 
   -- Ruler: where the cursor is in the corner; bars, beat ticks and the loop.
   buf:fill(0, 0, hw - 1, L.ruler_rows, " ", "Ruler")
@@ -861,11 +916,17 @@ function view:render(buf, ctx)
   -- Skip bar numbers that would run into each other when zoomed out.
   local every = math.max(1, math.ceil(5 / (paw.time.bar(self.scroll) * zoom)))
   local free = 0 -- the first column a label has not taken
+  local label_end = {} -- where each bar's label ends, by its column
   for _, line in ipairs(lines) do
     if line.bar then
       if (line.bar - 1) % every == 0 and line.x >= free then
         local style = in_punch(line.x) and "RulerPunch" or in_loop(line.x) and "RulerLoop" or "RulerBar"
-        free = line.x + ruler:text(line.x, 0, tostring(line.bar), style) + 1
+        -- Its label: the parts of `paw.opt.barlabel` (paw/ruler.tl).
+        local x = line.x
+        for _, piece in ipairs(paw.ruler.label(line.bar, line.beat, style, cursor.beat)) do
+          x = x + ruler:text(x, 0, piece[1], piece[2])
+        end
+        free, label_end[line.x] = x + 1, x
       end
     elseif zoom >= 2 and line.x >= free then
       ruler:text(line.x, 0, g.tick, in_punch(line.x) and "RulerPunchTick" or in_loop(line.x) and "RulerLoopTick" or "RulerTick")
@@ -884,7 +945,7 @@ function view:render(buf, ctx)
   local mark_end = -1
   for _, mark in ipairs(paw.tempo.marks(self.scroll, self.scroll + span)) do
     local x = col(mark.beat)
-    if paw.tempo.is_bar_line(mark.beat) then x = x + #tostring(paw.time.bar_of(mark.beat)) end
+    if paw.tempo.is_bar_line(mark.beat) then x = label_end[x] or (x + #tostring(paw.time.bar_of(mark.beat))) end
     x = math.max(x, mark_end)
     mark_end = x + ruler:text(x, 0, (mark.kind == "tempo" and "▾" or "‖") .. mark.text, "RulerTempo") + 1
   end
@@ -943,6 +1004,7 @@ function view:render(buf, ctx)
       end
     end
   end
+  if column then self:draw_column(column, L, cursor_track, cursor_lane) end
   -- The selection of visual mode: whole tracks, or a stretch of time on some.
   local selection = paw.keymap.selection()
   if selection then
@@ -966,9 +1028,9 @@ function view:render(buf, ctx)
   elseif mst.y - L.used >= 2 then
     -- Room left under the last track says how to fill it.
     -- A button in a window, which a click opens the kinds of track from.
-    headers:text(hw >= 16 and 4 or 2, L.used, "o", "EmptyKey")
-    local at = hw >= 16 and 6 or 4
-    headers:mark("button", at, L.used, math.max(9, math.min(13, hw - 1 - at)), 1, {
+    headers:text((headers.width + 1) >= 16 and 4 or 2, L.used, "o", "EmptyKey")
+    local at = (headers.width + 1) >= 16 and 6 or 4
+    headers:mark("button", at, L.used, math.max(9, math.min(13, (headers.width + 1) - 1 - at)), 1, {
       text = "new track", words = "New track", icon = "plus", style = "Empty", quiet = true, label = "new track",
     })
   end

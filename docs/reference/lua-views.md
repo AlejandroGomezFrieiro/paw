@@ -423,6 +423,13 @@ the other `fs_` functions.
 status line, a winbar and the tab line. See "The status line" in
 [The status line](status-line.md).
 
+## The track column and the bar labels
+
+`paw.trackcolumn` adds, changes and removes the parts of the column at
+the left of the track headers: the numbers, the signs and the folds of
+groups. `paw.ruler` does the same for the label of each bar on the ruler.
+See [The track column and the bar labels](trackcolumn.md).
+
 ## Help
 
 The `README.md` of an extension, and each `doc/*.md` beside it, are pages

@@ -31,6 +31,10 @@ A motion moves the cursor. A count repeats it: `3W` moves three bars.
 | `/name`, `n` `N`, `*` | finds a clip or track by name, the next match, the previous match, the next clip with the name of this clip | finds a note by its pitch name (`/c4`) |
 | `gP` | the playhead | |
 
+To see the counts, `:set relativenumber` shows how many `j` or `k` go to
+each track, and `:set relativebar` how many `W` or `B` go to each bar.
+See [The track column](arrange-view.md#the-track-column).
+
 ## Marks and jumps
 
 | Keys | Effect |

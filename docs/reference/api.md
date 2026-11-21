@@ -1385,6 +1385,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
   It gives a handle with the type of the default: `get()` and `set(value)`.
 - `paw.option.definitions()`: Each option given a default by `paw.option.define`, by name: what it was given, `{ default, spec }`, the same table until defined again.
+- `paw.option.full(name)`: The full name of option `name`: itself, or what its short name stands for.
 - `paw.option.list()`: Every option that has a default, by name: { name, default }.
 - `paw.option.read(name, text)`: The value typed text stands for in option `name` (`true`, `off`, a number, the text, or a list for an option that takes one: `a,b`), or nil and an error that says what it takes. A value that is not text is checked as it is.
 - `paw.option.show(value)`: An option's value as text: a list is its items with commas between.
@@ -1708,6 +1709,18 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.routes.sidechain_text(d)`: What a device listens to, as text: the name of the track, with `pre` when it takes the sound before the fader. Nil if it listens to nothing.
 - `paw.routes.spread(device)`: Make a track for each output pair of a device that plays nowhere yet, with the name of the pair, and send the pair there. paw puts the new tracks and the track of the device in a group (or in the group of the track of the device). The track of the device cannot be the group, because its pairs feed the new tracks, which would then feed it again. Returns the new tracks.
 
+## Module paw.ruler
+
+- `paw.ruler.add(name, spec)`: Add a part of the bar labels, or put a new one in place of one of that name. It goes into `paw.opt.barlabel` (unless `hidden`).
+- `paw.ruler.label(bar, beat, style, cursor_beat)`: The pieces of bar `bar`'s label, from the parts in `paw.opt.barlabel` in their order. `style` is the style of the bar's number there.
+- `paw.ruler.relative(bar, beat)`: How many `W` (ahead) or `B` (behind) reach bar `bar` from the cursor at `beat`: from inside a bar, the first `B` goes to its own start (paw/defaults/cursor.lua). Nil for the cursor's own bar.
+- `paw.ruler.remove(name)`: Take a part away, and its name out of `paw.opt.barlabel`.
+- `paw.ruler.set(name, patch)`: Change a part that is there, the built-in `number` too: its `order`, `render`, and the `glyphs` and `styles` it draws with (merged into its own).
+
+  ```lua
+  paw.ruler.set("number", { styles = { cursor = "Title" } })
+  ```
+
 ## Module paw.scene
 
 - `paw.scene.closed(client)`: A connection closed or stopped to watch. paw keeps no more data for it.
@@ -1935,6 +1948,28 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.track_kinds.remove(name)`: Forget a kind: no longer offered, nor in the menus. Tracks that keep it are ordinary tracks again until something defines it.
 - `paw.track_kinds.set(which, name, args)`: Make a track of `name`'s kind: keep the kind on it, then let the kind make it what it is. `args` go to `create`.
 - `paw.track_kinds.spec(which)`: A track's kind as defined, or nil (an ordinary track, or a kind that no loaded extension defines).
+
+## Module paw.trackcolumn
+
+- `paw.trackcolumn.add(name, spec)`: Add a component, or put a new one in place of one of that name. It goes into `paw.opt.trackcolumn` (unless `hidden`), so it shows at once.
+- `paw.trackcolumn.click(L, x, track, ctx)`: A click at column `x` of the column on a line of `track`: the component there does what its `click` says. True if one had a `click`.
+- `paw.trackcolumn.describe(track)`: What the components shown say of `track` for `K` (their `describe`), a line each, in their order.
+- `paw.trackcolumn.draw(buf, L, y, track, ctx)`: Draw one line of the column for `track` at line `y` of `buf` (the column's own part of the view), with what `ctx` says of the line.
+- `paw.trackcolumn.layout(frame, room)`: The column for one draw over the tracks of `frame`, at most `room` columns wide: the components named in `paw.opt.trackcolumn`, in their order, each as wide as it says. A component that fails takes no room.
+- `paw.trackcolumn.remove(name)`: Take a component away, and its name out of `paw.opt.trackcolumn`.
+- `paw.trackcolumn.set(name, patch)`: Change a component that is there, the built-in ones too: its `order` (to put it elsewhere), `width`, `render`, `click`, `describe`, and the `glyphs` and `styles` it draws with (merged into its own).
+
+  ```lua
+  paw.trackcolumn.set("fold", { order = 5, glyphs = { open = "-", closed = "+" } })
+  paw.trackcolumn.set("number", { width = 4, styles = { cursor = "Title" } })
+  ```
+- `paw.trackcolumn.set_sign(name, patch)`: Change a sign that is there, as `set` changes a component: its `priority`, `render`, `describe`, `glyphs` and `styles`.
+
+  ```lua
+  paw.trackcolumn.set_sign("diagnostics", { glyphs = { error = "E", warn = "W" } })
+  ```
+- `paw.trackcolumn.shows(name)`: True if component `name` is shown: added and named in `paw.opt.trackcolumn`.
+- `paw.trackcolumn.sign(name, spec)`: Add a sign to the `signs` component: `render(track, ctx)` gives one character, or nothing. Where several give one, the highest `priority` shows. `nil` for `spec` takes the sign away.
 
 ## Module paw.ui
 

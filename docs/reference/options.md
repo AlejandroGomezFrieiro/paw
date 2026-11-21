@@ -99,7 +99,12 @@ clip. `:set undo_steps=200` removes the oldest steps at once.
 | `paw.opt.zoom` | `2` | The columns for each beat in the arrange view. |
 | `paw.opt.note_zoom` | `8` | The columns for each beat in the piano roll. |
 | `paw.opt.track_height` | `"auto"` | The rows for each track in the arrange view, 1 to 12. `"auto"` gives 3 to 4 rows, to fit the tracks on the screen. |
-| `paw.opt.header_width` | `"auto"` | The columns of the track headers, 8 to 60. `"auto"` gives 26, 22, 18 or 12 columns, by the width of the screen. |
+| `paw.opt.header_width` | `"auto"` | The columns of the track headers, 8 to 60. `"auto"` gives 26, 22, 18 or 12 columns, by the width of the screen. The track column at their left is not in these columns. |
+| `paw.opt.number` (`nu`) | `true` | Shows the number of each track in the track column of the arrange view. |
+| `paw.opt.relativenumber` (`rnu`) | `false` | Shows how many `j` or `k` go to each track. The track of the cursor keeps its number. |
+| `paw.opt.trackcolumn` | `number,signs,fold` | The parts of the track column that show. See [The track column](trackcolumn.md). |
+| `paw.opt.relativebar` (`rbar`) | `false` | Shows on the ruler how many `W` or `B` go to each bar. The bar of the cursor keeps its number. |
+| `paw.opt.barlabel` | `number` | The parts of the label of each bar on the ruler. |
 | `paw.opt.devices_width` | `36` | The columns of the device panel. |
 | `paw.opt.mixer_height` | `12` | The rows of the mixer. |
 | `paw.opt.pianoroll_height` | `0` | The rows of the piano roll. `0` shares the space. |

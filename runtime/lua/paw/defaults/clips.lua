@@ -265,7 +265,9 @@ command("set", function(ctx)
   -- `set follow?` shows an option; a name that is none is an error, as in Vim.
   local ask = name:match("^(.-)%?$")
   if ask then name, value = ask, nil end
+  -- A short name stands for its option: `set rnu` is `set relativenumber`.
   local function known(n)
+    n = paw.option.full(n)
     for _, o in ipairs(paw.option.list()) do
       if o.name == n then return true end
     end
@@ -278,6 +280,8 @@ command("set", function(ctx)
   local inv = not flip and not ask and not off and not known(name) and name:match("^inv(.+)$")
   local base = flip or off or inv or name
   if not known(base) then return paw.notify("E518: Unknown option: " .. (flip or name), "error") end
+  base = paw.option.full(base)
+  if not (flip or off or inv) then name = base end
   local boolean = type(paw.opt[base]) == "boolean"
   if flip or off or inv then
     name = base

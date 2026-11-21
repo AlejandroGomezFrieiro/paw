@@ -134,6 +134,8 @@ command("info", function()
   if t.chain_origin then lines[#lines + 1] = "  devices copied from " .. t.chain_origin end
   local kind = paw.track_kinds.describe(track.id)
   if kind then lines[#lines + 1] = "  kind    " .. kind end
+  -- What the parts of the track column say of it (paw/trackcolumn.tl).
+  for _, line in ipairs(paw.trackcolumn.describe(track.id)) do lines[#lines + 1] = "  " .. line end
   lines[#lines + 1] = string.format("  volume %+.1f dB, pan %+.2f%s%s%s", t.volume, t.pan, t.mute and ", muted" or "", t.solo and ", solo" or "", t.armed and ", armed" or "")
   lines[#lines + 1] = "  output  " .. (t.output and api.track_get(t.output, "name") or "Master")
   if t.input then lines[#lines + 1] = "  input   " .. t.input end

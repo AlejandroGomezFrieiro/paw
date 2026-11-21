@@ -482,20 +482,31 @@ end
 local function press_header(self, e, h)
   local row, id = h.row, h.row.id
   local t = api.track_get(id)
-  local hw = self.geometry.hw - 1
-  local name_at = hw < 16 and 2 or 4
+  -- The track column at the left (paw/trackcolumn.tl), then the header,
+  -- whose controls are placed from its own left edge.
+  local column = self.geometry.layout.column
   local cx, cy = math.floor(e.x), math.floor(e.y)
+  if cx < column.width and row.kind == "track" then
+    A.select(id)
+    paw.trackcolumn.click(column, cx, id, { row = row.index, line = cy - row.y, kind = row.kind })
+    return api.ui_redraw()
+  end
+  cx = cx - column.width
+  local hw = self.geometry.hw - 1 - column.width
+  local name_at = hw < 16 and 2 or 4
   if on_edge(row, e.y, h.fine, e) then return press_height(self, e, row) end
   if cy == row.y then
+    -- The chips are where the view has them (`view.flags`, in its columns).
     for field, x in pairs(self.flags) do
-      if cx == x then
+      if cx + column.width == x then
         if field == "monitor" then return A.toggle(id, field) end
         local on = not t[field]
         A.set_flag(id, field, on)
         return mouse.grab(e, { drag = function(d) A.sweep_flag(row.index, row_index(self, d.y), field, on) end })
       end
     end
-    if paw.groups.is_group(id) and cx == name_at + paw.groups.depth(id) then return A.fold(id) end
+    -- Without the column's `fold`, the group's mark is before its name.
+    if paw.groups.is_group(id) and not paw.trackcolumn.shows("fold") and cx == 2 then return A.fold(id) end
   end
   -- The input's button, and the volume, which a click puts the clip light
   -- out on.
