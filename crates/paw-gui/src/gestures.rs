@@ -706,6 +706,24 @@ fn a_clip_dragged_onto_another_window_in_one_frame_is_dropped_there() {
     assert!(press.is_some() && drop.is_some() && press < drop, "the press on the clip, then the drop on the panel: {inputs:?}");
 }
 
+// The release of a click whose press came in the same frame is the
+// window's own, not a drop from another: else the click (and a double
+// click that opens the clip) was lost on a loaded machine.
+#[test]
+fn a_click_on_a_clip_in_one_frame_is_not_a_drop() {
+    let (mut h, calls, _) = arrange_window();
+    h.run_steps(2);
+    calls.borrow_mut().clear();
+    let at = h.get_by_label("verse").rect().center();
+    let events = &mut h.input_mut().events;
+    events.push(Event::PointerMoved(at));
+    events.push(Event::PointerButton { pos: at, button: PointerButton::Primary, pressed: true, modifiers: Modifiers::NONE });
+    events.push(Event::PointerButton { pos: at, button: PointerButton::Primary, pressed: false, modifiers: Modifiers::NONE });
+    h.run_steps(2);
+    let kinds: Vec<String> = calls.borrow().iter().filter(|(m, p)| m == "scene.input" && text(&p[0]) == "1").map(|(_, p)| text(&p[1]["kind"])).collect();
+    assert!(kinds.contains(&"up".to_string()) && !kinds.contains(&"drop".to_string()), "a press and a release: {kinds:?}");
+}
+
 #[test]
 fn a_press_on_a_devices_power_button_goes_back_in_cells() {
     let (mut h, calls, patches) = window_and_patches(|_| {});
