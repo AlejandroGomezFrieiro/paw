@@ -10,7 +10,9 @@
 //! stopped, its clips on the timeline are silent; it plays them again once
 //! it is sent back to the arrangement, or when the transport stops.
 
-use std::sync::atomic::{AtomicU32, AtomicU64, Ordering::Relaxed};
+use std::sync::atomic::{AtomicU32, Ordering::Relaxed};
+
+use atomic_float::AtomicF64;
 
 use crate::clip::{ClipSet, Stamp};
 use crate::device::ProcessCtx;
@@ -296,11 +298,11 @@ impl Launcher {
             Playing::Slot { row, phase } => (Target::Slot(row).code(), phase),
         };
         state.playing.store(playing, Relaxed);
-        state.phase.store(phase.to_bits(), Relaxed);
-        state.since.store(self.since.to_bits(), Relaxed);
+        state.phase.store(phase, Relaxed);
+        state.since.store(self.since, Relaxed);
         let (queued, at) = self.queued.map_or((NONE, 0.0), |q| (q.target.code(), q.at));
         state.queued.store(queued, Relaxed);
-        state.at.store(at.to_bits(), Relaxed);
+        state.at.store(at, Relaxed);
     }
 }
 
@@ -308,20 +310,20 @@ impl Launcher {
 /// thread to read.
 pub struct LaunchState {
     playing: AtomicU32,
-    phase: AtomicU64,
-    since: AtomicU64,
+    phase: AtomicF64,
+    since: AtomicF64,
     queued: AtomicU32,
-    at: AtomicU64,
+    at: AtomicF64,
 }
 
 impl Default for LaunchState {
     fn default() -> Self {
         Self {
             playing: AtomicU32::new(ARRANGEMENT),
-            phase: AtomicU64::new(0),
-            since: AtomicU64::new(0),
+            phase: AtomicF64::new(0.0),
+            since: AtomicF64::new(0.0),
             queued: AtomicU32::new(NONE),
-            at: AtomicU64::new(0),
+            at: AtomicF64::new(0.0),
         }
     }
 }
@@ -341,11 +343,11 @@ pub struct LaunchView {
 
 impl LaunchState {
     pub fn view(&self) -> LaunchView {
-        let at = f64::from_bits(self.at.load(Relaxed));
+        let at = self.at.load(Relaxed);
         LaunchView {
             playing: Target::from_code(self.playing.load(Relaxed)).unwrap_or(Target::Arrangement),
-            phase: f64::from_bits(self.phase.load(Relaxed)),
-            since: f64::from_bits(self.since.load(Relaxed)),
+            phase: self.phase.load(Relaxed),
+            since: self.since.load(Relaxed),
             queued: Target::from_code(self.queued.load(Relaxed)).map(|t| (t, at)),
         }
     }

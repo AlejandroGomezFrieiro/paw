@@ -14,6 +14,7 @@ use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
+use atomic_float::AtomicF64;
 use rtrb::{Consumer, Producer};
 
 use crate::slot::TrackSlot;
@@ -93,8 +94,8 @@ pub struct MidiCapture {
 /// What the audio thread reports about a take.
 #[derive(Default)]
 pub struct TakeShared {
-    start: AtomicU64,
-    end: AtomicU64,
+    start: AtomicF64,
+    end: AtomicF64,
     started: AtomicBool,
     closed: AtomicBool,
     dropped: AtomicU64,
@@ -107,19 +108,19 @@ impl TakeShared {
     pub fn start(&self) -> Option<f64> {
         self.started
             .load(Ordering::Acquire)
-            .then(|| f64::from_bits(self.start.load(Ordering::Relaxed)))
+            .then(|| self.start.load(Ordering::Relaxed))
     }
 
     pub(crate) fn begin(&self, beat: f64) {
         if !self.started.load(Ordering::Relaxed) {
-            self.start.store(beat.to_bits(), Ordering::Relaxed);
+            self.start.store(beat, Ordering::Relaxed);
             self.started.store(true, Ordering::Release);
         }
     }
 
     /// The transport position when the take was removed from the engine.
     pub fn end(&self) -> f64 {
-        f64::from_bits(self.end.load(Ordering::Relaxed))
+        self.end.load(Ordering::Relaxed)
     }
 
     /// Whether the engine has let go of the take: nothing more will be captured.
@@ -131,7 +132,7 @@ impl TakeShared {
     /// replaced; the main thread does it if the engine is not running.
     pub fn close(&self, end: f64) {
         if !self.closed.load(Ordering::Relaxed) {
-            self.end.store(end.to_bits(), Ordering::Relaxed);
+            self.end.store(end, Ordering::Relaxed);
             self.closed.store(true, Ordering::Release);
         }
     }

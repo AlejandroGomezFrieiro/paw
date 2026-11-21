@@ -7,7 +7,9 @@
 
 use std::f64::consts::PI as PI64;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering::Relaxed};
+use std::sync::atomic::{AtomicUsize, Ordering::Relaxed};
+
+use atomic_float::AtomicF32;
 
 /// Decibels to linear gain, for any finite input (no floor).
 #[inline]
@@ -639,7 +641,7 @@ pub fn sin_cycles(phase: f64) -> f32 {
 /// for analyses that would be too slow to run while processing (spectrum,
 /// pitch). Torn reads are possible and harmless for those.
 pub struct Tap {
-    data: Box<[AtomicU32]>,
+    data: Box<[AtomicF32]>,
     write: AtomicUsize,
 }
 
@@ -647,7 +649,7 @@ impl Tap {
     pub fn new(len: usize) -> Arc<Self> {
         let len = len.next_power_of_two();
         Arc::new(Self {
-            data: (0..len).map(|_| AtomicU32::new(0)).collect(),
+            data: (0..len).map(|_| AtomicF32::new(0.0)).collect(),
             write: AtomicUsize::new(0),
         })
     }
@@ -661,7 +663,7 @@ impl Tap {
         let mask = self.data.len() - 1;
         let mut at = self.write.load(Relaxed);
         for x in samples {
-            self.data[at & mask].store(x.to_bits(), Relaxed);
+            self.data[at & mask].store(x, Relaxed);
             at = at.wrapping_add(1);
         }
         self.write.store(at, Relaxed);
@@ -674,7 +676,7 @@ impl Tap {
         let n = out.len().min(self.data.len());
         for (i, o) in out[..n].iter_mut().enumerate() {
             let at = end.wrapping_sub(n).wrapping_add(i);
-            *o = f32::from_bits(self.data[at & mask].load(Relaxed));
+            *o = self.data[at & mask].load(Relaxed);
         }
     }
 
@@ -684,25 +686,25 @@ impl Tap {
     }
 }
 
-/// Numbers the audio thread publishes for meters, each an f32 in an atomic.
+/// Numbers the audio thread publishes for meters, each an atomic f32.
 pub struct Readings<const N: usize> {
-    values: [AtomicU32; N],
+    values: [AtomicF32; N],
 }
 
 impl<const N: usize> Readings<N> {
     pub fn new() -> Arc<Self> {
         Arc::new(Self {
-            values: std::array::from_fn(|_| AtomicU32::new(0)),
+            values: std::array::from_fn(|_| AtomicF32::new(0.0)),
         })
     }
 
     #[inline]
     pub fn set(&self, index: usize, value: f32) {
-        self.values[index].store(value.to_bits(), Relaxed);
+        self.values[index].store(value, Relaxed);
     }
 
     pub fn get(&self, index: usize) -> f32 {
-        f32::from_bits(self.values[index].load(Relaxed))
+        self.values[index].load(Relaxed)
     }
 }
 
