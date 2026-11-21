@@ -68,18 +68,46 @@ end
 -- Weights of the twelve pitch classes, by pitch class.
 local type Weights = {integer:number}
 
+--- What the bass of a stretch of time is read from: for each pitch class,
+--- how long it is the lowest that sounds (`held`), and the lowest pitch of
+--- all with how long it sounds (`lowest`, `lasts`). Two stretches side by
+--- side add up, so a chord's bass comes from the windows it covers.
+local record Bass
+  held: Weights
+  lowest: integer
+  lasts: number
+end
+
+--- One window of the chord reading (`window`): what sounds in it, and the
+--- score of each chord there. `flat` is a window where too little sounds to
+--- name a chord; `scores` is nil then and in silence. `beat` is true when
+--- the window was weighed with the rest of its beat.
+local record Window
+  at: number
+  length: number
+  total: number
+  flat: boolean
+  beat: boolean
+  scores: {number}
+  bass: Bass
+end
+
 local record M
   type Quality = Quality
   type Note = Note
   type Chord = Chord
   type Key = Key
   type ChordOptions = ChordOptions
+  type Weights = Weights
+  type Bass = Bass
+  type Window = Window
   qualities: {Quality}
   by_quality: {string:Quality}
   MAJOR: {number}
   MINOR: {number}
   fit: function(w: Weights, bass: integer, total: number, root: integer, q: Quality): number
   correlate: function(h: Weights, profile: {number}, tonic: integer): number
+  key_path: function(notes_hist: {Weights}, bars: {number}, chords?: {Chord}): {Key}
 end
 
 -- Qualities: steps above the root. `cost` is what it takes to prefer it to a
@@ -117,19 +145,33 @@ local ROOT_IN_BASS = 0.2
 local CHANGE = 0.45    -- what a change of chord costs, in beats of a perfect fit
 local NONE = -0.5      -- "no chord" where something sounds
 
+--- The bass of a stretch `span` beats long, by what it is read from: of
+--- the lowest pitches over time, the class that lasts longest, and how long.
+local function choose(b: Bass, span: number): integer, number
+  local bass: integer
+  local most: number = 0
+  for pc, d in pairs(b.held) do
+    if d > most or (d == most and bass and pc < bass) then bass, most = pc, d end
+  end
+  -- An arpeggio's bass sounds a moment and leaves the others to it: the
+  -- lowest pitch of all is the bass when it sounds an eighth of the time.
+  if b.lowest and b.lowest % 12 ~= bass and b.lasts >= span / 8 then bass, most = b.lowest % 12, b.lasts end
+  return bass, most
+end
+
 --- Weights of the twelve pitch classes between `from` and `to`, the bass's
---- pitch class, and the total. `notes` sorted by start; those before
---- `first` have ended before `from`.
-local function weigh(notes: {Note}, from: number, to: number, first?: integer): Weights, integer, number
+--- pitch class, the total, and what the bass was read from (nil in
+--- silence). `notes` sorted by start; those before `first` have ended
+--- before `from`.
+local function weigh(notes: {Note}, from: number, to: number, first?: integer): Weights, integer, number, Bass
   local w: Weights = {}
   local total: number = 0
   for pc = 0, 11 do w[pc] = 0 end
-  local record Low
-    a: number
-    b: number
-    pitch: integer
-  end
-  local lows: {Low} = {}   -- the lowest pitch sounding over each piece of the window
+  -- What sounds in the window, note by note: from `la` to `lb`, pitch `lp`
+  -- (the starts in order, as the notes are). `ends` are the ends before `to`.
+  local la, lb, lp: {number}, {number}, {integer} = {}, {}, {}
+  local ends: {number} = {}
+  local count, low_pitch, high_pitch = 0, math.huge, -math.huge
   for i = first or 1, #notes do
     local n = notes[i]
     if n.start >= to then break end
@@ -139,14 +181,35 @@ local function weigh(notes: {Note}, from: number, to: number, first?: integer): 
       local amount = (b - a) * ((off_beat and n.length < 0.5) and 0.5 or 1)
       w[n.pitch % 12] = w[n.pitch % 12] + amount
       total = total + amount
-      lows[#lows + 1] = { a = a, b = b, pitch = n.pitch }
+      count = count + 1
+      la[count], lb[count], lp[count] = a, b, n.pitch
+      low_pitch, high_pitch = math.min(low_pitch, n.pitch), math.max(high_pitch, n.pitch)
+      if b < to then ends[#ends + 1] = b end
     end
   end
   if total == 0 then return w, nil, 0 end
   -- The bass: of the lowest pitches over time, the class that lasts longest.
-  local cuts: {number} = { from, to }
-  for _, l in ipairs(lows) do cuts[#cuts + 1] = l.a cuts[#cuts + 1] = l.b end
-  table.sort(cuts)
+  -- Time is cut at each start and end: the starts come in order, so only
+  -- the ends are sorted, and the two are merged.
+  table.sort(ends)
+  local cuts: {number} = {}
+  do
+    local i, j, starts, stops = 0, 1, count, #ends
+    -- `from`, then the starts; the ends, then `to` for each note that lasts to it.
+    local x = from
+    while true do
+      local y = j <= stops and ends[j] or (j <= count + 1 and to or nil)
+      if not x and not y then break end
+      if y and (not x or y < x) then
+        cuts[#cuts + 1] = y
+        j = j + 1
+      else
+        cuts[#cuts + 1] = x
+        i = i + 1
+        x = i <= starts and la[i] or nil
+      end
+    end
+  end
   -- The lowest pitch over each piece between two cuts: piece `i` is from
   -- `cuts[i]` to `cuts[i + 1]`, and a low covers the pieces in one run.
   -- The lows from the lowest up each take the pieces of their run that no
@@ -154,9 +217,12 @@ local function weigh(notes: {Note}, from: number, to: number, first?: integer): 
   -- made short as they are walked), so that each piece is looked at about
   -- once rather than once for each low.
   local pieces = #cuts - 1
-  local by_pitch: {Low} = {}
-  for i, l in ipairs(lows) do by_pitch[i] = l end
-  table.sort(by_pitch, function(x: Low, y: Low): boolean return x.pitch < y.pitch end)
+  -- The notes by pitch: a list for each pitch, through `next_of`.
+  local first_of, next_of: {integer:integer}, {integer} = {}, {}
+  for k = count, 1, -1 do
+    next_of[k] = first_of[lp[k]]
+    first_of[lp[k]] = k
+  end
   local low_of: {integer} = {}
   local skip: {integer} = {}
   local function untaken(i: integer): integer
@@ -169,26 +235,31 @@ local function weigh(notes: {Note}, from: number, to: number, first?: integer): 
     end
     return j
   end
-  for _, l in ipairs(by_pitch) do
-    -- The first piece with `l.a <= cuts[i] + 1e-9` and the last with
-    -- `l.b >= cuts[i + 1] - 1e-9`: the tests of a low that covers a piece.
-    local lo, hi = 1, pieces + 1
-    while lo < hi do
-      local mid = (lo + hi) // 2
-      if l.a <= cuts[mid] + 1e-9 then hi = mid else lo = mid + 1 end
-    end
-    local from_piece = lo
-    lo, hi = 0, pieces
-    while lo < hi do
-      local mid = (lo + hi + 1) // 2
-      if l.b >= cuts[mid + 1] - 1e-9 then lo = mid else hi = mid - 1 end
-    end
-    local to_piece = lo
-    local i = untaken(from_piece)
-    while i <= to_piece do
-      low_of[i] = l.pitch
-      skip[i] = i + 1
-      i = untaken(i + 1)
+  for pitch = math.floor(low_pitch), math.floor(high_pitch) do
+    local k = first_of[pitch]
+    while k do
+      -- The first piece with `a <= cuts[i] + 1e-9` and the last with
+      -- `b >= cuts[i + 1] - 1e-9`: the tests of a low that covers a piece.
+      local a, b = la[k], lb[k]
+      local lo, hi = 1, pieces + 1
+      while lo < hi do
+        local mid = (lo + hi) // 2
+        if a <= cuts[mid] + 1e-9 then hi = mid else lo = mid + 1 end
+      end
+      local from_piece = lo
+      lo, hi = 0, pieces
+      while lo < hi do
+        local mid = (lo + hi + 1) // 2
+        if b >= cuts[mid + 1] - 1e-9 then lo = mid else hi = mid - 1 end
+      end
+      local to_piece = lo
+      local i = untaken(from_piece)
+      while i <= to_piece do
+        low_of[i] = pitch
+        skip[i] = i + 1
+        i = untaken(i + 1)
+      end
+      k = next_of[k]
     end
   end
   local held: Weights = {}
@@ -197,25 +268,20 @@ local function weigh(notes: {Note}, from: number, to: number, first?: integer): 
     local low = low_of[i]
     if b - a > 1e-9 and low then held[low % 12] = (held[low % 12] or 0) + (b - a) end
   end
-  local bass: integer
-  local most: number = 0
-  for pc, d in pairs(held) do
-    if d > most or (d == most and bass and pc < bass) then bass, most = pc, d end
-  end
-  -- An arpeggio's bass sounds a moment and leaves the others to it: the
-  -- lowest pitch of all is the bass when it sounds an eighth of the time.
   local lowest: integer
   local lasts: number = 0
-  for _, l in ipairs(lows) do
-    if not lowest or l.pitch < lowest then lowest, lasts = l.pitch, 0 end
-    if l.pitch == lowest then lasts = lasts + (l.b - l.a) end
+  for k = 1, count do
+    local pitch = lp[k]
+    if not lowest or pitch < lowest then lowest, lasts = pitch, 0 end
+    if pitch == lowest then lasts = lasts + (lb[k] - la[k]) end
   end
-  if lowest and lowest % 12 ~= bass and lasts >= (to - from) / 8 then bass, most = lowest % 12, lasts end
+  local summary: Bass = { held = held, lowest = lowest, lasts = lasts }
+  local bass, most = choose(summary, to - from)
   if bass then
     w[bass] = w[bass] + most * 0.5
     total = total + most * 0.5
   end
-  return w, bass, total
+  return w, bass, total, summary
 end
 
 --- How many pitch classes weigh something (a twentieth of the total) in `w`.
@@ -230,12 +296,7 @@ end
 --- How well the chord `root` `quality` fits weights `w` with `bass` and `total`.
 local function fit(w: Weights, bass: integer, total: number, root: integer, q: Quality): number
   local inside: number = 0
-  local member: {integer:integer} = {}
-  for _, s in ipairs(q.steps) do
-    local pc = (root + s) % 12
-    member[pc] = s
-    inside = inside + w[pc]
-  end
+  for _, s in ipairs(q.steps) do inside = inside + w[(root + s) % 12] end
   local score = (2 * inside - total) / total
   for _, s in ipairs(q.steps) do
     if w[(root + s) % 12] < 0.08 * total then
@@ -250,78 +311,108 @@ local function fit(w: Weights, bass: integer, total: number, root: integer, q: Q
 end
 M.fit = fit
 
---- Chords over notes in project beats, from `from` to `to` (the notes'
---- span when nil), in windows of `step` beats (0.5). Each chord:
---- `{ at, length, root, quality, bass, tones }` with pitch classes 0..11.
-function M.chords(notes: {Note}, opts?: ChordOptions): {Chord}
-  opts = opts or {}
-  local step = opts.step or 0.5
-  local sorted: {Note} = {}
-  for i, n in ipairs(notes) do sorted[i] = n end
-  table.sort(sorted, function(a: Note, b: Note): boolean return a.start < b.start end)
-  if #sorted == 0 then return {} end
-  local first, last = math.huge, -math.huge
-  for _, n in ipairs(sorted) do
-    first, last = math.min(first, n.start), math.max(last, n.start + n.length)
-  end
-  local from = math.floor((opts.from or first) / step + 1e-9) * step
-  local to = math.min(opts.to or last, last)
-  if to <= from then return {} end
+-- Every chord a window may hold: twelve roots times the qualities. The
+-- label after the last is "no chord".
+local record Label
+  root: integer
+  q: Quality
+end
+local LABELS: {Label} = {}
+for root = 0, 11 do
+  for _, q in ipairs(M.qualities) do LABELS[#LABELS + 1] = { root = root, q = q } end
+end
+local NL = #LABELS + 1
+-- The scores of a window where nothing names a chord: no chord, unless the
+-- chord before holds (`FLAT`), and after a bar of silence no chord at all
+-- (`GAP`).
+local FLAT: {number} = {}
+local GAP: {number} = {}
+for l = 1, NL - 1 do FLAT[l], GAP[l] = 0, -math.huge end
+FLAT[NL], GAP[NL] = 1e-6, 1e-6
 
-  local record Label
-    root: integer
-    q: Quality
+--- The first of `sorted` (notes sorted by start) that can sound at `at`:
+--- the ones before it start more than `longest` beats before it.
+function M.first(sorted: {Note}, longest: number, at: number): integer
+  local lo, hi = 1, #sorted + 1
+  while lo < hi do
+    local mid = (lo + hi) // 2
+    if sorted[mid].start + longest < at then lo = mid + 1 else hi = mid end
   end
-  local record Window
-    at: number
-    length: number
-    w: Weights
-    bass: integer
-    total: number
+  return lo
+end
+
+--- One window of the chord reading, from `at`, `length` beats long:
+--- `sorted` are the notes sorted by start, `longest` the longest of them,
+--- `step` the length of a window.
+function M.window(sorted: {Note}, longest: number, at: number, length: number, step: number): Window
+  local lo = M.first(sorted, longest, at)
+  local w, bass, total, low = weigh(sorted, at, at + length, lo)
+  local win: Window = { at = at, length = length, total = total, bass = low }
+  -- One pitch alone is no chord: it is weighed with the rest of its beat
+  -- (an arpeggio's notes come one at a time), and if the beat has no
+  -- other either (a melody alone) it says nothing, and the chord before
+  -- holds over it.
+  local ew, ebass, etotal = w, bass, total
+  if total > 1e-9 and classes(w, total) < 2 and step < 1 then
+    local beat = math.floor(at + 1e-9)
+    -- From the first note that can sound at `at`, as it always was: so
+    -- this window, alone of all, depends on the longest note.
+    ew, ebass, etotal = weigh(sorted, beat, beat + 1, lo)
+    win.beat = true
   end
-  local labels: {Label} = {}
-  for root = 0, 11 do
-    for _, q in ipairs(M.qualities) do labels[#labels + 1] = { root = root, q = q } end
+  if total > 1e-9 and classes(ew, etotal) < 2 then
+    win.flat = true
+  elseif total > 1e-9 then
+    local scores: {number} = {}
+    for l, label in ipairs(LABELS) do scores[l] = fit(ew, ebass, etotal, label.root, label.q) * length end
+    scores[NL] = NONE * length
+    win.scores = scores
   end
-  local NL = #labels + 1   -- the last is "no chord"
-  local windows: {Window} = {}
+  return win
+end
+
+--- The bass over windows `k` to `j`, `span` beats: nil if nothing sounds.
+local function bass_over(windows: {Window}, k: integer, j: integer, span: number): integer
+  local held: Weights = {}
+  local lowest: integer
+  local lasts: number = 0
+  local any = false
+  for t = k, j do
+    local b = windows[t].bass
+    if b then
+      any = true
+      for pc, d in pairs(b.held) do held[pc] = (held[pc] or 0) + d end
+      if b.lowest then
+        if not lowest or b.lowest < lowest then
+          lowest, lasts = b.lowest, b.lasts
+        elseif b.lowest == lowest then
+          lasts = lasts + b.lasts
+        end
+      end
+    end
+  end
+  if not any then return nil end
+  return (choose({ held = held, lowest = lowest, lasts = lasts }, span))
+end
+
+--- The chords of a run of windows (`window` makes each, one after another
+--- with no gap): a chord holds across windows unless the next is better by
+--- more than what a change costs. Silence of `bar` beats ends a chord.
+function M.decode(windows: {Window}, bar: number): {Chord}
+  if #windows == 0 then return {} end
   local prev: {number}
   local back: {{integer}} = {}
   local quiet: number = 0  -- beats since something last sounded
-  local longest: number = 0
-  for _, n in ipairs(sorted) do longest = math.max(longest, n.length) end
-  local i, lo = 0, 1
-  local at = from
-  while at < to - 1e-9 do
-    i = i + 1
-    local len = math.min(step, to - at)
-    while lo <= #sorted and sorted[lo].start + longest < at do lo = lo + 1 end
-    local w, bass, total = weigh(sorted, at, at + len, lo)
-    windows[i] = { at = at, length = len, w = w, bass = bass, total = total }
-    local scores: {number} = {}
-    -- One pitch alone is no chord: it is weighed with the rest of its beat
-    -- (an arpeggio's notes come one at a time), and if the beat has no
-    -- other either (a melody alone) it says nothing, and the chord before
-    -- holds over it.
-    local ew, ebass, etotal = w, bass, total
-    if total > 1e-9 and classes(w, total) < 2 and step < 1 then
-      local beat = math.floor(at + 1e-9)
-      ew, ebass, etotal = weigh(sorted, beat, beat + 1, lo)
-    end
-    if total > 1e-9 and classes(ew, etotal) < 2 then
+  for i, win in ipairs(windows) do
+    local total = win.total
+    local scores: {number}
+    if total > 1e-9 then
       quiet = 0
-      for l = 1, NL - 1 do scores[l] = 0 end
-      scores[NL] = 1e-6   -- with nothing to go on, no chord rather than the first there is
-    elseif total > 1e-9 then
-      quiet = 0
-      for l, label in ipairs(labels) do scores[l] = fit(ew, ebass, etotal, label.root, label.q) * len end
-      scores[NL] = NONE * len
+      scores = win.scores or FLAT
     else
-      quiet = quiet + len
+      quiet = quiet + win.length
       -- Silence lets the chord before hold over it, unless it lasts a bar.
-      local gap = quiet >= (opts.bar or 4) - 1e-9
-      for l = 1, NL - 1 do scores[l] = gap and -math.huge or 0 end
-      scores[NL] = 1e-6
+      scores = quiet >= bar - 1e-9 and GAP or FLAT
     end
     local cur: {number} = {}
     local from_l: {integer} = {}
@@ -344,7 +435,6 @@ function M.chords(notes: {Note}, opts?: ChordOptions): {Chord}
       end
     end
     back[i], prev = from_l, cur
-    at = at + step
   end
 
   -- Walk back from the best end.
@@ -366,7 +456,7 @@ function M.chords(notes: {Note}, opts?: ChordOptions): {Chord}
     local l, j = path[k], k
     while j < #windows and path[j + 1] == l do j = j + 1 end
     if l ~= NL then
-      local label = labels[l]
+      local label = LABELS[l]
       local a, b = windows[k].at, windows[j].at + windows[j].length
       if j == #windows or path[j + 1] == NL then
         local t = j
@@ -376,8 +466,8 @@ function M.chords(notes: {Note}, opts?: ChordOptions): {Chord}
         end
       end
       if b > a then
-        -- The bass over the whole chord, weighed again.
-        local _, bass = weigh(sorted, a, b)
+        -- The bass over the whole chord: what its windows read of it.
+        local bass = bass_over(windows, k, j, b - a)
         local tones: {integer} = {}
         for t, s in ipairs(label.q.steps) do tones[t] = (label.root + s) % 12 end
         out[#out + 1] = { at = a, length = b - a, root = label.root, quality = label.q.name, bass = bass or label.root, tones = tones }
@@ -386,6 +476,33 @@ function M.chords(notes: {Note}, opts?: ChordOptions): {Chord}
     k = j + 1
   end
   return out
+end
+
+--- Chords over notes in project beats, from `from` to `to` (the notes'
+--- span when nil), in windows of `step` beats (0.5). Each chord:
+--- `{ at, length, root, quality, bass, tones }` with pitch classes 0..11.
+function M.chords(notes: {Note}, opts?: ChordOptions): {Chord}
+  opts = opts or {}
+  local step = opts.step or 0.5
+  local sorted: {Note} = {}
+  for i, n in ipairs(notes) do sorted[i] = n end
+  table.sort(sorted, function(a: Note, b: Note): boolean return a.start < b.start end)
+  if #sorted == 0 then return {} end
+  local first, last = math.huge, -math.huge
+  local longest: number = 0
+  for _, n in ipairs(sorted) do
+    first, last = math.min(first, n.start), math.max(last, n.start + n.length)
+    longest = math.max(longest, n.length)
+  end
+  local from = math.floor((opts.from or first) / step + 1e-9) * step
+  local to = math.min(opts.to or last, last)
+  local windows: {Window} = {}
+  local at = from
+  while at < to - 1e-9 do
+    windows[#windows + 1] = M.window(sorted, longest, at, math.min(step, to - at), step)
+    at = at + step
+  end
+  return M.decode(windows, opts.bar or 4)
 end
 
 -- Keys ---------------------------------------------------------------------------
@@ -403,6 +520,22 @@ local SCALE: {string:{integer:boolean}} = {
   major = { [0] = true, [2] = true, [4] = true, [5] = true, [7] = true, [9] = true, [11] = true },
   minor = { [0] = true, [2] = true, [3] = true, [5] = true, [7] = true, [8] = true, [9] = true, [10] = true, [11] = true },
 }
+
+--- Add pitch class `pc` from `s` to `e` to the bars it sounds in, times
+--- `weight`.
+local function add(hist: {integer:Weights}, bars: {number}, pc: integer, s: number, e: number, weight: number)
+  -- The first bar that ends after `s`.
+  local lo, hi = 1, #bars
+  while lo < hi do
+    local mid = (lo + hi) // 2
+    if bars[mid + 1] > s then hi = mid else lo = mid + 1 end
+  end
+  for b = lo, #bars - 1 do
+    if bars[b] >= e then break end
+    local a, z = math.max(s, bars[b]), math.min(e, bars[b + 1])
+    if z > a then hist[b][pc] = hist[b][pc] + (z - a) * weight end
+  end
+end
 
 --- How well a histogram of pitch classes fits a key's profile from `tonic`,
 --- from -1 to 1 (Pearson's correlation).
@@ -428,21 +561,42 @@ M.correlate = correlate
 function M.keys(notes: {Note}, bars: {number}, chords?: {Chord}): {Key}
   local n = #bars - 1
   if n < 1 then return {} end
-  local hist: {integer:Weights} = {}
+  local hist: {Weights} = {}
   for b = 1, n do
     hist[b] = {}
     for pc = 0, 11 do hist[b][pc] = 0 end
   end
-  local function add(pc: integer, s: number, e: number, weight: number)
-    for b = 1, n do
-      local a, z = math.max(s, bars[b]), math.min(e, bars[b + 1])
-      if z > a then hist[b][pc] = hist[b][pc] + (z - a) * weight end
-    end
+  for _, note in ipairs(notes) do add(hist, bars, note.pitch % 12, note.start, note.start + note.length, 1) end
+  return M.key_path(hist, bars, chords)
+end
+
+--- How long each pitch class sounds from `from` to `to`, of `sorted`
+--- (notes sorted by start, the longest `longest` beats).
+function M.bar_weights(sorted: {Note}, longest: number, from: number, to: number): Weights
+  local h: Weights = {}
+  for pc = 0, 11 do h[pc] = 0 end
+  for i = M.first(sorted, longest, from), #sorted do
+    local note = sorted[i]
+    if note.start >= to then break end
+    local a, z = math.max(note.start, from), math.min(note.start + note.length, to)
+    if z > a then h[note.pitch % 12] = h[note.pitch % 12] + (z - a) end
   end
-  for _, note in ipairs(notes) do add(note.pitch % 12, note.start, note.start + note.length, 1) end
+  return h
+end
+
+--- The keys from the pitch classes of each bar (`hist`, as `bar_weights`
+--- gives them, which it leaves as they are) and the chords, as `keys`.
+function M.key_path(notes_hist: {Weights}, bars: {number}, chords?: {Chord}): {Key}
+  local n = #bars - 1
+  if n < 1 then return {} end
+  local hist: {integer:Weights} = {}
+  for b = 1, n do
+    hist[b] = {}
+    for pc = 0, 11 do hist[b][pc] = notes_hist[b][pc] end
+  end
   for _, c in ipairs(chords or {}) do
-    add(c.root, c.at, c.at + c.length, 1)
-    add(c.bass or c.root, c.at, c.at + c.length, 0.5)
+    add(hist, bars, c.root, c.at, c.at + c.length, 1)
+    add(hist, bars, c.bass or c.root, c.at, c.at + c.length, 0.5)
   end
   local record Candidate
     tonic: integer

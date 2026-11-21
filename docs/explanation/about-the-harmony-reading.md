@@ -45,6 +45,28 @@ of a modulation. This cost is about the weight of a few bars. So the reading
 finds a modulation where the new key is established, usually at its
 dominant. It does not find it at a pivot chord that belongs to both keys.
 
+## How the reading follows the edits
+
+A song can have many thousands of notes. To read all of them again after
+each key takes too much time, so the reading keeps its work:
+
+- It keeps the notes of each clip with the stamp of the clip. The stamp
+  changes when the notes change.
+- After an edit, it looks only at the tracks that the edit changed. A
+  change that does not change the notes, for example a volume, a device or
+  a selection, starts no reading.
+- It reads again only the windows and the bars where the notes changed.
+  The choice of chords and keys over the windows is quick, so it does
+  this choice again for all of the song. So the result is the same as a
+  reading of all the notes.
+
+The reading starts some milliseconds after the edit. It works in parts of
+a few milliseconds, so the next key does not wait for it. Until the new
+reading is complete, the chord row of the piano roll and the ruler show
+the reading from before the edit. They show the new reading when it is
+complete. A Lua function such as `paw.harmony.chords` waits for the new
+reading, so a script always gets the reading of the notes as they are.
+
 ## Why a provider can replace the reading
 
 A rule-based reading is fast and works without other programs. But a

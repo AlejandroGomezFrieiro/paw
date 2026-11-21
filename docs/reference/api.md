@@ -847,19 +847,19 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 ## Module paw.harmony
 
-- `paw.harmony.at(beat)`: The chord that sounds at `beat`, or nil.
+- `paw.harmony.at(beat, latest)`: The chord that sounds at `beat`, or nil. With `latest`, of the reading as it stands, without waiting for a new one.
 - `paw.harmony.builtin(from, to)`: The built-in provider: chords and keys read from the notes.
 - `paw.harmony.chord_name(chord, key)`: A chord's symbol: "G7", "F/A", "Bbmaj7", spelled as `key` writes it.
 - `paw.harmony.chord_roman(chord, key)`: The Roman numeral of a chord in `key`, counted from the tonic as in the major scale ("bVII", "vi", "V7", "ii°"). The name shows an inversion as "V7/B".
-- `paw.harmony.chords(from, to)`: The chords that sound between `from` and `to` (project beats; all of them when nil), in time order.
+- `paw.harmony.chords(from, to, latest)`: The chords that sound between `from` and `to` (project beats; all of them when nil), in time order. With `latest`, of the reading as it stands, without waiting for a new one.
 - `paw.harmony.degree(key, pitch)`: A pitch as an absolute scale degree (0 is the root in octave -1) and the semitones it lies above that degree (non-zero for notes outside it).
 - `paw.harmony.degree_pitch(key, degree)`: The pitch of an absolute scale degree.
-- `paw.harmony.draw(buf, scroll, span, zoom, origin, how)`: Draw the chords on a row of cells. `buf` is one row high, and shows `span` beats from `scroll` at `zoom` columns for each beat. Beats count from `origin` (the start of a clip, or 0 for the song). Each symbol starts on the left edge of the cell where its chord starts. It stops where the next symbol starts. The labels are as `paw.opt.chords` (or `how`) tells.
+- `paw.harmony.draw(buf, scroll, span, zoom, origin, how)`: Draw the chords on a row of cells. `buf` is one row high, and shows `span` beats from `scroll` at `zoom` columns for each beat. Beats count from `origin` (the start of a clip, or 0 for the song). Each symbol starts on the left edge of the cell where its chord starts. It stops where the next symbol starts. The labels are as `paw.opt.chords` (or `how`) tells. It draws the reading as it stands: after an edit, the one before it until the new one lands.
 - `paw.harmony.fresh()`: True if the reading agrees with the project, so `key` and `chords` answer immediately. A view that paw draws on each key asks this first, because to read a long song again takes some time.
 - `paw.harmony.in_key(key, pitch)`: True if a pitch (or pitch class) is in a key.
 - `paw.harmony.invalidate()`: Forget the reading: a provider whose answer changed calls this.
 - `paw.harmony.is_drums(track)`: True if the harmony does not use a track: a drum track (a drum map in its meta, as the drums extension keeps it, or a drum device or name).
-- `paw.harmony.key(beat)`: The key at `beat` (the start when nil): the project's when one is set, else the one read there, else C major. `{ tonic, mode, name, ... }`.
+- `paw.harmony.key(beat, latest)`: The key at `beat` (the start when nil): the project's when one is set, else the one read there, else C major. `{ tonic, mode, name, ... }`. With `latest`, the key of the reading as it stands, without waiting for a new one: what a view that is drawn on each key asks.
 - `paw.harmony.key_name(key)`: "D minor", "Bb major": the tonic spelled as its key writes it.
 - `paw.harmony.keys()`: The keys read over the song, `{ at, length, tonic, mode, name }` each. When the project has its own key, that key is over all of the song.
 - `paw.harmony.label(chord, how)`: A chord's label as `paw.opt.chords` (or `how`) asks: its name, its numeral, or both ("G7 V7").
@@ -875,7 +875,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.harmony.provider()`: The provider the current reading came from.
 - `paw.harmony.range(track)`: The range of a part for a track, `{ low, high, name }`. This is the range of the track (`track.meta.range = { low, high }`). If not, paw guesses it from the words of its name and the names of its devices. If not, it is C3 to C6.
 - `paw.harmony.scale_names()`: Names of the known scales, sorted.
-- `paw.harmony.schedule()`: Some time after the project changes, paw makes the reading again. So `harmony.changed` comes even when nothing asks.
+- `paw.harmony.schedule()`: Some time after the project changes, paw makes the reading again, in slices of a few milliseconds. So `harmony.changed` comes even when nothing asks.
 - `paw.harmony.set_key(spec)`: Set the project's key (one edit), or clear it with nil. Returns the key.
 - `paw.harmony.snap(key, pitch, dir)`: The pitch of the key nearest to `pitch`: `dir` "nearest" (the default; halfway between two goes up), "up" or "down". Stays within 0..127.
 - `paw.harmony.step(key, pitch, n)`: Move a pitch by `n` scale degrees. A pitch outside the key keeps its distance from the scale note below it.
@@ -883,10 +883,15 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 ## Module paw.harmony.read
 
+- `paw.harmony.read.bar_weights(sorted, longest, from, to)`: How long each pitch class sounds from `from` to `to`, of `sorted` (notes sorted by start, the longest `longest` beats).
 - `paw.harmony.read.chords(notes, opts)`: Chords over notes in project beats, from `from` to `to` (the notes' span when nil), in windows of `step` beats (0.5). Each chord: `{ at, length, root, quality, bass, tones }` with pitch classes 0..11.
 - `paw.harmony.read.correlate(h, profile, tonic)`: How well a histogram of pitch classes fits a key's profile from `tonic`, from -1 to 1 (Pearson's correlation).
+- `paw.harmony.read.decode(windows, bar)`: The chords of a run of windows (`window` makes each, one after another with no gap): a chord holds across windows unless the next is better by more than what a change costs. Silence of `bar` beats ends a chord.
+- `paw.harmony.read.first(sorted, longest, at)`: The first of `sorted` (notes sorted by start) that can sound at `at`: the ones before it start more than `longest` beats before it.
 - `paw.harmony.read.fit(w, bass, total, root, q)`: How well the chord `root` `quality` fits weights `w` with `bass` and `total`.
+- `paw.harmony.read.key_path(notes_hist, bars, chords)`: The keys from the pitch classes of each bar (`hist`, as `bar_weights` gives them, which it leaves as they are) and the chords, as `keys`.
 - `paw.harmony.read.keys(notes, bars, chords)`: Keys over notes in project beats, bar by bar. `bars` is a list of bar starts, with the end after the last bar. When `chords` (as `chords` gives them) are given, their roots and basses count two times. The harmony tells more about the tonic than the notes of a melody. Each key is `{ at, length, tonic, mode }`, with mode "major" or "minor".
+- `paw.harmony.read.window(sorted, longest, at, length, step)`: One window of the chord reading, from `at`, `length` beats long: `sorted` are the notes sorted by start, `longest` the longest of them, `step` the length of a window.
 
 ## Module paw.harmony.voice
 

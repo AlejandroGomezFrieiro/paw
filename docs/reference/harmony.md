@@ -54,6 +54,10 @@ The piano roll shows the chords in a row above the ruler, each chord at its
 start, and the key at the left edge. In the graphical window, the row is
 the top of the ruler. The arrange view does not show chords.
 
+After an edit of the notes, the row shows the chords from before the edit
+until the new reading is complete. On a song of 50 000 notes, this is
+about 50 ms after the edit.
+
 | Option | Values |
 | --- | --- |
 | `paw.opt.chords` | `"names"` (default), `"roman"`, `"both"`, or `false` for no row |
@@ -61,7 +65,11 @@ the top of the ruler. The arrange view does not show chords.
 ## Lua
 
 Positions are in project beats. paw reads the harmony again only when the
-project changes, so a call on each key press costs almost nothing.
+notes change, and then only where they change. So a call on each key press
+costs almost nothing. A call after an edit waits for the new reading. A
+view that is drawn on each key gives `true` as the last argument of
+`chords`, `at` or `key`. Then it gets the reading as it is, and does not
+wait.
 
 ```lua
 paw.harmony.chords(0, 16)   --> { { at = 0, length = 4, root = 9, quality = "min", bass = 9,

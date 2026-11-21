@@ -21,6 +21,11 @@ local function song()
     paw.opt.relativebar = false
   end)
   paw.flush()
+  -- The ruler draws the chords once they are read, a moment after the edit.
+  for _ = 1, 200 do
+    if paw.harmony.fresh() then break end
+    paw.wait(10)
+  end
 end
 
 --- The ruler's line, from the start of the bars.

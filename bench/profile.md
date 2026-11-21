@@ -88,7 +88,7 @@ These options add a probe to `idle`, `idle-armed`, `play`, `record` and
 | [profile/top.py](profile/top.py) `<file.folded> [n] [--thread NAME] [--under FRAME]` | The functions with the most samples in a folded stack file: their own share and the share with what they call. |
 | [profile/calls.py](profile/calls.py) | Counts the calls of each `paw.api` function, and the line that calls it, per frame while paw plays (or with `--press j,k`, per key). |
 | [profile/compare.py](profile/compare.py) `<paw A> <paw B> <pairs> <scenario> [options]` | Two builds in turns, A B A B, and the median, smallest and largest value of each measure. |
-| [profile/harmony.lua](profile/harmony.lua) | The time to read the chords and keys of a project again, with a hash of the result to compare two builds. Run it with [profile/headless.py](profile/headless.py), which gives paw scratch folders. |
+| [profile/harmony.lua](profile/harmony.lua) | The time to read all the chords and keys of a project, as when paw opens it, with a hash of the result to compare two builds. Run it with [profile/headless.py](profile/headless.py), which gives paw scratch folders. |
 
 ## Numbers on a shared machine
 

@@ -202,6 +202,32 @@ test("harmony: the reading is cached, follows edits and undo, and says when it c
   paw.off(id)
 end)
 
+test("harmony: an edit reads again where it changed the notes, and a view draws the reading before it until then", function()
+  fresh()
+  local piano = chords("Piano", { { "C3 E3 G3", 4 }, { "F3 A3 C4", 4 } })
+  local pad = chords("Pad", { { "A2 C3 E3", 4, at = 16 } })
+  paw.flush()
+  eq(reading(), "0:C 4:F 16:Am", "read")
+  local clip = pad:clips()[1]
+  api.clip_set_notes(clip.id, { { pitch = music.pitch("D3"), start = 16, length = 4, velocity = 90 },
+    { pitch = music.pitch("F3"), start = 16, length = 4, velocity = 90 }, { pitch = music.pitch("A3"), start = 16, length = 4, velocity = 90 } })
+  paw.flush()
+  eq(reading(), "0:C 4:F 16:Dm", "the edited clip is read again, the other kept")
+  piano:clips()[1]:add_note({ pitch = music.pitch("Bb3"), start = 0, length = 4 })
+  paw.flush()
+  local function shown()
+    local out = {}
+    for _, c in ipairs(H.chords(nil, nil, true)) do out[#out + 1] = string.format("%g:%s", c.at, c.name) end
+    return table.concat(out, " ")
+  end
+  eq(shown(), "0:C 4:F 16:Dm", "a view gets the reading before the edit at once")
+  for _ = 1, 200 do
+    if H.fresh() then break end
+    paw.wait(10)
+  end
+  eq(shown(), "0:C7 4:F 16:Dm", "and the new one once it is read")
+end)
+
 test("harmony: the project's key wins over the one read, and is kept in the project", function()
   fresh()
   chords("Piano", { { "A2 C3 E3", 4 }, { "D3 F3 A3", 4 }, { "E3 G#3 B3", 4 }, { "A2 C3 E3", 4 } })
