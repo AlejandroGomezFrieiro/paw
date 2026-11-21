@@ -572,8 +572,13 @@ test("a click on the piano roll's ruler moves the playhead into the clip", funct
   local clip, at = rolled()
   clip.start = 4
   shot()
+  -- Stopped, and the engine has seen it: a block that plays after the
+  -- click would move the playhead on from where the click put it.
+  paw.transport.stop()
+  T.next_block(2)
   local x, y = at(60, 2)
   click(x, y - (roll.top - 60) - 1)
+  T.next_block(2)
   eq(api.transport_get().position, 6, "beat 2 of a clip at 4")
 end)
 
