@@ -6,7 +6,7 @@
 --   paw --clean --no-plugins --no-listen --audio null -l tests/fixtures/keys_walk.lua
 local api = paw.api
 for _, entry in ipairs(api.read_dir("extensions")) do
-  if entry.is_dir and io.open("extensions/" .. entry.name .. "/init.lua") then
+  if entry.is_dir and (io.open("extensions/" .. entry.name .. "/init.lua") or io.open("extensions/" .. entry.name .. "/init.tl")) then
     local ok, err = pcall(paw.ext.load, "extensions/" .. entry.name)
     if not ok or not (paw.ext.loaded[entry.name] and paw.ext.loaded[entry.name].ok) then
       print("wrong: load " .. entry.name .. ": " .. tostring(err or paw.ext.loaded[entry.name].error))
