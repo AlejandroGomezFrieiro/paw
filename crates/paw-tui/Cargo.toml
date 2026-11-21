@@ -20,7 +20,13 @@ anyhow.workspace = true
 clap.workspace = true
 serde_json.workspace = true
 crossterm = "0.29"
+# dup and dup2 of stderr in main.rs.
 libc = "0.2"
+# The terminal's settings, the poll of /dev/tty, and the writes of the
+# signal handler.
+rustix = { version = "1", default-features = false, features = ["std", "event", "stdio", "termios"] }
+# The SIGTERM and SIGHUP handler that gives the terminal back.
+signal-hook = { version = "0.3", default-features = false }
 
 [dev-dependencies]
 paw-scene.workspace = true
