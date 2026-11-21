@@ -16,7 +16,8 @@
 //! never longer than about a block lasts: a plugin that is late costs its
 //! own track a block of sound, not everyone a dropout, and one that has died
 //! costs nothing more. An instrument that is late or gone is silent; an
-//! effect is passed through.
+//! effect is passed through. The events of blocks a late helper did not
+//! take are not lost: they reach it at the start of the next it takes.
 //!
 //! Everything else crosses a socket, each request with a time limit, so a
 //! plugin that hangs while it is created, or saving its state, is reported

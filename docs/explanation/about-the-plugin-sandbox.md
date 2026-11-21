@@ -21,8 +21,18 @@ because of a bad plugin.
 The audio thread and the helper share memory for the audio, and use a
 futex to signal a block. The audio thread waits for the helper for no
 longer than about one block. A slow plugin then costs its own track one
-block, but the other tracks do not drop out. A plugin that gives no block
-for two seconds has hung, and paw stops it as if it crashed.
+block of sound, but the other tracks do not drop out. A plugin that gives
+no block for two seconds has hung, and paw stops it as if it crashed.
+
+The events of the blocks that the plugin is too late to take stay on the
+side of paw. paw gives them to the plugin at the first frame of the next
+block that it takes. So a note that starts while the plugin is late
+sounds a little late. A note-off is not lost: a lost note-off leaves a
+note that does not stop.
+
+paw keeps up to 1024 events. If more come, paw
+keeps the note-offs first. It counts the events that it drops with the
+dropped MIDI events of the engine.
 
 The cost is the transfer: each block goes to a different process and
 back. `--plugins-in-process` removes the transfer and also removes the

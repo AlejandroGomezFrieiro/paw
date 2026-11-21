@@ -78,7 +78,7 @@ same values to the graphical window and the status line.
 | `lost` | The name of a lost device, or nil. |
 | `xruns` | The number of xruns. |
 | `late_blocks` | The number of blocks that plugins did not give in time. |
-| `midi_dropped` | The number of MIDI events dropped because a queue was full. |
+| `midi_dropped` | The number of MIDI events dropped because a queue was full, or because a slow plugin or Lua device was late for more events than paw keeps for it. |
 | `record_dropped` | The number of frames of a take lost because the disk was slow. |
 | `devices_stopped` | The number of stopped devices. |
 

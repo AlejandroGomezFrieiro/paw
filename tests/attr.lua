@@ -383,22 +383,8 @@ end)
 test("a note played live with an attribute is preceded by what the map sends", function()
   local t = keyswitched(MAP)
   paw.flush()
-  -- A Lua device runs in a helper process, and on a loaded machine the
-  -- helper can answer a block late. The engine then gives that block up,
-  -- with the events in it, and a note that was in it never sounds. So the
-  -- key is pressed again when the note has not sounded some blocks later,
-  -- as a player would do, and the wait is for the sound.
-  local pressed
-  local function press()
-    t:note_off("C5")
-    t:note_on("C5", 100, PIZZ)
-    pressed = api.blocks()
-  end
-  press()
-  T.until_(function()
-    if t:meter() >= 0.26 then return true end
-    if api.blocks() >= pressed + 20 then press() end
-  end, "the note to sound")
+  t:note_on("C5", 100, PIZZ)
+  T.until_(function() return t:meter() >= 0.26 end, "the note to sound")
   T.next_block(5)
   local l = t:meter()
   t:note_off("C5")

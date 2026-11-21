@@ -146,7 +146,8 @@ pub fn dropped() -> u64 {
     DROPPED.load(std::sync::atomic::Ordering::Relaxed)
 }
 
-pub(crate) fn count_dropped() {
+/// Count an event dropped elsewhere: one a device could not pass on.
+pub fn count_dropped() {
     DROPPED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 }
 
