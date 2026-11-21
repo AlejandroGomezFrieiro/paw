@@ -24,8 +24,13 @@ song/
 │       ├── 2-clap-….ara    a file of an attachment, beside the state (the ARA archive)
 │       ├── automation/volume.json
 │       ├── clips/riff.midi2
-│       └── clips/take.edits.json  the edit list of an audio clip, if it has one
+│       ├── clips/take.edits.json  the edit list of an audio clip, if it has one
+│       ├── clips/intro.video.json   the data of a custom clip of the kind `video`
+│       ├── clips/intro.signals.json the signals of a custom clip, if it has some
+│       ├── clips/intro.sound.midi2  the sound of a custom clip, if it is MIDI
+│       └── clips/verse.lyrics.lrc   the data of a custom clip that is text
 ├── media/take1.wav         sound files
+│   └── derived/            files that a kind of clip makes from other files
 └── unused/                 files that the project does not use now
 ```
 
@@ -41,6 +46,18 @@ song/
   file outside the folder by its full path, or from the home folder as
   `~/…`.
 - Clips with the same notes, controller moves and length share one file.
+- A custom clip is a clip of a kind that an extension defines. `track.json`
+  keeps its kind, its version, its timeline, its offset, its media and the
+  names of its files. Its data is a file of its own, as the kind wrote it:
+  `<clip>.<kind>.json` for JSON data and `<clip>.<kind>.<ext>` for text.
+  paw never changes the bytes of the data, so `git diff` shows what the
+  kind wrote. Its signals are `<clip>.signals.json`. Its sound is
+  `<clip>.sound.midi2` when it is MIDI, and a media file when it is audio.
+  Clips with the same data share one data file, as the two halves of a
+  split clip do.
+- paw opens a custom clip of a kind that no extension defines now, and
+  saves it again with the same bytes. A data file that is not there makes
+  `:e` fail, with the name of the file.
 - `.gitattributes` is written when the folder has none.
 
 ## Save
