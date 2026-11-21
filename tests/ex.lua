@@ -142,7 +142,7 @@ test("ex: :s changes notes that match, the first of each bar, or all with g", fu
   eq(pitches(a), "62 61 62 63", "C4 becomes D4")
   eq(step_name(), ":%s/c4/d4/", "named after the line")
   paw.undo()
-  local extra = a:add_note({ pitch = 60, start = 2.5, length = 0.5 })
+  a:add_note({ pitch = 60, start = 2.5, length = 0.5 })
   api.undo_checkpoint()
   run("1s/c4/d4/")
   eq(pitches(a):gsub(" ", ","), "62,61,62,60,63", "without g only the first in the bar")
@@ -160,7 +160,6 @@ test("ex: :s changes notes that match, the first of each bar, or all with g", fu
   paw.undo()
   run("%s/c4|d4/+12/g")
   eq(pitches(a):gsub(" ", ","), "72,61,74,72,63", "either of two, an octave up")
-  eq(extra ~= nil, true)
 end)
 
 test("ex: :s sets velocity and length by field, and an empty replacement removes", function()
@@ -184,7 +183,6 @@ test("ex: :s sets velocity and length by field, and an empty replacement removes
   fails(function() paw.commands.exec("%s/vel>>3/vel=1/") end, "vel>>3")
   fails(function() paw.commands.exec("%s/velo>3/vel=1/") end, "velo>3")
   fails(function() paw.commands.exec("%s/c4/name:x/") end, "sets clips, but the pattern matches notes")
-  eq(t ~= nil, true)
 end)
 
 test("ex: :s renames clips by the part of the name that matched", function()
@@ -280,7 +278,6 @@ test("ex: normal runs keys at each bar, track or match", function()
   run("g/name:a|name:c/normal Q")
   eq(table.concat(seen, " "), "T@0 T@8", "at each clip that matches")
   paw.keymap.del("Q", { view = "arrange" })
-  eq(drums ~= nil and t ~= nil, true)
 end)
 
 test("ex: in the piano roll a range is of its clip's notes, and '<,'> of the notes selected", function()

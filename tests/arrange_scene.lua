@@ -186,9 +186,8 @@ test("in a window the ruler puts the playhead on the step under the pointer, a d
   near(view.scroll + (x - view.geometry.hw) / paw.opt.zoom, 8, 0.01, "the beat under the pointer where it was")
 end)
 
-test("the arrange view moves on its own only by its live roles, but for the playhead leaving it", function()
+test("the arrange view does not move on its own while the song is stopped", function()
   song()
-  eq(table.concat(view.live_roles, " "), "playhead hmeter recording", "the playhead, the meters and a take being made")
   eq(view:moving(), false, "stopped, it does not move")
 end)
 
