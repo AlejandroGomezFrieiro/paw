@@ -9,13 +9,8 @@ use serde_json::Value;
 use super::{Shared, from_lua, to_lua};
 
 /// This program's directory under one of the XDG base directories.
-fn xdg_dir(variable: &str, fallback: &str) -> String {
-    let base = std::env::var_os(variable)
-        .map(std::path::PathBuf::from)
-        .or_else(|| {
-            std::env::var_os("HOME").map(|home| std::path::PathBuf::from(home).join(fallback))
-        })
-        .unwrap_or_else(std::env::temp_dir);
+fn xdg_dir(base: Option<std::path::PathBuf>) -> String {
+    let base = base.unwrap_or_else(std::env::temp_dir);
     base.join("paw").to_string_lossy().into_owned()
 }
 
@@ -87,8 +82,8 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             env.set("scripted", sh.env.scripted)?;
             // Where the program keeps what is the user's but not configuration:
             // recordings and the like, and what it needs between runs.
-            env.set("data_dir", xdg_dir("XDG_DATA_HOME", ".local/share"))?;
-            env.set("state_dir", xdg_dir("XDG_STATE_HOME", ".local/state"))?;
+            env.set("data_dir", xdg_dir(paw_proto::dirs::data()))?;
+            env.set("state_dir", xdg_dir(paw_proto::dirs::state()))?;
             env.set("pid", std::process::id())?;
             env.set("argv", sh.env.argv.clone())?;
             // A hash of the Teal declarations and modules of the runtime: it

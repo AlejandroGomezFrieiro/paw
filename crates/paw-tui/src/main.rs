@@ -17,10 +17,7 @@ use paw_engine::backend::{BackendChoice, BackendOptions};
 use serde_json::Value;
 
 fn config_dir() -> PathBuf {
-    let base = std::env::var_os("XDG_CONFIG_HOME")
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")))
-        .unwrap_or_else(|| PathBuf::from("."));
+    let base = paw_proto::dirs::config().unwrap_or_else(|| PathBuf::from("."));
     base.join("paw")
 }
 
@@ -54,10 +51,7 @@ fn restore_stderr() {
 }
 
 fn cache_dir() -> PathBuf {
-    let base = std::env::var_os("XDG_CACHE_HOME")
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".cache")))
-        .unwrap_or_else(std::env::temp_dir);
+    let base = paw_proto::dirs::cache().unwrap_or_else(std::env::temp_dir);
     base.join("paw")
 }
 

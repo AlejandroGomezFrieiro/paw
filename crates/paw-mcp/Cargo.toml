@@ -11,6 +11,8 @@ path = "src/main.rs"
 
 [dependencies]
 anyhow.workspace = true
+# The folders and the default socket, as the kernel finds them.
+paw-proto.workspace = true
 serde_json.workspace = true
 arrayvec = "0.7"
 hound = "3.5"

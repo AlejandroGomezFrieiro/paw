@@ -66,13 +66,7 @@ pub struct Kernel {
 
 /// Where `paw` listens unless told otherwise, as `paw ctl` finds it.
 pub fn default_socket() -> PathBuf {
-    if let Some(path) = std::env::var_os("PAW_SOCKET") {
-        return path.into();
-    }
-    let dir = std::env::var_os("XDG_RUNTIME_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(std::env::temp_dir);
-    dir.join("paw.sock")
+    paw_proto::dirs::default_socket()
 }
 
 /// The `paw` binary: `$PAW_BIN`, the one beside this program, or `paw` on the path.
@@ -103,7 +97,7 @@ impl Kernel {
     pub fn spawned(opts: SpawnOpts, timeout: Duration, runtime: Handle) -> Self {
         let name = format!("paw-mcp-{}.sock", std::process::id());
         let socket = [
-            std::env::var_os("XDG_RUNTIME_DIR").map(PathBuf::from),
+            paw_proto::dirs::runtime(),
             Some(std::env::temp_dir()),
             Some(PathBuf::from("/tmp")),
         ]

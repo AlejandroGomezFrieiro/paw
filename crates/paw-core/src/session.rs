@@ -608,10 +608,7 @@ impl Drop for Session {
 
 /// Where recordings go while the project has no file.
 fn scratch_media_dir() -> PathBuf {
-    let base = std::env::var_os("XDG_DATA_HOME")
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".local/share")))
-        .unwrap_or_else(std::env::temp_dir);
+    let base = paw_proto::dirs::data().unwrap_or_else(std::env::temp_dir);
     base.join("paw").join("recordings")
 }
 
