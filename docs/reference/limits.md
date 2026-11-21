@@ -493,7 +493,7 @@ gets the function.
     made, not as the calls that made them. paw does not ask it during an
     audition trial, but it asks at the end of the trial.
   - The API reference documents the `paw.api` functions whose definition
-    it can read in `crates/paw-core/src/api.rs`. It lists the others (the
+    it can read in `crates/paw-core/src/api/`. It lists the others (the
     functions of the tempo map, and a few written across lines) without
     their parameters.
 

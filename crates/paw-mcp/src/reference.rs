@@ -1,13 +1,32 @@
 //! The API reference, made from the source this program was built from: the
 //! kernel's flat `paw.api` functions (the comments above each in
-//! `crates/paw-core/src/api.rs`) and the documented functions of the Lua
+//! `crates/paw-core/src/api/`) and the documented functions of the Lua
 //! modules in `runtime/lua/paw`. Nothing is written by hand, so the
 //! reference is as current as the build.
 
 use include_dir::{Dir, include_dir};
 
 static RUNTIME: Dir = include_dir!("$CARGO_MANIFEST_DIR/../../runtime/lua");
-const API: &str = include_str!("../../paw-core/src/api.rs");
+/// The files of `crates/paw-core/src/api/`, in the order of the sections
+/// of the reference. A file left out of this list loses its functions from
+/// the reference: the test `every_file_of_the_api_is_read` checks it.
+const API: [(&str, &str); 15] = [
+    ("mod.rs", include_str!("../../paw-core/src/api/mod.rs")),
+    ("project.rs", include_str!("../../paw-core/src/api/project.rs")),
+    ("tracks.rs", include_str!("../../paw-core/src/api/tracks.rs")),
+    ("devices.rs", include_str!("../../paw-core/src/api/devices.rs")),
+    ("clips.rs", include_str!("../../paw-core/src/api/clips.rs")),
+    ("automation.rs", include_str!("../../paw-core/src/api/automation.rs")),
+    ("transport.rs", include_str!("../../paw-core/src/api/transport.rs")),
+    ("midi.rs", include_str!("../../paw-core/src/api/midi.rs")),
+    ("engine.rs", include_str!("../../paw-core/src/api/engine.rs")),
+    ("undo.rs", include_str!("../../paw-core/src/api/undo.rs")),
+    ("screen.rs", include_str!("../../paw-core/src/api/screen.rs")),
+    ("timers.rs", include_str!("../../paw-core/src/api/timers.rs")),
+    ("processes.rs", include_str!("../../paw-core/src/api/processes.rs")),
+    ("formats.rs", include_str!("../../paw-core/src/api/formats.rs")),
+    ("system.rs", include_str!("../../paw-core/src/api/system.rs")),
+];
 
 /// The text between `fn name(` and the `) {` that ends the signature, as
 /// `name(id: Id, range: LuaValue)`.
@@ -58,10 +77,10 @@ fn signature(line: &str) -> Option<String> {
 /// Every `paw.api` function with what its comment says.
 pub fn api() -> String {
     let mut out = String::from(
-        "# paw.api reference\n\nThe kernel's flat functions, called from Lua as `paw.api.name(...)`, over the control socket (`paw ctl name args...`) as a method of the same name, and from the typed Lua objects (`paw.tracks()`, `track:add_clip(...)`). Indices count from 1 where they count; positions and lengths are in beats; volumes in dB. Generated from `crates/paw-core/src/api.rs` when this server was built.\n",
+        "# paw.api reference\n\nThe kernel's flat functions, called from Lua as `paw.api.name(...)`, over the control socket (`paw ctl name args...`) as a method of the same name, and from the typed Lua objects (`paw.tracks()`, `track:add_clip(...)`). Indices count from 1 where they count; positions and lengths are in beats; volumes in dB. Generated from `crates/paw-core/src/api/` when this server was built.\n",
     );
     let mut comment: Vec<String> = Vec::new();
-    for line in API.lines() {
+    for line in API.iter().flat_map(|(_, text)| text.lines()) {
         let t = line.trim();
         if let Some(text) = t.strip_prefix("//") {
             let text = text.strip_prefix(' ').unwrap_or(text);
@@ -211,6 +230,20 @@ mod tests {
         assert!(text.contains("### `undo()`"));
         assert!(text.contains("### `track_meter(id: Id)`"));
         assert!(text.matches("### `").count() > 200);
+    }
+
+    #[test]
+    fn every_file_of_the_api_is_read() {
+        let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../paw-core/src/api");
+        let mut files: Vec<String> = std::fs::read_dir(dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+            .filter(|name| name.ends_with(".rs"))
+            .collect();
+        files.sort();
+        let mut listed: Vec<String> = API.iter().map(|(name, _)| name.to_string()).collect();
+        listed.sort();
+        assert_eq!(listed, files);
     }
 
     #[test]

@@ -64,8 +64,8 @@ with the Lua cached in `~/.cache/paw/lang`. No build step. Read
 `docs/explanation/about-teal.md` first.
 
 - The `paw` global for Teal is `runtime/types/paw.d.tl` (`tlconfig.lua`
-  names it): `paw.api` (from api.rs), and the runtime's modules already in
-  Teal (`paw.music`, `paw.attr`, `paw.regex`, `paw.harmony.read`, ...) with
+  names it): `paw.api` (from `crates/paw-core/src/api/`), and the
+  runtime's modules already in Teal (`paw.music`, `paw.attr`, `paw.regex`, `paw.harmony.read`, ...) with
   their real types. The modules still in Lua type what their doc comments
   give (`--- @type ...`, collected in `runtime/types/paw/partial.d.tl`):
   the functions that register a view, a buffer type, a text kind, a track

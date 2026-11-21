@@ -1,6 +1,6 @@
 -- The Lua API's reference, made from the source: the `---` comment over
 -- each public function of the `paw` modules, and the `//` comment over
--- each `paw.api` function in crates/paw-core/src/api.rs. Run from the
+-- each `paw.api` function in crates/paw-core/src/api/. Run from the
 -- source tree:
 --
 --   paw --clean --no-plugins -l tools/apidoc.lua          write both files
@@ -173,21 +173,34 @@ local function kernel_file(path, out)
   end
 end
 
---- The `paw.api` functions as api.rs and `M.KERNEL_FILES` have them:
+-- The files that define `paw.api` with `define!`: mod.rs and one file for
+-- each area, by name.
+M.API_DIR = "crates/paw-core/src/api"
+
+local function api_files()
+  local out = {}
+  for _, entry in ipairs(api.read_dir(M.API_DIR)) do
+    if not entry.is_dir and entry.name:match("%.rs$") then out[#out + 1] = M.API_DIR .. "/" .. entry.name end
+  end
+  return out
+end
+
+--- The `paw.api` functions as api/ and `M.KERNEL_FILES` have them:
 --- name -> `{ params, types, doc }`.
 function M.kernel_functions()
   local out = {}
-  local lines = lines_of("crates/paw-core/src/api.rs") or {}
-  local comment = {}
-  for _, line in ipairs(lines) do
-    local name, args, types = line:match("^%s+fn ([%w_]+)%([%w_]+, [%w_]+, (.-) => (.-)%)%s*{")
-    if name then
-      out[name] = kernel_entry(args, types, comment)
-      comment = {}
-    elseif line:match("^%s+//") then
-      comment[#comment + 1] = (line:gsub("^%s+// ?", ""))
-    elseif not line:match("^%s*$") or #comment > 0 then
-      comment = {}
+  for _, path in ipairs(api_files()) do
+    local comment = {}
+    for _, line in ipairs(lines_of(path) or {}) do
+      local name, args, types = line:match("^%s+fn ([%w_]+)%([%w_]+, [%w_]+, (.-) => (.-)%)%s*{")
+      if name then
+        out[name] = kernel_entry(args, types, comment)
+        comment = {}
+      elseif line:match("^%s+//") then
+        comment[#comment + 1] = (line:gsub("^%s+// ?", ""))
+      elseif not line:match("^%s*$") or #comment > 0 then
+        comment = {}
+      end
     end
   end
   for _, path in ipairs(M.KERNEL_FILES) do kernel_file(path, out) end
@@ -408,7 +421,7 @@ end
 -- Teal. It holds what Teal cannot see by itself:
 --
 -- - `paw.api`, the functions of the kernel, written in Rust. Their types come
---   from api.rs: the Rust type of each parameter, or a `// @param name T`
+--   from api/: the Rust type of each parameter, or a `// @param name T`
 --   line of its comment, and a `// @return T, U` line. T is in Teal's
 --   notation and may name the records of runtime/lua/paw/types.tl as
 --   `types.Name`. A function with no `@return` returns `any...`.
@@ -457,7 +470,7 @@ end
 local KEYWORDS = {}
 for word in ("and break do else elseif end false for function goto if in local nil not or repeat return then true until while"):gmatch("%a+") do KEYWORDS[word] = true end
 
---- The Teal types of a kernel function, from api.rs: a list, of one type,
+--- The Teal types of a kernel function, from api/: a list, of one type,
 --- or of each `// @type function(...)` line of its comment, which give the
 --- whole type of each form of a function whose result follows from its
 --- arguments (`track_get(id)` and `track_get(id, key)`).
@@ -587,7 +600,7 @@ end
 -- The modules in Lua: the types their doc comments give -----------------------------
 --
 -- A module that is not ported yet types what an extension or a module in
--- Teal calls with `@type` lines in its `---` comments, as api.rs does for
+-- Teal calls with `@type` lines in its `---` comments, as api/ does for
 -- the kernel. Over a function, each line is one form of it:
 --
 --   --- Register a view. ...
@@ -820,7 +833,7 @@ function M.teal()
   out[#out + 1] = ""
   out[#out + 1] = "global record paw"
   out[#out + 1] = "   api: Api"
-  local kout = { "-- " .. HEADER, "-- The functions of the kernel, written in Rust (crates/paw-core/src/api.rs):",
+  local kout = { "-- " .. HEADER, "-- The functions of the kernel, written in Rust (crates/paw-core/src/api/):",
     "-- `local api = require(\"paw.api\")` in a module written in Teal.", "" }
   if read("runtime/lua/paw/types.tl") then
     kout[#kout + 1] = "local type types = require(\"paw.types\")"
