@@ -19,6 +19,7 @@ pub mod io;
 mod io_runtime;
 pub mod kernel;
 pub mod luadev_api;
+pub mod media;
 pub mod measure;
 pub mod model;
 pub mod monitor;
