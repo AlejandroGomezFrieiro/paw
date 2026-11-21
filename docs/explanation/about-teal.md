@@ -55,8 +55,8 @@ paw can load each of these through the same registry of languages
   the cache costs no check.
 - **The functions in Rust.** `runtime/types/paw/api.d.tl` declares
   `paw.api`, the functions of the kernel. `tools/apidoc.lua` makes it from
-  the comments of `crates/paw-core/src/api.rs` and of the other files that
-  add to `paw.api` (`fs_api.rs`, `tempo_api.rs`, `luadev_api.rs`,
+  the comments of the files of `crates/paw-core/src/api/` and of the
+  other files that add to `paw.api` (`fs_api.rs`, `tempo_api.rs`, `luadev_api.rs`,
   `scene.rs` and `measure/mod.rs`): the Rust type of each parameter, a
   `// @param name T` line, and a `// @return T` line. A function with
   more than one form has a `// @type function(...)` line for each form
@@ -195,7 +195,7 @@ from a function into a record is still one.
 
 The records of `contracts.tl` count in the same way, as
 `contracts.Record.field`. `tools/apidoc.lua check`
-fails on one that is not on the list. When the comments of `api.rs` give a
+fails on one that is not on the list. When the comments of `api/` give a
 type, or a module moves to Teal, `tools/apidoc.lua` lowers the count. A
 person adds an entry only by hand, with a real reason. So the count only
 goes down.
@@ -228,7 +228,7 @@ work of one agent. The areas of one wave do not depend on each other.
 | Done | Music data | `music`, `bytes`, `attr`, `regex`, `harmony/read`, `harmony/voice`, `types` | 1,100 | `paw.api` |
 | Done | Core services | `util`, `events`, `options`, `limit`, `hooks`, `seats`, `commands`, `lang`: 15 fewer `paw.Untyped` entries | 1,700 | none |
 | Done | File formats | `xml`, `zip`, `markdown`, `formats`, `midifile`: 2,356 lines of Teal, 5 fewer `paw.Untyped` entries | 1,800 | none |
-| Done | Kernel types | the `// @return` of `api.rs` and the other files that add to `paw.api`, and records in `types.tl`: 343 `any` of `paw.api` down to 20, and 5 in the records, each with its reason | 270 functions | none |
+| Done | Kernel types | the `// @return` of `api/` and the other files that add to `paw.api`, and records in `types.tl`: 343 `any` of `paw.api` down to 20, and 5 in the records, each with its reason | 270 functions | none |
 | Done | Contracts, Rust side | the events of the kernel as a Rust type, with a descriptor and a record for each; the setters take a table of changes (`track_set(id, patch)`), and `device_find_all` is separate from `device_find`; the props of the roles that the window paints as Rust types: 13 fewer `any` entries | 45 events, 7 functions, 21 roles | none |
 | Done | Contracts, Lua side | `contracts.tl`, the `@type` lines of the modules in Lua (`partial.d.tl`) and the types of the options (`opts.d.tl`): 880 lines of Teal, 12 fewer `paw.Untyped` entries | 10 functions that register | wave 1 |
 | Done | The project | `objects`, `cursor`, `edit`, `address`, `tempo`, `tempolane`, `markers`, `locators`: 4,408 lines of Teal, 24 fewer entries of `any-allowed.txt`, and no `any` or `paw.Untyped` in these modules | 3,100 | wave 1 |

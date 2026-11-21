@@ -29,7 +29,7 @@ before writing; this page is the checklist.
 | The Lua 5.3 library on LuaJIT | `runtime/lua/compat53/` (lua-compat-5.3 0.14.4, vendored), loaded by `runtime/lua/paw/compat.tl` | compat53: no; compat.tl: yes |
 
 Kernel types come from Rust doc lines: `// @param`, `// @return`, `// @type`
-over each function in `crates/paw-core/src/api.rs` and the `*_api.rs` files;
+over each function in `crates/paw-core/src/api/*.rs` and the `*_api.rs` files;
 serde structs (`#[derive(Serialize/Deserialize)]`) become records. A Lua
 module still in Lua gets signatures through `--- @type function(...)` lines.
 After changing any of these, regenerate:

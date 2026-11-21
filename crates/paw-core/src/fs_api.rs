@@ -1,7 +1,7 @@
 //! `paw.api.fs_*`: what the file manager (`paw/files.lua`) does to files.
 //! Nothing here removes a file: a file leaves its place by being moved, to
 //! another place or to the trash, and what would overwrite is refused
-//! (`paw.api.fs_remove`, in api.rs, is for what paw made itself).
+//! (`paw.api.fs_remove`, in api/system.rs, is for what paw made itself).
 
 use std::fs;
 use std::io;

@@ -238,7 +238,7 @@ JSON-RPC 2.0 over stdio, one message on each line, made directly with
 | Resource | Contents |
 | --- | --- |
 | `paw://help/<page>` | a page of the manual, from the docs of the kernel |
-| `paw://reference/api` | each `paw.api` function, with the comment above it in `crates/paw-core/src/api.rs` |
+| `paw://reference/api` | each `paw.api` function, with the comment above it in `crates/paw-core/src/api/` |
 | `paw://reference/lua/<module>` | the documented functions of a module of `runtime/lua/paw`. `paw://reference/lua` lists them |
 
 The references come from the source that the server was built from.

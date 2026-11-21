@@ -1,5 +1,5 @@
 //! What several extensions need and the core does once: the levels of a
-//! sound file, writing one, finding a program. `api.rs` defines the
+//! sound file, writing one, finding a program. `api/system.rs` defines the
 //! `paw.api` functions with their documentation; the work is here.
 
 use std::path::Path;
