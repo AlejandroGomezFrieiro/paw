@@ -929,8 +929,8 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.help.open(topic)`: `:help topic`: go to the best tag for it, or say there is none.
 - `paw.help.owned(index, topic, exact)`: The tag a topic an extension owns goes to: its place in the owner's pages (where `exact` is not already), else the owner's first page.
 - `paw.help.owners(topic)`: The extensions that own what a topic names: the command's (`:name`), or a key's when only extensions map it (a key the core maps is the core's). A list, empty for the core's.
-- `paw.help.prepare()`: Make the index of help at idle, in slices. What has not changed since the last build is not made again.
-- `paw.help.preparing()`: Whether the index of help is being made at idle.
+- `paw.help.prepare()`: Make the index of help at idle, in slices. A page that did not change since the last build is not made again.
+- `paw.help.preparing()`: True while paw makes the index of help at idle.
 - `paw.help.roots()`: The directories that can be a copy of the source tree, with the manual and the bundled extensions in it. These are `$PAW_HOME` (where an installed program keeps them), the parent of the runtime (`--runtime`), the tree of a loaded extension, and the current directory.
 - `paw.help.show(source, row, col)`: Show a page at a row. It shows in the help window, or in a window split from the current window (as the `:help` of Vim splits). In a graphical frontend, it shows as a docked pane (`gw` moves it to a separate window). Returns the window.
 - `paw.help.slug(text)`: A heading's words as a tag: `Ex: ranges, :s and :g` is `ex-ranges-s-and-g`.
@@ -1292,15 +1292,15 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.media
 
 - `paw.media.clear_edits(clip)`: Take away an audio clip's edit list. Returns how many edits it had.
-- `paw.media.collect()`: Copy every file from outside the project's folder into `media` beside it and point the clips at the copies. One undo step. Returns `{ copied, missing, dir }`.
+- `paw.media.collect()`: Copy every file from outside the project's folder into `media` beside it and point the clips at the copies. A file with the same bytes as one the folder has already is not copied again. One undo step. Returns `{ copied, same, missing, dir }`.
 - `paw.media.edits(clip)`: An audio clip's edit list: `{ { kind, ... } }`.
 - `paw.media.gain_part(clip, from, to, db)`: A gain of `db` on a part of an audio clip, from `from` to `to` seconds of what it plays, in its edit list. Returns how many edits it has.
 - `paw.media.glue(clips)`: Join audio clips of one track into one clip that plays a new file: the clips of the list, by id or as clips. A list of one clip joins it and each audio clip that touches or overlaps it. Lua can also give one clip without a list. Returns { id, file, glued }.
-- `paw.media.list()`: Every file the project plays: `{ path, missing, inside }`.
+- `paw.media.list()`: Every file the project plays: `{ path, missing, inside, on_disk, hash, size }`. `hash` (`b3:` and 64 hexadecimal digits, the BLAKE3 hash of the file's bytes) and `size` are nil until paw has read the file.
 - `paw.media.missing()`: Files the project's clips play that are not there, once each.
 - `paw.media.normalize(clip, level)`: Bring the loudest sample an audio clip plays to `level` dB (0) by its gain. Returns the new gain.
 - `paw.media.pencil(clip, at, values, channel)`: Samples drawn over an audio clip's (a pencil fix), from `at` seconds of what it plays, in one channel (0 or 1) or both, in its edit list. Returns how many edits it has.
-- `paw.media.relink(from, to)`: Make the clips that play `from` play the file `to`, and find the other files that paw cannot find in the folder of `to`. One undo step. Returns `{ clips, found, missing }`.
+- `paw.media.relink(from, to, anyway)`: Make the clips that play `from` play the file `to`, and find the other files that paw cannot find in the folder of `to`. One undo step. Returns `{ clips, found, missing }`. A file with other sound than `from` had is refused, unless `anyway`.
 - `paw.media.relink_pick()`: Select a file for a file that paw cannot find, or a directory where paw finds all of them.
 - `paw.media.reverse(clip)`: Play an audio clip backwards: a `reverse` in its edit list, which leaves its file as it is (a second reverse takes it away). Returns `{ edits }`.
 - `paw.media.search(dir)`: Find in a directory tree each file that paw cannot find. One undo step. Returns `{ found, missing }`.
@@ -2257,7 +2257,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.media_list()`: The sound files of the project (session/media.rs): the files that paw cannot find, links to new paths, and copies into the folder of the project.
 - `paw.api.media_missing()`
 - `paw.api.media_peaks(file, offset, seconds, n)`: `n` { min, max, rms } for `seconds` of a sound file from `offset` seconds: the sound that the other takes of a clip would play.
-- `paw.api.media_relink(from, to)`
+- `paw.api.media_relink(from, to, anyway)`: A file with other bytes than `from` had is refused, unless `anyway`.
 - `paw.api.media_search(dir)`
 - `paw.api.media_store(megabytes, keep)`: Long files are played from the disk: past how many megabytes of decoded sound (0: never), and how many gigabytes of it are kept between runs. With no arguments, what is set: megabytes, directory.
 - `paw.api.midi2_read(path)`: A MIDI 2.0 clip file (`.midi2`): `{ notes, controls, length, skipped }`, with times in beats; `skipped` says what the file held that a clip has no place for.

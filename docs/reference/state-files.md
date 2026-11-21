@@ -32,6 +32,7 @@ The state belongs to the computer, not to a project.
 | `layouts/` | The layouts written by `:layout save <name>`, one JSON file each. |
 | `recovery/` | The safety copies of unsaved work (`paw.opt.autosave`). `:recover` opens one. |
 | `projects/` | What paw remembers about each project outside its file, for example the plugins that stopped. |
+| `media-index` | The hash of each media file that paw read on this computer, by its path, size, modification time and `inode` number. So paw hashes a file one time. See [Media files](media.md#what-a-file-is). |
 | `token` | The token for network connections. paw makes it at the first start. |
 | `tls/` | The certificate and key of this instance for network connections. paw makes them the first time that it listens. |
 | `known_instances` | The certificate fingerprints of the instances that this computer connected to. |

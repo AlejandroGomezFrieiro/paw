@@ -8,13 +8,15 @@ use std::sync::Arc;
 use paw_engine::{AudioData, DiskStore};
 
 use crate::bake::{self, Store};
+use crate::media::SourceHash;
 use crate::peaks::{self, Summary};
 
 /// Decoded audio files, loaded once and shared between clips.
 #[derive(Default)]
 pub struct AudioCache {
     files: HashMap<PathBuf, Option<Arc<AudioData>>>,
-    summaries: HashMap<PathBuf, Arc<Summary>>,
+    /// Overviews, and whether each is in the bake cache too.
+    summaries: HashMap<PathBuf, (Arc<Summary>, bool)>,
     /// Recent answers to [`peaks`](Self::peaks), since views ask every frame.
     peaks: HashMap<PeaksKey, Arc<Vec<[f32; 3]>>>,
     /// Files at another rate than the engine's, converted, by file and rate.
@@ -56,9 +58,11 @@ impl AudioCache {
     }
 
     /// `n` (min, max) pairs covering `seconds` of a file from `offset`.
+    /// `source` is the hash of the file's bytes, when it is known.
     pub fn peaks(
         &mut self,
         path: &Path,
+        source: Option<SourceHash>,
         offset: f64,
         seconds: f64,
         n: usize,
@@ -67,7 +71,7 @@ impl AudioCache {
         if let Some(peaks) = self.peaks.get(&key) {
             return Ok(peaks.clone());
         }
-        let summary = self.summary(path)?;
+        let summary = self.summary(path, source)?;
         let rate = summary.sample_rate as f64;
         let from = offset * rate;
         let to = from + seconds * rate;
@@ -165,17 +169,24 @@ impl AudioCache {
 
     /// A file's waveform overview: kept in memory, read from the bake
     /// cache when it was made before for the same bytes, or made from the
-    /// samples and kept there.
-    fn summary(&mut self, path: &Path) -> anyhow::Result<Arc<Summary>> {
-        if let Some(summary) = self.summaries.get(path) {
-            return Ok(summary.clone());
-        }
-        // The hash of the bytes names the overview wherever the file is.
-        // TODO(M1): the media table's hash, not a read of the whole file.
+    /// samples and kept there. `source` is the hash of the file's bytes
+    /// (the media table's, `crate::media`), which names the overview
+    /// wherever the file is. Until it is known (hashing runs in the
+    /// background), the overview is made from the samples and kept in
+    /// memory only; it goes into the cache once the hash is known.
+    fn summary(&mut self, path: &Path, source: Option<SourceHash>) -> anyhow::Result<Arc<Summary>> {
         let bake = self
             .bakes
             .clone()
-            .and_then(|store| Some((store, peaks::bake(bake::Hasher::file(path).ok()?))));
+            .zip(source)
+            .map(|(store, source)| (store, peaks::bake(source)));
+        if let Some((summary, cached)) = self.summaries.get(path).cloned() {
+            if !cached && let Some((store, (job, key))) = &bake {
+                Self::keep(store, job, key, &summary);
+                self.summaries.insert(path.to_path_buf(), (summary.clone(), true));
+            }
+            return Ok(summary);
+        }
         let kept = bake.as_ref().and_then(|(store, (_, key))| {
             Summary::read(&store.open(key)?.file(peaks::FILE))
         });
@@ -183,19 +194,26 @@ impl AudioCache {
             Some(summary) => summary,
             None => {
                 let summary = Summary::new(&*self.load(path)?);
-                if let Some((store, (job, key))) = &bake
-                    && let Ok(bake::Write::Make(entry)) = store.writer(job, key)
-                    && summary.write(&entry.file(peaks::FILE)).is_ok()
-                {
-                    // A cache that cannot be written only costs time.
-                    let _ = entry.commit();
+                if let Some((store, (job, key))) = &bake {
+                    Self::keep(store, job, key, &summary);
                 }
                 summary
             }
         };
         let summary = Arc::new(summary);
-        self.summaries.insert(path.to_path_buf(), summary.clone());
+        self.summaries
+            .insert(path.to_path_buf(), (summary.clone(), bake.is_some()));
         Ok(summary)
+    }
+
+    /// Put an overview into the bake cache. A cache that cannot be written
+    /// only costs time.
+    fn keep(store: &Store, job: &bake::BakeJob, key: &bake::EntryKey, summary: &Summary) {
+        if let Ok(bake::Write::Make(entry)) = store.writer(job, key)
+            && summary.write(&entry.file(peaks::FILE)).is_ok()
+        {
+            let _ = entry.commit();
+        }
     }
 
     /// A file for playing at `rate`: converted when it is at another.

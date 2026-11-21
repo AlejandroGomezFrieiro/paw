@@ -935,8 +935,8 @@ local function build(): Index
   return build_now()
 end
 
---- Make the index of help at idle, in slices. What has not changed since
---- the last build is not made again.
+--- Make the index of help at idle, in slices. A page that did not change
+--- since the last build is not made again.
 function M.prepare()
   if preparing then return end
   local co = coroutine.create(function() build_now(pause) end)
@@ -958,7 +958,7 @@ function M.prepare()
   paw.defer(step, GAP_MS)
 end
 
---- Whether the index of help is being made at idle.
+--- True while paw makes the index of help at idle.
 function M.preparing(): boolean return preparing ~= nil end
 
 -- A second after paw starts, and after an extension is loaded or unloaded

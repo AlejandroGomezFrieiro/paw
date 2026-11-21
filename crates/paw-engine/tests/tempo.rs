@@ -195,6 +195,7 @@ fn audio_regions_keep_to_time_through_a_ramp() {
         declick_in: false,
         declick_out: false,
         hold: Default::default(),
+        direction: Default::default(),
     });
     clips.finish();
     let (mut engine, mut handle) = Engine::new(SR);

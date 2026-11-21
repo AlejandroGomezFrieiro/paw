@@ -116,7 +116,7 @@ window. Without them, an editor is an empty black window.
   outside its parameters, such as the model of an amp.
   `paw.api.device_call(device, "properties")` lists them as JSON, with the
   value that the plugin told last. A plugin tells a new value after it
-  has processed a block, so a value that you set shows a little later.
+  processes a block, so a value that you set shows a little later.
   `paw.api.device_call(device, "property.set", '{"property": "model", "value": "/path/amp.nam"}')`
   sets one, as the window of the plugin does. A path must be absolute.
 - `paw.api.device_load(device, { name = "Deluxe", params = p, call = { method = "property.set", data = json } })`

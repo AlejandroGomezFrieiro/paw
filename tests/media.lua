@@ -169,10 +169,15 @@ test("collecting copies outside files into the project's media folder", function
   mkdir(T.scratch .. "/loose")
   local outside = steady(T.scratch .. "/loose/x.wav", 1, 0.5)
   project_in(dir, outside)
+  -- The same bytes as the project's own media/a.wav, from elsewhere.
+  local twin = steady(T.scratch .. "/loose/twin.wav", 1, 0.25)
+  paw.add_track({ name = "twin" }):add_clip({ file = twin, start = 4, length = 2 })
   api.undo_checkpoint()
   local result = paw.media.collect()
   eq(result.copied, 1, "the one outside file is copied")
   eq(paw.tracks()[2]:clips()[1].file, dir .. "/media/x.wav", "its clip plays the copy")
+  eq(result.same, 1, "a file with the bytes of one in the folder is not copied")
+  eq(paw.tracks()[3]:clips()[1].file, dir .. "/media/a.wav", "its clip plays that one")
   eq(T.read_file(outside) ~= nil, true, "the original stays")
   T.near(peak(), 0.75, 0.002, "and everything plays")
   api.undo_checkpoint()
@@ -184,6 +189,20 @@ test("collecting copies outside files into the project's media folder", function
   local clip = paw.import_audio(steady(T.scratch .. "/loose/y.wav", 1, 0.5), { start = 0 })
   paw.opt.copy_imports = false
   eq(clip.file, dir .. "/media/y.wav", "with copy_imports, importing copies too")
+end)
+
+test("a project folder records the hash of each file in media.json, the same on each save", function()
+  local dir = T.scratch .. "/hashes"
+  project_in(dir)
+  paw.project.save(dir)
+  local first = T.read_file(dir .. "/media.json")
+  local hash = paw.media.list()[1].hash
+  eq(hash and hash:match("^b3:%x+$") ~= nil and #hash == 67, true, "paw.media.list gives the hash")
+  eq(first:find('"media/a.wav"', 1, true) ~= nil and first:find(hash, 1, true) ~= nil, true,
+    "media.json names the file as the clip does, with its hash")
+  paw.project.load(dir)
+  paw.project.save()
+  eq(T.read_file(dir .. "/media.json"), first, "saved again, the same bytes")
 end)
 
 test("a project with recordings, moved with its folder, plays them", function()

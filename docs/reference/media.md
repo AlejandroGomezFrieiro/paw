@@ -14,8 +14,16 @@ clips. For the steps to find lost files, see
   So you can move or copy a project folder.
 - When a project opens and a file is not at its path, paw looks for it:
   1. relative to the project (the last parts of its old path),
-  2. by name, in the folder tree of the project,
-  3. in the directories where it found other lost files.
+  2. in the directories where it found other lost files,
+  3. by name, in the folder tree of the project,
+  4. by size, in the folder tree of the project, when `media.json` has
+     the file.
+
+  When `media.json` has the file, paw uses a file that it finds only if
+  the file has the same hash. So paw finds a file with a new name, and
+  does not use a different file with the same name. paw tells you about
+  each file that it did not use ("…/take1.wav has the same name but other
+  sound").
 - A file found at a different place marks the project as changed. Then a
   save keeps the new place.
 - paw reports the files that it cannot find in one message. Their clips
@@ -31,15 +39,38 @@ clips. For the steps to find lost files, see
   (in `media/derived`). paw never reports it as missing, and `collect` does
   not copy it, because the kind makes it again.
 
+## What a file is
+
+paw knows each media file by the BLAKE3 hash of its bytes. The path tells
+where the file is. The hash tells what the file is.
+
+- A project folder keeps the hash, the size and the format of each file
+  in `media.json` (see [Project files](project-files.md)).
+- paw hashes a file one time on each computer. The index
+  `~/.local/state/paw/media-index` keeps the hash of each file by its
+  path, size, modification time and `inode` number. When a project opens, paw
+  reads the size and the time of each file and finds its hash in the
+  index.
+- paw hashes the other files in the background. The project plays
+  immediately: nothing that plays waits for a hash. A save hashes the
+  files that do not have a hash yet.
+- When a file has a different hash than `media.json` has, the file
+  changed on the disk. Its clips play the new file, and paw tells you one
+  time: "take1.wav changed since the project was saved: its clips play
+  the new file". The project is then changed, and a save keeps the new
+  hash.
+- `paw.media.list()` gives the `hash` and the `size` of each file when
+  paw knows them.
+
 ## Commands
 
 | Command | Effect |
 | --- | --- |
 | `:media.relink` | List the files that paw cannot find. Select one, then the file that it is now. paw then looks for the others next to it. Or select "Search a directory" and a directory. |
 | `:media.relink <dir>` | Look for these files in a directory. |
-| `:media.relink <old> <new>` | Point a file that paw cannot find to a new file. |
+| `:media.relink <old> <new>` | Point a file that paw cannot find to a new file. If the new file has other sound than the old file had, paw asks first. |
 | `:media.missing` | List the files that paw cannot find. |
-| `:media.collect` | Copy each file from outside the project folder into `media` next to the project, and point the clips to the copies. The original files stay. |
+| `:media.collect` | Copy each file from outside the project folder into `media` next to the project, and point the clips to the copies. The original files stay. paw copies the same bytes one time: a file with the same hash as a file in the folder is not copied, and its clips play that file. |
 
 `paw.opt.copy_imports = true` makes each import copy its file into `media`
 immediately.
@@ -47,10 +78,10 @@ immediately.
 | Function | Result |
 | --- | --- |
 | `paw.media.missing()` | The files that paw cannot find. |
-| `paw.media.list()` | Each file: `{ path, missing, inside, on_disk }`. |
-| `paw.media.relink(old, new)` | Point a file to a new file. |
+| `paw.media.list()` | Each file: `{ path, missing, inside, on_disk, hash, size }`. |
+| `paw.media.relink(old, new, anyway)` | Point a file to a new file. A file with other sound fails, unless `anyway` is true. |
 | `paw.media.search(dir)` | Look for these files in a directory. |
-| `paw.media.collect()` | Copy the files into `media`. |
+| `paw.media.collect()` | Copy the files into `media`. Gives `{ copied, same, missing, dir }`. |
 | `paw.pick.file({ directory = true })` | Select a directory. |
 
 Each change is one undo step. The event `media.missing` (`{ files, found
@@ -73,6 +104,10 @@ long file zoomed out from the overview after the first time, without a
 decode. This is also true after you move or copy the file or the project,
 and for each project that uses the same file. A changed file gets a new
 overview.
+
+The hash is the hash of [What a file is](#what-a-file-is). Until paw
+knows the hash of a new file, paw makes its overview from the sound. When
+paw knows the hash, the overview goes into the cache.
 
 ## Long files
 

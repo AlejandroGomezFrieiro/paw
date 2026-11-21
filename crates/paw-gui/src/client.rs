@@ -82,9 +82,10 @@ impl Client {
         let from = std::mem::replace(&mut self.connection.events, receiver);
         let pace = self.pace.clone();
         std::thread::spawn(move || {
-            // The engine's load wavers all the time: a frame is drawn for it
-            // only when it has moved by 4%, as the bar that shows it can.
-            let mut drawn: (Value, f64) = (Value::Null, 0.0);
+            // The last state drawn. The engine's load in it needs no filter
+            // here: the kernel gives it in steps of 2.5%, one pixel of the
+            // bar, and only when it leaves its step (`paw.audio.load`).
+            let mut drawn = Value::Null;
             // When a frame was last asked for, and one waiting for its time.
             let mut woken = Instant::now();
             let mut waiting: Option<Instant> = None;
@@ -109,13 +110,10 @@ impl Client {
                 // None for nothing new; else whether only the song moved.
                 let news = match &event {
                     (name, payload) if name == "frontend.state" && payload.get("sections").is_none() => {
-                        let cpu = payload["cpu"].as_f64().unwrap_or(0.0);
-                        let mut rest = payload.clone();
-                        rest["cpu"] = Value::Null;
-                        let news = rest != drawn.0 || (cpu - drawn.1).abs() >= 0.04;
-                        let song = rest["modal"] == drawn.0["modal"];
+                        let news = *payload != drawn;
+                        let song = payload["modal"] == drawn["modal"];
                         if news {
-                            drawn = (rest, cpu);
+                            drawn = payload.clone();
                         }
                         news.then_some(song)
                     }

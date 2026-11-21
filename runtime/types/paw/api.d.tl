@@ -157,7 +157,7 @@ local record api
    media_list: function(): {types.MediaFile}
    media_missing: function(): {string}
    media_peaks: function(file: string, offset: number, seconds: number, n: integer): {types.Peak}
-   media_relink: function(from: string, to: string): types.MediaFound
+   media_relink: function(from: string, to: string, anyway?: boolean): types.MediaFound
    media_search: function(dir: string): types.MediaFound
    media_store: function(megabytes?: number, keep?: number): number, string
    midi2_read: function(path: string): types.Midi2Clip

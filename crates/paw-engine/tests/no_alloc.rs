@@ -184,6 +184,7 @@ fn clips(audio: &Arc<AudioData>, notes: usize) -> Box<ClipSet> {
             declick_in: true,
             declick_out: true,
             hold: Default::default(),
+            direction: Default::default(),
         });
     }
     Box::new(set)
@@ -740,6 +741,7 @@ fn the_audio_thread_never_allocates() {
             declick_in: r.declick_in,
             declick_out: r.declick_out,
             hold: Default::default(),
+            direction: Default::default(),
         });
         let midi: Vec<_> = set.midi.iter().map(|e| paw_engine::MidiEv { beat: e.beat + id as f64, kind: e.kind }).collect();
         paw_engine::Part::new(id, order, midi.into(), audio.collect())
@@ -846,6 +848,67 @@ fn the_audio_thread_never_allocates() {
     the_sampler_never_allocates();
     a_sound_being_made_never_allocates();
     a_file_heard_on_its_own_never_allocates();
+    reversed_slices_never_allocate();
+}
+
+/// A clip cut into a thousand slices, played backwards with fades, across
+/// block edges and a loop, and edited while it plays: none of it allocates.
+/// Run from the test above.
+fn reversed_slices_never_allocate() {
+    use paw_engine::{Part, PartEdit};
+    let (mut engine, mut handle) = Engine::new(SR);
+    let tone: Vec<f32> = (0..44100).map(|i| (i as f32 * 0.05).sin()).collect();
+    let data = Arc::new(AudioData {
+        sample_rate: 44100,
+        channels: [tone.clone().into(), tone.into()],
+    });
+    let slices = |id: u64| {
+        let audio = (0..1000)
+            .map(|k| {
+                let start = k as f64 * 0.01;
+                AudioRegion {
+                    start,
+                    end: start + 0.01,
+                    data: data.clone(),
+                    offset: (k % 50) as f64 * 0.01,
+                    gain: 0.5,
+                    fade_in: 0.002,
+                    fade_out: 0.003,
+                    declick_in: true,
+                    declick_out: true,
+                    hold: Default::default(),
+                    direction: Default::default(),
+                }
+                .reversed()
+                .unwrap()
+            })
+            .rev()
+            .collect();
+        Part::new(id, id, Arc::from([]), audio)
+    };
+    let clips = ClipSet::default().with_parts(vec![slices(1)], 4);
+    for msg in [
+        Msg::InsertTrack { slot: TrackSlot(1), track: TrackRt::new() },
+        Msg::SetClips { track: TrackSlot(1), clips: Box::new(clips) },
+        Msg::SetSchedule(Box::new(Schedule::new(
+            vec![
+                SchedEntry::new(TrackSlot(1), TrackSlot::MASTER),
+                SchedEntry::new(TrackSlot::MASTER, TrackSlot::NONE),
+            ],
+            0,
+        ))),
+        Msg::SetTempo(120.0),
+        Msg::SetLoop { enabled: true, start: 2.0, end: 6.0 },
+        Msg::Seek(1.5),
+        Msg::Play,
+    ] {
+        send(&mut handle, msg);
+    }
+    assert_eq!(run(&mut engine, 200, 512 + 3, 0), 0, "reversed slices");
+    let edit = PartEdit { remove: vec![(1, 1)], add: vec![slices(2)], removed: Vec::with_capacity(1) };
+    send(&mut handle, Msg::EditClips { track: TrackSlot(1), edit: Box::new(edit) });
+    assert_eq!(run(&mut engine, 100, 512, 0), 0, "reversed slices replaced");
+    handle.collect_garbage();
 }
 
 /// A sound file heard on its own, at another rate than the engine's, while
@@ -896,6 +959,7 @@ fn a_sound_being_made_never_allocates() {
         declick_in: false,
         declick_out: false,
         hold: Default::default(),
+        direction: Default::default(),
     });
     for msg in [
         Msg::InsertTrack {

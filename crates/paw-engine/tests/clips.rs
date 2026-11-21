@@ -199,14 +199,11 @@ fn a_note_at_the_start_is_started_once() {
     assert_eq!(count.load(Ordering::Relaxed), 1);
 }
 
-/// One track playing `data` from beat 0 for 16 beats, at 120 BPM.
-fn region_engine(data: std::sync::Arc<paw_engine::AudioData>) -> (Engine, EngineHandle) {
-    use paw_engine::AudioRegion;
-    let (engine, mut handle) = Engine::new(SR);
-    let mut clips = ClipSet::default();
-    clips.audio.push(AudioRegion {
+/// `data` from beat 0 for `beats` beats, at unity gain, without fades.
+fn plain_region(data: std::sync::Arc<paw_engine::AudioData>, beats: f64) -> paw_engine::AudioRegion {
+    paw_engine::AudioRegion {
         start: 0.0,
-        end: 16.0,
+        end: beats,
         data,
         offset: 0.0,
         gain: 1.0,
@@ -215,7 +212,15 @@ fn region_engine(data: std::sync::Arc<paw_engine::AudioData>) -> (Engine, Engine
         declick_in: false,
         declick_out: false,
         hold: Default::default(),
-    });
+        direction: Default::default(),
+    }
+}
+
+/// One track playing `region`, at 120 BPM, from beat 0.
+fn region_engine(region: paw_engine::AudioRegion) -> (Engine, EngineHandle) {
+    let (engine, mut handle) = Engine::new(SR);
+    let mut clips = ClipSet::default();
+    clips.audio.push(region);
     for msg in [
         Msg::InsertTrack {
             slot: TrackSlot(1),
@@ -255,7 +260,7 @@ fn a_sound_being_made_plays_as_far_as_it_is_there_without_clicks() {
     let data = Arc::new(sink.playing().unwrap());
     let second = SR as usize;
     sink.push(&sine[..second], None).unwrap();
-    let (mut engine, _handle) = region_engine(data);
+    let (mut engine, _handle) = region_engine(plain_region(data, 16.0));
     // A second there, two played: the second one silent.
     let mut out = run(&mut engine, 2 * second / 256);
     // More comes, as far as three seconds, and the third second plays.
@@ -284,6 +289,33 @@ fn a_sound_being_made_plays_as_far_as_it_is_there_without_clicks() {
     sink.finish(SR as u32).unwrap();
     let done = run(&mut engine, second / 256);
     assert!(done.iter().fold(0.0f32, |m, x| m.max(x.abs())) > 0.45);
+}
+
+/// A region played backwards plays the same stretch of its source, from
+/// its end to its start; sound still being made does not play backwards.
+#[test]
+fn a_reversed_region_plays_its_stretch_of_the_source_from_the_end() {
+    use paw_engine::{AudioData, Sink};
+    use std::sync::Arc;
+    let ramp: Vec<f32> = (0..SR as usize).map(|k| k as f32 / SR as f32).collect();
+    let data = Arc::new(AudioData {
+        sample_rate: SR as u32,
+        channels: [ramp.clone().into(), ramp.clone().into()],
+    });
+    // A beat at 120 BPM, from a quarter of a second in: source frames
+    // 12 000 to 35 999, played from the last.
+    let region = paw_engine::AudioRegion { offset: 0.25, ..plain_region(data, 1.0) };
+    let (mut engine, _handle) = region_engine(region.reversed().unwrap());
+    let out = run(&mut engine, 100);
+    for frame in [0, 1, 255, 256, 12_345, 23_999] {
+        let want = ramp[35_999 - frame];
+        assert!((out[frame] - want).abs() < 1e-6, "frame {frame}: {} against {want}", out[frame]);
+    }
+    assert_eq!(out[24_000], 0.0, "silent after the region");
+    let mut sink = Sink::growing(1000, SR as u32, None).unwrap();
+    sink.push(&ramp[..10], None).unwrap();
+    let making = plain_region(Arc::new(sink.playing().unwrap()), 1.0);
+    assert!(making.reversed().is_err());
 }
 
 /// Clips that overlap, with notes and controllers on the same beats in
@@ -327,6 +359,7 @@ fn overlapping_clips(data: &std::sync::Arc<paw_engine::AudioData>, count: usize)
                     declick_in: true,
                     declick_out: false,
                     hold: Default::default(),
+                    direction: Default::default(),
                 });
             }
             set
@@ -346,6 +379,7 @@ fn region_copy(r: &paw_engine::AudioRegion) -> paw_engine::AudioRegion {
         declick_in: r.declick_in,
         declick_out: r.declick_out,
         hold: Default::default(),
+        direction: r.direction,
     }
 }
 
@@ -434,7 +468,7 @@ fn play_from(engine: &mut Engine, handle: &mut EngineHandle, from: f64, blocks: 
 }
 
 fn clone_part(p: &paw_engine::Part) -> paw_engine::Part {
-    paw_engine::Part::new(p.id, p.order, p.midi.clone(), p.audio.iter().map(region_copy).collect())
+    paw_engine::Part::new(p.id, p.order, p.midi.clone(), p.audio().iter().map(region_copy).collect())
 }
 
 #[test]
@@ -504,4 +538,43 @@ fn an_edit_of_some_parts_plays_as_the_clips_sent_whole() {
     assert!(seen_a.len() > 200, "{} events", seen_a.len());
     assert_eq!(*seen_a, *seen_b, "the same events after the edit");
     assert!(out_a == out_b, "the same sound to the bit");
+}
+
+/// Many regions of one part, given in any order, among them one long and
+/// some backwards, play as the same regions in one list sorted by where
+/// they start, from wherever playing starts: also in the middle of the
+/// long one, which started far before.
+#[test]
+fn many_regions_in_a_part_play_as_the_same_regions_in_one_list() {
+    let data = tone();
+    let mut regions: Vec<paw_engine::AudioRegion> = (0..200)
+        .map(|k| {
+            let start = k as f64 * 0.0625;
+            let region = paw_engine::AudioRegion {
+                start,
+                end: start + 0.0625,
+                offset: (k % 7) as f64 * 0.1,
+                gain: 0.5,
+                fade_in: 0.01,
+                fade_out: 0.02,
+                declick_in: true,
+                declick_out: true,
+                ..plain_region(data.clone(), 0.0)
+            };
+            if k % 3 == 0 { region.reversed().unwrap() } else { region }
+        })
+        .collect();
+    regions.insert(17, paw_engine::AudioRegion { start: 1.03, end: 9.0, gain: 0.25, ..plain_region(data.clone(), 0.0) });
+    let part = || paw_engine::Part::new(1, 1, std::sync::Arc::from([]), regions.iter().rev().map(region_copy).collect());
+    for from in [0.0, 3.3, 7.75] {
+        let mut list = ClipSet::default();
+        list.audio = regions.iter().map(region_copy).collect();
+        let (mut a, mut ha, _) = recording_engine(list);
+        let set = ClipSet::default().with_parts(vec![part()], 4);
+        let (mut b, mut hb, _) = recording_engine(set);
+        let out_a = play_from(&mut a, &mut ha, from, 200);
+        let out_b = play_from(&mut b, &mut hb, from, 200);
+        assert!(out_a.iter().any(|x| *x != 0.0));
+        assert!(out_a == out_b, "the same sound to the bit from {from}");
+    }
 }

@@ -162,9 +162,12 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         }
         // @return {string}
         fn media_missing(lua, sh, () => ()) { to_lua(lua, &sh.session.borrow().media_missing()) }
+        // A file with other bytes than `from` had is refused, unless `anyway`.
         // @return types.MediaFound
-        fn media_relink(lua, sh, (from, to) => (String, String)) {
-            to_lua(lua, &sh.session.borrow_mut().media_relink(from.as_ref(), to.as_ref()).lua()?)
+        fn media_relink(lua, sh, (from, to, anyway) => (String, String, Option<bool>)) {
+            let mut session = sh.session.borrow_mut();
+            let result = session.media_relink(from.as_ref(), to.as_ref(), anyway.unwrap_or(false));
+            to_lua(lua, &result.lua()?)
         }
         // @return types.MediaFound
         fn media_search(lua, sh, dir => String) {
