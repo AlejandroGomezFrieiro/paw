@@ -194,8 +194,6 @@ fn key_event(key: egui::Key) -> egui::Event {
 fn run() -> Result<()> {
     // SAFETY: The first thing `main` does: no other thread has started yet.
     unsafe { repair_display_env() };
-    // A font for Japanese and the like is looked for while the rest starts.
-    let cjk = std::thread::spawn(theme::cjk_font);
     let cli = args::Cli::parse();
     let env = std::env::var("PAW_GUI_RENDERER").ok();
     // Asked of Mesa before this program asks it too.
@@ -203,14 +201,14 @@ fn run() -> Result<()> {
     let asked = args::renderer_choice(cli.renderer, env.as_deref())? == Renderer::Software;
     if asked {
         // Mesa draws on the processor; any other driver is not asked.
-        // SAFETY: the font thread started above is the only other thread; it runs `fc-list`
-        // through std's `Command`, which takes the same lock as std's `set_var`, and reads
-        // no variable in any other way.
+        // SAFETY: no other thread exists yet: the font thread starts after the last `set_var`.
         unsafe {
             std::env::set_var("LIBGL_ALWAYS_SOFTWARE", "1");
             std::env::set_var("GALLIUM_DRIVER", "llvmpipe");
         }
     }
+    // A font for Japanese and the like is looked for while the rest starts.
+    let cjk = std::thread::spawn(theme::cjk_font);
     let socket = cli.socket.clone();
     let address = cli.connect.clone();
     let token = match (cli.token.clone(), &cli.token_file) {

@@ -178,14 +178,11 @@ mod tests {
         assert_eq!(path_of(&elsewhere), None);
     }
 
+    /// The check itself; it runs only in the child process of the test below.
     #[test]
-    fn without_a_session_bus_the_answer_is_that_there_is_no_portal() {
-        // The only test that sets these, and the only place that asks a portal.
-        // SAFETY: only this test sets these variables, and no other test of the binary asks a
-        // portal; other threads may still read the environment in C (a data race, in theory).
-        unsafe {
-            std::env::set_var("DBUS_SESSION_BUS_ADDRESS", "unix:path=/nonexistent/bus");
-            std::env::set_var("XDG_RUNTIME_DIR", "/nonexistent");
+    fn child_asks_a_portal_without_a_session_bus() {
+        if std::env::var_os("PAW_PORTAL_CHILD").is_none() {
+            return;
         }
         let ask = Ask {
             kind: Kind::Open,
@@ -195,6 +192,20 @@ mod tests {
             name: String::new(),
         };
         assert_eq!(choose(&ask), Outcome::Unavailable);
+    }
+
+    #[test]
+    fn without_a_session_bus_the_answer_is_that_there_is_no_portal() {
+        // A child process gets the variables, so no test thread changes the environment.
+        let out = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", "portal::tests::child_asks_a_portal_without_a_session_bus", "--test-threads=1"])
+            .env("PAW_PORTAL_CHILD", "1")
+            .env("DBUS_SESSION_BUS_ADDRESS", "unix:path=/nonexistent/bus")
+            .env("XDG_RUNTIME_DIR", "/nonexistent")
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+        assert!(String::from_utf8_lossy(&out.stdout).contains("1 passed"));
     }
 
     #[test]
