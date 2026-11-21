@@ -10,16 +10,16 @@ of its own. The tracks then share one room. For each rule, see
 2. Press `grn`, type `Reverb` and press `Enter`.
 3. Press `a`, type `Reverb` and press `Enter`. paw puts a reverb on the
    track.
-4. Press `<Space>d` to show the device panel. Press `f`, type `Mix` and press
+4. Press `<Space>dd` to show the device panel. Press `f`, type `Mix` and press
    `Enter`.
 5. Press `c`, type `100` and press `Enter`. The reverb now gives only the
    reverb sound, not the dry sound.
-6. Press `<Space>d` to hide the panel.
+6. Press `<Space>dd` to hide the panel.
 
 ## Send the tracks
 
 1. Go to the first track that needs reverb.
-2. Press `<Space>s`. Type `Reverb` and press `Enter`. The track now sends to the
+2. Press `<Space>ts`. Type `Reverb` and press `Enter`. The track now sends to the
    reverb track at -12 dB.
 3. Go to the next track, and do step 2 again.
 
@@ -32,7 +32,7 @@ To change the level of a send, type the command again with the new level:
 
 ## Set the amount of reverb
 
-- To change the reverb on one track, change its send. Press `<Space>m`, go to
+- To change the reverb on one track, change its send. Press `<Space>mm`, go to
   the strip of the track, and press `k` until the send row is selected.
   Press `+` or `-` to change the send by one dB.
 - To change the reverb on all the tracks, move the fader of the reverb

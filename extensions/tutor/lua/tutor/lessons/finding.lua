@@ -19,8 +19,8 @@ Key hints show when you stop after the start of a sequence (`g`, `<leader>`, `d`
 `"`). `?` is the list of keys for the view that has the keys. `:commands`
 shows each command and what it does.
 
-`<leader>fc` finds a command, `<leader>fk` a key, `<leader>ft` a track and `<leader>fl` a
-clip. `<leader>fa` finds a device, `<leader>fm` a mark, `<leader>fr` a register and `<leader>fp` a picker. In a
+`<leader>f:` finds a command, `<leader>fk` a key, `<leader>ft` a track and `<leader>fc` a
+clip. `<leader>fm` finds a marker, `<leader>fr` a region, `<leader>f"` a register and `<leader>fp` a picker. In a
 picker, the text that you type makes the list shorter. The letters must be in
 order, but they can have other letters between them. `<C-n>` `<C-p>` move,
 `<CR>` selects and `<Esc>` cancels. `K` gives data about the clip and the
@@ -64,8 +64,8 @@ history (`<Up>`).]],
       done = "Bass is at -6 dB. `+` and `-` run the command `track.volume`.",
     },
     {
-      say = "`<leader>fc` opens a picker of all the commands. Type some letters, and `<CR>` runs the first command. Press `<leader>fc`, type `metro` and press `<CR>`.",
-      keys = { "<leader>fc", "metro", "<CR>" },
+      say = "`<leader>f:` opens a picker of all the commands. Type some letters, and `<CR>` runs the first command. Press `<leader>f:`, type `metro` and press `<CR>`.",
+      keys = { "<leader>f:", "metro", "<CR>" },
       check = function() return paw.transport.metronome end,
       done = "The metronome is on. You ran `transport.metronome`, but you did not know its name or its key.",
     },
@@ -83,7 +83,7 @@ history (`<Up>`).]],
       say = "`<leader>ft` goes to a track by its name. Press `<leader>ft`, type `dr` and press `<CR>`.",
       keys = { "<leader>ft", "dr", "<CR>" },
       check = function(ctx, look) return look.ran(ctx, "pick.tracks") and look.cursor_track() == "Drums" end,
-      done = "The cursor is on Drums. `<leader>fl` does the same for clips.",
+      done = "The cursor is on Drums. `<leader>fc` does the same for clips.",
     },
     {
       say = "`K` gives data about the item under the cursor: the clip, the track and its devices. Press `K`, then `q` to close it.",

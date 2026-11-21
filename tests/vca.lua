@@ -192,10 +192,10 @@ test("VCA commands put the selected tracks under a VCA and take them out", funct
   paw.keymap.feed("<Esc>")
   paw.ui.focus("arrange")
   paw.cursor.set_track(pad)
-  paw.keymap.feed("<leader>vn")
+  paw.keymap.feed("<leader>tv")
   eq(require("paw.views.cmdline").state() ~= nil, true, "the key asks for a name")
   paw.keymap.feed("<C-u>Strings<CR>")
-  eq(paw.vca.is_vca(paw.track("Strings")), true, "Space vn makes a VCA")
+  eq(paw.vca.is_vca(paw.track("Strings")), true, "Space tv makes a VCA")
   eq(paw.vca.of(pad)[1], paw.track("Strings").id, "over the cursor's track")
 end)
 

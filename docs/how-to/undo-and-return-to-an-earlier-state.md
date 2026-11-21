@@ -29,7 +29,7 @@ go to a newer one.
 ## See the branches as a tree
 
 1. Type `:ext.load undotree`.
-2. Press `<Space>uu`. The window of the undo tree shows each branch, and what
+2. Press `<Space>pu`. The window of the undo tree shows each branch, and what
    the selected state changed.
 3. Press `j` and `k` to select a state, and `Enter` to go there.
 

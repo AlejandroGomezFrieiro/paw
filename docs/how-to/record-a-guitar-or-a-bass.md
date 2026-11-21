@@ -24,7 +24,7 @@ play the song. For each rule, see [Recording](../reference/recording.md).
 4. Press `r` to arm the track. Play. The track header shows the level at
    the input, and you hear the instrument.
 5. To tune, type `:tuner`. The device panel shows the tuner, with the note
-   and the cents. When you are in tune, press `<Space>d` to hide the panel.
+   and the cents. When you are in tune, press `<Space>dd` to hide the panel.
 
 To play through an amp simulator, press `a` on the track and select the
 plugin. paw records the dry sound of the instrument. So you can change the

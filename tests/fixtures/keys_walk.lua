@@ -16,6 +16,29 @@ end
 for _, line in ipairs(paw.keyrule.broken()) do print("wrong: rule " .. line) end
 for _, line in ipairs(paw.keyrule.lost_groups()) do print("wrong: group " .. line .. " leads to nothing") end
 
+-- The leader keys are a domain, then a verb or an object (docs/reference/keys.md):
+-- the key after the leader is one of these, with this name, in every view.
+local domains = { a = "automation", c = "clip", d = "devices", f = "find", g = "versions", h = "tutor",
+  l = "language servers", m = "mix", n = "notation", p = "project", r = "markers and regions", t = "tracks",
+  T = "tempo and transport", u = "utau", v = "views" }
+local leader = table.concat(paw.keymap.parse("<leader>"))
+local groups = paw.keymap.groups()
+for _, map in ipairs(paw.keymap.every()) do
+  local keys = map.keys
+  if (map.mode == "n" or map.mode == "x") and keys[1] == leader and #keys >= 2 and map.role ~= "play" then
+    local domain = keys[2]
+    local prefix = leader .. domain
+    local name = (groups[map.scope] or {})[prefix] or (groups.global or {})[prefix]
+    if #keys == 2 then
+      print("wrong: domain " .. map.scope .. " " .. map.lhs .. ": one key after the leader, not a domain and a key")
+    elseif domains[domain] == nil then
+      print("wrong: domain " .. map.scope .. " " .. map.lhs .. ": " .. domain .. " is not a domain of the leader")
+    elseif name ~= domains[domain] then
+      print("wrong: domain " .. map.scope .. " " .. map.lhs .. ": the group is " .. tostring(name) .. ", not " .. domains[domain])
+    end
+  end
+end
+
 -- Escape cancels and stays.
 local t = paw.add_track({ name = "Keys" })
 t:add_device("synth")

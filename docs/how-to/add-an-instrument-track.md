@@ -27,7 +27,7 @@ To hear an instrument in the list before you add it, select it and press
 
 ## Start from a preset
 
-1. Press `<Space>d`. The device panel shows the devices of the track.
+1. Press `<Space>dd`. The device panel shows the devices of the track.
 2. Put the cursor on the row of the instrument, and press `c`. The list of
    presets opens.
 3. Type a part of the name, for example `pluck`, and press `Enter`.

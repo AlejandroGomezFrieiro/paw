@@ -236,7 +236,7 @@ test("half-typed commands show what can follow, and are counted right", function
   local found = {}
   for _, hint in ipairs(hints) do found[hint.key] = hint.desc end
   eq(found.w, "Start of the next clip", "motions are offered")
-  eq(found.i, "+6 more", "and the start of text objects")
+  eq(found.i, "+7 more", "and the start of text objects")
   eq(title, "Delete …", "under the operator's name")
   local screen = table.concat(api.ui_snapshot(100, 30), "\n")
   eq(screen:find("Delete …", 1, true) ~= nil and screen:find("PENDING", 1, true) ~= nil, true, "on screen")

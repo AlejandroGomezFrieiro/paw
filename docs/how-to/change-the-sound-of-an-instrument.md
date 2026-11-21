@@ -8,7 +8,7 @@ or use the editor of the plugin. For each key, see [The device panel](../referen
 
 ## Change a parameter
 
-1. Put the cursor on the track, and press `<Space>d`. The device panel shows
+1. Put the cursor on the track, and press `<Space>dd`. The device panel shows
    each device of the track, with its parameters under it.
 2. Press `j` and `k` to go to a parameter, for example `cutoff`.
 3. Press `+` or `-` to change it by one percent of its range. A count
@@ -34,7 +34,7 @@ the preset shows next to the name of the device.
 ## Keep your sound as a preset
 
 1. In the device panel, put the cursor on the device.
-2. Press `<Space>w`. Type a name and press `Enter`.
+2. Press `<Space>dw`. Type a name and press `Enter`.
 
 The preset is now first in the list of presets of that device, in all
 projects.

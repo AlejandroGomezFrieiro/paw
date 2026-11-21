@@ -16,12 +16,12 @@ below the group, indented one step, in its color.
 
 | Keys, command | Effect |
 | --- | --- |
-| `:track.group Strings`, `<Space>g` | Make a group of the selected tracks. |
+| `:track.group Strings`, `<Space>tg` | Make a group of the selected tracks. |
 | `:track.into Strings` | Put a track into a group. |
-| `:track.ungroup`, `<Space>G` | Take a track out of its group, or remove a group. |
+| `:track.ungroup`, `<Space>tG` | Take a track out of its group, or remove a group. |
 | `za` | Fold the members of a group into it, or open them. |
 | `zM`, `zR` | Fold each group, open each group. |
-| `:group.link`, `<Space>vl` | Link the faders of the members of a group. |
+| `:group.link`, `<Space>tl` | Link the faders of the members of a group. |
 
 - A group can hold groups.
 - A group is a usual track with a mark in its `meta`. paw saves, copies and
@@ -50,10 +50,10 @@ they played.
 
 | Keys, command | Effect |
 | --- | --- |
-| `:vca.make Drums`, `<Space>vn` | Make a VCA over the selected tracks (or the track at the cursor). |
-| `:vca.assign Drums`, `<Space>va` | Put the selected tracks under a VCA. With no name: a list. |
-| `:vca.release`, `<Space>vr` | Take the selected tracks out of a VCA, or out of all VCAs. |
-| `:vca.dissolve`, `<Space>vx` | Remove a VCA. |
+| `:vca.make Drums`, `<Space>tv` | Make a VCA over the selected tracks (or the track at the cursor). |
+| `:vca.assign Drums`, `<Space>ta` | Put the selected tracks under a VCA. With no name: a list. |
+| `:vca.release`, `<Space>tr` | Take the selected tracks out of a VCA, or out of all VCAs. |
+| `:vca.dissolve`, `<Space>tx` | Remove a VCA. |
 
 - A move of the VCA fader moves each member by that number of dB. The own
   fader of the member does not change.
@@ -98,8 +98,8 @@ playback, on any number of threads.
 
 | Keys, command | Effect |
 | --- | --- |
-| `:track.output Drum bus`, `<Space>o` | Play the track into a different track. `<Space>o`: a list. |
-| `:send Reverb -9`, `<Space>s` | Send the sound of the track to a different track, at -9 dB. `<Space>s`: a list. |
+| `:track.output Drum bus`, `<Space>to` | Play the track into a different track. `<Space>to`: a list. |
+| `:send Reverb -9`, `<Space>ts` | Send the sound of the track to a different track, at -9 dB. `<Space>ts`: a list. |
 | `:send Reverb pre=1` | A send before the fader. |
 | `:send.remove Reverb` | Remove the send. |
 
@@ -108,7 +108,7 @@ playback, on any number of threads.
   of that send. Without a level, the send does not change, and paw says so.
 - With a selection of tracks (`V` in the arrange view or in the mixer),
   `:send` acts on each track of the selection.
-- The list of `<Space>s` shows first the tracks with no instrument (the
+- The list of `<Space>ts` shows first the tracks with no instrument (the
   returns).
 - In Lua: `track:send(reverb, -6, { pre = true })`.
 - A send before the fader takes the sound after the devices of the track,

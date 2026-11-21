@@ -197,10 +197,11 @@ end)
 
 -- Sources --------------------------------------------------------------------
 
-test("pick: keys under <leader>f open the sources", function()
+test("pick: the letter after <leader>f is the domain's letter: fc clips, fr regions, fm markers, ft tracks", function()
   start()
   paw.add_track({ name = "Bass" })
-  for keys, title in pairs({ ["<Space>ft"] = "Tracks", ["<Space>fc"] = "Commands", ["<Space>fp"] = "Pickers", ["<Space>fa"] = "Add a device" }) do
+  for keys, title in pairs({ ["<Space>fc"] = "Clips", ["<Space>fr"] = "Regions", ["<Space>fm"] = "Markers", ["<Space>ft"] = "Tracks",
+      ["<Space>f:"] = "Commands", ["<Space>da"] = "Add a device" }) do
     paw.keymap.feed(keys)
     eq(pick.state() and pick.state().title, title, keys)
     paw.keymap.feed("<Esc>")

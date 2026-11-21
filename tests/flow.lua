@@ -397,10 +397,10 @@ test("after an error the key line says how to read it, until it is read", functi
   paw.notify("something broke\nwith details", "error")
   local last = screen(120, 30):match("([^\n]*)$")
   has(last, "something broke", "the error itself")
-  has(last, "Space fn or :messages shows it all", "and how to see it whole")
+  has(last, "Space fl or :messages shows it all", "and how to see it whole")
   paw.ui.message = nil
   last = screen(120, 30):match("([^\n]*)$")
-  has(last, "Space fn last error", "once it has gone, the key line still says so")
+  has(last, "Space fl last error", "once it has gone, the key line still says so")
   paw.cmd("messages")
   local text = screen(120, 30)
   paw.ui.close()

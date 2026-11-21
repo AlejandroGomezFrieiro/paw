@@ -14,7 +14,7 @@ Each key runs a command with a name. So you can type the name of each action tha
 
 Key hints show when you stop after the start of a sequence (`g`, `<Space>`, `d`, `"`). `?` is the list of keys for the view that has the keys. `:commands` shows each command and what it does.
 
-`<Space>fc` finds a command, `<Space>fk` a key, `<Space>ft` a track and `<Space>fl` a clip. `<Space>fa` finds a device, `<Space>fm` a mark, `<Space>fr` a register and `<Space>fp` a picker. In a picker, the text that you type makes the list shorter. The letters must be in order, but they can have other letters between them. `<C-n>` `<C-p>` move, `<CR>` selects and `<Esc>` cancels. `K` gives data about the clip and the track under the cursor.
+`<Space>f:` finds a command, `<Space>fk` a key, `<Space>ft` a track and `<Space>fc` a clip. `<Space>fm` finds a marker, `<Space>fr` a region, `<Space>f"` a register and `<Space>fp` a picker. In a picker, the text that you type makes the list shorter. The letters must be in order, but they can have other letters between them. `<C-n>` `<C-p>` move, `<CR>` selects and `<Esc>` cancels. `K` gives data about the clip and the track under the cursor.
 
 ## If you know Vim
 
@@ -31,12 +31,12 @@ The tutor opens a practice project for this lesson. It checks each step when you
    - ✓ Each key that you used runs one of those commands.
 3. Tab completes the names of commands. Press `j` to go to Bass. Type `:track.vol` and press `<Tab>`: it becomes `track.volume`. Then press `<Space>`, type `-6` and press `<CR>`.
    - ✓ Bass is at -6 dB. `+` and `-` run the command `track.volume`.
-4. `<Space>fc` opens a picker of all the commands. Type some letters, and `<CR>` runs the first command. Press `<Space>fc`, type `metro` and press `<CR>`.
+4. `<Space>f:` opens a picker of all the commands. Type some letters, and `<CR>` runs the first command. Press `<Space>f:`, type `metro` and press `<CR>`.
    - ✓ The metronome is on. You ran `transport.metronome`, but you did not know its name or its key.
 5. `<Space>fk` finds a key from its action. Press `<Space>fk` and type `loop` to see all the keys for the loop. Then press `<Esc>`.
    - ✓ The list showed `gL`, `gl` and `il`. `<CR>` on a line types its key for you.
 6. `<Space>ft` goes to a track by its name. Press `<Space>ft`, type `dr` and press `<CR>`.
-   - ✓ The cursor is on Drums. `<Space>fl` does the same for clips.
+   - ✓ The cursor is on Drums. `<Space>fc` does the same for clips.
 7. `K` gives data about the item under the cursor: the clip, the track and its devices. Press `K`, then `q` to close it.
    - ✓ `K` is the fastest way to see the devices, sends and automation of a track.
 8. Listen with the click. Press `<Space><Space>`, then `<Space><Space>` to stop and `gm` to disable the click.

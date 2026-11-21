@@ -69,6 +69,7 @@ end
 --- The key mappings (paw/keymap.lua, in Lua): what this module calls of them.
 local record Keymap
   push_jump: function()
+  human: function(keys: string): string
 end
 
 --- The arrange view (paw/views/arrange.lua, in Lua): what this module calls of it.
@@ -187,48 +188,59 @@ local help: contracts.PickSource<HelpModule.Tag> = {
 
 -- Markers and regions ----------------------------------------------------------
 
-local markers: contracts.PickSource<MarkersModule.Marker> = {
-  desc = "Go to a marker or region",
-  title = "Markers and regions",
-  empty = "No markers. `g'` puts one at the cursor, `:region` makes a region.",
-  items = function(): {MarkersModule.Marker} return paw.markers.list() end,
-  format = function(m: MarkersModule.Marker): string
-    local where = paw.time.format(m.beat)
-    if m.length then where = where .. " – " .. paw.time.format(m.beat + m.length) end
-    return string.format("%-7s %-24s %s", m.length and "region" or "marker", paw.markers.label(m), where)
-  end,
-  primary = function(m: MarkersModule.Marker): string return paw.markers.label(m) end,
-  -- What is typed finds a name, not a number of the time: `Chorus 2`.
-  search = function(m: MarkersModule.Marker): string return paw.markers.label(m) .. " " .. (m.length and "region" or "marker") end,
-  location = function(m: MarkersModule.Marker): contracts.Location
-    return { uri = A.marker(m.id), selector = { time = { m.beat, m.beat } } }
-  end,
-  on_choose = function(m: MarkersModule.Marker)
-    keymap.push_jump()
-    paw.ui.focus("arrange")
-    paw.cursor.set_beat(m.beat)
-    local arrange = paw.ui.views.arrange as Arrange
-    if arrange.center then arrange:center() end
-  end,
-  delete = function(list: {MarkersModule.Marker})
-    api.undo_label("Remove markers")
-    for _, m in ipairs(list) do paw.markers.remove(m.id) end
-  end,
-  preview = function(m: MarkersModule.Marker): {string | contracts.PageLine}
-    local lines: {string | contracts.PageLine} = { { text = paw.markers.label(m), style = "Title" }, "", (m.length and "region from " or "marker at ") .. paw.time.format(m.beat) }
-    if m.length then lines[#lines + 1] = string.format("to %s, %g beats", paw.time.format(m.beat + m.length), m.length) end
-    -- What plays there: the clips that start within a bar of it.
-    lines[#lines + 1] = ""
-    for _, id in ipairs(api.track_list()) do
-      for _, c in ipairs(api.clip_list(id)) do
-        if c.start <= m.beat + (m.length or 0) and c.start + c.length > m.beat then
-          lines[#lines + 1] = string.format("  %-16s %s", api.track_get(id).name, c.name)
+--- A picker of the markers (`kind` "marker") or of the regions ("region").
+local function marker_source(kind: string): contracts.PickSource<MarkersModule.Marker>
+  local region = kind == "region"
+  return {
+    desc = region and "Go to a region" or "Go to a marker",
+    title = region and "Regions" or "Markers",
+    empty = region and "No regions. `" .. keymap.human("<leader>rn") .. "` makes one over the selection or the loop."
+      or "No markers. `" .. keymap.human("<leader>rm") .. "` puts one at the cursor.",
+    items = function(): {MarkersModule.Marker}
+      local out: {MarkersModule.Marker} = {}
+      for _, m in ipairs(paw.markers.list()) do
+        if (m.length ~= nil) == region then out[#out + 1] = m end
+      end
+      return out
+    end,
+    format = function(m: MarkersModule.Marker): string
+      local where = paw.time.format(m.beat)
+      if m.length then where = where .. " – " .. paw.time.format(m.beat + m.length) end
+      return string.format("%-24s %s", paw.markers.label(m), where)
+    end,
+    primary = function(m: MarkersModule.Marker): string return paw.markers.label(m) end,
+    -- What is typed finds a name, not a number of the time: `Chorus 2`.
+    search = function(m: MarkersModule.Marker): string return paw.markers.label(m) end,
+    location = function(m: MarkersModule.Marker): contracts.Location
+      return { uri = A.marker(m.id), selector = { time = { m.beat, m.beat } } }
+    end,
+    on_choose = function(m: MarkersModule.Marker)
+      keymap.push_jump()
+      paw.ui.focus("arrange")
+      paw.cursor.set_beat(m.beat)
+      local arrange = paw.ui.views.arrange as Arrange
+      if arrange.center then arrange:center() end
+    end,
+    delete = function(list: {MarkersModule.Marker})
+      api.undo_label(region and "Remove regions" or "Remove markers")
+      for _, m in ipairs(list) do paw.markers.remove(m.id) end
+    end,
+    preview = function(m: MarkersModule.Marker): {string | contracts.PageLine}
+      local lines: {string | contracts.PageLine} = { { text = paw.markers.label(m), style = "Title" }, "", (m.length and "region from " or "marker at ") .. paw.time.format(m.beat) }
+      if m.length then lines[#lines + 1] = string.format("to %s, %g beats", paw.time.format(m.beat + m.length), m.length) end
+      -- What plays there: the clips that start within a bar of it.
+      lines[#lines + 1] = ""
+      for _, id in ipairs(api.track_list()) do
+        for _, c in ipairs(api.clip_list(id)) do
+          if c.start <= m.beat + (m.length or 0) and c.start + c.length > m.beat then
+            lines[#lines + 1] = string.format("  %-16s %s", api.track_get(id).name, c.name)
+          end
         end
       end
-    end
-    return lines
-  end,
-}
+      return lines
+    end,
+  }
+end
 
 -- Notes ------------------------------------------------------------------------
 
@@ -610,7 +622,8 @@ local function add(pick: Pick, S: Sources)
   -- Heard, from the picker's own module: a sound file, or a MIDI file's first bars.
   media.audition = function(f: MediaItem): string return pick.hear_file(f.path) end
   S.help = help
-  S.markers = markers
+  S.markers = marker_source("marker")
+  S.regions = marker_source("region")
   S.notes = notes
   S.media = media
   S.grep = grep

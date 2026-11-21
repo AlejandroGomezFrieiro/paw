@@ -115,12 +115,12 @@ The spec is a `paw.contracts.ExView`.
 ## `paw.keymap`
 
 ```lua
-paw.keymap.set("<leader>x", "command and arguments", { view = "arrange", desc = "..." })
+paw.keymap.set("<leader>mz", "command and arguments", { desc = "..." })  -- the leader: a domain (m, the mix), then a key
 paw.keymap.set("gx", function(ctx) end)                    -- ctx.count, ctx.register
 paw.keymap.set("<localleader>x", fn, { view = "myview" })  -- the leader of one view (a backslash)
 paw.keymap.set("gz", fn, { mode = { "n", "x" } })          -- normal and visual mode. "i" is insert mode
 paw.keymap.set("}", fn, { view = "arrange", motion = true })  -- a motion: also after operators and in visual mode
-paw.keymap.group("<leader>x", "mix checks")                -- the name of a prefix in the key hints: `+mix checks`
+paw.keymap.group("<leader>m", "mix")                       -- the name of a prefix in the key hints: `+mix`
 ```
 
 The keys of one view use `<localleader>`. `<leader>` keys are only for

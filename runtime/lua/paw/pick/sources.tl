@@ -590,7 +590,7 @@ local function make(pick: Pick): Sources
         end)
         -- After them, the keys of the other views, so that a search for what
         -- a key does finds it wherever it works: `send` in the mixer finds
-        -- the arrange view's `<leader>s`.
+        -- the arrange view's `<leader>ts`.
         local names: {string} = {}
         for name, v in pairs(paw.ui.views) do
           if name ~= view and v.focusable ~= false and not v.modal then names[#names + 1] = name end
@@ -827,7 +827,7 @@ local function make(pick: Pick): Sources
   local track_devices: contracts.PickSource<DeviceLine> = {
     desc = "Devices on the track: show one in the device panel",
     title = "Devices on the track",
-    empty = "No devices on this track. `<leader>fa` adds one.",
+    empty = "No devices on this track. `<leader>da` adds one.",
     items = function(): {DeviceLine}
       local track = paw.cursor.track()
       local out: {DeviceLine} = {}

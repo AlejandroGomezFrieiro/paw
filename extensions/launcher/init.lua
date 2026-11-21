@@ -140,7 +140,7 @@ end, { desc = "How many bars the slot's clip loops over: `slot.length 2`" })
 
 -- Keys -------------------------------------------------------------------------
 
-map("<leader>l", "view.toggle session", { desc = "Show or hide the session view, clips to launch" })
+map("<leader>vs", "view.toggle session", { desc = "Show or hide the session view, clips to launch" })
 local function smap(lhs, rhs, desc) map(lhs, rhs, { view = "session", desc = desc }) end
 local function to_row(row)
   launcher.row = math.max(0, row)

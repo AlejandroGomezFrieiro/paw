@@ -235,7 +235,7 @@ function M.unknown(name: string): string
   for _, other in ipairs(M.list()) do
     if #near < 5 and #name >= 2 and other.name:sub(1, #name) == name then near[#near + 1] = ":" .. other.name end
   end
-  return "no command `" .. name .. "`" .. (#near > 0 and ": did you mean " .. table.concat(near, ", ") .. "?" or ": `" .. (paw.keymap.human("<leader>fc") as string) .. "` or `:` and Tab find one")
+  return "no command `" .. name .. "`" .. (#near > 0 and ": did you mean " .. table.concat(near, ", ") .. "?" or ": `" .. (paw.keymap.human("<leader>f:") as string) .. "` or `:` and Tab find one")
 end
 
 --- Run a command. `args` is a table of arguments. `ctx` adds fields such as `count`.

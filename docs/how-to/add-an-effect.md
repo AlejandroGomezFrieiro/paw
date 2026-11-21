@@ -19,7 +19,7 @@ VST3 or CLAP compressor, is in the same list.
 
 ## Change a setting
 
-1. Press `<Space>d` to show the device panel. It shows the devices of the track,
+1. Press `<Space>dd` to show the device panel. It shows the devices of the track,
    each with its settings below its name.
 2. Press `w` to go to the next device, and `b` to go to the previous
    device.
@@ -39,7 +39,7 @@ VST3 or CLAP compressor, is in the same list.
    press `Enter`.
 3. To step through the presets, press `]p` and `[p`.
 
-To save your settings as a preset, press `<Space>w`.
+To save your settings as a preset, press `<Space>dw`.
 
 ## Compare and remove
 

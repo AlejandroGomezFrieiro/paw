@@ -199,7 +199,7 @@ test("mixdiag: the findings are diagnostics on their tracks, fixed from the mixe
   local screen = table.concat(api.ui_snapshot(140, 50), "\n")
   eq(screen:find(paw.draw.g.warn, 1, true) ~= nil or screen:find(paw.draw.g.error, 1, true) ~= nil, true, "the strip is marked:\n" .. screen)
   api.undo_checkpoint()
-  paw.keymap.feed("<leader>ca")
+  paw.keymap.feed("<leader>la")
   local state = paw.pick.state()
   eq(state and state.matches[1]:find("Lower Hot by", 1, true) ~= nil, true, "the fix, in the picker")
   paw.keymap.feed("<CR>")
@@ -358,11 +358,11 @@ test("mixdiag: measuring in the background, the loop and a selection", function(
   near(mixdiag.result.seconds, 4 + 1, 0.01, "the loop's length")
   eq(mixdiag.range_measured.label, "loop", "labelled")
 
-  -- In visual mode <leader>xa measures the selection.
+  -- In visual mode <leader>ma measures the selection.
   paw.opt.grid = 1
   paw.cursor.set_track(paw.track("Pad"))
   paw.cursor.set_beat(4)
-  paw.keymap.feed("v3l<leader>xa")
+  paw.keymap.feed("v3l<leader>ma")
   eq(paw.keymap.mode, "n", "back to normal mode")
   settle()
   eq(mixdiag.range_measured.label, "selection", "the selection")
@@ -443,7 +443,7 @@ test("mixdiag: the list of findings, in a picker or in its own view", function()
   -- Without a picker: a list of its own.
   paw.pick = nil
   paw.cursor.set_beat(0)
-  T.keys("<leader>xx")
+  T.keys("<leader>mx")
   eq(paw.ui.float and paw.ui.float.name, "mixdiag", "the list is open")
   local screen = table.concat(api.ui_snapshot(140, 40), "\n")
   eq(screen:find("clips at bar 3", 1, true) ~= nil, true, "it shows the clipping")
@@ -535,10 +535,10 @@ test("mixdiag: marks above the arrange view, and the summary", function()
   local screen = api.ui_snapshot(120, 20)
   eq(screen[1]:find("mix", 1, true) ~= nil, true, "the strip is docked on top: " .. screen[1])
   eq(screen[1]:find("E", 1, true) ~= nil, true, "with a mark for the clipping: " .. screen[1])
-  T.keys("<leader>xs")
+  T.keys("<leader>ms")
   eq(paw.ui.message.text:find("LUFS", 1, true) ~= nil, true, "summary: " .. paw.ui.message.text)
-  T.keys("<leader>xt")
-  eq(paw.opt.mixdiag_target ~= "none", true, "<leader>xt goes to the next target")
+  T.keys("<leader>mt")
+  eq(paw.opt.mixdiag_target ~= "none", true, "<leader>mt goes to the next target")
   paw.opt.mixdiag_target = "streaming"
   mixdiag.clear()
   screen = api.ui_snapshot(120, 20)
@@ -624,7 +624,7 @@ test("mixdiag: the painted report draws meters, a spectrum and the findings, whi
   mixdiag.clear()
 end)
 
-test("mixdiag: <leader>xp opens the painted report in pixels where the terminal shows them, and the report in cells where it does not", function()
+test("mixdiag: <leader>mp opens the painted report in pixels where the terminal shows them, and the report in cells where it does not", function()
   load()
   fresh()
   local function closed()
@@ -642,7 +642,7 @@ test("mixdiag: <leader>xp opens the painted report in pixels where the terminal 
     closed()
     api.ui_caps_set({ graphics = true, cell = { w = 10, h = 20 }, pixel_mouse = true, fg = "#cdd6f4" })
     paw.opt.graphics = on
-    paw.keymap.feed("<leader>xp")
+    paw.keymap.feed("<leader>mp")
     eq(paw.ui.focused, "mixdiag_paint", "the key opens it, graphics " .. tostring(on))
     local lines = api.ui_snapshot(100, 30)
     local surface = (paw.ui.rects.surfaces or {})[1]

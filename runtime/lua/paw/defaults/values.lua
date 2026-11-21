@@ -59,5 +59,5 @@ for _, name in ipairs({ "arrange", "mixer" }) do
 end
 map("grt", "tempo.set", { desc = "Type the tempo" })
 -- Tapped again and again in time; each tap sets the tempo from the taps so far.
-map("<leader>b", "tempo.tap", { desc = "Tap the tempo (the beat): again and again, in time", repeatable = false })
+map("<leader>Tt", "tempo.tap", { desc = "Tap the tempo (the beat): again and again, in time", repeatable = false })
 -- The device panel's `c` and `=` are in paw/device_rows.lua.

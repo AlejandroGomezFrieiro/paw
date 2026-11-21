@@ -42,6 +42,11 @@ take out what your extension adds. An extension's README follows
    `Ctrl-a`/`Ctrl-x` change the main value, `[ ]` the second; `< >` are time;
    `K` describes; `Esc` cancels and stays. A view's own keys go on
    `<localleader>` (backslash), **never** `<leader>` for one view's keys.
+   A key on `<leader>` that works from every view goes in a domain:
+   `<leader>` + noun + verb (`<leader>ma` measures the mix, `<leader>pu` the
+   undo tree). Use the domain of what the key does (docs/reference/keys.md,
+   "The leader keys"); a new domain names its group with `paw.keymap.group`.
+   `tests/fixtures/keys_walk.lua` fails on a leader key outside a domain.
    Motions are declared `motion = true` so operators and visual mode work.
    `tests/keys_constitution.lua` and `paw.keyrule.broken()` check it.
 3. **Terminal first, both frontends from one code path.** Draw views in

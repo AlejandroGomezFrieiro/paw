@@ -45,7 +45,7 @@ function M.broken()
     end
   end
   -- A view's own keys never take a global leader key away: they sit on
-  -- `<localleader>`, so that `<leader>m` is the mixer in every view.
+  -- `<localleader>`, so that `<leader>mm` is the mixer in every view.
   local leader, play = {}, {}
   for _, map in ipairs(keymap.every()) do
     if map.scope == "global" and map.lhs:lower():find("<leader>", 1, true) and (map.mode == "n" or map.mode == "x") then
@@ -56,7 +56,7 @@ function M.broken()
   local alone = table.concat(keymap.parse("<leader>"))
   -- The leader starts keys that work from every view: an extension's keys
   -- of one view go on `<localleader>` (`\S` sections, `\k` drums), unless
-  -- the core has the same keys in its views (`<leader>ca`, fixes and actions).
+  -- the core has the same keys in its views (`<leader>la`, fixes and actions).
   local core_view = {}
   for _, map in ipairs(keymap.every()) do
     if map.scope ~= "global" and not map.ext then core_view[map.mode .. table.concat(map.keys)] = true end

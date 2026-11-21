@@ -133,8 +133,8 @@ dmap("<CR>", function()
 end, "Edit the parameter's curve; on a device, show or hide its window")
 dmap("]p", "preset.next", "Next preset")
 dmap("[p", "preset.prev", "Previous preset")
-dmap("<leader>w", "preset.save", "Save the device's settings as a preset")
-dmap("<leader>W", "preset.default", "New ones start from this preset")
+dmap("<leader>dw", "preset.save", "Save the device's settings as a preset")
+dmap("<leader>dW", "preset.default", "New ones start from this preset")
 dmap("a", "device.add", "Add a device")
 dmap("gR", "device.restart", "Start a stopped plugin again")
 dmap("o", "device.offline", "Set the device offline, or back online")
@@ -266,7 +266,7 @@ paw.command("devices.pin", function(ctx)
   local L = paw.layout
   local cur = L.current()
   local win = cur and cur.view == "devices" and cur or L.find(paw.ui.layout, "devices", true)
-  if not win then return paw.notify("no device panel on the screen: `" .. paw.keymap.human("<leader>d") .. "` shows it", "warn") end
+  if not win then return paw.notify("no device panel on the screen: `" .. paw.keymap.human("<leader>dd") .. "` shows it", "warn") end
   local name = ctx.args[1] and table.concat(ctx.args, " ")
   L.within(win, function()
     if name then

@@ -495,22 +495,33 @@ commands.define("marker.list", function(): Result
     primary = function(item: Item): string return item.name end } as contracts.PickSource<Item>)
 end, { desc = "List the markers and regions; choose one to go there" })
 
-commands.define("region", function(ctx: Context): Result
-  local from, to: number, number
+--- The stretch a new region covers: the selection, else the loop.
+local function region_span(): number, number
   local sel = paw.keymap.selection()
-  if sel and sel.c0 and sel.c1 and sel.c1 > sel.c0 then
-    from, to = sel.c0, sel.c1
-  else
-    local t = api.transport_get()
-    if t.loop_end > t.loop_start then from, to = t.loop_start, t.loop_end end
-  end
-  if not from then
-    paw.notify("a region is made over the selection or the loop: select a stretch of time first", "warn")
-    return
-  end
-  local m = M.add(from, words(ctx.args), { length = to - from })
+  if sel and sel.c0 and sel.c1 and sel.c1 > sel.c0 then return sel.c0, sel.c1 end
+  local t = api.transport_get()
+  if t.loop_end > t.loop_start then return t.loop_start, t.loop_end end
+  paw.notify("a region is made over the selection or the loop: select a stretch of time first", "warn")
+  return nil, nil
+end
+
+local function add_region(from: number, to: number, name: string)
+  local m = M.add(from, name, { length = to - from })
   paw.notify(describe(m) .. ", " .. string.format("%g", to - from) .. " beats")
+end
+
+commands.define("region", function(ctx: Context): Result
+  local from, to = region_span()
+  if from then add_region(from, to, words(ctx.args)) end
 end, { desc = "Make a region over the selection, or over the loop: `region Verse`" })
+
+commands.define("region.new", function(): Result
+  local from, to = region_span()
+  if not from then return end
+  input({ prompt = "Region name: ", label = "Make a region" }, function(name: string)
+    add_region(from, to, name)
+  end)
+end, { desc = "Make a region over the selection, or over the loop, asking for its name" })
 
 commands.define("region.remove", function(ctx: Context): Result
   local m = wanted(ctx, "region")
@@ -530,7 +541,9 @@ end, { desc = "Loop the region at the cursor, or the one named: `region.loop Ver
 commands.define("render.regions", function(ctx: Context): Result
   local dir = ctx.args[1]
   if not dir then
-    paw.notify("render.regions: which directory? `render.regions out`", "warn")
+    input({ prompt = "Render the regions into the folder: ", text = "regions", label = "Render the regions" }, function(text: string)
+      if text ~= "" then commands.run("render.regions", { text }) end
+    end)
     return
   end
   local opts: RenderOptions = {}
@@ -540,7 +553,7 @@ commands.define("render.regions", function(ctx: Context): Result
   opts.background = (api.ui_attached() or nil) as RenderValue
   local files = M.render_regions(dir as string, opts)
   paw.notify(string.format("rendering %d region%s into %s", #files, #files == 1 and "" or "s", dir as string))
-end, { desc = "Render every region to a file of its own: `render.regions out`, `render.regions out format=flac bits=24`, `render.regions out format=mp3 quality=best`" })
+end, { desc = "Render every region to a file of its own: `render.regions out` (alone, it asks for the folder), `render.regions out format=flac bits=24`, `render.regions out format=mp3 quality=best`" })
 
 -- On the arrange view's ruler ------------------------------------------------------
 

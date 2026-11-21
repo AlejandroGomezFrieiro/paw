@@ -20,7 +20,7 @@ paw.ext.load("extensions/undotree")   -- or put the directory in ~/.config/paw/e
 2. Put the cursor on a clip. Type `3>ic`. The clip moves three steps later.
 3. Press `u`, then type `2>ic`. The clip moves two steps later. The first
    edit is now on another branch.
-4. Press `<Space>uu`. The window of the tree shows two branches.
+4. Press `<Space>pu`. The window of the tree shows two branches.
 5. Press `j` to select the state of the first edit, and press Enter. The
    clip is three steps later again.
 
@@ -32,27 +32,27 @@ paw.ext.load("extensions/undotree")   -- or put the directory in ~/.config/paw/e
   `:later 2m`.
 - To step through states in the order that they were made, press `g-` or
   `g+`.
-- To choose a state, press `<Space>uu`, select the state and press Enter.
+- To choose a state, press `<Space>pu`, select the state and press Enter.
 
 ### How to compare two versions by ear
 
-1. Press `<Space>ua`. This state is A.
+1. Press `<Space>pa`. This state is A.
 2. Continue to work, or go to another state of the tree.
-3. Start playback, and press `<Space>ub`. You hear A.
-4. Press `<Space>ub` again. You hear where you were, B.
-5. To forget A and B, press `<Space>uB`.
+3. Start playback, and press `<Space>pb`. You hear A.
+4. Press `<Space>pb` again. You hear where you were, B.
+5. To forget A and B, press `<Space>pB`.
 
 ### How to keep a version after paw closes
 
 1. Save the project.
-2. Type `:checkpoint before the bridge`, or press `<Space>uc` and type the name.
+2. Type `:checkpoint before the bridge`, or press `<Space>pc` and type the name.
 3. Later, to restore it, type `:checkpoints` and choose it.
 
 The restore is a new step. So `u` returns to where you were.
 
 ### How to see what a step changed
 
-- For the last step, type `:undo.diff`, or press `<Space>ud`.
+- For the last step, type `:undo.diff`, or press `<Space>p.`.
 - From state 3 to now, type `:undo.diff 3`.
 
 ### In the graphical window
@@ -68,17 +68,20 @@ is not loaded. The extension is the interface to the rest of the tree.
 
 ### Keys
 
+The keys after the leader are in the domain `<leader>p` (project), and
+the window is in `<leader>v` (views) too.
+
 | Keys | Effect |
 | --- | --- |
 | `g-` `g+` | the state made before or after this state, on any branch (with a count: `5g-`) |
-| `<leader>uu` | the window of the undo tree |
-| `<leader>ua` | marks this state as A |
-| `<leader>ub` | switches between A and where you were (B) |
-| `<leader>uB` | forgets A and B |
-| `<leader>uc` | writes a checkpoint. It asks for a name |
-| `<leader>ul` | lists checkpoints, to restore one |
-| `<leader>un` | names this state, for this session |
-| `<leader>ud` | shows what the last step changed |
+| `<leader>pu` `<leader>vu` | the window of the undo tree |
+| `<leader>pa` | marks this state as A |
+| `<leader>pb` | switches between A and where you were (B) |
+| `<leader>pB` | forgets A and B |
+| `<leader>pc` | writes a checkpoint. It asks for a name |
+| `<leader>pC` | lists checkpoints, to restore one |
+| `<leader>pn` | names this state, for this session |
+| `<leader>p.` | shows what the last step changed |
 
 - `u` and `Ctrl-r` are the built-in undo and redo. Undo goes to the parent
   state. Redo goes to the child that you visited last.
@@ -121,7 +124,7 @@ Each state is a node, with the newest at the top, and lines for the
 branches. The way back to the first state and the current state are lit.
 It takes the same keys as the terminal. You type a name for `n` or `c` on
 its last line. `:view.window undotree`, or "Open in a window" on
-`<leader>uu`, opens the view of the terminal in cells.
+`<leader>pu`, opens the view of the terminal in cells.
 
 ### Commands
 

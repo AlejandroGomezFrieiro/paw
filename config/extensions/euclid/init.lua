@@ -35,6 +35,6 @@ paw.command("euclid", function(ctx)
   paw.notify(string.format("euclid %d/%d on %s", hits, steps, paw.music.name(pitch)))
 end, { desc = "Fill the clip with a Euclidean rhythm: `euclid 5 16 pitch=36`" })
 
-paw.keymap.set("<leader>e", function(ctx)
+paw.keymap.set("<localleader>e", function(ctx)
   paw.cmd("euclid", { ctx.count or 4, 16 })
 end, { view = "arrange", desc = "Euclidean rhythm with N hits (default 4)" })

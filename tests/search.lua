@@ -181,9 +181,10 @@ test("search: Alt-d deletes in the picker, which stays open, as one undo step", 
   paw.keymap.feed("<Esc>")
   paw.undo()
   eq(pcall(api.clip_get, s.p2.id), true, "u brings it back")
+  paw.markers.add(4, "Verse")
   paw.pick("markers")
   paw.keymap.feed("<Tab><Tab><A-d><Esc>")
-  eq(#paw.markers.list(), 0, "marked markers go together")
+  eq(#paw.markers.list(), 1, "marked markers go together; the region stays")
 end)
 
 test("search: Ctrl-Up and Ctrl-Down step through what was typed before; resume as it was", function()
@@ -234,9 +235,9 @@ test("search: notes by lyric and articulation, drawn in a small piano roll", fun
   eq(paw.ui.views.pianoroll.clip_id, s.pc.id, "in its clip")
 end)
 
-test("search: markers, help tags, the Lua API and the undo history as pickers", function()
+test("search: regions, help tags, the Lua API and the undo history as pickers", function()
   song()
-  paw.pick("markers")
+  paw.pick("regions")
   paw.keymap.feed("pizzicato<CR>")
   eq(paw.cursor.beat, 8, "a region's start")
   paw.pick("symbols")

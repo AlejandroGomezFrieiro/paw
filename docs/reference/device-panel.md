@@ -2,7 +2,7 @@
 
 <!-- tags: devices-panel -->
 
-The device panel shows the devices of a track. `<Space>d` shows it. It is a grid
+The device panel shows the devices of a track. `<Space>dd` shows it. It is a grid
 of rows: the heading of a device, then its parameters, then the next
 device. Under the last device are the add line, the track that this track
 plays into, and its sends.
@@ -27,8 +27,8 @@ as widgets: sliders, a power button, buttons with icons.
 | `c` | On the row of a device: chooses a preset. |
 | `ge` | Shows the window of the plugin. |
 | `[p` `]p` | Step through the presets. |
-| `<Space>w` | Saves a preset. |
-| `<Space>W` | Makes the preset the default of the device. |
+| `<Space>dw` | Saves a preset. |
+| `<Space>dW` | Makes the preset the default of the device. |
 | `dd` | Cuts a device. On a parameter, sets it to its default. |
 | `yy` | Copies a device. |
 | `p` `P` | Paste a device after or before the cursor, also on a different track. |

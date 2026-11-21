@@ -17,8 +17,8 @@ extension each time, link its folder into `~/.config/paw/extensions`.
 
 The README.md of each extension tells all that it does. Each extension has
 its keys under its own prefix. These are `]]` `[[` and `\S` (sections), `gz`
-(musicops) and `\t` (pattern). They are also `<leader>x` (mixdiag),
-`<leader>u` `g-` `g+` (undotree) and `\V` (utau).]=],
+(musicops) and `\t` (pattern). They are also `<leader>m` (mixdiag),
+`<leader>p` `g-` `g+` (undotree) and `\V` (utau).]=],
   idea = [[
 An extension adds commands, keys, text objects, operators and views with the
 functions of lesson 15. So its additions obey the grammar that you know.
@@ -70,8 +70,8 @@ extensions.]],
       done = "Verse shows on the ruler. `is` is now a text object: `yis` yanks the section on all tracks, and `]]` goes to the next section.",
     },
     {
-      say = "undotree shows each state of the project. Type `:tutor.try undotree` and `<CR>`. Press `<leader>uu` to open the undo tree. Look at it, then press `q` to close it.",
-      keys = { ":tutor.try undotree", "<CR>", "<leader>uu", "q" },
+      say = "undotree shows each state of the project. Type `:tutor.try undotree` and `<CR>`. Press `<leader>pu` to open the undo tree. Look at it, then press `q` to close it.",
+      keys = { ":tutor.try undotree", "<CR>", "<leader>pu", "q" },
       check = function(ctx, look)
         if look.float() == "undotree" then ctx.seen = true end
         return loaded("undotree") and ctx.seen and not look.float()
@@ -79,10 +79,10 @@ extensions.]],
       done = "paw keeps each change that you undo. `g-` and `g+` move through time, across branches.",
     },
     {
-      say = "mixdiag measures the mix and shows problems. Type `:tutor.try mixdiag` and `<CR>`. Then press `<leader>xa` to measure the song.",
-      keys = { ":tutor.try mixdiag", "<CR>", "<leader>xa" },
+      say = "mixdiag measures the mix and shows problems. Type `:tutor.try mixdiag` and `<CR>`. Then press `<leader>ma` to measure the song.",
+      keys = { ":tutor.try mixdiag", "<CR>", "<leader>ma" },
       check = function(ctx, look) return loaded("mixdiag") and look.ran(ctx, "mix.analyze") end,
-      done = "mixdiag measures in the background. The message line shows the loudness when it is complete, and `<leader>xx` shows the problems that it found.",
+      done = "mixdiag measures in the background. The message line shows the loudness when it is complete, and `<leader>mx` shows the problems that it found.",
     },
     {
       say = "interop opens and writes REAPER projects and DAWproject files. Type `:tutor.try interop` and `<CR>`. Then type `:export tutor-song.rpp` and `<CR>`. A list of the items that REAPER cannot use opens. Press `q` to close it.",

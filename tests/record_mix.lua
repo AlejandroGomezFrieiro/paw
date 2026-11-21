@@ -55,8 +55,8 @@ test("the cursor reaches the master: j after the last track, $ and l in the mixe
 
   -- In the mixer the master is the last strip.
   paw.cursor.set_track(a)
-  keys("<leader>m")
-  eq(paw.ui.focused, "mixer", "Space m shows the mixer")
+  keys("<leader>mm")
+  eq(paw.ui.focused, "mixer", "Space mm shows the mixer")
   keys("$")
   eq(paw.cursor.track_id(), 0, "$ goes to the master's strip")
   keys("h")
@@ -119,7 +119,7 @@ test("the fader: - on a track above +6 dB goes down a dB, not to +6", function()
   eq(t.volume, 11, "- in the arrange view goes down one dB")
   keys("+")
   eq(t.volume, 11, "+ does not raise it, above the fader's travel")
-  keys("<leader>m-")
+  keys("<leader>mm-")
   eq(t.volume, 10, "- in the mixer goes down one dB")
   keys("<Esc>")
   t.volume = 5
@@ -145,7 +145,7 @@ test(":send to a track that has the send sets its level, or says it is unchanged
   keys("ggVj:send Reverb -12<CR>")
   eq(a.sends[1].level .. " " .. b.sends[1].level, "-12 -12", ":send on a selection acts on each track")
   eq(said():find("^2 tracks") ~= nil, true, "and names each: " .. said())
-  keys("<Esc><leader>m0Vl:send Reverb -3<CR>")
+  keys("<Esc><leader>mm0Vl:send Reverb -3<CR>")
   eq(a.sends[1].level .. " " .. b.sends[1].level, "-3 -3", "on a selection of strips in the mixer too")
   keys("<Esc>")
   eq(#c.sends, 0, "the return sends nowhere")

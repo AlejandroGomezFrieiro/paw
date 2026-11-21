@@ -262,7 +262,7 @@ row gives the lesson and a change that would help a new user.
 | Lesson | What occurs | What would help |
 | --- | --- | --- |
 | 12 | After `<Space><Space>` stops a take, record mode stays on (`rec` lit). The next `R` stops record mode, and the next `<Space><Space>` records again. The lesson must teach `R` then `<Space><Space>` | Stop record mode when the transport stops, or make `R` always start a take when stopped |
-| 9 | The device panel keeps its row when the track changes. So `<Space>d` can open on a row of the list of another device | Start at the top for a new track |
+| 9 | The device panel keeps its row when the track changes. So `<Space>dd` can open on a row of the list of another device | Start at the top for a new track |
 | 3, 10 | Prompts have text in them (`grn` with the old name, `A` with the current value), and new text goes at the end. The lesson must teach `<C-u>` first | The first key replaces the text, as in the lyric prompt of the vocal editor |
 | 4 | The note length set with a digit in insert mode stays for the session, across clips. It is also the length that `<CR>` gives a new note in normal mode. Nothing shows it outside insert mode | Reset it when insert mode ends, or always show it in the title row of the piano roll |
 | 3 | A clip made with `i` has the name `midi` | No name, or the name of the track |

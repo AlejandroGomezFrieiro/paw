@@ -968,10 +968,10 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.keymap.feed(keys)`: Type keys as if from the keyboard: `paw.keymap.feed("jj<Space>")`.
 - `paw.keymap.getreg(name)`: What a register holds (the unnamed one when `name` is nil).
 - `paw.keymap.goto_mark(name)`: Move to a mark. With `'` or a backtick as the name, return to the start of the last jump. With `.`, go to the place of the last edit.
-- `paw.keymap.group(prefix, name, opts)`: Give a name to a prefix that only leads to more keys. The hints after it then show `+mixer`, not the number of keys after it.
+- `paw.keymap.group(prefix, name, opts)`: Give a name to a prefix that only leads to more keys. The hints after it then show `+mix`, not the number of keys after it.
 
   ```lua
-  paw.keymap.group("<leader>x", "mix checks")
+  paw.keymap.group("<leader>m", "mix")
   ```
 
   With `opts.view`, the name applies only while that view has focus.
@@ -1010,7 +1010,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
   ```lua
   paw.keymap.set("M", "track.mute", { desc = "Mute track" })
-  paw.keymap.set("<leader>x", function(ctx) ... end, { view = "arrange" })
+  paw.keymap.set("<leader>mz", function(ctx) ... end, { desc = "Check the mix" })
   ```
 
   `ctx` has `count`, `register` and, for mappings made with `char = true`, the key typed after the mapping as `char`.
@@ -2070,7 +2070,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.ui.keybar.check()`: The keys shown that nothing is mapped to, as `view mode key` strings: empty when every line tells the truth.
 - `paw.ui.keybar.entries()`: The entries for what has the keyboard now, as `{ shown key, text }`.
 - `paw.ui.keybar.set(view, mode, entries)`: Set the keys shown for a view in a mode ("n", "x", "i").
-- `paw.ui.keybar.show(lhs)`: A key as a person reads it: `<leader>m` is `Space m`, `<C-w>c` is `Ctrl-w c`.
+- `paw.ui.keybar.show(lhs)`: A key as a person reads it: `<leader>mm` is `Space mm`, `<C-w>c` is `Ctrl-w c`.
 
 ## Module paw.util
 

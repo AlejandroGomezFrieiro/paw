@@ -18,7 +18,7 @@ end
 
 local names = { ["<Space>"] = "Space", ["<CR>"] = "Enter", ["<Esc>"] = "Esc", ["<BS>"] = "Bksp", ["<Tab>"] = "Tab", ["<lt>"] = "<" }
 
---- A key as a person reads it: `<leader>m` is `Space m`, `<C-w>c` is `Ctrl-w c`.
+--- A key as a person reads it: `<leader>mm` is `Space mm`, `<C-w>c` is `Ctrl-w c`.
 function M.show(lhs)
   if lhs:lower():find("leader>", 1, true) then return paw.keymap.human(lhs) end
   local out = paw.keymap.expand(lhs)
@@ -70,12 +70,12 @@ function M.check()
 end
 
 M.lines.default = {
-  n = { { "<Tab>", "next panel" }, { "<leader>fc", "commands" }, { "?", "keys" } },
+  n = { { "<Tab>", "next panel" }, { "<leader>f:", "commands" }, { "?", "keys" } },
 }
 M.lines.arrange = {
   n = {
     { "<leader><Space>", "play" }, { "o", "track" }, { "a", "device" }, { "i", "notes" }, { "<CR>", "open clip" },
-    { "<leader>m", "mixer" }, { "x", "delete" }, { "u", "undo" }, { "<leader>fc", "commands" }, { "?", "keys" },
+    { "<leader>mm", "mixer" }, { "x", "delete" }, { "u", "undo" }, { "<leader>f:", "commands" }, { "?", "keys" },
   },
   x = { { "d", "delete" }, { "y", "copy" }, { ">", "later" }, { "<lt>", "earlier" }, { "gl", "loop" }, { "<Esc>", "done" } },
 }

@@ -11,19 +11,20 @@ the project saves them. The module is `paw.markers`.
 
 | Keys, command | Effect |
 | --- | --- |
-| `g'`, `:marker Chorus` | Put a marker at the cursor. `g'` asks for its name. A marker with no name typed is `Marker 1`, `Marker 2` and so on. |
-| `:region Verse` | Make a region over the selection, or over the loop. |
+| `g'` `<Space>rm`, `:marker Chorus` | Put a marker at the cursor. `g'` and `<Space>rm` ask for its name. A marker with no name typed is `Marker 1`, `Marker 2` and so on. |
+| `<Space>rn`, `:region Verse` | Make a region over the selection, or over the loop. `<Space>rn` asks for its name. |
 | `]'` `['` | Go to the next start of a marker or region, or the one before. These are motions: `d]'`. |
 | `g"`, `:marker.list` | List all markers and regions. Select one to go there. |
 | `:marker.goto 3`, `:marker.goto Chorus` | Go to a marker by number or by name. |
 | `:marker.rename Bridge` | Rename the marker at the cursor. |
 | `:marker.move` | Move the marker at the cursor. |
-| `gx`, `:marker.remove` | Remove the marker at the cursor, or the one named: `:marker.remove Chorus`. Regions stay. |
-| `gX`, `:region.remove` | Remove the region that the cursor is in, or the one named: `:region.remove Verse`. Its clips and the markers stay. |
+| `gx` `<Space>rx`, `:marker.remove` | Remove the marker at the cursor, or the one named: `:marker.remove Chorus`. Regions stay. |
+| `gX` `<Space>rX`, `:region.remove` | Remove the region that the cursor is in, or the one named: `:region.remove Verse`. Its clips and the markers stay. |
 | `dir` | Delete the clips in the region that the cursor is in, on this track. The region stays. |
 | `dar` | Delete the clips in the region that the cursor is in, on every track. The region stays. |
-| `:region.loop Verse` | Loop a region. |
-| `:render.regions out` | Render each region to a file of its own: `01 Intro.wav`, and the next files. |
+| `<Space>rl`, `:region.loop Verse` | Loop the region that the cursor is in, or the one named. |
+| `<Space>rR`, `:render.regions out` | Render each region to a file of its own: `01 Intro.wav`, and the next files. `<Space>rR` asks for the folder. |
+| `<Space>fm` `<Space>fr` | Find a marker, a region, in a picker. |
 
 A region is also a range for `:render`: `:render out.wav range=Verse`
 (see [Render](render.md)).

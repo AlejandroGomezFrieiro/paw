@@ -5,7 +5,7 @@ local view = require("projdiff.view")
 local mergeview = require("projdiff.mergeview")
 
 local command, map = paw.command, paw.keymap.set
-paw.keymap.group("<leader>P", "project diff")
+paw.keymap.group("<leader>g", "versions")
 
 local function compare(ctx)
   local versions, err = projdiff.compare(ctx.args)
@@ -68,9 +68,9 @@ command("Pgit", function()
   })
 end, { desc = "How to make git diff and merge projects with paw" })
 
-map("<leader>Pd", "Pdiff", { desc = "What changed since the project was saved", repeatable = false })
-map("<leader>Pm", "Pmerge", { desc = "Settle merge conflicts", repeatable = false })
-map("<leader>Ps", function()
+map("<leader>gd", "Pdiff", { desc = "What changed since the project was saved", repeatable = false })
+map("<leader>gm", "Pmerge", { desc = "Settle merge conflicts", repeatable = false })
+map("<leader>gs", function()
   paw.ui.input({ prompt = "Snapshot name: " }, function(text) paw.cmd("Psnapshot", { text }) end)
 end, { desc = "Keep a snapshot of the project", repeatable = false })
 

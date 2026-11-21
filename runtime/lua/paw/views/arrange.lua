@@ -550,7 +550,7 @@ local function welcome(buf)
     { "i", "enter notes: a clip opens to draw them" },
     { "then I", "type them: a s d f g h j k are a scale" },
     { paw.keymap.human("<leader><Space>"), "play, and stop" },
-    { paw.keymap.human("<leader>fc"), "find any command" },
+    { paw.keymap.human("<leader>f:"), "find any command" },
     { "?", "every key that works where you are" },
     { ":", "run a command by name" },
     { ":help", "the manual, inside the program" },

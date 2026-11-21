@@ -18,39 +18,45 @@ command("pick", function(ctx)
 end, { desc = "Choose from a list: `pick tracks`, `pick devices query=reverb`; with no name, every picker", complete = { "pickers" } })
 command("pick.resume", function() paw.pick.resume() end, { desc = "Open the last picker again, with what was typed" })
 
+-- The letter after `f` is the one the same thing has elsewhere on the
+-- leader where it has one: `fc` clips (`<leader>c`), `fd` the track's devices
+-- (`<leader>d`), `fr` regions (`<leader>r`), `ft` tracks (`<leader>t`).
 local pick_keys = {
-  { "commands", "c", "Run a command" },
-  { "keys", "k", "Find a key mapping for this view" },
-  { "tracks", "t", "Go to a track" },
-  { "clips", "l", "Go to a clip" },
-  { "devices", "a", "Add a device or plugin to the track" },
-  { "track_devices", "d", "Show a device of the track" },
-  { "marks", "m", "Go to a mark" },
-  { "registers", "r", "Paste a register or play a macro" },
-  { "messages", "n", "Earlier messages" },
   { "files", "f", "Open a project or import audio from here" },
-  { "options", "o", "Set an option" },
-  { "pickers", "p", "Every picker" },
-  { "help", "h", "Go to a help tag" },
-  { "markers", "'", "Go to a marker or region" },
   { "grep", "g", "Find any text in the project" },
-  { "notes", "N", "Find a note by pitch, lyric or articulation" },
-  { "media", "w", "Sound files the project uses" },
-  { "quickfix", "q", "The entries of the quickfix list" },
-  { "undo", "u", "Go to a state of the undo history" },
+  { "keys", "k", "Find a key mapping for this view" },
+  { "clips", "c", "Go to a clip" },
+  { "regions", "r", "Go to a region" },
+  { "markers", "m", "Go to a marker" },
+  { "marks", "'", "Go to a mark" },
+  { "tracks", "t", "Go to a track" },
+  { "track_devices", "d", "Show a device of the track" },
+  { "notes", "n", "Find a note by pitch, lyric or articulation" },
+  { "help", "h", "Go to a help tag" },
+  { "options", "o", "Set an option" },
   { "extensions", "e", "Extensions, loaded or not" },
   { "symbols", "s", "Find a function of the Lua API" },
   { "presets", "P", "Load a preset into the device" },
+  { "quickfix", "q", "The entries of the quickfix list" },
+  { "media", "a", "Sound files the project uses" },
+  { "undo", "u", "Go to a state of the undo history" },
+  { "registers", '"', "Paste a register or play a macro" },
+  { "commands", ":", "Run a command" },
+  { "messages", "l", "Earlier messages: the log" },
+  { "pickers", "p", "Every picker" },
+  { "devices", nil, "Add a device or plugin to the track" },
 }
 for _, entry in ipairs(pick_keys) do
   local name, key, desc = entry[1], entry[2], entry[3]
   command("pick." .. name, function(ctx)
     paw.pick(name, { query = ctx.args[1] and table.concat(ctx.args, " ") or nil })
   end, { desc = desc .. ", in a picker" })
-  map("<leader>f" .. key, "pick." .. name, { desc = desc })
+  if key then map("<leader>f" .. key, "pick." .. name, { desc = desc }) end
 end
-map("<leader>fR", "recent", { desc = "Open a recent project" })
 map("<leader>f.", "pick.resume", { desc = "The last picker again" })
+-- Adding a device is the devices' (`<leader>d`); opening a recent project the project's (`<leader>p`).
+map("<leader>da", "pick.devices", { desc = "Add a device or plugin to the track" })
+map("<leader>pr", "recent", { desc = "Open a recent project" })
 
 -- With no argument, `device.add` chooses from every device in a picker.
 do

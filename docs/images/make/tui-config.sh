@@ -19,11 +19,11 @@ pause 0.5; key space space; pause 1.2
 xdotool key ctrl+shift+Up; pause 0.5
 cap "Add a colour and a key to it, and write it"
 key G o; TYPE_DELAY=35 typ 'paw.ui.hl("Playhead", { bg = "#f38ba8" })'
-key Return; TYPE_DELAY=35 typ 'paw.keymap.set("<leader>T", "track.add Strings device=synth")'
+key Return; TYPE_DELAY=35 typ 'paw.keymap.set("<leader>tS", "track.add Strings device=synth")'
 key Escape; key colon; typ "w"; key Return; pause 0.6
 xdotool key ctrl+shift+Down; pause 0.4
 cap ":reload runs it again without stopping the sound"
 key colon; TYPE_DELAY=90 typ "reload"; key Return; pause 1.4
-cap "Space T, the new key, adds a track"
-key space T; pause 1.8
+cap "Space tS, the new key, adds a track"
+key space t S; pause 1.8
 rec_stop

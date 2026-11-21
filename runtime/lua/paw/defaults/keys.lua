@@ -17,11 +17,21 @@ local motion, need_track, amap = common.motion, common.need_track, common.amap
 
 
 -- The names the key hints give to prefixes that only lead to more keys.
+-- The leader keys are a noun, then a verb or an object: `<leader>f` finds,
+-- `<leader>fc` finds a clip, `<leader>dd` shows the devices, `<leader>ts`
+-- sends the track (docs/reference/keys.md, "The leader keys"). The
+-- extensions name their own: `g` versions, `h` tutor, `n` notation, `u` utau.
 keymap.group("<leader>a", "automation")
--- `<leader>ca` is in every view that shows diagnostics; `<leader>cf` only in the arrange view.
-keymap.group("<leader>c", "fixes and actions")
-keymap.group("<leader>c", "fixes, clip fade", { view = "arrange" })
+keymap.group("<leader>c", "clip", { view = "arrange" })
+keymap.group("<leader>d", "devices")
 keymap.group("<leader>f", "find")
+keymap.group("<leader>l", "language servers")
+keymap.group("<leader>m", "mix")
+keymap.group("<leader>p", "project")
+keymap.group("<leader>r", "markers and regions")
+keymap.group("<leader>t", "tracks", { view = "arrange" })
+keymap.group("<leader>T", "tempo and transport")
+keymap.group("<leader>v", "views")
 keymap.group("gr", "set a value")
 
 local nx = { "n", "x" }
@@ -79,9 +89,21 @@ map("N", function(ctx) keymap.search_next(-1, ctx.count) end, util.merge(far, { 
 map("<Tab>", "view.next", { mode = nx, desc = "Focus the next view" })
 map("<S-Tab>", "view.prev", { mode = nx, desc = "Focus the previous view" })
 -- Windows and tabs (`Ctrl-w`, `gt`) are mapped in paw/layout.tl.
-map("<leader>m", "view.toggle mixer", { desc = "Show or hide the mixer" })
-map("<leader>d", "view.toggle devices", { desc = "Show or hide the device panel" })
-map("<leader>p", "roll.toggle", { desc = "Show or hide the piano roll, on the clip under the cursor" })
+map("<leader>mm", "view.toggle mixer", { desc = "Show or hide the mixer" })
+map("<leader>dd", "view.toggle devices", { desc = "Show or hide the device panel" })
+map("<leader>vm", "view.toggle mixer", { desc = "Show or hide the mixer" })
+map("<leader>vd", "view.toggle devices", { desc = "Show or hide the device panel" })
+map("<leader>vp", "roll.toggle", { desc = "Show or hide the piano roll, on the clip under the cursor" })
+-- Tempo and transport. `gm` and `gM` do the same without the leader.
+map("<leader>Tm", "transport.metronome", { desc = "Turn the metronome on or off" })
+map("<leader>Tc", "countin", { desc = "Count a bar in before recording, or not" })
+-- Markers and regions. `g'`, `gx` and `gX` do some of the same in the arrange view.
+map("<leader>rm", "marker.new", { desc = "Put a marker at the cursor: type its name" })
+map("<leader>rn", "region.new", { mode = nx, desc = "Make a region over the selection or the loop: type its name" })
+map("<leader>rx", "marker.remove", { desc = "Remove the marker at the cursor" })
+map("<leader>rX", "region.remove", { desc = "Remove the region the cursor is in; its clips stay" })
+map("<leader>rl", "region.loop", { desc = "Loop the region the cursor is in" })
+map("<leader>rR", "render.regions", { desc = "Render every region to a file of its own: type the folder" })
 -- What other programs have taught the fingers.
 map("<Del>", function() keymap.normal("x") end, { desc = "Delete what is under the cursor" })
 -- On a selection it is the operator: what the Delete key does anywhere else.
@@ -169,19 +191,19 @@ amap("*", function()
 end, "Next clip with this one's name", far)
 amap("zz", function() paw.ui.views.arrange:center() end, "Scroll the cursor to the middle")
 -- Groups of tracks.
-map("<leader>g", "track.group", { view = "arrange", mode = nx, desc = "Group the selected tracks" })
-amap("<leader>G", "track.ungroup", "Take the track out of its group; dissolve a group")
+map("<leader>tg", "track.group", { view = "arrange", mode = nx, desc = "Group the selected tracks" })
+amap("<leader>tG", "track.ungroup", "Take the track out of its group; dissolve a group")
 amap("za", "track.fold", "Fold the group away, or open it")
 amap("zn", "narrow", "Narrow to the group: a tab of its tracks alone")
 amap("zw", "widen", "Widen: close the narrowed tab")
 -- VCAs, and the faders of a group moving together.
-map("<leader>vn", "vca.make", { view = "arrange", mode = nx, desc = "A new VCA over the selected tracks" })
-map("<leader>va", "vca.assign", { view = "arrange", mode = nx, desc = "Put the selected tracks under a VCA" })
-map("<leader>vr", "vca.release", { view = "arrange", mode = nx, desc = "Take the selected tracks out of their VCAs" })
-amap("<leader>vx", "vca.dissolve", "Take the VCA at the cursor away")
-amap("<leader>vl", "group.link", "Link the faders of the group's members")
-amap("<leader>s", "send", "Send the track's sound to another as well")
-amap("<leader>o", "track.output", "Choose where the track's sound goes")
+map("<leader>tv", "vca.make", { view = "arrange", mode = nx, desc = "A new VCA over the selected tracks" })
+map("<leader>ta", "vca.assign", { view = "arrange", mode = nx, desc = "Put the selected tracks under a VCA" })
+map("<leader>tr", "vca.release", { view = "arrange", mode = nx, desc = "Take the selected tracks out of their VCAs" })
+amap("<leader>tx", "vca.dissolve", "Take the VCA at the cursor away")
+amap("<leader>tl", "group.link", "Link the faders of the group's members")
+amap("<leader>ts", "send", "Send the track's sound to another as well")
+amap("<leader>to", "track.output", "Choose where the track's sound goes")
 amap("zM", "track.fold all", "Fold every group")
 amap("zR", "track.fold none", "Open every group")
 amap("zl", function(ctx) paw.ui.views.arrange:scroll_by(ctx.count or 1) end, "Scroll a bar later")
@@ -688,7 +710,7 @@ command("roll.tracks", function() paw.roll_clips.pick() end,
   { desc = "Choose whose notes the piano roll shows behind its own, and which clips it edits together" })
 command("roll.only", function() paw.roll_clips.only() end, { desc = "Edit the piano roll's active clip alone" })
 -- Escape cancels and stays, as in every view: `<C-w>p` goes back to the
--- window before, `<leader>p` hides the roll.
+-- window before, `<leader>vp` hides the roll.
 pmap("<Esc>", function()
   if chosen() then return paw.frontend.act.clear_note_selection() end
   keymap.escape_hint()
@@ -706,8 +728,10 @@ for _, v in ipairs({ "pianoroll", "arrange", "mixer", "devices" }) do
   map("]d", function(ctx) paw.diagnostic.jump(1, ctx.count) end, { view = v, desc = "Next diagnostic here", jump = true })
   map("[d", function(ctx) paw.diagnostic.jump(-1, ctx.count) end, { view = v, desc = "Previous diagnostic here", jump = true })
   map("gK", function() paw.lsp.show_hover() end, { view = v, desc = "What the diagnostics and language servers say about what is under the cursor" })
-  map("<leader>ca", function() paw.lsp.code_actions() end, { view = v, desc = "Fixes and actions for what is under the cursor" })
+  map("<leader>la", function() paw.lsp.code_actions() end, { view = v, desc = "Fixes and actions for what is under the cursor" })
+  map("<leader>ll", function() paw.lsp.show_hover() end, { view = v, desc = "The problems and what the language servers say about what is under the cursor" })
 end
+map("<leader>li", "lsp info", { desc = "The language servers and what they can do" })
 command("diagnostics", function(ctx) paw.diagnostic.list(ctx.args[1] == "clip" and paw.ui.views.pianoroll.clip_id or nil) end,
   { desc = "List the diagnostics, grouped by what they are about, or (`diagnostics clip`) the piano roll's; Enter goes to one", complete = { "clip" } })
 command("lsp", function(ctx) paw.lsp.command(ctx) end,

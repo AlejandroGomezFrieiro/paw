@@ -189,7 +189,7 @@ end
 --- switch is an ordinary sync of one snapshot to the other. Returns "A" or
 --- "B" for where it went, or nil and why not.
 function M.toggle()
-  if not M.a then return nil, "no A yet: mark one with <leader>ua or :ab.mark" end
+  if not M.a then return nil, "no A yet: mark one with <leader>pa or :ab.mark" end
   api.undo_checkpoint()
   local at = api.undo_current()
   if at == M.a then

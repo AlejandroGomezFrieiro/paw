@@ -3978,8 +3978,8 @@ function paw.keymap.getreg(name) end
 function paw.keymap.goto_mark(name) end
 
 --- Give a name to a prefix that only leads to more keys. The hints after it
---- then show `+mixer`, not the number of keys after it.
----   paw.keymap.group("<leader>x", "mix checks")
+--- then show `+mix`, not the number of keys after it.
+---   paw.keymap.group("<leader>m", "mix")
 --- With `opts.view`, the name applies only while that view has focus.
 ---@param prefix any
 ---@param name any
@@ -4115,7 +4115,7 @@ function paw.keymap.selection() end
 
 --- Map keys.
 ---   paw.keymap.set("M", "track.mute", { desc = "Mute track" })
----   paw.keymap.set("<leader>x", function(ctx) ... end, { view = "arrange" })
+---   paw.keymap.set("<leader>mz", function(ctx) ... end, { desc = "Check the mix" })
 --- `ctx` has `count`, `register` and, for mappings made with `char = true`,
 --- the key typed after the mapping as `char`.
 --- 
@@ -7949,7 +7949,7 @@ function paw.ui.keybar.entries() end
 ---@param entries any
 function paw.ui.keybar.set(view, mode, entries) end
 
---- A key as a person reads it: `<leader>m` is `Space m`, `<C-w>c` is `Ctrl-w c`.
+--- A key as a person reads it: `<leader>mm` is `Space mm`, `<C-w>c` is `Ctrl-w c`.
 ---@param lhs any
 function paw.ui.keybar.show(lhs) end
 
