@@ -3,20 +3,33 @@
 //! describes it; the server's side is `paw_core::rpc`. Kept apart from the
 //! kernel so that a program that only talks to one (the window, a remote
 //! terminal) need not be built with it.
+//!
+//! The I/O runs on one tokio runtime for the process (`runtime`), and
+//! [`Connection`] is a blocking facade over it: a call waits for its
+//! answer, and what the kernel pushes waits in a channel until it is taken.
 
 pub mod monitor;
+mod runtime;
 pub mod tls;
 
-use std::io::{BufRead, BufReader, Read, Write};
-use std::net::{TcpStream, ToSocketAddrs};
-use std::os::unix::net::UnixStream;
+use std::io::Read;
+use std::net::{SocketAddr, ToSocketAddrs};
 use std::path::{Path, PathBuf};
-use std::sync::mpsc::{Receiver, channel};
+use std::sync::mpsc::{Receiver, Sender, channel};
+use std::time::Duration;
 
 use anyhow::{Context, Result, anyhow, bail};
 use serde_json::{Value, json};
+use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
+use tokio::net::{TcpStream, UnixStream};
+use tokio::task::AbortHandle;
+use tokio::time::timeout;
 
 pub use tls::Wire;
+
+/// How long connecting over the network, the TLS handshake, and waiting
+/// for the kernel's `hello` may each take.
+const HELLO_TIME: Duration = Duration::from_secs(10);
 
 /// The protocol's version, told in `hello`: 2 added pushed events,
 /// subscriptions, the screen for remote terminals, and TCP; 3 put TCP inside
@@ -55,7 +68,10 @@ pub fn hex(bytes: &[u8]) -> String {
 /// `paw attach`, the window. Replies come back from [`call`](Self::call);
 /// what the kernel pushes waits in [`events`](Self::events).
 pub struct Connection {
-    writer: Box<dyn Write + Send>,
+    /// The way out, written from the caller's thread on the runtime.
+    writer: Box<dyn AsyncWrite + Send + Unpin>,
+    /// The task that reads, ended when the connection is dropped.
+    reading: AbortHandle,
     replies: Receiver<Value>,
     pub events: Receiver<(String, Value)>,
     next: u64,
@@ -69,10 +85,12 @@ pub struct Connection {
 impl Connection {
     /// Connect to the kernel listening on a Unix socket.
     pub fn unix(path: &Path) -> Result<Self> {
-        let stream = UnixStream::connect(path)
+        let runtime = runtime::handle()?;
+        let stream = runtime
+            .block_on(UnixStream::connect(path))
             .with_context(|| format!("no running instance at {}", path.display()))?;
-        let reader = stream.try_clone()?;
-        Self::start(reader, Box::new(stream), None)
+        let (reader, writer) = stream.into_split();
+        Self::start(reader, Box::new(writer), None)
     }
 
     /// Connect to a kernel listening on the network, in TLS, holding it to
@@ -89,23 +107,17 @@ impl Connection {
             .with_context(|| format!("`{address}` is not an address: host:port"))?
             .next()
             .with_context(|| format!("`{address}` names no address"))?;
-        let stream = TcpStream::connect_timeout(&resolved, std::time::Duration::from_secs(10))
-            .with_context(|| format!("no running instance at {address}"))?;
-        let _ = stream.set_nodelay(true);
+        let runtime = runtime::handle()?;
+        let stream = runtime.block_on(tcp_connect(resolved, address))?;
         match wire {
             Wire::Plain => {
-                let reader = stream.try_clone()?;
-                Self::start(reader, Box::new(stream), Some(token))
+                let (reader, writer) = stream.into_split();
+                Self::start(reader, Box::new(writer), Some(token))
             }
             Wire::Tls { known, accept_new } => {
-                // The handshake may not take for ever; afterwards, reading
-                // waits as long as the kernel is quiet.
-                stream.set_read_timeout(Some(std::time::Duration::from_secs(10)))?;
-                let probe = stream.try_clone()?;
-                let opened = tls::connect(address, stream, known, *accept_new)?;
-                probe.set_read_timeout(None)?;
-                let mut connection =
-                    Self::start(opened.reader, Box::new(opened.writer), Some(token))?;
+                let opened = runtime.block_on(tls::connect(address, stream, known, *accept_new))?;
+                let (reader, writer) = tokio::io::split(opened.stream);
+                let mut connection = Self::start(reader, Box::new(writer), Some(token))?;
                 connection.trusted_now = opened.trusted_now;
                 Ok(connection)
             }
@@ -113,31 +125,16 @@ impl Connection {
     }
 
     fn start(
-        reader: impl Read + Send + 'static,
-        writer: Box<dyn Write + Send>,
+        reader: impl AsyncRead + Send + Unpin + 'static,
+        writer: Box<dyn AsyncWrite + Send + Unpin>,
         token: Option<&str>,
     ) -> Result<Self> {
         let (reply_tx, replies) = channel();
         let (event_tx, events) = channel();
-        std::thread::spawn(move || {
-            for line in BufReader::new(reader).lines() {
-                let Ok(line) = line else { break };
-                let Ok(message) = serde_json::from_str::<Value>(&line) else {
-                    continue;
-                };
-                let sent = match message["event"].as_str() {
-                    Some(name) => event_tx
-                        .send((name.to_string(), message["payload"].clone()))
-                        .is_ok(),
-                    None => reply_tx.send(message).is_ok(),
-                };
-                if !sent {
-                    break;
-                }
-            }
-        });
+        let reading = runtime::handle()?.spawn(read(reader, reply_tx, event_tx)).abort_handle();
         let mut connection = Self {
             writer,
+            reading,
             replies,
             events,
             next: 0,
@@ -149,7 +146,7 @@ impl Connection {
                 // The kernel speaks first over the network: what to prove.
                 let (name, payload) = connection
                     .events
-                    .recv_timeout(std::time::Duration::from_secs(10))
+                    .recv_timeout(HELLO_TIME)
                     .map_err(|_| anyhow!("the kernel did not say hello"))?;
                 // An instance that will not talk this way says why.
                 if let Some(error) = payload["error"].as_str().filter(|_| name == "hello") {
@@ -173,12 +170,7 @@ impl Connection {
 
     /// Send a request without waiting for its answer, which is dropped.
     pub fn notify(&mut self, method: &str, params: Value) -> Result<()> {
-        writeln!(
-            self.writer,
-            "{}",
-            json!({ "id": null, "method": method, "params": params })
-        )?;
-        self.writer.flush()?;
+        self.send(&json!({ "id": null, "method": method, "params": params }))?;
         Ok(())
     }
 
@@ -186,14 +178,7 @@ impl Connection {
     pub fn call(&mut self, method: &str, params: Value) -> Result<Value> {
         self.next += 1;
         let id = self.next;
-        writeln!(
-            self.writer,
-            "{}",
-            json!({ "id": id, "method": method, "params": params })
-        )
-        .map_err(|_| anyhow!("the kernel went away"))?;
-        self.writer
-            .flush()
+        self.send(&json!({ "id": id, "method": method, "params": params }))
             .map_err(|_| anyhow!("the kernel went away"))?;
         loop {
             let response = self
@@ -210,6 +195,61 @@ impl Connection {
             };
         }
     }
+}
+
+impl Connection {
+    /// Write one message, a line of JSON, and wait until it is sent.
+    fn send(&mut self, message: &Value) -> std::io::Result<()> {
+        let line = format!("{message}\n");
+        let runtime = runtime::handle().map_err(std::io::Error::other)?;
+        runtime.block_on(async {
+            self.writer.write_all(line.as_bytes()).await?;
+            self.writer.flush().await
+        })
+    }
+}
+
+impl Drop for Connection {
+    /// The reading task lets go of the socket too, so the kernel sees the
+    /// connection end now, not when it next sends something.
+    fn drop(&mut self) {
+        self.reading.abort();
+    }
+}
+
+/// Read what the kernel sends, one JSON object per line: answers go to
+/// `replies`, pushed events to `events`, in the order they came. Ends with
+/// the connection, or when nobody listens any more.
+async fn read(
+    reader: impl AsyncRead + Unpin,
+    replies: Sender<Value>,
+    events: Sender<(String, Value)>,
+) {
+    let mut lines = BufReader::new(reader).lines();
+    while let Ok(Some(line)) = lines.next_line().await {
+        let Ok(message) = serde_json::from_str::<Value>(&line) else {
+            continue;
+        };
+        let sent = match message["event"].as_str() {
+            Some(name) => events.send((name.to_string(), message["payload"].clone())).is_ok(),
+            None => replies.send(message).is_ok(),
+        };
+        if !sent {
+            break;
+        }
+    }
+}
+
+/// Connect to `resolved`, which `address` names, within [`HELLO_TIME`].
+async fn tcp_connect(resolved: SocketAddr, address: &str) -> Result<TcpStream> {
+    let stream = match timeout(HELLO_TIME, TcpStream::connect(resolved)).await {
+        Ok(connected) => connected,
+        Err(_) => Err(std::io::ErrorKind::TimedOut.into()),
+    }
+    .with_context(|| format!("no running instance at {address}"))?;
+    // Small messages both ways: do not wait to fill a packet.
+    let _ = stream.set_nodelay(true);
+    Ok(stream)
 }
 
 /// How much of a file goes in one `file.chunk`.

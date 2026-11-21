@@ -9,6 +9,9 @@ description = "The client's side of the kernel's control protocol, TLS included.
 anyhow.workspace = true
 serde_json.workspace = true
 rustls.workspace = true
+# The connection's I/O, on one runtime thread for the process.
+tokio = { workspace = true, features = ["rt", "net", "io-util", "time"] }
+tokio-rustls.workspace = true
 base64 = "0.22"
 hex.workspace = true
 # SHA-256 for proofs and fingerprints, at the version rustls links.

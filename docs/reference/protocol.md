@@ -567,7 +567,10 @@ buffer that waits for 200 ms and holds at most one second.
 ## In Rust
 
 The crate `paw-proto` is the side of the client. It uses `serde_json`,
-`anyhow`, `base64`, and `rustls` on `ring`. It does not use OpenSSL.
+`anyhow`, `base64`, `tokio`, and `tokio-rustls` with `rustls` on `ring`.
+It does not use OpenSSL. The functions below block. Each process has one
+thread, `paw-client`, that does the I/O of all its connections. Do not
+call the functions from a task of a `tokio` runtime.
 
 | Name | Effect |
 | --- | --- |
