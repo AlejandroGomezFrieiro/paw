@@ -105,6 +105,7 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
                 session.write_automation();
                 session.flush();
                 session.read_ahead();
+                session.poll_media();
                 std::mem::take(&mut session.events)
             };
             let list = lua.create_table_with_capacity(events.len(), 0)?;

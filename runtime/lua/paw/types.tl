@@ -1108,6 +1108,10 @@ local record types
     missing: boolean
     inside: boolean
     on_disk: boolean
+    --- `b3:` and the BLAKE3 hash of its bytes; nil until paw has read it.
+    hash: string
+    --- Its size in bytes; nil until paw has read it.
+    size: integer
   end
 
   --- What `media_search` and `media_relink` did: files found, the paths
@@ -1118,9 +1122,11 @@ local record types
     clips: integer
   end
 
-  --- What `media_collect` did: files copied into `dir`, files missing.
+  --- What `media_collect` did: files copied into `dir`, files that play a
+  --- copy of the same bytes already there, files missing.
   record MediaCollected
     copied: integer
+    same: integer
     missing: {string}
     dir: string
   end

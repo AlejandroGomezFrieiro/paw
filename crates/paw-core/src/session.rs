@@ -555,6 +555,9 @@ pub struct Session {
     files_watch: files_watch::FileWatch,
     /// When files played from the disk were last read ahead of the playhead.
     read_ahead_at: Instant,
+    /// What each of the project's files is: its hash, size and header
+    /// (`media.json`), learned in the background (session/media.rs).
+    pub(crate) sources: crate::media::Sources,
     /// The project put aside while a scratch one is open: see
     /// [`Session::project_shelve`].
     shelf: Option<Shelf>,
@@ -652,6 +655,7 @@ impl Session {
             watch: Default::default(),
             files_watch: Default::default(),
             read_ahead_at: Instant::now(),
+            sources: Default::default(),
             shelf: None,
             audition: Default::default(),
         };

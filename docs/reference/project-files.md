@@ -14,6 +14,7 @@ song/
 ├── project.toml            name, tempo, meter, tempo map, key, order of the tracks, transport
 ├── meta.json               the data of extensions (`paw.project.meta`), if there is some
 ├── screen.json             the tabs and windows that the project opens with
+├── media.json              the hash, size and format of each file that the clips play
 ├── .gitattributes          *.midi2 diff=paw-midi2
 ├── master/                 the master track, as a track folder
 ├── tracks/
@@ -67,6 +68,11 @@ song/
   saves it again with the same bytes. A data file that is not there, or
   that is not JSON, makes `:e` fail, with the name of the file and the
   line and column of the error.
+- `media.json` has one entry for each media file that the project uses,
+  sorted by the path that the clips give: the BLAKE3 hash of its bytes
+  (`b3:` and 64 hexadecimal digits), its size in bytes, and its streams
+  (rate, channels and frames of the sound). The hash tells what the file
+  is, at any path. See [Media files](media.md#what-a-file-is).
 - `.gitattributes` is written when the folder has none.
 
 ## Save
