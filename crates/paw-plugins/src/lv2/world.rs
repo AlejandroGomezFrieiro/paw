@@ -49,15 +49,18 @@ pub(super) struct World {
     pub(super) file_types: *mut LilvNode,
 }
 
-// Created and used on the main thread only.
 // SAFETY: The World holds the lilv world and node pointers, made once and never freed. lilv is
-// not thread safe, so by convention paw calls it from the main thread only; this impl
-// is how the static `world()` can hold it.
+// not thread safe, and nothing here makes it so: these impls only let the static in `world()` hold
+// it. The convention that makes them sound is that `world()`, the only way to the World, is called
+// on the main thread only (the thread that called `crate::register`, or the one thread of a
+// helper process); the audio thread never calls it. `world()` checks this in debug builds.
 unsafe impl Send for World {}
-// SAFETY: See `Send`: the World is read-only after creation and used from the main thread.
+// SAFETY: See `Send`: the World is reached through `world()` on the main thread only.
 unsafe impl Sync for World {}
 
+/// lilv's world. Call it on the main thread only: lilv is not thread safe.
 pub(super) fn world() -> &'static World {
+    crate::debug_assert_main_thread();
     static WORLD: OnceLock<World> = OnceLock::new();
     // SAFETY: `lilv_world_new` makes a world that lives for the program; the nodes and options are made
     // from it here and never freed; strings passed are NUL-terminated CStrings that live through each call.

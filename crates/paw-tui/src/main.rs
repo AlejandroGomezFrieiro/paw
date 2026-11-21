@@ -327,12 +327,18 @@ fn run() -> Result<i32> {
         Some(Command::PluginHost(raw)) => {
             let args = raw.args;
             // A device written in Lua is held the way a plugin is.
+            // SAFETY: This process is the helper that the DAW's sandbox started: the socket and the
+            // memory named in `args` are descriptors it inherited and that only these calls take,
+            // and no thread has started yet (`main` has only parsed its arguments).
             if args.first().is_some_and(|kind| kind.starts_with("lua:")) {
-                return Ok(paw_plugins::sandbox::serve_with(&args, |_, rate, block| {
-                    paw_luadev::serve_make(rate, block)
-                }));
+                return Ok(unsafe {
+                    paw_plugins::sandbox::serve_with(&args, |_, rate, block| {
+                        paw_luadev::serve_make(rate, block)
+                    })
+                });
             }
-            return Ok(paw_plugins::sandbox::serve(&args));
+            // SAFETY: As above.
+            return Ok(unsafe { paw_plugins::sandbox::serve(&args) });
         }
         Some(Command::PluginScan(raw)) => {
             let args = raw.args;
@@ -377,7 +383,9 @@ fn run() -> Result<i32> {
     }
     // A terminal older than the display it names cannot open a plugin's
     // window. Put that right while this is still the only thread.
-    let display_note = paw_plugins::repair_display_env();
+    // SAFETY: Called from `main` before any thread starts: only the arguments were parsed and, at
+    // most, a running paw asked over its socket, so nothing else reads or writes the environment.
+    let display_note = unsafe { paw_plugins::repair_display_env() };
 
     // A script only makes sound if it asks for a device.
     let backend = match args.audio.as_deref() {

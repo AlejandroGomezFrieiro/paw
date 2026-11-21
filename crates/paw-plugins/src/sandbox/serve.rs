@@ -157,9 +157,15 @@ fn audio_loop(shm: Arc<Shm>, mut device: Box<dyn Device>) {
 /// Run as a plugin's helper: `args` are the plugin's kind, the socket and
 /// the shared memory handed over by the DAW, the sample rate, the largest
 /// block, and the plugin cache to read. Returns the process's exit code.
-pub fn serve(args: &[String]) -> i32 {
+///
+/// # Safety
+///
+/// As for [`serve_with`]: the socket and the shared memory in `args` are
+/// file descriptors that this process owns and that nothing else takes,
+/// and no other thread is running yet.
+pub unsafe fn serve(args: &[String]) -> i32 {
     let cache = args.get(5).map(PathBuf::from);
-    serve_with(args, |kind, rate, max_block| {
+    let make = |kind: &str, rate: f32, max_block: usize| {
         let mut registry = Registry::default();
         crate::adopt_added_dirs();
         crate::register(&mut registry, cache.as_deref());
@@ -167,12 +173,22 @@ pub fn serve(args: &[String]) -> i32 {
             .get(kind)
             .with_context(|| format!("no plugin `{kind}` here"))
             .and_then(|factory| factory.create(rate, max_block))
-    })
+    };
+    // SAFETY: The caller makes the same promises to this function.
+    unsafe { serve_with(args, make) }
 }
 
 /// Run as the helper of a device that `make` makes from its kind, the
 /// sample rate and the largest block, as [`serve`] does for plugins.
-pub fn serve_with(
+///
+/// # Safety
+///
+/// `args[1]` (the socket) and `args[2]` (the shared memory) are the
+/// numbers of open file descriptors that this process owns, inherited from
+/// the DAW that started it, and that nothing else in the process uses or
+/// closes: this takes ownership of them. No other thread is running yet,
+/// since it repairs the display's environment ([`crate::repair_display_env`]).
+pub unsafe fn serve_with(
     args: &[String],
     make: impl FnOnce(&str, f32, usize) -> Result<Instance>,
 ) -> i32 {
@@ -180,13 +196,13 @@ pub fn serve_with(
         let [kind, sock, shm, rate, block, ..] = args else {
             bail!("usage: plugin-host <kind> <socket> <memory> <sample rate> <block> [cache]");
         };
-        // SAFETY: The DAW started this process with the socket as an inherited file descriptor and named
-        // its number in `args`; nothing else in this process owns it, and it is taken once.
+        // SAFETY: The caller promised that `sock` names an open file descriptor that this process owns
+        // and nothing else takes; it is taken once, here.
         let mut stream = unsafe { UnixStream::from_raw_fd(sock.parse::<RawFd>()?) };
         let max_block: usize = block.parse()?;
         let shm = Arc::new(Shm::map(
-            // SAFETY: The DAW named the shared memory's file descriptor in `args`; this process inherited it
-            // and nothing else owns it, and it is taken once.
+            // SAFETY: The caller promised that `shm` names an open file descriptor that this process
+            // owns and nothing else takes; it is taken once, here.
             unsafe { OwnedFd::from_raw_fd(shm.parse::<RawFd>()?) },
             max_block,
         )?);
@@ -206,7 +222,9 @@ pub fn serve_with(
         {
             std::thread::sleep(Duration::from_secs_f64(secs.clamp(0.0, 3600.0)));
         }
-        let display_note = crate::repair_display_env();
+        // SAFETY: No other thread is running yet, as the caller promised: the helper has only
+        // parsed its arguments and mapped the memory so far.
+        let display_note = unsafe { crate::repair_display_env() };
         let _ = display_note;
         let made = make(kind, rate.parse()?, max_block);
         let instance = match made {
