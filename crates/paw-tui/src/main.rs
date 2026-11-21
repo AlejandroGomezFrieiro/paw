@@ -1,6 +1,7 @@
 //! The `paw` command: start the kernel with a terminal UI, without one, to run
 //! a script, or to talk to an instance that is already running.
 
+mod args;
 mod graphics;
 mod terminal;
 
@@ -8,163 +9,12 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use anyhow::{Context, Result, bail};
+use args::{Attach, Cli, ClipCommand, Command, Connect, Ctl};
+use clap::Parser;
 use paw_core::{Kernel, KernelOpts, rpc};
 use paw_engine::Registry;
 use paw_engine::backend::{BackendChoice, BackendOptions};
 use serde_json::Value;
-
-const HELP: &str = "\
-paw: a personal audio workstation
-
-Usage:
-  paw [options] [project]         open the terminal UI (a sound file starts a project with it)
-  paw -l <script.lua> [args...]   run a Lua script without a UI, then exit
-  paw --headless [project]        run without a UI until told to quit
-  paw ctl [--json] <method> [params...]
-                                  call a running instance over its socket
-  paw attach                      show a running instance's terminal UI here
-  paw doctor [options]            check the audio, MIDI, plugins and environment, and print a report
-  paw clip cat <file.midi2>       print a MIDI 2.0 clip file as text, one note to a line
-                                  (git's textconv for project folders)
-
-Options:
-  -e <lua>          run Lua code after startup (repeatable)
-  --keys <keys>     type keys after startup, such as 'jj<Space>'
-  --clean           skip your configuration and extensions
-  --config <dir>    configuration directory (default: ~/.config/paw)
-  --runtime <dir>   load the Lua runtime from disk instead of the built-in copy
-  --audio <name>    audio backend: auto, null, pipewire, alsa, jack
-  --rate <hz>       sample rate
-  --buffer <n>      frames per audio callback
-  --output <name>   output device by name or part of it (see :audio)
-  --input <name>    input device by name or part of it
-  --no-input        do not open the audio device's input
-  --listen <path>   control socket path (default: $XDG_RUNTIME_DIR/paw.sock)
-  --no-listen       do not open a control socket
-  --listen-tcp <address>
-                    also take connections from the network, on host:port
-                    (127.0.0.1:7700; 0.0.0.0:7700 for any machine that knows
-                    the token), in TLS with a certificate made the first time
-  --no-tls          take them in the clear instead: for a network you trust
-  --token-file <path>
-                    where the token for network connections is kept
-                    (default: ~/.local/state/paw/token, made if missing)
-  --no-plugins      do not look for CLAP, LV2 and VST3 plugins
-  --plugins-in-process
-                    load plugins into this process, not each into its own
-  --plugins-offline open the project with every plugin offline (:plugins.online)
-  -h, --help        show this help
-  -V, --version     show the version
-
-ctl and attach reach the instance on this machine's socket, or:
-  --socket <path>           another socket
-  --connect <host:port>     an instance listening on the network, with
-  --token <token> or --token-file <path> (or $PAW_TOKEN)
-  --accept-certificate      take the certificate it shows though another was
-                            remembered for it (after it made a new one)
-  --no-tls                  connect in the clear, to one started with --no-tls
-attach also takes --listen-audio, to play the instance's sound on this machine
-  (about 1 Mbit/s), or --listen-audio-to <file.wav> to write it to a file
-doctor options: --seconds <n> (length of the dropout runs), --plugin <name> (repeatable),
-  --only <ids> (comma separated), and the audio options above (--audio, --output, ...)
-
-ctl examples:
-  paw ctl eval 'return paw.transport.position'
-  paw ctl cmd transport.toggle
-  paw ctl --json eval 'return paw.project.tempo'
-  paw ctl track_add '{\"name\": \"Bass\"}'
-  paw ctl --connect studio:7700 --token-file studio.token cmd transport.toggle
-
-In an attached terminal, `:detach` leaves and the instance runs on, and
-`:upload <file>` brings a sound file from this machine into the project.
-";
-
-#[derive(Default)]
-struct Args {
-    project: Option<PathBuf>,
-    script: Option<PathBuf>,
-    script_args: Vec<String>,
-    exprs: Vec<String>,
-    keys: Vec<String>,
-    headless: bool,
-    clean: bool,
-    config: Option<PathBuf>,
-    runtime: Option<PathBuf>,
-    audio: Option<String>,
-    rate: Option<u32>,
-    buffer: Option<u32>,
-    output: Option<String>,
-    input: Option<String>,
-    no_input: bool,
-    listen: Option<PathBuf>,
-    no_listen: bool,
-    listen_tcp: Option<String>,
-    no_tls: bool,
-    token_file: Option<PathBuf>,
-    no_plugins: bool,
-    plugins_in_process: bool,
-    plugins_offline: bool,
-    /// Run as `paw doctor`: a script, but with the sound device unless told otherwise.
-    doctor: bool,
-}
-
-fn parse_args(mut argv: impl Iterator<Item = String>) -> Result<Option<Args>> {
-    let mut args = Args::default();
-    while let Some(arg) = argv.next() {
-        let mut value = |name: &str| argv.next().with_context(|| format!("{name} needs a value"));
-        match arg.as_str() {
-            "-h" | "--help" => {
-                print!("{HELP}");
-                return Ok(None);
-            }
-            "-V" | "--version" => {
-                println!("paw {}", env!("CARGO_PKG_VERSION"));
-                return Ok(None);
-            }
-            "-l" => {
-                args.script = Some(value("-l")?.into());
-                args.script_args = argv.by_ref().collect();
-            }
-            "-e" => args.exprs.push(value("-e")?),
-            "--keys" => args.keys.push(value("--keys")?),
-            "--headless" => args.headless = true,
-            "--clean" => args.clean = true,
-            "--config" => args.config = Some(value("--config")?.into()),
-            "--runtime" => args.runtime = Some(value("--runtime")?.into()),
-            "--audio" => args.audio = Some(value("--audio")?),
-            "--rate" => {
-                args.rate = Some(value("--rate")?.parse().context("--rate takes a number")?)
-            }
-            "--buffer" => {
-                args.buffer = Some(
-                    value("--buffer")?
-                        .parse()
-                        .context("--buffer takes a number")?,
-                )
-            }
-            "--output" => args.output = Some(value("--output")?),
-            "--input" => args.input = Some(value("--input")?),
-            "--no-input" => args.no_input = true,
-            "--listen" => args.listen = Some(value("--listen")?.into()),
-            "--no-listen" => args.no_listen = true,
-            "--listen-tcp" => args.listen_tcp = Some(value("--listen-tcp")?),
-            "--token-file" => args.token_file = Some(value("--token-file")?.into()),
-            "--no-tls" => args.no_tls = true,
-            "--no-plugins" => args.no_plugins = true,
-            "--plugins-in-process" => args.plugins_in_process = true,
-            "--plugins-offline" => args.plugins_offline = true,
-            other if other.starts_with('-') => bail!("unknown option `{other}` (see --help)"),
-            _ if args.project.is_none() => args.project = Some(arg.into()),
-            _ => bail!("unexpected argument `{arg}`"),
-        }
-    }
-    // paw-gui starts the kernel with `--listen`: a kernel that would not
-    // listen must stop at once rather than leave it waiting for the socket.
-    if args.no_listen && args.listen.is_some() {
-        bail!("--no-listen and --listen contradict each other (the window always talks to the kernel through a socket)");
-    }
-    Ok(Some(args))
-}
 
 fn config_dir() -> PathBuf {
     let base = std::env::var_os("XDG_CONFIG_HOME")
@@ -211,31 +61,20 @@ fn cache_dir() -> PathBuf {
     base.join("paw")
 }
 
-/// Connect to the instance `ctl` and `attach` are pointed at by the options
-/// at the front of their arguments, which are taken off.
-fn connect(argv: &mut std::iter::Peekable<impl Iterator<Item = String>>) -> Result<rpc::Connection> {
-    let mut socket = rpc::default_path();
-    let mut address = None;
+/// Connect to the instance `ctl` and `attach` are pointed at.
+fn connect(options: &Connect) -> Result<rpc::Connection> {
+    let socket = options.socket.clone().unwrap_or_else(rpc::default_path);
+    let address = options.connect.clone();
     let mut token = std::env::var("PAW_TOKEN").ok();
-    let mut wire = rpc::Wire::default();
-    let mut accept_new = false;
-    while let Some(option) = argv.peek().filter(|a| a.starts_with("--")).cloned() {
-        argv.next();
-        let mut value = || argv.next().with_context(|| format!("{option} needs a value"));
-        match option.as_str() {
-            "--socket" => socket = value()?.into(),
-            "--connect" => address = Some(value()?),
-            "--token" => token = Some(value()?),
-            "--no-tls" => wire = rpc::Wire::Plain,
-            "--accept-certificate" => accept_new = true,
-            "--token-file" => {
-                let path = value()?;
-                let text = std::fs::read_to_string(&path)
-                    .with_context(|| format!("reading the token in {path}"))?;
-                token = Some(text.trim().to_string());
-            }
-            other => bail!("unknown option `{other}` (see --help)"),
-        }
+    let mut wire = if options.no_tls { rpc::Wire::Plain } else { rpc::Wire::default() };
+    let accept_new = options.accept_certificate;
+    if let Some(path) = &options.token_file {
+        let text = std::fs::read_to_string(path)
+            .with_context(|| format!("reading the token in {}", path.display()))?;
+        token = Some(text.trim().to_string());
+    }
+    if let Some(given) = &options.token {
+        token = Some(given.clone());
     }
     match address {
         Some(address) => {
@@ -267,24 +106,9 @@ fn connect(argv: &mut std::iter::Peekable<impl Iterator<Item = String>>) -> Resu
 /// string when it does not parse as JSON. With `--json` the answer is one line
 /// of JSON on stdout, `{"ok": true, "result": ...}` or `{"ok": false,
 /// "error": "..."}` (and the exit status 1), whatever went wrong.
-fn ctl(argv: impl Iterator<Item = String>) -> Result<()> {
-    let mut argv: Vec<String> = argv.collect();
-    // The option may stand among the connection's: take it out, leaving the
-    // values of the options that take one alone.
-    let mut json = false;
-    let mut i = 0;
-    while i < argv.len() && argv[i].starts_with("--") {
-        match argv[i].as_str() {
-            "--json" => {
-                json = true;
-                argv.remove(i);
-            }
-            "--socket" | "--connect" | "--token" | "--token-file" => i += 2,
-            _ => i += 1,
-        }
-    }
-    let outcome = ctl_call(argv.into_iter());
-    if !json {
+fn ctl(call: Ctl) -> Result<()> {
+    let outcome = ctl_call(&call);
+    if !call.json {
         match outcome? {
             Value::Null => {}
             Value::String(text) => println!("{text}"),
@@ -302,16 +126,14 @@ fn ctl(argv: impl Iterator<Item = String>) -> Result<()> {
     Ok(())
 }
 
-fn ctl_call(argv: impl Iterator<Item = String>) -> Result<Value> {
-    let mut argv = argv.peekable();
-    let mut connection = connect(&mut argv)?;
-    let method = argv.next().context(
-        "usage: paw ctl [--json] [--socket <path> | --connect <host:port>] <method> [params...]",
-    )?;
-    let params: Vec<Value> = argv
-        .map(|p| serde_json::from_str(&p).unwrap_or(Value::String(p)))
+fn ctl_call(call: &Ctl) -> Result<Value> {
+    let mut connection = connect(&call.connect)?;
+    let params: Vec<Value> = call
+        .params
+        .iter()
+        .map(|p| serde_json::from_str(p).unwrap_or_else(|_| Value::String(p.clone())))
         .collect();
-    connection.call(&method, Value::Array(params))
+    connection.call(&call.method, Value::Array(params))
 }
 
 /// Where an attached terminal plays the instance's sound.
@@ -350,25 +172,13 @@ fn listen(connection: &mut rpc::Connection, player: &mut Option<paw_listen::Play
 /// cursor, mode and selection in the one project. `:detach` leaves, and so
 /// does the instance ending. With `--listen-audio` it plays what the
 /// instance plays (`--listen-audio-to <file.wav>` writes it to a file).
-fn attach(argv: impl Iterator<Item = String>) -> Result<()> {
-    // The options of attach's own; the rest say where the instance is.
-    let mut rest = Vec::new();
-    let mut hear = None;
-    let mut argv = argv.into_iter();
-    while let Some(arg) = argv.next() {
-        match arg.as_str() {
-            "--listen-audio" => hear = Some(Hear::Device),
-            "--listen-audio-to" => {
-                hear = Some(Hear::File(argv.next().context("--listen-audio-to needs a file")?.into()))
-            }
-            _ => rest.push(arg),
-        }
-    }
-    let mut argv = rest.into_iter().peekable();
-    let mut connection = connect(&mut argv)?;
-    if let Some(extra) = argv.next() {
-        bail!("unexpected argument `{extra}`");
-    }
+fn attach(options: &Attach) -> Result<()> {
+    let hear = match (&options.listen_audio_to, options.listen_audio) {
+        (Some(file), _) => Some(Hear::File(file.clone())),
+        (None, true) => Some(Hear::Device),
+        (None, false) => None,
+    };
+    let mut connection = connect(&options.connect)?;
     let (input, typed) = std::sync::mpsc::channel();
     let (mut screen, width, height) = terminal::Terminal::start(move |event| input.send(event).is_ok())?;
     connection.call("ui.attach", serde_json::json!([width, height, screen.caps().to_json()]))?;
@@ -455,30 +265,6 @@ fn doctor_script() -> Result<PathBuf> {
         .context("cannot find extensions/doctor/shell.lua: set PAW_HOME to the source tree")
 }
 
-/// `paw doctor [options]`: the options the doctor itself takes become the
-/// script's arguments (`--seconds=20`); the rest are the program's own.
-fn doctor_args(argv: impl Iterator<Item = String>) -> Result<Option<Args>> {
-    let mut own = Vec::new();
-    let mut rest = Vec::new();
-    let mut argv = argv.peekable();
-    while let Some(arg) = argv.next() {
-        match arg.as_str() {
-            "--seconds" | "--plugin" | "--only" => {
-                let value = argv.next().with_context(|| format!("{arg} needs a value"))?;
-                own.push(format!("{arg}={value}"));
-            }
-            _ => rest.push(arg),
-        }
-    }
-    let Some(mut args) = parse_args(rest.into_iter())? else {
-        return Ok(None);
-    };
-    args.script = Some(doctor_script()?);
-    args.script_args = own;
-    args.doctor = true;
-    Ok(Some(args))
-}
-
 /// The file a project path names: a folder's `project.toml`, or itself.
 fn project_file_of(path: &std::path::Path) -> Option<PathBuf> {
     let path = if path.is_dir() {
@@ -511,45 +297,35 @@ fn running_has(project: &std::path::Path) -> bool {
 
 /// `paw clip cat <file.midi2>`: a MIDI 2.0 clip file as text, one note or
 /// controller move to a line, for `git diff` (as its textconv) and reading.
-fn clip_command(mut argv: impl Iterator<Item = String>) -> Result<i32> {
-    match (argv.next().as_deref(), argv.next()) {
-        (Some("cat"), Some(file)) => {
-            let bytes = std::fs::read(&file).with_context(|| format!("reading {file}"))?;
-            let clip = paw_core::clipfile::decode(&bytes).with_context(|| file.clone())?;
-            print!("{}", paw_core::clipfile::text(&clip));
-            Ok(0)
-        }
-        _ => bail!("usage: paw clip cat <file.midi2>"),
-    }
+fn clip_cat(file: &std::path::Path) -> Result<()> {
+    let bytes = std::fs::read(file).with_context(|| format!("reading {}", file.display()))?;
+    let clip = paw_core::clipfile::decode(&bytes).with_context(|| file.display().to_string())?;
+    print!("{}", paw_core::clipfile::text(&clip));
+    Ok(())
 }
 
 fn run() -> Result<i32> {
-    let mut argv = std::env::args().skip(1).peekable();
-    let doctor = argv.peek().map(String::as_str) == Some("doctor");
-    if doctor {
-        argv.next();
-    }
-    if argv.peek().map(String::as_str) == Some("clip") {
-        argv.next();
-        return clip_command(argv);
-    }
-    if argv.peek().map(String::as_str) == Some("ctl") {
-        argv.next();
-        ctl(argv)?;
-        return Ok(0);
-    }
-    if argv.peek().map(String::as_str) == Some("attach") {
-        argv.next();
-        let result = attach(argv);
-        terminal::restore();
-        result?;
-        return Ok(0);
-    }
-    // Started by a running instance to hold one plugin, or to look into
-    // one plugin file, in a process of its own.
-    match argv.peek().map(String::as_str) {
-        Some("plugin-host") => {
-            let args: Vec<String> = argv.skip(1).collect();
+    let cli = Cli::parse();
+    let (args, doctor) = match cli.command {
+        None => (cli.run, false),
+        Some(Command::Clip { command: ClipCommand::Cat { file } }) => {
+            clip_cat(&file)?;
+            return Ok(0);
+        }
+        Some(Command::Ctl(call)) => {
+            ctl(call)?;
+            return Ok(0);
+        }
+        Some(Command::Attach(options)) => {
+            let result = attach(&options);
+            terminal::restore();
+            result?;
+            return Ok(0);
+        }
+        // Started by a running instance to hold one plugin, or to look into
+        // one plugin file, in a process of its own.
+        Some(Command::PluginHost(raw)) => {
+            let args = raw.args;
             // A device written in Lua is held the way a plugin is.
             if args.first().is_some_and(|kind| kind.starts_with("lua:")) {
                 return Ok(paw_plugins::sandbox::serve_with(&args, |_, rate, block| {
@@ -558,20 +334,30 @@ fn run() -> Result<i32> {
             }
             return Ok(paw_plugins::sandbox::serve(&args));
         }
-        Some("plugin-scan") => {
-            let args: Vec<String> = argv.skip(1).collect();
+        Some(Command::PluginScan(raw)) => {
+            let args = raw.args;
             if args.first().map(String::as_str) == Some("lua") {
                 return Ok(paw_luadev::scan_main(&args[1..]));
             }
             return Ok(paw_plugins::scan_main(&args));
         }
-        _ => {}
-    }
-    let parsed = if doctor { doctor_args(argv)? } else { parse_args(argv)? };
-    let Some(args) = parsed else {
-        return Ok(0);
+        Some(Command::Doctor(doctor)) => {
+            let own = doctor.script_args();
+            let mut run = doctor.run;
+            run.script = std::iter::once(doctor_script()?.to_string_lossy().into_owned())
+                .chain(own)
+                .collect();
+            (run, true)
+        }
     };
-    let scripted = args.script.is_some();
+    // paw-gui starts the kernel with `--listen`: a kernel that would not
+    // listen must stop at once rather than leave it waiting for the socket.
+    if args.no_listen && args.listen.is_some() {
+        bail!("--no-listen and --listen contradict each other (the window always talks to the kernel through a socket)");
+    }
+    let script = args.script_path();
+    let script_args = args.script_args();
+    let scripted = script.is_some();
     // A project that a running paw has open: this terminal joins it as a
     // new seat, so that two people edit the one project, not two copies.
     if !scripted
@@ -584,7 +370,7 @@ fn run() -> Result<i32> {
             "paw: {} is open in a running paw: joining it as a new seat (`:detach` leaves)",
             project.display()
         );
-        let result = attach(std::iter::empty());
+        let result = attach(&Attach::default());
         terminal::restore();
         result?;
         return Ok(0);
@@ -596,7 +382,7 @@ fn run() -> Result<i32> {
     // A script only makes sound if it asks for a device.
     let backend = match args.audio.as_deref() {
         Some(word) => BackendChoice::from(word),
-        None if scripted && !args.doctor => BackendChoice::Null,
+        None if scripted && !doctor => BackendChoice::Null,
         None => BackendChoice::Auto,
     };
     let mut registry = Registry::with_builtins();
@@ -654,7 +440,7 @@ fn run() -> Result<i32> {
             .or_else(|| std::env::var_os("PAW_RUNTIME").map(PathBuf::from)),
         clean: args.clean,
         scripted,
-        argv: args.script_args.clone(),
+        argv: script_args.clone(),
     })?;
 
     // A panic anywhere but inside a device (which the engine catches, bypasses
@@ -786,8 +572,8 @@ fn run() -> Result<i32> {
     for keys in &args.keys {
         kernel.eval("paw.keymap.feed(...)", &[keys])?;
     }
-    if let Some(script) = &args.script {
-        kernel.run_file(script, args.script_args.clone())?;
+    if let Some(script) = &script {
+        kernel.run_file(script, script_args)?;
         return Ok(kernel.exit_code().unwrap_or(0));
     }
     kernel.run()
