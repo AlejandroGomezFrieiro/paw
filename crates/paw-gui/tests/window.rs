@@ -1260,8 +1260,21 @@ fn look(w: &Scene, partial: bool) -> Vec<[u8; 3]> {
         w.ctl("paw.opt.window_cache = true paw.api.transport_play()");
         w.pause(2.0);
         w.ctl("paw.api.transport_stop()");
-        // The meters fall back to nothing, and their peaks go.
-        w.pause(6.0);
+        // The meters fall back to nothing, and their peaks go. A peak is
+        // held for two seconds by the kernel's clock, and drops when the
+        // kernel next samples it: a loaded machine does that late, and a
+        // fixed wait shows the held peak in one drawing and not in the
+        // other. A held peak above 1e-5 is a line at the left of a meter
+        // well, even where it is under the scale. Wait for the peaks, not
+        // for the time.
+        w.expect(
+            "every meter and held peak to have fallen",
+            "(function() for _, id in ipairs(paw.api.track_list()) do \
+               local l, r, hold = paw.draw.track_peak(id) \
+               if math.max(l, r) > 0.001 or hold > 1e-5 then return false end \
+             end return true end)()",
+        );
+        w.pause(1.0);
     } else {
         // A change of the option draws a frame, whole.
         w.ctl("paw.opt.window_cache = false");
@@ -1336,6 +1349,12 @@ fn partial_look(name: &str) {
         let whole = look(&w, false);
         let (count, big) = differ(&partial, &whole);
         eprintln!("{what}: {count} pixels differ, {big} by more than 2");
+        let at: Vec<_> = (0..partial.len()).filter(|&i| partial[i] != whole[i]).take(12).map(|i| (i % 1400, i / 1400)).collect();
+        eprintln!("{what}: at {at:?}");
+        for &(x, y) in at.iter().take(3) {
+            let row = |v: &[[u8; 3]]| (x.saturating_sub(3)..x + 3).map(|x| v[y * 1400 + x]).collect::<Vec<_>>();
+            eprintln!("  row {y} partial {:?}\n  row {y} whole   {:?}", row(&partial), row(&whole));
+        }
         if count > 0 {
             w.shot(&format!("{what}-whole.png"));
             panic!("{what}: {count} pixels differ, {big} by more than 2");
