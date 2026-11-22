@@ -3635,8 +3635,9 @@ function paw.harmony.invalidate() end
 ---@param track any
 function paw.harmony.is_drums(track) end
 
---- The key at `beat` (the start when nil): the project's when one is set,
---- else the one read there, else C major. `{ tonic, mode, name, ... }`.
+--- The key at `beat` (the start when nil): the last key marker at or before
+--- it (`mk`, `key D minor`), or the key of a region over it, else the
+--- project's when one is set, else the one read there, else C major. `{ tonic, mode, name, ... }`.
 --- With `latest`, the key of the reading as it stands, without waiting
 --- for a new one: what a view that is drawn on each key asks.
 ---@param beat any
@@ -3647,8 +3648,9 @@ function paw.harmony.key(beat, latest) end
 ---@param key any
 function paw.harmony.key_name(key) end
 
---- The keys read over the song, `{ at, length, tonic, mode, name }` each.
---- When the project has its own key, that key is over all of the song.
+--- The keys over the song, `{ at, length, tonic, mode, name }` each: the
+--- key markers and the keys of regions, then the key of the project when it
+--- has one (over all of the song), else the keys read from the notes.
 function paw.harmony.keys() end
 
 --- A chord's label as `paw.opt.chords` (or `how`) asks: its name, its
@@ -3656,6 +3658,11 @@ function paw.harmony.keys() end
 ---@param chord any
 ---@param how any
 function paw.harmony.label(chord, how) end
+
+--- The key that the user wrote for `beat` (a key marker, or a region's key),
+--- or nil. It is the one that `key` gives before the project's key.
+---@param beat any
+function paw.harmony.marked_key(beat) end
 
 --- The first chord that starts after `beat`.
 ---@param beat any
@@ -5415,7 +5422,8 @@ function paw.markdown.render(blocks, opts) end
 ---@param s any
 function paw.markdown.width(s) end
 
---- Add a marker at a beat. With `opts.length`, add a region from there. Returns it.
+--- Add a marker at a beat. With `opts.length`, add a region from there; its
+--- `opts.key` (such as "E minor") is the key of the harmony over its time. Returns it.
 ---@param beat any
 ---@param name any
 ---@param opts any
