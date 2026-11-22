@@ -127,6 +127,12 @@ map("<leader>rx", "marker.remove", { desc = "Remove the marker at the cursor" })
 map("<leader>rX", "region.remove", { desc = "Remove the region the cursor is in; its clips stay" })
 map("<leader>rl", "region.loop", { desc = "Loop the region the cursor is in" })
 map("<leader>rR", "render.regions", { desc = "Render every region to a file of its own: type the folder" })
+-- `.` repeats the last change; `<leader>.` adjusts it: its parameters are on the command line.
+map(
+  "<leader>.",
+  function() paw.commands.run("cmdline", { text = paw.commands.adjusting() or "adjust " }) end,
+  { desc = "Adjust the last command: change its parameters in place of its undo step", repeatable = false }
+)
 -- What other programs have taught the fingers.
 map("<Del>", function() keymap.normal("x") end, { desc = "Delete what is under the cursor" })
 -- On a selection it is the operator: what the Delete key does anywhere else.

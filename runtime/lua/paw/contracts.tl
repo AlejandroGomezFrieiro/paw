@@ -1646,6 +1646,19 @@ local record contracts
   --- each argument, or a function.
   type Complete = string | {string} | CompleteFn
 
+  --- A parameter that a command lets the user change after it ran
+  --- (`paw.command`'s `adjust`): its `name`, the limits `min` and `max` and
+  --- the `step` of a number, the `default` that it has when none was given,
+  --- and the `values` that the command line suggests.
+  record AdjustParam
+    name: string
+    min: number
+    max: number
+    step: number
+    default: CommandArg
+    values: {string}
+  end
+
   --- What `paw.command` takes besides the name and the function.
   record CommandOptions
     desc: string
@@ -1654,6 +1667,7 @@ local record contracts
     label: string
     range: boolean
     ext: string
+    adjust: {AdjustParam}
   end
 
   --- `paw.command`: `paw.command(name, fn, opts)` defines a command, and

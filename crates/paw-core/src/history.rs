@@ -338,6 +338,18 @@ impl<T: Clone> History<T> {
         id
     }
 
+    /// Give a state another name for its command: an adjusted command
+    /// says what it does now. False when there is no such state.
+    pub fn set_label(&mut self, id: StateId, label: Option<String>) -> bool {
+        match self.states.get_mut(&id) {
+            Some(state) => {
+                state.label = label;
+                true
+            }
+            None => false,
+        }
+    }
+
     /// Whether the current state can take a further change into itself
     /// instead of a new state being made: nothing hangs on it yet.
     pub fn can_amend(&self) -> bool {
