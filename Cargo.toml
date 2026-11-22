@@ -1,6 +1,21 @@
 [workspace]
 resolver = "2"
 members = ["crates/*"]
+# The window (paw-gui) is paused while the work is on the terminal: a plain
+# `cargo build`, `cargo check` or `cargo test` at the top does not build it.
+# `-p paw-gui` still builds it.
+default-members = [
+  "crates/paw-core",
+  "crates/paw-engine",
+  "crates/paw-listen",
+  "crates/paw-luadev",
+  "crates/paw-mcp",
+  "crates/paw-plugins",
+  "crates/paw-proto",
+  "crates/paw-raster",
+  "crates/paw-scene",
+  "crates/paw-tui",
+]
 
 [workspace.package]
 version = "0.1.0"

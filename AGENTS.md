@@ -170,8 +170,11 @@ nix flake check                                # all of the checks
   [.claude/skills/prune-tests](.claude/skills/prune-tests/SKILL.md) to the
   tests that you added or changed. Delete each test that guards no
   behavior, and each test that another test already covers.
-- When you touch the window (`crates/paw-gui`), run its tests too:
-  `cargo test --release -p paw-gui`.
+- The window (`crates/paw-gui`) is paused. The work is on the terminal
+  now. Do not change, build, check or test `paw-gui` until the owner
+  starts the work on the window again. `cargo build`, `cargo check` and
+  `cargo test` at the top of the workspace do not build it. A change of
+  `paw-scene` can stop the build of the window. Write it in your report.
 - Do not run `tests/tools/loaded.sh` unless the owner asks for it. It
   puts a heavy load on the machine.
 - Do not run the end-to-end tests (`tests/tools/e2e.sh`). They are for
