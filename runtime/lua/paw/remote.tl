@@ -341,7 +341,8 @@ M.methods["frontend.pace"] = function(client: integer, given: number): boolean
 end as Method
 
 --- The barrier of a frontend. The kernel first ends the turn of the
---- requests before this one (crates/paw-core/src/kernel.rs, `SYNC_METHOD`).
+--- terminal keys (`ui.input`) before this request: each other request ends
+--- its own turn (crates/paw-core/src/kernel.rs, `request`).
 --- Then this method pushes to the connection all that is due: the state of
 --- the frontend, and the windows and live values of `scene.watch`. It
 --- answers the number of the last `frontend.state` sent to the connection,

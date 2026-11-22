@@ -171,6 +171,25 @@ fn calls_and_subscribed_events_over_the_socket() {
 }
 
 #[test]
+fn each_request_is_a_turn_of_its_own() {
+    let instance = start("turns");
+    let mut c = Connection::unix(&instance.socket).unwrap();
+    c.call("subscribe", json!(["track.added"])).unwrap();
+    let tracks = |c: &mut Connection| c.call("eval", json!(["return #paw.tracks()"])).unwrap();
+    let before = tracks(&mut c).as_u64().unwrap();
+    // Back to back, with no pause and no barrier: the events of a request
+    // come before its answer, so they are in the channel when it returns.
+    for n in 1..=3 {
+        c.call("cmd", json!(["track.add"])).unwrap();
+        let pushed: Vec<_> = c.events.try_iter().collect();
+        assert_eq!(pushed.len(), 1, "the event of request {n} before its answer: {pushed:?}");
+    }
+    // Each request was its own undo step.
+    c.call("cmd", json!(["undo"])).unwrap();
+    assert_eq!(tracks(&mut c), json!(before + 2), "one undo takes back the last request only");
+}
+
+#[test]
 fn the_network_wants_tls_and_the_token() {
     let instance = start("token");
     let mut good = instance.tcp().unwrap();

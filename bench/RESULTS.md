@@ -7,6 +7,26 @@ How to run everything: [README.md](README.md). Raw numbers:
 matrix before it). The processor time of the whole program while it plays,
 against REAPER, Ardour and LMMS, is in [DAWS.md](DAWS.md).
 
+## 2026-11-23: each request of a connection ends its own turn (TASK-174)
+
+A request over the control socket (`eval`, `cmd`) now ends its turn
+before its reply: the kernel's `settle` and the undo step. Before, a
+client that sent its next request at once shared one turn with it. The
+cost of the end of a turn alone is `edit.lua turn <tracks>`: 200 turns
+with nothing changed (a read) and 200 after one volume edit. One binary
+of main (6c3286a3), 3 runs for each size, wall time of the Lua calls,
+not under the measure lock, under external load (load average 11 to 13).
+
+| Tracks | Nothing changed, median | After an edit, median | After an edit, largest |
+| ---: | ---: | ---: | ---: |
+| 10 | 0.005 ms | 0.049 to 0.052 ms | 0.21 ms |
+| 100 | 0.004 to 0.006 ms | 0.10 to 0.14 ms | 0.71 ms |
+| 500 | 0.004 ms | 0.46 to 0.64 ms | 1.9 ms |
+
+A read pays about 5 microseconds more. An edit pays the end of its
+own turn, which it paid before only when the client paused. Keys of a
+terminal still share one turn when they come fast.
+
 ## 2026-11-22: windows kept by their stamp (TASK-124)
 
 A window without the keyboard keeps its cells while the `stamp` of its

@@ -70,7 +70,10 @@ paw-gui --socket /tmp/studio.sock
 ```
 
 The client gives the `id`, and the reply has the same `id`. paw replies to
-the requests of one connection in their order. A request with
+the requests of one connection in their order. Each request is one action,
+so paw sends the events that it caused before its reply, and one undo takes
+it back. Keys that a terminal sends with `ui.input` can share a turn, as
+keys typed fast do. A request with
 `"id": null` gets a reply with `"id": null`. Send such requests when you do
 not need the reply.
 
@@ -250,8 +253,9 @@ An idle program sends nothing.
 ### `frontend.sync`
 
 `frontend.sync` is a barrier for a program that must know that it has all
-that paw sent. paw first finishes the requests that came before it, as at
-the end of a turn, so their events go out and their undo step closes. Then
+that paw sent. paw first finishes the keys of `ui.input` that came before
+it, as at the end of a turn, so their events go out and their undo step
+closes. Then
 it sends to the connection what is due without waiting for a timer: the
 `frontend.state` of the changes, and the scenes and `scene.live` values of
 `scene.watch`. A part that moves only with time, such as a window that
