@@ -510,3 +510,42 @@ test("promote: the same sound, u gives back the project as it was, and a plugin 
   keys("u")
   eq(project_text(), before, "u: the project before promote")
 end)
+
+test(
+  "<Space>za with a meter of 8 shorter beats moves the rest of the song: a clip at bar 41 stays at bar 41; u puts all back",
+  function()
+    local drums = metal()
+    api.clip_add(drums, { start = 160, length = 4, notes = { { pitch = 36, start = 0, length = 1 } } })
+    paw.markers.add(160, "Outro", { length = 16 })
+    api.undo_checkpoint()
+    keys("33|")
+    keys("<Space>za")
+    keys("Ballad 8 6/8<CR>")
+    eq(
+      paw.ui.message.text:find("the rest of the song moved 8 beats earlier", 1, true) ~= nil,
+      true,
+      paw.ui.message.text
+    )
+    keys("zw")
+    local clip = api.clip_list(drums)[1]
+    eq(clip.start .. " " .. paw.time.bar_of(clip.start), "152 41", "the clip still starts at bar 41")
+    eq(paw.markers.regions()[1].beat, 152, "the region Outro moved with it")
+    keys("u")
+    eq(api.clip_list(drums)[1].start, 160, "u: the clip where it was")
+    eq(paw.markers.regions()[1].beat .. " " .. signatures(), "160 0:4/4", "the region and the meter as they were")
+  end
+)
+
+test("promote keeps the subproject's key on its region, as a key over its time", function()
+  local b = ballad_68()
+  local meta = api.nest_get(b.nest).meta
+  meta.key = "D minor"
+  api.nest_set(b.nest, { meta = meta })
+  api.undo_checkpoint()
+  paw.cursor.set_track(b.row)
+  paw.cursor.set_beat(130)
+  keys("<Space>zp")
+  local region = paw.markers.regions()[1]
+  eq(region.name .. " " .. tostring(region.key), "Ballad D minor", "the region has its key")
+  eq(paw.ui.message.text:find("the region Ballad is in D minor", 1, true) ~= nil, true, paw.ui.message.text)
+end)
