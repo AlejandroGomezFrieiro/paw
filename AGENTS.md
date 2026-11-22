@@ -160,6 +160,7 @@ nix develop -c luacheck .                       # unused and undefined names in 
 nix develop -c tools/fmtcheck.sh                # every Lua and Teal file formatted (`fix` formats them)
 nix develop -c tools/vale.sh                   # the docs
 nix build .#website                            # the manual as a static site (tools/website/build.sh)
+nix develop -c cargo check -p paw-fuzz          # the fuzz targets compile (tools/fuzz.sh runs them, CI only)
 nix flake check                                # all of the checks
 ```
 

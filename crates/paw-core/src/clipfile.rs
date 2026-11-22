@@ -316,7 +316,9 @@ impl Reader {
     fn utility(&mut self, w0: u32) {
         match (w0 >> 20) & 15 {
             0x3 => self.tpq = (w0 & 0xffff).max(1),
-            0x4 if self.started => self.tick += (w0 & 0xfffff) as i64,
+            // An origin from the file can be any number: the ticks stop at
+            // the largest one and do not overflow.
+            0x4 if self.started => self.tick = self.tick.saturating_add((w0 & 0xfffff) as i64),
             _ => {}
         }
     }
@@ -407,7 +409,7 @@ impl Reader {
         let end = extra
             .get("len")
             .and_then(Value::as_i64)
-            .map(|l| self.tick + l);
+            .map(|l| self.tick.saturating_add(l));
         self.open.entry(key).or_default().push(Open {
             seq: self.count,
             tick: self.tick,
@@ -426,7 +428,7 @@ impl Reader {
             .or_else(|| queue.iter().position(|o| o.end.is_none()));
         if let Some(pos) = pos {
             let mut o = queue.remove(pos);
-            o.note.length = self.beat(tick - o.tick);
+            o.note.length = self.beat(tick.saturating_sub(o.tick));
             self.done.push((o.seq, o.note));
         }
     }
@@ -457,7 +459,7 @@ impl Reader {
             for o in queue {
                 let mut note = o.note;
                 let end = o.end.unwrap_or(end_tick);
-                note.length = self.beat(end - o.tick);
+                note.length = self.beat(end.saturating_sub(o.tick));
                 self.done.push((o.seq, note));
             }
         }
@@ -763,5 +765,36 @@ mod tests {
         let notes = named(vec![note(0.0, 1.0, 60), note(100.0, 1.0, 60)]);
         let clip = decode(&encode(&notes, &[], 101.0)).unwrap();
         assert_eq!(clip.notes[1].start, 100.0);
+    }
+
+    /// The bytes of a clip file of one tick to a beat: `paw:` text before
+    /// Start of Clip, then `body` and End of Clip.
+    fn file_with(before_start: &str, body: &[u32]) -> Vec<u8> {
+        let mut words = vec![utility(0x4, 0), utility(0x3, 1), utility(0x4, 0)];
+        flex_text(&mut words, before_start);
+        words.push(utility(0x4, 0));
+        words.extend(stream(0x20));
+        words.extend_from_slice(body);
+        words.push(utility(0x4, 0));
+        words.extend(stream(0x21));
+        let mut bytes = MAGIC.to_vec();
+        for w in words {
+            bytes.extend_from_slice(&w.to_be_bytes());
+        }
+        bytes
+    }
+
+    // Found while writing the fuzz target `clip_file` (TASK-159): ticks
+    // past the largest number overflowed, and a dev build panicked.
+    #[test]
+    fn an_origin_or_a_length_past_the_largest_tick_reads_without_a_panic() {
+        let far_origin = file_with(&format!("paw:{{\"origin\":{}}}", i64::MAX), &[utility(0x4, 1)]);
+        assert!(decode(&far_origin).is_ok());
+
+        let mut note = vec![utility(0x4, 1)];
+        flex_text(&mut note, &format!("paw:{{\"len\":{}}}", i64::MAX));
+        note.extend([utility(0x4, 0), 0x2090_3C64]);
+        let clip = decode(&file_with("", &note)).unwrap();
+        assert_eq!(clip.notes.len(), 1, "{}", text(&clip));
     }
 }

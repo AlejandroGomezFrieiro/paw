@@ -215,6 +215,13 @@ tools/fmtcheck.sh                                      # the format (`fix` forma
 
 Do not run `tests/tools/loaded.sh` or `tests/tools/e2e.sh`.
 
+The fuzz targets of `fuzz/` (`tools/fuzz.sh`, the nightly tier in CI)
+are Rust only. The readers in Teal (`midifile.tl`, the DAWproject and
+RPP readers) have no fuzz target. A test of such a reader gives it bytes
+that are cut short or wrong, and checks the message. `tests/midifile.lua`
+and `tests/robust.lua` are examples. The skill `rust-testing`, part 13,
+lists the targets.
+
 ## 13. Before you commit
 
 - Apply `prune-tests` to each test that you added or changed.

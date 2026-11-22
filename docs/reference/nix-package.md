@@ -43,7 +43,7 @@ The package loads each extension of `withExtensions` at the start, before the co
 
 | Check | Effect |
 | --- | --- |
-| `clippy` | Runs clippy on all targets. It reports the warnings and does not fail. |
+| `clippy` | Runs clippy on all targets of the workspace but the graphical window, the fuzz targets in `fuzz/` included. It reports the warnings and does not fail, but a target that doesn't compile fails it. |
 | `fmt` | Runs `cargo fmt --check`. It reports how many places would change and does not fail. |
 | `tests` | Runs the Rust tests that need no display, audio device or Lua suite, with cargo-nextest. These must pass. |
 | `docs` | Runs Vale on `README.md`, `AGENTS.md`, `docs/`, the READMEs of the crates and extensions, the `doc/` pages of the extensions, `bench/README.md` and `bench/DAWS.md`. It fails on an error. |

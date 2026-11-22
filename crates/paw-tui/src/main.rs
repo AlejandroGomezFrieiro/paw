@@ -5,7 +5,6 @@
 
 mod args;
 mod graphics;
-mod keys;
 mod plugins;
 mod terminal;
 
@@ -17,6 +16,8 @@ use args::{Attach, Cli, ClipCommand, Command, Connect, Ctl};
 use clap::Parser;
 use paw_core::{Kernel, KernelOpts, rpc, startuptime};
 use paw_engine::backend::{BackendChoice, BackendOptions};
+// The terminal's keys; terminal.rs reads them as `crate::keys`.
+use paw_tui::keys;
 use serde_json::Value;
 
 fn config_dir() -> PathBuf {

@@ -1,0 +1,9 @@
+{"w": 12, "h": 3, "full": true, "cursor": [3, 1], "mouse": true, "runs": [[0, 0, "tracks", null, null, 0], [2, 1, "音 ok", "#ff8000", 4, 1]], "surfaces": [{"key": "notation#1", "x": 2, "y": 0, "w": 6, "h": 3, "cell": [10, 20], "under": false, "covered": [[2, 1, 2]], "offset": [0, 1], "whole": [6, 4], "ops": [["r", 0, 0, 5, 5, "#ffffff", "", 1, 0]]}]}
+{"w": 12, "h": 3, "runs": [], "surfaces": [{"key": "notation#1", "x": 2, "y": 0, "w": 6, "h": 3}]}
+{"key": "<C-s>"}
+{"paste": "two\nlines"}
+{"resize": [100, 30]}
+{"mouse": {"kind": "down", "button": "left", "x": 3, "y": 4, "mods": "C", "px": 31, "py": 85}}
+{"cell": [10, 20]}
+{"focus": true}
+{"seq": 1, "rate": 24000, "channels": 2, "pcm": "AAD/fwCA"}

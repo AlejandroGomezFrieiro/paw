@@ -26,7 +26,7 @@ shows the behavior:
 | The engine (devices, clips, the mix) | An integration test in `crates/paw-engine/tests` that makes an `Engine` and calls `engine.process()` block by block |
 | The kernel through Lua (commands, keys, views) | A Lua test, not Rust (`lua-testing`) |
 | The remote protocol | `crates/paw-tui/tests/remote.rs` or `crates/paw-mcp/tests/protocol.rs` |
-| The terminal input (escape sequences) | `crates/paw-tui/tests/join.rs` |
+| The terminal input (escape sequences) | The unit tests of `crates/paw-tui/src/keys.rs`, with `keys::Scripted` |
 | The window | Paused: do not write, build or run window tests (see part 9) |
 
 The engine tests are the model: they make an `Engine`, send messages
@@ -306,15 +306,36 @@ assert_eq!(error.to_string(), "the clip ends in its header");
   contract of a function, for example an index out of range. A failure
   that a user can cause is an `Err`, not a panic.
 
-## 13. Fuzz targets (planned, TASK-159)
+## 13. Fuzz targets
 
-A parser of input from outside paw (MIDI files, `.midi2` clips, project
-JSON, terminal input, the remote protocol) gets a cargo-fuzz target in
-the `fuzz/` crate. The target calls the same `check` helper as the
-tests and checks "an error, not a panic". The fuzz crate needs nightly
-Rust and is not a default member of the workspace. CI builds it, and the
-nightly tier in CI runs it. A crash that the fuzzer finds becomes a
-normal regression test in its crate.
+A reader of input from outside paw has a cargo-fuzz target in the
+`fuzz/` crate (`paw-fuzz`). Each target calls the same function as the
+program. A panic, an input that does not end in the time limit, or
+a run out of memory is a failure:
+
+| Target | Input | Code under test |
+| --- | --- | --- |
+| `clip_file` | A `.midi2` clip file | `clipfile::decode`, then `clipfile::text` |
+| `project_folder` | The files of a project folder, each after a line `=== <path>` | `session::folder::read_from`, with a `ProjectFiles` in memory that never reads the disk |
+| `remote` | Lines of JSON from the other side of a connection | `remote::apply` on one grid, `remote::input_of`, `paw_proto::monitor::decode` |
+| `terminal_keys` | Text: ESC is Escape, NUL is a pause, DEL is a resize | `keys::Joiner` over `keys::Scripted`, the source of the unit tests |
+
+- The crate is a workspace member, but not a default member. `cargo
+  build` and `cargo test` at the top do not build it. Use `cargo check -p
+  paw-fuzz` to check it on stable. The flake check `clippy` also checks
+  it.
+- The seeds of each target are in `fuzz/seeds/<target>`. Keep them small
+  (a few KB in all). Make them with paw in the test environment
+  (`tests/tools/run.sh`). Do not copy a file of the machine.
+- Agents do not run a fuzzer. The fuzz runs are the nightly tier, in CI
+  only: `tools/fuzz.sh` (cargo-fuzz and nightly Rust). The dev shell has
+  neither.
+- Each crash becomes a ticket and a plain regression test in the crate
+  that crashed, with a comment that names the target. Do not change the
+  target to hide the crash.
+- A new reader of outside input gets a target, and a row in this table.
+  The MIDI file reader (`midifile.tl`) and the DAWproject and RPP readers
+  are Teal. They have no target until they are Rust.
 
 ## 14. Flakes
 
@@ -341,6 +362,8 @@ cargo nextest run -p <crate> -E 'test(word)'  # some tests
 cargo test --doc -p <crate>                   # doc tests
 cargo nextest run --workspace --profile gate  # before a push
 cargo insta review                            # planned: read and accept snapshots
+cargo check -p paw-fuzz                       # the fuzz targets compile (stable)
+tools/fuzz.sh                                 # nightly tier, CI only: run each target
 ```
 
 ## 16. Before you commit

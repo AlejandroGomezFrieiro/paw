@@ -127,6 +127,20 @@ the limit a few times the target.
    `crates/paw-tui/tests/suite.rs`.
 2. To test one crate, run `cargo test -p <crate>`.
 
+## Run the fuzz targets
+
+The fuzz targets in `fuzz/` feed random input to the code that reads files
+and messages from outside paw, and they report each input that makes paw
+panic, stop responding or run out of memory. They need cargo-fuzz and a nightly Rust,
+which the dev shell doesn't have, so they are meant for CI.
+
+1. To check that the targets compile on stable Rust, run
+   `cargo check -p paw-fuzz`. A plain `cargo build` or `cargo test` skips them.
+2. With cargo-fuzz and a nightly Rust, run `tools/fuzz.sh` to run each target
+   for 200000 inputs, or `tools/fuzz.sh build` to only build them.
+3. If a target fails, its input is in `fuzz/artifacts/<target>/`. Write a
+   plain test in the crate that crashed, from that input, and fix the code.
+
 ## Run the end-to-end scenarios
 
 The end-to-end scenarios act as a person who works on a song for many
