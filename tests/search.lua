@@ -456,36 +456,3 @@ test("search: ]n and [n in the piano roll go to the notes of the same pitch", fu
   paw.keymap.feed("[n")
   eq(roll.beat, 3, "back")
 end)
-
--- Size ---------------------------------------------------------------------------------------
-
-test("search: a hundred tracks of a hundred notes each stay quick to search", function()
-  fresh()
-  for i = 1, 100 do
-    local notes = {}
-    for k = 1, 100 do
-      notes[k] = { 48 + (k % 24), (k - 1) * 0.25, 0.25, 90, meta = k % 10 == 0 and { lyric = "la" .. k } or nil }
-    end
-    paw.add_track({ name = "Track " .. i }):add_clip({ name = "clip " .. i, start = 0, length = 32, notes = notes })
-  end
-  local t0 = api.now()
-  local found = paw.query("track[name$=7] > clip > note[pitch>=C4][vel>80]")
-  local query_ms = api.now() - t0
-  eq(#found > 0, true, "found some")
-  t0 = api.now()
-  local records = paw.grep.search("la1", { mode = "exact" })
-  local grep_ms = api.now() - t0
-  eq(#records > 0, true, "and some lyrics")
-  t0 = api.now()
-  paw.pick("notes")
-  paw.keymap.feed("C5 la")
-  local pick_ms = api.now() - t0
-  eq(#pick.state().matches > 0, true, "the notes picker narrows")
-  paw.keymap.feed("<Esc>")
-  -- Generous, for a loaded machine: the 1000-track measure is in the report.
-  eq(
-    query_ms < 2000 and grep_ms < 2000 and pick_ms < 4000,
-    true,
-    string.format("query %d ms, grep %d ms, notes picker %d ms", query_ms, grep_ms, pick_ms)
-  )
-end)

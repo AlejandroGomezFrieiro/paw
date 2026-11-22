@@ -278,6 +278,9 @@ sealed::seal(&mut paw, dir.path()).args(["--clean", "--audio", "null"]);
   `Instant`, a share of a processor, or a count that changes with speed.
   To guard a cost, count the work (renders, compiles, cells drawn). A
   time goes to `bench/`.
+- The lint `tools/testlint.lua` counts `thread::sleep`, `Instant::now`,
+  `cpu_percent` and `quiet(` with a `Duration` in the Rust tests. A count
+  over `tests/timing-allowed.txt` fails the suite and `nix flake check`.
 - A test does not sleep: no `std::thread::sleep`, no busy loop, no
   `recv_timeout` as the condition of a pass. Step the code: call
   `engine.process()`, call the `poll` of a scheduler with a time that

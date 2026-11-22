@@ -1,5 +1,4 @@
--- The notation view's paint, timed: what `tools/paintbench.lua` prints and
--- the tests hold to. A clip of `bars` bars of random melody with some
+-- The notation view's paint, timed: what `tools/paintbench.lua` prints. A clip of `bars` bars of random melody with some
 -- chords is opened as notation and painted at 1053 x 1215 px.
 local api = paw.api
 local M = {}
@@ -42,12 +41,10 @@ end
 --- the edit is made in notation (the note sharpened there: its score
 --- changed and written back as MIDI), and `edit` is the edit itself and
 --- the paint after it; else the note is changed in the clip and `edit` is
---- the paint after it. `clock` is a function that returns ms (default
---- `api.now`, the clock); a test passes processor time.
-function M.run(bars, opts, rounds, how, clock)
+--- the paint after it.
+function M.run(bars, opts, rounds, how)
   rounds = rounds or 20
   how = how or {}
-  clock = clock or api.now
   local view = require("notation")
   local notes = M.notes(bars)
   local track = api.track_add({ name = "Bench" })
@@ -56,9 +53,9 @@ function M.run(bars, opts, rounds, how, clock)
   view:edit(id)
   local function paint() return paw.canvas.paint("notation", W, H, opts) end
   local function time(fn)
-    local t = clock()
+    local t = api.now()
     local r = fn()
-    return clock() - t, r
+    return api.now() - t, r
   end
   local out = {}
   local drawing
