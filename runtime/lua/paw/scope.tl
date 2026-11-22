@@ -1379,11 +1379,11 @@ local function follow(force?: boolean, win?: Window)
   end
   -- Into or out of a subproject, the cursor keeps its place in the song:
   -- its beat is now one of the other timeline.
-  local function root(level: Scope): Scope
-    return level and M.nest(level) or nil
+  local function root(at: Scope): Scope
+    return at and M.nest(at) or nil
   end
-  local function offset(level: Scope): number
-    return level and M.song_offset(level) or 0
+  local function offset(at: Scope): number
+    return at and M.song_offset(at) or 0
   end
   if root(followed) ~= root(s) and paw.cursor.beat then
     local beat = paw.cursor.beat + offset(followed) - offset(s)
