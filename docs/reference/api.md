@@ -1464,6 +1464,11 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.music.pitch(note)`: MIDI note number for a name such as "C4", "f#3" or "Bb2". Numbers pass through.
 - `paw.music.pitch_word(text)`: A pitch as typed in a query or an Ex range: `{ pitch = 61 }` for `c#4` or `61`, `{ class = 1 }` for `c#` in any octave; nil when it is not one.
 
+## Module paw.nest
+
+- `paw.nest.get(id)`: The subproject `id`, or nil when there is none.
+- `paw.nest.list()`: Every subproject, in the order they were made: { id, name, length, tempo, meter, master, tracks, kind, meta, used }.
+
 ## Module paw.option
 
 - `paw.option.check(name, value)`: Tells if option `name` accepts `value`: true, or nil and an error that tells what it accepts. An option with no default accepts any value.
@@ -2452,9 +2457,9 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.fs_space(path)`: The space of the disk that holds a path: `{ free, total }` in bytes (free: what a program that is not root can use).
 - `paw.api.fs_stat(path)`: `{ kind = "file" | "dir" | "link", dir, size, mtime }`, or nil when nothing is there. A link is looked at, not followed, for its kind, and `dir` is true if it leads to a directory.
 - `paw.api.fs_trash(path)`: Put a file or directory in the freedesktop trash; returns where it is.
-- `paw.api.grid_fill(x, y, w, h, fill, style, cx, cy, cw, ch)`
+- `paw.api.grid_fill(x, y, w, h, fill, style, cx, cy, cw, ch)`: Restyle the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, and overwrite its characters when `fill` is given.
 - `paw.api.grid_image(key, x, y, w, h, cx, cy, cw, ch)`: Draw the picture of pixels kept under `key` over the cells `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, two pixels a cell in half blocks (`▀`): what a terminal that shows no images shows of it. False for a key not kept (any more).
-- `paw.api.grid_keep(key, x, y, w, h, cx, cy, cw, ch)`: Restyle the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, and overwrite its characters when `fill` is given. Keep the cells of the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, under `key`, to put back on a later frame with `grid_put` when what they were drawn from has not changed.
+- `paw.api.grid_keep(key, x, y, w, h, cx, cy, cw, ch)`: Keep the cells of the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, under `key`, to put back on a later frame with `grid_put` when what they were drawn from has not changed.
 - `paw.api.grid_live_begin(x, y, w, h, cx, cy, cw, ch)`: A live part of the screen is drawn over the cells `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`: what is under them is kept, to draw it again by itself (`paw.ui.render_live`). Returns its number for `grid_live_end`, or nil when no part of it is on the screen.
 - `paw.api.grid_live_end(index)`
 - `paw.api.grid_live_restore()`: Take the live parts off the frame drawn last, to draw them again. Returns how many there were.
@@ -2521,6 +2526,10 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.midi_send(track, event)`: Send a MIDI message to one track's devices right now, outside the timeline.
 - `paw.api.midi_test_ports(ports)`: The MIDI ports the null backend lists, as if plugged in.
 - `paw.api.midi_ump(event)`: What an event is as a MIDI 2.0 packet: two 32-bit words.
+- `paw.api.nest_add(opts)`: Make a subproject with its master track and no other track, as one undo step, for example `{ name = "Bridge", length = 32 }`. The length is in beats, and 32 when you leave it out. Add its tracks with `track_add({ nest = id })`. Returns its id.
+- `paw.api.nest_get(id)`: A subproject as a table: its fields, `tracks` (its tracks in order, without its master) and `used` (whether the song plays it).
+- `paw.api.nest_list()`: --- nests (subprojects): tracks with a timeline of their own --- The ids of the subprojects, in the order they were made.
+- `paw.api.nest_set(id, key, value)`: Change a subproject: a table of the entries to change (`name`, `length`, `tempo`, `meter`, `kind`, `meta`), as `nest_get` gives them, or one `key` and its value.
 - `paw.api.note_off(track, pitch)`
 - `paw.api.note_on(track, pitch, velocity, attr)`: Play a note on a track, with a MIDI 2.0 attribute if one is given.
 - `paw.api.now()`

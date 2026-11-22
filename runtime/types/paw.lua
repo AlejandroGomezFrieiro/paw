@@ -194,6 +194,9 @@ paw.mouse = {}
 ---@class paw.music
 paw.music = {}
 
+---@class paw.nest
+paw.nest = {}
+
 ---@class paw.option
 paw.option = {}
 
@@ -5953,6 +5956,14 @@ function paw.music.pitch(note) end
 ---@param text any
 function paw.music.pitch_word(text) end
 
+--- The subproject `id`, or nil when there is none.
+---@param id any
+function paw.nest.get(id) end
+
+--- Every subproject, in the order they were made: { id, name, length,
+--- tempo, meter, master, tracks, kind, meta, used }.
+function paw.nest.list() end
+
 --- Tells if option `name` accepts `value`: true, or nil and an error that
 --- tells what it accepts. An option with no default accepts any value.
 ---@param name any
@@ -9647,6 +9658,8 @@ function paw.api.fs_stat(path) end
 ---@param path string
 function paw.api.fs_trash(path) end
 
+--- Restyle the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, and
+--- overwrite its characters when `fill` is given.
 ---@param x number
 ---@param y number
 ---@param w number
@@ -9674,8 +9687,6 @@ function paw.api.grid_fill(x, y, w, h, fill, style, cx, cy, cw, ch) end
 ---@param ch number
 function paw.api.grid_image(key, x, y, w, h, cx, cy, cw, ch) end
 
---- Restyle the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, and
---- overwrite its characters when `fill` is given.
 --- Keep the cells of the area `(x, y, w, h)`, clipped to `(cx, cy,
 --- cw, ch)`, under `key`, to put back on a later frame with
 --- `grid_put` when what they were drawn from has not changed.
@@ -10019,6 +10030,30 @@ function paw.api.midi_test_ports(ports) end
 --- What an event is as a MIDI 2.0 packet: two 32-bit words.
 ---@param event any
 function paw.api.midi_ump(event) end
+
+--- Make a subproject with its master track and no other track, as one
+--- undo step, for example `{ name = "Bridge", length = 32 }`. The length
+--- is in beats, and 32 when you leave it out. Add its tracks with
+--- `track_add({ nest = id })`. Returns its id.
+---@param opts any
+function paw.api.nest_add(opts) end
+
+--- A subproject as a table: its fields, `tracks` (its tracks in order,
+--- without its master) and `used` (whether the song plays it).
+---@param id integer
+function paw.api.nest_get(id) end
+
+--- --- nests (subprojects): tracks with a timeline of their own ---
+--- The ids of the subprojects, in the order they were made.
+function paw.api.nest_list() end
+
+--- Change a subproject: a table of the entries to change (`name`,
+--- `length`, `tempo`, `meter`, `kind`, `meta`), as `nest_get` gives
+--- them, or one `key` and its value.
+---@param id integer
+---@param key any
+---@param value any
+function paw.api.nest_set(id, key, value) end
 
 ---@param track integer
 ---@param pitch integer?

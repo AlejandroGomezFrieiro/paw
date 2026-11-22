@@ -5,7 +5,7 @@ use std::rc::Rc;
 use mlua::{Lua, Table, Value as LuaValue};
 use serde_json::Value;
 
-use crate::model::Id;
+use crate::model::{Id, NestId};
 
 use super::{LuaResult, Shared, attr_from_lua, changes, from_lua, options, to_lua};
 
@@ -76,6 +76,41 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         fn track_attr_delay(lua, sh, (id, attr) => (Id, LuaValue)) {
             let attr = attr_from_lua(lua, attr)?.map_or(paw_engine::Attr::NONE, Into::into);
             sh.session.borrow().attr_delay(id, attr).lua()
+        }
+
+        // --- nests (subprojects): tracks with a timeline of their own ---
+        // The ids of the subprojects, in the order they were made.
+        // @return {integer}
+        fn nest_list(_, sh, () => ()) {
+            Ok(sh.session.borrow().nest_list().into_iter().map(|n| n.0).collect::<Vec<u64>>())
+        }
+        // A subproject as a table: its fields, `tracks` (its tracks in order,
+        // without its master) and `used` (whether the song plays it).
+        // @return types.Nest
+        fn nest_get(lua, sh, id => u64) {
+            to_lua(lua, &sh.session.borrow().nest_view(NestId(id)).lua()?)
+        }
+        // Make a subproject with its master track and no other track, as one
+        // undo step, for example `{ name = "Bridge", length = 32 }`. The length
+        // is in beats, and 32 when you leave it out. Add its tracks with
+        // `track_add({ nest = id })`. Returns its id.
+        // @param opts? types.NestOptions
+        // @return integer
+        fn nest_add(lua, sh, opts => LuaValue) {
+            sh.session.borrow_mut().nest_add(options(lua, opts)?).map(|n| n.0).lua()
+        }
+        // Change a subproject: a table of the entries to change (`name`,
+        // `length`, `tempo`, `meter`, `kind`, `meta`), as `nest_get` gives
+        // them, or one `key` and its value.
+        // @type function(id: integer, patch: types.Nest)
+        // @type function(id: integer, key: string, value: nil)
+        fn nest_set(lua, sh, (id, key, value) => (u64, LuaValue, LuaValue)) {
+            let mut session = sh.session.borrow_mut();
+            for (key, value) in changes(lua, key, value)? {
+                let value: Value = from_lua(lua, value)?;
+                session.nest_set(NestId(id), &key, value).lua()?;
+            }
+            Ok(())
         }
 
     }

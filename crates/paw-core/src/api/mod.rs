@@ -153,6 +153,19 @@ pub fn to_lua<T: serde::Serialize>(lua: &Lua, value: &T) -> mlua::Result<LuaValu
     lua.to_value_with(value, options)
 }
 
+/// An integer as a Lua value: a Lua integer where it fits, else a number.
+/// LuaJIT's integers have 64 bits; the PUC Lua of a BrowserPod pod has
+/// 32 (`ptrdiff_t` in WebAssembly).
+pub fn lua_integer(n: i64) -> LuaValue {
+    mlua::Integer::try_from(n).map_or(LuaValue::Number(n as f64), LuaValue::Integer)
+}
+
+/// A Lua integer with 64 bits, on every Lua (see [`lua_integer`]).
+#[allow(clippy::useless_conversion, reason = "mlua::Integer is i64 with LuaJIT, i32 in a pod")]
+pub fn wide_integer(n: mlua::Integer) -> i64 {
+    i64::from(n)
+}
+
 pub fn from_lua<T: DeserializeOwned>(lua: &Lua, value: LuaValue) -> mlua::Result<T> {
     lua.from_value(value)
 }

@@ -6,6 +6,7 @@
 mod args;
 mod graphics;
 mod keys;
+mod plugins;
 mod terminal;
 
 use std::path::PathBuf;
@@ -15,7 +16,6 @@ use anyhow::{Context, Result, bail};
 use args::{Attach, Cli, ClipCommand, Command, Connect, Ctl};
 use clap::Parser;
 use paw_core::{Kernel, KernelOpts, rpc, startuptime};
-use paw_engine::Registry;
 use paw_engine::backend::{BackendChoice, BackendOptions};
 use serde_json::Value;
 
@@ -363,27 +363,17 @@ fn dispatch(cli: Cli) -> Result<Start> {
         // Started by a running instance to hold one plugin, or to look into
         // one plugin file, in a process of its own.
         Some(Command::PluginHost(raw)) => {
-            let args = raw.args;
-            // A device written in Lua is held the way a plugin is.
-            if args.first().is_some_and(|kind| kind.starts_with("lua:")) {
-                // SAFETY: This process is the helper that the DAW's sandbox started: the socket and the
-                // memory named in `args` are descriptors it inherited and that only these calls take,
-                // and no thread has started yet (`main` has only parsed its arguments).
-                return Ok(Start::Done(unsafe {
-                    paw_plugins::sandbox::serve_with(&args, |_, rate, block| {
-                        paw_luadev::serve_make(rate, block)
-                    })
-                }));
-            }
-            // SAFETY: As above.
-            Start::Done(unsafe { paw_plugins::sandbox::serve(&args) })
+            // SAFETY: This process is the helper that the DAW's sandbox started: the socket and the
+            // memory named in `args` are descriptors it inherited and that only these calls take,
+            // and no thread has started yet (`main` has only parsed its arguments).
+            Start::Done(unsafe { plugins::host(&raw.args) })
         }
         Some(Command::PluginScan(raw)) => {
             let args = raw.args;
             if args.first().map(String::as_str) == Some("lua") {
                 return Ok(Start::Done(paw_luadev::scan_main(&args[1..])));
             }
-            Start::Done(paw_plugins::scan_main(&args))
+            Start::Done(plugins::scan(&args))
         }
         Some(Command::Doctor(doctor)) => {
             let own = doctor.script_args();
@@ -415,49 +405,6 @@ fn join_running(args: &args::Run, scripted: bool) -> Result<bool> {
         return Ok(true);
     }
     Ok(false)
-}
-
-/// The registry of devices, with the plugin scan. Returns the scan's notes
-/// and how many of them come from the scan itself.
-fn build_registry(args: &args::Run, display_note: Option<String>) -> (Registry, Vec<String>, usize) {
-    let mut registry = Registry::with_builtins();
-    // Devices written in Lua always run in helpers: Lua must not run on
-    // the audio thread.
-    if let Ok(exe) = std::env::current_exe() {
-        paw_luadev::set_helper(exe, paw_plugins::sandbox::remote);
-    }
-    // Directories an extension adds are looked in even without the
-    // plugins installed on the machine.
-    let cache = cache_dir().join("plugins.json");
-    registry.set_add_dir(std::rc::Rc::new({
-        let cache = cache.clone();
-        move |registry, dir| paw_plugins::add_dir(registry, Some(&cache), dir)
-    }));
-    registry.set_remove_dir(std::rc::Rc::new(paw_plugins::remove_dir));
-    registry.set_attach(std::rc::Rc::new(paw_plugins::attach::add));
-    let mut plugin_notes = if args.no_plugins {
-        Vec::new()
-    } else {
-        // Each plugin gets a process of its own, started from this program.
-        if !args.plugins_in_process
-            && let Ok(exe) = std::env::current_exe()
-        {
-            paw_plugins::sandbox::set_host_command(
-                vec![exe.to_string_lossy().into_owned(), "plugin-host".into()],
-                Some(&cache),
-            );
-        }
-        let notes = paw_plugins::register(&mut registry, Some(&cache));
-        paw_plugins::sandbox::wrap(&mut registry);
-        registry.set_rescan(std::rc::Rc::new(move |registry, name| {
-            paw_plugins::rescan(registry, Some(&cache), name)
-        }));
-        notes
-    };
-    // What the scan said, apart from the note about the display.
-    let scanned = plugin_notes.len();
-    plugin_notes.extend(display_note);
-    (registry, plugin_notes, scanned)
 }
 
 /// A panic anywhere but inside a device (which the engine catches, bypasses
@@ -632,7 +579,7 @@ fn run() -> Result<i32> {
     // window. Put that right while this is still the only thread.
     // SAFETY: Called from `main` before any thread starts: only the arguments were parsed and, at
     // most, a running paw asked over its socket, so nothing else reads or writes the environment.
-    let display_note = unsafe { paw_plugins::repair_display_env() };
+    let display_note = unsafe { plugins::repair_display_env() };
 
     // A script only makes sound if it asks for a device.
     let backend = match args.audio.as_deref() {
@@ -640,7 +587,7 @@ fn run() -> Result<i32> {
         None if scripted && !doctor => BackendChoice::Null,
         None => BackendChoice::Auto,
     };
-    let (registry, plugin_notes, scanned) = build_registry(&args, display_note);
+    let (registry, plugin_notes, scanned) = plugins::registry(&args, display_note);
     startuptime::event(if args.no_plugins { "devices" } else { "devices, the plugin scan" });
     let mut kernel = Kernel::new(KernelOpts {
         registry,

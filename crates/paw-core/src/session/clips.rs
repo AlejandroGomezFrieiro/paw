@@ -486,7 +486,7 @@ impl Session {
         {
             ClipContent::Midi { notes, .. } => Ok(notes),
             ClipContent::Audio { .. } => bail!("clip {id} is an audio clip"),
-            ClipContent::Custom(custom) => bail!("clip {id} is a clip of the kind `{}`", custom.kind),
+            other => bail!("clip {id} is a clip of the kind `{}`", other.kind()),
         }
     }
 
@@ -500,7 +500,7 @@ impl Session {
         {
             ClipContent::Midi { controls, .. } => Ok(controls),
             ClipContent::Audio { .. } => bail!("clip {id} is an audio clip"),
-            ClipContent::Custom(custom) => bail!("clip {id} is a clip of the kind `{}`", custom.kind),
+            other => bail!("clip {id} is a clip of the kind `{}`", other.kind()),
         }
     }
 
@@ -517,7 +517,7 @@ impl Session {
                     Ok(())
                 }
                 ClipContent::Audio { .. } => bail!("clip {id} is an audio clip"),
-                ClipContent::Custom(custom) => bail!("clip {id} is a clip of the kind `{}`", custom.kind),
+                other => bail!("clip {id} is a clip of the kind `{}`", other.kind()),
             }
         })
     }
@@ -541,7 +541,7 @@ impl Session {
                     Ok(())
                 }
                 ClipContent::Audio { .. } => bail!("clip {id} is an audio clip"),
-                ClipContent::Custom(custom) => bail!("clip {id} is a clip of the kind `{}`", custom.kind),
+                other => bail!("clip {id} is a clip of the kind `{}`", other.kind()),
             }
         })
     }

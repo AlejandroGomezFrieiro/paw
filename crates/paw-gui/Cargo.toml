@@ -9,7 +9,8 @@ description = "A graphical frontend, drawn with egui. It talks to the kernel ove
 anyhow.workspace = true
 clap.workspace = true
 paw-proto.workspace = true
-paw-listen.workspace = true
+# The machine's sound device, to hear an instance here.
+paw-listen = { workspace = true, features = ["device"] }
 paw-raster.workspace = true
 paw-scene.workspace = true
 serde_json.workspace = true

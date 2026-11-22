@@ -13,8 +13,16 @@ use serde::Serialize;
 
 use crate::engine::{Engine, MAX_INPUTS};
 
+// The real devices: cpal's, else the page of a BrowserPod pod, else none.
+#[cfg(not(target_vendor = "browserpod"))]
 #[cfg_attr(not(feature = "cpal"), path = "backend/no_cpal.rs")]
 mod cpal;
+// The tests of the page's backend run on every machine.
+#[cfg(any(test, target_vendor = "browserpod"))]
+#[cfg_attr(not(target_vendor = "browserpod"), allow(dead_code))]
+mod page;
+#[cfg(target_vendor = "browserpod")]
+use page as cpal;
 
 /// A sound system to play through, by the word scripts and the command
 /// line use for it: `auto`, `null`, `test`, or a host such as `pipewire`.
@@ -445,12 +453,13 @@ impl Opened {
             });
         }
         let device = (self.info.backend == BackendChoice::Test).then(|| lost.clone());
-        let thread = spawn_null(
+        let thread = spawn_clock(
             engine,
             self.info.buffer_size.max(64) as usize,
             stop.clone(),
             self.test_input,
             device,
+            |_: &[f32], _: &[f32]| {},
         );
         Ok(Stream {
             info: self.info,
@@ -463,14 +472,17 @@ impl Opened {
     }
 }
 
-/// Render in real time on a plain thread and throw the audio away.
-fn spawn_null(
+/// Render in real time on a plain thread and give each block, left and
+/// right, to `sink`: the null backend throws it away. `sink` runs on the
+/// audio thread: no lock, no allocation, no wait.
+fn spawn_clock(
     mut engine: Engine,
     block: usize,
     stop: Arc<AtomicBool>,
     test_input: Option<TestInput>,
     // The test device, which can be unplugged: where to say so.
     device: Option<Arc<Lost>>,
+    mut sink: impl FnMut(&[f32], &[f32]) + Send + 'static,
 ) -> JoinHandle<Engine> {
     std::thread::spawn(move || {
         no_denormals();
@@ -509,6 +521,7 @@ fn spawn_null(
                 }
             }
             engine.process_input(&input, channels, &mut left, &mut right);
+            sink(&left, &right);
             engine
                 .shared()
                 .set_cpu(began.elapsed().as_secs_f32() / period.as_secs_f32());

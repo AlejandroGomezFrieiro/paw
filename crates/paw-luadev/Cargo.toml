@@ -11,5 +11,10 @@ anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
-# The same features as the kernel's, so that both share one build of LuaJIT.
+
+# The same features as the kernel's, so that both share one build of Lua.
+[target.'cfg(not(target_vendor = "browserpod"))'.dependencies]
 mlua = { version = "0.12", features = ["luajit", "vendored", "serde"] }
+
+[target.'cfg(target_vendor = "browserpod")'.dependencies]
+mlua = { version = "0.12", features = ["lua52", "vendored", "serde"] }

@@ -486,13 +486,10 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             }
             Ok(true)
         }
-        // Restyle the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, and
-        // overwrite its characters when `fill` is given.
-        // @return nil
-        // @param style string | types.CellStyle
         // Keep the cells of the area `(x, y, w, h)`, clipped to `(cx, cy,
         // cw, ch)`, under `key`, to put back on a later frame with
         // `grid_put` when what they were drawn from has not changed.
+        // @return nil
         fn grid_keep(_, sh, (key, x, y, w, h, cx, cy, cw, ch) => (String, f64, f64, f64, f64, f64, f64, f64, f64)) {
             let area = Rect { x: cell(x), y: cell(y), w: cell(w), h: cell(h) }
                 .intersect(&Rect { x: cell(cx), y: cell(cy), w: cell(cw), h: cell(ch) });
@@ -513,6 +510,10 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             let all = sh.kept_cells.borrow();
             Ok(all.get(&key).is_some_and(|kept| sh.grid.borrow_mut().put_kept(area, kept)))
         }
+        // Restyle the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, and
+        // overwrite its characters when `fill` is given.
+        // @return nil
+        // @param style string | types.CellStyle
         fn grid_fill(_, sh, (x, y, w, h, fill, style, cx, cy, cw, ch) => (f64, f64, f64, f64, Option<LuaString>, LuaValue, f64, f64, f64, f64)) {
             let style = style_of(&sh, &style)?;
             let fill = match fill {

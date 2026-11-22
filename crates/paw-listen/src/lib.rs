@@ -116,6 +116,8 @@ pub struct Player {
 }
 
 impl Drop for Player {
+    // Without the `device` feature a file is the only output.
+    #[cfg_attr(not(feature = "device"), allow(irrefutable_let_patterns))]
     fn drop(&mut self) {
         if let Output::File { stop, thread } = &mut self.output {
             stop.store(true, Ordering::Relaxed);
@@ -148,6 +150,12 @@ impl Player {
         )?;
         stream.play()?;
         Ok(Self { jitter, output: Output::Device(stream) })
+    }
+
+    /// A build without the `device` feature has no sound device to play on.
+    #[cfg(not(feature = "device"))]
+    pub fn device() -> Result<Self> {
+        anyhow::bail!("this build of paw has no sound device")
     }
 
     /// Write what would be played, at `rate`, to a WAV file: the null
