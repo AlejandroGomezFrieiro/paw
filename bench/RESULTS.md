@@ -312,6 +312,36 @@ What is left, in order of what the user feels:
 5. About 1 400 allocations per frame while playing, half of them for
    strings passed from Lua.
 
+   After (2026-11-22): the screen API takes the number of a highlight
+   group (`paw.api.hl_id`), and `buf:text` asks for it once for each name.
+   The kernel copies text from the Lua stack into a buffer on its own
+   stack, with no shared counter for each string. `transport_get` and
+   `engine_get` make their tables from typed structs, with no JSON
+   between. A frame reads the transport once (`paw.ui.transport()`). The
+   grid keeps the buffers of the live parts, and the live meters keep
+   their tables. `layout.find` and `find_id` make no list of the windows.
+   The status line keeps a segment and its width while its text stays.
+   The playhead keeps its spans while it stays in a column.
+
+   `heaptrack` on `bench/profile/run.sh play` with the large project,
+   runs of 10 s and 30 s, `heaptrack_print -f <30 s> -d <10 s>`: the
+   allocations of the steady state, divided by the frames between the two
+   runs. Old and new build in turns, 3 pairs. The kernel's instructions
+   per frame, from `compare.py ... 5 play --secs 15 --perf 10`, 5 pairs.
+   Measured under external load (load average 40 to 59):
+
+   | Measure | Before | After |
+   | --- | ---: | ---: |
+   | Allocations per frame | 1 467 (1 449 to 1 487) | 111 (93 to 129) |
+   | Kernel instructions per frame | 3.22 M (3.19 to 3.36 M) | 2.33 M (2.30 to 2.36 M) |
+   | Kernel processor time | 8.4 % (8.3 to 9.0) | 6.2 % (5.9 to 6.3) |
+
+   Of the allocations that are left, about 8 a frame are in Rust. The
+   rest are the Lua tables and strings of the status line's components
+   (the time, the transport) and of the transport table. The count after
+   changes more from run to run than the count before: LuaJIT allocates
+   too when it compiles a trace again.
+
 ## Since then: several threads, and one note at a time
 
 The two largest weaknesses below were taken up after these results were
