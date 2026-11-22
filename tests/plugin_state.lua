@@ -241,7 +241,7 @@ test("an LV2 plugin sleeps once its tail went by in silence, and a note or a par
 end)
 
 test("a move in a plugin's window right after a state is an edit, and the echo of the state is not", function()
-  local built = "target/release/examples/libstub_clap.so"
+  local built = os.getenv("PAW_TEST_STUB") or "target/release/examples/libstub_clap.so"
   if not io.open(built) then return "skipped: `cargo test -p paw-plugins` builds the test plugin" end
   fresh()
   local dir = T.scratch .. "/stub-echo"

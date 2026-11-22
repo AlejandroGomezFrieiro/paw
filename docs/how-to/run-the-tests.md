@@ -29,6 +29,13 @@ loads each of the test files, in the order of their names.
 - To test the plugins that are not in nixpkgs, give their package:
   `PAW_TEST_TONE3000=<store path> PAW_TEST_SOUNDSHED=<store path> tests/tools/suite.sh plugins plugstate`.
   In that mode, the plugins get a scratch `HOME`.
+- To test a change of Lua or Teal without a build, use a binary that
+  another checkout built. Run `tools/dev-runtime.sh` to make a runtime
+  folder from your checkout. Then give the binary's folder and the
+  runtime:
+  `PAW_TEST_BIN=<folder> PAW_RUNTIME=$PWD/target/dev-runtime tests/tools/suite.sh only "loop on"`.
+  The folder also holds `examples/libstub_clap.so`. A change of Rust
+  still needs a build of your checkout.
 
 ## Run the suite in more than one process
 

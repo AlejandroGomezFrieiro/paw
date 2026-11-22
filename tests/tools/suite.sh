@@ -1,5 +1,5 @@
 #!/bin/sh
-# Run the Lua end-to-end suite on the release build.
+# Run the Lua end-to-end suite on the release build (or on $PAW_TEST_BIN).
 #
 #   tests/tools/suite.sh                  every test, without plugins
 #   tests/tools/suite.sh plugins          with the dev shell's test plugins
@@ -39,7 +39,7 @@ fi
 out=$SCRATCH/suite.out
 if [ "$jobs" -gt 1 ]; then
   # Each shard is this script again, with its own scratch folders (and so
-  # its own XDG folders) and every Nth test file.
+  # its own XDG folders) and every Nth part of the test files (suite.lua).
   pids=""
   k=1
   while [ "$k" -le "$jobs" ]; do
@@ -83,7 +83,12 @@ case "$1" in
     mkdir -p "$SCRATCH/home"
     rm -rf "$SCRATCH/bundles"
     mkdir -p "$SCRATCH/bundles/clap" "$SCRATCH/bundles/vst3" "$SCRATCH/bundles/lv2"
-    PAW_SCRATCH_HOME=$SCRATCH/home PAW_BUNDLES=$SCRATCH/bundles nix develop -c sh -c '
+    # In the dev shell already (direnv, nix develop), the plugins' variables are
+    # set: no second `nix develop`.
+    dev="nix develop -c"
+    [ -n "$IN_NIX_SHELL" ] && dev=""
+    # shellcheck disable=SC2086
+    PAW_SCRATCH_HOME=$SCRATCH/home PAW_BUNDLES=$SCRATCH/bundles $dev sh -c '
       export HOME=$PAW_SCRATCH_HOME
       for pkg in "$PAW_TEST_TONE3000" "$PAW_TEST_SOUNDSHED" "$PAW_TEST_MUSIO" "$PAW_TEST_DRAGONFLY" "$PAW_TEST_ILDAEIL" \
           "$PAW_TEST_NEURALNOTE" "$PAW_TEST_DECENTSAMPLER" "$PAW_TEST_AMPLOCKER" "$PAW_TEST_DRUMLOCKER" "$PAW_TEST_MTPDK" \
