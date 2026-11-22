@@ -1,5 +1,7 @@
 //! Runs the Lua end-to-end suite against the built binary.
 
+mod sealed;
+
 use std::path::Path;
 use std::process::Command;
 
@@ -13,6 +15,7 @@ fn lua_suite() {
     command.env("XDG_DATA_HOME", env!("CARGO_TARGET_TMPDIR"));
     // And what the program keeps between runs, to the state directory.
     command.env("XDG_STATE_HOME", env!("CARGO_TARGET_TMPDIR"));
+    sealed::seal(&mut command, Path::new(env!("CARGO_TARGET_TMPDIR")));
     // The plugin tests need known plugins. `PAW_TEST_PLUGINS` lists directories
     // that hold `clap`, `lv2` and `vst3` directories; the dev shell sets it.
     // Without it no plugins are loaded, least of all whatever is installed.

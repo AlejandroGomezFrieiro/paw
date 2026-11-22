@@ -3,6 +3,8 @@
 //! that terminal (mode 1004) acts on changes made meanwhile to the
 //! project's files.
 
+mod sealed;
+
 use std::io::{Read, Write};
 use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
 use std::os::unix::process::CommandExt;
@@ -47,6 +49,7 @@ fn paw(dir: &Path) -> Command {
     ] {
         command.env(var, dir.join(sub));
     }
+    sealed::seal(&mut command, dir);
     command.env("TERM", "xterm-256color");
     command.env_remove("PAW_TOKEN");
     command
