@@ -12,6 +12,7 @@ use lilv_sys::*;
 
 use crate::echo::Echo;
 use crate::HeldNotes;
+use crate::lv2_patch::Property;
 use super::*;
 use super::world::*;
 use super::atom::*;
@@ -52,6 +53,210 @@ impl Lv2Factory {
 }
 
 
+/// The plugin's ports, as `create` sorts them: what each connects to, and
+/// the buffers and parameters that come of them.
+struct PortPlan {
+    /// The value of each control port, by slot.
+    controls: Vec<AtomicU32>,
+    /// The slot of each parameter (an input control), and its description.
+    param_slots: Vec<usize>,
+    params: Vec<ParamInfo>,
+    /// The slot of each input control, by its symbol.
+    symbols: HashMap<CString, usize>,
+    audio_in: Vec<Vec<f32>>,
+    audio_out: Vec<Vec<f32>>,
+    key_in: Vec<Vec<f32>>,
+    /// The name of each audio output.
+    out_names: Vec<String>,
+    atoms: Vec<AtomBuffer>,
+    /// Index in `atoms` of the input that takes MIDI, and of the one that
+    /// takes the time position.
+    midi_in: Option<usize>,
+    time_in: Option<usize>,
+    /// Each port's index, and what it connects to.
+    plan: Vec<(u32, Connect)>,
+}
+
+/// Sort the plugin's ports: give each control a slot, each audio port a
+/// buffer of `max_block` frames, and each atom port its buffer. An error
+/// for a port of a kind this host does not know.
+///
+/// # Safety
+///
+/// `plugin` is a live plugin of the world `w`. Main thread.
+unsafe fn plan_ports(plugin: *const LilvPlugin, w: &World, max_block: usize) -> Result<PortPlan> {
+    // SAFETY: lilv calls on `plugin` and its ports, which the live world owns (see `# Safety`);
+    // the three range arrays hold one value for each port, as lilv fills them; each symbol is
+    // a NUL-terminated string of the port, copied before the next call.
+    unsafe {
+        let count = lilv_plugin_get_num_ports(plugin) as usize;
+        let (mut mins, mut maxs, mut defaults) =
+            (vec![0f32; count], vec![0f32; count], vec![0f32; count]);
+        lilv_plugin_get_port_ranges_float(
+            plugin,
+            mins.as_mut_ptr(),
+            maxs.as_mut_ptr(),
+            defaults.as_mut_ptr(),
+        );
+
+        let mut ports = PortPlan {
+            controls: Vec::new(),
+            param_slots: Vec::new(),
+            params: Vec::new(),
+            symbols: HashMap::new(),
+            audio_in: Vec::new(),
+            audio_out: Vec::new(),
+            key_in: Vec::new(),
+            out_names: Vec::new(),
+            atoms: Vec::new(),
+            midi_in: None,
+            time_in: None,
+            plan: Vec::new(),
+        };
+        for index in 0..count {
+            let port = lilv_plugin_get_port_by_index(plugin, index as u32);
+            let is = |class| lilv_port_is_a(plugin, port, class);
+            let input = is(w.input);
+            if is(w.control) {
+                let slot = ports.controls.len();
+                let or = |v: f32, fallback: f32| if v.is_nan() { fallback } else { v };
+                let (min, max) = (or(mins[index], 0.0), or(maxs[index], 1.0));
+                let default = or(defaults[index], min).clamp(min.min(max), max.max(min));
+                ports.controls.push(AtomicU32::new(default.to_bits()));
+                let symbol =
+                    CStr::from_ptr(lilv_node_as_string(lilv_port_get_symbol(plugin, port)))
+                        .to_owned();
+                if input {
+                    let mut info = ParamInfo::new(
+                        &take_text(lilv_port_get_name(plugin, port)),
+                        min,
+                        max,
+                        default,
+                        "",
+                    );
+                    info.key = symbol.to_string_lossy().into_owned();
+                    info.id = info.key.clone();
+                    if lilv_port_has_property(plugin, port, w.toggled) {
+                        info.choices = vec!["off".into(), "on".into()];
+                        info.boolean = true;
+                        info.steps = 1;
+                    }
+                    describe_port(plugin, port, w, &mut info);
+                    ports.params.push(info);
+                    ports.param_slots.push(slot);
+                    ports.symbols.insert(symbol, slot);
+                }
+                ports.plan.push((index as u32, Connect::Control(slot)));
+            } else if is(w.cv) {
+                // Control voltage is not routed anywhere yet.
+                ports.plan.push((index as u32, Connect::Spare));
+            } else if is(w.audio) && input && takes_key(plugin, port, w) {
+                ports.key_in.push(vec![0f32; max_block]);
+                ports.plan.push((index as u32, Connect::Key(ports.key_in.len() - 1)));
+            } else if is(w.audio) {
+                let buffers = if input { &mut ports.audio_in } else { &mut ports.audio_out };
+                if !input {
+                    ports.out_names.push(take_text(lilv_port_get_name(plugin, port)));
+                }
+                buffers.push(vec![0f32; max_block]);
+                ports.plan.push((index as u32, Connect::Audio(input, buffers.len() - 1)));
+            } else if is(w.atom) {
+                if input
+                    && ports.midi_in.is_none()
+                    && lilv_port_supports_event(plugin, port, w.midi_event)
+                {
+                    ports.midi_in = Some(ports.atoms.len());
+                }
+                if input
+                    && ports.time_in.is_none()
+                    && lilv_port_supports_event(plugin, port, w.time_position)
+                {
+                    ports.time_in = Some(ports.atoms.len());
+                }
+                ports.atoms.push(AtomBuffer::new(input));
+                ports.plan.push((index as u32, Connect::Atom(ports.atoms.len() - 1)));
+            } else {
+                bail!("port {index} is of a kind this host does not know");
+            }
+        }
+        Ok(ports)
+    }
+}
+
+/// The index of each of the plugin's ports, by its symbol.
+///
+/// # Safety
+///
+/// `plugin` is a live plugin of the world. Main thread.
+unsafe fn port_symbols(plugin: *const LilvPlugin) -> HashMap<CString, u32> {
+    let mut port_symbols = HashMap::new();
+    // SAFETY: lilv calls on the live `plugin` (see `# Safety`) with indexes below its port count;
+    // each symbol is a NUL-terminated string of the port, copied at once.
+    unsafe {
+        for index in 0..lilv_plugin_get_num_ports(plugin) {
+            let port = lilv_plugin_get_port_by_index(plugin, index);
+            let symbol = CStr::from_ptr(lilv_node_as_string(lilv_port_get_symbol(plugin, port)));
+            port_symbols.insert(symbol.to_owned(), index);
+        }
+    }
+    port_symbols
+}
+
+/// The atom input that patch messages go to, when the plugin has
+/// properties: the input that says it takes them, else the first one that
+/// is not only for MIDI.
+///
+/// # Safety
+///
+/// `plugin` is a live plugin of the world `w`, and `atom_ports` are port
+/// indexes of it. Main thread.
+unsafe fn patch_port(
+    plugin: *const LilvPlugin,
+    w: &World,
+    atom_ports: &[u32],
+    atoms: &[AtomBuffer],
+    properties: &[Property],
+) -> Option<u32> {
+    let atom_inputs: Vec<u32> = atom_ports
+        .iter()
+        .zip(atoms)
+        .filter(|(_, atom)| atom.input)
+        .map(|(port, _)| *port)
+        .collect();
+    let supports = |port: u32, what| {
+        // SAFETY: `plugin` is live and `port` is one of its port indexes (see `# Safety`).
+        unsafe {
+            let p = lilv_plugin_get_port_by_index(plugin, port);
+            lilv_port_supports_event(plugin, p, what)
+        }
+    };
+    (!properties.is_empty())
+        .then(|| {
+            atom_inputs
+                .iter()
+                .find(|p| supports(**p, w.patch_message))
+                .or_else(|| atom_inputs.iter().find(|p| !supports(**p, w.midi_event)))
+                .or(atom_inputs.first())
+                .copied()
+        })
+        .flatten()
+}
+
+/// The audio outputs two by two in their order, the main pair first, each
+/// named after its left one.
+fn out_pairs(out_names: &[String]) -> Vec<crate::OutPair> {
+    (0..out_names.len())
+        .step_by(2)
+        .take(paw_engine::MAX_PAIRS)
+        .map(|left| crate::OutPair {
+            port: 0,
+            left,
+            right: (left + 1).min(out_names.len() - 1),
+            name: side_less(&out_names[left]),
+        })
+        .collect()
+}
+
 impl DeviceFactory for Lv2Factory {
     fn info(&self) -> &DeviceInfo {
         &self.info
@@ -74,97 +279,26 @@ impl DeviceFactory for Lv2Factory {
             if instance.is_null() {
                 bail!("the plugin could not be instantiated");
             }
-
-            let count = lilv_plugin_get_num_ports(plugin) as usize;
-            let (mut mins, mut maxs, mut defaults) =
-                (vec![0f32; count], vec![0f32; count], vec![0f32; count]);
-            lilv_plugin_get_port_ranges_float(
-                plugin,
-                mins.as_mut_ptr(),
-                maxs.as_mut_ptr(),
-                defaults.as_mut_ptr(),
-            );
-
-            let mut controls = Vec::new();
-            let (mut param_slots, mut params, mut symbols) =
-                (Vec::new(), Vec::new(), HashMap::new());
-            let mut audio_in = Vec::new();
-            let mut audio_out = Vec::new();
-            let mut key_in = Vec::new();
-            let mut out_names = Vec::new();
-            let mut atoms = Vec::new();
-            let mut midi_in = None;
-            let mut time_in = None;
-            // (port index, what it connects to)
-            let mut plan: Vec<(u32, Connect)> = Vec::new();
-
-            for index in 0..count {
-                let port = lilv_plugin_get_port_by_index(plugin, index as u32);
-                let is = |class| lilv_port_is_a(plugin, port, class);
-                let input = is(w.input);
-                if is(w.control) {
-                    let slot = controls.len();
-                    let or = |v: f32, fallback: f32| if v.is_nan() { fallback } else { v };
-                    let (min, max) = (or(mins[index], 0.0), or(maxs[index], 1.0));
-                    let default = or(defaults[index], min).clamp(min.min(max), max.max(min));
-                    controls.push(AtomicU32::new(default.to_bits()));
-                    let symbol =
-                        CStr::from_ptr(lilv_node_as_string(lilv_port_get_symbol(plugin, port)))
-                            .to_owned();
-                    if input {
-                        let mut info = ParamInfo::new(
-                            &take_text(lilv_port_get_name(plugin, port)),
-                            min,
-                            max,
-                            default,
-                            "",
-                        );
-                        info.key = symbol.to_string_lossy().into_owned();
-                        info.id = info.key.clone();
-                        if lilv_port_has_property(plugin, port, w.toggled) {
-                            info.choices = vec!["off".into(), "on".into()];
-                            info.boolean = true;
-                            info.steps = 1;
-                        }
-                        describe_port(plugin, port, w, &mut info);
-                        params.push(info);
-                        param_slots.push(slot);
-                        symbols.insert(symbol, slot);
-                    }
-                    plan.push((index as u32, Connect::Control(slot)));
-                } else if is(w.cv) {
-                    // Control voltage is not routed anywhere yet.
-                    plan.push((index as u32, Connect::Spare));
-                } else if is(w.audio) && input && takes_key(plugin, port, w) {
-                    key_in.push(vec![0f32; max_block]);
-                    plan.push((index as u32, Connect::Key(key_in.len() - 1)));
-                } else if is(w.audio) {
-                    let buffers = if input { &mut audio_in } else { &mut audio_out };
-                    if !input {
-                        out_names.push(take_text(lilv_port_get_name(plugin, port)));
-                    }
-                    buffers.push(vec![0f32; max_block]);
-                    plan.push((index as u32, Connect::Audio(input, buffers.len() - 1)));
-                } else if is(w.atom) {
-                    if input
-                        && midi_in.is_none()
-                        && lilv_port_supports_event(plugin, port, w.midi_event)
-                    {
-                        midi_in = Some(atoms.len());
-                    }
-                    if input
-                        && time_in.is_none()
-                        && lilv_port_supports_event(plugin, port, w.time_position)
-                    {
-                        time_in = Some(atoms.len());
-                    }
-                    atoms.push(AtomBuffer::new(input));
-                    plan.push((index as u32, Connect::Atom(atoms.len() - 1)));
-                } else {
+            let PortPlan {
+                controls,
+                param_slots,
+                params,
+                symbols,
+                mut audio_in,
+                mut audio_out,
+                mut key_in,
+                out_names,
+                mut atoms,
+                midi_in,
+                time_in,
+                plan,
+            } = match plan_ports(plugin, w, max_block) {
+                Ok(ports) => ports,
+                Err(err) => {
                     lilv_instance_free(instance);
-                    bail!("port {index} is of a kind this host does not know");
+                    return Err(err);
                 }
-            }
+            };
 
             let mut spare = vec![0f32; max_block];
             let controls: Box<[AtomicU32]> = controls.into();
@@ -182,13 +316,6 @@ impl DeviceFactory for Lv2Factory {
 
             let worker_interface: *const WorkerInterface =
                 lilv_instance_get_extension_data(instance, WORKER_INTERFACE.as_ptr().cast()).cast();
-            let mut port_symbols = HashMap::new();
-            for index in 0..count as u32 {
-                let port = lilv_plugin_get_port_by_index(plugin, index);
-                let symbol =
-                    CStr::from_ptr(lilv_node_as_string(lilv_port_get_symbol(plugin, port)));
-                port_symbols.insert(symbol.to_owned(), index);
-            }
             let mut atom_ports = vec![0; atoms.len()];
             let mut control_ports = Vec::new();
             for (port, connect) in &plan {
@@ -198,38 +325,19 @@ impl DeviceFactory for Lv2Factory {
                     _ => {}
                 }
             }
+            // The slot of the control port with this index.
+            let slot_of = |index| control_ports.iter().find(|(port, _)| *port == index);
             // The port a plugin reads to know it is rendering offline.
             let wheel = lilv_plugin_get_port_by_designation(plugin, w.input, w.free_wheeling);
             let free_wheeling = (!wheel.is_null())
                 .then(|| lilv_port_get_index(plugin, wheel))
-                .and_then(|index| control_ports.iter().find(|(port, _)| *port == index))
+                .and_then(slot_of)
                 .map(|(_, slot)| *slot);
             let properties = find_properties(plugin, w);
-            // Patch messages go to the atom input that says it takes them,
-            // else to the first one that is not only for MIDI.
-            let atom_inputs: Vec<u32> = atom_ports
-                .iter()
-                .zip(&atoms)
-                .filter(|(_, atom)| atom.input)
-                .map(|(port, _)| *port)
-                .collect();
-            let supports = |port: u32, what| {
-                let p = lilv_plugin_get_port_by_index(plugin, port);
-                lilv_port_supports_event(plugin, p, what)
-            };
-            let patch_port = (!properties.is_empty())
-                .then(|| {
-                    atom_inputs
-                        .iter()
-                        .find(|p| supports(**p, w.patch_message))
-                        .or_else(|| atom_inputs.iter().find(|p| !supports(**p, w.midi_event)))
-                        .or(atom_inputs.first())
-                        .copied()
-                })
-                .flatten();
+            let patch_port = patch_port(plugin, w, &atom_ports, &atoms, &properties);
             let latency = lilv_plugin_has_latency(plugin)
                 .then(|| lilv_plugin_get_latency_port_index(plugin))
-                .and_then(|index| control_ports.iter().find(|(port, _)| *port == index))
+                .and_then(slot_of)
                 .map(|(_, slot)| *slot);
             let shared = Arc::new(Shared {
                 plugin,
@@ -244,7 +352,7 @@ impl DeviceFactory for Lv2Factory {
                 control_ports,
                 free_wheeling,
                 atom_ports,
-                port_symbols,
+                port_symbols: port_symbols(plugin),
                 ui: find_ui(plugin),
                 ui_open: AtomicBool::new(false),
                 properties,
@@ -271,18 +379,7 @@ impl DeviceFactory for Lv2Factory {
             lilv_instance_activate(instance);
             let (to_plugin, from_ui) = rtrb::RingBuffer::new(WORK_CAPACITY);
             let (to_ui, from_plugin) = rtrb::RingBuffer::new(WORK_CAPACITY);
-            // The outputs two by two in their order, the main pair first,
-            // each named after its left one.
-            let out_pairs: Vec<crate::OutPair> = (0..audio_out.len())
-                .step_by(2)
-                .take(paw_engine::MAX_PAIRS)
-                .map(|left| crate::OutPair {
-                    port: 0,
-                    left,
-                    right: (left + 1).min(audio_out.len() - 1),
-                    name: side_less(&out_names[left]),
-                })
-                .collect();
+            let out_pairs = out_pairs(&out_names);
             let ports = Ports {
                 sidechain: !key_in.is_empty(),
                 outputs: crate::pair_names(&out_pairs),
