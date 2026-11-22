@@ -625,11 +625,10 @@ fn an_edit_inside_a_subproject_compiles_once() {
 
 // Null tests ---------------------------------------------------------------------------
 
-/// A tempo where a frame is 2^-15 of a beat, exactly in `f64`. The engine
-/// adds the beats of each block to the play position, and at this tempo
-/// the sums have no rounding error, so the frame of a note does not depend
-/// on where the blocks fall. At a tempo such as 120 BPM a note on the edge
-/// of a frame can fall one frame early or late with the size of the blocks.
+/// A tempo where a frame is 2^-15 of a beat, exactly in `f64`: the beat of
+/// each frame has no rounding error. The rows at 120 BPM and on a ramp,
+/// where it has, show that the frame of a note does not depend on where the
+/// blocks fall.
 const EXACT_TEMPO: f64 = 87.890625;
 
 /// Frames in one beat at [`EXACT_TEMPO`].
@@ -661,11 +660,32 @@ fn null_clip(id: u64, start: f64, count: usize, step: usize, low: usize) -> Valu
         "content": { "kind": "midi", "notes": notes } })
 }
 
-/// A small mix. Keys has a synth and a delay that is half wet. Bass has a
-/// synth, its fader and pan off the middle, and a send to Room. Room has a
-/// reverb. Keys and Bass play for about 4 beats, stop until each device
-/// comes to rest, and play again from beat 12.
+/// A small mix at [`EXACT_TEMPO`]. Keys has a synth and a delay that is
+/// half wet. Bass has a synth, its fader and pan off the middle, and a send
+/// to Room. Room has a reverb. Keys and Bass play for about 4 beats, stop
+/// until each device comes to rest, and play again from beat 12.
 fn null_mix() -> Project {
+    null_mix_at(EXACT_TEMPO)
+}
+
+/// The mix at 120 BPM. A beat is 24000 frames, and a tick is not a whole
+/// number of frames, so the notes fall on frames and between them.
+fn null_mix_120() -> Project {
+    null_mix_at(120.0)
+}
+
+/// The mix on a ramp from 120 BPM down to 60 BPM at beat 16. Of the ramps
+/// that a simulation of the engine's old arithmetic tried, this one put a
+/// note of the mix one frame off between blocks of 64 and of 512.
+fn null_mix_on_a_ramp() -> Project {
+    let mut p = null_mix_at(120.0);
+    p.tempo_ramp = true;
+    p.tempo_changes = vec![crate::model::TempoChange { beat: 16.0, bpm: 60.0, ramp: false }];
+    p
+}
+
+/// The mix of [`null_mix`] at `tempo`.
+fn null_mix_at(tempo: f64) -> Project {
     let keys = json!([
         { "id": 2, "kind": "synth", "bypass": false, "params": { "wave": 1.0, "release": 0.05 } },
         { "id": 3, "kind": "delay", "bypass": false,
@@ -681,7 +701,7 @@ fn null_mix() -> Project {
     bass_track["pan"] = json!(-0.25);
     bass_track["sends"] = json!([{ "target": 30, "level": -3.0 }]);
     serde_json::from_value(json!({
-        "name": "t", "tempo": EXACT_TEMPO, "sig_num": 4, "sig_den": 4,
+        "name": "t", "tempo": tempo, "sig_num": 4, "sig_den": 4,
         "master": track_json(0, "Master", None, json!([]), json!([])),
         "tracks": [
             track_json(1, "Keys", None, keys, keys_clips),
@@ -811,11 +831,17 @@ fn null_render(states: &[Project], way: Way) -> Rendered {
 fn one_project_rendered_two_ways_nulls() {
     type States = fn() -> Vec<Project>;
     let mix: States = || vec![null_mix()];
+    let at_120: States = || vec![null_mix_120()];
+    let ramp: States = || vec![null_mix_on_a_ramp()];
     let blocks = |block| Way { block, ..PLAIN };
     #[rustfmt::skip]
-    let cases: [(&str, States, Way, States, Way); 8] = [
+    let cases: [(&str, States, Way, States, Way); 12] = [
         ("blocks of 64 and of 512 frames", mix, blocks(64), mix, PLAIN),
         ("blocks of 128 and of 512 frames", mix, blocks(128), mix, PLAIN),
+        ("blocks of 64 and of 512 frames at 120 BPM", at_120, blocks(64), at_120, PLAIN),
+        ("blocks of 128 and of 512 frames at 120 BPM", at_120, blocks(128), at_120, PLAIN),
+        ("blocks of 64 and of 512 frames on a tempo ramp", ramp, blocks(64), ramp, PLAIN),
+        ("blocks of 128 and of 512 frames on a tempo ramp", ramp, blocks(128), ramp, PLAIN),
         ("one thread and four", mix, PLAIN, mix, Way { threads: 4, ..PLAIN }),
         ("a clip moved and moved back", || vec![null_mix(), null_moved(), null_mix()], PLAIN, mix, PLAIN),
         ("render, save, load, render", mix, PLAIN, || vec![null_saved_and_loaded()], PLAIN),

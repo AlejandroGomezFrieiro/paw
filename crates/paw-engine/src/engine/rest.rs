@@ -64,7 +64,7 @@ impl Engine {
         if self.launching && !self.playing && !woken {
             // Stopped, a launch starts in the block after it came: look
             // again whether one is still queued.
-            self.next_launch(self.position);
+            self.next_launch(self.head.beat());
         }
         if woken || self.busy() {
             self.rest = Rest::default();
