@@ -19,7 +19,7 @@ below the group, indented one step, in its color.
 | `:track.group Strings`, `<Space>tg` | Make a group of the selected tracks. |
 | `:track.into Strings` | Put a track into a group. |
 | `:track.ungroup`, `<Space>tG` | Take a track out of its group, or remove a group. |
-| `za` | Fold the members of a group into it, or open them. |
+| `za` | Fold the members of a group into it, or open them. On the return row of a subproject, show its tracks under the row, or hide them (see [Subprojects](subprojects.md)). |
 | `zM`, `zR` | Fold each group, open each group. |
 | `:group.link`, `<Space>tl` | Link the faders of the members of a group. |
 

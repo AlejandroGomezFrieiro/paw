@@ -1,23 +1,29 @@
--- The built-in reading of the whole song, kept up to date clip by clip:
--- what `paw.harmony` asks for the chords and keys of the song.
+-- The built-in reading of the whole song: what `paw.harmony` asks for the
+-- chords and keys of the song. It is made of nodes of `paw.derived`, so
+-- that an edit reads again only what it changed:
 --
--- It keeps the notes of each clip by the clip's stamp (the kernel's hash of
--- its notes), all the notes sorted by start, the windows of the chord
--- reading (`paw.harmony.read.window`) and the pitch classes of each bar.
--- After an edit it looks again only at the tracks that the kernel said
--- changed, and reads again only the windows and bars where a clip's notes
--- changed; the walk over the windows that picks the chords, and the one
--- over the bars that picks the keys, are quick and are done again whole.
--- So the reading is the one that `paw.harmony.read` makes of all the notes
--- at once, and a change that leaves the notes as they are (a fader, a
--- device) reads nothing.
+--   harmony.clip          the notes of a clip's content (its stamp and length), in
+--                         its own beats: copies with the same notes share it
+--   harmony.track         each track's clips that sound, with their starts
+--   harmony.track_window  what one track sounds in one window (a `read.Part`)
+--   harmony.group         what 8 tracks sound in one window: the sum of the above
+--   harmony.mix           what all tracks sound in one window: the sum of the groups
+--   harmony.beat          what sounds in one beat, for a window with one pitch alone
+--   harmony.window        the window's scores (`read.finish`)
+--   harmony.chords        the chords (`read.decode` over the windows), in slices
+--   harmony.track_bar     the pitch classes of one track in one bar
+--   harmony.bar           of all tracks in one bar
+--   harmony.keys          the keys (`read.key_path`), in slices
 --
--- The work goes in slices: `update(ms)` stops after about `ms`
--- milliseconds and goes on at the next call, so that a key can come in
--- between; `update()` finishes it.
+-- So a note edit reads one clip again and the windows it covers, and a mute
+-- leaves the parts of the other tracks as they are: the windows add up
+-- what they had. The reading is the one that `paw.harmony.read` makes of
+-- all the notes at once (`M.whole`), and a change that leaves the notes as
+-- they are (a fader, a device) reads nothing.
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
+local derived = require("paw.derived")
 local read = require("paw.harmony.read")
 local type types = require("paw.types")
 
@@ -25,19 +31,6 @@ local type types = require("paw.types")
 local record Note is read.Note
   track: integer
   clip: integer
-end
-
---- A clip as the reading keeps it: its notes that sound, in project beats
---- and sorted by start, and what they were read from (`key`: its stamp,
---- start and length). `from` and `to` are where its notes start and end
---- (nil when none sounds); `longest` is its longest note.
-local record Clip
-  id: integer
-  key: string
-  notes: {Note}
-  from: number
-  to: number
-  longest: number
 end
 
 --- What the reading needs to know besides the notes: the length of a
@@ -50,209 +43,39 @@ local record Options
   is_drums: function(t: types.Track): boolean
 end
 
+--- What reads the options when a node needs them (paw/harmony.tl).
+local type OptionsFn = function(): Options
+
 local record M
   type Note = Note
   type Options = Options
   reset: function()
 end
 
--- What is kept between readings.
-local heard: {integer: {Clip}} = {} -- each track's clips that sound, in its order
-local order: {integer} = {} -- the tracks, in order
-local sorted: {Note} = {} -- every note, by start (then by clip)
-local longest: number = 0 -- the longest note
-local last: number = 0 -- where the last note ends
-local windows: {read.Window} = {}
-local step_of: number -- the step the windows were made with
-local bars: {number} = {}
-local hist: {read.Weights} = {} -- the pitch classes of each bar, of the notes
-local chords: {read.Chord} = {}
-local keys: {read.Key} = {}
-local bar_of: number -- the bar the chords were decoded with
-local stamp = 0 -- goes up when the reading may have changed
-local notes_list: {Note} -- `notes()`, made when asked
-
--- What is left to do.
-local all = true -- look at every track
-local marked: {integer: boolean} = {} -- the tracks to look at
-local timed = true -- the bars may have moved
-local job: thread -- the pass under way
-local until_ms: number -- when the slice under way ends (nil: never)
-
---- Stop here if the slice's time is up; the pass goes on at the next call.
-local function pause()
-  if until_ms and api.now() >= until_ms then
-    coroutine.yield()
-  end
+local options: OptionsFn = function(): Options
+  return {
+    step = 0.5,
+    bar = 4,
+    bar_start = function(n: integer): number return (n - 1) * 4 end,
+    is_drums = function(): boolean return false end,
+  }
 end
 
---- Whether note `a` comes before `b`: by start, then by clip. A clip's own
---- notes keep their order.
-local function before(a: Note, b: Note): boolean
-  return a.start < b.start or (a.start == b.start and a.clip < b.clip)
+--- Read the options from `fn` (paw/harmony.tl gives `paw.opt` and `paw.time`).
+function M.setup(fn: OptionsFn)
+  options = fn
 end
 
---- Two lists of notes in that order made one. It can pause after each
---- 8192 notes.
-local function merge(x: {Note}, y: {Note}): {Note}
-  if #y == 0 then
-    return x
-  end
-  if #x == 0 then
-    return y
-  end
-  local out: {Note} = {}
-  local i, j, nx, ny = 1, 1, #x, #y
-  while i <= nx and j <= ny do
-    if before(y[j], x[i]) then
-      out[#out + 1] = y[j]
-      j = j + 1
-    else
-      out[#out + 1] = x[i]
-      i = i + 1
-    end
-    if #out % 8192 == 0 then
-      pause()
-    end
-  end
-  for k = i, nx do
-    out[#out + 1] = x[k]
-  end
-  for k = j, ny do
-    out[#out + 1] = y[k]
-  end
-  return out
+-- A key for each track and window, or bar: one number.
+local WIDE = 16777216
+local function pack(track: integer, i: integer): integer
+  return track * WIDE + i
+end
+local function unpack_key(key: integer): integer, integer
+  return key // WIDE, key % WIDE
 end
 
---- The notes of several clips in that order: merged two by two.
-local function merge_clips(list: {Clip}): {Note}
-  table.sort(list, function(a: Clip, b: Clip): boolean return a.id < b.id end)
-  local runs: {{Note}} = {}
-  for _, c in ipairs(list) do
-    runs[#runs + 1] = c.notes
-  end
-  if #runs == 0 then
-    return {}
-  end
-  while #runs > 1 do
-    local next_runs: {{Note}} = {}
-    for k = 1, #runs, 2 do
-      next_runs[#next_runs + 1] = runs[k + 1] and merge(runs[k], runs[k + 1]) or runs[k]
-    end
-    runs = next_runs
-    pause()
-  end
-  return runs[1]
-end
-
---- A clip's notes that sound, in project beats: those that a trim of its
---- edges hides are left out.
-local function read_clip(track: integer, c: types.Clip, key: string): Clip
-  local clip: Clip = {id = c.id, key = key, notes = {}, longest = 0}
-  local list = api.clip_notes(c.id)
-  for _, n in ipairs(list) do
-    if n.start >= 0 and n.start < c.length then
-      local note: Note = {
-        pitch = n.pitch,
-        start = c.start + n.start,
-        length = math.min(n.length, c.length - n.start),
-        velocity = n.velocity,
-        track = track,
-        clip = c.id,
-      }
-      clip.notes[#clip.notes + 1] = note
-      clip.from = math.min(clip.from or math.huge, note.start)
-      clip.to = math.max(clip.to or -math.huge, note.start + note.length)
-      clip.longest = math.max(clip.longest, note.length)
-    end
-  end
-  return clip
-end
-
---- What changed in one pass: the stretches of time whose notes changed,
---- the clips whose old notes go, and the clips whose new notes come.
-local record Changes
-  spans: {{number}}
-  gone: {integer: boolean}
-  came: {Clip}
-end
-
-local function went(ch: Changes, c: Clip)
-  ch.gone[c.id] = true
-  if c.from then
-    ch.spans[#ch.spans + 1] = {c.from, c.to}
-  end
-end
-
-local function arrived(ch: Changes, c: Clip)
-  ch.came[#ch.came + 1] = c
-  if c.from then
-    ch.spans[#ch.spans + 1] = {c.from, c.to}
-  end
-end
-
---- Look at track `id` again: its clips that sound now against the ones
---- kept. A clip whose stamp, start and length are the same is kept.
-local function look(id: integer, opts: Options, ch: Changes)
-  local was = heard[id] or {}
-  local ok, t = pcall(api.track_get, id)
-  local now: {Clip} = {}
-  if ok and not t.mute and not opts.is_drums(t) then
-    local by_id: {integer: Clip} = {}
-    for _, c in ipairs(was) do
-      by_id[c.id] = c
-    end
-    for _, c in ipairs(api.clip_list(id)) do
-      if c.kind == "midi" and not c.muted then
-        local key = string.format("%s:%.17g:%.17g", tostring(c.stamp), c.start, c.length)
-        local kept = by_id[c.id]
-        by_id[c.id] = nil
-        if kept and kept.key == key then
-          now[#now + 1] = kept
-        else
-          if kept then
-            went(ch, kept)
-          end
-          local clip = read_clip(id, c, key)
-          now[#now + 1] = clip
-          arrived(ch, clip)
-        end
-      end
-    end
-    for _, c in ipairs(was) do
-      if by_id[c.id] then
-        went(ch, c)
-      end
-    end
-  else
-    for _, c in ipairs(was) do
-      went(ch, c)
-    end
-  end
-  heard[id] = ok and now or nil
-end
-
---- Whether a change in `spans` can touch what is read from `from` to `to`.
-local function touched(spans: {{number}}, from: number, to: number): boolean
-  for _, s in ipairs(spans) do
-    if s[1] < to + 1e-9 and s[2] > from - 1e-9 then
-      return true
-    end
-  end
-  return false
-end
-
---- Bar starts from the first bar to past `upto`, by the tempo map.
-local function bar_starts(upto: number, opts: Options): {number}
-  local out, n: {number}, integer = {}, 1
-  repeat
-    out[#out + 1] = opts.bar_start(n)
-    n = n + 1
-  until out[#out] > upto or n > 100000
-  return out
-end
-
-local function same<T>(a: {T}, b: {T}): boolean
+local function same_list<T>(a: {T}, b: {T}): boolean
   if #a ~= #b then
     return false
   end
@@ -264,226 +87,647 @@ local function same<T>(a: {T}, b: {T}): boolean
   return true
 end
 
---- One pass: look at the tracks marked, then read again what their
---- changes touch.
-local function pass(opts: Options)
-  local everything, looking, retime = all, marked, timed
-  all, marked, timed = false, {}, false
-  local ch: Changes = {spans = {}, gone = {}, came = {}}
-  local listed = api.track_list()
-  local present: {integer: boolean} = {}
-  for _, id in ipairs(listed) do
-    present[id] = true
-  end
-  for id, clips in pairs(heard) do
-    if not present[id] then
-      for _, c in ipairs(clips) do
-        went(ch, c)
-      end
-      heard[id] = nil
-    end
-  end
-  for _, id in ipairs(listed) do
-    if everything or looking[id] or heard[id] == nil then
-      look(id, opts, ch)
-      pause()
-    end
-  end
-  if not same(order, listed) or #ch.spans > 0 or next(ch.gone) then
-    notes_list = nil
-  end
-  order = listed
-
-  -- The notes, sorted: the ones that went out, the ones that came merged
-  -- in. When much changed, all of them are merged again.
-  local changed = #ch.spans > 0 or next(ch.gone) ~= nil or #ch.came > 0
-  local was_longest = longest
-  if changed then
-    local moved = 0
-    for _, c in ipairs(ch.came) do
-      moved = moved + #c.notes
-    end
-    if everything or moved > #sorted // 4 then
-      local list: {Clip} = {}
-      for _, clips in pairs(heard) do
-        for _, c in ipairs(clips) do
-          list[#list + 1] = c
-        end
-      end
-      sorted = merge_clips(list)
-    else
-      local kept: {Note} = {}
-      for i, n in ipairs(sorted) do
-        if not ch.gone[n.clip] then
-          kept[#kept + 1] = n
-        end
-        if i % 8192 == 0 then
-          pause()
-        end
-      end
-      sorted = merge(kept, merge_clips(ch.came))
-    end
-    longest, last = 0, 0
-    for _, clips in pairs(heard) do
-      for _, c in ipairs(clips) do
-        if c.from then
-          longest, last = math.max(longest, c.longest), math.max(last, c.to)
-        end
-      end
-    end
-    pause()
-  end
-
-  -- The windows: the ones whose notes changed are read again. A window
-  -- that was weighed with its beat depends on the longest note too.
-  local spans = #ch.spans <= 64 and ch.spans or nil
-  local restep = step_of ~= opts.step
-  if restep then
-    windows, step_of = {}, opts.step
-  end
-  local made: {read.Window} = {}
-  local rewindowed = restep
-  if changed or restep then
-    local step = opts.step
-    local at: number = 0
-    local i = 0
-    while at < last - 1e-9 do
-      i = i + 1
-      local len = math.min(step, last - at)
-      local win = windows[i]
-      if
-        not win
-        or win.at ~= at
-        or win.length ~= len
-        or (win.beat and longest ~= was_longest)
-        or not spans
-        or touched(spans, at - 1, at + len + 1)
-      then
-        win = read.window(sorted, longest, at, len, step)
-        rewindowed = true
-        pause()
-      end
-      made[i] = win
-      at = at + step
-    end
-    if #made ~= #windows then
-      rewindowed = true
-    end
-    windows = made
-  end
-
-  -- The bars, and the pitch classes of each.
-  local rebar = false
-  if changed or retime or #bars == 0 then
-    local starts = bar_starts(last, opts)
-    local moved_bars = not same(starts, bars)
-    if moved_bars or changed then
-      local h: {read.Weights} = {}
-      for b = 1, #starts - 1 do
-        if not moved_bars and hist[b] and spans and not touched(spans, starts[b], starts[b + 1]) then
-          h[b] = hist[b]
-        else
-          h[b] = read.bar_weights(sorted, longest, starts[b], starts[b + 1])
-          pause()
-        end
-      end
-      hist, bars, rebar = h, starts, true
-    end
-  end
-
-  if rewindowed or opts.bar ~= bar_of then
-    chords, bar_of = read.decode(windows, opts.bar, pause), opts.bar
-    rebar = true
-  end
-  if rebar then
-    keys = read.key_path(hist, bars, chords, pause)
-    stamp = stamp + 1
-  end
+--- The content of a clip: what is read of its notes.
+local record ClipKey
+  id: integer -- a clip with this content
+  stamp: integer
+  length: number
 end
 
---- Whether there is work left: tracks to look at, or a pass under way.
-function M.busy(opts?: Options): boolean
-  return job ~= nil
-    or all
-    or timed
-    or next(marked) ~= nil
-    or (opts ~= nil and (opts.step ~= step_of or opts.bar ~= bar_of))
+--- A clip that sounds, where it is: its content (the notes that sound,
+--- in its own beats) and its start. `from` and `to` are where its notes
+--- sound in the song.
+local record Place
+  id: integer
+  stamp: integer
+  start: number
+  length: number
+  run: read.Run
+  from: number
+  to: number
 end
 
---- Bring the reading up to date. With `budget`, stop after about that
---- many milliseconds: true when it is up to date.
-function M.update(opts: Options, budget?: number): boolean
-  until_ms = budget and api.now() + budget or nil
-  while true do
-    if not job then
-      if not M.busy(opts) then
-        return true
-      end
-      job = coroutine.create(function() pass(opts) end)
-    end
-    local ok, err = coroutine.resume(job)
-    if not ok then
-      job = nil
-      M.reset()
-      error(tostring(err), 0)
-    end
-    if coroutine.status(job) ~= "dead" then
+--- A track as the reading sees it: its clips that sound, as listed and
+--- by where they start (with the latest end so far, for a look-up), and
+--- the end of its last note. `pool` keeps the places of a muted track, so
+--- that an unmute finds them again.
+local record TrackValue
+  list: {Place}
+  by_from: {Place}
+  reach: {number}
+  last: number
+  pool: {integer: Place}
+end
+
+--- The clips of a track over a stretch, and the length of a window.
+local record Over is {Place}
+  step: number
+end
+
+--- What a window's scores are made from.
+local record WindowInputs
+  length: number
+  mix: read.Part
+  beat: read.Part
+end
+
+--- What a track's bar is made from.
+local record BarInputs is {Place}
+  from: number
+  to: number
+end
+
+--- Where the song ends, and how many windows it has.
+local record Span
+  last: number
+  count: integer
+end
+
+local function same_part(a: read.Part, b: read.Part): boolean
+  return a == b or same_list(a, b)
+end
+
+local function same_weights(a: read.Weights, b: read.Weights): boolean
+  for pc = 0, 11 do
+    if a[pc] ~= b[pc] then
       return false
     end
-    job = nil
-    if until_ms and api.now() >= until_ms then
-      return not M.busy(opts)
+  end
+  return true
+end
+
+local function part_bytes(p: read.Part): integer
+  return 64 + 8 * #p
+end
+
+-- The options -----------------------------------------------------------------------------
+
+local step_now: number = 0.5 -- the step the windows have now
+local bars_now: {number} = {} -- the bars as they are now
+
+local step_node_spec: derived.Spec<integer, number, boolean> = {
+  name = "harmony.step",
+  kind = "memo",
+  make = function(ctx: derived.Ctx): number ctx:option("harmony_step"); step_now = options().step; return step_now end,
+  same = function(a: number, b: number): boolean return a == b end,
+}
+local step_node = derived.node(step_node_spec)
+
+local tracks_node_spec: derived.Spec<integer, {integer}, boolean> = {
+  name = "harmony.tracks",
+  kind = "memo",
+  make = function(ctx: derived.Ctx): {integer} return ctx:tracks() end,
+  same = same_list,
+}
+local tracks_node = derived.node(tracks_node_spec)
+
+-- Clips and tracks ------------------------------------------------------------------------
+
+local clip_node_spec: derived.Spec<ClipKey, read.Run, boolean> = {
+  name = "harmony.clip",
+  kind = "family",
+  id = function(k: ClipKey): string return string.format("%s:%.17g", tostring(k.stamp), k.length) end,
+  -- The notes that a trim of the clip's edges hides are left out.
+  make = function(_: derived.Ctx, k: ClipKey): read.Run
+    local notes: {read.Note} = {}
+    local list = api.clip_notes(k.id)
+    for i_n = 1, #list do
+      local n = list[i_n]
+      if n.start >= 0 and n.start < k.length then
+        notes[#notes + 1] = {
+          pitch = n.pitch,
+          start = n.start,
+          length = math.min(n.length, k.length - n.start),
+          velocity = n.velocity,
+        }
+      end
+    end
+    return read.run(notes)
+  end,
+  bytes = function(r: read.Run): integer return 160 + 36 * r.n end,
+  limit = 8 * 1048576,
+}
+local clip_node = derived.node(clip_node_spec)
+
+local track_node_spec: derived.Spec<integer, TrackValue, boolean> = {
+  name = "harmony.track",
+  kind = "family",
+  make = function(ctx: derived.Ctx, id: integer, old: TrackValue): TrackValue
+    local opts = options()
+    local t = ctx:track(id, {"mute", "name", "meta", "devices"})
+    local was = old and old.pool or {}
+    local v: TrackValue = {list = {}, by_from = {}, reach = {}, last = 0, pool = was}
+    if not t or t.mute or opts.is_drums(t) then
+      return v
+    end
+    v.pool = {}
+    for _, c in ipairs(ctx:clips(id)) do
+      if c.kind == "midi" and not c.muted then
+        local run = ctx:get(clip_node, {id = c.id, stamp = c.stamp, length = c.length})
+        local place = was[c.id]
+        if not (place and place.run == run and place.start == c.start) then
+          local reach: number = -math.huge
+          for k = 1, run.n do
+            reach = math.max(reach, run.start[k] + run.length[k])
+          end
+          place = {
+            id = c.id,
+            stamp = c.stamp,
+            start = c.start,
+            length = c.length,
+            run = run,
+            from = run.n > 0 and c.start + run.start[1] or nil,
+            to = c.start + reach,
+          }
+        end
+        v.pool[c.id] = place
+        if place.from then
+          v.list[#v.list + 1] = place
+          v.last = math.max(v.last, place.to)
+        end
+      end
+    end
+    for i = 1, #v.list do
+      local p = v.list[i]
+      v.by_from[i] = p
+    end
+    table.sort(v.by_from, function(a: Place, b: Place): boolean return a.from < b.from end)
+    local reach: number = -math.huge
+    for i = 1, #v.by_from do
+      local p = v.by_from[i]
+      reach = math.max(reach, p.to)
+      v.reach[i] = reach
+    end
+    return v
+  end,
+  same = function(a: TrackValue, b: TrackValue): boolean return same_list(a.list, b.list) end,
+  -- The clips that came or went, or moved: where their notes sound.
+  touched = function(a: TrackValue, b: TrackValue): number, number
+    local from, to = math.huge, -math.huge
+    local function add(list: {Place}, other: {Place})
+      local kept: {Place: boolean} = {}
+      for i_p = 1, #other do
+        local p = other[i_p]
+        kept[p] = true
+      end
+      for i_p = 1, #list do
+        local p = list[i_p]
+        if not kept[p] then
+          from, to = math.min(from, p.from), math.max(to, p.to)
+        end
+      end
+    end
+    add(a.list, b.list)
+    add(b.list, a.list)
+    return from - 1e-6, to + 1e-6
+  end,
+}
+local track_node = derived.node(track_node_spec)
+
+--- The places of track value `v` whose notes can sound from `from` to `to`, in `out`.
+local function over(v: TrackValue, from: number, to: number, out: {Place})
+  local list = v.by_from
+  -- The last place that starts before `to`.
+  local lo, hi = 0, #list
+  while lo < hi do
+    local mid = (lo + hi + 1) // 2
+    if list[mid].from < to + 1e-6 then
+      lo = mid
+    else
+      hi = mid - 1
     end
   end
-end
-
---- Look at track `id` again at the next update (every track when nil).
-function M.mark(id?: integer)
-  if id then
-    marked[id] = true
-  else
-    all = true
+  local k = lo
+  while k >= 1 and v.reach[k] > from - 1e-6 do
+    if list[k].to > from - 1e-6 then
+      out[#out + 1] = list[k]
+    end
+    k = k - 1
   end
 end
 
---- Make the bars again at the next update: the meter may have changed.
-function M.retime()
-  timed = true
+-- Windows ---------------------------------------------------------------------------------
+
+local last_over: Over -- the inputs the last track window was given
+
+local track_window_spec: derived.Spec<integer, read.Part, Over> = {
+  name = "harmony.track_window",
+  kind = "family",
+  span = function(key: integer): number, number
+    local _, i = unpack_key(key)
+    return (i - 1) * step_now, i * step_now
+  end,
+  inputs = function(ctx: derived.Ctx, key: integer): Over
+    local track, i = unpack_key(key)
+    local step = ctx:get(step_node, 0)
+    local at = (i - 1) * step
+    local out: Over = {step = step}
+    over(ctx:get(track_node, track), at, at + step, out)
+    -- The windows of one clip have the same inputs: they share them.
+    if last_over and last_over.step == step and same_list(last_over, out) then
+      return last_over
+    end
+    last_over = out
+    return out
+  end,
+  same_inputs = function(a: Over, b: Over): boolean return a.step == b.step and same_list(a, b) end,
+  undo = true,
+  make = function(_: derived.Ctx, key: integer, _: read.Part, places: Over): read.Part
+    local _, i = unpack_key(key)
+    local at = (i - 1) * places.step
+    if #places == 1 then
+      local p = places[1]
+      return read.part(p.run, p.start, at, at + places.step)
+    end
+    local parts: {read.Part} = {}
+    for k = 1, #places do
+      local p = places[k]
+      parts[k] = read.part(p.run, p.start, at, at + places.step)
+    end
+    return read.merge(parts)
+  end,
+  same = same_part,
+  bytes = part_bytes,
+  limit = 16 * 1048576,
+}
+local track_window = derived.node(track_window_spec)
+
+-- The tracks of a window are added up in groups of GROUP: a change of one
+-- track adds up its group and the groups, not every track.
+local GROUP = 8
+
+local group_node_spec: derived.Spec<integer, read.Part, boolean> = {
+  name = "harmony.group",
+  kind = "join",
+  make = function(ctx: derived.Ctx, key: integer): read.Part
+    local g, i = unpack_key(key)
+    local tracks = ctx:get(tracks_node, 0)
+    local parts: {read.Part} = {}
+    for k = g * GROUP + 1, math.min(#tracks, g * GROUP + GROUP) do
+      parts[#parts + 1] = ctx:get(track_window, pack(tracks[k], i))
+    end
+    return read.merge(parts)
+  end,
+  same = same_part,
+  bytes = part_bytes,
+  limit = 4 * 1048576,
+}
+local group_node = derived.node(group_node_spec)
+
+local mix_node_spec: derived.Spec<integer, read.Part, boolean> = {
+  name = "harmony.mix",
+  kind = "join",
+  make = function(ctx: derived.Ctx, i: integer): read.Part
+    local parts: {read.Part} = {}
+    for g = 0, (#ctx:get(tracks_node, 0) - 1) // GROUP do
+      parts[#parts + 1] = ctx:get(group_node, pack(g, i))
+    end
+    return read.merge(parts)
+  end,
+  same = same_part,
+  bytes = part_bytes,
+  limit = 4 * 1048576,
+}
+local mix_node = derived.node(mix_node_spec)
+
+local beat_node_spec: derived.Spec<integer, read.Part, boolean> = {
+  name = "harmony.beat",
+  kind = "join",
+  make = function(ctx: derived.Ctx, b: integer): read.Part
+    local step = ctx:get(step_node, 0)
+    local per = math.floor(1 / step + 0.5)
+    local parts: {read.Part} = {}
+    if math.abs(per * step - 1) < 1e-9 then
+      -- The windows of the beat, side by side.
+      for i = b * per + 1, b * per + per do
+        parts[#parts + 1] = ctx:get(mix_node, i)
+      end
+    else
+      -- Windows that do not fit a beat: the notes of every track over it.
+      local tracks = ctx:get(tracks_node, 0)
+      for i_track = 1, #tracks do
+        local track = tracks[i_track]
+        local places: {Place} = {}
+        over(ctx:get(track_node, track), b, b + 1, places)
+        for i_p = 1, #places do
+          local p = places[i_p]
+          parts[#parts + 1] = read.part(p.run, p.start, b, b + 1)
+        end
+      end
+    end
+    return read.merge(parts)
+  end,
+  same = same_part,
+  bytes = part_bytes,
+  limit = 2 * 1048576,
+}
+local beat_node = derived.node(beat_node_spec)
+
+local span_node_spec: derived.Spec<integer, Span, boolean> = {
+  name = "harmony.span",
+  kind = "join",
+  make = function(ctx: derived.Ctx): Span
+    local last: number = 0
+    local tracks = ctx:get(tracks_node, 0)
+    for i_track = 1, #tracks do
+      local track = tracks[i_track]
+      last = math.max(last, ctx:get(track_node, track).last)
+    end
+    local step = ctx:get(step_node, 0)
+    local count = 0
+    while count * step < last - 1e-9 do
+      count = count + 1
+    end
+    return {last = last, count = count}
+  end,
+  same = function(a: Span, b: Span): boolean return a.last == b.last and a.count == b.count end,
+}
+local span_node = derived.node(span_node_spec)
+
+-- The window that `read.finish` may ask for its beat: no new function for each window.
+local beat_ctx: derived.Ctx
+local beat_at: number
+local function beat_of_window(): read.Part
+  return beat_ctx:get(beat_node, math.floor(beat_at + 1e-9))
+end
+
+local window_node_spec: derived.Spec<integer, read.Window, WindowInputs> = {
+  name = "harmony.window",
+  kind = "family",
+  span = function(i: integer): number, number local step = options().step; return (i - 1) * step, i * step end,
+  inputs = function(ctx: derived.Ctx, i: integer, old: read.Window): WindowInputs
+    local step = ctx:get(step_node, 0)
+    local at = (i - 1) * step
+    local inputs: WindowInputs = {
+      length = math.min(step, ctx:get(span_node, 0).last - at),
+      mix = ctx:get(mix_node, i),
+    }
+    if old and old.beat then
+      inputs.beat = ctx:get(beat_node, math.floor(at + 1e-9))
+    end
+    return inputs
+  end,
+  same_inputs = function(a: WindowInputs, b: WindowInputs): boolean
+    return a.length == b.length and a.mix == b.mix and a.beat == b.beat
+  end,
+  -- The window before goes: its scores are written over.
+  make = function(ctx: derived.Ctx, i: integer, old: read.Window, inputs: WindowInputs): read.Window
+    local step = ctx:get(step_node, 0)
+    local at = (i - 1) * step
+    beat_ctx, beat_at = ctx, at
+    return read.finish(inputs.mix, at, inputs.length, step, beat_of_window, old)
+  end,
+  limit = 65536,
+}
+local window_node = derived.node(window_node_spec)
+
+local decode_rows: {{number}} = {} -- kept for `read.decode` from one reading to the next
+
+local chords_node_spec: derived.Spec<integer, {read.Chord}, boolean> = {
+  name = "harmony.chords",
+  kind = "sliced",
+  label = "chords",
+  make = function(ctx: derived.Ctx): {read.Chord}
+    ctx:tempo()
+    local bar = options().bar
+    local windows: {read.Window} = {}
+    for i = 1, ctx:get(span_node, 0).count do
+      windows[i] = ctx:get(window_node, i)
+      if i % 64 == 0 then
+        ctx:pause()
+      end
+    end
+    return read.decode(windows, bar, function() ctx:pause() end, decode_rows)
+  end,
+}
+local chords_node = derived.node(chords_node_spec)
+
+-- Bars and keys --------------------------------------------------------------------------
+
+local bars_node_spec: derived.Spec<integer, {number}, boolean> = {
+  name = "harmony.bars",
+  kind = "memo",
+  make = function(ctx: derived.Ctx): {number}
+    ctx:tempo()
+    local last = ctx:get(span_node, 0).last
+    local opts = options()
+    local out, n: {number}, integer = {}, 1
+    repeat
+      out[#out + 1] = opts.bar_start(n)
+      n = n + 1
+    until out[#out] > last or n > 100000
+    bars_now = out
+    return out
+  end,
+  same = same_list,
+}
+local bars_node = derived.node(bars_node_spec)
+
+local track_bar_spec: derived.Spec<integer, read.Weights, BarInputs> = {
+  name = "harmony.track_bar",
+  kind = "family",
+  span = function(key: integer): number, number
+    local _, b = unpack_key(key)
+    return bars_now[b] or -math.huge, bars_now[b + 1] or math.huge
+  end,
+  inputs = function(ctx: derived.Ctx, key: integer): BarInputs
+    local track, b = unpack_key(key)
+    local bars = ctx:get(bars_node, 0)
+    local out: BarInputs = {from = bars[b], to = bars[b + 1]}
+    over(ctx:get(track_node, track), out.from, out.to, out)
+    return out
+  end,
+  same_inputs = function(a: BarInputs, b: BarInputs): boolean
+    return a.from == b.from and a.to == b.to and same_list(a, b)
+  end,
+  undo = true,
+  make = function(_: derived.Ctx, _: integer, _: read.Weights, places: BarInputs): read.Weights
+    local h: read.Weights = {}
+    for pc = 0, 11 do
+      h[pc] = 0
+    end
+    for i_p = 1, #places do
+      local p = places[i_p]
+      read.bar_part(p.run, p.start, places.from, places.to, h)
+    end
+    return h
+  end,
+  same = same_weights,
+  limit = 65536,
+}
+local track_bar = derived.node(track_bar_spec)
+
+local bar_node_spec: derived.Spec<integer, read.Weights, boolean> = {
+  name = "harmony.bar",
+  kind = "join",
+  make = function(ctx: derived.Ctx, b: integer): read.Weights
+    local h: read.Weights = {}
+    for pc = 0, 11 do
+      h[pc] = 0
+    end
+    local tracks = ctx:get(tracks_node, 0)
+    for i_track = 1, #tracks do
+      local track = tracks[i_track]
+      local t = ctx:get(track_bar, pack(track, b))
+      for pc = 0, 11 do
+        h[pc] = h[pc] + t[pc]
+      end
+    end
+    return h
+  end,
+  same = same_weights,
+  limit = 8192,
+}
+local bar_node = derived.node(bar_node_spec)
+
+local keys_node_spec: derived.Spec<integer, {read.Key}, boolean> = {
+  name = "harmony.keys",
+  kind = "sliced",
+  label = "keys",
+  make = function(ctx: derived.Ctx): {read.Key}
+    local bars = ctx:get(bars_node, 0)
+    local hist: {read.Weights} = {}
+    for b = 1, #bars - 1 do
+      hist[b] = ctx:get(bar_node, b)
+      if b % 64 == 0 then
+        ctx:pause()
+      end
+    end
+    local chords = ctx:get(chords_node, 0)
+    return read.key_path(hist, bars, chords, function() ctx:pause() end)
+  end,
+}
+local keys_node = derived.node(keys_node_spec)
+keys_node:want(0)
+
+-- The reading ----------------------------------------------------------------------------
+
+--- Whether there is work left before the reading is up to date.
+function M.busy(): boolean
+  return not keys_node:fresh(0)
+end
+
+--- Bring the reading up to date. With `budget`, work for about that many
+--- milliseconds: true when it is up to date.
+function M.update(budget?: number): boolean
+  if budget then
+    derived.run(budget)
+    return keys_node:fresh(0)
+  end
+  keys_node:get(0, true)
+  return true
 end
 
 --- Forget all of it: the next update reads the whole song.
 function M.reset()
-  heard, order, sorted, longest, last = {}, {}, {}, 0, 0
-  windows, step_of, bars, hist, chords, keys, bar_of = {}, nil, {}, {}, {}, {}, nil
-  notes_list, job, all, marked, timed = nil, nil, true, {}, true
-  stamp = stamp + 1
+  step_node:reset()
+  tracks_node:reset()
+  span_node:reset()
+  chords_node:reset()
+  bars_node:reset()
+  keys_node:reset()
+  clip_node:reset()
+  track_node:reset()
+  track_window:reset()
+  group_node:reset()
+  mix_node:reset()
+  beat_node:reset()
+  window_node:reset()
+  track_bar:reset()
+  bar_node:reset()
 end
 
 --- A number that goes up each time the reading may have changed.
 function M.stamp(): integer
-  return stamp
+  return keys_node:revision() + chords_node:revision()
 end
 
---- The chords and the keys of the last update.
+--- The chords and the keys as they stand.
 function M.reading(): {read.Chord}, {read.Key}
-  return chords, keys
+  return chords_node:get(0) or {}, keys_node:get(0) or {}
 end
+
+--- The nodes' counts, by name (`paw.derived`).
+function M.stats(name: string): derived.Stats
+  for _, s in ipairs(derived.stats()) do
+    if s.name == name then
+      return s
+    end
+  end
+  return nil
+end
+
+local notes_list: {Note} -- `notes()`, made when asked
+local notes_of: integer -- the revision it was made for
 
 --- Each note that sounds, track by track and clip by clip, as of the last
 --- update.
 function M.notes(): {Note}
-  if not notes_list then
+  local revision = tracks_node:revision() * WIDE + track_node:revision()
+  if not notes_list or notes_of ~= revision then
     local out: {Note} = {}
-    for _, id in ipairs(order) do
-      for _, c in ipairs(heard[id] or {}) do
-        for _, n in ipairs(c.notes) do
-          out[#out + 1] = n
+    for _, track in ipairs(tracks_node:get(0) or {}) do
+      local v = track_node:get(track)
+      for _, place in ipairs(v and v.list or {}) do
+        local run = place.run
+        for k = 1, run.n do
+          out[#out + 1] = {
+            pitch = run.pitch[k],
+            start = place.start + run.start[k],
+            length = run.length[k],
+            velocity = run.velocity[k],
+            track = track,
+            clip = place.id,
+          }
         end
       end
     end
-    notes_list = out
+    notes_list, notes_of = out, revision
   end
   return notes_list
+end
+
+--- The reading of all the notes at once, as `paw.harmony.read` makes it,
+--- with windows from the start of the song: what the nodes must give.
+--- `notes` sorted by start.
+function M.whole(notes: {Note}, opts: Options): {read.Chord}, {read.Key}
+  local run = read.run(notes)
+  local step = opts.step
+  local last: number = 0
+  for i_n = 1, #notes do
+    local n = notes[i_n]
+    last = math.max(last, n.start + n.length)
+  end
+  local windows: {read.Window} = {}
+  local i = 1
+  while (i - 1) * step < last - 1e-9 do
+    local at = (i - 1) * step
+    local beat = math.floor(at + 1e-9)
+    windows[i] = read.finish(
+      read.part(run, 0, at, at + step),
+      at,
+      math.min(step, last - at),
+      step,
+      function(): read.Part return read.part(run, 0, beat, beat + 1) end
+    )
+    i = i + 1
+  end
+  local chords = read.decode(windows, opts.bar)
+  local bars, n: {number}, integer = {}, 1
+  repeat
+    bars[#bars + 1] = opts.bar_start(n)
+    n = n + 1
+  until bars[#bars] > last or n > 100000
+  local hist: {read.Weights} = {}
+  for b = 1, #bars - 1 do
+    local h: read.Weights = {}
+    for pc = 0, 11 do
+      h[pc] = 0
+    end
+    read.bar_part(run, 0, bars[b], bars[b + 1], h)
+    hist[b] = h
+  end
+  return chords, read.key_path(hist, bars, chords)
 end
 
 return M

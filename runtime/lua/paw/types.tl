@@ -163,7 +163,9 @@ local record types
   end
 
   --- `paw.api.project_get()` (`Session::project_view`). `edits` goes up
-  --- with each change; `length` is the end of the last clip, in beats.
+  --- with each change; `length` is the end of the last clip, in beats;
+  --- `tempo_stamp` is a hash of the tempo and signature points, the same
+  --- for the same points (after an undo too).
   record Project
     name: string
     tempo: number
@@ -178,6 +180,7 @@ local record types
     meta: Meta
     modified: boolean
     edits: integer
+    tempo_stamp: integer
   end
 
   --- A send of a track (`model::Send`): to the track `target`, `level` in
@@ -351,6 +354,19 @@ local record types
     meter: NestMeter
     kind: string
     meta: Meta
+  end
+
+  --- What `paw.api.nest_promote` did (`session::promote::Promoted`): the
+  --- `group` track, the subproject's `tracks`, the block's window `from`
+  --- and `to` and `zero` (song beats), and the targets of the lanes that
+  --- were made one (`combined`).
+  record NestPromoted
+    group: integer
+    tracks: {integer}
+    from: number
+    to: number
+    zero: number
+    combined: {string}
   end
 
   --- The track of a subproject that a nest clip plays (`model::NestPlay`);

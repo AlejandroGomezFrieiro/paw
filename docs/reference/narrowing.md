@@ -122,9 +122,11 @@ scope, with `znn` or `<CR>` on its clip, or from `<Space>zz`.
   `Song › ⧉Ballad 1.2 (9.2)`. The first place is in the bars of the
   subproject, and the place in brackets is in the bars of the song, at the
   clip that you entered through.
-- The bars count from 1 at the start of the subproject. With
-  `scopebars=both`, the second row of the ruler shows the bars of the song
-  at that clip.
+- The bars count from 1 at the start of the subproject, and they are the
+  bars of the song at that clip: over a 6/8 section of the song, bars of
+  6/8. With `scopebars=both`, the second row of the ruler shows the bars
+  of the song at that clip. See [Subprojects](subprojects.md) for how to
+  add one and for its tempo.
 - The cursor keeps its place in the song when you enter or leave. The
   loop is the time of the clip in the song.
 - `]z` and `[z` go to the next clip of a subproject and to the one before.

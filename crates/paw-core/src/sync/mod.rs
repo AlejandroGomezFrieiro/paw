@@ -48,7 +48,7 @@ use self::devices::{add_device, update_device};
 use self::items::{TrackIndex, item_events};
 use self::mapper::{InputSent, MidiInSent, MidiOutSent, MixSent};
 use self::routing::{build_schedule, routing_of, solo_paths, soloed_tracks};
-use crate::events::{Cue, Item, KernelEvent as E, Nothing, Order, TrackId};
+use crate::events::{Cue, Item, KernelEvent as E, Nothing, Order, TrackChange, TrackId};
 use crate::freeze::Played;
 use crate::model::{DeviceInst, Id, MASTER_ID, Project, Track};
 
@@ -264,7 +264,8 @@ impl<'p> Pass<'p, '_, '_> {
                 Some(plays) => self.map.played.insert(track.id, plays),
                 None => self.map.played.remove(&track.id),
             };
-            self.track_lanes(track, &pass, same_chain);
+            // A nest track's lanes play at the places of its nest, as its clips do.
+            self.track_lanes(now.map_or(track, |t| &**t), prev, &pass, same_chain);
         }
     }
 
@@ -304,7 +305,10 @@ impl<'p> Pass<'p, '_, '_> {
         }
         match prev {
             None => self.emit(E::TrackAdded(TrackId { id: track.id })),
-            Some(p) if !Arc::ptr_eq(p, track) => self.emit(E::TrackChanged(TrackId { id: track.id })),
+            Some(p) if !Arc::ptr_eq(p, track) => self.emit(E::TrackChanged(TrackChange {
+                id: track.id,
+                fields: track.changed_fields(p),
+            })),
             Some(_) => {}
         }
         Some(TrackPass {
@@ -324,7 +328,7 @@ impl<'p> Pass<'p, '_, '_> {
         // or made, and the chain sent again.
         let mut toggled = false;
         for device in &track.devices {
-            let item = Item { id: device.id, track: Some(track.id) };
+            let item = Item::on(device.id, Some(track.id));
             match self.old_devices.get(&device.id).map(|&(_, d)| d).filter(|_| pass.prev.is_some()) {
                 Some(before) if before.offline != device.offline => {
                     toggled = true;
@@ -447,8 +451,9 @@ impl<'p> Pass<'p, '_, '_> {
     }
 
     /// A track's automation lanes, and what the lanes it lost give back.
-    fn track_lanes(&mut self, track: &Track, pass: &TrackPass, same_chain: bool) {
-        let same_lanes = pass.prev.map_or(track.lanes.is_empty(), |p| {
+    /// `prev` is the track as the engine last had it.
+    fn track_lanes(&mut self, track: &Track, prev: Option<&Track>, pass: &TrackPass, same_chain: bool) {
+        let same_lanes = prev.map_or(track.lanes.is_empty(), |p| {
             p.lanes.len() == track.lanes.len()
                 && p.lanes.iter().zip(&track.lanes).all(|(a, b)| Arc::ptr_eq(a, b))
         });
@@ -461,7 +466,7 @@ impl<'p> Pass<'p, '_, '_> {
                 automation: Box::new(automation),
             });
         }
-        if let Some(prev) = pass.prev.filter(|_| !same_lanes) {
+        if let Some(prev) = prev.filter(|_| !same_lanes) {
             release_targets(prev, track, self.map, self.ctx, self.send);
         }
     }
@@ -488,7 +493,7 @@ impl<'p> Pass<'p, '_, '_> {
             self.map.keyed.remove(&id);
             self.map.outs.remove(&id);
             self.map.free_device(id, &mut self.removals);
-            self.emit(E::DeviceRemoved(Item { id, track: Some(track) }));
+            self.emit(E::DeviceRemoved(Item::on(id, Some(track))));
         }
     }
 
@@ -519,7 +524,7 @@ impl<'p> Pass<'p, '_, '_> {
                     }
                     None => (Vec::new(), t.clips.iter().collect()),
                 },
-                |c| c.id,
+                |c| (c.id, c.stamp()),
                 &mut emit,
             );
         }
@@ -529,7 +534,7 @@ impl<'p> Pass<'p, '_, '_> {
                 (old_tracks, &new_tracks),
                 &touched,
                 |was, t| (was.map_or(Vec::new(), |w| w.lanes.iter().collect()), t.lanes.iter().collect()),
-                |l| l.id,
+                |l| (l.id, None),
                 &mut emit,
             );
         }
@@ -683,7 +688,7 @@ impl<'p> Pass<'p, '_, '_> {
     fn routing(&mut self) {
         let map = &mut *self.map;
         let send = &mut *self.send;
-        let routing = routing_of(self.new, self.ctx.live, &map.played, &self.placed.hosts);
+        let routing = routing_of(self.new, self.ctx.live, &map.played, self.placed);
         // Devices that listen to a side-chain get a buffer for it, before the
         // schedule that fills it; those that no longer do give theirs back.
         let keyed: HashSet<Id> = routing
@@ -746,7 +751,7 @@ impl<'p> Pass<'p, '_, '_> {
     fn local_times(&mut self) {
         let mut now: HashMap<Id, nests::Local> = HashMap::new();
         for t in self.new.tracks.iter() {
-            if let Some(local) = t.nest.and_then(|n| nests::Local::of(self.new, n, self.placed)) {
+            if let Some(local) = t.nest.and_then(|n| nests::Local::of(self.new, n, t.id, self.placed)) {
                 now.insert(t.id, local);
             }
         }

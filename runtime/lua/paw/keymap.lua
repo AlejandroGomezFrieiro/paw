@@ -42,6 +42,10 @@ local last_macro
 
 local registers = {}
 local marks, jumps = {}, {}
+
+--- Counts the jumps (what goes into the jump list), so that a view can tell
+--- a jump of the cursor from a step: the view scrolls to the target of a jump.
+M.jump_serial = 0
 local changes = {} -- view -> positions where the project was edited, newest last
 local groups = {} -- scope -> keys -> name of a prefix that only leads to more keys
 local group_lhs = {} -- the groups on a leader: { scope, prefix as written, name, keys now }
@@ -669,6 +673,7 @@ end
 function M.push_jump()
   local g = grid()
   if not g then return end
+  M.jump_serial = M.jump_serial + 1
   local list = jumps[paw.ui.focused] or {}
   jumps[paw.ui.focused] = list
   if list.at then
@@ -1363,6 +1368,7 @@ function M.dispatch(key)
     if paw.ui.grabber and paw.ui.grabber ~= grabber then return end
   end
   key_serial = key_serial + 1
+  M.screen_kept = false
   if macro and depth == 0 then macro.keys[#macro.keys + 1] = key end
   -- A key of insert mode: its edits join the step the insert made first.
   if M.mode == "i" and insert_undo and api.undo_current() ~= insert_undo then api.undo_join(api.undo_current()) end
@@ -1386,7 +1392,8 @@ function M.dispatch(key)
   else
     hint_at = nil
   end
-  api.ui_redraw()
+  -- A prompt that drew only its line (`paw.views.cmdline`) has asked for that.
+  if not M.screen_kept then api.ui_redraw() end
   finish_command()
 end
 

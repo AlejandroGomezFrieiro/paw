@@ -523,6 +523,24 @@ function M.song_beat(beat: number, s?: Scope): number
   return beat + M.song_offset(s)
 end
 
+--- The song's beat of beat 0 of the time the window shows (the window
+--- being drawn, else the current one): in a subproject, where its block
+--- starts; else 0. `paw.time` adds it, so that a subproject's bars are the
+--- song's bars at its place.
+function M.origin(): number
+  -- While the layout is being made (a start layout), there is no tab yet.
+  local u = paw.ui
+  if not (u.drawing_win or u.tabs[u.tab]) then
+    return 0
+  end
+  local w = window_of()
+  local s = w and w.scope
+  if not s then
+    return 0
+  end
+  return M.song_offset(s)
+end
+
 -- Bars --------------------------------------------------------------------------------
 
 --- How many bars of the song come before the first bar of a scope (the
@@ -552,7 +570,7 @@ end
 
 --- A place as the scope numbers it: `bar.beat.hundredths`, as `paw.time.format`.
 function M.format(beat: number): string
-  local bar, b, frac = api.tempo_bbt(beat)
+  local bar, b, frac = api.tempo_bbt(beat + M.origin())
   local part = math.floor(frac * 100 + 0.5)
   if part >= 100 then
     part = 99
@@ -1105,7 +1123,7 @@ end
 -- a project put tracks back where they were).
 events.on(
   kernel.track_changed,
-  function(event: kernel.TrackId)
+  function(event: kernel.TrackChange)
     if not exists(event.id) then
       return
     end
@@ -1493,10 +1511,9 @@ if arrange and arrange.layers then
       return true
     end
     local free = 0
-    local offset = M.song_offset()
     for _, line in ipairs(paw.time.bars(layer.scroll, layer.scroll + layer.span)) do
       local x = layer.x(line.beat)
-      local text = tostring(offset ~= 0 and paw.time.bar_of(line.beat + offset) or line.bar)
+      local text = tostring(line.bar)
       if x >= free and x >= 0 and x < row.width and clear(x, x + #text + 1) then
         free = x + row:text(x, 0, text, "RulerTick") + 1
       end

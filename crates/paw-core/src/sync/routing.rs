@@ -9,7 +9,7 @@ use super::LiveDevices;
 use super::automation::{is_vca, vcas_of};
 use super::mapper::Mapper;
 use crate::freeze::Played;
-use crate::model::{DeviceInst, Id, MASTER_ID, NestId, Project, Track};
+use crate::model::{DeviceInst, Id, MASTER_ID, Project, Track};
 
 /// Where a track's signal goes, and how late it is when it leaves.
 #[derive(Clone, Debug, PartialEq)]
@@ -128,7 +128,7 @@ pub(super) fn routing_of(
     project: &Project,
     live: &LiveDevices,
     played: &HashMap<Id, Played>,
-    hosts: &HashMap<NestId, Id>,
+    placed: &super::nests::Placed,
 ) -> Routing {
     let ids: HashSet<Id> = project.all_tracks().map(|t| t.id).collect();
     let exists = |id: Id| ids.contains(&id);
@@ -193,7 +193,7 @@ pub(super) fn routing_of(
             keys: keys.remove(&t.id).unwrap_or_default(),
             outs: outs_of(t),
             track: t.id,
-            output: output_of(project, t, hosts, &exists),
+            output: output_of(project, t, placed, &exists),
             sends: t
                 .sends
                 .iter()
@@ -207,11 +207,17 @@ pub(super) fn routing_of(
 
 /// Where a track's output goes. A nest's track plays into the nest's
 /// master unless it routes elsewhere inside the nest, and the nest's master
-/// into the track that holds the nest's clip: its return row.
-fn output_of(project: &Project, t: &Track, hosts: &HashMap<NestId, Id>, exists: &dyn Fn(Id) -> bool) -> Id {
+/// into the track that holds the nest's clip: its return row. A nest's
+/// track that a clip plays alone (a stem) plays into that clip's row.
+fn output_of(project: &Project, t: &Track, placed: &super::nests::Placed, exists: &dyn Fn(Id) -> bool) -> Id {
     let own = t.output.filter(|id| exists(*id) && *id != t.id);
+    if let Some(&row) = placed.stems.get(&t.id).filter(|row| exists(**row)) {
+        return row;
+    }
     match t.nest.and_then(|n| Some((n, project.nest(n)?))) {
-        Some((n, nest)) if nest.master == t.id => hosts.get(&n).copied().filter(|h| exists(*h)).unwrap_or(NOWHERE),
+        Some((n, nest)) if nest.master == t.id => {
+            placed.hosts.get(&n).copied().filter(|h| exists(*h)).unwrap_or(NOWHERE)
+        }
         Some((_, nest)) => own.unwrap_or(nest.master),
         None => own.unwrap_or(MASTER_ID),
     }

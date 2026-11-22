@@ -80,6 +80,7 @@ local record Audio
 end
 local record Time
   clock: function(beat: number): string
+  origin: function(): number
 end
 --- A method of the remote API: what the connection `client` sent.
 local type Method = function(client: integer, ...: Value): Value
@@ -342,7 +343,7 @@ local function live(): Live
     position = t.position,
     playing = t.playing,
     recording = t.take ~= nil,
-    clock = paw.time.clock(t.position),
+    clock = paw.time.clock(t.position - paw.time.origin()),
     cpu = paw.audio.load(e.cpu),
     meters = meters,
     peaks = peaks,

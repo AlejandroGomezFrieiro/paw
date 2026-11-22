@@ -14,6 +14,8 @@ impl Session {
             // Goes up with every change: compare two readings to see whether
             // something in between edited the project.
             "edits": self.undo.edits,
+            // The same tempo and signature points give the same stamp.
+            "tempo_stamp": p.tempo_stamp(),
         })
     }
 
@@ -23,6 +25,7 @@ impl Session {
         let p = &self.project;
         match key {
             "edits" => json!(self.undo.edits),
+            "tempo_stamp" => json!(p.tempo_stamp()),
             "name" => json!(p.name),
             "tempo" => json!(p.tempo),
             "sig_num" => json!(p.sig_num),

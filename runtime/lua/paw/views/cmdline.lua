@@ -79,6 +79,19 @@ local function complete(step)
   active.matches, active.match = matches, match
 end
 
+--- Ask for the screen to be drawn after a key typed in the prompt. When the
+--- line is all that changed (no anchor, no preview of another kind, no key of
+--- its own), only the line and the list are drawn again over the frame
+--- before: the other views cost a few ms, and they do not change.
+local function redraw()
+  local a = active
+  if a and not a.anchor and not a.on_key and (a.still or not a.preview) then
+    paw.keymap.screen_kept = true
+    return api.ui_redraw_line()
+  end
+  api.ui_redraw()
+end
+
 local function on_key(key, pasted)
   local a = active
   -- Text a prompt came with is selected: the first key typed replaces it, a
@@ -102,11 +115,11 @@ local function on_key(key, pasted)
     if key == "<BS>" or key == "<Del>" or key == "<C-u>" or key == "<C-w>" then
       if a.complete then refresh() end
       preview(text())
-      return api.ui_redraw()
+      return redraw()
     end
   elseif selected and (key == "<Left>" or key == "<Home>" or key == "<C-a>") then
     a.pos = 0
-    return api.ui_redraw()
+    return redraw()
   end
   if pasted then
     for ch in key:gsub("[\r\n]", " "):gmatch("[%z\1-\127\194-\244][\128-\191]*") do
@@ -114,7 +127,7 @@ local function on_key(key, pasted)
       table.insert(a.chars, a.pos, ch)
     end
     preview(text())
-    return api.ui_redraw()
+    return redraw()
   end
   local keep_matches = false
   local chosen = a.matches and a.matches[a.match]
@@ -128,14 +141,14 @@ local function on_key(key, pasted)
         a.matches = nil
       end
       preview(text())
-      return api.ui_redraw()
+      return redraw()
     end
   end
   if key == "<CR>" then
     -- A directory chosen from the list is gone into rather than run.
     if chosen and chosen.label:match("/$") then
       refresh()
-      return api.ui_redraw()
+      return redraw()
     end
     return finish(true)
   elseif key == "<Esc>" or key == "<C-c>" then
@@ -193,7 +206,7 @@ local function on_key(key, pasted)
     if a.complete and #a.chars > 0 and key ~= "<Up>" and key ~= "<Down>" then refresh() end
   end
   preview(text())
-  api.ui_redraw()
+  redraw()
 end
 
 --- Start a prompt. `opts`: `prompt`, `text` (initial), `complete(text)` which
@@ -208,7 +221,9 @@ end
 --- key the prompt handles itself before the line does: it returns true
 --- when it took the key, or the new text of the line), `mode` (the mode to
 --- go back to when it closes, "n" unless said), `ghost` (examples shown
---- dimly in the empty line). `text` comes selected, so
+--- dimly in the empty line), `still` (a preview that asks for a whole
+--- frame itself when it changes another view; the other keys then draw only
+--- the line and the list). `text` comes selected, so
 --- that typing replaces it (`select = false` keeps it to be added to; so
 --- does the `:` line). Candidates are strings, or
 --- `{ text = whole line, label = the part shown, desc = ... }`. They are
@@ -223,6 +238,7 @@ function M.open(opts, on_submit)
     on_submit = on_submit,
     complete = opts.complete,
     preview = opts.preview or opts.on_change,
+    still = opts.still,
     anchor = opts.anchor,
     on_key = opts.on_key,
     back = opts.mode,
@@ -311,6 +327,7 @@ end
 local MAX_ROWS = 10
 
 --- A description in the list: its first line, without the examples.
+local draw_list
 local function brief(desc) return (desc:match("^[^\n]*"):gsub(":? `.*$", "")) end
 
 --- The list of candidates, over the bottom of the screen immediately above
@@ -319,9 +336,20 @@ function M.draw_popup(buf)
   local a = active
   local at = anchored(a)
   if at then return M.draw_anchored(buf, a, at) end
+  if not a or a.single then return end
+  -- The list is a live part over the rows above the line, so that a key in
+  -- the prompt draws only it (`redraw`); it is drawn on the whole screen's
+  -- buffer, which it keeps.
+  local top = math.max(0, buf.height - 1 - MAX_ROWS)
+  paw.ui.live(buf:sub(0, top, buf.width, buf.height - 1 - top), draw_list)
+end
+
+--- The candidates of the line, in `buf`: the rows just above the line.
+function draw_list(buf)
+  local a = active
   if not (a and a.matches and #a.matches > 0) then return end
   local n = #a.matches
-  local rows = math.min(MAX_ROWS, n, buf.height - 2)
+  local rows = math.min(MAX_ROWS, n, buf.y + buf.height - 1)
   if rows < 1 then return end
   local top = 1
   if a.match > rows then top = a.match - rows + 1 end
@@ -345,8 +373,8 @@ function M.draw_popup(buf)
   end
   local x = api.str_width(a.prompt) + math.max(0, offset) - 2
   x = math.max(0, math.min(x, buf.width - width))
-  local y = buf.height - 1 - rows
-  a.popup = { x = x, y = y, w = width, rows = rows, top = top }
+  local y = buf.height - rows
+  a.popup = { x = x, y = buf.y + y, w = width, rows = rows, top = top }
   for row = 0, rows - 1 do
     local i = top + row
     local c = a.matches[i]
@@ -528,34 +556,41 @@ paw.on("command.pre", function(e)
   if e.command == "messages" or e.command == "pick.messages" then seen_at = api.now() end
 end)
 
+--- The prompt on its line.
+local function draw_line(buf, ctx)
+  local used = buf:text(0, 0, active.prompt, "Accent")
+  local typed = buf:text(used, 0, text(), active.selected and "Visual" or "Normal")
+  if typed == 0 and active.ghost then
+    buf:text(used, 0, paw.util.fit(active.ghost, math.max(1, buf.width - used - 1)), "Dim")
+  end
+  -- What the line would do, at the right end while there is room.
+  local note = active.note
+  if note and note ~= "" then
+    local w = api.str_width(note)
+    local room = buf.width - used - typed - 3
+    if room >= 8 then
+      buf:text(
+        buf.width - math.min(w, room) - 1,
+        0,
+        w > room and paw.util.fit(note, room) or note,
+        active.note_level == "error" and "Warn" or "Dim"
+      )
+    end
+  end
+  local before = table.concat(active.chars, "", 1, active.pos)
+  api.ui_cursor(ctx.x + used + api.str_width(before), ctx.y)
+end
+
 paw.ui.view("cmdline", {
   focusable = false,
   -- Nothing in it moves on its own as the song plays (paw/ui.tl).
   still = true,
   render = function(_, buf, ctx)
     if active and not anchored(active) then
-      local used = buf:text(0, 0, active.prompt, "Accent")
-      local typed = buf:text(used, 0, text(), active.selected and "Visual" or "Normal")
-      if typed == 0 and active.ghost then
-        buf:text(used, 0, paw.util.fit(active.ghost, math.max(1, buf.width - used - 1)), "Dim")
-      end
-      -- What the line would do, at the right end while there is room.
-      local note = active.note
-      if note and note ~= "" then
-        local w = api.str_width(note)
-        local room = buf.width - used - typed - 3
-        if room >= 8 then
-          buf:text(
-            buf.width - math.min(w, room) - 1,
-            0,
-            w > room and paw.util.fit(note, room) or note,
-            active.note_level == "error" and "Warn" or "Dim"
-          )
-        end
-      end
-      local before = table.concat(active.chars, "", 1, active.pos)
-      api.ui_cursor(ctx.x + used + api.str_width(before), ctx.y)
-      return
+      -- A live part: a key in the prompt draws only it and the list.
+      return paw.ui.live(buf, function(line)
+        if active then draw_line(line, ctx) end
+      end)
     end
     local pending = paw.keymap.pending()
     if pending ~= "" then buf:text(buf.width - #pending - 2, 0, pending, "Accent") end

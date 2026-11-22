@@ -2016,6 +2016,13 @@ function paw.cursor.set_beat(beat) end
 ---@param lane any
 function paw.cursor.set_track(track, lane) end
 
+--- For a track of a subproject shown in place under its return row: the
+--- beat of the window where the subproject's beat 0 is. Nil for any other
+--- track. The arrange view draws its clips that much later, and the
+--- cursor finds them there.
+---@param track any
+function paw.cursor.shift(track) end
+
 --- Round a position to the arrange grid.
 ---@param beat any
 function paw.cursor.snap(beat) end
@@ -2487,6 +2494,20 @@ function paw.draw.hold(key, peak) end
 ---   plate               a name plate: light text on a deep shade
 ---@param colour any
 function paw.draw.hue(colour) end
+
+--- Where a view scrolls to for a move of its cursor to `target`, a beat, or
+--- nil when the move leaves the scroll to the caller. A step (`jumped` is
+--- false) is left to the caller, which scrolls just enough. A jump (it went
+--- into the jump list) to a target that is off screen, or in the last quarter
+--- of the view, puts the target at the left margin (`paw.opt.jumpview` "left",
+--- `paw.opt.jumpmargin` columns) or in the middle ("center"). `span` is the
+--- beats shown, `zoom` the columns a beat.
+---@param target any
+---@param scroll any
+---@param span any
+---@param zoom any
+---@param jumped any
+function paw.draw.jump_scroll(target, scroll, span, zoom, jumped) end
 
 --- A row of keys and their actions, for a line of hints: `{ { "o", "new track" }, ... }`,
 --- with a faint dot between them. `? keys` is always the last when it is in
@@ -3561,6 +3582,11 @@ function paw.groups.remove(track, stay) end
 ---@param opts any
 function paw.groups.rows(opts) end
 
+--- The tracks to draw under a row that is open in place, or nil
+--- (`paw.groups.rows` asks for each row).
+---@param row any
+function paw.groups.under(row) end
+
 --- The chord that sounds at `beat`, or nil. With `latest`, of the
 --- reading as it stands, without waiting for a new one.
 ---@param beat any
@@ -3756,13 +3782,14 @@ function paw.harmony.step(key, pitch, n) end
 ---@param quality any
 function paw.harmony.tones(root, quality) end
 
---- How long each pitch class sounds from `from` to `to`, of `sorted`
---- (notes sorted by start, the longest `longest` beats).
----@param sorted any
----@param longest any
+--- Add to `h` how long each pitch class of `run`, `offset` beats later,
+--- sounds from `from` to `to`.
+---@param run any
+---@param offset any
 ---@param from any
 ---@param to any
-function paw.harmony.read.bar_weights(sorted, longest, from, to) end
+---@param h any
+function paw.harmony.read.bar_part(run, offset, from, to, h) end
 
 --- Chords over notes in project beats, from `from` to `to` (the notes'
 --- span when nil), in windows of `step` beats (0.5). Each chord:
@@ -3778,22 +3805,30 @@ function paw.harmony.read.chords(notes, opts) end
 ---@param tonic any
 function paw.harmony.read.correlate(h, profile, tonic) end
 
---- The chords of a run of windows (`window` makes each, one after another
+--- The chords of a run of windows (`finish` makes each, one after another
 --- with no gap): a chord holds across windows unless the next is better by
 --- more than what a change costs. Silence of `bar` beats ends a chord.
 --- `pause`, if given, is called after each 64 windows, so that a reading
---- in slices can stop there (paw/harmony/song.tl).
+--- in slices can stop there (paw/harmony/song.tl). `rows`, if given, keeps
+--- the work rows for the next call: a caller that decodes often gives its
+--- own.
 ---@param windows any
 ---@param bar any
 ---@param pause any
-function paw.harmony.read.decode(windows, bar, pause) end
+---@param rows any
+function paw.harmony.read.decode(windows, bar, pause, rows) end
 
---- The first of `sorted` (notes sorted by start) that can sound at `at`:
---- the ones before it start more than `longest` beats before it.
----@param sorted any
----@param longest any
+--- One window of the chord reading from what sounds in it (`p`, a part):
+--- from `at`, `length` beats long, with windows of `step` beats. `beat`
+--- gives the part of the window's whole beat, when the window needs it.
+--- `old`, a window that no one reads any more, gives its lists to the new one.
+---@param p any
 ---@param at any
-function paw.harmony.read.first(sorted, longest, at) end
+---@param length any
+---@param step any
+---@param beat any
+---@param old any
+function paw.harmony.read.finish(p, at, length, step, beat, old) end
 
 --- How well the chord `root` `quality` fits weights `w` with `bass` and `total`.
 ---@param w any
@@ -3803,7 +3838,7 @@ function paw.harmony.read.first(sorted, longest, at) end
 ---@param q any
 function paw.harmony.read.fit(w, bass, total, root, q) end
 
---- The keys from the pitch classes of each bar (`hist`, as `bar_weights`
+--- The keys from the pitch classes of each bar (`hist`, as `bar_part`
 --- gives them, which it leaves as they are) and the chords, as `keys`.
 --- `pause`, if given, is called after each 16 bars, as `decode` does.
 ---@param notes_hist any
@@ -3822,15 +3857,25 @@ function paw.harmony.read.key_path(notes_hist, bars, chords, pause) end
 ---@param chords any
 function paw.harmony.read.keys(notes, bars, chords) end
 
---- One window of the chord reading, from `at`, `length` beats long:
---- `sorted` are the notes sorted by start, `longest` the longest of them,
---- `step` the length of a window.
----@param sorted any
----@param longest any
----@param at any
----@param length any
----@param step any
-function paw.harmony.read.window(sorted, longest, at, length, step) end
+--- The parts of one stretch of time, or of stretches side by side, as
+--- one part: the weights add up, and the lowest pitch over time is the
+--- lowest of theirs. One part that sounds gives that part.
+---@param parts any
+function paw.harmony.read.merge(parts) end
+
+--- What the notes of `run`, `offset` beats later, sound from `from` to
+--- `to` (a `Part`). A note counts for how long it sounds there, a short
+--- note off the beat half; the lowest pitch over time is cut where a note
+--- starts or ends.
+---@param run any
+---@param offset any
+---@param from any
+---@param to any
+function paw.harmony.read.part(run, offset, from, to) end
+
+--- Notes as a `Run`: `notes` sorted by start, in their order.
+---@param notes any
+function paw.harmony.read.run(notes) end
 
 --- Each voicing of the chord in the range of the options, `{ pitches, style }`.
 ---@param tones any
@@ -5865,13 +5910,75 @@ function paw.music.pitch(note) end
 ---@param text any
 function paw.music.pitch_word(text) end
 
+--- Every clip that places subproject `nest`, in order of time.
+---@param nest any
+function paw.nest.blocks(nest) end
+
+--- A key that changes when what a block plays changes: the stamps of the
+--- clips of its subproject, and the block's own place in it.
+---@param c any
+function paw.nest.content_key(c) end
+
+--- `K` on a block: `nest Ballad · 6/8 · 8 bars · follows the tempo ·
+--- 2 tracks · 1 instance · live`. `c` is the clip, in the window's time.
+---@param c any
+function paw.nest.describe(c) end
+
 --- The subproject `id`, or nil when there is none.
 ---@param id any
 function paw.nest.get(id) end
 
+--- Whether a row is open in place.
+---@param row any
+function paw.nest.is_open(row) end
+
 --- Every subproject, in the order they were made: { id, name, length,
 --- tempo, meter, master, tracks, kind, meta, used }.
 function paw.nest.list() end
+
+--- Make a subproject with a row of its own, as `:nest.new` does (see the
+--- top): the subproject over the time given, a return row below the
+--- track `below` with one block, the meter in the song's map when one is
+--- given; then the window enters it, with one empty track
+--- (`paw.opt.nest_track`). Call it in one undo step (a command is one).
+---@param o any
+function paw.nest.new(o) end
+
+--- The notes that a block plays, from its start, for the small picture
+--- inside it: { start, length, pitch } each, at most `limit`.
+---@param c any
+---@param limit any
+function paw.nest.notes(c, limit) end
+
+--- Give a subproject one row of its own for each of its tracks (`stems`),
+--- or one stereo return again (`master`), on its return row `row`. Call it
+--- in one undo step. Returns the message.
+---@param nest any
+---@param row any
+---@param how any
+function paw.nest.outputs(nest, row, how) end
+
+--- Promote the subproject of block `clip` to a view, as `:nest.promote`
+--- does: its tracks come back in a group named after it at the place of
+--- its return row (`paw.api.nest_promote`); its regions come back as
+--- children of a region named after it over the block (made if there is
+--- none); its own meter goes into the song's map over the block; and the
+--- window that was inside it is now inside a view of the group's tracks
+--- over the region's time, at the same place. With `deep`, the
+--- subprojects inside it too. Call it in one undo step. Returns the message.
+---@param clip any
+---@param deep any
+function paw.nest.promote(clip, deep) end
+
+paw.nest.shift = paw.cursor.shift
+
+--- `za` on a return row: open its subproject's tracks under it, in the
+--- song's time, or close them. On a track shown in place: close its row.
+--- False when the track is neither.
+---@param track any
+function paw.nest.toggle(track) end
+
+paw.nest.under = paw.groups.under
 
 --- Tells if option `name` accepts `value`: true, or nil and an error that
 --- tells what it accepts. An option with no default accepts any value.
@@ -7336,6 +7443,12 @@ function paw.scope.of_tab(tab) end
 ---@param spec any
 function paw.scope.open(how, spec) end
 
+--- The song's beat of beat 0 of the time the window shows (the window
+--- being drawn, else the current one): in a subproject, where its block
+--- starts; else 0. `paw.time` adds it, so that a subproject's bars are the
+--- song's bars at its place.
+function paw.scope.origin() end
+
 --- The levels of a scope's path (the current one by default), from the
 --- outermost to it.
 ---@param s any
@@ -8084,7 +8197,9 @@ function paw.tempo.commands(command) end
 --- The whole map as text, for example "120 bpm 4/4 at bar 1, 90 bpm from bar 3 with a ramp, ...".
 function paw.tempo.describe() end
 
-paw.tempo.is_bar_line = paw.api.tempo_is_bar_line
+--- Whether a bar starts at this beat of the window's time.
+---@param beat any
+function paw.tempo.is_bar_line(beat) end
 
 --- What a tempo change reads as on a ruler: "96" or "120>" for a ramp.
 ---@param point any
@@ -8107,6 +8222,7 @@ function paw.tempo.marks(from, to) end
 --- bar of the song (`@19`), or `cursor` / `here`. The beat of the cursor
 --- when nothing is given. In a scope with time (`paw.scope`), bars are its
 --- own, from 1 at its start; `@19` is bar 19 of the song all the same.
+--- The beat is of the window's time (in a subproject, from its start).
 ---@param text any
 function paw.tempo.place(text) end
 
@@ -8589,7 +8705,8 @@ function paw.ui.hl(name, def) end
 --- paw does not call the callback when the user cancels the prompt. The
 --- options are those of the command line (`paw.views.cmdline.open`):
 --- `complete`, `history`, `on_change` (live preview), `anchor` (draw it
---- next to its subject), `on_key`.
+--- next to its subject), `on_key`, `still` (the preview asks for a whole
+--- frame itself when it changes another view).
 ---@param opts any
 ---@param on_submit any
 function paw.ui.input(opts, on_submit) end
@@ -10025,6 +10142,19 @@ function paw.api.nest_get(id, key) end
 --- The ids of the subprojects, in the order they were made.
 function paw.api.nest_list() end
 
+--- Promote the subproject of a block (`clip`) to song data, as one
+--- undo step: its tracks come back in a group named after it at the
+--- place of its return row, their clips at the row's beats, cut at
+--- the block. The group track gets the master's devices and then the
+--- row's, the sum of their faders in dB, the row's pan and sends, and
+--- their lanes (two volume lanes added in dB). The row, the master
+--- and the subproject go. Returns `group`, `tracks`, `from`, `to`,
+--- `zero` (the song's beat of the subproject's beat 0) and `combined`
+--- (the targets of the lanes made one). `paw.nest.promote` does the
+--- rest: regions, the meter, the view.
+---@param clip integer
+function paw.api.nest_promote(clip) end
+
 --- Change a subproject: a table of the entries to change (`name`,
 --- `length`, `tempo`, `meter`, `kind`, `meta`), as `nest_get` gives
 --- them, or one `key` and its value.
@@ -10649,6 +10779,9 @@ function paw.api.ui_frame_snapshot(width, height, live) end
 --- no cell, which were not sent.
 function paw.api.ui_frames() end
 
+--- How many of the redraws (`ui_redraws`) were `ui_redraw_line`.
+function paw.api.ui_line_redraws() end
+
 --- True if the terminal reports the pointer (`paw.opt.mouse`), for the
 --- screen that paw draws now.
 ---@param on boolean
@@ -10656,6 +10789,12 @@ function paw.api.ui_mouse(on) end
 
 --- --- screen ---
 function paw.api.ui_redraw() end
+
+--- The prompt on the command line changed: draw its live parts again
+--- (the line and the list), on the frame drawn last, and tell the
+--- windows that show state that something moved. Cheaper than
+--- `ui_redraw`: the views under it are not drawn again.
+function paw.api.ui_redraw_line() end
 
 --- Draw only the live parts of the screen again (the playhead, the
 --- meters, the status line), on the frame drawn last; a whole frame

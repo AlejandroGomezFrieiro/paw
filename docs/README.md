@@ -209,6 +209,7 @@ groups below link the main ones.
 
 - [Tempo and time signatures](reference/tempo.md): the tempo map, its commands, the timebase of audio clips
 - [Markers and regions](reference/markers.md): markers, regions, their keys and commands
+- [Subprojects](reference/subprojects.md): sections with tracks of their own, `:nest.new`, their time
 - [Recording](reference/recording.md): track inputs, monitoring, count-in, punch, pre-roll, files, import
 - [Takes](reference/takes.md): takes, comping, take lanes
 - [MIDI](reference/midi.md): controller moves, the event list, MIDI input and output, MPE, MIDI files
