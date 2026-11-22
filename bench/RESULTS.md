@@ -42,18 +42,47 @@ to 34: `j in roll` 85.0 ms (68.1 to 117.1) before, 44.2 ms (34.8 to
 scenario shows no measurable difference: 54.5 ms (45.2 to 89.8) and
 55.2 ms (30.2 to 61.1).
 
-What is left, per `j` in the roll (about 45 ms at load 30):
+What was left then, per `j` in the roll (about 45 ms at load 30): about
+89 ticks of about 0.25 ms each (the timer, the kernel loop and its system
+calls, `only_live`, the stamps), and the whole frame after the key.
 
-- About 89 ticks of about 0.25 ms each: the timer, the kernel loop and
-  its system calls, `only_live`, the stamps. Fewer ticks while only a
-  note was played (not playing, not listening) would cut most of it.
-  That changes how smooth the meters fall, a decision of the owner.
-- The whole frame after the key: about 4 ms of processor time, 55 % of
-  it the arrange view above the roll, which is drawn whole although only
-  the roll changed. 'drawing the screen' (budget 5 ms, wall time) still
-  names it at load average 6 to 60.
-- `j` in the arrange view costs 5 to 11 ms, so the goal of the ticket
-  (within 2 times) is not met.
+### 20 frames a second while only meters fall
+
+The owner's rule: while nothing but falling meters moves (the song does
+not play or count in, and no track listens to its input), paw draws at
+most 20 frames a second. Playback and other motion keep `paw.opt.fps`.
+A played note also keeps the frames going until the meters that it lit
+are at rest (below -60 dB). Before, the frames ended with the poke, 1.5 s
+after the note, while the meter still showed a level: the meter falls
+with a time constant of 0.3 s and needs about 2.1 s.
+
+Kernel processor time of one `j` in the roll, the 2 s after the key
+(5 presses a run, median of each run), main (da45a4a0) and the branch
+in turns, 5 pairs, load average 7 to 29, measured under external load:
+
+| Build | Median of the runs | Smallest | Largest |
+| --- | ---: | ---: | ---: |
+| main | 51.6 ms | 41.7 ms | 75.4 ms |
+| branch | 19.0 ms | 18.1 ms | 30.9 ms |
+
+The `keys` scenario, the same two builds in turns, 5 pairs, load
+average 15 to 38 (kernel processor time, median of each run's median of
+5 presses, smallest and largest run):
+
+| Key | main | branch |
+| --- | ---: | ---: |
+| `j` in the arrange view | 7.6 ms (5.2 to 10.9) | 11.9 ms (4.8 to 12.1) |
+| `j in roll` | 68.3 ms (51.9 to 73.5) | 20.5 ms (19.4 to 32.6) |
+| `l in roll` | 4.2 ms (4.0 to 10.2) | 9.5 ms (4.2 to 11.8) |
+
+`j` in the arrange view and `l in roll` show no measurable difference.
+`j in roll` over `j` in the arrange view of the same run is 6.3 to 10.4
+on main and 1.6 to 4.2 (median 2.5) on the branch. The medians of the
+runs give 20.5 against 11.9 ms, 1.7 times. 'drawing the screen' (budget
+5 ms, wall time) still names the whole frame after `j in roll` in every
+run, also at load 15 and 19 (5.2 to 8.5 ms): 55 % of that frame is the
+arrange view above the roll, which is drawn whole although only the
+roll changed.
 
 ## 2026-11-22: a budget for each callback
 
