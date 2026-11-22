@@ -6,34 +6,36 @@ return {
 In this lesson, we move the cursor through a song by steps, clips, bars and
 tracks. Then we use the same keys in a different mode and in a different view.
 
-In the arrange view, a track is a line and time goes along it. One beat is
-one grid step. A clip on a track is like a word on a line. The keys that move
-the cursor are motions. The motions go in groups: small steps, clips,
-bars, the ends of items, and other tracks. A number before a motion repeats it.
+In the arrange view, each track is a row, and time goes from left to right
+along it. One grid step is one beat. The keys that move the cursor are
+called motions, and a number before a motion repeats it. Some motions move
+by small steps or by bars, others move to clips or to the ends of clips, and
+others move to other tracks.
 
-A key can have a different meaning in a different mode (normal, visual,
-insert). It can also have a different meaning in a different view (the arrange
-view, the piano roll, the mixer).
-The status line always shows the current mode. The view that gets the keys
-has a brighter frame or highlight.]],
+A key can have a different meaning in a different mode, e.g., normal, visual
+or insert mode. It can also have a different meaning in a different view,
+e.g., the arrange view, the piano roll or the mixer. The status line always
+shows the current mode, and the view that gets the keys has a brighter
+frame or highlight.]],
   idea = [[
-`h` and `l` move one grid step. `w`, `b` and `e` move by clips: the next
-start, this start and this end. `W` and `B` move by bars.
+`h` and `l` move one grid step. `w`, `b` and `e` move by clips, to the
+start of the next clip, the start of the current clip and the end of the
+current clip. `W` and `B` move by bars.
 
-`0` goes to the
-start of the project, and `^` goes to the first clip. `$` goes to the end of
-the last clip. `j` and `k` move by tracks. `gg` and `G` go to the first and
-the last track, and `5|` goes to bar 5. A count comes first: `4l`, `2W`,
-`3j`.
+`0` goes to the start of the project, and `^` goes to the first clip. `$`
+goes to the end of the last clip. `j` and `k` move by tracks, and `gg` and
+`G` go to the first and the last track. `5|` goes to bar 5. You type a
+count before the motion, e.g., `4l`, `2W` or `3j`.
 
-The modes are NORMAL, to move and to do actions, VISUAL (`v`), to select,
-and INSERT (`i`), to add notes. PENDING shows while an operator waits for its
-motion. `<Esc>` returns to NORMAL.]],
+NORMAL mode is for moving and for actions, VISUAL mode (`v`) is for
+selecting, and INSERT mode (`i`) is for adding notes. PENDING shows while an
+operator waits for its motion, and `<Esc>` returns to NORMAL.]],
   vim = [[
 `hjkl`, `w` `b` `e`, `W` `B`, `0` `^` `$`, `gg` `G`, counts and `|` are all
-here. These are the differences. `w` goes to the starts of clips, and there
-is no WORD. `W` and `B` move by bars. `0` is the start of the project and `^`
-is the first clip. `|` and `:5` take a bar number, not a column or a line.]],
+in paw, with a few differences from Vim. `w` goes to the starts of clips,
+and there is no WORD, so `W` and `B` move by bars instead. `0` is the start
+of the project and `^` is the first clip. `|` and `:5` take a bar number,
+not a column or a line.]],
   setup = function(look)
     paw.project.tempo = 96
     local drums = paw.add_track({ name = "Drums" })
@@ -78,7 +80,7 @@ is the first clip. `|` and `:5` take a bar number, not a column or a line.]],
       done = "The cursor is at the start.",
     },
     {
-      say = "A clip is like a word: `w` moves to the start of the next clip on the track. Press `w`.",
+      say = "`w` moves to the start of the next clip on the track. Press `w`.",
       keys = { "w" },
       check = function() return paw.cursor.beat == 12 end,
       done = "The cursor is on `chorus`, which starts at beat 12 (bar 4).",
@@ -89,7 +91,7 @@ is the first clip. `|` and `:5` take a bar number, not a column or a line.]],
       check = function(ctx, look)
         return look.ran(ctx, "cursor.clip_end") and look.ran(ctx, "cursor.prev_clip") and paw.cursor.beat == 12
       end,
-      done = "`w` `b` `e` move to the next start, this start and this end.",
+      done = "`w`, `b` and `e` move to the start of the next clip, the start of the current clip and the end of the current clip.",
     },
     {
       say = "`W` and `B` move by bars (four beats here). Press `2W` to move two bars.",
@@ -104,7 +106,7 @@ is the first clip. `|` and `:5` take a bar number, not a column or a line.]],
       done = "The cursor is at the end of `outro`, where the song ends.",
     },
     {
-      say = "Tracks are lines: `G` moves to the last track and `gg` to the first. Press `G`.",
+      say = "`G` moves to the last track, and `gg` moves to the first track. Press `G`.",
       keys = { "G" },
       check = function(_, look) return look.cursor_track() == "Pad" end,
       done = "The cursor is on Pad, the last track. `3G` moves to track 3.",
@@ -117,7 +119,7 @@ is the first clip. `|` and `:5` take a bar number, not a column or a line.]],
       hint = "`|` is the bar key. On many keyboards, it is Shift and backslash.",
     },
     {
-      say = "Now we use the same keys in a different mode. Press `v`. The status line shows VISUAL, and each motion makes a selection larger. Press `l` two times.",
+      say = "Now we use the same keys in a different mode. Press `v`, and the status line shows VISUAL. In visual mode, each motion makes the selection larger. Press `l` two times.",
       keys = { "v", "l", "l" },
       check = function() return paw.keymap.mode == "x" and paw.cursor.beat == 18 end,
       done = "In visual mode, `l` moves the cursor and also selects. Lesson 7 shows what you can do with a selection.",
@@ -132,20 +134,20 @@ is the first clip. `|` and `:5` take a bar number, not a column or a line.]],
       say = "Now we use a different view. `<CR>` (Enter) on a clip opens it in the piano roll. Press `<CR>` on the pad clip.",
       keys = { "<CR>" },
       check = function(_, look) return look.focused() == "pianoroll" end,
-      done = "The piano roll gets the keys now.",
+      done = "The piano roll now gets the keys.",
       hint = "The cursor must be on a clip. Press `5|` on the Pad track to move it there.",
     },
     {
-      say = "Here the rows are pitches, so `k` moves up one semitone, not one track. Press `k` two times. You hear each pitch.",
+      say = "In the piano roll, the rows are pitches, so `k` moves up one semitone instead of one track. Press `k` two times, and you hear each pitch.",
       keys = { "k", "k" },
       start = function(ctx) ctx.pitch = paw.ui.views.pianoroll.pitch end,
       check = function(ctx, look)
         return look.focused() == "pianoroll" and paw.ui.views.pianoroll.pitch == ctx.pitch + 2
       end,
-      done = "The key is the same, but the view and the meaning are different. It still moves up.",
+      done = "The key is the same as in the arrange view, and it still moves up, but in the piano roll it moves by pitch.",
     },
     {
-      say = "`<Esc>` stays in the current window, in each view. `<C-w>p` returns to the previous window. Press `<C-w>p`. Then press `gp` to move the playhead to the cursor. Press `<leader><Space>` to play and `<leader><Space>` to stop.",
+      say = "`<Esc>` does not leave the current window in any view, and `<C-w>p` returns to the previous window. Press `<C-w>p`. Then press `gp` to move the playhead to the cursor. Press `<leader><Space>` to play and `<leader><Space>` to stop.",
       keys = { "<C-w>p", "gp", "<leader><Space>", { wait = 300 }, "<leader><Space>" },
       check = function(ctx, look)
         return look.focused() == "arrange" and look.ran(ctx, "transport.to_cursor") and look.played(ctx)
