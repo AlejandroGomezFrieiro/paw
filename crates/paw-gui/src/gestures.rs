@@ -484,7 +484,8 @@ fn ctrl_and_plus_zoom_and_ctrl_0_shows_the_whole_song() {
 fn drawn_with_glyphs_of_their_own(cjk: Option<(Vec<u8>, u32)>, text: &str) -> bool {
     let ctx = egui::Context::default();
     ctx.set_fonts(crate::theme::fonts(cjk));
-    let _ = ctx.run_ui(egui::RawInput::default(), |_| {});
+    // A dev build checks that each texture change is applied: these tests draw nothing, so they drop them.
+    ctx.run_ui(egui::RawInput::default(), |_| {}).textures_delta.clear();
     let font = egui::FontId::proportional(14.0);
     let laid = ctx.fonts_mut(|f| f.layout_no_wrap(text.into(), font.clone(), egui::Color32::WHITE));
     let glyphs: Vec<_> = laid.rows.iter().flat_map(|r| r.glyphs.iter()).collect();
@@ -782,7 +783,8 @@ fn what_the_window_writes_has_glyphs() {
     ];
     let ctx = egui::Context::default();
     ctx.set_fonts(crate::theme::fonts(None));
-    let _ = ctx.run_ui(egui::RawInput::default(), |_| {});
+    // A dev build checks that each texture change is applied: these tests draw nothing, so they drop them.
+    ctx.run_ui(egui::RawInput::default(), |_| {}).textures_delta.clear();
     let mut missing: Vec<char> = Vec::new();
     for source in sources {
         for ch in source.chars().filter(|c| !c.is_ascii()) {
