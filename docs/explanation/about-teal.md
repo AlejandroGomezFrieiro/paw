@@ -235,6 +235,14 @@ version in `runtime/lua/tl.lua`, and LuaJIT, as paw does.
   declared in the Lua files. `.luacheckrc` declares the global `paw`. The
   `lua` check of the flake runs it. It found a function that the import
   of MusicXML called outside the loop that declared it.
+- StyLua formats Lua, and cerulean (`ceru`) formats Teal. paw's code is
+  not formatted with them. Each one puts a comment after code one space
+  from it, and puts each statement on a line of its own. paw aligns its
+  comments and keeps short functions on one line: StyLua would change
+  most of the Lua files, and cerulean all of the Teal files. The
+  `format` check of the flake says how many, and does not fail.
+  `stylua.toml` and `tools/fmtcheck.sh` hold the settings nearest to
+  paw's style.
 - `tl` compiles one file, for example to look at the Lua that Teal makes
   (`tl gen`).
 

@@ -310,6 +310,23 @@
         touch $out
       '';
 
+      # How many Lua and Teal files StyLua and cerulean would change
+      # (tools/fmtcheck.sh). The tree is not formatted with them, so this
+      # says the number and does not fail, as the rustfmt check does.
+      formatCheck = pkgs: pkgs.runCommand "paw-format" {
+        src = nixpkgs.lib.fileset.toSource {
+          root = ./.;
+          fileset = nixpkgs.lib.fileset.unions [
+            ./stylua.toml ./.styluaignore ./tools/fmtcheck.sh
+            (nixpkgs.lib.fileset.fileFilter (file: file.hasExt "lua" || file.hasExt "tl") ./.)
+          ];
+        };
+        nativeBuildInputs = [ pkgs.stylua (luaTools pkgs).cerulean ];
+      } ''
+        sh $src/tools/fmtcheck.sh
+        touch $out
+      '';
+
       pawUtau = pkgs: (paw pkgs).withExtensions (exts: [ exts.utau ]);
 
       # The Teal tools that nixpkgs has not, or has old or with a fault.
@@ -330,9 +347,9 @@
       });
 
       # `nix flake check`: clippy, rustfmt, the Rust tests a sandbox can run,
-      # the program itself, Vale on the docs, `cyan check` on the Teal and
-      # luacheck on the Lua.
-      checks = forAll (pkgs: (rust pkgs).checks // { paw = paw pkgs; docs = docsCheck pkgs; teal = tealCheck pkgs; lua = luaCheck pkgs; });
+      # the program itself, Vale on the docs, `cyan check` on the Teal,
+      # luacheck on the Lua, and how much the formatters would change.
+      checks = forAll (pkgs: (rust pkgs).checks // { paw = paw pkgs; docs = docsCheck pkgs; teal = tealCheck pkgs; lua = luaCheck pkgs; format = formatCheck pkgs; });
 
       apps = forAll (pkgs:
         nixpkgs.lib.genAttrs [ "paw" "paw-gui" "paw-mcp" ] (name: {
