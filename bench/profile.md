@@ -108,6 +108,7 @@ Two tools in paw itself give the same view without `drive.py`:
 | [profile/top.py](profile/top.py) `<file.folded> [n] [--thread NAME] [--under FRAME]` | The functions with the most samples in a folded stack file: their own share and the share with what they call. |
 | [profile/calls.py](profile/calls.py) | Counts the calls of each `paw.api` function, and the line that calls it, per frame while paw plays (or with `--press j,k`, per key). |
 | [profile/compare.py](profile/compare.py) `<paw A> <paw B> <pairs> <scenario> [options]` | Two builds in turns, A B A B, and the median, smallest and largest value of each measure. |
+| [profile/frame.lua](profile/frame.lua) `<project> [rounds] [keys] [size]` | The time of a full frame of the arrange view after each key (`j,k` by default), with no terminal. With `PAW_FRAME_PROF=<file>`, the folded Lua stacks of the frames, for `top.py`. Under `perf stat`, run it with 0 rounds and with N: the difference divided by N is the instructions of a key and its frame. The frame is drawn as the terminal draws it (`paw.api.ui_snapshot`), and it is not written to a terminal. Run it with [profile/headless.py](profile/headless.py). |
 | [profile/harmony.lua](profile/harmony.lua) | The time to read all the chords and keys of a project, as when paw opens it, with a hash of the result to compare two builds. Run it with [profile/headless.py](profile/headless.py), which gives paw scratch folders. |
 
 ## Numbers on a shared machine
