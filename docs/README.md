@@ -1,15 +1,7 @@
 # The paw manual
 
-The manual has four kinds of page, so you can pick the kind that fits what
-you want to do:
-
-- Tutorials are lessons that you work through, and how-to guides give the
-  steps for one task.
-- Reference pages describe each part of paw, and explanation pages tell why
-  paw works as it does.
-
-Inside paw, `:help` shows the same pages under the same four headings,
-and it also has a page for each extension (`:help notation`).
+Inside paw, `:help` shows the same pages, and it also has a page for each
+extension (`:help notation`).
 
 ## Start here
 
