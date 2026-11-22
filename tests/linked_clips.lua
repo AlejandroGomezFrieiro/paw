@@ -44,6 +44,9 @@ end
 
 local function note_count(id) return api.clip_get(id).note_count end
 
+--- The note counts of two clips, as "5 4".
+local function counts(a, b) return note_count(a) .. " " .. note_count(b) end
+
 test(
   "<Space>cl puts a linked copy after the clip; a note added in the copy's piano roll is in both; u takes it out of both",
   function()
@@ -59,9 +62,9 @@ test(
     local roll = paw.ui.views.pianoroll
     roll.pitch, roll.beat = 72, 2
     keys("<CR>")
-    eq({ note_count(copy), note_count(riff.id) }, { 5, 5 }, "the note is in the copy and in the clip")
+    eq(counts(copy, riff.id), "5 5", "the note is in the copy and in the clip")
     keys("u")
-    eq({ note_count(copy), note_count(riff.id) }, { 4, 4 }, "u takes it out of both")
+    eq(counts(copy, riff.id), "4 4", "u takes it out of both")
   end
 )
 
@@ -75,7 +78,7 @@ test(":w writes the notes of a link to one file in linked/, and the link holds a
   local entries = api.json_decode(T.read_file(dir .. "/tracks/T/track.json")).clips
   eq(#entries, 2, "two clip entries")
   for i, entry in ipairs(entries) do
-    eq({ entry.link, entry.content.file }, { "riff", "linked/riff.midi2" }, "entry " .. i)
+    eq(entry.link .. " " .. entry.content.file, "riff linked/riff.midi2", "entry " .. i)
   end
   api.project_load(dir)
   paw.flush()
@@ -95,7 +98,7 @@ test("<Space>cu makes the clip a plain copy: a later edit of it leaves the other
   eq(layout(t), "riff@0:riff riff@4:-", "the copy is out of the link")
   eq(states(), before + 1, "one undo step")
   api.clip_note_add(copy, { pitch = 72, start = 2, length = 1 })
-  eq({ note_count(copy), note_count(riff.id) }, { 5, 4 }, "the edit stays in the copy")
+  eq(counts(copy, riff.id), "5 4", "the edit stays in the copy")
   keys("<Space>cu")
   eq(paw.ui.messages[#paw.ui.messages].text, "the clip is not linked", "a plain clip says so")
 end)
