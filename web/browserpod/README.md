@@ -44,7 +44,9 @@ the server sends no isolation headers, as GitHub Pages does, and `coi.js`
 isolates the page.
 
 The test loads BrowserPod's runtime and base disk from BrowserPod's servers,
-as each visitor of the page does.
+as each visitor of the page does. At the end, the script prints the bytes
+that the local server sent for each file. The pod reads only the parts of
+`home.ext2` that it needs, about 26 MB of its 100 MB.
 
 ### How to update the lock of the pod build
 

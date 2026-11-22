@@ -26,9 +26,15 @@ if [ ! -d "$node_dir/node_modules/puppeteer-core" ]; then
 fi
 cp "$here/test.mjs" "$node_dir/test.mjs"
 port=$((20000 + RANDOM % 20000))
-python3 "$here/serve.py" "$site" "$port" $extra >/dev/null 2>&1 &
+served="$(mktemp)"
+PAW_SERVE_LOG="$served" python3 "$here/serve.py" "$site" "$port" $extra >/dev/null 2>&1 &
 server=$!
-trap 'kill $server 2>/dev/null; wait $server 2>/dev/null' EXIT
+trap 'kill $server 2>/dev/null; wait $server 2>/dev/null; rm -f "$served"' EXIT
 sleep 0.5
 cd "$node_dir"
-timeout 600 node test.mjs "http://127.0.0.1:$port/demo.html" "$out"
+code=0
+timeout 600 node test.mjs "http://127.0.0.1:$port/demo.html" "$out" || code=$?
+# What this site sent, by file (BrowserPod's own files come from its CDN).
+echo "bytes served by this site:"
+awk '{ n[$1] += $2; t += $2 } END { for (f in n) printf "  %-22s %10d\n", f, n[f]; printf "  %-22s %10d\n", "total", t }' "$served"
+exit $code

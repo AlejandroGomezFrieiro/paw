@@ -70,6 +70,14 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             outputfile.write(chunk)
             left -= len(chunk)
 
+    def send_header(self, keyword, value):
+        # With PAW_SERVE_LOG, one line for each answer: the path and its bytes.
+        log = os.environ.get("PAW_SERVE_LOG")
+        if log and keyword == "Content-Length":
+            with open(log, "a") as f:
+                f.write(f"{self.path.split('?')[0]} {value}\n")
+        super().send_header(keyword, value)
+
     def log_message(self, *args):
         pass
 
