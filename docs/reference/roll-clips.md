@@ -18,11 +18,14 @@ its track.
   track ids.
 - `:roll.tracks` (terminal) or the side panel (graphical window, Tracks in
   the toolbar) shows or hides each track.
-- The piano roll shows at most `paw.opt.roll_context_max` notes (4000), and
-  paw finds them again only when the project, the edited clips or the
-  shown tracks change.
+- The piano roll shows at most `paw.opt.roll_context_max` notes (4000).
+  paw finds them again only when those notes, the edited clips or the
+  shown tracks change. When you edit the notes of the clip, the notes
+  behind them stay as they are.
 - The keyboard marks the keys that sound at the cursor, in each clip that
   shows. If `paw.harmony` is there, paw shows the name of their chord.
+  Right after an edit, the name can be the one from before the edit,
+  until paw reads the chords again.
 
 ## Edit several clips
 

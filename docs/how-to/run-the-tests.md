@@ -91,35 +91,45 @@ the leaks that are known, one on each line, for example
 lines to the list. When a file no longer leaks, the runner fails until you
 remove its line.
 
-## Write a test that a loaded machine does not break
+## Write a test that does not depend on time
 
-The tests run on a machine that also builds and runs other programs, and a
-loaded machine is slow but not wrong. Follow these rules so that a slow
-machine does not fail a test:
+The tests run on a machine that also builds and runs other programs, so a
+test must give the same result on an idle machine and on a loaded one, in
+a dev build and in a release build, and in any order or filter of the
+tests. Follow these rules when you write a test:
 
-- Wait for the event or the state, not for a time. `T.until_` waits for a
+- Check the behavior and never the speed. A test does not compare a time
+  on the clock, a processor time or a count of frames with a number. When
+  the cost is the behavior, count the work, for example the builds of an
+  index or the compiles of a clip. To measure a speed, write a script in
+  `bench/`, for example `bench/heavy.lua`, which reports the processor
+  time with the load of the machine and does not fail.
+- Wait for an event or a state, not for a time. `T.until_` waits for a
   condition, `T.next_block` for the audio blocks, and `T.until_beat` for
-  the playhead. In the window tests, `expect` waits for a condition in the
-  kernel.
-- Set a limit on a wait to the time that the slowest machine needs, not
-  the usual time, which is 30 seconds for a wait in the kernel. A wait
-  that gets to its limit shows a fault.
-- Do not compare two drawings of a value that changes with the time, for
-  example a meter. Hold the value still while the test draws.
-- Measure the speed only when the speed is the behavior, as described
-  below.
+  the playhead. Don't call `api.sleep` or `paw.wait` to let time pass, and
+  don't put a `wait` step in a lesson of the tutor.
+- Don't set a limit of your own on a wait, and don't write a local wait
+  with a deadline. The waits of `T` share one limit, and a wait that gets
+  to it shows a fault.
+- Check that a thing does not happen only after the kernel did its work,
+  for example after `T.next_block`. A check that nothing happened in some
+  milliseconds passes on a slow machine for the wrong reason.
+- Check sound in an offline render with `T.render`, not in a live meter
+  after a wait.
+- Make a plugin or a helper process that the test controls wait for the
+  test, for example with a file that the test removes, and don't compare a
+  delay with a deadline.
+- Make all of the state that the test reads. Start from `T.fresh()`, and
+  put back what the test changes with `T.after`.
 
-When you measure the speed, measure the processor time of the thread with
-`T.cpu_ms()`, not the time on the clock. Then check it with
-`T.quick(ms, limit, what)`. Other programs share the caches and the memory
-of the processor. As a result, the same work takes more processor time on
-a loaded machine, up to four times more.
-
-`T.quick` runs a fixed piece of work three times, and it compares the best
-time with its time on an idle machine. It multiplies the limit by the
-larger of the slowdown and the load average per processor, at most 8
-times and at least 1. The message of a failure shows both numbers. Keep
-the limit a few times the target.
+`tools/testlint.lua` checks the test files for a sleep, a read of the clock
+or a speed check, and the suite and `nix flake check` run it. The file
+`tests/timing-allowed.txt` lists the uses that the tests have today, one
+line `<file> <pattern> <count>` for each. A count that goes up fails, so a
+new test can't add one. A count that goes down also fails until you make
+its line smaller, so the list only gets shorter. Run
+`luajit tools/testlint.lua` to check the tree, and
+`luajit tools/testlint.lua counts` to print the counts of today.
 
 ## Run the Rust tests
 
@@ -218,6 +228,8 @@ Run `nix flake check`, which builds paw and runs the following checks:
 - The checks of the Lua and Teal code, which fail on a problem: the types
   of the Teal files with cyan, `luacheck` on the Lua files, and the format
   of both with StyLua and cerulean.
+- The check against tests that depend on time, `tools/testlint.lua`, which
+  fails on a count over `tests/timing-allowed.txt`.
 
 The Lua suite and the window tests do not run in the build. They need an X
 server, plugins and their own directories, and a build sandbox does not

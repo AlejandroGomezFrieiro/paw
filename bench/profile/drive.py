@@ -196,7 +196,8 @@ class Paw:
             "DBUS_SESSION_BUS_ADDRESS": "unix:path=/nonexistent/bus",
             "LANG": "C.UTF-8",
         }
-        for k in ("LD_LIBRARY_PATH", "LUA_PATH", "LUA_CPATH"):
+        # PAW_RUNTIME: the Lua of another checkout (tools/dev-runtime.sh).
+        for k in ("LD_LIBRARY_PATH", "LUA_PATH", "LUA_CPATH", "PAW_RUNTIME"):
             if k in os.environ:
                 env[k] = os.environ[k]
         env.update(env_extra or {})

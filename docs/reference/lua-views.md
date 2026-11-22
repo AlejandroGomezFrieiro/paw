@@ -27,6 +27,7 @@ A view has the same fields in both frontends, and the graphical window shows a v
 | Field | Effect |
 | --- | --- |
 | `render(self, buf, ctx)` | draws the view in cells |
+| `stamp(self, ctx)` | a text of what `render` reads that no event tells, so that a window without the keyboard keeps its cells while the text stays the same (see [A stamp for each window](#a-stamp-for-each-window)) |
 | `on_key(self, key)` | gets the keys that have no mapping |
 | `on_mouse(self, event)` | gets the pointer (see [The pointer](#the-pointer)) |
 | `gestures` | functions for the hit regions of roles (see [Roles](#roles)) |
@@ -82,6 +83,29 @@ paw.ui.view("score", {
 | `paw.seats.kind(seat)` | the kind of a seat, `"window"` or `"terminal"`: the key of its layout in the project |
 
 A command can act on a view from a different window, e.g., `Enter` on a clip in the arrange view, and it then acts in the window of that view that had the keyboard last. A view in a window of its own of the graphical window has a state of its own too, which starts from the state of the pane that it left. When the view returns to the main window, that pane takes its state.
+
+### A stamp for each window
+
+A view with `stamp(self, ctx)` gives a text of what its drawing reads, and paw keeps the cells of each of its windows under that text. On a later frame, a window that doesn't have the keyboard and has the same text gets its cells back, and paw doesn't call `render`. The playhead and the meters of the window still move. The window with the keyboard is always drawn.
+
+```lua
+stamp = function(self, ctx)
+  return table.concat({ tostring(self.clip_id), self.beat, self.scroll, tostring(ctx.follower) }, " ")
+end,
+```
+
+paw adds to the text what each window can read, so `stamp` gives only the rest:
+
+| paw adds | Example |
+| --- | --- |
+| the count of events so far (`paw.events.emitted()`) | an edit, an option, the mode, the cursor of the arrange view, a chord that paw reads again |
+| the count of edits of the project | a note, a fader |
+| the transport | play, record, the playhead, the loop and the punch range |
+| the place and the size of the window, its background, and its winbar | a window made larger |
+
+What `stamp` gives is the state of the window that changes without an event, for example its cursor and its scroll, and what its drawing reads from other modules without an event. A change of a highlight group draws every window again. A window that shows pixels (`buf:surface`, `buf:strip`) is always drawn. A view without `stamp` is drawn on each frame.
+
+A stamp that misses something shows an old picture. With `paw.opt.check_stamps`, paw draws each window anyway and logs each window that drew other cells with the same stamp. The test suite runs with it on, and a test fails on such a window. The arrange view, the piano roll and the mixer give a stamp.
 
 ### Pictures
 
