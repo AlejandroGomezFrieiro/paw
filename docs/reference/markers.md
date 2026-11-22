@@ -2,10 +2,7 @@
 
 <!-- tags: markers regions -->
 
-A marker is a named place in the song. A region is a named time range.
-They are on a second row of the ruler (a band of their own in the
-graphical window). They move with the beats when the tempo changes, and
-the project saves them. The module is `paw.markers`.
+A marker is a named place in the song, and a region is a named time range. Both appear on a second row of the ruler (a band of their own in the graphical window), they move with the beats when the tempo changes, and the project saves them. The Lua module is `paw.markers`.
 
 ## Keys and commands
 
@@ -13,7 +10,7 @@ the project saves them. The module is `paw.markers`.
 | --- | --- |
 | `g'` `<Space>rm`, `:marker Chorus` | Put a marker at the cursor. `g'` and `<Space>rm` ask for its name. A marker with no name typed is `Marker 1`, `Marker 2` and so on. |
 | `<Space>rn`, `:region Verse` | Make a region over the selection, or over the loop. `<Space>rn` asks for its name. |
-| `]'` `['` | Go to the next start of a marker or region, or the one before. These are motions: `d]'`. |
+| `]'` `['` | Go to the next start of a marker or region, or the one before. You can use them as motions, e.g., `d]'`. |
 | `g"`, `:marker.list` | List all markers and regions. Select one to go there. |
 | `:marker.goto 3`, `:marker.goto Chorus` | Go to a marker by number or by name. |
 | `:marker.rename Bridge` | Rename the marker at the cursor. |

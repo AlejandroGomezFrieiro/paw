@@ -2,11 +2,7 @@
 
 <!-- tags: learn midi-controllers -->
 
-A knob, a fader or a wheel of a MIDI controller can move a control. A
-control is the fader or the pan of a track, or a parameter of a device. A
-pad or a button presses a button that an extension adds. With the
-[clip launcher](../../extensions/launcher/README.md), a pad can launch a
-slot or a scene, or stop clips. The module is `paw.learn`.
+A knob, a fader or a wheel of a MIDI controller can move a control, which is the fader or the pan of a track, or a parameter of a device. A pad or a button can press a button that an extension adds, and with the [clip launcher](../../extensions/launcher/README.md) a pad can launch a slot or a scene, or stop clips. The Lua module is `paw.learn`.
 
 ## Commands
 
@@ -33,19 +29,11 @@ slot or a scene, or stop clips. The module is `paw.learn`.
 
 ## Behavior
 
-- The bindings are part of the project (`project.meta.learn`). They are
-  saved with the project, and undo changes them.
-- A move from a controller is the same as any other move of a control. It
-  writes automation when the automation mode of the track tells it to (see
-  [Automation](automation.md)). One sweep is one undo step.
-- Pickup: a control moves its target only after it reaches the value of the
-  target. The target does not jump to the value of the control.
-  `paw.opt.learn_pickup = false` makes the target jump.
-- A binding uses the controller number (or the note) and the channel. paw
-  does not compare the port that the message came from.
-- A pad that sends notes binds by its note. A pad that sends a controller
-  is pressed when the value goes above the middle of its range.
-- When you release a pad, a gate clip stops.
+- The bindings are part of the project (`project.meta.learn`), so the project saves them and undo changes them.
+- A move from a controller works like any other move of a control, and it writes automation when the automation mode of the track says so (see [Automation](automation.md)). One sweep is one undo step.
+- Pickup means that a control moves its target only after the control reaches the value of the target, so the target does not jump to the value of the control. Set `paw.opt.learn_pickup = false` to let the target jump.
+- A binding uses the controller number (or the note) and the channel. paw does not compare the port that the message came from.
+- A pad that sends notes binds by its note. A pad that sends a controller counts as pressed when the value goes above the middle of its range, and a gate clip stops when you release the pad.
 
 ## Lua
 
@@ -65,8 +53,4 @@ paw.learn.bind({ note = 48 }, { target = "stop" })          -- every clip
 | `paw.learn.start(target)` | Wait for a controller for this target. |
 | `paw.learn.trigger(name, spec)` | Add a kind of button target: `press(binding, down)`, `name(target)`, and optionally `check`, `words`, `target_for(word, track)` and `under_cursor(view)`. |
 
-A target is a table: `track`, and `target` (`"volume"`, `"pan"`,
-`"param"`, or a button that an extension adds), with `device` and `param`
-for a parameter. A button can keep a number in `slot`: the clip launcher
-keeps the row (from 0) of a launch or a scene there. A binding to a button
-of an extension that is not loaded stays in the project and does nothing.
+A target is a table with `track` and `target` (`"volume"`, `"pan"`, `"param"`, or a button that an extension adds), and it also has `device` and `param` when it names a parameter. A button can keep a number in `slot`, and the clip launcher keeps the row (counted from 0) of a launch or a scene there. A binding to a button of an extension that is not loaded stays in the project and does nothing.
