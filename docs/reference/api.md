@@ -398,6 +398,11 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 ## Module paw.commands
 
+- `paw.commands.about(text)`: A command that can be adjusted says the range it changed, as the panel of `<leader>.` shows it (`Quantize · 48 notes`). Call it from the handler.
+
+  ```lua
+  paw.commands.about("48 notes")
+  ```
 - `paw.commands.adjust(given)`: Run the last command that has `adjust` again with other parameters, in place of its undo step: `paw.commands.adjust({ grid = "1/8" })`, or positional ones, by the order of its `adjust`. The project goes back to before the command, the command runs again with its first parameters and these laid over them, and the undo step is the new result. It works only on the last change: after `undo`, or another change, it says so.
 - `paw.commands.adjusting()`: The line `adjust a=1 b=2` that holds the parameters of the last command that can be adjusted, as they are now; nil when no command ran that can be adjusted. `<leader>.` puts it on the command line.
 - `paw.commands.alias(alias, target)`: Make `alias` another name for `target`.
@@ -419,6 +424,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.commands.list()`: Every command, sorted by name.
 - `paw.commands.main(name)`: What a bare extension name (`:notation`) stands for: its `.open` or `.show` command, where it has one.
 - `paw.commands.owner()`: The extension that paw loads now, or whose code registers these commands and keys later. `:help` goes to its page for them, and an unload removes them.
+- `paw.commands.panel()`: What the panel of `<leader>.` shows: the title, the parameters of the last command that can be adjusted, and their values now. Nil when there is no such command.
 - `paw.commands.params(ctx)`: The parameters of the command that runs: what the user gave, by the names that its `adjust` lists. A parameter not given is not in the table.
 
   ```lua
