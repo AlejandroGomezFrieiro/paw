@@ -1163,12 +1163,54 @@ local record contracts
   --- MIDI input it listens to, and that plays the controller. `note(e)`
   --- enters a key, `release()` is told when the last held key is released,
   --- and `status()` is its title, for example `STEP C4 · 1 beat`.
+  --- `actions` does what a control of the controller asks
+  --- (`paw.step.bind`), by the name of the action: `rest`, `tie`, `back`,
+  --- `dur.8` and the others. An action that the target does not have says
+  --- `not here: <action>`.
   interface StepTarget
     active: function(): boolean
     track: function(): integer
     note: function(e: StepNote)
     release: function()
     status: function(): string
+    actions: {string: StepAction}
+  end
+
+  --- An action of step input: `count` is how many times (1 from a control).
+  type StepAction = function(count: integer)
+
+  --- A control of the controller (`paw.step.bind`): a key or pad (`note`)
+  --- or a controller (`cc`, 64 the sustain pedal), 0 to 127, from the port
+  --- of that name (every port when left out), on `channel` 1 to 16 (every
+  --- channel when left out).
+  record StepSource
+    port: string
+    channel: integer
+    note: integer
+    cc: integer
+  end
+
+  --- What a control does besides one action (`paw.step.bind`): `keys`, the
+  --- keys typed in the view (`"=8t"`); or `down`, the action when no key is
+  --- held, and `held`, the action while keys are held (the sustain pedal:
+  --- `{ down = "rest", held = "tie" }`).
+  record StepDo
+    keys: string
+    down: string
+    held: string
+  end
+
+  --- A control and what it does, as `paw.step.bindings()` gives it:
+  --- `action`, or what `StepDo` says. `saved` when it is in the file of
+  --- the controls (`:step.learn`, or the default of the pedal), not from
+  --- Lua.
+  record StepBinding
+    source: StepSource
+    action: string
+    keys: string
+    down: string
+    held: string
+    saved: boolean
   end
 
   -- Pickers ----------------------------------------------------------------------
@@ -1648,6 +1690,19 @@ local record contracts
   --- each argument, or a function.
   type Complete = string | {string} | CompleteFn
 
+  --- A parameter that a command lets the user change after it ran
+  --- (`paw.command`'s `adjust`): its `name`, the limits `min` and `max` and
+  --- the `step` of a number, the `default` that it has when none was given,
+  --- and the `values` that the command line suggests.
+  record AdjustParam
+    name: string
+    min: number
+    max: number
+    step: number
+    default: CommandArg
+    values: {string}
+  end
+
   --- What `paw.command` takes besides the name and the function.
   record CommandOptions
     desc: string
@@ -1656,6 +1711,7 @@ local record contracts
     label: string
     range: boolean
     ext: string
+    adjust: {AdjustParam}
   end
 
   --- `paw.command`: `paw.command(name, fn, opts)` defines a command, and

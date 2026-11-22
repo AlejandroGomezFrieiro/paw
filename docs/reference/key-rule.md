@@ -52,7 +52,7 @@ The rule is for normal mode, visual mode and the motions after an operator. In i
 
 | Leader | Meaning |
 | --- | --- |
-| The leader | `<leader>` in a mapping. It is `paw.opt.leader`, the space bar by default (`" "`). It starts the keys that mean the same in every view: `<Space>mm` the mixer, `<Space>dd` the device panel. `<Space><Space>` plays and stops at once: no other key starts with it. |
+| The leader | `<leader>` in a mapping. It is `paw.opt.leader`, the space bar by default (`" "`). It starts the keys that mean the same in every view: `<Space>mm` the mixer, `<Space>dd` the device panel. `<Space><Space>` plays and stops at once: no other key starts with it. `<Space>.` adjusts the last change. |
 | The local leader | `<localleader>` in a mapping. It is `paw.opt.localleader`, a backslash by default, as in Vim. It starts the keys of one view, for example the notation popovers (`\d` dynamics, `\t` tempo) and the fades of a clip in the arrange view (`\fi`, `\fo`). |
 
 A key of one view must not use a key of the global leader, or the leader alone. One exception is that a view can play in its own way on the keys that play (`role = "play"`), as the vocal editor plays from its cursor. `:lua =paw.keyrule.broken()` lists the keys that do not obey. The key hints show both leaders as you type them.

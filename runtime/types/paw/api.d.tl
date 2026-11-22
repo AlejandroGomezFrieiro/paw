@@ -320,6 +320,8 @@ local record api
    ui_snapshot: function(width: integer, height: integer): {string}
    ui_view_snapshot: function(name: string, width: integer, height: integer): types.ViewSnapshot
    undo: function(): boolean
+   undo_adjust: function(before?: integer, label?: string): types.UndoAdjust
+   undo_adjust_cancel: function()
    undo_checkpoint: function()
    undo_current: function(): integer
    undo_diff: function(a?: integer, b?: integer): types.UndoDiff

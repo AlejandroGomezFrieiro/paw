@@ -615,10 +615,25 @@ end
 local title_of = { [""] = "title", _cur = "title_cur", _off = "title_off" }
 local body_of = { [""] = "body", _cur = "body_cur", _off = "body_off" }
 
---- A clip on the timeline's plane, as the `clip` role it is. `colour` is
---- its track's (`paw.draw.track_colour`), when the caller has it.
-function view.clip_props(clip, track, hue, kind, zoom, chosen, colour)
+--- Where the window's scope (`paw.scope`) cuts a clip that crosses one of
+--- its edges, in beats from the clip's start: `cut_in` at its start,
+--- `cut_out` at its end, each nil where it does not cut. Only the drawing
+--- is cut: an edit of the clip is an edit of all of it.
+local function cuts(clip, from, to)
+  if not from then return nil, nil end
+  local finish = clip.start + clip.length
+  local EPS = 1e-9
+  local cut_in = (clip.start < from - EPS and finish > from + EPS) and from - clip.start or nil
+  local cut_out = (clip.start < to - EPS and finish > to + EPS) and to - clip.start or nil
+  return cut_in, cut_out
+end
+
+--- A clip on the timeline's plane, as the `clip` role it is. `from`, `to`:
+--- the time of the window's scope, which cuts it (`cut_in`, `cut_out`).
+--- `colour` is its track's (`paw.draw.track_colour`), when the caller has it.
+function view.clip_props(clip, track, hue, kind, zoom, chosen, from, to, colour)
   colour = colour or draw.track_colour(track)
+  local cut_in, cut_out = cuts(clip, from, to)
   -- A clip with takes says which plays: `take 3 ‹2/4›`.
   local badge = paw.takes.badge(clip)
   local label = clip.offline and ("offline · " .. clip.name) or clip.name
@@ -637,6 +652,8 @@ function view.clip_props(clip, track, hue, kind, zoom, chosen, colour)
     per = zoom,
     repeats = clip.loop and paw.stretch.repeats(clip) or nil,
     warps = warps,
+    cut_in = cut_in,
+    cut_out = cut_out,
     title_style = hue[title_of[kind]],
     body_style = hue[body_of[kind]],
     body = clip_body,
@@ -726,7 +743,7 @@ end
 local kept_rows = {}
 
 --- What a row of the timeline is drawn from, besides its clips.
-local function row_ground(self, buf, row, track, hue, marks, loop, colour)
+local function row_ground(self, buf, row, hue, marks, loop, colour, scope_from, scope_to)
   return {
     buf.x,
     buf.y,
@@ -750,6 +767,8 @@ local function row_ground(self, buf, row, track, hue, marks, loop, colour)
     paw.roles.registry.beats,
     loop and loop[1] or false,
     loop and loop[2] or false,
+    scope_from or false,
+    scope_to or false,
     marks = marks,
   }
 end
@@ -760,6 +779,7 @@ local function lane(self, buf, row, track, selected, cursor_clip, lanes, hue, ma
   local plane = self.plane
   local w = buf.width
   local colour = draw.track_colour(track)
+  local scope_from, scope_to = paw.scope.span()
   local layers = paw.ui.layers.arrange
   local painted = layers and layers.clip
   -- The clips the timeline shows, and a column more each side: the test
@@ -800,7 +820,7 @@ local function lane(self, buf, row, track, selected, cursor_clip, lanes, hue, ma
     end
   end
   if keep_key then
-    ground = row_ground(self, buf, row, track, hue, marks, loop, colour)
+    ground = row_ground(self, buf, row, hue, marks, loop, colour, scope_from, scope_to)
     local was = kept_rows[keep_key]
     if was and same(was.ground, ground) and same(was.clips, clips) and buf:put_kept(keep_key, 0, y, w, height) then
       if painted then paint_layers() end
@@ -828,7 +848,7 @@ local function lane(self, buf, row, track, selected, cursor_clip, lanes, hue, ma
       y,
       clip.length,
       height,
-      view.clip_props(clip, track, hue, kind, zoom, chosen[clip.id], colour)
+      view.clip_props(clip, track, hue, kind, zoom, chosen[clip.id], scope_from, scope_to, colour)
     )
     if painted and not keep_key then
       paw.ui.paint("arrange", "clip", { buf = box, width = s.cw, height = height, clip = clip })

@@ -30,6 +30,18 @@ The completers are `commands`, `tracks`, `devices`, `track_devices`,
 files), `projects` and `openable` (projects, MIDI files and sound files).
 You can add more to `paw.commands.completers`, and `paw.commands.complete(line)` lists the completions of a line.
 
+### Adjustable parameters
+
+The `adjust` option lists the parameters that the user can change after the command ran. Each entry has a `name`, and may have `min`, `max` and `step` for a number, a `default`, and `values` that the command line suggests.
+
+```lua
+paw.command("shift", fn, { adjust = { { name = "grid" }, { name = "strength", min = 0, max = 100, step = 5, default = 100 } } })
+```
+
+The command reads its parameters with `paw.commands.params(ctx)`. It gives a table by name, from `name=value` words or from positional words in the order of the list, and a parameter that nobody gave is not in it. A command with `raw = true` gets its text, and `params` reads the same words from it.
+
+`:adjust` runs the last command that has `adjust` again, in place of its undo step. See [Ex commands](ex.md#adjusting-the-last-command). `paw.commands.adjust(args)` does the same from Lua. paw records the command only when it ran outside of another command and changed the project.
+
 ### Ranges
 
 A range before the name of a command gives the command a part of the project, as in Vim. The syntax of ranges is in [Ex commands](ex.md).

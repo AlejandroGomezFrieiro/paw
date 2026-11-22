@@ -271,7 +271,9 @@ pub struct ChipProps<'a> {
 /// beats in columns `per` cells a beat; `content` the key of its notes or
 /// sound; `midi`; `muted`, `current`, `chosen`, `ghost` while it is
 /// dragged; its fades and `gain` (shown with `gain_line`) in beats and dB;
-/// `warps` and `repeats`, the beats of its warp markers and its loops.
+/// `warps` and `repeats`, the beats of its warp markers and its loops;
+/// `cut_in` and `cut_out`, the beats from its start where the window's
+/// scope cuts it.
 #[derive(Debug, Default, Deserialize)]
 #[serde(default)]
 pub struct ClipProps<'a> {
@@ -295,6 +297,8 @@ pub struct ClipProps<'a> {
     pub gain_line: bool,
     pub warps: Vec<f64>,
     pub repeats: Vec<f64>,
+    pub cut_in: Option<f64>,
+    pub cut_out: Option<f64>,
 }
 
 /// The ground of a row of the timeline, `index` from the top, in columns
