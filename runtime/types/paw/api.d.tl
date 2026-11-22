@@ -253,6 +253,9 @@ local record api
    sock_write: function(id: integer, data: string)
    sound_envelope: function(path: string): types.SoundEnvelope
    sound_write: function(path: string, opts: types.SoundWriteOptions, samples: string | function(frame: integer, count: integer): string): integer
+   startup_enter: function()
+   startup_leave: function(label: string)
+   startup_timed: function(): boolean
    state_get: function(key: string): any
    state_set: function(key: string, value: any)
    str_width: function(text: string): integer

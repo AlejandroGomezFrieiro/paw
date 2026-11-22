@@ -209,6 +209,9 @@ paw.plot = {}
 ---@class paw.plugins
 paw.plugins = {}
 
+---@class paw.profile
+paw.profile = {}
+
 ---@class paw.qf
 paw.qf = {}
 
@@ -6175,6 +6178,25 @@ function paw.plugins.note_names(device) end
 ---@param dir any
 function paw.plugins.remove_dir(dir) end
 
+--- The functions of a report as entries of the quickfix list: the share
+--- of the samples, the name, the file and the line.
+---@param report any
+function paw.profile.entries(report) end
+
+--- Whether `jit.profile` runs, and the samples it took so far.
+function paw.profile.running() end
+
+--- Start `jit.profile`, which takes a sample of the Lua code each
+--- millisecond. With `file`, `stop` writes the folded stacks there. Fails
+--- when it runs already.
+---@param file any
+function paw.profile.start(file) end
+
+--- Stop `jit.profile`. Returns the samples, the seconds and the functions
+--- that took the most time. Writes the folded stacks to the file that
+--- `start` was given. Fails when it does not run.
+function paw.profile.stop() end
+
 --- Run a command line on each entry of the current list of a stack (`:cdo`),
 --- all as one undo step. For each entry, the cursor goes to the entry
 --- first. The command gets the address as `ctx.target`, and the whole
@@ -10148,6 +10170,19 @@ function paw.api.sound_envelope(path) end
 ---@param opts table
 ---@param samples any
 function paw.api.sound_write(path, opts, samples) end
+
+--- Open an item of the start that `paw --startuptime` times: a module,
+--- an extension, the configuration. `startup_leave` closes it with its
+--- line. Nothing happens when the start is not timed.
+function paw.api.startup_enter() end
+
+--- Close the item `startup_enter` opened last: its line in the file of
+--- `--startuptime` gives its time with and without the items opened in it.
+---@param label string
+function paw.api.startup_leave(label) end
+
+--- True while `paw --startuptime` times the start.
+function paw.api.startup_timed() end
 
 ---@param key string
 function paw.api.state_get(key) end

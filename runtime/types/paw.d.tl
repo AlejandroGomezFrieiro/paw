@@ -49,6 +49,7 @@ local type OptionModule = require("paw.options")
 local type PanesModule = require("paw.panes")
 local type PickModule = require("paw.pick")
 local type PlotModule = require("paw.plot")
+local type ProfileModule = require("paw.profile")
 local type QfModule = require("paw.qf")
 local type QueryModule = require("paw.query")
 local type RegexModule = require("paw.regex")
@@ -168,6 +169,7 @@ global record paw
    pick: PickModule
    plot: PlotModule
    plugins: Untyped
+   profile: ProfileModule
    project: ObjectsModule.Project
    qf: QfModule
    query: QueryModule
