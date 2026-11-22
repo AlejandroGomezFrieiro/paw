@@ -341,6 +341,15 @@ M.registries = {
       paw.insert.remove(key)
     end
   end, function(key) return key .. " (insert mode)" end),
+  -- The keys of the pencil: the "keys" registry takes their mappings away,
+  -- this one their entries, which the key bar lists.
+  keyed(
+    "pencil",
+    "keys of the pencil",
+    function() return paw.roll_draw and paw.roll_draw.keys end,
+    nil,
+    function(key) return key .. " (pencil)" end
+  ),
   keyed("grep", "grep sources", function() return paw.grep and paw.grep.sources end, function(key, value)
     local g = paw.grep
     if value and not g.sources[key] then g.order[#g.order + 1] = key end

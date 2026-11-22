@@ -20,8 +20,9 @@
 --   paw.insert.remove("f")
 --
 -- The keys that work are those in `paw.opt.insertkeys`; `add` puts a new
--- key there. A kind of clip (`paw.clip_kinds.define`) with an `insert` key
--- gets one too. The contract is `paw.contracts.InsertKind`.
+-- key there, at the place of its `order`. A kind of clip
+-- (`paw.clip_kinds.define`) with an `insert` key gets one too. The
+-- contract is `paw.contracts.InsertKind`.
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
@@ -30,6 +31,7 @@ local events = require("paw.events")
 local commands = require("paw.commands")
 local objects = require("paw.objects")
 local cursor = require("paw.cursor")
+local util = require("paw.util")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
 local type MarkersModule = require("paw.markers")
@@ -176,9 +178,30 @@ local function sync()
   api.ui_redraw()
 end
 
+--- A copy of `list` with `key` in it at the place of its kind's `order`
+--- (`util.by_order`): before the first key whose kind comes after it, else
+--- last. A key with no kind does not move the others.
+local function placed(list: {string}, key: string): {string}
+  local spec = M.kinds[key]
+  local copy: {string} = {}
+  local put = false
+  for _, k in ipairs(list) do
+    local other = M.kinds[k]
+    if not put and other and util.by_order(spec, other) then
+      copy[#copy + 1], put = key, true
+    end
+    copy[#copy + 1] = k
+  end
+  if not put then
+    copy[#copy + 1] = key
+  end
+  return copy
+end
+
 --- Add a key, or put a new kind in place of the one on it. It goes into
---- `paw.opt.insertkeys` (unless `hidden`), so it works at once.
----   paw.insert.add("M", { kind = "midi", desc = "A 4-bar clip", length = "4 bars" })
+--- `paw.opt.insertkeys` (unless `hidden`) at the place of its `order`, so
+--- it works at once.
+---   paw.insert.add("M", { kind = "midi", desc = "A 4-bar clip", length = "4 bars", order = 15 })
 function M.add(key: string, spec: Kind): Kind
   assert(
     type(key) == "string" and key ~= "" and type(spec) == "table",
@@ -188,15 +211,11 @@ function M.add(key: string, spec: Kind): Kind
   spec.key = key
   spec.desc = spec.desc or ("A " .. tostring(spec.kind))
   spec.order = spec.order or 50
+  spec.ext = spec.ext or paw.ext.caller()
   M.kinds[key] = spec
   local list = shown()
   if not spec.hidden and not has(list, key) then
-    local copy: {string} = {}
-    for i, k in ipairs(list) do
-      copy[i] = k
-    end
-    copy[#copy + 1] = key
-    set_shown(copy)
+    set_shown(placed(list, key))
   end
   sync()
   return spec

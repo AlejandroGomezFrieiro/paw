@@ -1010,10 +1010,10 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 ## Module paw.insert
 
-- `paw.insert.add(key, spec)`: Add a key, or put a new kind in place of the one on it. It goes into `paw.opt.insertkeys` (unless `hidden`), so it works at once.
+- `paw.insert.add(key, spec)`: Add a key, or put a new kind in place of the one on it. It goes into `paw.opt.insertkeys` (unless `hidden`) at the place of its `order`, so it works at once.
 
   ```lua
-  paw.insert.add("M", { kind = "midi", desc = "A 4-bar clip", length = "4 bars" })
+  paw.insert.add("M", { kind = "midi", desc = "A 4-bar clip", length = "4 bars", order = 15 })
   ```
 - `paw.insert.back()`: `<BS>`: take back the last thing inserted, and the cursor with it.
 - `paw.insert.count()`: The count typed so far in insert mode, or nil.
@@ -1837,13 +1837,14 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.roll_draw.finish()`: End the drawing: write it, and forget it. Returns what it did, in words.
 - `paw.roll_draw.grow(steps)`: Move the edge under the cursor `steps` grid steps right, or left with a negative count: at the end, the note grows; at its start, it shrinks. No note grows over the next note of its pitch.
 - `paw.roll_draw.hidden(clip)`: The ids of a clip's notes that the pencil holds, which the roll does not draw where they were: they show where the pencil has them.
-- `paw.roll_draw.key(lhs, spec)`: A key of the pencil from an extension: `lhs` in the piano roll's insert mode, `spec.run(count, char)` with the count typed before it (and the key typed after it, with `spec.char`). It reads and changes `paw.roll_draw.pen()`, then calls `paw.roll_draw.shown()`.
+- `paw.roll_draw.key(lhs, spec)`: A key of the pencil from an extension: `lhs` in the piano roll's insert mode, `spec.run(count, char)` with the count typed before it (and the key typed after it, with `spec.char`). It reads and changes `paw.roll_draw.pen()`, then calls `paw.roll_draw.shown()`. The key bar shows it after the pencil's own keys, by `spec.order` (50 when not given), then by key.
 
   ```lua
-  paw.roll_draw.key("gs", { desc = "Staccato: half as long", run = function(n) ... end })
+  paw.roll_draw.key("gs", { desc = "Staccato: half as long", order = 10, run = function(n) ... end })
   ```
 - `paw.roll_draw.label()`: What the piano roll's title says in insert mode.
 - `paw.roll_draw.length_key(char)`: Start typing a length (`=`), or add to it: each key that makes one sets the notes being drawn that long at once.
+- `paw.roll_draw.list()`: The keys that extensions added to the pencil, by `order`, then by key.
 - `paw.roll_draw.mark(kind)`: Put a mark of the song at the pencil's start (`m` then its kind): `k` a key change, `t` a tempo, `s` a time signature from the bar, `'` a marker. Each asks its value, and is in the insert's undo step.
 - `paw.roll_draw.name(letter)`: Set the pitch by its name (`r` then a letter): the nearest of that name, the chord with it. `#` and `b` next make it sharp or flat.
 - `paw.roll_draw.next(how)`: Keep the notes and go on. "legato" starts the next note at the end, "rest" a step (the note length, or count steps) after it; a note of the clip that starts there is taken up. "chord" draws another note at the same start and as long (`chord`'s count stacks).
@@ -2372,6 +2373,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 ## Module paw.util
 
+- `paw.util.by_order(a, b)`: The order of the entries that extensions add to a list of keys (the pencil's keys, the insert kinds): by `order`, then by key.
 - `paw.util.clamp(v, lo, hi)`: `v`, kept between `lo` and `hi`.
 - `paw.util.copy`: the same as `paw.seats.copy`.
 - `paw.util.expand_path(path)`: A path as typed, with `~` at its start for the home folder, as a shell reads it: `~/mix.wav`. Every command that takes a file name reads it so.

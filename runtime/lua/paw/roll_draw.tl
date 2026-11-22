@@ -210,8 +210,7 @@ local record ModeChanged
 end
 
 --- A key an extension adds to the pencil (`M.key`): `run(count, char)`.
-local record PencilKey
-  desc: string
+local record PencilKey is contracts.OwnedEntry
   char: boolean
   run: function(count: integer, char: string)
 end
@@ -225,7 +224,8 @@ local record M
   type Bend = Bend
   type PencilKey = PencilKey
   type Edge = Edge
-  --- The keys extensions added, by their keys (`M.key`).
+  --- The keys extensions added, by their keys (`M.key`). paw/ext.lua
+  --- takes an extension's keys away when it unloads.
   keys: {string: PencilKey}
   --- A clip's controller moves, none read when it has none.
   controls_of: function(id: integer): {types.Control}
@@ -2139,9 +2139,14 @@ stepin.target(
 --- A key of the pencil from an extension: `lhs` in the piano roll's
 --- insert mode, `spec.run(count, char)` with the count typed before it
 --- (and the key typed after it, with `spec.char`). It reads and changes
---- `paw.roll_draw.pen()`, then calls `paw.roll_draw.shown()`.
----   paw.roll_draw.key("gs", { desc = "Staccato: half as long", run = function(n) ... end })
+--- `paw.roll_draw.pen()`, then calls `paw.roll_draw.shown()`. The key bar
+--- shows it after the pencil's own keys, by `spec.order` (50 when not
+--- given), then by key.
+---   paw.roll_draw.key("gs", { desc = "Staccato: half as long", order = 10, run = function(n) ... end })
 function M.key(lhs: string, spec: PencilKey)
+  spec.key = lhs
+  spec.order = spec.order or 50
+  spec.ext = spec.ext or paw.ext.caller()
   M.keys[lhs] = spec
   paw.keymap.set(
     lhs,
@@ -2153,6 +2158,16 @@ function M.key(lhs: string, spec: PencilKey)
     end,
     {view = "pianoroll", mode = "i", desc = spec.desc, char = spec.char or nil}
   )
+end
+
+--- The keys that extensions added to the pencil, by `order`, then by key.
+function M.list(): {PencilKey}
+  local out: {PencilKey} = {}
+  for _, spec in pairs(M.keys) do
+    out[#out + 1] = spec
+  end
+  table.sort(out, util.by_order)
+  return out
 end
 
 -- Entering insert mode in the piano roll starts a note at the cursor;

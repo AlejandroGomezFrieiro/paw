@@ -27,6 +27,14 @@ function M.show(lhs)
   return names[out] or out
 end
 
+-- A key's `desc` as the key bar shows it: up to its first `;` `:` or
+-- `,`, with no "A" or "An" before, in lower case. "A region; Enter names
+-- it" is "region", "Staccato: half as long" is "staccato".
+local function short_desc(desc)
+  local text = (desc or ""):gsub("^An? ", "")
+  return (text:match("^[^;:,]+") or text):lower()
+end
+
 --- The entries for what has the keyboard now, as `{ shown key, text }`.
 function M.entries()
   local view = paw.ui.focused
@@ -104,7 +112,7 @@ M.lines.arrange = {
     local count = paw.insert and paw.insert.count()
     if count then out[1] = { "", "times", tostring(count) } end
     for _, spec in ipairs(paw.insert and paw.insert.list() or {}) do
-      out[#out + 1] = { spec.key, (spec.desc:match("^An? ([^;:,]+)") or spec.desc):lower() }
+      out[#out + 1] = { spec.key, short_desc(spec.desc) }
     end
     for _, entry in ipairs({ { "<CR>", "open" }, { "<BS>", "back" }, { "K", "keys" }, { "<Esc>", "done" } }) do
       out[#out + 1] = entry
@@ -155,8 +163,12 @@ M.lines.pianoroll = {
       { "c", "chord" },
       { "<CR>", "next" },
       { "<Space>", "rest" },
-      { "<Esc>", "write" },
     }
+    -- The keys that extensions added (`paw.roll_draw.key`), in their order.
+    for _, spec in ipairs(paw.roll_draw and paw.roll_draw.list() or {}) do
+      out[#out + 1] = { spec.key, short_desc(spec.desc) }
+    end
+    out[#out + 1] = { "<Esc>", "write" }
     if now then
       local pitch, length = now:match("^(.-) · (.*)$")
       table.insert(out, 1, { "", length, pitch })

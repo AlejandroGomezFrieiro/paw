@@ -4266,8 +4266,9 @@ function paw.hooks.turn() end
 function paw.hooks.views_shown() end
 
 --- Add a key, or put a new kind in place of the one on it. It goes into
---- `paw.opt.insertkeys` (unless `hidden`), so it works at once.
----   paw.insert.add("M", { kind = "midi", desc = "A 4-bar clip", length = "4 bars" })
+--- `paw.opt.insertkeys` (unless `hidden`) at the place of its `order`, so
+--- it works at once.
+---   paw.insert.add("M", { kind = "midi", desc = "A 4-bar clip", length = "4 bars", order = 15 })
 ---@param key any
 ---@param spec any
 function paw.insert.add(key, spec) end
@@ -7186,8 +7187,10 @@ function paw.roll_draw.hidden(clip) end
 --- A key of the pencil from an extension: `lhs` in the piano roll's
 --- insert mode, `spec.run(count, char)` with the count typed before it
 --- (and the key typed after it, with `spec.char`). It reads and changes
---- `paw.roll_draw.pen()`, then calls `paw.roll_draw.shown()`.
----   paw.roll_draw.key("gs", { desc = "Staccato: half as long", run = function(n) ... end })
+--- `paw.roll_draw.pen()`, then calls `paw.roll_draw.shown()`. The key bar
+--- shows it after the pencil's own keys, by `spec.order` (50 when not
+--- given), then by key.
+---   paw.roll_draw.key("gs", { desc = "Staccato: half as long", order = 10, run = function(n) ... end })
 ---@param lhs any
 ---@param spec any
 function paw.roll_draw.key(lhs, spec) end
@@ -7199,6 +7202,9 @@ function paw.roll_draw.label() end
 --- sets the notes being drawn that long at once.
 ---@param char any
 function paw.roll_draw.length_key(char) end
+
+--- The keys that extensions added to the pencil, by `order`, then by key.
+function paw.roll_draw.list() end
 
 --- Put a mark of the song at the pencil's start (`m` then its kind): `k`
 --- a key change, `t` a tempo, `s` a time signature from the bar, `'` a
@@ -9303,6 +9309,12 @@ function paw.ui.keybar.show(lhs) end
 --- The undo folder of the project at `path`, or nil when paw keeps none.
 ---@param path any
 function paw.undofile.dir(path) end
+
+--- The order of the entries that extensions add to a list of keys (the
+--- pencil's keys, the insert kinds): by `order`, then by key.
+---@param a any
+---@param b any
+function paw.util.by_order(a, b) end
 
 --- `v`, kept between `lo` and `hi`.
 ---@param v any
