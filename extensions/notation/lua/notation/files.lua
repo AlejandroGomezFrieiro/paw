@@ -135,7 +135,6 @@ function F.open(path)
   -- It opens as a project file does: nothing to undo, nothing changed yet.
   api.undo_reset()
   if tracks[1] then paw.cursor.set_track(tracks[1]) end
-  paw.state.pick_dir = path:match("^(.*)/[^/]*$") or paw.state.pick_dir
   return { tracks = tracks, notes = notes, skipped = mx.skipped_text(file) }
 end
 

@@ -611,6 +611,7 @@ end
 local record InputOptions
   prompt: string
   text: string
+  complete: function(text: string): {{string:string}}
 end
 local record MouseEvent
   kind: string
@@ -759,8 +760,9 @@ end
 local record Autosave
   discard: boolean
 end
-local record Saved
-  pick_dir: string
+local record Files
+  here: function(): string
+  project_path: function(name: string): string
 end
 local record TrackKinds
   describe: function(track: integer): string
@@ -799,7 +801,7 @@ local record Paw
   loading: Loading
   recent: RecentModule
   autosave: Autosave
-  state: Saved
+  files: Files
   track_kinds: TrackKinds
   pick: Pick
   canvas: CanvasModule
@@ -1669,25 +1671,30 @@ function M.state(known: integer): State
   return out
 end
 
---- Save the project under a new name: choose the directory from a list,
---- then type the file's name. `after` runs once it is saved.
+--- Save the project under a new name: type it at a prompt that starts with
+--- the name of the project. A relative name goes where `:w name` puts it
+--- (`paw.files.here()`), `..` and `~` go elsewhere, and Tab completes.
+--- `after` runs once it is saved.
 function M.save_as(after?: function())
-  paw.pick.file({
-    title = "Save the project in",
-    directory = true,
-    on_choose = function(dir: string)
-      local p = api.project_get()
-      -- A project is a folder: its name is the folder's.
-      local name = p.path and (p.path:gsub("/project%.toml$", ""):gsub("%.json$", ""):match("([^/]+)$"))
-        or (p.name ~= "" and p.name or "song")
-      paw.ui.input({ prompt = "Folder name: ", text = name }, function(typed: string)
-        if typed == "" then return end
-        local saved, note = paw.project.write(dir .. "/" .. typed)
-        paw.notify(note and (note .. ": " .. saved) or ("saved " .. saved))
-        if after then after() end
-      end)
+  local p = api.project_get()
+  -- A project is a folder: its name is the folder's.
+  local name = p.path and (p.path:gsub("/project%.toml$", ""):gsub("%.json$", ""):match("([^/]+)$"))
+    or (p.name ~= "" and p.name or "song")
+  local home = os.getenv("HOME") or ""
+  local dir = paw.files.here()
+  if home ~= "" and (dir == home or dir:sub(1, #home + 1) == home .. "/") then dir = "~" .. dir:sub(#home + 1) end
+  paw.ui.input({
+    prompt = "Save as (" .. dir .. "): ",
+    text = name,
+    complete = function(text: string): {{string:string}}
+      return commands.completers.projects(text) as {{string:string}}
     end,
-  })
+  }, function(typed: string)
+    if typed == "" then return end
+    local saved, note = paw.project.write(paw.files.project_path(typed))
+    paw.notify(note and (note .. ": " .. saved) or ("saved " .. saved))
+    if after then after() end
+  end)
 end
 
 options.define("native_dialogs", true) -- the window opens the desktop's file dialogs, not the kernel's list
@@ -1730,13 +1737,12 @@ end
 
 --- The data that the window needs to open the file dialog of the desktop.
 --- `native` tells if it must use that dialog (the option). When it is off,
---- the dialogs are those of the kernel. `dir` is the folder to start in. It
---- is the folder of the last selected file, or of the project, or home, as
---- in the list picker. `name` is the file name of the project, for
+--- the dialogs are those of the kernel. `dir` is the folder to start in:
+--- `paw.files.here()`, as in the list picker. `name` is the file name of the project, for
 --- "Save as". `render` is the file endings that a render can write.
 function M.dialog_info(): DialogInfo
   local p = api.project_get()
-  local dir = paw.state.pick_dir or (p.path and p.path:match("^(.*)/[^/]+$")) or os.getenv("HOME") or "/"
+  local dir = paw.files.here()
   local name = p.path and p.path:match("([^/]+)$") or ((p.name ~= "" and p.name or "song") .. ".json")
   -- What a render can write: wav and flac, and the lossy formats ffmpeg can make.
   local render: {string} = { "wav", "flac" }
@@ -1769,9 +1775,9 @@ function M.render_dialog(): RenderDialog
   for _, r in ipairs(paw.markers.regions()) do
     ranges[#ranges + 1] = { name = "region:" .. r.id, label = "Region “" .. paw.markers.label(r) .. "”" }
   end
-  -- A project with no file yet renders to where a file was last chosen, or home.
+  -- A project with no file yet renders in the folder for relative names.
   local path = render_module().default_path()
-  if not path:find("/", 1, true) then path = (paw.state.pick_dir or os.getenv("HOME") or ".") .. "/" .. path end
+  if not path:find("/", 1, true) then path = paw.files.here() .. "/" .. path end
   local formats: {string:boolean} = {}
   for _, f in ipairs(api.render_formats(opt.ffmpeg)) do
     if f.lossy then formats[f.extensions[1]] = f.available end
@@ -2861,11 +2867,6 @@ function A.hold(track: integer, target: string, device: integer, param: string, 
   api.automation_hold(track, target, device, param, on)
 end
 
---- Where a file was chosen is where the next choice starts.
-local function remember_dir(path: string)
-  paw.state.pick_dir = path:match("^(.*)/[^/]*$") or paw.state.pick_dir
-end
-
 --- Leave the project: `what` is "quit", "new" (an empty project),
 --- "open" (another, chosen from a list) or "open:<path>" (that one, already
 --- chosen: from the recent list, by the desktop's dialog, or dropped on the
@@ -2880,7 +2881,6 @@ function A.leave(how: string, what: string)
     elseif what == "new" then
       paw.project.new()
     elseif what:match("^open:") then
-      remember_dir(what:sub(6))
       paw.recent.open(what:sub(6))
     else
       commands.exec("open")
@@ -2898,7 +2898,6 @@ end
 --- (a sound file on a new track, a MIDI file's tracks at the cursor) or
 --- "saveas" (the project's new file).
 function A.chosen(kind: string, path: string)
-  remember_dir(path)
   if kind == "saveas" then
     local saved, note = paw.project.write(path)
     paw.notify(note and (note .. ": " .. saved) or ("saved " .. saved))

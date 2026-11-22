@@ -1616,8 +1616,9 @@ M.walk = sources.walk
 ---
 --- Directories come first, and Enter opens them. `..` goes up. The list
 --- shows only files with one of `extensions` (all files without it). It
---- starts in `dir`. If not given, it starts where you last selected a file,
---- then next to the project, then in the home directory. With
+--- starts in `dir`. If not given, it starts in `paw.files.here()`, the folder
+--- that relative names go to (`:cd`, else the project's, else where paw
+--- started). With
 --- `directory = true`, the first item selects the directory that shows,
 --- and `on_choose` gets it.
 function M.file(opts: FileOptions)
@@ -1659,19 +1660,16 @@ function M.file(opts: FileOptions)
       end,
       on_choose = function(item: FileItem)
         if item.here then
-          paw.state.pick_dir = dir
           return opts.on_choose(dir)
         end
         if item.dir then return open(item.path == "" and "/" or item.path) end
-        paw.state.pick_dir = dir
         opts.on_choose(item.path)
       end,
       on_cancel = opts.on_cancel,
     }
     M.open(picker)
   end
-  local project = api.project_get().path
-  open(opts.dir or paw.state.pick_dir as string or (project and project:match("^(.*)/[^/]+$")) or os.getenv("HOME") or "/")
+  open(opts.dir or paw.files.here())
 end
 
 return setmetatable(M, { __call = function<T>(_: M, spec: string | contracts.PickSource<T>, extra?: contracts.PickExtra): Picker

@@ -8,8 +8,11 @@ and [Files that paw keeps](../reference/state-files.md).
 
 1. The first time, give the project a name and a place:
    `:w /home/ana/songs/demo`. paw makes the folder `demo`, and keeps the
-   whole song in it. Give the full path the first time. A name alone, for
-   example `:w demo`, saves into the folder where you started paw.
+   whole song in it. A name alone, for example `:w demo`, saves into the
+   folder where you started paw. `:w ../demo` saves in the folder above,
+   and `:w ~/songs/demo` in your home folder. `:w` with no name asks for
+   it at a prompt, which starts with the name of the project. Tab
+   completes the folders.
 2. After that, type `:w` to save. The status line shows the name of the
    project, and a mark when there is work that is not saved.
 3. To save and quit, press `ZZ`.
@@ -40,7 +43,8 @@ When a project has a folder, a name without a folder goes in it. For
 example, `:render mix.wav` puts the file in the folder of the song. A
 project name goes next to the folder of the song: `:w take2` makes the
 folder `take2` beside `demo`. Before the first save, a name alone goes to
-the folder where you started paw.
+the folder where you started paw. The lists of files that `:open` and
+`:import` show start in that folder too.
 
 - To see the folder, type `:pwd`.
 - To use a different folder, type `:cd` and the folder, as in Vim:

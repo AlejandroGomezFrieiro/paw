@@ -82,6 +82,13 @@ into the folder of the project. A project name (`:w take2`) goes beside
 that folder. Before the first save, a name goes into the folder where paw
 started.
 
+`..` goes up, `~` is your home folder, and a name that starts
+with `/` is a full path. The lists of files (`:open`, `:import` and the
+others) and the Save as prompt start in this folder too. `:w` with no
+name on a project that has no file asks for the name at a prompt
+(`Save as (folder):`) that starts with the project's name. Tab completes
+names, `..` and `~` too.
+
 | Command | Effect |
 | --- | --- |
 | `:pwd` | Shows the folder for relative names. |
