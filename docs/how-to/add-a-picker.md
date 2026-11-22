@@ -1,7 +1,7 @@
 # How to add a picker
 
-This guide shows you how to add a picker of your own, in your `init.lua` or
-in an extension. The example chooses a tempo from a list.
+You can add a picker of your own in your `init.lua` or in an extension.
+The example on the page lets you choose a tempo from a list.
 
 1. Add a source to `paw.pick.sources`, with a `desc`, a `title`, the
    `items` and `on_choose`:
@@ -17,7 +17,7 @@ in an extension. The example chooses a tempo from a list.
    }
    ```
 
-2. To show more about the selected line, add a `preview`:
+2. If you want to show more about the selected line, add a `preview`:
 
    ```lua
    paw.pick.sources.tempo.preview = function(item)
@@ -25,7 +25,7 @@ in an extension. The example chooses a tempo from a list.
    end
    ```
 
-3. To open the picker with a key, map one:
+3. If you want a key that opens the picker, map one:
 
    ```lua
    paw.keymap.set("<leader>fT", function() paw.pick("tempo") end, { desc = "Choose a tempo" })
@@ -33,13 +33,14 @@ in an extension. The example chooses a tempo from a list.
 
 4. Type `:reload`.
 
-Now `<Space>fT`, `:pick tempo` and `paw.pick("tempo")` open the picker, and `<Space>fp`
-lists it.
+After the reload, `<Space>fT`, `:pick tempo` and `paw.pick("tempo")` open
+the picker, and `<Space>fp` lists it.
 
-If `items` is a function, paw calls it each time that the picker opens.
-So the list is always current. A picker of a hundred thousand items is
-fast.
+When `items` is a function, paw calls it each time the picker opens, so
+the list is always current. A picker with a hundred thousand items is
+still fast.
 
-To open the items in a split with `Ctrl-v`, give a `location`. To hear an
-item when the selection stops on it, give an `audition`. For every field,
-see [Pickers](../reference/pickers.md#lua).
+If you want `Ctrl-v` to open the items in a split, give the source a
+`location`. If you want to hear an item when the selection stops on it,
+give it an `audition`. Every field is listed in
+[Pickers](../reference/pickers.md#lua).

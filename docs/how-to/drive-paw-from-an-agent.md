@@ -2,9 +2,8 @@
 
 <!-- tags: scripting-driving-paw-from-an-agent -->
 
-This guide shows you how to let a program edit a project in paw. The
-program can be an agent that writes code, an assistant or a script of your
-own. The guide assumes that paw runs
+You can let a program edit a project in paw, such as an agent that writes
+code, an assistant or a script of your own. The steps assume that paw runs
 on the same machine.
 
 ## With a shell
@@ -18,27 +17,27 @@ on the same machine.
    paw ctl --json eval 'return paw.query("clip[name~=riff] > note[pitch>=c5]")'
    ```
 
-   Notes have ids. An id stays with its note through every edit.
-3. To change the project, send one `eval` for each step of the work. Each
-   `eval` is one undo step.
-4. To give a step a name, call `paw.api.undo_label("agent: verse drums")`
-   in the `eval`.
-5. To check the result without a person who listens, call `paw.render` and
+   Notes have ids, and an id stays with its note through every edit.
+3. To change the project, send one `eval` for each step of the work, and
+   each `eval` is one undo step:
+   - To give a step a name, call `paw.api.undo_label("agent: verse drums")`
+     in the `eval`.
+   - To find sections, use `paw.markers`. To move notes along the key, use
+     `paw.harmony.key()` and `paw.harmony.step(key, pitch, n)`.
+4. To check the result without a person who listens, call `paw.render` and
    `paw.api.measure`. They give the loudness, the true peak, the clipped
    samples and the level of each track.
-6. To find sections, use `paw.markers`. To move notes along the key, use
-   `paw.harmony.key()` and `paw.harmony.step(key, pitch, n)`.
 
-`--json` gives one line for each answer. If the call fails, the exit
-status is 1. See [Scripts and `paw ctl`](../reference/ctl.md).
+`--json` gives one line for each answer, and if the call fails, the exit
+status is 1. The details are in [Scripts and `paw ctl`](../reference/ctl.md).
 
 ## Without a shell
 
 If the assistant is a chat application with no shell, use `paw-mcp`. It
-is a Model Context Protocol server that gives the same work as typed
-tools. It has per-note edits by id, markers, render options, `diagnose`,
-and `batch` for several changes as one named undo step. See
-[crates/paw-mcp](../../crates/paw-mcp/README.md).
+is a Model Context Protocol server that offers the same work as typed
+tools. It has edits of single notes by id, markers, render options,
+`diagnose`, and `batch` for several changes as one named undo step. The
+details are in [crates/paw-mcp](../../crates/paw-mcp/README.md).
 
 ## Where the agent finds the reference
 

@@ -2,13 +2,10 @@
 
 <!-- tags: stretching-and-looping-clips stretch warp loop pitch formants -->
 
-An audio clip can play its file longer or shorter at the same pitch. It
-can also play it higher or lower at the same length, and in time with any
-tempo. Any clip
-can loop.
-
-Each of these is a field of the clip. The project saves it, and
-copy, paste, cut and undo keep it. The module is `paw.stretch`. For the
+An audio clip can play its file longer or shorter at the same pitch, play it
+higher or lower at the same length, and play it in time with any tempo, and any clip
+can loop. Each of these is a field of the clip, which the project saves and
+which copy, paste, cut and undo keep. The module is `paw.stretch`. For the
 stretch methods, see [About time stretch](../explanation/about-stretching.md).
 
 ## Commands
@@ -68,35 +65,34 @@ A stretched clip has a label before its name, in both frontends:
 | `clip.offset` | In seconds of the file. One second of a clip stretched by 2 is half a second of its file. |
 
 - A stretched or shifted clip does not stretch while it plays. paw
-  stretches its file one time, on a thread of its own, and the engine
-  plays the result as any file.
-- paw starts this a moment after the last change. A drag makes it one
-  time, when you release the edge.
-- Until paw starts, the clip plays a rough preview: short pieces of its
-  file at the pitch of the file, each where the stretch puts it. You hear
-  the rhythm, not silence. A render never uses the preview.
-- paw makes first the clips that the playhead plays in the next 10
-  seconds, or, when the song is stopped, the clips after the cursor.
+  stretches its file once, on a thread of its own, and the engine
+  plays the result as it plays any file.
+- paw starts the stretch a moment after the last change, and a drag starts it
+  once, when you release the edge.
+- Until paw starts, the clip plays a rough preview, which is short pieces of its
+  file at the pitch of the file, each where the stretch puts it, so you hear
+  the rhythm and not silence. A render never uses the preview.
+- paw makes the clips that the playhead plays in the next 10
+  seconds first, or, when the song is stopped, the clips after the cursor.
   Then it makes the clips that a render waits for, and then the rest.
 - paw makes the sound from its start, into space for all of it, and the
   clip plays it as far as it is ready. paw makes it many times faster than
   it plays, so a long file plays immediately.
 - The playhead can be past the ready part, for example far into a long
-  clip that changed a short time before. Then the clip fades out
-immediately before that point,
-  is silent, and fades in where the ready part reaches.
-- A render waits until all of the sound is ready. A render gives the same
+  clip that changed a short time before. In that case the clip fades out
+  just before that point, is silent, and fades in where the ready part reaches.
+- A render waits until all of the sound is ready, so a render gives the same
   file at any time.
 - paw keeps each stretched version by the bytes of its file, warp
   markers, shift, method, formants and sample rate. A large version goes
   in the bake cache, and paw finds it there in later runs and for other
-  projects, also after you move the file.
+  projects, even after you move the file.
 
 ## Warp markers
 
 A warp marker pins a moment of the file to a place in the clip. Each part
 of the sound between two markers stretches by its own amount. For example,
-put a marker on each beat of a part that is not in time. Then move each
+you can put a marker on each beat of a part that is not in time, and then move each
 marker to its beat, or move all of them with `:clip.warp snap`.
 
 - A new marker changes nothing.
@@ -108,8 +104,8 @@ marker to its beat, or move all of them with `:clip.warp snap`.
 - In the terminal, a marker is a line down the clip, on the left edge of
   the cell. In the graphical window, it is a yellow line with a handle on
   the top band of the clip.
-- The project saves the markers. Copy and cut keep them, and undo changes
-  them as any edit. They stay pinned to the file when you trim or slip the
+- The project saves the markers, copy and cut keep them, and undo changes
+  them like any edit. They stay pinned to the file when you trim or slip the
   clip.
 
 `clip.warp` is a list of `{ source, target, beat }`:
@@ -128,13 +124,13 @@ when the tempo changes. Its stretch changes to fit, and its pitch stays.
 
 - `clip.source_tempo` is the tempo of the sound of the clip. paw sets it
   when the timebase changes to `stretch` (the tempo at the start of the
-  clip, times its stretch). You can set it: `:clip.tempo 100` makes a loop
+  clip, times its stretch). You can also set it, so `:clip.tempo 100` makes a loop
   recorded at 100 BPM play at the tempo of the song. Recording sets it on
   each clip of a take, to the tempo of the recording.
 - Where the tempo changes inside such a clip (a ramp, or a change in the
-  middle), paw does not stretch it evenly. paw bends it along the tempo
-  map: each beat of its sound, at `clip.source_tempo`, plays on a beat of
-  the song. `clip.bent` is then true.
+  middle), paw does not stretch it evenly and instead bends it along the tempo
+  map, so that each beat of its sound, at `clip.source_tempo`, plays on a beat of
+  the song, and `clip.bent` is then true.
 - paw stretches a looped clip evenly in all cases.
 
 ## Loop
@@ -149,17 +145,17 @@ and a notch marks each repeat in both frontends.
 | `clip.loop_length` | The repeat, in beats. Default when the loop starts: the length of the clip for MIDI, the rest of the file from the start of the clip for audio. An audio clip measures its repeat in seconds at its start, as its sound. |
 | `clip.loop_start` | Where the repeated part starts, from the start of the clip (0 or less). |
 
-- The repeats are the same, sample for sample. Audio plays again from the
+- The repeats are the same, sample for sample, because audio plays again from the
   same file. paw puts a fade of some milliseconds at the joins only where
-  the sound does not continue into its own start. MIDI notes play again,
+  the sound does not continue into its own start, and MIDI notes play again,
   each cut at the end of its repeat.
-- A trim of the start turns the loop instead of using more of the file.
-  The rest plays where it played. A drag of the start out again brings
-  back earlier repeats. Alt and an edge slips the pattern inside the clip.
-- A cut gives the full loop to both pieces, each from where it starts. So
+- A trim of the start turns the loop instead of using more of the file, and
+  the rest plays where it played. A drag of the start out again brings
+  back earlier repeats, and Alt and an edge slips the pattern inside the clip.
+- A cut gives the full loop to both pieces, each from where it starts, so
   the pieces sound as the clip did. A cut through sound fades out and in
-  over 3 ms, as any cut.
-- A fade-in belongs to the first repeat, and a fade-out to the last. Each
+  over 3 ms, as any cut does.
+- A fade-in belongs to the first repeat and a fade-out to the last, and each
   is no longer than its repeat.
 - For takes in stretched and looped clips, see
   [Takes](takes.md#stretch-and-loop).

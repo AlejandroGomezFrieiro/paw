@@ -9059,6 +9059,13 @@ function paw.api.engine_audible(tracks) end
 ---@param track integer?
 function paw.api.engine_follow(track) end
 
+--- The track that plays MIDI input as if monitored, also while another
+--- track is armed, or none with nil. While set, it takes the place of
+--- `engine_follow`'s track. Step input sets it to the track of the
+--- clip it enters into, so that the controller sounds there.
+---@param track integer?
+function paw.api.engine_follow_always(track) end
+
 --- --- engine ---
 function paw.api.engine_get() end
 
@@ -9069,6 +9076,14 @@ function paw.api.engine_held() end
 ---@param track integer
 ---@param file string?
 function paw.api.engine_hold(track, file) end
+
+--- Controls of MIDI input that tracks do not get: they neither sound
+--- nor record. Scripts still hear them, as `midi.in` events with
+--- `filtered = true`. Each `name` (`"step"`, `"learn"`) keeps its own
+--- list beside the others; nil or an empty list removes it.
+---@param name string
+---@param rules any
+function paw.api.engine_midi_filter(name, rules) end
 
 --- Forget the process times that `engine_get().blocks` recorded until now.
 function paw.api.engine_reset_stats() end

@@ -2,8 +2,8 @@
 
 <!-- tags: saving safety-copies recover autosave project-file project-folder midi2 collect on_external_change -->
 
-A project is a folder of files. This page describes the files of a project, how paw saves them, keeps safety
-copies and recovers work. For why paw saves this way, see
+A project is a folder of files, and this page describes those files, how paw saves them, how it keeps safety
+copies, and how it recovers work. For why paw saves this way, see
 [About project files](../explanation/about-project-files.md). For the
 steps, see [How to recover lost work](../how-to/recover-lost-work.md).
 
@@ -39,10 +39,10 @@ song/
 - The project's file is `song/project.toml`. `:e song`, `:open song`
   and `paw song` open the folder.
 - A track folder and a clip file have the name of the track and of the
-  clip. Letters, digits, `-`, `_` and `.` stay; paw changes other
-  characters to `-`. Two of the same name get `-2`, `-3`.
-- An automation file has the name of what it automates: `volume.json`,
-  `pan.json`, or the device and the parameter: `1-synth-wave.json`.
+  clip. Letters, digits, `-`, `_` and `.` stay as they are, and paw changes
+  other characters to `-`. Two of the same name get `-2`, `-3`.
+- An automation file has the name of what it automates: `volume.json`
+  or `pan.json`, or the device and the parameter, as in `1-synth-wave.json`.
 - The JSON files have their keys in alphabetical order.
 - `track.json` names each clip file by its path in the folder. It names a
   file outside the folder by its full path, or from the home folder as
@@ -54,7 +54,7 @@ song/
   `<clip>.<kind>.json` for a value and `<clip>.<kind>.<ext>` for text.
   - The kind gives its data as a value: tables, strings, numbers and
     booleans. paw writes the value as JSON on lines, with the keys in
-    alphabetical order. So a change of one field is one line in
+    alphabetical order, so a change of one field is one line in
     `git diff`, and a value that does not change keeps the same bytes.
   - The kind gives text data in its own format, for example `.lrc`. paw
     writes the text with no change. The text is UTF-8.
@@ -66,9 +66,9 @@ song/
   media file when it is audio. Clips with the same data share one data
   file, as the two halves of a split clip do.
 - paw opens a custom clip of a kind that no extension defines now, and
-  saves it again with the same bytes. A data file that is not there, or
-  that is not JSON, makes `:e` fail, with the name of the file and the
-  line and column of the error.
+  saves it again with the same bytes. A data file that is missing, or that
+  is not JSON, makes `:e` fail with the name of the file and the line and
+  column of the error.
 - `media.json` has one entry for each media file that the project uses,
   sorted by the path that the clips give: the BLAKE3 hash of its bytes
   (`b3:` and 64 hexadecimal digits), its size in bytes, and its streams
@@ -91,7 +91,7 @@ song/
 - paw writes each file next to its place, writes it to the disk, and
   renames it over the old file. It writes `project.toml` last.
 - `:w` of a folder that has other files and no `project.toml` does not
-  save: name a folder in it.
+  save, so name a folder inside it.
 - A name alone goes beside the folder of the project: `:w take2` makes the
   folder `take2` next to `song`.
 - paw keeps the `project.toml` before a save that changes it as
@@ -145,7 +145,7 @@ A MIDI clip is a MIDI 2.0 Clip File (`SMF2CLIP`, M2-116-U).
 | `paw.api.midi2_write(path, clip)` | Write `{ notes, controls, length }` as a clip file. |
 | `paw.api.midi2_text(path)` | The text that `paw clip cat` prints. |
 
-To show clip files as text in `git diff`, set the driver one time:
+To show clip files as text in `git diff`, set the driver once:
 
 ```sh
 git config --global diff.paw-midi2.textconv "paw clip cat"
@@ -157,7 +157,7 @@ git config --global diff.paw-midi2.textconv "paw clip cat"
   `paw.clip(id).source` is its path. A save keeps the path and writes no
   copy.
 - The first edit of the notes makes them the project's own, in the same
-  undo step. paw says this one time:
+  undo step. paw says so once:
   "riff is now this project's own copy (was ~/library/riff.midi2)".
   `paw.clip(id).origin` keeps the path, and `K` shows it.
 - An undo of that edit makes the clip refer to the file again.
@@ -176,7 +176,7 @@ folder, with the same rules:
   gives the devices of a track that refers to the file. `track.json`
   names the file as `devices_file`, and a save writes no `devices.json`.
 - The first edit of the track, or of the chain, makes it the project's
-  own, and paw says this one time: "the track Lead is now this
+  own, and paw says so once: "the track Lead is now this
   project's own copy (was ~/library/tracks/Lead)". A track takes its
   clips from that folder with it.
 - A part from outside keeps its ids, and gets new ones only where the
@@ -197,11 +197,11 @@ folder, with the same rules:
 ## Changes from outside paw
 
 paw watches the folders of a project folder, and the folders of the files
-outside it that the project uses. A save of paw is not a change. Changes
-close together (a `git checkout`) are one change. paw acts when you come
-back to it: when its terminal or its window gets the focus of the desktop.
-A terminal that does not report the focus (mode 1004) gives the next key
-instead. paw acts as `paw.opt.on_external_change` tells:
+outside it that the project uses. A save by paw is not a change, and changes
+that happen close together (a `git checkout`) count as one change. paw acts
+when you come back to it, which is when its terminal or its window gets the
+focus of the desktop, or on the next key in a terminal that does not report
+the focus (mode 1004). paw acts as `paw.opt.on_external_change` says:
 
 | Value | Effect |
 | --- | --- |
@@ -222,15 +222,14 @@ instead. paw acts as `paw.opt.on_external_change` tells:
 
 ## A second paw on the same project
 
-`paw song` when a paw on this computer has `song` open does not open a
+When a paw on this computer already has `song` open, `paw song` does not open a
 second copy. The terminal joins the running paw as a new seat, as
 `paw attach` does (see [About seats](../explanation/about-seats.md)). `:detach` leaves.
 
-## The same file each time
+## Same bytes on each save
 
-paw writes a project in one file as JSON. The fields are in the order of the model,
-the maps are by key, and the numbers have the fewest digits that read
-back exactly. So a save of a project with no change writes the same bytes, and
+When paw writes a project as one JSON file, it writes the fields in the order of the model
+and sorts the maps by key. Each number has the fewest digits that read back exactly. A save of a project with no change therefore writes the same bytes, and
 one change gives a small diff.
 
 | Function | Result |
@@ -263,9 +262,9 @@ and the drivers for version control.
 If a project does not open (it is cut short, or damaged), the message
 tells what can replace it. `:recover` lists its newest safety copy and its
 `.bak` first. For a project folder, the `.bak` is `project.toml.bak`: paw
-opens it with the other files of the folder. Each opens with the name of the damaged project, not saved,
+opens it with the other files of the folder. Each opens with the name of the damaged project and unsaved,
 so `:w` puts it back. If you start paw with such a project on the command
-line, paw starts, with that message.
+line, paw starts and shows that message.
 
 ## `:recover`
 
@@ -283,8 +282,8 @@ line, paw starts, with that message.
 | `paw.api.project_unshelve()` | Close that project and bring back the first project as it was. |
 | `paw.api.project_shelved()` | True if a project is aside. |
 
-The shelf is for tools that need their own tracks without a change to the
-work of the person. The [doctor](../../extensions/doctor) extension uses
+The shelf is for tools that need their own tracks without changing the
+person's work. The [doctor](../../extensions/doctor) extension uses
 it.
 
 The suite runs `tests/*.lua` and `extensions/*/tests*.lua`, and gives each

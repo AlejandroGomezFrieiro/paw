@@ -12,7 +12,7 @@ case "$file" in "$root"/target/*|"$root"/.claude/*|"$root"/CLAUDE.md) exit 0 ;; 
 out=$("$root/tools/vale.sh" --minAlertLevel=error --output=line --no-exit "$file" 2>&1)
 if [ -n "$out" ]; then
   {
-    echo "Vale found errors in $file (fix them: .claude/skills/diataxis-docs/SKILL.md, STE):"
+    echo "Vale found errors in $file (fix them: .claude/skills/diataxis-docs/SKILL.md; plain-writing for external pages, STE for internal text):"
     echo "$out" | sed "s|^$root/||"
   } >&2
   exit 2

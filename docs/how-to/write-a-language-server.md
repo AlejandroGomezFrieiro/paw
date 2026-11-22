@@ -1,13 +1,14 @@
 # How to write a language server
 
-This guide shows you how to make a server that checks the mix and gives
-diagnostics with fixes. It assumes that you know Lua or a
-language that reads JSON. For every field and message, see
+You can make a server that checks the mix and gives diagnostics with
+fixes. The steps assume that you know Lua or a language that reads JSON,
+and every field and message is in
 [Language servers and diagnostics](../reference/language-servers.md).
 
 ## Write a server in Lua
 
-A server in Lua runs in the kernel process. It is the shortest way.
+A server in Lua runs in the kernel process, and it is the shortest way to
+write a server.
 
 1. In `init.lua`, or in an extension, configure the server:
 
@@ -39,18 +40,18 @@ If the server must react to changes, publish the diagnostics again in
 
 ## Write a server as a program
 
-1. Write a program that reads JSON-RPC on its standard input, one message
-   for each line.
-2. Answer `initialize` with the subjects that the program wants:
-   `{ "capabilities": { "paw": { "subjects": ["mix"] } } }`.
-3. Read `textDocument/didOpen` and `textDocument/didChange`. The `text`
-   field is the subject as JSON.
-4. Send `textDocument/publishDiagnostics` with your findings. Put the
-   location in `data.location`.
-5. To offer a fix, add `data.fixes`: a list of `{ title, edit }`. The edit
-   is a workspace edit, for example
+1. Write a program that speaks JSON-RPC on its standard input, one message
+   for each line:
+   1. Answer `initialize` with the subjects that the program wants:
+      `{ "capabilities": { "paw": { "subjects": ["mix"] } } }`.
+   2. Read `textDocument/didOpen` and `textDocument/didChange`, where the
+      `text` field is the subject as JSON.
+   3. Send `textDocument/publishDiagnostics` with your findings, and put
+      the location in `data.location`.
+2. To offer a fix, add `data.fixes`, which is a list of `{ title, edit }`.
+   The edit is a workspace edit, for example
    `[ { "uri": "paw://track/4", "set": { "volume": 0 } } ]`.
-6. Configure and start it:
+3. Configure and start it:
 
    ```lua
    paw.lsp.config("mixcheck", {
@@ -60,10 +61,10 @@ If the server must react to changes, publish the diagnostics again in
    paw.lsp.enable("mixcheck")
    ```
 
-7. If the server does not start, type `:lsp info` for the last error. The
+4. If the server does not start, type `:lsp info` for the last error. The
    errors of the program are in `$XDG_STATE_HOME/paw/lsp-mixcheck.log`.
 
-`tests/fixtures/mix_lint.py` is a complete server of this kind, in about a
+`tests/fixtures/mix_lint.py` is a complete server of that kind, in about a
 hundred lines.
 
 ## Check each render with a command
@@ -85,7 +86,7 @@ use a one-shot server.
    paw.lsp.enable("peaks")
    ```
 
-3. Render the song. `:diagnostics` shows the findings under Renders.
+3. Render the song, and `:diagnostics` shows the findings under Renders.
 
 To give a result a location or a fix, add a `diagnostic(finding, doc)`
 function to the config.

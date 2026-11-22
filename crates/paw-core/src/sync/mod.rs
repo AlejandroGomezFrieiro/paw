@@ -37,7 +37,7 @@ use paw_engine::{ClipSet, Controller, DeviceSlot, Msg, ParamInfo, Registry, Trac
 pub use self::audio::AudioCache;
 pub use self::automation::is_active;
 pub use self::devices::{TakesClips, clips_json, deliver_clips, install, is_host, rekey};
-pub use self::mapper::Mapper;
+pub use self::mapper::{Follow, Mapper};
 pub use self::clips::repeats;
 pub use crate::events::ModelEvent;
 
@@ -570,8 +570,9 @@ impl<'p> Pass<'p, '_, '_> {
     /// Each track's audio input, MIDI input and MIDI output.
     fn inputs(&mut self) {
         let new = self.new;
-        // The selected track plays the MIDI keyboard while no track is armed.
-        let follow = self.map.follow.filter(|_| !new.tracks.iter().any(|t| t.armed));
+        // The selected track plays the MIDI keyboard while no track is
+        // armed; step input's track plays it always.
+        let follow = self.map.follow.track(new.tracks.iter().any(|t| t.armed));
         for track in new.all_tracks() {
             let Some(&slot) = self.map.tracks.get(&track.id) else {
                 continue;

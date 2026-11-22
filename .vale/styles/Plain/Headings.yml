@@ -1,0 +1,53 @@
+# plain-writing rule 18: sentence case in headings. Names keep their capitals,
+# and the name of an extension stays in lowercase, as paw writes it.
+extends: capitalization
+message: "Write the heading '%s' in sentence case (plain-writing 18)."
+level: warning
+scope: heading
+match: $sentence
+exceptions:
+  - paw
+  - Lua
+  - Teal
+  - Linux
+  - Neovim
+  - Vim
+  - Nix
+  - NixOS
+  - Rust
+  - Wasm
+  - MIDI
+  - CLAP
+  - LV2
+  - VST3
+  - JACK
+  - PipeWire
+  - ALSA
+  - OpenUtau
+  - UTAU
+  - REAPER
+  - DAWproject
+  - MusicXML
+  - LilyPond
+  - MPE
+  - Ex
+  - API
+  - LSP
+  - TUI
+  - GUI
+  - FAQ
+  - Git
+  - GitHub
+  - Claude Code
+  - Claude Desktop
+  - TONE3000
+  - A/B
+  - SSH
+  - MP3
+  - Ogg
+  - Vorbis
+  - Opus
+  - AudioProcessorValueTreeState
+  - '(?i)(?:ara|articulations|columnplus|continue|doctor|drums|interop|launcher|luafx|midilsp|mixdiag|musicops|notation|pattern|plugstate|projdiff|rulerplus|sampler|sections|snippets|templates|tutor|undotree|utau|vinput)'
+  - 'paw(?:\.\w+)+'
+  - 'paw-\w+'

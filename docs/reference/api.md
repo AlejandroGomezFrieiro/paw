@@ -2320,9 +2320,11 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.device_types()`: --- devices ---
 - `paw.api.engine_audible(tracks)`: Only these tracks heard for now, as a solo would, or all with nil.
 - `paw.api.engine_follow(track)`: The track that plays MIDI input while no track is armed, as if monitored, or none with nil (`paw.opt.midi_follows_selection`).
+- `paw.api.engine_follow_always(track)`: The track that plays MIDI input as if monitored, also while another track is armed, or none with nil. While set, it takes the place of `engine_follow`'s track. Step input sets it to the track of the clip it enters into, so that the controller sounds there.
 - `paw.api.engine_get()`: --- engine ---
 - `paw.api.engine_held()`
 - `paw.api.engine_hold(track, file)`: Play a track from a sound file for now, as if it is frozen, or live again with nil. The project does not change (see `freeze.rs`).
+- `paw.api.engine_midi_filter(name, rules)`: Controls of MIDI input that tracks do not get: they neither sound nor record. Scripts still hear them, as `midi.in` events with `filtered = true`. Each `name` (`"step"`, `"learn"`) keeps its own list beside the others; nil or an empty list removes it.
 - `paw.api.engine_reset_stats()`: Forget the process times that `engine_get().blocks` recorded until now.
 - `paw.api.engine_restart(opts)`
 - `paw.api.engine_set_sleep(sleep)`: With true, devices at rest sleep through silence: a reverb after its tail, a synth with no note that sounds. The sound is the same with false. `engine_get().device_sleeps` counts the blocks that devices slept through.

@@ -1,12 +1,10 @@
 # Addresses, diagnostics and lists in Lua
 
-This page describes the addresses of paw and the modules that use them.
-These modules are diagnostics, annotations, language servers, the
-quickfix list and the search of the project.
+This page describes the addresses of paw and the modules that use them, which are diagnostics, annotations, language servers, the quickfix list and the search of the project.
 
 ## `paw.address`
 
-An address is a URI made from ids. Each thing in the project has one.
+Each thing in the project has an address, which is a URI made from ids.
 
 | URI | What |
 | --- | --- |
@@ -39,17 +37,13 @@ The event `address.changed { uris, revision }` comes after every edit.
 
 ## `paw.diagnostic`
 
-`paw.diagnostic` is `vim.diagnostic` over locations. A location is
-`{ uri, selector }`, and the selector is `{ time, notes, pitch, seconds,
-value }`.
+`paw.diagnostic` works like `vim.diagnostic`, but it uses locations. A location is `{ uri, selector }`, and the selector is `{ time, notes, pitch, seconds, value }`.
 
-`set(namespace, document, list)` sets the diagnostics of a document. Each
-diagnostic is `{ location, severity, message, rule, source, fixes }`:
+`set(namespace, document, list)` sets the diagnostics of a document. Each diagnostic is `{ location, severity, message, rule, source, fixes }`, with these rules:
 
 - `severity` is 1 to 4, or `"error"`, `"warning"`, `"info"`, `"hint"`.
 - A fix is `{ title, edit = { changes } }` or `{ title, apply = fn }`.
-- An older form is also accepted: a clip as the document, and
-  `{ notes = { places }, at, length, fixes = { { title, edits } } }`.
+- paw also accepts an older form, with a clip as the document and `{ notes = { places }, at, length, fixes = { { title, edits } } }` as each diagnostic.
 
 | Function | Effect |
 | --- | --- |
@@ -66,13 +60,11 @@ The event is `diagnostic.changed`.
 
 ## `paw.annotation`
 
-`paw.annotation` keeps labels as `paw.diagnostic` keeps diagnostics:
-`set(namespace, document, { { location, label, kind } })`, `get(uri)`,
-`reset`.
+`paw.annotation` keeps labels in the way that `paw.diagnostic` keeps diagnostics, with `set(namespace, document, { { location, label, kind } })`, `get(uri)` and `reset`.
 
 ## `paw.lsp`
 
-`paw.lsp` is `vim.lsp`. See [Language servers and diagnostics](language-servers.md).
+`paw.lsp` follows `vim.lsp`. See [Language servers and diagnostics](language-servers.md).
 
 | Function | Effect |
 | --- | --- |
@@ -90,16 +82,13 @@ The event is `diagnostic.changed`.
 
 The events are `lsp.status` and `lsp.analysis`.
 
-## `paw.qf`: the quickfix list
+## `paw.qf` and the quickfix list
 
-`paw.qf` is the quickfix list and the location lists of Neovim, over
-addresses. An entry is `{ address, selector, text, level, source, fix }`:
+`paw.qf` is the quickfix list and the location lists of Neovim, but it uses addresses. An entry is `{ address, selector, text, level, source, fix }`, with these rules:
 
 - `address` is a `paw://` address, or a location.
 - `level` is `"error"`, `"warning"`, `"info"`, `"hint"` or nil.
-- `fix` is `{ title, edit = { changes } }`, `{ title, apply =
-  function(entry) end }`, or a command line that runs with the cursor on
-  the entry.
+- `fix` is `{ title, edit = { changes } }`, `{ title, apply = function(entry) end }`, or a command line that runs with the cursor on the entry.
 
 ```lua
 paw.qf.feed("tuning", { { address = "paw://clip/4", text = "out of tune", level = "warning",
@@ -119,8 +108,7 @@ paw.qf.set({ { address = paw.address.track(3), text = "too quiet" } }, { title =
 | `diagnostics(opts)` | a list of the diagnostics |
 | `open({ loc, height })`, `close(loc)` | show or hide the list |
 
-The event is `qf.changed { title }`. The program also listens to
-`plugins.scanned { notes, name }`: what a plugin scan could not use.
+The event is `qf.changed { title }`. The program also listens to `plugins.scanned { notes, name }`, which reports what a plugin scan could not use.
 
 ## Search the project
 
@@ -133,5 +121,4 @@ The event is `qf.changed { title }`. The program also listens to
 | `paw.grep.source(name, function(add) end)` | adds text to the search |
 | `paw.regex.compile(text)` | makes a usual regular expression (`re:find(s)`) |
 
-[Motions, operators and modes](grammar.md) describes the syntax, under
-"Structural queries" and under the search of text.
+[Motions, operators and modes](grammar.md) describes the syntax, under "Structural queries" and under the search of text.

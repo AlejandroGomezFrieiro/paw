@@ -1,17 +1,17 @@
 # launcher
 
-The clip launcher: each track has slots, a column of clips that are not on
-the timeline. You start and stop these clips while the song plays. A row of
-slots across the tracks is a scene. The session view shows the slots and
-the scenes, in the terminal and in the graphical window.
+The clip launcher gives each track slots, which are a column of clips that
+are not on the timeline. You start and stop these clips while the song
+plays, and a row of slots across the tracks is a scene. The session view
+shows the slots and the scenes, in the terminal and in the graphical window.
 
 ```lua
 paw.ext.load("extensions/launcher")   -- in init.lua, or `:ext.load launcher` for this session
 ```
 
-The clips of the slots are clips of the core. The core plays them with a
-cue (`paw.api.cue`). So a project with slots opens and plays without the
-extension: paw keeps the clips, and plays the timeline.
+The clips of the slots are clips of the core, and the core plays them with a
+cue (`paw.api.cue`). A project with slots opens and plays without
+the extension, because paw keeps the clips and plays the timeline.
 
 ## Try it
 
@@ -40,10 +40,10 @@ extension: paw keeps the clips, and plays the timeline.
 6. To silence a track, press `S`. To play its timeline again, press `B`.
 7. Stop the song.
 
-paw writes each clip that played to the timeline as a looped copy. The
+paw writes each clip that played to the timeline as a looped copy, and the
 parts where a track was silent become empty. One `u` removes the capture.
-If you want to render the performance, render after the capture: a render
-plays only the timeline.
+To render the performance, render after the capture, because a render plays
+only the timeline.
 
 ### How to record a new loop into a slot
 
@@ -65,16 +65,16 @@ plays only the timeline.
 
 ### Launch
 
-- A launch starts the clip at the next boundary of its quantize. The
+- A launch starts the clip at the next boundary of its quantize, and the
   default quantize is a bar.
 - The clip loops while it plays.
-- The clip starts on the same frame as the boundary. The engine times the
-  launch, not the Lua runtime.
+- The clip starts on the same frame as the boundary, because the engine
+  times the launch and not the Lua runtime.
 - A launch while the song is stopped starts the clip immediately, and the
   song starts too.
 - While a track plays a slot, the clips on its timeline are silent.
 - When you stop the clip, the track stays silent. The track plays its
-  timeline again when you send it back (`B`), or when the song stops. A
+  timeline again when you send it back (`B`), or when the song stops, and a
   stop of the song sends every track back.
 - A seek, or a turn of the loop, moves each queued launch to the next
   boundary after the new position. Clips that play keep their position in
@@ -92,8 +92,8 @@ plays only the timeline.
 | `beat` | the next beat of the time signature (an eighth in 6/8) |
 | `bar` `2bars` `4bars` | the start of the next bar, or of the next group of two or four bars from the first bar |
 
-The project has one quantize (`:launch.quantize`). A slot can have its own
-quantize (`:slot.quantize`).
+The project has one quantize (`:launch.quantize`), and a slot can have its
+own quantize (`:slot.quantize`).
 
 ### Launch modes
 
@@ -111,10 +111,11 @@ start.
 
 ### Keys
 
-`<Space>vs` shows or hides the session view. The keys below are the keys of the
-session view. The last row shows what each track plays: a slot, nothing, or
-its timeline. A clip that plays is bright and fills as it goes round its
-loop. A clip that waits for its boundary has a mark until it starts.
+`<Space>vs` shows or hides the session view, and the keys below are the keys
+of the session view. The last row shows what each track plays, which is a
+slot, nothing, or its timeline. A clip that plays is bright and fills as it
+goes round its loop, and a clip that waits for its boundary has a mark until
+it starts.
 
 | Keys | Effect |
 | --- | --- |
@@ -144,8 +145,8 @@ opens the notes, as before the key rule.
 
 ### The pointer
 
-In the terminal and in the graphical window, the session view takes the
-same gestures. In the window, it is in More ▸ Session.
+The session view takes the same gestures in the terminal and in the
+graphical window. In the window, it is in More ▸ Session.
 
 | Gesture | Effect |
 | --- | --- |
@@ -163,7 +164,7 @@ same gestures. In the window, it is in More ▸ Session.
 ### Record into a slot
 
 `R` on an empty slot (`:slot.record`) records into it. The recording starts
-at the next boundary of the quantize of the project. It lasts one bar, or
+at the next boundary of the quantize of the project, and it lasts one bar or
 the number of bars of the count (`4R`, `:slot.record 4`).
 
 - If the track is not armed, paw arms it. The track is silent from the
@@ -181,9 +182,9 @@ the number of bars of the count (`4R`, `:slot.record 4`).
 
 ### Capture
 
-A render plays the timeline: a render does not include the launched clips.
-When capture is on (`C`, `:launch.capture`), a stop of the song writes the
-performance to the timeline:
+A render plays the timeline, so a render does not include the launched
+clips. When capture is on (`C`, `:launch.capture`), a stop of the song writes
+the performance to the timeline:
 
 - Each part of the song where a track played a slot becomes a looped copy
   of that clip on the timeline of the track. The copy goes from the
@@ -241,7 +242,7 @@ The clips of the slots are clips off the timeline of the core
 | `project.meta.launcher` | `quantize` (when it is not `bar`) and `scenes`, the names of the scenes by row |
 
 The export to REAPER and to DAWproject does not write the clips of the
-slots: the report of the export counts them.
+slots, but the report of the export counts them.
 
 ### Lua
 
@@ -272,13 +273,11 @@ parts against each other, and you play some songs live in a different order
 each time. Ableton Live has a session view for this, and the launcher
 copies the idea.
 
-The launcher is an extension because not all users play live. The core
-gives two parts that must be in the core. The first is clips that are not
-on the timeline. The second is a cue that the engine times to the frame.
-The launcher adds
-the grid of slots, the scenes, the modes and the view. For why the engine
-times a cue, and why a render plays only the timeline, see
-`:help about-cues`.
+The launcher is an extension because not all users play live. Two parts
+must be in the core, which are clips that are not on the timeline and a cue
+that the engine times to the frame. The launcher adds the grid of slots, the
+scenes, the modes and the view. To learn why the engine times a cue, and why
+a render plays only the timeline, see `:help about-cues`.
 
 ## What it does not do
 

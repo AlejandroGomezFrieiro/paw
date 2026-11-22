@@ -2,15 +2,15 @@
 
 <!-- tags: configuration init.lua -->
 
-This guide shows you how to change paw with your own `init.lua`. You can
-set options and colors, add commands and keys, and run code on events.
+You can change paw with your own `init.lua`. In the file, you can set
+options and colors, add commands and keys, and run code on events.
 
 1. Make the file `~/.config/paw/init.lua`.
 2. Add the lines that you need from the sections below.
-3. Start paw. If paw runs already, type `:reload`.
+3. Start paw. If paw is already open, type `:reload`.
 
 `:reload` runs the Lua runtime, your configuration and your extensions
-again. It does not change the project and does not stop the audio.
+again, and it does not change the project or stop the audio.
 
 ## Set options
 
@@ -20,8 +20,8 @@ paw.opt.track_height = 2      -- rows for each track in the arrange view
 paw.opt.header_width = 28     -- columns of the track headers
 ```
 
-For every option, see [Options](../reference/options.md). To try an option
-before you write it, type `:set zoom=4` in paw.
+Every option is listed in [Options](../reference/options.md). If you want
+to try an option before you write it, type `:set zoom=4` in paw.
 
 ## Change a color
 
@@ -29,8 +29,8 @@ before you write it, type `:set zoom=4` in paw.
 paw.ui.hl("Playhead", { bg = "#ff5555" })
 ```
 
-You can change each highlight group. The groups and their colors are in
-`runtime/lua/paw/theme.tl`. To change the color of one track, type
+You can change each highlight group, and the groups and their colors are
+in `runtime/lua/paw/theme.tl`. To change the color of one track, type
 `:track.color teal` on the track.
 
 ## Add a command and a key
@@ -45,25 +45,27 @@ end, { desc = "Add a synth track: `track.synth Lead cutoff=900`" })
 paw.keymap.set("<leader>tn", "track.synth", { desc = "Add a synth track" })
 ```
 
-Now `:track.synth Lead cutoff=900` adds a track, and `<Space>tn` does the same
-with the default values.
+With these lines, `:track.synth Lead cutoff=900` adds a track, and
+`<Space>tn` does the same with the default values.
 
 If you map a key in one view, do not use a key of the global leader for
-it. To find the keys that break this rule, type
-`:lua =paw.keyrule.broken()`. See [The key rule](../reference/key-rule.md).
+it. To find the keys that break the rule, type
+`:lua =paw.keyrule.broken()`, and read [The key rule](../reference/key-rule.md).
 
 ## Use a different leader key
 
-The leader key is the space bar. It starts the keys that work in every
-view: `<Space>mm` opens the mixer, and `<Space><Space>` plays and stops. To
-use the comma as the leader, add this line to `init.lua`:
+The leader key is the space bar, and it starts the keys that work in every
+view. For example, `<Space>mm` opens the mixer, and `<Space><Space>` plays
+and stops. If you want the comma as the leader, add the following line to
+`init.lua`:
 
 ```lua
 paw.opt.leader = ","
 ```
 
-Each key on the leader moves to the comma: `,m` opens the mixer, and
-`,<Space>` plays. `:set leader=,` does the same for this session.
+Each key on the leader then moves to the comma, so `,m` opens the mixer,
+and `,<Space>` plays. `:set leader=,` does the same for the current
+session only.
 
 ## Run code on an event
 
@@ -77,7 +79,7 @@ paw.on("project.saved", function(event) paw.notify("saved to " .. event.path) en
 paw.audio.use({ output = "UR22mkII Stereo", input = "UR22mkII", buffer = 128 })
 ```
 
-See [How to choose the audio devices](choose-audio-devices.md).
+The details are in [How to choose the audio devices](choose-audio-devices.md).
 
 ## Start with a layout of windows
 
@@ -89,14 +91,15 @@ paw.layouts.edit = {
 paw.opt.layout = "edit"
 ```
 
-See [Windows, buffers and tabs](../reference/windows.md#layouts).
+The details are in [Windows, buffers and tabs](../reference/windows.md#layouts).
 
 ## Examples
 
-- [config](../../config) has a fuller configuration and three small extensions. It loads the bundled extensions.
-  To try it, start `paw --config config` in the source tree.
-- [extensions/utau](../../extensions/utau) is a larger extension: song
-  synthesis with the engines of OpenUtau, a vocal editor and a lyric sheet.
+- [config](../../config) has a fuller configuration and three small
+  extensions, and it loads the bundled extensions. To try it, start
+  `paw --config config` in the source tree.
+- [extensions/utau](../../extensions/utau) is a larger extension, with song
+  synthesis by the engines of OpenUtau, a vocal editor and a lyric sheet.
 
 ## See also
 

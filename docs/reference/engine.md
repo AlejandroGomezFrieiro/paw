@@ -2,9 +2,7 @@
 
 <!-- tags: engine threads latency xruns sleep -->
 
-The engine plays the project on the audio thread and on a pool of worker
-threads. For the design, see
-[About the audio engine](../explanation/about-the-audio-engine.md).
+The engine plays the project on the audio thread and on a pool of worker threads. [About the audio engine](../explanation/about-the-audio-engine.md) describes the design.
 
 ## Commands
 
@@ -27,23 +25,15 @@ Playback and renders use one thread for each core.
 | the `threads` option of a render | The number of threads for one render: `paw.render(path, { threads = 1 })`. |
 
 - `paw.api.engine_get().threads` gives the number of threads in use.
-- When the audio thread has real-time priority, the worker threads get the
-  same priority. If the system refuses this priority, the engine uses only
-  the audio thread.
+- When the audio thread has real-time priority, the worker threads get the same priority, and if the system refuses this priority, the engine uses only the audio thread.
 - A render is the same to the bit with any number of threads.
-- Live, the engine uses the worker threads only when one thread needs a
-  quarter or more of the time of a block. A small project then plays on
-  the audio thread only, and the worker threads sleep. After a stop, the
-  engine remembers how much work the song needed.
-- A render shares a group of tracks between the threads when that group
-  has enough work. Less work finishes sooner on one thread.
+- Live, the engine uses the worker threads only when one thread needs a quarter or more of the time of a block, so a small project plays on the audio thread only and the worker threads sleep. After a stop, the engine remembers how much work the song needed.
+- A render shares a group of tracks between the threads when that group has enough work, because less work finishes sooner on one thread.
 - Between blocks, the worker threads sleep.
 
 ## Devices at rest
 
-A device at rest sleeps through silence: the engine does not run it. This
-saves processor time while the song stops, and in the silent parts of a
-song.
+A device at rest sleeps through silence, which means that the engine does not run it. Skipping the device saves processor time while the song stops and in the silent parts of a song.
 
 | Device | At rest |
 | --- | --- |
@@ -54,16 +44,13 @@ song.
 | A VST3 plugin | Its tail is complete, and its output is silent. |
 | `compressor`, `gate`, `limiter`, `meter`, `tuner`, `saturation`, LV2 plugins | Never. |
 
-- A note, a sound at the input, or a change of a parameter wakes the
-  device.
+- A note, a sound at the input, or a change of a parameter wakes the device.
 - The sound is the same to the bit when devices sleep and when they do not.
-- `paw.opt.device_sleep = false` makes each device run on each block. The
-  `sleep` option of a render does the same for one render.
+- `paw.opt.device_sleep = false` makes each device run on each block, and the `sleep` option of a render does the same for one render.
 
 ## State of the engine
 
-`paw.api.engine_get()` gives a table. `paw.frontend.state()` gives the
-same values to the graphical window and the status line.
+`paw.api.engine_get()` gives a table, and `paw.frontend.state()` gives the same values to the graphical window and the status line.
 
 | Field | Value |
 | --- | --- |
@@ -84,37 +71,21 @@ same values to the graphical window and the status line.
 
 ## Delay compensation
 
-- A device that looks ahead reports the delay of its output. CLAP, VST3
-  and LV2 plugins report it. Of the built-in devices, the `limiter`, the
-  `saturation`, and the `compressor` and `gate` with `lookahead` report
-  it.
-- paw delays each other path to the same place by the difference, through
-  buses and sends. Then all the sound arrives together.
+- A device that looks ahead reports the delay of its output. CLAP, VST3 and LV2 plugins report it, and of the built-in devices the `limiter`, the `saturation`, and the `compressor` and `gate` with `lookahead` report it.
+- paw delays each other path to the same place by the difference, through buses and sends, so that all the sound arrives together.
 - A render removes the delay from the start of the file.
-- paw does not delay the clips of a track to match the sound that is routed
-  into the track.
+- paw does not delay the clips of a track to match the sound that is routed into the track.
 
 ## A device that fails
 
-- paw guards each device on the audio thread. A device
-  that panics is marked failed, and the chain ignores it after that. An
-  instrument is silent, and an effect lets its input through.
-- The event `device.stopped` tells, as for a plugin whose helper crashed.
-  The device panel shows the device as stopped. `:device.restart` makes a
-  new device.
-- paw replaces samples that come out of a device as NaN or infinity with
-  silence at its output. They never reach a fader, a meter or the master.
-  The event `device.invalid` and a message tell it one time.
-- A panic in any other part of paw writes a safety copy of the work that
-  is not saved, before paw stops. Then paw restores the terminal and says
-  where the copy is. `:recover` offers it at the next start (see
-  [Project files](project-files.md#safety-copies)).
+- paw guards each device on the audio thread. A device that panics is marked failed, and the chain ignores it after that, so an instrument is silent and an effect lets its input through.
+- The event `device.stopped` reports the failure, in the same way as for a plugin whose helper crashed. The device panel shows the device as stopped, and `:device.restart` makes a new device.
+- paw replaces samples that come out of a device as NaN or infinity with silence at its output, so they never reach a fader, a meter or the master. The event `device.invalid` and a message report this one time.
+- A panic in any other part of paw writes a safety copy of the work that is not saved, before paw stops. paw then restores the terminal and says where the copy is, and `:recover` offers it at the next start (see [Project files](project-files.md#safety-copies)).
 
 ## Memory
 
-paw releases decoded audio that the project and the undo steps do not use.
-It does this when another project opens, and at intervals while you edit.
-So a long session does not keep each file that it played.
+paw releases decoded audio that the project and the undo steps do not use, when another project opens and at intervals while you edit. So a long session does not keep each file that it played.
 
 ## Scripts and the engine
 

@@ -2,14 +2,11 @@
 
 <!-- tags: extensions-extensions -->
 
-This page describes what an extension is, how paw loads it, and what it
-can register. The reason for the line between the core and the extensions
-is in [About the core and extensions](../explanation/about-core-and-extensions.md).
+An extension is a directory of Lua that paw loads, and the page below describes how paw loads it and what it can register. [About the core and extensions](../explanation/about-core-and-extensions.md) explains why the line between the core and the extensions is where it is.
 
 ## Bundled extensions
 
-Each extension has a README. Its pictures are in `extensions/<name>/images`,
-made by the scenes in its `images/make` (`docs/images/make/make.sh <name>`).
+Each extension has a README. Its pictures are in `extensions/<name>/images`, and the scenes in its `images/make` make them (`docs/images/make/make.sh <name>`).
 
 | Extension | What it adds |
 | --- | --- |
@@ -39,8 +36,7 @@ made by the scenes in its `images/make` (`docs/images/make/make.sh <name>`).
 | [`utau`](../../extensions/utau/README.md) | singing synthesis: vocal tracks, a vocal editor, the device that plays the voice and the engine that sings |
 | [`vinput`](../../extensions/vinput/README.md) | virtual inputs: a guitar heard as MIDI through gdi2m, as a port that any track takes |
 
-`crates/paw-mcp` is not an extension, but it is also outside the core: a
-Model Context Protocol server in front of the control socket.
+`crates/paw-mcp` is not an extension, but it is also outside the core. It is a Model Context Protocol server in front of the control socket.
 
 ## Files
 
@@ -57,13 +53,7 @@ extensions/clock.lua            an extension in one file
 extensions/scale.tl             an extension in one file, in Teal
 ```
 
-Each Lua file can also be a file of Teal (`init.tl`, `lua/euclid/rhythm.tl`,
-`scale.tl`) or of another language that `paw.lang.add` registers. paw
-compiles it when it loads it, and keeps the Lua in `~/.cache/paw/lang`.
-paw checks the types of a file of Teal when it compiles it. A file with
-type errors loads, and `:checkhealth teal` lists the errors.
-`manifest.lua` stays Lua. See
-[How to write an extension in Teal](../how-to/write-an-extension-in-teal.md).
+Each Lua file can also be a file of Teal (`init.tl`, `lua/euclid/rhythm.tl`, `scale.tl`) or of another language that `paw.lang.add` registers. paw compiles the file when it loads it and keeps the Lua in `~/.cache/paw/lang`. paw checks the types of a file of Teal when it compiles it, and a file with type errors still loads, with `:checkhealth teal` listing the errors. `manifest.lua` stays Lua. [How to write an extension in Teal](../how-to/write-an-extension-in-teal.md) has the steps.
 
 | Name | Effect |
 | --- | --- |
@@ -72,8 +62,7 @@ type errors loads, and `:checkhealth teal` lists the errors.
 | `paw.lang.check(files)` | checks the types of `.tl` files, with `tlconfig.lua`, and returns the errors |
 | `paw.lang.problems` | the type errors of each file in Teal that paw loaded, by its path |
 
-Files in `~/.config/paw/lua/` replace the built-in modules with the same
-name. So any part of the runtime can be replaced.
+Files in `~/.config/paw/lua/` replace the built-in modules with the same name, so you can replace any part of the runtime.
 
 ## Load and unload
 
@@ -89,83 +78,47 @@ name. So any part of the runtime can be replaced.
 | `paw.ext.bundled()` | the names of the bundled extensions, in `$PAW_HOME/extensions` or in `extensions` under the working directory |
 | `paw.ext.provides(name)` | what an extension registered |
 
-A command of an extension that is not loaded tells you so, in place of
-"no command". Extensions have no separate interface. An extension
-is Lua that calls `paw.command`, `paw.keymap.set`, `paw.on` and
-`paw.ui.view` as a configuration does. [How to load an
-extension](../how-to/load-an-extension.md) gives the steps.
+A command of an extension that is not loaded tells you so, instead of saying "no command". Extensions have no separate interface. An extension is Lua that calls `paw.command`, `paw.keymap.set`, `paw.on` and `paw.ui.view` in the same way as a configuration does. [How to load an extension](../how-to/load-an-extension.md) gives the steps.
 
 ### What an extension owns
 
-paw records all that an extension registers while it loads:
+paw records all that an extension registers while it loads, which includes the following:
 
-- commands, keys and key groups, the lines of the key bar
-  (`paw.ui.keybar.set`), views, buffer types, kinds of text buffer, kinds
-  of track
-- picker sources, query fields, fields and views of `:s` and `:g`,
-  completers, status line components, grep sources
-- the parts and signs of the track column and the parts of the bar
-  labels (`paw.trackcolumn`, `paw.ruler`), and the keys of insert mode
-  in the arrange view (`paw.insert`), also the parts and the keys of paw
-  that it changes with `set`
-- curve providers, address schemes, completion sources, layers, health
-  checks, hooks (`paw.on`), options, timers (`paw.every`, `paw.defer`)
-- its directory of devices written in Lua, and the plugin directories that
-  it adds (`paw.plugins.add_dir`)
+- commands, keys and key groups, the lines of the key bar (`paw.ui.keybar.set`), views, buffer types, kinds of text buffer, and kinds of track
+- picker sources, query fields, fields and views of `:s` and `:g`, completers, status line components, and grep sources
+- the parts and signs of the track column and the parts of the bar labels (`paw.trackcolumn`, `paw.ruler`), the keys of insert mode in the arrange view (`paw.insert`), and the parts and the keys of paw that it changes with `set`
+- curve providers, address schemes, completion sources, layers, health checks, hooks (`paw.on`), options, and timers (`paw.every`, `paw.defer`)
+- its directory of devices written in Lua, and the plugin directories that it adds (`paw.plugins.add_dir`)
 
-paw also records what the extension registers later, from a command, a
-handler or a timer of its own. An entry belongs to the extension when a
-function of its files is in the entry, or when its code made the entry. A
-key mapped from its code shows this in `map.ext`. A timer that the core
-starts while an extension loads belongs to the core.
+paw also records what the extension registers later, from a command, a handler or a timer of its own. An entry belongs to the extension when a function of its files is in the entry, or when its code made the entry, and a key mapped from its code shows this in `map.ext`. A timer that the core starts while an extension loads belongs to the core.
 
-`:extensions` lists what an extension owns, and `paw.ext.provides(name)`
-returns it. A command or a key tells its owner (`spec.ext`, `map.ext`).
-`:help` uses this.
+`:extensions` lists what an extension owns, and `paw.ext.unload` and `paw.ext.provides(name)` use the same record. A command or a key tells its owner (`spec.ext`, `map.ext`), and `:help` uses this.
 
-Two extensions can map the same key in the same view, or define the same
-command. Then the extension that loads last wins. `:checkhealth extensions`
-gives a warning for each such entry. To choose the other one, load the
-extensions in the other order, or map the key again in `init.lua`.
+Two extensions can map the same key in the same view, or define the same command, and then the extension that loads last wins. `:checkhealth extensions` gives a warning for each such entry. To choose the other one, load the extensions in the other order, or map the key again in `init.lua`.
 
-An extension can also map a key of the core again. When the new mapping
-has a different description, `:checkhealth extensions` gives a warning:
-a key has the same meaning in every view. A mapping that keeps the
-description (it adds to the action of the core, for example Enter on a
-vocal track) gives no warning.
+An extension can also map a key of the core again. When the new mapping has a different description, `:checkhealth extensions` gives a warning, because a key has the same meaning in every view. A mapping that keeps the description gives no warning, for example when it adds to the action of the core, such as Enter on a vocal track.
 
 ### Unload
 
-`paw.ext.unload(name)` removes all that the extension owns.
+`paw.ext.unload(name)` removes all that the extension owns, in the following order.
 
-- paw removes its hooks and stops its timers first, so that its code
-  does not run while paw removes the rest.
-- paw restores what the extension replaced:
-  - a key of the core that it mapped again
-  - a command that it defined again
-  - an option of the core with a different default
-  - a part of the track column or of the bar labels that it changed
-- Its options go, with their values. Its timers stop.
-- paw no longer offers its devices in Lua and the plugins in its
-  directories. A script with the same name in another place takes their
-  place.
-- paw forgets its modules. When it loads again, it runs from the start.
+- paw removes its hooks and stops its timers first, so that its code does not run while paw removes the rest.
+- paw restores what the extension replaced, which is a key of the core that it mapped again, a command that it defined again, an option of the core with a different default, and a part of the track column or of the bar labels that it changed.
+- Its options go, with their values, and its timers stop.
+- paw no longer offers its devices in Lua and the plugins in its directories, and a script with the same name in another place takes their place.
+- paw forgets its modules, so when it loads again, it runs from the start.
 - paw sends `ext.unloading` and `ext.unloaded`.
 
-paw does not unload an extension in these conditions:
+paw does not unload an extension in two cases.
 
 - Another loaded extension requires it.
-- Its devices are on tracks. paw names the devices and the tracks.
-  `:ext.unload! name` unloads it anyway. The devices stay and play until
-  you remove them. A project saved with them opens without them when the
-  extension is not there.
+- Its devices are on tracks. paw names the devices and the tracks, and `:ext.unload! name` unloads the extension anyway. The devices stay and play until you remove them, and a project saved with them opens without them when the extension is not there.
 
-`:reload` starts the full runtime again, and does not need this.
+`:reload` starts the full runtime again and does not need this.
 
 ## Manifests and versions
 
-An extension can describe itself in a `manifest.lua` beside its
-`init.lua`. The file returns a table. Each bundled extension has one.
+An extension can describe itself in a `manifest.lua` beside its `init.lua`. The file returns a table, and each bundled extension has one.
 
 ```lua
 return {
@@ -176,12 +129,8 @@ return {
 }
 ```
 
-- `paw.api.version` is the version of the Lua interface (`1.0.0`).
-  Its minor number increases when something is added. Its major number
-  increases when something is removed or changed.
-- `requires` gives the versions that the extension works with. `paw` is
-  the API. Any other name is an extension, or a name in the `provides` of
-  an extension.
+- `paw.api.version` is the version of the Lua interface (`1.0.0`). Its minor number increases when something is added, and its major number increases when something is removed or changed.
+- `requires` gives the versions that the extension works with. `paw` is the API, and any other name is an extension, or a name in the `provides` of an extension.
 
 | Requirement | Matches |
 | --- | --- |
@@ -192,22 +141,13 @@ return {
 | `*` | any version |
 | `>=1.2, <2` | all of the requirements |
 
-Before an extension runs, paw loads what it requires (first from beside
-it, then from the bundled extensions) and checks every version. paw does
-not run an extension whose requirements are not met. `:extensions` and
-`:checkhealth extensions` give the reason.
+Before an extension runs, paw loads what it requires (first from beside it, then from the bundled extensions) and checks every version. paw does not run an extension whose requirements are not met, and `:extensions` and `:checkhealth extensions` give the reason.
 
-`paw.ext.satisfies(version, want)` checks a version.
-`paw.ext.manifest(path, name)` reads a manifest.
+`paw.ext.satisfies(version, want)` checks a version, and `paw.ext.manifest(path, name)` reads a manifest.
 
 ## The time limit of Lua
 
-paw stops Lua that runs for more than two seconds and does not return.
-The limit applies to a handler of a key, a command, an event handler, a
-timer and the drawing of a view. It also applies to a request on the
-control socket (`paw ctl`, the graphical window, the MCP server). The error names the code:
-`the key gZ (…) ran for more than 2 s without returning, and was stopped`.
-The program continues.
+paw stops Lua that runs for more than two seconds and does not return. The limit applies to a handler of a key, a command, an event handler, a timer and the drawing of a view, and also to a request on the control socket (`paw ctl`, the graphical window, the MCP server). The error names the code, for example `the key gZ (…) ran for more than 2 s without returning, and was stopped`, and the program continues.
 
 | Name | Effect |
 | --- | --- |
@@ -216,21 +156,13 @@ The program continues.
 | `paw.limit.within(ms, name, fn, ...)` | runs `fn` with a shorter limit, and gives its error to the caller |
 | `paw.api.limit_async` | tells if the build can stop compiled loops |
 
-- Time in the kernel does not count: a render, the read of a project, the
-  start of a plugin, `paw.wait`.
-- `:lua` that you type gets one minute. Scripts that run with `-l` have no
-  limit.
-- A build without `LUAJIT_ENABLE_CHECKHOOK` uses a count hook. Then code
-  that is not part of the runtime runs in the interpreter of LuaJIT.
+- Time in the kernel does not count, for example a render, the read of a project, the start of a plugin, and `paw.wait`.
+- `:lua` that you type gets one minute, and scripts that run with `-l` have no limit.
+- A build without `LUAJIT_ENABLE_CHECKHOOK` uses a count hook, and code that is not part of the runtime then runs in the interpreter of LuaJIT.
 
 ## Views in the graphical window
 
-A view that an extension registers with `paw.ui.view` and draws in cells
-works in the graphical window with no more code. The window offers it
-under More, and `:view.window name` opens it. The window draws it as the
-terminal does, with its keys and its `on_mouse`. See "Views in windows of
-their own" in [The graphical window](window.md#views-in-windows-of-their-own),
-and [Views that paint](window-lua.md#views-that-paint) for `paint`.
+A view that an extension registers with `paw.ui.view` and draws in cells works in the graphical window with no more code. The window offers it under More, and `:view.window name` opens it. The window draws it the way the terminal does, with its keys and its `on_mouse`. "Views in windows of their own" in [The graphical window](window.md#views-in-windows-of-their-own) describes this, and [Views that paint](window-lua.md#views-that-paint) describes `paint`.
 
 | Field of the view | Effect |
 | --- | --- |
@@ -239,21 +171,13 @@ and [Views that paint](window-lua.md#views-that-paint) for `paint`.
 | `paint(g, ctx)`, `pointer(e)` | the window paints the view in pixels with `paw.canvas`. The terminal continues to draw `render` |
 | `painted = "name"` | a second view, painted, beside the view of the terminal. The painted view has `window = false`. More offers it under the title of the view of the terminal |
 
-A painted view gets `hover` events in `pointer`: the pointer moves over
-the window with no button pressed. The undo tree and the mix report use
-this, in `paint.lua` beside `view.lua`. The vocal editor of utau uses
-`paint`.
+A painted view gets `hover` events in `pointer`, which are pointer moves over the window with no button pressed. The undo tree and the mix report use this in `paint.lua` beside `view.lua`, and the vocal editor of utau uses `paint`.
 
-Braille in a view of cells, or in `g:mono`, shows as dots in the window.
-A layer of the arrange view in the terminal goes into the ruler of the
-window as a band (see [`paw.frontend.bands`](window-lua.md#pawfrontendbands)
-and [Bands under the ruler](window.md#bands-under-the-ruler)).
+Braille in a view of cells, or in `g:mono`, shows as dots in the window. A layer of the arrange view in the terminal goes into the ruler of the window as a band (see [`paw.frontend.bands`](window-lua.md#pawfrontendbands) and [Bands under the ruler](window.md#bands-under-the-ruler)).
 
 ## Health checks
 
-`:checkhealth` runs the checks of the program and of the extensions, as in
-Neovim. Each result is OK, WARN (it may not be correct) or ERROR, with
-advice under it. `:checkhealth audio ffmpeg` runs only those checks.
+`:checkhealth` runs the checks of the program and of the extensions, in the same way as in Neovim. Each result is OK, WARN (it may not be correct) or ERROR, with advice under it, and `:checkhealth audio ffmpeg` runs only those checks.
 
 | Check | What it checks |
 | --- | --- |
@@ -267,8 +191,7 @@ advice under it. `:checkhealth audio ffmpeg` runs only those checks.
 | `extensions` | the extensions, their versions and their requirements |
 | `teal` | the type errors of the configuration and the extensions in Teal |
 
-The utau extension checks its engine. The sampler extension checks its
-plugin. An extension adds its own check:
+The utau extension checks its engine, and the sampler extension checks its plugin. An extension adds its own check, as in this example.
 
 ```lua
 paw.health.register("euclid", function(h)
@@ -277,34 +200,23 @@ paw.health.register("euclid", function(h)
 end, { desc = "Euclidean rhythms" })
 ```
 
-- `h.ok(text)`, `h.info(text)`, `h.warn(text, advice)` and
-  `h.error(text, advice)` report. Advice is a line or a list of lines.
+- `h.ok(text)`, `h.info(text)`, `h.warn(text, advice)` and `h.error(text, advice)` report, and advice is a line or a list of lines.
 - A check that fails shows as an error of its own.
-- `paw.health.run(name)` and `paw.health.check(names)` return the results
-  as data.
+- `paw.health.run(name)` and `paw.health.check(names)` return the results as data.
 
-`:doctor` (the doctor extension) is a different thing: a guided check of
-the hardware, with a person.
+`:doctor` (the doctor extension) is a different feature, which is a guided check of the hardware with a person.
 
 ## What the core gives an extension
 
-These parts of the core let an extension own a full feature. The utau
-extension uses all of them.
+The core has parts that let an extension own a full feature, and the utau extension uses all of them.
 
 ### Devices in Lua
 
-`devices/` holds devices written in Lua (see "Writing a device in Lua" in
-[Devices](devices.md)). Each device runs in a
-helper process with its own LuaJIT state. A device that fails stops
-alone.
+`devices/` holds devices written in Lua (see "Writing a device in Lua" in [Devices](devices.md)). Each device runs in a helper process with its own LuaJIT state, so a device that fails stops alone.
 
-- `paw.api.device_call(device, method, data)` sends data to the `dev.call`
-  of one device.
-- `paw.api.device_post(kind, topic, data)` sends data to every device of a
-  kind: the devices that exist, and each device made later. The devices of
-  an offline render get it before their first block.
-- Large data goes in files. A device maps a file with `dsp.map(path)`.
-  All the devices that map a file share it.
+- `paw.api.device_call(device, method, data)` sends data to the `dev.call` of one device.
+- `paw.api.device_post(kind, topic, data)` sends data to every device of a kind, which means the devices that exist and each device made later. The devices of an offline render get it before their first block.
+- Large data goes in files. A device maps a file with `dsp.map(path)`, and all the devices that map a file share it.
 
 ### Kinds of track
 
@@ -314,42 +226,24 @@ alone.
 | --- | --- |
 | `title` | the name of the kind |
 | `letter` | shown in the track header before the name |
-| `create(track, args)` | makes an ordinary track this kind: devices, a question |
+| `create(track, args)` | makes an ordinary track this kind, with its devices or a question |
 | `editor(clip)` | what Enter, a double click and `:clip.edit` open for its clips. It returns true when it opened an editor |
 | `describe(track)` | a few words for `K` and the track header of the graphical window |
 | `is(track)` | true for a track of the kind that does not say so |
 
-After that, `:track.add <name> [words]`, `:track.new` (a list of every
-kind), the buttons and menus of the graphical window that make a track,
-the header, `K` and `:clip.edit` know the kind.
+After that, `:track.add <name> [words]`, `:track.new` (a list of every kind), the buttons and menus of the graphical window that make a track, the header, `K` and `:clip.edit` know the kind.
 
-The kind is in `meta.kind` of the track, and the project saves it. Without
-the extension, the track is an ordinary track, and `K` gives the kind that
-it was. Vocal tracks (utau) and drum tracks (drums) are kinds.
-`paw.track_kinds.add(name, opts)`, `set(track, name, args)`,
-`clear(track)`, `of(track)` and `describe(track)` are for scripts.
+The kind is in `meta.kind` of the track, and the project saves it. Without the extension, the track is an ordinary track, and `K` gives the kind that it was. Vocal tracks (utau) and drum tracks (drums) are kinds. `paw.track_kinds.add(name, opts)`, `set(track, name, args)`, `clear(track)`, `of(track)` and `describe(track)` are for scripts.
 
 ### Kinds of clip
 
-`paw.clip_kinds.define(name, spec)` defines a kind of clip, for example a
-film, lyrics or light cues. A clip of the kind keeps the data of the kind.
-The core does not read the data. The kind compiles the data into what the
-clip plays: a MIDI or audio sound, signals and media files. The project
-saves these too, so the project plays without the extension. In Teal, the
-spec is `paw.contracts.ClipKind<D>`, and `D` is the record of the data.
+`paw.clip_kinds.define(name, spec)` defines a kind of clip, for example a film, lyrics or light cues. A clip of the kind keeps the data of the kind, and the core does not read the data. The kind compiles the data into what the clip plays, which is a MIDI or audio sound, signals and media files. The project saves these too, so the project plays without the extension. In Teal, the spec is `paw.contracts.ClipKind<D>`, and `D` is the record of the data.
 
-The kind tells how its data is saved. This is the job of the extension:
+The kind tells how its data is saved, and this is the job of the extension.
 
-- `serialize(data)` gives plain data: text, numbers, booleans, and lists
-  and maps of them. One text alone is data in a text format of the kind,
-  for example an `.lrc` file. Any other value is an error that names the
-  kind and the place: `` kind `film`: .frames[3]: a function is not
-  data ``.
-- `deserialize(stored, version)` gives the data back. `version` is the
-  version that the data has in the project. The kind changes data of an
-  older version here.
-- Bytes, for example pictures, sound or video, do not go in the data. They
-  go in media files that `compile` names.
+- `serialize(data)` gives plain data, which is text, numbers, booleans, and lists and maps of them. One text alone is data in a text format of the kind, for example an `.lrc` file. Any other value is an error that names the kind and the place, for example `` kind `film`: .frames[3]: a function is not data ``.
+- `deserialize(stored, version)` gives the data back. `version` is the version that the data has in the project, and the kind changes data of an older version here.
+- Bytes, for example pictures, sound or video, do not go in the data. They go in media files that `compile` names.
 
 | Field | Value |
 | --- | --- |
@@ -368,8 +262,7 @@ The kind tells how its data is saved. This is the job of the extension:
 | `insert` | a key of insert mode in the arrange view that inserts a clip of the kind. `Enter` after it calls `editor`. See [Insert mode](insert-mode.md) |
 | `on_signal`, `chase`, `chase_back`, `on_stop` | for the time when the project plays |
 
-The functions of a kind must be fast. Each one stops after
-`paw.opt.clip_kind_limit` milliseconds (50).
+The functions of a kind must be fast, and each one stops after `paw.opt.clip_kind_limit` milliseconds (50).
 
 | Function | Effect |
 | --- | --- |
@@ -380,59 +273,37 @@ The functions of a kind must be fast. Each one stops after
 | `paw.clip_kinds.describe(clip)` | `Film clip · intro.mp4`, or `film (no extension here defines it)` |
 | `paw.clip_kinds.list()`, `spec(name)`, `remove(name)` | the kinds |
 
-Each clip keeps the version of its data. When the project opens, and when
-the kind is defined, paw migrates a clip with an older version. A message
-tells how many clips changed. A clip with a newer version does not
-change: `this clip was made by a newer film extension (data 2, this one
-knows 1)`. Without the extension, the clip keeps its data and its sound,
-and you can move, copy and delete it. When paw unloads the extension, its
-kinds go too.
+Each clip keeps the version of its data. When the project opens, and when the kind is defined, paw migrates a clip with an older version, and a message tells how many clips changed. A clip with a newer version does not change, and paw shows a message such as `this clip was made by a newer film extension (data 2, this one knows 1)`. Without the extension, the clip keeps its data and its sound, and you can move, copy and delete it. When paw unloads the extension, its kinds go too.
 
 ### Plugins of an extension
 
-An extension can include a CLAP or VST3 plugin built from its own source.
-Its Nix package puts the plugin beside the extension.
-`paw.plugins.add_dir(dir)` adds the directory to the scan.
+An extension can include a CLAP or VST3 plugin built from its own source. Its Nix package puts the plugin beside the extension, and `paw.plugins.add_dir(dir)` adds the directory to the scan.
 
 - paw then finds its plugins as if they were installed, for the session.
 - `paw.plugins.from[kind]` lists them as plugins of the extension.
 - They run in helper processes, as all plugins do.
-- paw makes the devices of these plugins that a project held when the
-  plugins were not found.
-- `CLAP_PATH` and similar variables replace the plugin paths, and paw reads
-  them one time at the start. `add_dir` adds to the paths.
+- paw makes the devices of these plugins that a project held when the plugins were not found.
+- `CLAP_PATH` and similar variables replace the plugin paths, and paw reads them one time at the start. `add_dir` adds to the paths.
 
-The sampler extension is an example: a CLAP plugin written in Rust in
-`native/`, a Cargo workspace of its own. A build of paw does not compile
-it. Its package puts `paw-sampler.clap` in `clap/` beside the extension.
+The sampler extension is an example. It is a CLAP plugin written in Rust in `native/`, which is a Cargo workspace of its own, and a build of paw does not compile it. Its package puts `paw-sampler.clap` in `clap/` beside the extension.
 
 An extension can also ship an attachment: a native library that paw
-offers each CLAP plugin, loaded with `paw.plugins.attach(path)`. See
-[Attachments](attachments.md). The ara extension is an example: its
-package puts `paw-ara.so` in `lib/` beside the extension.
+offers each CLAP plugin, loaded with `paw.plugins.attach(path)`. [Attachments](attachments.md) describes it. The ara extension is an example, and its package puts `paw-ara.so` in `lib/` beside the extension.
 
-Scripts call such a plugin by name, as they call a device in Lua:
+Scripts call such a plugin by name, in the same way as they call a device in Lua.
 
 - `paw.api.device_call(device, method, data)` reaches a method that paw
-  does not know through the extension `dev.paw.call/1` of the plugin. The
-  sampler answers `describe`.
+  does not know through the extension `dev.paw.call/1` of the plugin, and the sampler answers `describe`.
 - `device_call(device, "preset.load", "file:<path>")` loads a file through
   the preset-load extension of the plugin.
 
 ### Programs of an extension
 
-An extension can start a program and talk to it over a socket or its
-standard input and output (see [Helper
-programs](lua-other.md#helper-programs)). The engine of utau is such a
-program, built from the `engine/` source of the extension. Its package
-puts it in `bin/` beside the extension. The extension looks there first,
-after the `utau_engine` option and `$PAW_UTAU_ENGINE`.
+An extension can start a program and talk to it over a socket or its standard input and output (see [Helper programs](lua-other.md#helper-programs)). The engine of utau is such a program, built from the `engine/` source of the extension. Its package puts it in `bin/` beside the extension, and the extension looks there first, after the `utau_engine` option and `$PAW_UTAU_ENGINE`.
 
 ### Renamed devices
 
-`paw.api.device_alias(old, new)` makes devices of a renamed kind as the new
-kind. Projects saved when the utau device was part of the program get the
-device in Lua.
+`paw.api.device_alias(old, new)` makes devices of a renamed kind as the new kind, so projects saved when the utau device was part of the program get the device in Lua.
 
 ### Nix packages
 
@@ -440,30 +311,15 @@ The flake makes a package of each extension, which holds
 `share/paw/extensions/<name>`.
 
 - Most packages are a copy of the Lua.
-- An extension with parts to build has its own `nix/default.nix`. It gets
-  the flake inputs that it asks for. The utau extension asks for
-  `openutau`, the OpenUtau source of its engine, pinned in the flake.
-- An extension with its own Rust workspace asks for `craneLib`, and builds
-  as paw builds. Its dependencies are a separate derivation (the
-  `nix/engine.nix` of the sampler).
-- `withExtensions` wraps the commands of the program. `$PAW_EXTENSIONS`
-  names the directories of the extensions, separated by `:`. paw loads
-  them at startup, before the configuration, with `--clean` too. A
-  configuration that loads the same extension from another place gets the
-  packaged one.
+- An extension with parts to build has its own `nix/default.nix`, and it gets the flake inputs that it asks for. The utau extension asks for `openutau`, the OpenUtau source of its engine, pinned in the flake.
+- An extension with its own Rust workspace asks for `craneLib` and builds the way paw builds. Its dependencies are a separate derivation (the `nix/engine.nix` of the sampler).
+- `withExtensions` wraps the commands of the program. `$PAW_EXTENSIONS` names the directories of the extensions, separated by `:`, and paw loads them at startup, before the configuration, also with `--clean`. A configuration that loads the same extension from another place gets the packaged one.
 - `nix run .#paw-utau` is paw with utau. `nix run .` has no .NET.
 
 ## The API reference
 
-[The Lua API](api.md) lists every public function of the `paw` modules
-and of `paw.api`, with the comment from the source. It is a page of
-`:help` (`:help paw.ext.unload`).
+[The Lua API](api.md) lists every public function of the `paw` modules and of `paw.api`, with the comment from the source. It is a page of `:help` (`:help paw.ext.unload`).
 
-`tools/apidoc.lua` makes it (`paw --clean --no-plugins -l
-tools/apidoc.lua`). It also writes `runtime/types/paw.lua`, a meta file for
-LuaLS. Point the `workspace.library` of LuaLS at `runtime/types`, and
-editors complete `paw.*` in a configuration or an extension. A test fails
-when a public function has no `---` comment, or when either file is not
-current.
+`tools/apidoc.lua` makes it (`paw --clean --no-plugins -l tools/apidoc.lua`), and it also writes `runtime/types/paw.lua`, a meta file for LuaLS. If you point the `workspace.library` of LuaLS at `runtime/types`, editors complete `paw.*` in a configuration or an extension. A test fails when a public function has no `---` comment, or when either file is not current.
 
 Every event is in [Events](events.md).

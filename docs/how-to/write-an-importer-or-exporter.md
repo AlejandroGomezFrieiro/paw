@@ -2,11 +2,11 @@
 
 <!-- tags: formats-register importer exporter -->
 
-This guide shows you how to make paw open, bring in and write the files
-of another program. You register a format with one call. Then `:import`,
-`:open`, `:edit` and `:export` take its files, and the ending of a file
-selects the format. As an example, the guide makes a format for a small
-text file of notes. Each line is a pitch, a start and a length in beats.
+You can make paw open, bring in and write the files of another program by
+registering a format with one call. After the call, `:import`, `:open`,
+`:edit` and `:export` take its files, and the ending of a file selects the
+format. The example on the page is a format for a small text file of
+notes. Each line is a pitch, a start and a length in beats.
 
 ```text
 60 0 1
@@ -15,13 +15,14 @@ text file of notes. Each line is a pitch, a start and a length in beats.
 ```
 
 The `interop` extension reads and writes REAPER projects and DAWproject
-files in the same way. Its
+files in the same way, and its
 [README](../../extensions/interop/README.md#how-a-format-is-made) shows
 the two formats as larger examples.
 
 ## Register the format
 
-Put this in your `init.lua`, or in the `init.lua` of an extension:
+Put the following code in your `init.lua`, or in the `init.lua` of an
+extension:
 
 ```lua
 paw.formats.register({
@@ -53,29 +54,28 @@ paw.formats.register({
 ```
 
 - `import` reads the file. `opts.merge` is true for `:import`, which adds
-  to the project. It is false for `:open` and `:edit`, which open the file
+  to the project, and false for `:open` and `:edit`, which open the file
   in place of the project.
 - `export` writes the project to the file.
-- Each returns the message to show. To list what did not carry over on a
-  page, return `{ said = "...", lost = { "a line", ... } }`.
+- Each one returns the message to show. To list on a page what did not
+  carry over, return `{ said = "...", lost = { "a line", ... } }`.
 - An error that they raise shows as a message, and the project stays as
   it was.
 
-A format can leave out `import` or `export`: it then only writes, or only
-reads. Add `project = true` when a file holds a whole project. Then
-`:w song.notes` writes it too. Add `detect = function(path) ... end` when
-the files of the format do not always have the same ending.
+A format can leave out `import` or `export`, so that it only writes or
+only reads. Add `project = true` when a file holds a whole project, so
+that `:w song.notes` writes it too. Add `detect = function(path) ... end`
+when the files of the format do not always have the same ending.
 
-In an extension that is written in Teal, the checker examines the format.
-The type of the table is `paw.formats.Format`. A field with a wrong name,
-for example `imprt`, is an error. The type of `opts` is
-`paw.formats.Options`. See
-[How to write an extension in Teal](write-an-extension-in-teal.md).
+In an extension that is written in Teal, the checker examines the format,
+whose type is `paw.formats.Format`. A field with a wrong name, for example
+`imprt`, is an error, and the type of `opts` is `paw.formats.Options`. The
+details are in [How to write an extension in Teal](write-an-extension-in-teal.md).
 
 ## Use it
 
-1. Type `:import song.notes`. A track with the notes appears.
-2. Type `:export copy.notes`. paw writes the notes to `copy.notes`.
+1. Type `:import song.notes`, and a track with the notes appears.
+2. Type `:export copy.notes`, and paw writes the notes to `copy.notes`.
 3. Type `:help formats`. The list shows the new format, with the formats
    of paw and of the extensions that are loaded.
 

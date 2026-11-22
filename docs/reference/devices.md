@@ -2,10 +2,7 @@
 
 <!-- tags: built-in-devices devices -->
 
-A device is an instrument or an effect on a track. paw has built-in
-devices, hosts plugins (see [Plugins](plugins.md)), and runs devices
-written in Lua (see [Lua devices](lua-devices.md)). All kinds have
-parameters, presets, a wet/dry mix and an output gain.
+A device is an instrument or an effect on a track. paw has built-in devices, hosts plugins (see [Plugins](plugins.md)), and runs devices written in Lua (see [Lua devices](lua-devices.md)), and all kinds have parameters, presets, a wet/dry mix and an output gain.
 
 ## Built-in devices
 
@@ -15,9 +12,9 @@ parameters, presets, a wet/dry mix and an output gain.
 | `drums` | `gain`, `kick_tune`, `decay`. A synthesized kit on the General MIDI drum notes: kick (35, 36), rim (37), snare (38, 40), clap (39), closed, pedal and open hat (42, 44, 46: the closed and pedal hats stop the open hat), six toms (41 to 50), crashes, china and splash (49, 57, 52, 55), ride (51, 59), ride bell (53), tambourine (54), cowbell (56). Output pairs: Kit, Kick, Snare, Hats, Toms, Cymbals and Percussion (see [Routing](routing.md#instruments-with-several-outputs)). |
 | `sampler` | `gain`. One sound file for each note, each with a level, pan, tuning and choke group. The kit is the state of the device: text lines `note level pan tune group path`, set with `paw.api.device_set(id, "state", base64)`. paw reads the files off the audio thread. `extensions/drums` makes kits from folders. |
 | `gain` | `gain` |
-| `delay` | Echoes: `time` (ms), or `sync` to a note length at the current tempo (`1/8.`, `1/4T`, and other values), `feedback`, `mix` (the level of the echoes, the dry sound stays at full level), `mode` (stereo or ping-pong), `low_cut` and `high_cut` on the repeats (off at the ends of their ranges), `width`. A new time glides, as on tape. |
+| `delay` | Echoes: `time` (ms), or `sync` to a note length at the current tempo (`1/8.`, `1/4T`, and other values), `feedback`, `mix` (the level of the echoes, the dry sound stays at full level), `mode` (stereo or ping-pong), `low_cut` and `high_cut` on the repeats (off at the ends of their ranges), `width`. A new time glides, like the time of a tape delay. |
 | `chorus` | Doubles and widens a guitar or a pad: `rate` or `sync`, `depth`, `delay`, `feedback`, `spread` (the right LFO behind the left LFO), `mix`, `voices`. |
-| `flanger` | The jet sweep: `rate` or `sync`, `depth`, `delay`, `feedback` (negative for the hollow sound), `spread`, `mix`. |
+| `flanger` | A sweeping, jet-like effect with `rate` or `sync`, `depth`, `delay`, `feedback` (negative for the hollow sound), `spread`, `mix`. |
 | `phaser` | `rate` or `sync`, `depth` (up to three octaves each way), `center`, `stages` (2 to 12), `feedback`, `spread`, `mix`. |
 | `tremolo` | `mode` (tremolo, or auto-pan at equal power), `rate` or `sync`, `depth`, `shape` (sine, triangle, a soft square). A synced LFO locks to the position of the song while it plays. |
 | `limiter` | The last device on the master: `ceiling` (default -1 dB), `gain` (drive into it), `release`, `true_peak` (on by default: the peaks between samples also stay below the ceiling, as a BS.1770 meter reads them, with 0.2 dB of margin). It looks 5 ms ahead, so no sample goes above the ceiling. The rest of the mix waits for it. `paw.params.read(l, "meters")` gives `gr` and `input` in dB. |
@@ -32,16 +29,10 @@ parameters, presets, a wet/dry mix and an output gain.
 
 ### Displays and windows
 
-- In the device panel, some devices show a display below their names. The
-  `eq` shows its curve. The `compressor`, `gate` and `limiter` show their
-  gain reduction. The `meter` shows its loudness, and the `tuner` a needle.
-- `:eq` and `:tuner` show the equalizer or the tuner of the track, and add
-  one if the track has none. `:loudness` shows the meter of the master.
-- In the graphical window, each of these opens a window of its own (also
-  from the track menu, and from the timeline menu for the meter).
-- In the window of the equalizer, drag the dot of a band to move it. The
-  wheel over a dot changes its Q. A double click on a dot disables the
-  band. A double click on empty space enables a band there as a bell.
+- In the device panel, some devices show a display below their names. The `eq` shows its curve, the `compressor`, `gate` and `limiter` show their gain reduction, the `meter` shows its loudness, and the `tuner` shows a needle.
+- `:eq` and `:tuner` show the equalizer or the tuner of the track, and add one if the track has none. `:loudness` shows the meter of the master.
+- In the graphical window, each of these opens a window of its own, also from the track menu, and from the timeline menu for the meter.
+- In the window of the equalizer, drag the dot of a band to move it, and use the wheel over a dot to change its Q. A double click on a dot disables the band, and a double click on empty space enables a band there as a bell.
 
 ### Cost
 
@@ -66,37 +57,27 @@ The cost of one instance on one core at 48 kHz (`bench/devices.lua`):
 | `paw.params.format(param, value)` | A value in its unit: `2.5 kHz`, `-18.0 dB`, `4:1`, `1/8.`. |
 | `paw.params.read(device, what, ...)` | The meters, curves and readings of a device (see the table above). |
 
-Frequencies, times and ratios move on a log scale from the keyboard and on
-sliders.
+Frequencies, times and ratios move on a log scale from the keyboard and on sliders.
 
-A new built-in device implements the `Device` trait in `paw-engine`, and
-is added to the registry in
-[devices/mod.rs](../../crates/paw-engine/src/devices/mod.rs).
+A new built-in device implements the `Device` trait in `paw-engine`, and it is added to the registry in [devices/mod.rs](../../crates/paw-engine/src/devices/mod.rs).
 
 ## Wet/dry mix and output gain
 
-Each device, built-in or plugin, has two parameters from paw after its own
-parameters:
+Each device, built-in or plugin, has two parameters from paw after its own parameters.
 
 | Parameter | Range | Effect |
 | --- | --- | --- |
 | `fx_wet` | Wet, 0 to 100 % | The part of the processed sound. The dry part is the input of the device, delayed by the latency of the device so that the two align. |
 | `fx_gain` | Output, -24 to +24 dB | The output level of the device. |
 
-- You set, automate, bind and save them in presets as any other
-  parameter. In Lua: `paw.fx.set_wet(device, 50)`.
-- The card of a device in the graphical window shows both, below the
-  preset.
-- The device panel shows `wet 50%` on the line of the device when the mix
-  is not 100 %. `+` and `-` on that line change it. Both parameters are
-  the last rows of the device.
-- A bypass, the end of a bypass, and any change of the mix fade over 5 ms,
-  with no click. A bypassed device adds no delay.
+- You set, automate, bind and save them in presets like any other parameter. In Lua, `paw.fx.set_wet(device, 50)` sets the mix.
+- The card of a device in the graphical window shows both, below the preset.
+- The device panel shows `wet 50%` on the line of the device when the mix is not 100 %, and `+` and `-` on that line change it. Both parameters are the last rows of the device.
+- A bypass, the end of a bypass, and any change of the mix fade over 5 ms, with no click. A bypassed device adds no delay.
 
 ## Presets
 
-A preset is the settings of a device, saved with a name. You can load it
-into the same kind of device in any project. A load is one undo step.
+A preset is the settings of a device, saved with a name. You can load it into the same kind of device in any project, and a load is one undo step.
 
 | Command | Key (device panel) | Effect |
 | --- | --- | --- |
@@ -107,11 +88,9 @@ into the same kind of device in any project. A load is one undo step.
 | `:preset.default` | `<Space>dW`, or `Ctrl-s` in the picker | New devices of this kind that you add by hand start from the loaded preset. `:preset.default none` stops this. |
 | `:preset.delete` | | Delete a preset. |
 
-In the graphical window, the card of a device shows its preset between
-`◀` and `▶`. A click on the name opens a menu of the presets, with "Save
-as a preset…".
+In the graphical window, the card of a device shows its preset between `◀` and `▶`, and a click on the name opens a menu of the presets, with "Save as a preset…".
 
-The presets of a device are the presets that its format lists:
+The presets of a device are the presets that its format lists, as the table below shows.
 
 | Format | Presets |
 | --- | --- |
@@ -120,10 +99,7 @@ The presets of a device are the presets that its format lists:
 | LV2 | the presets that lilv knows |
 | built-in | the tables in `runtime/lua/paw/device_presets.lua` |
 
-Your presets are JSON files in `~/.local/share/paw/presets/<kind>/`
-(`paw.opt.presets_dir` sets a different directory). Each file holds the
-state of the plugin and the value of each parameter. `defaults.json` in the
-same directory names the default preset of each kind.
+Your presets are JSON files in `~/.local/share/paw/presets/<kind>/` (`paw.opt.presets_dir` sets a different directory). Each file holds the state of the plugin and the value of each parameter, and `defaults.json` in the same directory names the default preset of each kind.
 
 | Function | Effect |
 | --- | --- |

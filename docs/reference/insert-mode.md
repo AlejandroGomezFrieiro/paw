@@ -2,11 +2,7 @@
 
 <!-- tags: insert insertkeys paw.insert i -->
 
-In the arrange view, `i` starts insert mode, as in Vim. The status line
-shows `INSERT`. In insert mode, each key inserts one item at the cursor:
-a clip, a region, a marker, an automation point. `Esc` stops insert
-mode. Extensions and `init.lua` add keys and change what each key inserts.
-For the other keys of the view, see [The arrange view](arrange-view.md).
+In the arrange view, `i` starts insert mode, as in Vim, and the status line shows `INSERT`. In insert mode, each key inserts one item at the cursor, which can be a clip, a region, a marker or an automation point. `Esc` stops insert mode. Extensions and `init.lua` add keys and change what each key inserts. The other keys of the view are in [The arrange view](arrange-view.md).
 
 ## The keys
 
@@ -19,7 +15,7 @@ For the other keys of the view, see [The arrange view](arrange-view.md).
 | `f` | A sound file or a MIDI file. paw asks for the file. | Stops insert mode. |
 | `u` | A vocal clip on a vocal track. Only with the utau extension. | Opens the vocal editor. |
 
-The other keys of insert mode:
+The other keys of insert mode are in the table below.
 
 | Key | Effect |
 | --- | --- |
@@ -30,25 +26,15 @@ The other keys of insert mode:
 | The arrow keys | Move the cursor one grid step, or one track. |
 | `Esc` | Stops insert mode. |
 
-- The cursor moves to the end of the item that you inserted, so `mmm`
-  inserts three clips one after the other. After a marker or a point, it
-  moves one grid step.
-- The letters only insert. `h` `j` `k` `l` `w` `b` do not move the cursor
-  in insert mode. To move, use the arrow keys, or press `Esc`, move, and
-  press `i` again.
-- Insert mode never moves a clip that is there. A clip that starts in
-  another clip, or goes over it, is not inserted, and a message tells
-  you why. Regions and markers can go over other items.
-- All that you insert from `i` to `Esc` is one undo step: `u` removes all
-  of it. `.` inserts it again.
-- A key with no item says so. `K` tells the keys.
-- After a moment, a box shows each key and what it inserts. In the
-  graphical window the box is the same.
-- `i` then `Enter` enters notes at the cursor in two keys: the clip under
-  the cursor, or a new clip.
+- The cursor moves to the end of the item that you inserted, so `mmm` inserts three clips one after the other. After a marker or a point, it moves one grid step.
+- The letters only insert, so `h` `j` `k` `l` `w` `b` do not move the cursor in insert mode. To move, use the arrow keys, or press `Esc`, move, and press `i` again.
+- Insert mode never moves a clip that is there. A clip that starts in another clip, or goes over it, is not inserted, and a message tells you why. Regions and markers can go over other items.
+- All that you insert from `i` to `Esc` is one undo step, so `u` removes all of it and `.` inserts it again.
+- A key with no item says so, and `K` tells the keys.
+- After a moment, a box shows each key and what it inserts, and in the graphical window the box is the same.
+- `i` then `Enter` enters notes at the cursor in two keys, in the clip under the cursor or in a new clip.
 
-`paw.opt.insertkeys` is the list of the keys that work, in the order of
-the box: `:set insertkeys=m,r` keeps only `m` and `r`.
+`paw.opt.insertkeys` is the list of the keys that work, in the order of the box, so `:set insertkeys=m,r` keeps only `m` and `r`.
 
 ## paw.insert.add
 
@@ -62,10 +48,7 @@ paw.insert.add("M", {
 })
 ```
 
-`add` puts the key in `paw.opt.insertkeys`, so the key works at once.
-`hidden = true` adds it without that. A key that exists gets the new kind.
-`paw.insert.remove("M")` removes the key. When an extension unloads, its
-keys go, and a key that it changed is again as it was.
+`add` puts the key in `paw.opt.insertkeys`, so the key works at once, and `hidden = true` adds it without that. A key that exists gets the new kind. `paw.insert.remove("M")` removes the key. When an extension unloads, its keys go, and a key that it changed is again as it was.
 
 | Field | Meaning |
 | --- | --- |
@@ -81,7 +64,7 @@ keys go, and a key that it changed is again as it was.
 | `open(ctx, item)` | What `Enter` does after the item: open it in its editor. |
 | `order` | The place in the box. |
 
-`ctx` tells about the place:
+`ctx` tells about the place, with the fields below.
 
 | Field | Meaning |
 | --- | --- |
@@ -95,7 +78,7 @@ keys go, and a key that it changed is again as it was.
 | `name` | The name, with `%d` made a number. |
 | `placed(item)` | For a kind that asks first (a file): give the item when it is made. |
 
-The item that `insert` returns:
+The item that `insert` returns has the fields below.
 
 | Field | Meaning |
 | --- | --- |
@@ -108,9 +91,7 @@ The item that `insert` returns:
 
 ## paw.insert.set
 
-`set` changes a key that exists, also a key that comes with paw. It
-changes only the fields that you give. `key` moves the kind to another
-key.
+`set` changes a key that exists, also a key that comes with paw. It changes only the fields that you give, and `key` moves the kind to another key.
 
 ```lua
 -- Regions to the next marker, called Verse 1, Verse 2...
@@ -119,13 +100,11 @@ paw.insert.set("r", { name = "Verse %d", length = "marker" })
 paw.insert.set("m", { length = "1 bar", key = "n" })
 ```
 
-The key gets a changed copy. `paw.insert.add(key, old)`, with the table
-that `paw.insert.get(key)` gave before, puts it back.
+The key gets a changed copy, and `paw.insert.add(key, old)`, with the table that `paw.insert.get(key)` gave before, puts it back.
 
 ## Kinds of clip
 
-A kind of clip (`paw.clip_kinds.define`) with an `insert` key gets that
-key in insert mode. `Enter` after it calls the `editor` of the kind.
+A kind of clip (`paw.clip_kinds.define`) with an `insert` key gets that key in insert mode, and `Enter` after it calls the `editor` of the kind.
 
 ```lua
 paw.clip_kinds.define("cue", { title = "Cue clip", insert = "c", ... })

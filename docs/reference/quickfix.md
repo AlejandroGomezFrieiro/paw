@@ -3,14 +3,14 @@
 <!-- tags: quickfix-list qf -->
 
 As in Neovim, the quickfix list is one shared list of what is wrong, or
-found, in the project. Each entry gives a place: a clip, a note, a track, a
-point of a lane, a device or its parameter, or a bar. An entry says what it
-is about, and it can have a fix. While the list has entries, the status line counts
-them: `qf E2 W5`, and `qf 3/7 E2 W5` after you go to one.
+found, in the project. Each entry gives a place, which is a clip, a note, a track, a
+point of a lane, a device or its parameter, or a bar, and it says what it
+is about and can have a fix. While the list has entries, the status line counts
+them as `qf E2 W5`, and as `qf 3/7 E2 W5` after you go to one.
 
 ## Problems
 
-paw keeps one list, **Problems**, and adds entries when things go wrong:
+paw keeps one list, called Problems, and adds entries when something goes wrong, as follows.
 
 - the diagnostics worse than a hint, with those of language servers and of the mix diagnostics. `:set qf_diagnostics=error` keeps only errors, and `off` none.
 - renders that go over full scale, that are louder than `render_loudest` (-9 LUFS), or that fail.
@@ -40,13 +40,13 @@ the mix report and the messages. Extensions add entries (see
 | `:cdo track.mute` | Runs a command on every entry. The cursor goes to each entry, and its address is the target of the command. All is one undo step. |
 | `:cfdo track.solo` | Runs a command one time for each track that has entries. All is one undo step. |
 | `:cfix`, `:cfix .` | Does the fix of every entry that has one, as one undo step. Does the fix of the current entry. |
-| `:lopen` `:lnext` `]l` `[l` `:ldiag` and other | The same for the location list of the window. `:ldiag` lists what the window shows (the piano roll its clip, the mixer and the device panel the track). `:lopen` shows it below the window. |
+| `:lopen` `:lnext` `]l` `[l` `:ldiag` and more | The same for the location list of the window. `:ldiag` lists what the window shows (the piano roll its clip, the mixer and the device panel the track). `:lopen` shows it below the window. |
 
-The list is a buffer as the other buffers. `:vs quickfix` shows it next to
+The list is a buffer like any other buffer. `:vs quickfix` shows it next to
 the window, and `:e quickfix` in the window. A layout keeps its window. The
 graphical window docks it in a pane (`:copen`, More). `:qf.window` shows it
 in a window of its own.
 
-Commands that fill the list: `:g/pattern/` (see [Ex commands](ex.md)),
+These commands fill the list: `:g/pattern/` (see [Ex commands](ex.md)),
 `:vimgrep` (see [Search the text of the project](grep.md)), `:query` and
 `:select` (see [Structural queries](queries.md)), and `Ctrl-q` in a picker.

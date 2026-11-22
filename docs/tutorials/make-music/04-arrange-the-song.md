@@ -1,10 +1,11 @@
 # Lesson 4: Arrange the song
 
-*This lesson takes about 15 minutes.*
+*The lesson takes about 15 minutes.*
 
-In this lesson, we make a song from the four bars of lessons 1 to 3. The
-song has a verse, a chorus, a second verse and a last chorus. We put a marker at the
-start of each part and change the tempo. Then we jump from part to part.
+In this lesson, we make a whole song from the four bars of lessons 1 to 3.
+The song has a verse, a chorus, a second verse and a last chorus. We put a
+marker at the start of each part, change the tempo, and then jump from
+part to part.
 
 ## Open the practice project
 
@@ -15,37 +16,38 @@ start of each part and change the tempo. Then we jump from part to part.
      guitar riff has two bars.
 
 In this practice project, a synth plays the guitar riff through the amp
-chain of lesson 3. So the project plays without your recording.
+chain of lesson 3, so the project plays without your recording.
 
 ## Copy the verse to make the chorus
 
 1. Type `:1,4co 5` and press Enter.
    - `:1,4co 5` copies bars 1 to 4 of every track to bar 5. paw says
-     `copied bars 1–4 to 5.1.00`. The song has eight bars now.
+     `copied bars 1–4 to 5.1.00`, and the song now has eight bars.
 2. Type `/Lead` and press Enter.
-   - `/` finds a track or a clip by its name. The cursor goes to the Lead
-     track.
+   - `/` finds a track or a clip by its name, and the cursor goes to the
+     Lead track.
 3. Press `0` (the start of the song) and `x`.
-   - `x` deletes the clip under the cursor. The lead plays only from bar
-     5, in the chorus.
+   - `x` deletes the clip under the cursor, so the lead plays only from
+     bar 5, in the chorus.
 4. Press `j` to go to the Guitar track, and press `x`.
-   - The verse has drums, bass and chords. The chorus adds the lead and
-     the guitar.
+   - The verse has drums, bass and chords, and the chorus adds the lead
+     and the guitar.
 
 ## Move the guitar
 
 1. Press `5|` to go to bar 5, on the guitar riff.
 2. Press `8L`.
    - `L` moves the clip one step of the grid later, and the grid is one
-     beat. The riff moves eight beats, to bar 7. It answers the lead in
-     the second half of the chorus.
+     beat. The riff moves eight beats, to bar 7, where it answers the lead
+     in the second half of the chorus.
 
 In the graphical window, you can also drag a clip to move it.
 
 ## Repeat verse and chorus
 
 1. Type `:1,8co 9` and press Enter.
-   - The verse and the chorus play again from bar 9. The song has 16 bars.
+   - The verse and the chorus play again from bar 9, and the song has 16
+     bars.
 
 ## Put markers on the parts
 
@@ -62,7 +64,8 @@ In the graphical window, you can also drag a clip to move it.
    - The status line shows `104 bpm`. The clips stay on their bars, and the
      song plays a little faster.
 2. Press `gL` to stop the loop.
-   - `loop 1–4` goes away from the status line. The whole song plays now.
+   - `loop 1–4` goes away from the status line, and the whole song plays
+     now.
 3. Press `gs` and `<Space><Space>`. Listen to the song, and press `<Space><Space>` to stop.
 
 ## Find a part
@@ -72,8 +75,8 @@ In the graphical window, you can also drag a clip to move it.
 2. Type `last` and press Enter.
    - The cursor goes to the last chorus, at bar 13.
 3. Press `['`.
-   - `['` goes to the marker before, the second verse. `]'` goes to the
-     next marker.
+   - `['` goes to the marker before, which is the second verse. `]'` goes
+     to the next marker.
 4. Press `<Space>ft` (the space bar, f, t).
    - A list of the tracks opens. `<Space>f` and a letter open a list of other
      things, for example `<Space>fc` the clips.
@@ -85,12 +88,13 @@ In the graphical window, you can also drag a clip to move it.
 
 ## What we made
 
-We made a song of 16 bars from a loop of four. We copied, deleted and
+We made a song of 16 bars from a loop of four bars. We copied, deleted and
 moved clips, named the parts with markers, and changed the tempo. Then we
 found a part by its marker and a track by its name.
 
-Previous: [Record a guitar](03-record-a-guitar.md) · Next:
-[Mix and render the song](05-mix-and-render.md) · [All lessons](README.md)
+- Previous: [Record a guitar](03-record-a-guitar.md)
+- Next: [Mix and render the song](05-mix-and-render.md)
+- [All lessons](README.md)
 
 For more, see [Ex commands](../../reference/ex.md) for `:co` and the other
 commands on bars. See also [Markers and regions](../../reference/markers.md),
