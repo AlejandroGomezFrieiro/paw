@@ -24,6 +24,7 @@ local api = require("paw.api")
 local commands = require("paw.commands")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type KeymapModule = require("paw.keymap")
 
 local type Window = contracts.Window
 local type VZoom = contracts.VZoom
@@ -58,6 +59,7 @@ local record Opt
   track_height: integer | string
 end
 local record Paw is partial.Paw
+  keymap: KeymapModule
   layout: Layout
   ui: Ui
   groups: Groups
