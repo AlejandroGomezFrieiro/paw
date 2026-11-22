@@ -2,7 +2,7 @@
 //! 3341 and 3342 test cases that are made of sine tones (generated here, not
 //! downloaded), and true-peak cases whose answer follows from the signal.
 
-use super::analysis::{Analysis, analyze};
+use crate::analysis::{Analysis, analyze};
 
 const PI2: f64 = 2.0 * std::f64::consts::PI;
 
@@ -74,7 +74,7 @@ fn near(got: f64, want: f64, tolerance: f64, what: &str) {
 
 #[test]
 fn k_weighting_matches_the_table_in_bs1770_at_48k() {
-    let [shelf, high_pass] = super::analysis::k_weighting(48_000.0);
+    let [shelf, high_pass] = crate::analysis::k_weighting(48_000.0);
     let table = [
         (shelf.b[0], 1.53512485958697),
         (shelf.b[1], -2.69169618940638),
@@ -365,6 +365,12 @@ fn spectrum_puts_a_tone_in_its_octave() {
     near(band("1k"), 0.0, 0.1, "all in the 1 kHz octave");
     assert!(band("125") < -60.0, "nothing far below: {}", band("125"));
     assert!(band("8k") < -60.0, "nothing far above: {}", band("8k"));
+    near(
+        a.centroid,
+        1000.0,
+        10.0,
+        "the centroid of a tone is its frequency",
+    );
     // Two tones of equal level split the energy evenly.
     let s = Signal::new(48_000.0).sine(100.0, -10.0, 5.0);
     let t = Signal::new(48_000.0).sine(4000.0, -10.0, 5.0);
@@ -377,6 +383,14 @@ fn spectrum_puts_a_tone_in_its_octave() {
     let band = |name: &str| mixed.bands.iter().find(|b| b.name == name).unwrap().share;
     near(band("125"), -3.01, 0.1, "half in the 125 Hz octave");
     near(band("4k"), -3.01, 0.1, "half in the 4 kHz octave");
+    near(
+        mixed.centroid,
+        2050.0,
+        20.0,
+        "the centroid is between the two",
+    );
+    let silence = analyze(48_000.0, &[0.0; 48_000], &[0.0; 48_000]);
+    assert_eq!(silence.centroid, 0.0, "silence has no centroid");
 }
 
 #[test]

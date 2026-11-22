@@ -3,7 +3,8 @@
 //! The project (or a stretch of it, or one track's part in it) is rendered by
 //! a private engine on a worker thread and measured as it is rendered, so the
 //! interface keeps running; an audio file is decoded and measured the same
-//! way. What comes back is plain data: see [`analysis::Analysis`] and the
+//! way, by the analyzer of the `paw-measure` crate, which `paw-mcp` shares.
+//! What comes back is plain data: see [`paw_measure::Analysis`] and the
 //! per-track peaks added here.
 //!
 //!   measure_start(opts) -> id      start measuring
@@ -14,10 +15,6 @@
 //! Options: `start`, `end` (beats), `tail` (seconds, default 1), `sample_rate`,
 //! `track` (measure only this track's contribution), `file` (measure an audio
 //! file instead of the project).
-
-pub mod analysis;
-#[cfg(test)]
-mod tests;
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -31,6 +28,7 @@ use std::time::Instant;
 use anyhow::{Result, anyhow, bail};
 use paw_engine::{AudioData, Engine, EngineHandle, MAX_BLOCK};
 use mlua::{Lua, Table, Value as LuaValue};
+use paw_measure::{Analysis, Analyzer, FLOOR_DB};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
@@ -38,7 +36,6 @@ use crate::api::{LuaResult, Shared, from_lua, to_lua};
 use crate::model::{Id, MASTER_ID};
 use crate::session::RenderOpts;
 use crate::sync::LiveDevices;
-use analysis::{Analysis, Analyzer, FLOOR_DB};
 
 #[derive(Default, Deserialize)]
 #[serde(default, deny_unknown_fields)]

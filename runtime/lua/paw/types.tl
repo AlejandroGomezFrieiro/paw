@@ -1543,6 +1543,7 @@ local record types
     sound_start: number
     sound_end: number
     bands: {SpectrumBand}
+    centroid: number
     series: MeasureSeries
     tracks: {TrackPeak}
     elapsed: number
