@@ -67,6 +67,9 @@ them to paw.
 
 ## 3. Tests
 
+The skills `rust-testing` and `lua-testing` give the details for each
+language: the helpers, the commands, and the kinds of test to write.
+
 - A test proves a behavior that a user or a caller relies on. It fails
   only when that behavior breaks (`prune-tests`). It does not copy the
   steps of the implementation.
