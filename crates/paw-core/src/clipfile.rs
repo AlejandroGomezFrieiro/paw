@@ -24,7 +24,7 @@ use paw_engine::EventKind;
 use paw_engine::ump::{self, scale_down, scale_up};
 use serde_json::{Map, Value, json};
 
-use crate::model::{Control, ControlKind, Note, NoteAttr};
+use crate::model::{Control, ControlKind, Note, NoteAttr, check_clip_beat};
 
 /// The magic bytes a clip file starts with.
 pub const MAGIC: &[u8; 8] = b"SMF2CLIP";
@@ -118,12 +118,19 @@ struct Message {
 
 /// The bytes of a clip file for a clip's notes and controller moves, in
 /// the order they come in, and its length in beats.
+///
+/// # Errors
+///
+/// A time out of the range that a clip holds
+/// ([`MAX_BEATS`](crate::model::MAX_BEATS)): far times
+/// would take billions of clockstamps.
 pub fn encode<'a>(
     notes: impl IntoIterator<Item = &'a Note>,
     controls: &[Control],
     length: f64,
-) -> Vec<u8> {
+) -> Result<Vec<u8>> {
     let notes: Vec<&Note> = notes.into_iter().collect();
+    check_times(notes.iter().copied(), controls, length)?;
     let mut messages = Vec::new();
     for c in controls {
         if let Some(words) = ump::encode(0, c.event(0)) {
@@ -146,7 +153,26 @@ pub fn encode<'a>(
     for w in sequence_words(messages, length) {
         bytes.extend_from_slice(&w.to_be_bytes());
     }
-    bytes
+    Ok(bytes)
+}
+
+/// An error unless each time of a clip is in the range that a clip holds.
+/// In that range a clip file has a bounded number of clockstamps, and no
+/// count of ticks overflows. Only the start and the end of each note
+/// matter: the length is the gap between them.
+fn check_times<'a>(
+    notes: impl IntoIterator<Item = &'a Note>,
+    controls: &[Control],
+    length: f64,
+) -> Result<()> {
+    for n in notes {
+        check_clip_beat("a note", n.start)?;
+        check_clip_beat("the end of a note", n.start + n.length)?;
+    }
+    for c in controls {
+        check_clip_beat("a controller move", c.start)?;
+    }
+    check_clip_beat("the end of the clip", length)
 }
 
 /// The start tick of a note and the tick where it ends (at least one later).
@@ -519,7 +545,11 @@ pub fn decode(bytes: &[u8]) -> Result<Clip> {
             _ => {}
         }
     }
-    Ok(reader.finish())
+    let clip = reader.finish();
+    // A file from elsewhere can put a note at any tick: paw takes only the
+    // clips that it can write again.
+    check_times(&clip.notes, &clip.controls, clip.length)?;
+    Ok(clip)
 }
 
 /// The number with the fewest digits that is still the same 32-bit value:
@@ -678,7 +708,7 @@ mod tests {
                 key: None,
             },
         ];
-        let bytes = encode(&notes, &controls, 4.0);
+        let bytes = encode(&notes, &controls, 4.0).unwrap();
         let clip = decode(&bytes).unwrap();
         assert_eq!(clip.length, 4.0);
         assert_eq!(clip.controls.len(), 3);
@@ -696,7 +726,7 @@ mod tests {
             assert!((a.length - b.length).abs() < 1e-4);
         }
         // Its bytes, read and written again, are the same bytes.
-        let again = encode(&clip.notes, &clip.controls, clip.length);
+        let again = encode(&clip.notes, &clip.controls, clip.length).unwrap();
         assert_eq!(again, bytes);
     }
 
@@ -707,7 +737,7 @@ mod tests {
             note(0.0, 4.0, 62),
             note(0.5, 1.0, 62),
         ]);
-        let bytes = encode(&notes, &[], 4.0);
+        let bytes = encode(&notes, &[], 4.0).unwrap();
         let clip = decode(&bytes).unwrap();
         assert_eq!(clip.notes.len(), 3);
         assert_eq!(clip.notes[0].start, -1.0);
@@ -715,7 +745,7 @@ mod tests {
         assert_eq!(long.length, 4.0);
         let short = clip.notes.iter().find(|n| n.start == 0.5).unwrap();
         assert_eq!(short.length, 1.0);
-        assert_eq!(encode(&clip.notes, &[], clip.length), bytes);
+        assert_eq!(encode(&clip.notes, &[], clip.length).unwrap(), bytes);
     }
 
     #[test]
@@ -723,7 +753,7 @@ mod tests {
         let mut notes = vec![note(0.0, 1.0, 60), note(1.0, 1.0, 61)];
         notes[0].id = 7;
         notes[1].id = 3;
-        let clip = decode(&encode(&notes, &[], 2.0)).unwrap();
+        let clip = decode(&encode(&notes, &[], 2.0).unwrap()).unwrap();
         assert_eq!(clip.notes[0].id, 7);
         assert_eq!(clip.notes[1].id, 3);
     }
@@ -763,7 +793,7 @@ mod tests {
     #[test]
     fn long_gaps_take_several_clockstamps() {
         let notes = named(vec![note(0.0, 1.0, 60), note(100.0, 1.0, 60)]);
-        let clip = decode(&encode(&notes, &[], 101.0)).unwrap();
+        let clip = decode(&encode(&notes, &[], 101.0).unwrap()).unwrap();
         assert_eq!(clip.notes[1].start, 100.0);
     }
 
@@ -798,3 +828,7 @@ mod tests {
         assert_eq!(clip.notes.len(), 1, "{}", text(&clip));
     }
 }
+
+// The range of times a clip holds (TASK-173).
+#[cfg(test)]
+mod far_times;

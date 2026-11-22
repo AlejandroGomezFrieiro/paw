@@ -243,6 +243,7 @@ impl Session {
         if !length.is_finite() || length <= 0.0 || !opts.start.is_finite() || opts.start < 0.0 {
             bail!("clips need a start of at least 0 and a length above 0");
         }
+        check_clip_beat("the end of the clip", length)?;
         check_fade(opts.fade_in)?;
         check_fade(opts.fade_out)?;
         if kind == ClipKind::Midi && (opts.fade_in > 0.0 || opts.fade_out > 0.0) {
@@ -430,6 +431,7 @@ impl Session {
                     if !length.is_finite() || length <= 0.0 {
                         bail!("clip length must be above 0");
                     }
+                    check_clip_beat("the end of the clip", length)?;
                     c.length = length;
                 }
                 (Some(ClipField::Muted), _) => c.muted = de(key, value)?,

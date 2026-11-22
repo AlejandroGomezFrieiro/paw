@@ -347,7 +347,8 @@ impl Writer<'_> {
             self.layout.clip_files.insert(clip.id, source.clone());
             return clip_entry(clip, Some(&file));
         }
-        let bytes = clipfile::encode(notes.iter(), controls, clip.length);
+        let bytes = clipfile::encode(notes.iter(), controls, clip.length)
+            .with_context(|| format!("writing clip {}", clip.id))?;
         let path = match self.written.get(&bytes) {
             Some(path) => path.clone(),
             None => {
@@ -487,7 +488,8 @@ impl Writer<'_> {
             content.insert("signals_file".into(), json!(path));
         }
         if let Some(ClipContent::Midi { notes, controls }) = custom.sound.as_ref().map(|s| s.content()) {
-            let bytes = clipfile::encode(notes.iter(), controls, clip.length);
+            let bytes = clipfile::encode(notes.iter(), controls, clip.length)
+            .with_context(|| format!("writing clip {}", clip.id))?;
             let path = self.clip_file(folder, taken, &stem, ".sound", "midi2", bytes);
             content.insert("sound".into(), json!({ "kind": "midi", "file": path }));
         }
