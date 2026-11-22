@@ -188,6 +188,20 @@ local record api
    nest_list: function(): {integer}
    nest_promote: function(clip: integer): types.NestPromoted
    nest_save: function(opts: types.NestSaveOptions): types.NestSaved
+   nest_beat: function(clip: integer, beat: number): number
+   nest_own_tempo: function(clip: integer): boolean
+   nest_song_beat: function(clip: integer, beat: number): number
+   nest_tempo_at: function(clip: integer, beat: number): number
+   nest_tempo_bar_length: function(clip: integer, beat: number): number
+   nest_tempo_bar_of: function(clip: integer, beat: number): integer
+   nest_tempo_bar_start: function(clip: integer, bar: integer): number
+   nest_tempo_bbt: function(clip: integer, beat: number): integer, integer, number
+   nest_tempo_from_bbt: function(clip: integer, bar: integer, beat: integer, fraction: number): number
+   nest_tempo_is_bar_line: function(clip: integer, beat: number): boolean
+   nest_tempo_points: function(clip: integer): types.TempoPoints
+   nest_tempo_seconds: function(clip: integer, beat: number): number
+   nest_tempo_signature: function(clip: integer, beat: number): integer, integer
+   nest_unique: function(clip: integer): integer
    nest_set: function(id: integer, patch: types.Nest)
    nest_set: function(id: integer, key: string, value: nil)
    note_off: function(track: integer, pitch?: integer)

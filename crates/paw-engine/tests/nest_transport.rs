@@ -90,3 +90,17 @@ fn a_device_in_a_subproject_sees_its_bars_and_the_songs_tempo() {
     let (inside, _) = seen(LocalTime::new(vec![Place { from: 128.0, to: 160.0, zero: 128.0 }], &six), 137.0);
     assert_eq!((inside.bar, inside.bar_start, inside.sig_num, inside.sig_den), (3, 9.0, 6, 8), "its own 6/8");
 }
+
+/// A block of a subproject with a tempo of its own (132 bpm) at song bar
+/// 33, where the song plays 66: its devices see its tempo, and its beats
+/// counted at that tempo from the block's start.
+#[test]
+fn a_device_in_a_subproject_with_its_own_tempo_sees_that_tempo() {
+    let block = || LocalTime::new(vec![Place { from: 128.0, to: 160.0, zero: 128.0 }], &[]);
+    let own = [TempoPoint { beat: 0.0, bpm: 132.0, ramp: false }];
+    // 4 song beats at 66 bpm are 8 of its beats at 132.
+    let (inside, _) = seen(block().with_tempo(&own), 132.0);
+    assert_eq!(inside.tempo, 132.0, "its own tempo");
+    assert!((inside.position - 8.0).abs() < 1e-9, "its beat 8: {}", inside.position);
+    assert_eq!(inside.bar, 2, "bar 3 of it");
+}

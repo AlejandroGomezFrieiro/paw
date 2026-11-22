@@ -43,6 +43,9 @@ struct Block {
     zero: f64,
     from: f64,
     to: f64,
+    /// The row holds other blocks: it stays, without this one, and the
+    /// group goes after it with copies of its devices and lanes.
+    keep_row: bool,
 }
 
 /// Two volume lanes as one: at each point of either, the sum of their dB.
@@ -90,10 +93,13 @@ impl Session {
             bail!("{name} plays at bar {bar} too: promote works on a subproject with one block for now");
         }
         let held = p.track(row).context("no row")?;
-        if held.clips.len() > 1 {
+        // Blocks of other subprojects may share the row (a block made a
+        // subproject of its own with `:nest.unique`): the row stays for them.
+        if held.clips.iter().any(|o| o.id != clip && !matches!(o.content, ClipContent::Nest { .. })) {
             bail!("the row {} holds other clips besides the block: move them first", held.name);
         }
-        Ok(Block { nest: *nest, row, zero: c.start - offset, from: c.start, to: c.start + c.length })
+        let keep_row = held.clips.len() > 1;
+        Ok(Block { nest: *nest, row, zero: c.start - offset, from: c.start, to: c.start + c.length, keep_row })
     }
 
     /// Promote the subproject of block `clip` (see the module): its tracks
@@ -118,11 +124,19 @@ impl Session {
         group.id = group_id;
         group.name = nest.name.clone();
         group.clips = Default::default();
-        group.devices = master.devices.iter().chain(row.devices.iter()).cloned().collect();
+        // The row's devices and lanes move to the group, or are copied when
+        // the row stays.
+        let (row_devices, row_lanes) = if b.keep_row {
+            self.copy_devices_and_lanes(&row, &Default::default())
+        } else {
+            (row.devices.clone(), row.lanes.clone())
+        };
+        let p = &self.project;
+        group.devices = master.devices.iter().chain(row_devices.iter()).cloned().collect();
         group.volume = master.volume + row.volume;
         group.meta.insert("group_head".into(), json!(true));
         let mut combined = Vec::new();
-        let mut lanes: Vec<Arc<Lane>> = row.lanes.clone();
+        let mut lanes: Vec<Arc<Lane>> = row_lanes;
         let place = [(b.zero, b.from, b.to)];
         for lane in &master.lanes {
             let moved = placed_lane(lane, &place);
@@ -157,14 +171,14 @@ impl Session {
             members.push(Arc::new(moved));
         }
         let tracks: Vec<Id> = members.iter().map(|t| t.id).collect();
-        let at = p.tracks.iter().position(|t| t.id == b.row).context("no row")?;
+        let at = p.tracks.iter().position(|t| t.id == b.row).context("no row")? + usize::from(b.keep_row);
         self.edit(|p| {
             let gone: HashSet<Id> = p
                 .nest_tracks(b.nest)
                 .map(|t| t.id)
-                .chain(std::iter::once(b.row))
+                .chain((!b.keep_row).then_some(b.row))
                 .collect();
-            let mut list: Vec<Arc<Track>> = Vec::with_capacity(p.tracks.len());
+            let mut list: Vec<Arc<Track>> = Vec::with_capacity(p.tracks.len() + members.len() + 1);
             for (i, t) in p.tracks.iter().enumerate() {
                 if i == at {
                     list.push(Arc::new(group.clone()));
@@ -174,7 +188,19 @@ impl Session {
                     list.push(t.clone());
                 }
             }
+            if at == p.tracks.len() {
+                list.push(Arc::new(group.clone()));
+                list.extend(members.iter().cloned());
+            }
             p.tracks = list;
+            if b.keep_row {
+                // The row keeps its other blocks, and what plays into it.
+                if let Some(row) = p.track_mut(b.row) {
+                    row.clips = row.clips.iter().filter(|c| c.id != clip).cloned().collect();
+                }
+                p.nests.remove(&b.nest);
+                return Ok(());
+            }
             // What played into the row now plays into the group.
             for t in p.tracks.iter_mut() {
                 if t.output == Some(b.row) || t.sends.iter().any(|s| s.target == b.row) {
@@ -208,7 +234,7 @@ impl Session {
             return Ok(None);
         }
         let held = p.nest(*nest).context("its subproject is gone")?;
-        let block = Block { nest: *nest, row, zero: c.start - offset, from: c.start, to: c.start + c.length };
+        let block = Block { nest: *nest, row, zero: c.start - offset, from: c.start, to: c.start + c.length, keep_row: false };
         let mut blocks = Vec::new();
         for t in p.all_tracks() {
             for o in t.clips.iter() {

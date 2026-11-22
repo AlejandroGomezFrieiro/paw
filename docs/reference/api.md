@@ -1498,9 +1498,12 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.nest.outputs(nest, row, how)`: Give a subproject one row of its own for each of its tracks (`stems`), or one stereo return again (`master`), on its return row `row`. Call it in one undo step. Returns the message.
 - `paw.nest.promote(clip, deep)`: Promote the subproject of block `clip` to a view, as `:nest.promote` does: its tracks come back in a group named after it at the place of its return row (`paw.api.nest_promote`); its regions come back as children of a region named after it over the block (made if there is none); its own meter goes into the song's map over the block; and the window that was inside it is now inside a view of the group's tracks over the region's time, at the same place. With `deep`, the subprojects inside it too. Call it in one undo step. Returns the message.
 - `paw.nest.save(name, own_row)`: Save the window's view as a subproject, as `:scope.write` does: per track, or with a row of its own (`own_row`, `:scope.write!`). The view's clips move into the subproject (`paw.api.nest_save`); the rows get its blocks; its markers and regions inside move in, and a region over its time stays. The meter of the time is the subproject's own. Per track, the window stays in the view; with a row of its own, it is inside the subproject at the same place. Call it in one undo step. Returns the message.
+- `paw.nest.set_meter(nest, meter)`: Give subproject `nest` a meter of its own (`6/8`), with the song's map as it is (polymeter), or the song's meter again (`follow`), as `:nest.meter` does. Returns the message.
+- `paw.nest.set_time(nest, how, bpm)`: Give subproject `nest` a tempo of its own (`own`: the song's over its first block, or `bpm` throughout) or the song's again (`follow`), as `:nest.time` does. Its blocks keep their start; their length in the song follows. Call it in one undo step. Returns the message.
 - `paw.nest.shift`: the same as `paw.cursor.shift`.
 - `paw.nest.toggle(track)`: `za` on a return row: open its subproject's tracks under it, in the song's time, or close them. On a track shown in place: close its row. False when the track is neither.
 - `paw.nest.under`: the same as `paw.groups.under`.
+- `paw.nest.unique(clip)`: Make the block `clip` a subproject of its own, as `:nest.unique` does: a copy of its subproject that only this block plays; the others keep the subproject. A window inside it through this block goes inside the copy. Call it in one undo step. Returns the message.
 
 ## Module paw.option
 
@@ -1948,6 +1951,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.scope.of_tab(tab)`: The scope of a tab: that of its current window.
 - `paw.scope.open(how, spec)`: Open a scope (the one at the cursor by default) in a new window: `how` is "split", "vsplit" or "tab". The new window starts with the scope of the one it comes from, and enters this one inside it.
 - `paw.scope.origin()`: The song's beat of beat 0 of the time the window shows (the window being drawn, else the current one): in a subproject, where its block starts; else 0. `paw.time` adds it, so that a subproject's bars are the song's bars at its place.
+- `paw.scope.own_time()`: The own time of the subproject that the window (the one being drawn, else the current one) is in, when it has its own tempo or meter (`paw.api.nest_time` of the block it was entered through); else nil. `paw.time` counts in it then.
 - `paw.scope.path(s)`: The levels of a scope's path (the current one by default), from the outermost to it.
 - `paw.scope.rest_parts(s)`: The parts of the rest of the song that paw can freeze for a scope. These are the tracks outside it at the top of their branch (a whole group, not its members). They are not the tracks that the sound of the scope goes through (its groups, and a bus that its sends reach). They are not empty.
 - `paw.scope.restore(s, win)`: Show a scope in a window as it was (a jump back, `<C-o>`): no jump of its own, no check. Nil is the song.
