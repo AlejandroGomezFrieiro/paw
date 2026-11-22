@@ -223,10 +223,9 @@ M.source(
   end
 )
 
---- Every record of every source, in the order the sources were added.
---- A source that fails is passed over and logged.
-function M.records(): {Found}
-  local out: {Found} = {}
+--- Give each record of each source to `found`, in the order the sources
+--- were added. A source that fails is passed over and logged.
+local function collect(found: function(Found))
   local function add(r: Record)
     if r and r.text then
       local location = r.location
@@ -234,7 +233,7 @@ function M.records(): {Found}
         r.location = {uri = location}
       end
       r.text = tostring(r.text):gsub("[\r\n\t]", " ")
-      out[#out + 1] = r as Found
+      found(r as Found)
     end
   end
   for _, name in ipairs(M.order) do
@@ -243,7 +242,45 @@ function M.records(): {Found}
       api.log("grep: " .. name .. ": " .. tostring(err))
     end
   end
+end
+
+--- Every record of every source, in the order the sources were added.
+--- A source that fails is passed over and logged.
+function M.records(): {Found}
+  local out: {Found} = {}
+  collect(function(r: Found) out[#out + 1] = r end)
   return out
+end
+
+--- The records of `records` read in slices, for a picker (`paw.slices`):
+--- each call of the function gives the records found in about `ms`
+--- milliseconds, and true when all are read.
+function M.reader(): function(ms: number): {Found}, boolean
+  local batch: {Found} = {}
+  local deadline: number = 0
+  local job = coroutine.create(
+    function()
+      collect(
+        function(r: Found)
+          batch[#batch + 1] = r
+          -- A source that calls `add` from inside a function of the kernel
+          -- cannot stop there: it goes on to the next record that can.
+          if api.now() >= deadline and coroutine.isyieldable() then
+            coroutine.yield()
+          end
+        end
+      )
+    end
+  )
+  return function(ms: number): {Found}, boolean
+    deadline = api.now() + ms
+    batch = {}
+    local ok, err = coroutine.resume(job)
+    if not ok then
+      error(tostring(err), 0)
+    end
+    return batch, coroutine.status(job) == "dead"
+  end
 end
 
 --- A test of text: `mode` "regex" (`paw.regex`), "exact" (the words, each

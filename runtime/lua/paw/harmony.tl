@@ -20,6 +20,7 @@ local api = require("paw.api")
 local events = require("paw.events")
 local kernel = require("paw.events.kernel")
 local options = require("paw.options")
+local slices = require("paw.slices")
 local util = require("paw.util")
 local read = require("paw.harmony.read")
 local song = require("paw.harmony.song")
@@ -1037,27 +1038,25 @@ function M.draw(buf: Buf, scroll: number, span: number, zoom: number, origin: nu
   end
 end
 
-local pending: integer
 local SLICE = 4 -- milliseconds of reading at a time, so that a key comes in between
 
---- A slice of the reading; the next one goes after the keys that wait.
-local function work()
-  pending = nil
-  if catch_up(SLICE) then
+--- A slice of the reading (`paw.slices`): true when it is made.
+local function work(ms: number): boolean
+  if catch_up(ms) then
     reading()
-  else
-    pending = paw.defer(work, 1)
+    return true
   end
+  return false
 end
 
 --- Some time after the project changes, paw makes the reading again, in
---- slices of a few milliseconds. So `harmony.changed` comes even when
---- nothing asks.
+--- slices of a few milliseconds (the job `harmony`). So `harmony.changed`
+--- comes even when nothing asks.
 function M.schedule()
-  if pending then
+  if slices.job("harmony") then
     return
   end
-  pending = paw.defer(work, 30)
+  slices.run("harmony", work, {ms = SLICE, after = 30})
 end
 
 -- What the kernel says changed: the tracks to look at again.

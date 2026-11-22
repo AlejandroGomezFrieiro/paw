@@ -64,6 +64,7 @@ local type SceneModule = require("paw.scene")
 local type ScopeModule = require("paw.scope")
 local type SeatsModule = require("paw.seats")
 local type ShadaModule = require("paw.shada")
+local type SlicesModule = require("paw.slices")
 local type SnippetModule = require("paw.snippet")
 local type StatuslineModule = require("paw.statusline")
 local type StepModule = require("paw.step")
@@ -73,6 +74,7 @@ local type TempolaneModule = require("paw.tempolane")
 local type TextbufModule = require("paw.textbuf")
 local type TrackcolumnModule = require("paw.trackcolumn")
 local type UiModule = require("paw.ui")
+local type UndofileModule = require("paw.undofile")
 local type UtilModule = require("paw.util")
 local type VcaModule = require("paw.vca")
 local type XmlModule = require("paw.xml")
@@ -200,6 +202,7 @@ global record paw
    scope: ScopeModule
    seats: SeatsModule
    shada: ShadaModule
+   slices: SlicesModule
    snippet: SnippetModule
    state: Untyped
    statusline: StatuslineModule
@@ -226,6 +229,7 @@ global record paw
    type Track = ObjectsModule.Track
    ui: UiModule
    undo: function(): boolean
+   undofile: UndofileModule
    util: UtilModule
    vca: VcaModule
    version: Untyped

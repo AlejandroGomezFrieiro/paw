@@ -1085,6 +1085,13 @@ local record types
     byte_limit: integer
   end
 
+  --- `paw.api.undo_file_open()` (`Session::undo_file_open`): how many states
+  --- came back from the undo file, or `stale` when it is for other files.
+  record UndoFileOpen
+    states: integer
+    stale: boolean
+  end
+
   --- How many of a kind of thing a diff added, removed and changed.
   record DiffCount
     added: integer

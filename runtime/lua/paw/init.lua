@@ -70,7 +70,7 @@ function paw.defer(fn, ms)
   local handle
   handle = api.timer_start(ms or 0, false, function(...)
     paw.timers[handle] = nil
-    return fn(...)
+    return paw.limit.timed(nil, fn, ...)
   end)
   paw.timers[handle] = fn
   return handle
@@ -79,7 +79,7 @@ end
 --- Run `fn` every `ms` milliseconds. Returns a handle for `paw.cancel`.
 --- @type function(ms: number, fn: function()): integer
 function paw.every(ms, fn)
-  local handle = api.timer_start(ms, true, fn)
+  local handle = api.timer_start(ms, true, function(...) return paw.limit.timed(nil, fn, ...) end)
   paw.timers[handle] = fn
   return handle
 end
@@ -96,6 +96,9 @@ end
 --- they do between key presses. A script run with `-l` is one long turn in
 --- which neither happens unless it waits like this.
 paw.wait = api.wait
+
+-- Long work in slices between keys (paw/slices.tl): `paw.slices(name, step)`.
+paw.slices = require("paw.slices")
 
 paw.commands = require("paw.commands")
 -- The types of what an extension gives paw (a view, a picker, ...) for an
@@ -330,6 +333,7 @@ function K.startup()
   paw.scene = require("paw.scene")
   paw.autosave = require("paw.autosave")
   paw.loading = require("paw.loading")
+  paw.undofile = require("paw.undofile")
   paw.reconnect = require("paw.reconnect")
   paw.qf = require("paw.qf")
   require("paw.views.qflist")

@@ -95,6 +95,7 @@ impl Session {
             transport: self.transport.clone(),
             position: self.position(),
             path: self.path.clone(),
+            lazy: self.undo_file_swap(Default::default()),
         });
         self.replace_project(fresh, Transport::default(), None);
         Ok(())
@@ -112,6 +113,7 @@ impl Session {
         };
         let limits = (self.undo.history.limit(), self.undo.history.byte_limit());
         self.undo.history = shelf.history;
+        self.undo_file_swap(shelf.lazy);
         self.undo.history.set_limits(limits.0, limits.1);
         self.put_project(shelf.project, shelf.transport, shelf.path, Some(shelf.touched));
         self.seek(shelf.position);
@@ -149,6 +151,8 @@ impl Session {
         self.undo.checkpoint = self.project.clone();
         if touched.is_none() {
             self.undo.history.reset(self.project.clone(), history::now());
+            // Its states from an undo file went with it.
+            self.undo_file_swap(Default::default());
         }
         self.undo.touched = touched.unwrap_or(false);
         self.dirty = true;

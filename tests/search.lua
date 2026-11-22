@@ -303,6 +303,8 @@ end)
 test("search: the live grep picker finds any text, and goes there", function()
   local s = song()
   paw.pick("grep")
+  -- The text is read in slices after the picker opens.
+  T.until_(function() return pick.state().note == nil end, "the text of the project")
   paw.keymap.feed("lo")
   eq(pick.state().mode, "exact", "exact by default")
   local lines = pick.state().matches
