@@ -882,10 +882,11 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.harmony.in_key(key, pitch)`: True if a pitch (or pitch class) is in a key.
 - `paw.harmony.invalidate()`: Forget the reading: a provider whose answer changed calls this.
 - `paw.harmony.is_drums(track)`: True if the harmony does not use a track: a drum track (a drum map in its meta, as the drums extension keeps it, or a drum device or name).
-- `paw.harmony.key(beat, latest)`: The key at `beat` (the start when nil): the project's when one is set, else the one read there, else C major. `{ tonic, mode, name, ... }`. With `latest`, the key of the reading as it stands, without waiting for a new one: what a view that is drawn on each key asks.
+- `paw.harmony.key(beat, latest)`: The key at `beat` (the start when nil): the last key marker at or before it (`mk`, `key D minor`), or the key of a region over it, else the project's when one is set, else the one read there, else C major. `{ tonic, mode, name, ... }`. With `latest`, the key of the reading as it stands, without waiting for a new one: what a view that is drawn on each key asks.
 - `paw.harmony.key_name(key)`: "D minor", "Bb major": the tonic spelled as its key writes it.
-- `paw.harmony.keys()`: The keys read over the song, `{ at, length, tonic, mode, name }` each. When the project has its own key, that key is over all of the song.
+- `paw.harmony.keys()`: The keys over the song, `{ at, length, tonic, mode, name }` each: the key markers and the keys of regions, then the key of the project when it has one (over all of the song), else the keys read from the notes.
 - `paw.harmony.label(chord, how)`: A chord's label as `paw.opt.chords` (or `how`) asks: its name, its numeral, or both ("G7 V7").
+- `paw.harmony.marked_key(beat)`: The key that the user wrote for `beat` (a key marker, or a region's key), or nil. It is the one that `key` gives before the project's key.
 - `paw.harmony.next(beat)`: The first chord that starts after `beat`.
 - `paw.harmony.notes()`: Each note of the pitched tracks, in project beats, each with `track` and `clip`. The list does not contain muted clips and tracks, or notes that a trim of the edges of the clip hides. paw keeps the list until the project changes. This is what sounds, for the reading and for snippets. The context notes of the piano roll, `paw.roll_clips.context`, are what the roll shows, in its own beats, and only of the tracks selected to show.
 - `paw.harmony.parse_chord(text)`: A chord from its symbol: "G7", "F#m7b5", "C/E", "Bbmaj7". Nil when it is not one.
@@ -1341,7 +1342,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 ## Module paw.markers
 
-- `paw.markers.add(beat, name, opts)`: Add a marker at a beat. With `opts.length`, add a region from there. Returns it.
+- `paw.markers.add(beat, name, opts)`: Add a marker at a beat. With `opts.length`, add a region from there; its `opts.key` (such as "E minor") is the key of the harmony over its time. Returns it.
 - `paw.markers.around(beat, level)`: The region a beat is in: the innermost of those that hold it, or nil. With `level` 2, the region around that one, and so on out (the outermost when there are fewer).
 - `paw.markers.at(beat, reach)`: The marker or region start nearest a beat within `reach` beats (half a grid step by default), or the region the beat is inside.
 - `paw.markers.children(id)`: The regions one level inside a region, in order of time; with no id, the regions at the top.
