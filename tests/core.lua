@@ -6,50 +6,7 @@ local paw = require("paw")
 local api = paw.api
 local until_, until_beat, next_block = T.until_, T.until_beat, T.next_block
 
---- Write a 16-bit WAV file from one list of samples per channel.
-local function write_wav(path, left, right, rate)
-  right, rate = right or left, rate or 48000
-  local function u16(v) return string.char(v % 256, math.floor(v / 256) % 256) end
-  local function u32(v) return u16(v % 65536) .. u16(math.floor(v / 65536)) end
-  local data = {}
-  for i = 1, #left do
-    for _, v in ipairs({ left[i], right[i] }) do
-      local s = math.floor(v * 32767 + 0.5)
-      data[#data + 1] = u16(s < 0 and s + 65536 or s)
-    end
-  end
-  data = table.concat(data)
-  T.write_file(
-    path,
-    "RIFF"
-      .. u32(36 + #data)
-      .. "WAVEfmt "
-      .. u32(16)
-      .. u16(1)
-      .. u16(2)
-      .. u32(rate)
-      .. u32(rate * 4)
-      .. u16(4)
-      .. u16(16)
-      .. "data"
-      .. u32(#data)
-      .. data
-  )
-  return path
-end
-
---- The left channel of a 16-bit render, as numbers from -1 to 1.
-local function samples(info)
-  local data = T.read_file(info.path)
-  local at = data:find("data", 1, true) + 8
-  local out = {}
-  for i = at, #data - 3, 4 do
-    local lo, hi = data:byte(i, i + 1)
-    local v = lo + hi * 256
-    out[#out + 1] = (v >= 32768 and v - 65536 or v) / 32768
-  end
-  return out
-end
+local write_wav, samples = T.write_wav, T.samples
 
 --- A file of `seconds` of a steady level, and one of silence with a single
 --- sample at `at` seconds.
@@ -68,8 +25,6 @@ local function impulse(name, seconds, at, level)
   s[math.floor(at * 48000) + 1] = level
   return write_wav(T.scratch .. "/" .. name .. ".wav", s)
 end
-
-T.write_wav, T.samples = write_wav, samples
 
 test("audio clips fade in and out, and a cut edge does not click", function()
   fresh()

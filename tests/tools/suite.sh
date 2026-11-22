@@ -27,8 +27,13 @@ case "$jobs" in
 esac
 # The stub plugin that some tests load is a cargo example, which a plain
 # `cargo build` does not make: build it here, so that a test never loads a
-# stub that an older checkout left in target/.
-if [ -z "$PAW_TEST_SHARD" ]; then
+# stub that an older checkout left in target/. With PAW_TEST_BIN (a binary
+# that another checkout built, for example a dev build of main), the stub
+# comes from beside that binary, and nothing is built here. A shard does not
+# build: the script that started it did.
+if [ -n "$PAW_TEST_BIN" ]; then
+  export PAW_TEST_STUB=$BIN/examples/libstub_clap.so
+elif [ -z "$PAW_TEST_SHARD" ]; then
   cargo build --release -q -p paw-plugins --example stub_clap || exit 1
 fi
 out=$SCRATCH/suite.out

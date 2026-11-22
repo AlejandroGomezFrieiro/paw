@@ -134,10 +134,6 @@ local function until_beat(beat, rounds, ms)
   end, string.format("the playhead at beat %g after %d times round the loop", beat, rounds or 0), ms or 30000)
 end
 
--- The options as the run started, before the first test: `fresh()` and the
--- leak check give them back.
-local start_options
-
 local function fresh()
   -- Keys half typed, a selection, insert or command line mode, and the
   -- floats an earlier test left open would take this test's first keys.
@@ -146,7 +142,6 @@ local function fresh()
   while paw.ui.float do
     paw.ui.close()
   end
-  paw.option.restore(start_options)
   paw.project.new()
   paw.transport.loop_enabled = false
   -- The windows and tabs an earlier test opened would share the screen
@@ -325,6 +320,51 @@ end
 --   local T = ...
 --   T.test("the widget counts", function() T.fresh() T.eq(1 + 1, 2, "sum") end)
 
+--- Write a 16-bit WAV file from one list of samples per channel.
+local function write_wav(path, left, right, rate)
+  right, rate = right or left, rate or 48000
+  local function u16(v) return string.char(v % 256, math.floor(v / 256) % 256) end
+  local function u32(v) return u16(v % 65536) .. u16(math.floor(v / 65536)) end
+  local data = {}
+  for i = 1, #left do
+    for _, v in ipairs({ left[i], right[i] }) do
+      local s = math.floor(v * 32767 + 0.5)
+      data[#data + 1] = u16(s < 0 and s + 65536 or s)
+    end
+  end
+  data = table.concat(data)
+  write_file(
+    path,
+    "RIFF"
+      .. u32(36 + #data)
+      .. "WAVEfmt "
+      .. u32(16)
+      .. u16(1)
+      .. u16(2)
+      .. u32(rate)
+      .. u32(rate * 4)
+      .. u16(4)
+      .. u16(16)
+      .. "data"
+      .. u32(#data)
+      .. data
+  )
+  return path
+end
+
+--- The left channel of a 16-bit render, as numbers from -1 to 1.
+local function samples(info)
+  local data = read_file(info.path)
+  local at = data:find("data", 1, true) + 8
+  local out = {}
+  for i = at, #data - 3, 4 do
+    local lo, hi = data:byte(i, i + 1)
+    local v = lo + hi * 256
+    out[#out + 1] = (v >= 32768 and v - 65536 or v) / 32768
+  end
+  return out
+end
+
 local T = {
   test = test,
   last = last,
@@ -344,6 +384,8 @@ local T = {
   until_beat = until_beat,
   scratch = scratch,
   read_file = read_file,
+  write_wav = write_wav,
+  samples = samples,
   write_file = write_file,
   frequency = frequency,
   channel_peaks = channel_peaks,
@@ -376,11 +418,22 @@ for _, name in ipairs(extensions) do
   lua_files("extensions/" .. name, "^tests[%w_]*%.lua$")
 end
 -- Shards: `suite.sh -j N` starts N paw processes, and gives process K
--- (PAW_TEST_SHARD=K/N) every Nth file from the Kth.
+-- (PAW_TEST_SHARD=K/N) every Nth part from the Kth. A part is a file of
+-- tests/, or all the test files of one extension: a file of an extension
+-- can use what an earlier file of it sets up (tests_tone3000_auth.lua).
 local shard, shards = (os.getenv("PAW_TEST_SHARD") or ""):match("^(%d+)/(%d+)$")
 shard, shards = tonumber(shard), tonumber(shards)
-for i, path in ipairs(files) do
-  if not shards or (i - 1) % shards == shard - 1 then
+local parts, part_of = 0, {}
+for _, path in ipairs(files) do
+  local part = path:match("^extensions/[^/]+/") or path
+  if not part_of[part] then
+    parts = parts + 1
+    part_of[part] = parts
+  end
+end
+for _, path in ipairs(files) do
+  local part = part_of[path:match("^extensions/[^/]+/") or path]
+  if not shards or (part - 1) % shards == shard - 1 then
     loading = path
     assert(loadfile(path))(T)
   end
@@ -393,15 +446,16 @@ end
 -- The leak check ---------------------------------------------------------------
 --
 -- After the tests of a file ran, the runner compares what a test can leave
--- behind with how it was at the start of the run: the options, the event
--- handlers, timers and key mappings that the code of a test file made, and
--- the loaded extensions. A difference fails "<file> leaves no state
--- behind". The runner then puts each of them back, so that the next file
--- starts as it does in the full suite, whatever ran before it.
+-- behind with how it was at the start of the run: the event handlers,
+-- timers and key mappings that the code of a test file made, and the loaded
+-- extensions. The runner puts each of them back, so that the next file
+-- starts as it does in the full suite, whatever ran before it. A handler,
+-- timer or key mapping of test code that is still there, and an extension
+-- that the runner cannot unload, fail "<file> leaves no state behind".
 -- `tests/leaks-allowed.txt` lists the leaks that are known, one
 -- "<file> <kind>" on each line: the list only gets shorter.
 
-local kinds = { "options", "hooks", "timers", "keys", "extensions" }
+local kinds = { "hooks", "timers", "keys", "extensions" }
 local watched = { hooks = true, timers = true, keys = true }
 
 -- Whether a function's source is a test file.
@@ -521,15 +575,19 @@ for _, t in ipairs(tests) do
   in_file[t.file] = (in_file[t.file] or 0) + 1
 end
 
-start_options = paw.option.snapshot()
+-- The options as the run started. The runner gives them back after each
+-- test, so a test never sees what an earlier test set: the leak check does
+-- not need to look at them.
+local start_options = paw.option.snapshot()
 local base = fingerprint()
 local leaked = {}
 local function check(file)
   local now = fingerprint()
   local found = differences(base, now)
   reset(base, now)
-  local options = paw.option.restore(start_options)
-  if #options > 0 then found.options = table.concat(options, ", ") end
+  -- The runner unloads the extensions that the tests loaded: only one that
+  -- it cannot unload, or one that a test unloaded, is a leak.
+  found.extensions = differences(base, fingerprint()).extensions
   if whole[file] ~= in_file[file] then return end
   local news = {}
   for _, kind in ipairs(kinds) do
@@ -553,6 +611,7 @@ for i, t in ipairs(selected) do
     pcall(cleanups[j])
     cleanups[j] = nil
   end
+  paw.option.restore(start_options)
   if ok and type(err) == "string" then
     print("skip  " .. t.name .. " (" .. err .. ")")
   elseif ok then
