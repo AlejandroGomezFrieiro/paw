@@ -1,0 +1,23 @@
+# plain-writing rule 1: a plain word, not a fancy synonym. These are the
+# swaps of STE.Words that agree with plain-writing. Not "e.g.", "moreover"
+# or "whether": the skill uses them.
+extends: substitution
+message: "Use '%s' instead of '%s' (plain-writing 1)."
+level: warning
+ignorecase: true
+swap:
+  utilize: use
+  utilise: use
+  utilizes: uses
+  facilitate: help
+  facilitates: helps
+  in order to: to
+  prior to: before
+  subsequently: then
+  commence: start
+  numerous: many
+  sufficient: enough
+  whilst: while
+  amongst: among
+  thus: so
+  hence: so

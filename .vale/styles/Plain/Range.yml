@@ -1,0 +1,9 @@
+# plain-writing rule 15: no dashes, including in number ranges. Write the
+# range with "to". (AiTells.Dash finds the em and en dashes. This rule finds
+# a range written with a hyphen, such as 10-20.)
+extends: existence
+message: "Write the range '%s' with 'to', for example '10 to 20' (plain-writing 15)."
+level: warning
+nonword: true
+raw:
+  - '(?:^|[^\w.:/-])\d{1,3}(?:\.\d+)?\s?-\s?\d{1,3}(?:\.\d+)?(?:$|[^\w.:/-])'

@@ -1,0 +1,14 @@
+# plain-writing rule 15: no middle dot as a separator in prose. Use a comma,
+# "and", or separate lines. Vale skips code spans and fenced code, so the
+# screen captures that paw shows (`NORMAL·mixer`) stay. Table cells are not
+# checked: a short label in a cell can keep the dot that paw shows.
+extends: existence
+message: "Do not use the middle dot as a separator (plain-writing 15). Use a comma, 'and', or separate lines."
+level: warning
+nonword: true
+scope:
+  - paragraph
+  - list
+  - heading
+tokens:
+  - '·'
