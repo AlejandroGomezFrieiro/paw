@@ -314,14 +314,14 @@ the local leader `\`.
 
 | Keys | |
 | --- | --- |
-| `<Space><Space>` | play, stop |
-| `<S-CR>` | play from the cursor |
-| `gs` `gp` | playhead to the start, to the cursor. `g0` is the playhead to the start too, also in the views where `gs` does another thing (curve editor, drum grid, score) |
+| `<Space><Space>` | play from the cursor, or stop. The cursor never moves by itself; the playhead stays where the song stopped. `play_from` chooses the cursor or the playhead |
+| `<S-CR>` | play from the playhead (the other start; with `play_from=playhead`, from the cursor) |
+| `gs` `gp` | playhead to the start, to the cursor; play starts there until the cursor moves. `g0` is the playhead to the start too, also in the views where `gs` does another thing (curve editor, drum grid, score) |
 | `gL` `gm` | loop on and off, metronome |
 | `gM` | count a bar in before recording, or not |
 | `<Space>Tt` | tap the tempo (the beat): press it on each beat, four times or more |
 | `gI` | punch recording on and off (over a selection: punch there); `:preroll 2` plays two bars before the punch in |
-| `R` | record armed tracks from the cursor (while the song plays, from the playhead), or stop recording; with the loop on, every time round is a take |
+| `R` | record armed tracks from the cursor, as `<Space><Space>` plays (while the song plays, from the playhead), or stop recording; with the loop on, every time round is a take |
 
 ## Find
 

@@ -37,6 +37,12 @@ local view = {
   title = "Drum grid",
 }
 
+--- Where play starts from this view: the cursor, as a beat of the song.
+function view:play_beat()
+  local clip = self:clip()
+  if clip then return clip.start + self.beat end
+end
+
 function view:clip()
   if self.clip_id and pcall(api.clip_get, self.clip_id) then return paw.clip(self.clip_id) end
   self.clip_id = nil
@@ -504,7 +510,7 @@ view.gestures = {
   ruler = function(self, e)
     if e.kind ~= "down" then return false end
     local clip, cell = self:clip(), cell_at(self, e.x)
-    if clip and cell then api.transport_seek(clip.start + cell * self:step_size()) end
+    if clip and cell then paw.transport.seek(clip.start + cell * self:step_size()) end
   end,
   name = function(self, e)
     if e.kind ~= "down" then return false end

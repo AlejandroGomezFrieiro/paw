@@ -12,6 +12,7 @@ local type types = require("paw.types")
 local music = require("paw.music")
 local util = require("paw.util")
 local options = require("paw.options")
+local events = require("paw.events")
 
 --- A value that this module passes on and never reads.
 local record Value
@@ -1378,7 +1379,12 @@ local transport: M.Transport = {
     paw.ui.poke()
     api.transport_record()
   end,
-  seek = api.transport_seek,
+  --- Put the playhead at a beat. While the song is stopped, play starts
+  --- from there until the cursor moves (`paw.opt.play_from`).
+  seek = function(beats: number)
+    api.transport_seek(beats)
+    events.emit("playhead.placed")
+  end,
   get = api.transport_get,
   toggle = function()
     if api.transport_get().playing then M.transport.stop() else api.transport_play() end
@@ -1390,7 +1396,7 @@ setmetatable(transport, {
   __index = function(_: M.Transport, key: string): Value return (api.transport_get() as {string:Value})[key] end,
   __newindex = function(_: M.Transport, key: string, value: Value)
     if key == "position" then
-      api.transport_seek(value as number)
+      M.transport.seek(value as number)
     elseif key == "tempo" then
       api.project_set({ tempo = value as number })
     else

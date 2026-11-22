@@ -30,6 +30,12 @@ local view = {
   last = nil,        -- the last note entered in insert mode: { id, step, pitch, beat }
 }
 
+--- Where play starts from this view: the cursor, as a beat of the song.
+function view:play_beat()
+  local clip = self:clip()
+  if clip then return clip.start + self.beat end
+end
+
 function view:clip()
   if self.clip_id and pcall(api.clip_get, self.clip_id) then return paw.clip(self.clip_id) end
   -- Undone or deleted: kept, so that a redo shows it again.

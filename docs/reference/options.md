@@ -79,6 +79,7 @@ clip. `:set undo_steps=200` removes the oldest steps at once.
 | `paw.opt.click_accent` | `true` | The metronome plays a higher click on the first beat of a bar. |
 | `paw.opt.click_output` | `0` | The first output channel of the pair that the metronome plays on, 1 to 63. `0` plays it with the song. |
 | `paw.opt.midi_follows_selection` | `true` | The selected track plays the MIDI keyboard when no track is armed. `false`: only armed and monitored tracks play it. |
+| `paw.opt.play_from` | `"cursor"` | Where play and record start from a stop: `"cursor"` is the cursor of the view that has the keys, wherever the playhead is. `"playhead"` is the old way: `<Space><Space>` plays from the playhead and `<S-CR>` from the cursor. |
 | `paw.opt.midi_record` | `"new"` | A MIDI take over a clip: `"new"` makes a clip of its own, `"merge"` joins its notes into the clip under it (overdub). |
 | `paw.opt.threads` | `0` | The threads that process tracks. `0` gives one for each core. |
 | `paw.opt.device_sleep` | `true` | A device at rest sleeps through silence: a reverb after its tail, a synth with no note that sounds. This saves processor time. The sound is the same with `false`. |

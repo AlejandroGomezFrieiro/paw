@@ -42,7 +42,7 @@ local far_lines = { motion = true, linewise = true, jump = true }
 -- Space is the leader: Space Space plays and stops, at once (no other key
 -- starts with it, so it never waits).
 map("<leader><Space>", "transport.toggle", { mode = nx, role = "play", desc = "Play or stop" })
-map("<S-CR>", "transport.play_cursor", { mode = nx, desc = "Play from the cursor" })
+map("<S-CR>", "transport.play_other", { mode = nx, desc = "Play from the playhead (the other start than <Space><Space>)" })
 map("gs", "transport.start", { mode = nx, desc = "Playhead to the start" })
 map("g0", "transport.start", { mode = nx, desc = "Playhead to the start, in every view" })
 map("gp", "transport.to_cursor", { mode = nx, desc = "Playhead to the cursor" })
@@ -544,10 +544,7 @@ pmap("]c", function(ctx) to_chord(1, ctx.count) end, "Next chord", far)
 pmap("[c", function(ctx) to_chord(-1, ctx.count) end, "Previous chord", far)
 pmap(")", function(ctx) to_phrase(1, ctx.count) end, "Next phrase", far)
 pmap("(", function(ctx) to_phrase(-1, ctx.count) end, "Start of this phrase, or the one before", far)
-pmap("gp", function()
-  local clip = roll:clip()
-  if clip then transport.seek(clip.start + roll.beat) end
-end, "Playhead to the cursor")
+pmap("gp", "transport.to_cursor", "Playhead to the cursor")
 
 -- Piano roll: text objects. The musical objects of the notes
 -- (paw/note_objects.tl): `in` the note, `ic` the chord, `ip` the phrase,

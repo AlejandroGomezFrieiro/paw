@@ -699,10 +699,7 @@ local function paste(before) return function(ctx)
 end end
 emap("p", paste(false), "Paste after the note")
 emap("P", paste(true), "Paste at the cursor")
-emap("gp", function()
-  local clip = editor:clip()
-  if clip then paw.transport.seek(clip.start + editor.beat) end
-end, "Playhead to the cursor")
+emap("gp", "transport.to_cursor", "Playhead to the cursor")
 for lhs, fn in pairs({
   x = function(clip, region, ctx) keymap.setreg(edit.roll.delete(clip, region), ctx.register) end,
   ["<C-a>"] = function(clip, region, ctx)

@@ -2624,7 +2624,7 @@ end
 --- which only moves the playhead.
 function A.set_loop(from: number, to: number)
   from, to = snap(math.min(from, to)), snap(math.max(from, to))
-  if to - from < opt.grid then return api.transport_seek(from) end
+  if to - from < opt.grid then return paw.transport.seek(from) end
   paw.transport.loop_start, paw.transport.loop_end = from, to
   paw.transport.loop_enabled = true
 end
@@ -2809,7 +2809,7 @@ function A.ruler_click(beat: number)
   pointing = true
   paw.cursor.set_beat(beat)
   pointing = false
-  api.transport_seek(beat)
+  paw.transport.seek(beat)
 end
 
 --- Drag across empty lanes: select that stretch of time on those tracks,
@@ -3886,7 +3886,7 @@ end)
 
 --- A click on the piano roll's ruler: the playhead to that beat of the clip.
 function A.roll_seek(clip: integer, beat: number)
-  api.transport_seek(math.max(0, paw.clip(clip).start + math.max(0, beat)))
+  paw.transport.seek(math.max(0, paw.clip(clip).start + math.max(0, beat)))
 end
 
 -- Automation. A lane is drawn over a stretch of its range (`lane_span`),

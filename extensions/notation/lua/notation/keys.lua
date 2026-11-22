@@ -473,10 +473,7 @@ nmap("$", function()
 end, "End of the clip", motion)
 nmap("gg", function() view:to_extreme(1) end, "The highest note's line", util.merge(far, { linewise = true }))
 nmap("G", function() view:to_extreme(-1) end, "The lowest note's line", util.merge(far, { linewise = true }))
-nmap("gp", function()
-  local clip = view:clip()
-  if clip then paw.transport.seek(clip.start + view.beat) end
-end, "Playhead to the cursor")
+nmap("gp", "transport.to_cursor", "Playhead to the cursor")
 
 -- Operators on how the score plays, and the loop; the operators that edit
 -- what is written are with the grammar below.

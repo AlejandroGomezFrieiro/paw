@@ -66,9 +66,10 @@ color. The track of the cursor has a brighter header and a tinted lane.
 | `<Space>al` | Chooses what to automate (volume, pan, a device parameter), and shows its lane. |
 | `<Space>aa` `<Space>aA` | Shows or hides the lanes of the track as rows. Shows the lanes of every track. |
 | `<Space>am` | Sets the automation mode of the track: read, touch, latch, write, off, in turn. |
+| `<Space><Space>` | Plays from the cursor, or stops. The cursor does not move, and the playhead stays where the song stopped. A playhead that you put with `gs`, `gp` or the ruler is where play starts, until the cursor moves. `paw.opt.play_from = "playhead"` plays from the playhead. |
 | `gs` `gp` | Moves the playhead to the start, to the cursor. |
 | `gL` `gm` | Turns the loop on or off. Turns the metronome on or off. |
-| `Shift-Enter` | Plays from the cursor. |
+| `Shift-Enter` | Plays from the playhead. With `play_from = "playhead"`, it plays from the cursor. |
 | `gM` | Counts a bar in before a recording, or not. |
 | `gI` | Turns punch recording on or off. On a selection, punches over it. |
 | `:preroll 2` | Plays two bars (`3s`: seconds) before the punch in, when you record from a stop. |

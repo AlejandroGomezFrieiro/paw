@@ -36,7 +36,7 @@ port, and one MIDI channel.
 `<A-i>`, or the `I` in the header, monitors the input: you hear it, but paw
 does not record it.
 
-`r` arms the track. `R` starts the recording from the playhead. `R` again
+`r` arms the track. `R` starts the recording from the cursor. `R` again
 stops the recording, but the song continues to play. Then `<leader><Space>` stops it.
 
 `:midi.inputs` shows the MIDI ports and `:midi.select` selects some.
@@ -75,7 +75,7 @@ replace mode.]],
       done = "The track is armed. You also hear the input of an armed track.",
     },
     {
-      say = "`R` starts the recording from the cursor, as `<S-CR>` plays from it. Press `R`. Sing or play for some seconds. Then press `R` to stop the recording, and `<leader><Space>` to stop the song.",
+      say = "`R` starts the recording from the cursor, as `<leader><Space>` plays from it. Press `R`. Sing or play for some seconds. Then press `R` to stop the recording, and `<leader><Space>` to stop the song.",
       keys = { "R", { wait = 1000 }, "R", "<leader><Space>" },
       check = function(_, look)
         local clip = look.clips("Voice")[1]

@@ -146,7 +146,7 @@ is the first clip. `|` and `:5` take a bar number, not a column or a line.]],
         return look.focused() == "arrange" and look.ran(ctx, "transport.to_cursor") and look.played(ctx)
       end,
       done = "The song played from bar 5, where the melody starts.",
-      hint = "If the terminal knows `<S-CR>` (Shift and Enter) from Enter, `<S-CR>` plays from the cursor in one step.",
+      hint = "`<leader><Space>` alone plays from the cursor. `gp` puts the playhead there first, and `<S-CR>` plays from the playhead.",
     },
   },
   outro = "We moved by steps, clips, bars and tracks, with counts. The same keys had other meanings in visual mode and in the piano roll.",

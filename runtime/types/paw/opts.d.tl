@@ -68,6 +68,7 @@ local record Opts
    on_external_change: string
    phrase_rest: number
    pianoroll_height: number
+   play_from: string
    pre_roll: integer
    pre_roll_seconds: number
    project_screen: boolean

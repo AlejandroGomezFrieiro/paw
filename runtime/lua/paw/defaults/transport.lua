@@ -8,15 +8,63 @@ local keymap, edit = paw.keymap, paw.edit
 local common = require("paw.defaults.common")
 local need_clip = common.need_clip
 
-command("transport.toggle", transport.toggle, { desc = "Play or stop" })
-command("transport.play", transport.play, { desc = "Play" })
+-- Where play and record start. `paw.opt.play_from = "cursor"` (the
+-- default): from the cursor of the view that has the keys, wherever the
+-- playhead is. The cursor never moves by itself, and a stop leaves the
+-- playhead where the song stopped. A playhead that the user placed on
+-- purpose (`gs`, `gp`, a click on a ruler) stays for the next play, until the
+-- cursor moves. `"playhead"` is the old way: play starts from the playhead.
+local PIN_EPS = 1e-9
+local pinned -- the cursor beat at the time the playhead was placed by hand
+
+--- The song beat of the cursor of the view with the keys. A view with its
+--- own cursor in a clip tells it with `view:play_beat()`.
+local function cursor_beat()
+  local view = paw.ui.views[paw.ui.focused]
+  local beat = view and type(view.play_beat) == "function" and view:play_beat()
+  return beat or cursor.beat
+end
+-- Emitted at once by `paw.transport.seek`, with the song stopped only.
+paw.on("playhead.placed", function()
+  pinned = not transport.playing and cursor_beat() or nil
+end)
+
+--- Put the playhead where a start from a stop begins.
+local function place()
+  if paw.opt.play_from ~= "cursor" then return end
+  local here, kept = cursor_beat(), pinned
+  pinned = nil
+  if kept and math.abs(kept - here) < PIN_EPS then return end
+  transport.seek(here)
+  pinned = nil
+end
+
+command("transport.toggle", function()
+  if not transport.playing then place() end
+  transport.toggle()
+end, { desc = "Play (from the cursor, as `play_from` says) or stop" })
+command("transport.play", function()
+  if not transport.playing then place() end
+  transport.play()
+end, { desc = "Play from the cursor (`play_from`)" })
 command("transport.stop", transport.stop, { desc = "Stop" })
 command("transport.start", function() transport.seek(0) end, { desc = "Move the playhead to the start" })
-command("transport.to_cursor", function() transport.seek(cursor.beat) end, { desc = "Move the playhead to the cursor" })
+command("transport.to_cursor", function() transport.seek(cursor_beat()) end, { desc = "Move the playhead to the cursor" })
 command("transport.play_cursor", function()
-  transport.seek(cursor.beat)
+  transport.seek(cursor_beat())
   transport.play()
 end, { desc = "Play from the cursor" })
+command("transport.play_playhead", function() transport.play() end, { desc = "Play from the playhead" })
+-- `<S-CR>` is the other start: the playhead when play starts at the cursor,
+-- the cursor when play starts at the playhead.
+command("transport.play_other", function()
+  if paw.opt.play_from == "cursor" then
+    transport.play()
+  else
+    transport.seek(cursor_beat())
+    transport.play()
+  end
+end, { desc = "Play from the playhead (or, with play_from=playhead, from the cursor)" })
 command("transport.seek", function(ctx)
   transport.seek(paw.time.bar_start(tonumber(ctx.args[1]) or 1))
 end, { desc = "Move the playhead to a bar: `transport.seek 5`" })
@@ -39,9 +87,12 @@ command("transport.record", function()
   if transport.recording then
     transport.recording = false
   else
-    -- From a stop, the take starts at the cursor, as `<S-CR>` plays from
-    -- it; while the song plays, it starts where the song is.
-    if not transport.playing then transport.seek(cursor.beat) end
+    -- From a stop, the take starts where play starts (`play_from`: the
+    -- cursor, or with "playhead" the cursor as before); while the song
+    -- plays, it starts where the song is.
+    if not transport.playing then
+      if paw.opt.play_from == "cursor" then place() else transport.seek(cursor_beat()) end
+    end
     transport.record()
   end
 end, { desc = "Record armed tracks from the cursor (or, while the song plays, from the playhead), or stop recording" })

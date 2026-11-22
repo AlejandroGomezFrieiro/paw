@@ -120,6 +120,9 @@ local defaults: {string:Value} = {
   follow = true,           -- scroll to keep the playhead in view
   fps = 60,                -- the most frames a second while something moves; frames come only when a cell changes
   clip_length = 4,         -- beats, for new MIDI clips
+  -- Where play and record start from a stop: "cursor" (the cursor of the
+  -- view with the keys, the playhead goes there) or "playhead" (the old way).
+  play_from = "cursor",
   count_in = 0,            -- bars the metronome counts before recording from a stop; 0 for none
   pre_roll = 0,            -- bars a take punched in from a stop plays before the punch in
   pre_roll_seconds = 0,    -- and seconds more, before those bars
@@ -172,6 +175,7 @@ local specs: {string:Spec} = {
   pre_roll_seconds = { min = 0, max = 60 },
   click_level = { min = -60, max = 12 },
   midi_record = { values = { "new", "merge" } },
+  play_from = { values = { "cursor", "playhead" } },
   click_output = { min = 0, max = 63, integer = true },
   velocity = { min = 1, max = 127, integer = true },
   send_level = { min = -150, max = 24 },
