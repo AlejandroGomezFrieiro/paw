@@ -17,7 +17,7 @@ fn scratch(name: &str) -> PathBuf {
     dir
 }
 
-/// `paw --no-plugins <args> -l <script> <dir>` with its XDG directories in `dir`.
+/// `paw --no-plugins <args> -l <script> <dir>`, sealed in `dir`.
 fn paw(dir: &Path, script: &str, args: &[&Path]) -> Command {
     paw_plugins(dir, script, args, false)
 }
@@ -33,14 +33,6 @@ fn paw_plugins(dir: &Path, script: &str, args: &[&Path], plugins: bool) -> Comma
         command.arg("--no-plugins");
     }
     command.args(args).arg("-l").arg(&file).arg(dir);
-    for var in [
-        "XDG_CACHE_HOME",
-        "XDG_DATA_HOME",
-        "XDG_STATE_HOME",
-        "XDG_CONFIG_HOME",
-    ] {
-        command.env(var, dir.join("xdg"));
-    }
     sealed::seal(&mut command, dir);
     command
 }

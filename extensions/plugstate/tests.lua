@@ -222,26 +222,15 @@ end)
 
 -- --- TONE3000 and Soundshed Guitar ---------------------------------------------
 -- These plugins are not in nixpkgs: their tests run when PAW_TEST_TONE3000
--- or PAW_TEST_SOUNDSHED names the package (its store path), and the run
--- gives the plugins a scratch HOME: both keep their files in ~/.config
--- whatever XDG_CONFIG_HOME says. `tests/tools/suite.sh plugins` does both.
+-- or PAW_TEST_SOUNDSHED names the package (its store path). Both keep their
+-- files in ~/.config whatever XDG_CONFIG_HOME says, and tests/tools/env.sh
+-- gives the run a scratch HOME. `tests/tools/suite.sh plugins` sets the
+-- variables.
 
---- The package a variable names, when the plugin's files go to a scratch
---- folder; else nil and why the test is skipped.
+--- The package a variable names; else nil and why the test is skipped.
 local function package(var)
   local dir = os.getenv(var)
   if not dir or dir == "" then return nil, "skipped: " .. var .. " names no package" end
-  -- The home folder of the user in the system's list, which a changed HOME
-  -- does not hide.
-  local user, home = os.getenv("USER") or os.getenv("LOGNAME") or "", nil
-  for line in (io.open("/etc/passwd") and io.open("/etc/passwd"):read("*a") or ""):gmatch("[^\n]+") do
-    local name, dir = line:match("^([^:]*):[^:]*:[^:]*:[^:]*:[^:]*:([^:]*):")
-    if name == user then home = dir end
-  end
-  local now = (os.getenv("HOME") or ""):gsub("/+$", "")
-  if now == "" or not home or now == home then
-    return nil, "skipped: the plugin would write to the home folder (give the test run a scratch HOME)"
-  end
   return dir
 end
 
@@ -331,7 +320,7 @@ test(
     eq(block.label, "Block 2 (magnatone)", "named after it")
     local with_model = sound()
     differs(with_model, ampeg, "the model plays")
-    local log = T.read_file(os.getenv("HOME") .. "/.config/TONE3000/TONE3000.log")
+    local log = T.read_file(t3k.root() .. "/TONE3000.log")
     eq(log:find("tone 0 model %d+ %(cached%)") ~= nil, true, "the plugin loads it from the state, not the network")
 
     -- Snapshots, and the project.

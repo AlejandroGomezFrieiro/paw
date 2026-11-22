@@ -4061,6 +4061,10 @@ function paw.harmony.voice.voice(tones, opts) end
 ---@param names any
 function paw.health.check(names) end
 
+--- The name of a font for Japanese and Chinese text on this computer, or nil.
+--- `:checkhealth fonts` reports it.
+function paw.health.cjk_font() end
+
 --- An executable on the PATH, or at a path: where it is, or nil.
 ---@param name any
 function paw.health.executable(name) end

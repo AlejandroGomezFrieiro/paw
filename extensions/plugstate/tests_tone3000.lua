@@ -641,26 +641,8 @@ test("plugstate: a model from TONE3000's library plays in Neural Amp Modeler and
   eq(api.device_get(loaded.id).meta.plugstate.tone3000.model.tone, "Plexi Clean", "and the tone's name")
 end)
 
---- True when HOME is not the user's own (the TONE3000 plugin writes to
---- ~/.config whatever XDG says; `tests/tools/suite.sh plugins` gives it a
---- scratch HOME).
-local function scratch_home()
-  local user, home = os.getenv("USER") or os.getenv("LOGNAME") or "", nil
-  local f = io.open("/etc/passwd")
-  for line in (f and f:read("*a") or ""):gmatch("[^\n]+") do
-    local name, dir = line:match("^([^:]*):[^:]*:[^:]*:[^:]*:[^:]*:([^:]*):")
-    if name == user then home = dir end
-  end
-  if f then f:close() end
-  local now = (os.getenv("HOME") or ""):gsub("/+$", "")
-  return now ~= "" and home ~= nil and now ~= home
-end
-
 test("plugstate: a model from TONE3000's library goes into a block of the TONE3000 plugin", function()
   if (os.getenv("PAW_TEST_TONE3000") or "") == "" then return "skipped: PAW_TEST_TONE3000 names no package" end
-  if not scratch_home() then
-    return "skipped: the plugin would write to the home folder (give the test run a scratch HOME)"
-  end
   local kind = kind_of("clap", "^TONE3000$")
   local models = os.getenv("PAW_TEST_NAM_MODELS")
   if not kind or not models then return "skipped: TONE3000 or the test models not found" end

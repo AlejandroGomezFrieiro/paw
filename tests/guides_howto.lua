@@ -401,19 +401,11 @@ test("guide: change the sound of an instrument", function()
   keys("<Esc>")
 end)
 
---- The plugin of a package that a variable names (`PAW_TEST_TONE3000`), when
---- the run gives the plugins a scratch HOME: they write to ~/.config.
+--- The plugin of a package that a variable names (`PAW_TEST_TONE3000`). The
+--- plugins write to ~/.config: tests/tools/env.sh gives the run a scratch HOME.
 local function amp_plugin(var, format, name)
   local pkg = os.getenv(var)
   if not pkg or pkg == "" then return nil, "skipped: " .. var .. " names no package" end
-  local user, home = os.getenv("USER") or "", nil
-  for line in (T.read_file("/etc/passwd")):gmatch("[^\n]+") do
-    local n, dir = line:match("^([^:]*):[^:]*:[^:]*:[^:]*:[^:]*:([^:]*):")
-    if n == user then home = dir end
-  end
-  if not home or (os.getenv("HOME") or ""):gsub("/+$", "") == home then
-    return nil, "skipped: the plugin would write to the home folder"
-  end
   for _, info in ipairs(paw.device_types()) do
     if info.format == format and info.name == name then return info.kind, pkg end
   end
@@ -477,7 +469,6 @@ test("guide: find and change a setting inside a plugin", function()
   keys("u")
   eq(value(comp.id, 1), 1, "u returns to the value before")
   -- Keep the change as a preset, and load it on another track.
-  local home = os.getenv("HOME")
   local file = T.scratch .. "/quiet"
   keys(":plugstate.mark<CR>")
   api.device_set_param(comp.id, "output_gain", -6)
@@ -495,7 +486,6 @@ test("guide: find and change a setting inside a plugin", function()
   paw.cursor.beat = 2
   keys(":plugstate.at " .. file .. ".jucepreset<CR>")
   eq(said():find("on its state lane", 1, true) ~= nil, true, "the preset at a point: " .. said())
-  eq(home, os.getenv("HOME"), "HOME stays")
 end)
 
 test("guide: switch amp models and presets from paw", function()

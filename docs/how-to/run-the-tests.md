@@ -17,7 +17,9 @@ The suite writes its full output to `target/test-scratch/suite.out`.
 
 The tests never use your own files or plugins. Each test run gets a scratch
 home folder and empty plugin folders under `target/test-scratch`, so your
-plugins, your settings and your Wine prefix stay untouched. To run paw by
+plugins, your settings and your Wine prefix stay untouched. The run also
+gets its own folder for sockets and a user name that isn't yours, so a test
+can't reach a paw that you have open. To run paw by
 hand in the same setup, use `tests/tools/run.sh` in place of `paw`, for
 example `tests/tools/run.sh --clean --no-plugins -l tools/apidoc.lua check`.
 
