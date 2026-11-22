@@ -71,8 +71,10 @@ What is left, in order of what the user feels:
    reading after an edit is the same as a reading of all the notes.
 2. A full frame costs 7 to 12 ms: the clip list is made again as JSON on each
    frame.
-3. The live ticker draws 60 frames per second when an armed input changes
-   nothing on the screen.
+3. The live ticker drew 60 frames per second when an armed input changed
+   nothing on the screen. Fixed: after 20 frames in a row that change no
+   cell, it slows to 8 per second, and a poke ends. Idle-armed kernel
+   thread: 7.2% before, 5.0% after (one reading each, on a loaded machine).
 4. The files picker walks the whole folder tree (up to 10 s).
 5. About 1 400 allocations per frame while playing, half of them for
    strings passed from Lua.
