@@ -9541,6 +9541,14 @@ function paw.api.base64_encode(data, opts) end
 ---@param device integer?
 function paw.api.blocks(device) end
 
+--- What this build of paw has: `{ vm, features }`. `vm` is the Lua
+--- that runs the code, `"luajit"` or `"lua52"`. `features` lists
+--- what an extension can name in the `needs` of its manifest:
+--- `"ffi"` (LuaJIT's `ffi`), `"processes"` (helper programs,
+--- `io.popen`), `"network"` (sockets and requests over the network)
+--- and `"native"` (parts that Nix builds, such as plugins).
+function paw.api.build() end
+
 --- Write drawings (the operations of `paw.canvas.paint`) to a file:
 --- `format` "pdf" (one page for each drawing), "svg" or "png" (the first).
 --- Each page is `{ ops, width, height }` in pixels. `scale` is the points

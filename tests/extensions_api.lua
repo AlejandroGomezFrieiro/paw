@@ -59,6 +59,47 @@ test("the API has a version, and requirements are checked against it", function(
   paw.ext.unload("future")
 end)
 
+test("an extension that needs what the build lacks does not load, and :extensions says why", function()
+  T.start()
+  local build = api.build()
+  eq(build.vm, "luajit", "this build runs LuaJIT")
+  eq(names(build.features), "ffi processes network native", "and has every feature")
+  -- A build of the web, as the pod has it: no ffi and no native parts.
+  local real = api.build
+  api.build = function() return { vm = "lua52", features = { "processes", "network" } } end
+  T.after(function()
+    api.build = real
+    paw.ext.unload("wanting")
+    paw.ext.unload("modest")
+    paw.ext.unload("loose")
+    read_errors()
+  end)
+  write(dir("wanting") .. "/manifest.lua", 'return { needs = { "ffi", "processes", "native" } }')
+  write(dir("wanting") .. "/init.lua", "paw.command('wanting.hi', function() end)")
+  write(dir("modest") .. "/manifest.lua", 'return { needs = { "processes" } }')
+  write(dir("modest") .. "/init.lua", "")
+  local wanting = paw.ext.load(dir("wanting"))
+  eq(wanting.ok, false, "it does not load")
+  eq(wanting.error, "needs ffi and native, which this build of paw does not have", "and says what is missing")
+  eq(paw.commands.get("wanting.hi"), nil, "nothing of it ran")
+  eq(paw.ext.load(dir("modest")).ok, true, "an extension whose needs the build has loads")
+  write(dir("loose") .. "/manifest.lua", 'return { needs = "ffi" }')
+  write(dir("loose") .. "/init.lua", "")
+  eq(
+    paw.ext.load(dir("loose")).error,
+    'manifest.lua: needs is a list of names, such as { "processes" }',
+    "a needs that is no list is said"
+  )
+  T.keys(":extensions<CR>")
+  eq(T.screen():find("wanting%s+FAILED: needs ffi and native") ~= nil, true, ":extensions says why")
+  paw.ui.close()
+  local said
+  for _, item in ipairs(paw.health.run("extensions").items) do
+    if item.text:find("wanting: needs ffi and native", 1, true) then said = item end
+  end
+  eq(said and said.advice[1], "a build of paw with these features loads it (`paw.api.build()`)", "so does checkhealth")
+end)
+
 test("an extension's requirements are loaded before it, and their versions checked", function()
   T.after(read_errors)
   write(
@@ -285,6 +326,7 @@ test("every bundled extension has a manifest that names it and asks for this API
     eq(type(m.version), "string", name .. " has a version")
     eq(type(m.description), "string", name .. " has a description")
     eq(paw.ext.satisfies(api.version, m.requires and m.requires.paw), true, name .. " asks for this API")
+    eq(type(m.needs), "table", name .. " says what it needs of the build")
   end
 end)
 

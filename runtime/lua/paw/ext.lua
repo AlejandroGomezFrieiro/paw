@@ -25,6 +25,7 @@
 --     description = "Euclidean rhythms as clips",
 --     requires = { paw = ">=1.0", sections = "^1" },  -- the API, and other extensions
 --     provides = { "rhythms" },                      -- names others may require it by
+--     needs = { "processes" },                       -- what the build must have
 --   }
 local api = paw.api
 local M = {}
@@ -584,6 +585,9 @@ function M.manifest(path, name)
   if not ok then return nil, got end
   if type(got) ~= "table" then return nil, "manifest.lua returns no table" end
   if got.name and got.name ~= name then return nil, "manifest.lua names it " .. tostring(got.name) end
+  if got.needs ~= nil and type(got.needs) ~= "table" then
+    return nil, 'manifest.lua: needs is a list of names, such as { "processes" }'
+  end
   got.name = name
   return got
 end
@@ -596,6 +600,24 @@ local function holder(name)
       if other == name then return entry end
     end
   end
+end
+
+--- What the extension's `needs` names that this build does not have
+--- (`paw.api.build().features`): nil, or the reason it does not load.
+--- A name that no build knows is missing too, so that a typo is said.
+local function missing_needs(entry)
+  local needs = entry.manifest.needs or {}
+  if #needs == 0 then return end
+  local has = {}
+  for _, feature in ipairs(api.build().features) do
+    has[feature] = true
+  end
+  local missing = {}
+  for _, need in ipairs(needs) do
+    if not has[need] then missing[#missing + 1] = tostring(need) end
+  end
+  if #missing == 0 then return end
+  return "needs " .. table.concat(missing, " and ") .. ", which this build of paw does not have"
 end
 
 --- Load what an extension requires and check the versions. Returns nil,
@@ -651,9 +673,12 @@ local function load_one(path)
   local manifest, merr = M.manifest(path, name)
   entry.manifest = manifest or { name = name }
   entry.version = entry.manifest.version
-  local err = merr or require_all(entry)
+  -- The build first: an extension that cannot run here loads none of its
+  -- requirements. A manifest that does not read has no needs.
+  local missing = missing_needs(entry)
+  local err = merr or missing or require_all(entry)
   if err then
-    entry.ok, entry.error = false, err
+    entry.ok, entry.error, entry.needs_unmet = false, err, missing ~= nil
     paw.notify("extension " .. name .. " failed: " .. tostring(err), "error")
     return entry
   end

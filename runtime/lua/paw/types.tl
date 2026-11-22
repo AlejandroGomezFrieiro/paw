@@ -1617,6 +1617,13 @@ local record types
     seconds: number
   end
 
+  --- What a build of paw has (`build`): its Lua and the features that
+  --- the `needs` of a manifest names.
+  record Build
+    vm: string
+    features: {string}
+  end
+
   --- The space of a disk, in bytes (`fs_space`).
   record DiskSpace
     free: number

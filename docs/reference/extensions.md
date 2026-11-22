@@ -126,6 +126,7 @@ return {
   description = "Euclidean rhythms as clips",
   requires = { paw = "^1.0", sections = ">=0.1" },   -- the API, and other extensions
   provides = { "rhythms" },                         -- names that other extensions can require
+  needs = { "processes" },                          -- what the build of paw must have
 }
 ```
 
@@ -142,6 +143,19 @@ return {
 | `>=1.2, <2` | all of the requirements |
 
 Before an extension runs, paw loads what it requires (first from beside it, then from the bundled extensions) and checks every version. paw does not run an extension whose requirements are not met, and `:extensions` and `:checkhealth extensions` give the reason.
+
+`needs` lists the features of the build that the extension uses. `paw.api.build()` gives what the running build has, as `{ vm, features }`. `vm` is the Lua that runs the code, `luajit` on Linux and `lua52` in the web build.
+
+| Feature | The extension uses |
+| --- | --- |
+| `ffi` | LuaJIT's `ffi` library, for example in devices written in Lua |
+| `processes` | helper programs, through `paw.api.proc_spawn`, `io.popen` or `paw.lsp` |
+| `network` | requests over the network |
+| `native` | a part that Nix builds, such as a plugin or a library |
+
+paw does not run an extension whose `needs` names a feature that the build doesn't have, and a name that paw doesn't know counts as missing. `:extensions` and `:checkhealth extensions` say what is missing, for example `needs ffi and native, which this build of paw does not have`. Each bundled extension declares its `needs`, and an empty list means that the extension works in every build.
+
+`needs` isn't a security sandbox. paw only reads the list before it loads the extension, and an extension that is loaded can still call any function that the build has.
 
 `paw.ext.satisfies(version, want)` checks a version, and `paw.ext.manifest(path, name)` reads a manifest.
 

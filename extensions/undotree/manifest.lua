@@ -4,4 +4,5 @@ return {
   version = "0.1.0",
   description = "A window on the undo tree, named checkpoints, A/B listening",
   requires = { paw = "^1.0" },
+  needs = {},
 }
