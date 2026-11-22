@@ -922,27 +922,25 @@ local record types
     index: integer
   end
 
-  --- `paw.api.nest_time(clip)`: the time of a subproject with its own tempo
-  --- or meter, in its own beats, as the window inside it counts it. The
-  --- methods are the `tempo_*` functions of its map (bars from 0), and
-  --- `song_beat` and `nest_beat` convert between its beats and the song's
-  --- for the block it was asked for.
+  --- `paw.scope.own_time()`: the time of a subproject with its own tempo
+  --- or meter, in its own beats, as the window inside it counts it, for
+  --- the block `clip` it was entered through. The methods are the
+  --- `paw.api.nest_tempo_*` functions of its map (bars from 0), and
+  --- `song_beat` and `nest_beat` convert between its beats and the song's.
   record NestTime
+    clip: integer
     own_tempo: boolean
     song_beat: function(self: NestTime, beat: number): number
     nest_beat: function(self: NestTime, song_beat: number): number
     seconds: function(self: NestTime, beat: number): number
-    beat: function(self: NestTime, seconds: number): number
     tempo: function(self: NestTime, beat: number): number
     signature: function(self: NestTime, beat: number): integer, integer
     bar_of: function(self: NestTime, beat: number): integer
     bar_start: function(self: NestTime, bar: integer): number
     bar_length: function(self: NestTime, beat: number): number
-    bar_signature: function(self: NestTime, bar: integer): integer, integer
     is_bar_line: function(self: NestTime, beat: number): boolean
     bbt: function(self: NestTime, beat: number): integer, integer, number
     from_bbt: function(self: NestTime, bar: integer, beat: integer, fraction?: number): number
-    lines: function(self: NestTime, from: number, to: number, limit?: integer): {TempoLine}
     points: function(self: NestTime): TempoPoints
   end
 

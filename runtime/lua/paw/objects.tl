@@ -1873,7 +1873,7 @@ M.time = time
 -- `paw.scope.bar_offset` counts them from 1 at the scope's start.
 --
 -- A subproject with its own tempo or meter counts in its own map instead
--- (`paw.api.nest_time`): its bars from 1, at its tempo. A beat of the song
+-- (`paw.scope.own_time`): its bars from 1, at its tempo. A beat of the song
 -- (the playhead's) is `time.local_beat(beat)` in the window's time, and
 -- back with `time.song_beat`.
 

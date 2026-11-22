@@ -556,9 +556,55 @@ function M.origin(): number
   return M.song_offset(s)
 end
 
+-- The own time of a subproject: a table for each block, whose methods
+-- ask the kernel (`paw.api.nest_tempo_*`). The kernel keeps the map.
+local own_methods: types.NestTime = {
+  song_beat = function(self: types.NestTime, beat: number): number return api.nest_song_beat(self.clip, beat) end,
+  nest_beat = function(self: types.NestTime, beat: number): number return api.nest_beat(self.clip, beat) end,
+  seconds = function(self: types.NestTime, beat: number): number return api.nest_tempo_seconds(self.clip, beat) end,
+  tempo = function(self: types.NestTime, beat: number): number return api.nest_tempo_at(self.clip, beat) end,
+  signature = function(self: types.NestTime, beat: number): (integer, integer)
+    return api.nest_tempo_signature(self.clip, beat)
+  end,
+  bar_of = function(self: types.NestTime, beat: number): integer return api.nest_tempo_bar_of(self.clip, beat) end,
+  bar_start = function(self: types.NestTime, bar: integer): number return api.nest_tempo_bar_start(self.clip, bar) end,
+  bar_length = function(self: types.NestTime, beat: number): number
+    return api.nest_tempo_bar_length(self.clip, beat)
+  end,
+  is_bar_line = function(self: types.NestTime, beat: number): boolean
+    return api.nest_tempo_is_bar_line(self.clip, beat)
+  end,
+  bbt = function(self: types.NestTime, beat: number): (integer, integer, number)
+    return api.nest_tempo_bbt(self.clip, beat)
+  end,
+  from_bbt = function(self: types.NestTime, bar: integer, beat: integer, fraction?: number): number
+    return api.nest_tempo_from_bbt(self.clip, bar, beat, fraction)
+  end,
+  points = function(self: types.NestTime): types.TempoPoints return api.nest_tempo_points(self.clip) end,
+}
+local own_meta: metatable<types.NestTime> = {__index = own_methods}
+-- By block. Weak: a table no window holds goes, and is made again.
+local own_times: {integer: types.NestTime} = setmetatable({}, {__mode = "v"})
+
+--- The own time of the subproject of block `clip`, or nil when it follows
+--- the song's tempo and meter.
+function M.nest_time(clip: integer): types.NestTime
+  local own_tempo = api.nest_own_tempo(clip)
+  if own_tempo == nil then
+    return nil
+  end
+  local t = own_times[clip]
+  if not t then
+    t = setmetatable({clip = clip} as types.NestTime, own_meta)
+    own_times[clip] = t
+  end
+  t.own_tempo = own_tempo
+  return t
+end
+
 --- The own time of the subproject that the window (the one being drawn,
 --- else the current one) is in, when it has its own tempo or meter
---- (`paw.api.nest_time` of the block it was entered through); else nil.
+--- (`paw.api.nest_own_tempo` of the block it was entered through); else nil.
 --- `paw.time` counts in it then.
 function M.own_time(): types.NestTime
   local u = paw.ui
@@ -570,7 +616,7 @@ function M.own_time(): types.NestTime
   if not (nest and nest.clip) then
     return nil
   end
-  return api.nest_time(nest.clip)
+  return M.nest_time(nest.clip)
 end
 
 -- Bars --------------------------------------------------------------------------------

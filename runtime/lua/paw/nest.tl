@@ -907,7 +907,7 @@ end
 --- subproject then follows the song's tempo. Part of the caller's undo
 --- step. Returns the words of the message.
 local function tempo_into_song(c: types.Clip, n: types.Nest): string
-  local own = api.nest_time(c.id)
+  local own = paw.scope.nest_time(c.id)
   local offset = c.offset or 0
   local finish = c.start + c.length
   local span = own:nest_beat(finish) - offset

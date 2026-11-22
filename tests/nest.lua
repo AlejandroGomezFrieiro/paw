@@ -798,8 +798,8 @@ local function cue()
 end
 
 --- Where sound starts after a silence in a 16-bit render, in seconds with
---- two decimals: "8.00 10.00".
-local function onsets(info)
+--- two decimals ("8.00 10.00"), or with `digits` decimals.
+local function onsets(info, digits)
   local data = T.read_file(info.path)
   local at = data:find("data", 1, true) + 8
   local out, quiet, gap = {}, 0, math.floor(info.sample_rate * 0.05)
@@ -807,7 +807,9 @@ local function onsets(info)
     local v = data:byte(i) + data:byte(i + 1) * 256
     if v >= 32768 then v = v - 65536 end
     if math.abs(v) > 300 then
-      if quiet >= gap then out[#out + 1] = string.format("%.2f", (i - at) / 4 / info.sample_rate) end
+      if quiet >= gap then
+        out[#out + 1] = string.format("%." .. (digits or 2) .. "f", (i - at) / 4 / info.sample_rate)
+      end
       quiet = 0
     else
       quiet = quiet + 1
@@ -897,10 +899,16 @@ test(
     paw.cursor.set_beat(17)
     keys(":nest.time own 90<CR>")
     T.near(api.clip_get(b.clip).length, 64 / 3, 1e-9, "16 of its beats at 90 are 21.33 of the song's at 120")
-    local function whole() return T.read_file(T.render({ tail = 0, bits = 16 }).path) end
-    local heard = whole()
+    -- The same sound: each note at the same millisecond, as loud. A note
+    -- can start one frame apart, as its beat in the song is another.
+    local function heard()
+      local info = T.render({ tail = 0, bits = 16 })
+      local peak = T.channel_peaks(info)
+      return onsets(info, 3) .. string.format(" peak %.3f", peak)
+    end
+    local before = heard()
     keys("<Space>zp")
-    eq(apart(whole(), heard) <= 1, true, "the same render, to the last bit of rounding")
+    eq(heard(), before, "the same render")
     local tempos = {}
     for _, p in ipairs(paw.tempo.points()) do
       tempos[#tempos + 1] = string.format("%g:%g", p.beat, p.bpm)

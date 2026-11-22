@@ -7,11 +7,11 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use paw_engine::{SigPoint, TempoMap, TempoPoint};
-use mlua::{AnyUserData, Lua, Table, UserData, UserDataFields, UserDataMethods, Value as LuaValue};
+use mlua::{Lua, MultiValue, Table, Value as LuaValue};
 use serde::Deserialize;
 
 use crate::api::{LuaResult, Shared, from_lua};
-use crate::model::ClipContent;
+use crate::model::{Clip, ClipContent, Id, Nest, Project};
 use crate::model::nest::Timing;
 
 #[derive(Deserialize)]
@@ -117,47 +117,68 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
     // @return types.TempoPoints
     reader(lua, api, shared, "tempo_points", |lua, m, ()| points(lua, m))?;
 
-    // The time of the subproject that block `clip` places, as the window
-    // inside it counts it: its own tempo, its own meter, or both. Nil when
-    // the subproject follows the song's tempo and meter: the song's map,
-    // from the block's start, is its time then. The same conversions as
-    // the `tempo_*` functions, as methods, in the subproject's beats, and
-    // `song_beat(beat)` and `nest_beat(song_beat)` between its beats and
-    // the song's.
-    // @return types.NestTime
-    let sh = shared.clone();
-    let made: RefCell<Option<(NestTimeKey, AnyUserData)>> = RefCell::new(None);
-    api.set(
-        "nest_time",
-        lua.create_function(move |lua, clip: crate::model::Id| {
-            let session = sh.session.borrow();
-            let p = &session.project;
-            let Some(c) = p.clip(clip) else {
-                return Ok(None);
-            };
-            let ClipContent::Nest { nest, offset, .. } = &c.content else {
-                return Ok(None);
-            };
-            let Some(held) = p.nest(*nest) else {
-                return Ok(None);
-            };
-            // The same block, subproject and song's map as last time: the
-            // same table. The window asks for it at every line it draws.
-            let key = NestTimeKey { clip: c.clone(), nest: held.clone(), song: p.tempo_map().clone() };
-            if let Some((was, data)) = made.borrow().as_ref()
-                && was.same(&key)
-            {
-                return Ok(Some(data.clone()));
-            }
-            let timing = held.timing(p.tempo_map(), None, c.start, *offset);
-            let Some(map) = held.own_map(p.tempo_map(), timing.zero()) else {
-                return Ok(None);
-            };
-            let data = lua.create_userdata(NestTime { map, timing, own_tempo: held.has_own_tempo() })?;
-            *made.borrow_mut() = Some((key, data.clone()));
-            Ok(Some(data))
-        })?,
+    // Whether the subproject that block `clip` places counts its own time:
+    // true with its own tempo, false with only its own meter, nil when it
+    // follows the song's tempo and meter (the song's map from the block's
+    // start is its time then). The `nest_tempo_*` functions give its map.
+    // @return boolean
+    nest_reader(lua, api, shared, "nest_own_tempo", |_, t, ()| Ok(t.own_tempo))?;
+    // The song's beat of beat `beat` of the subproject of block `clip`.
+    // @return number
+    nest_reader(lua, api, shared, "nest_song_beat", |_, t, beat: f64| {
+        Ok(t.timing.song_beat(beat))
+    })?;
+    // The subproject's beat of the song's beat `beat`, for block `clip`.
+    // @return number
+    nest_reader(lua, api, shared, "nest_beat", |_, t, beat: f64| {
+        Ok(t.timing.nest_beat(beat))
+    })?;
+    // The `tempo_*` conversions in the own map of the subproject of block
+    // `clip`, in its beats: `nest_tempo_bbt(clip, beat)`.
+    // @return number
+    nest_reader(lua, api, shared, "nest_tempo_seconds", |_, t, beat: f64| {
+        Ok(t.map.seconds(beat))
+    })?;
+    // @return number
+    nest_reader(lua, api, shared, "nest_tempo_at", |_, t, beat: f64| {
+        Ok(t.map.tempo(beat))
+    })?;
+    // @return integer, integer
+    nest_reader(lua, api, shared, "nest_tempo_signature", |_, t, beat: f64| {
+        Ok(t.map.signature(beat))
+    })?;
+    // @return integer
+    nest_reader(lua, api, shared, "nest_tempo_bar_of", |_, t, beat: f64| {
+        Ok(t.map.bar_of(beat))
+    })?;
+    // @return number
+    nest_reader(lua, api, shared, "nest_tempo_bar_start", |_, t, bar: i64| {
+        Ok(t.map.bar_start(bar))
+    })?;
+    // @return number
+    nest_reader(lua, api, shared, "nest_tempo_bar_length", |_, t, beat: f64| {
+        Ok(t.map.bar_length(beat))
+    })?;
+    // @return boolean
+    nest_reader(lua, api, shared, "nest_tempo_is_bar_line", |_, t, beat: f64| {
+        Ok(t.map.is_bar_line(beat))
+    })?;
+    // @return integer, integer, number
+    nest_reader(lua, api, shared, "nest_tempo_bbt", |_, t, beat: f64| {
+        Ok(t.map.bbt(beat))
+    })?;
+    // @return number
+    nest_reader(
+        lua,
+        api,
+        shared,
+        "nest_tempo_from_bbt",
+        |_, t, (bar, beat, fraction): (i64, u32, Option<f64>)| {
+            Ok(t.map.from_bbt(bar, beat, fraction.unwrap_or(0.0)))
+        },
     )?;
+    // @return types.TempoPoints
+    nest_reader(lua, api, shared, "nest_tempo_points", |lua, t, ()| points(lua, &t.map))?;
 
     let sh = shared.clone();
     // @return nil
@@ -269,11 +290,45 @@ fn points(lua: &Lua, m: &TempoMap) -> mlua::Result<Table> {
     Ok(out)
 }
 
-/// What a `nest_time` table was made from: the block, its subproject and
-/// the song's map. A change of one makes a new value of it.
+/// Register a function of the own time of the subproject of a block: its
+/// first argument is the block, the others go to `f`. Nil when the block is
+/// gone or its subproject follows the song's tempo and meter.
+fn nest_reader<A, R>(
+    lua: &Lua,
+    api: &Table,
+    shared: &Rc<Shared>,
+    name: &str,
+    f: impl Fn(&Lua, &NestTime, A) -> mlua::Result<R> + 'static,
+) -> mlua::Result<()>
+where
+    A: mlua::FromLuaMulti,
+    R: mlua::IntoLuaMulti,
+{
+    let sh = shared.clone();
+    api.set(
+        name,
+        lua.create_function(move |lua, (clip, args): (Id, A)| {
+            let Some(time) = NestTime::of(&sh.session.borrow().project, clip) else {
+                return Ok(MultiValue::from_vec(vec![LuaValue::Nil]));
+            };
+            f(lua, &time, args)?.into_lua_multi(lua)
+        })?,
+    )
+}
+
+/// The own time of the subproject of one block: its map, and where its
+/// beats are in the song.
+struct NestTime {
+    map: TempoMap,
+    timing: Timing,
+    own_tempo: bool,
+}
+
+/// What a [`NestTime`] was made from: the block, its subproject and the
+/// song's map. A change of one makes a new [`NestTime`].
 struct NestTimeKey {
-    clip: Arc<crate::model::Clip>,
-    nest: Arc<crate::model::Nest>,
+    clip: Arc<Clip>,
+    nest: Arc<Nest>,
     song: Arc<TempoMap>,
 }
 
@@ -283,39 +338,31 @@ impl NestTimeKey {
     }
 }
 
-/// `paw.api.nest_time`: a subproject's own map, and where its beats are in
-/// the song for one block.
-struct NestTime {
-    map: TempoMap,
-    timing: Timing,
-    own_tempo: bool,
+thread_local! {
+    /// The last [`NestTime`] made, by what it was made from. The window asks
+    /// for it at each line that it draws. It holds no Lua value: a Lua
+    /// value here would be freed by the garbage collector of Lua, whose
+    /// finalizers LuaJIT runs at any time, also when a trace exits.
+    static LAST: RefCell<Option<(NestTimeKey, Rc<NestTime>)>> = const { RefCell::new(None) };
 }
 
-impl UserData for NestTime {
-    fn add_fields<F: UserDataFields<Self>>(fields: &mut F) {
-        fields.add_field_method_get("own_tempo", |_, t| Ok(t.own_tempo));
-    }
-
-    fn add_methods<M: UserDataMethods<Self>>(methods: &mut M) {
-        methods.add_method("song_beat", |_, t, beat: f64| Ok(t.timing.song_beat(beat)));
-        methods.add_method("nest_beat", |_, t, beat: f64| Ok(t.timing.nest_beat(beat)));
-        methods.add_method("seconds", |_, t, beat: f64| Ok(t.map.seconds(beat)));
-        methods.add_method("beat", |_, t, seconds: f64| Ok(t.map.beat(seconds)));
-        methods.add_method("tempo", |_, t, beat: f64| Ok(t.map.tempo(beat)));
-        methods.add_method("signature", |_, t, beat: f64| Ok(t.map.signature(beat)));
-        methods.add_method("bar_of", |_, t, beat: f64| Ok(t.map.bar_of(beat)));
-        methods.add_method("bar_start", |_, t, bar: i64| Ok(t.map.bar_start(bar)));
-        methods.add_method("bar_length", |_, t, beat: f64| Ok(t.map.bar_length(beat)));
-        methods.add_method("bar_signature", |_, t, bar: i64| Ok(t.map.bar_signature(bar)));
-        methods.add_method("is_bar_line", |_, t, beat: f64| Ok(t.map.is_bar_line(beat)));
-        methods.add_method("bbt", |_, t, beat: f64| Ok(t.map.bbt(beat)));
-        methods.add_method("from_bbt", |_, t, (bar, beat, fraction): (i64, u32, Option<f64>)| {
-            Ok(t.map.from_bbt(bar, beat, fraction.unwrap_or(0.0)))
-        });
-        methods.add_method("lines", |lua, t, (from, to, limit): (f64, f64, Option<usize>)| {
-            lines(lua, &t.map, from, to, limit)
-        });
-        methods.add_method("points", |lua, t, ()| points(lua, &t.map));
+impl NestTime {
+    /// The own time of the subproject of block `clip`, or None.
+    fn of(p: &Project, clip: Id) -> Option<Rc<NestTime>> {
+        let c = p.clip(clip)?;
+        let ClipContent::Nest { nest, offset, .. } = &c.content else {
+            return None;
+        };
+        let held = p.nest(*nest)?;
+        let key = NestTimeKey { clip: c.clone(), nest: held.clone(), song: p.tempo_map().clone() };
+        if let Some(time) = LAST.with_borrow(|last| last.as_ref().filter(|(was, _)| was.same(&key)).map(|(_, t)| t.clone())) {
+            return Some(time);
+        }
+        let timing = held.timing(p.tempo_map(), None, c.start, *offset);
+        let map = held.own_map(p.tempo_map(), timing.zero())?;
+        let time = Rc::new(NestTime { map, timing, own_tempo: held.has_own_tempo() });
+        LAST.set(Some((key, time.clone())));
+        Some(time)
     }
 }
 
