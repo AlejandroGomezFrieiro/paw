@@ -3,23 +3,25 @@ return {
   id = "making",
   title = "Tracks, clips and notes",
   intro = [[
-In this lesson, we add a track with a name and a synth. Then we draw some
-notes with the keyboard. Then we listen to them with a drum beat.
+In this lesson, we add a track with a name and a synth, and we draw some
+notes with the keyboard. Then we listen to the notes with a drum beat.
 
 A track has clips on the timeline and a chain of devices. The first device is
-an instrument, which makes sound from notes. Effects come after it. A clip
-contains notes (a MIDI clip) or a recording (an audio clip). A new track makes
-no sound until it has an instrument.]],
+an instrument, which makes sound from notes, and effects come after it. A
+MIDI clip contains notes, and an audio clip contains a recording. A new
+track makes no sound until it has an instrument.]],
   idea = [[
 In normal mode, lowercase letters do an action on the item under the cursor.
-`o` opens a new track below, as `o` opens a new line in Vim. `a` adds a
-device, `i` inserts clips and notes, `x` deletes the clip and `&` repeats it. `u` undoes
-and `<C-r>` redoes. So each change that you make here is safe.]],
+For example, `o` opens a new track below, and `a` adds a device. Moreover,
+`i` inserts clips and notes, and `x` deletes the clip while `&` repeats it.
+`u` undoes and `<C-r>` redoes, so you can take back each change that you
+make here.]],
   vim = [[
-`o` and `O` add a track below and above, as for lines. `i` starts insert
-mode, where each key inserts an item: `m` a MIDI clip, `r` a region, `'`
-a marker. `<CR>` opens the clip in the piano roll, in insert mode. There,
-the cursor draws notes, not text. `grn` renames, as in the LSP keys of Neovim.]],
+`o` and `O` add a track below and above, as they add lines in Vim. `i`
+starts insert mode, where each key inserts an item, e.g., `m` a MIDI clip,
+`r` a region and `'` a marker. `<CR>` opens the clip in the piano roll in
+insert mode, where the cursor draws notes instead of text. `grn`
+renames.]],
   setup = function(look)
     paw.project.tempo = 100
     local drums = paw.add_track({ name = "Drums" })
@@ -36,7 +38,7 @@ the cursor draws notes, not text. `grn` renames, as in the LSP keys of Neovim.]]
       done = "A new empty track shows, and the cursor is on it.",
     },
     {
-      say = "Give the track a name. Press `grn`. Press `<C-u>` to clear the old name. Type `Bass` and press `<CR>`.",
+      say = "Give the track a name. Press `grn`, and press `<C-u>` to clear the old name. Type `Bass` and press `<CR>`.",
       keys = { "grn", "<C-u>", "Bass", "<CR>" },
       check = function(_, look) return look.cursor_track() == "Bass" end,
       done = "The name of the track is Bass.",
@@ -47,13 +49,13 @@ the cursor draws notes, not text. `grn` renames, as in the LSP keys of Neovim.]]
       keys = { "a", "synth", "<CR>" },
       check = function(_, look) return look.device("Bass", "synth") ~= nil end,
       done = "Bass has a synth.",
-      hint = "`a` opens a list of all the devices. The text that you type makes the list shorter. `<CR>` selects the first item.",
+      hint = "`a` opens a list of all the devices, and the text that you type makes the list shorter. `<CR>` selects the first item.",
     },
     {
-      say = "`i` starts insert mode. There, `m` inserts a MIDI clip at the cursor, and `<CR>` opens it in the piano roll, where you draw notes. Press `i`, `m` and `<CR>`.",
+      say = "`i` starts insert mode. In insert mode, `m` inserts a MIDI clip at the cursor, and `<CR>` opens the clip in the piano roll, where you draw notes. Press `i`, `m` and `<CR>`.",
       keys = { "i", "m", "<CR>" },
       check = function(_, look) return look.mode() == "i" and look.focused() == "pianoroll" end,
-      done = "The mode is INSERT. The piano roll is open on C4, and its title row shows the note that you draw.",
+      done = "The mode is INSERT, and the piano roll is open on C4. The title row of the piano roll shows the note that you draw.",
     },
     {
       say = "`l` makes the note one step longer, so `4l` makes one beat. `<CR>` keeps the note and starts the next note at its end. `2+` moves the note up two semitones. Press `4l`, `<CR>`, `2+`, `4l`, `<CR>`, `2+`, `4l` and `<Esc>`.",
@@ -62,11 +64,11 @@ the cursor draws notes, not text. `grn` renames, as in the LSP keys of Neovim.]]
         local clip = look.clip("Bass")
         return clip and look.melody(clip) == "60@0+1 62@1+1 64@2+1" and look.mode() == "n"
       end,
-      done = "The clip has three notes, C D E. paw wrote them when you left insert mode.",
-      hint = "The notes that you draw are green, and `<Esc>` writes them. `h` makes a note shorter and `j` moves it down.",
+      done = "The clip has three notes, C, D and E, and paw wrote them when you left insert mode.",
+      hint = "The notes that you draw are green, and `<Esc>` writes them. `h` makes a note shorter, and `j` moves it down.",
     },
     {
-      say = "Press `<C-w>p` to return to the arrange view, the previous window. `<Esc>` does not leave the piano roll, as in each view.",
+      say = "Press `<C-w>p` to return to the arrange view, which is the previous window. `<Esc>` does not leave the piano roll, and the same is true in every view.",
       keys = { "<C-w>p" },
       check = function(ctx, look) return look.became(ctx, "back", look.mode() == "n" and look.focused() == "arrange") end,
       done = "The arrange view gets the keys again, in NORMAL mode.",
@@ -75,13 +77,13 @@ the cursor draws notes, not text. `grn` renames, as in the LSP keys of Neovim.]]
       say = "Press `<leader><Space>` to hear your notes with the drums. Press `<leader><Space>` again to stop.",
       keys = { "<leader><Space>", { wait = 300 }, "<leader><Space>" },
       check = function(ctx, look) return look.played(ctx) end,
-      done = "That is your bass line.",
+      done = "You heard the bass line that you wrote.",
     },
     {
       say = "`&` puts a copy of the clip immediately after it. Press `&` two times.",
       keys = { "&", "&" },
       check = function(_, look) return #look.clips("Bass") == 3 end,
-      done = "The track has three copies, one after the other.",
+      done = "The track has three copies of the clip, one after the other.",
       hint = "The cursor must be on the clip. `0` moves it to the start.",
     },
     {
@@ -94,7 +96,7 @@ the cursor draws notes, not text. `grn` renames, as in the LSP keys of Neovim.]]
       say = "`x` deletes the clip under the cursor. Press `x`.",
       keys = { "x" },
       check = function(_, look) return #look.clips("Bass") == 2 end,
-      done = "The clip is deleted. `u` can bring it back.",
+      done = "paw deleted the clip, and `u` can bring it back.",
     },
     {
       say = "Listen to the result. Press `gs` to move to the start, `<leader><Space>` to play and `<leader><Space>` to stop.",
