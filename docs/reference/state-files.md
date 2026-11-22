@@ -4,8 +4,8 @@
 
 paw keeps its configuration, its state and its caches in the XDG base
 directories of your home directory. The paths below use the default base
-directories. `XDG_CONFIG_HOME`, `XDG_STATE_HOME` and `XDG_CACHE_HOME`
-change them. Projects are not in these directories: a project is the file
+directories, and `XDG_CONFIG_HOME`, `XDG_STATE_HOME` and `XDG_CACHE_HOME`
+change them. Projects are not in these directories, because a project is the folder
 that you save.
 
 ## Configuration: `~/.config/paw`
@@ -21,7 +21,7 @@ not read it.
 
 ## State: `~/.local/state/paw`
 
-The state belongs to the computer, not to a project.
+The state belongs to the computer and not to a project.
 
 | Path | Holds |
 | --- | --- |
@@ -39,7 +39,7 @@ The state belongs to the computer, not to a project.
 
 ## Cache: `~/.cache/paw`
 
-paw can delete and make the cache again. It is not necessary to keep it.
+paw can delete the cache and make it again, so you don't need to keep it.
 
 | Path | Holds |
 | --- | --- |
@@ -51,7 +51,7 @@ paw can delete and make the cache again. It is not necessary to keep it.
 ## Recent projects
 
 paw remembers each project that you open or save, newest first, twenty at
-most. A file that is not there any more goes out of the list. paw does not
+most. A file that no longer exists goes out of the list, and paw does not
 remember projects under `--clean` or in a script.
 
 | Command or option | Effect |
