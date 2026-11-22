@@ -250,7 +250,7 @@ pub fn timed_lane(lane: &Lane, places: &[(Timing, f64, f64)]) -> Lane {
             points.push((timing.song_beat(beat), value));
         }
         for s in lane.shapes.iter().filter(|s| s.beat > a && s.beat < b) {
-            shapes.push(crate::model::Segment { beat: timing.song_beat(s.beat), ..s.clone() });
+            shapes.push(crate::model::Segment { beat: timing.song_beat(s.beat), ..*s });
         }
         if to.is_finite() {
             points.push((*to, lane.value_at(b)));

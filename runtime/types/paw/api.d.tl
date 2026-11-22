@@ -188,6 +188,8 @@ local record api
    nest_list: function(): {integer}
    nest_promote: function(clip: integer): types.NestPromoted
    nest_save: function(opts: types.NestSaveOptions): types.NestSaved
+   nest_time: function(clip: integer): types.NestTime
+   nest_unique: function(clip: integer): integer
    nest_set: function(id: integer, patch: types.Nest)
    nest_set: function(id: integer, key: string, value: nil)
    note_off: function(track: integer, pitch?: integer)

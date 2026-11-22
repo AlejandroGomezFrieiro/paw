@@ -1689,8 +1689,8 @@ function M.state(known: integer): State
     position = t.position,
     -- Beats of a count-in still to be counted before the take starts; 0 for none.
     counting = t.counting or 0,
-    time = paw.time.format(t.position - paw.time.origin()),
-    clock = paw.time.clock(t.position - paw.time.origin()),
+    time = paw.time.format(paw.time.local_beat(t.position)),
+    clock = paw.time.clock(paw.time.local_beat(t.position)),
     -- The tempo and signature where the playhead is.
     tempo = math.floor(paw.tempo.at(t.position) * 100 + 0.5) / 100,
     signature = num .. "/" .. den,
@@ -2042,8 +2042,8 @@ function M.render_dialog(): RenderDialog
       name = "loop",
       label = string.format(
         "The loop (%s – %s)",
-        paw.time.format(t.loop_start - paw.time.origin()),
-        paw.time.format(t.loop_end - paw.time.origin())
+        paw.time.format(paw.time.local_beat(t.loop_start)),
+        paw.time.format(paw.time.local_beat(t.loop_end))
       ),
     }
   end

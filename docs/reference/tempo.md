@@ -23,6 +23,11 @@ The tempo and the time signature can change along the song, and the module is
   transport, the VST3 process context and the LV2 `time:Position`, and this works
   through the sandbox too.
 - Each command below is one undo step.
+- Inside a subproject, the commands change the tempo map of the song at
+  the place of the block. A subproject with a tempo of its own
+  (`:nest.time own`) has a map of its own, and `:tempo` there changes
+  the subproject's tempo and leaves the song's map as it is. See
+  [Subprojects](subprojects.md#its-own-tempo-and-meter).
 
 ## Commands
 

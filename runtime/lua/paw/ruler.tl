@@ -307,9 +307,9 @@ M.add(
 --- loop use it.
 function M.bars_of(from: number, to: number): integer, integer
   local offset = paw.scope.bar_offset()
-  local o = paw.time.origin()
-  local first = paw.time.bar_of(from - o) - offset
-  local last = math.max(first, paw.time.bar_of(math.max(from, to - 1e-6) - o) - offset)
+  local here = paw.time.local_beat
+  local first = paw.time.bar_of(here(from)) - offset
+  local last = math.max(first, paw.time.bar_of(here(math.max(from, to - 1e-6))) - offset)
   return first, last
 end
 

@@ -165,3 +165,151 @@ impl Session {
         })
     }
 }
+
+/// Two blocks are one instance of a nest when they place it at the same
+/// start, for the same length, from the same beat of it (the stems of one
+/// block are one instance).
+fn same_instance(a: &Clip, b: &Clip) -> bool {
+    let offset = |c: &Clip| match &c.content {
+        ClipContent::Nest { offset, .. } => *offset,
+        _ => 0.0,
+    };
+    (a.start - b.start).abs() < 1e-9 && (a.length - b.length).abs() < 1e-9 && (offset(a) - offset(b)).abs() < 1e-9
+}
+
+impl Session {
+    /// Make the instance of block `clip` a nest of its own (FL Studio's
+    /// "make unique"): a copy of its nest, its tracks, devices, lanes and
+    /// clips with new ids, named `Ballad 2`. The block, and the stems of
+    /// the same instance, then place the copy. One undo step. Returns the
+    /// copy's id.
+    pub fn nest_unique(&mut self, clip: Id) -> Result<NestId> {
+        let p = &self.project;
+        let block = p.clip(clip).with_context(|| format!("no clip {clip}"))?.clone();
+        let ClipContent::Nest { nest: old, .. } = &block.content else {
+            bail!("not a block of a subproject: put the cursor on one");
+        };
+        let old = *old;
+        let held = p.nest(old).context("its subproject is gone")?.clone();
+        // The clips of this instance, and whether another instance plays it.
+        let mut ours = Vec::new();
+        let mut others = 0;
+        for t in p.all_tracks() {
+            for c in t.clips.iter().chain(&t.cues) {
+                if matches!(&c.content, ClipContent::Nest { nest, .. } if *nest == old) {
+                    if same_instance(c, &block) {
+                        ours.push(c.id);
+                    } else {
+                        others += 1;
+                    }
+                }
+            }
+        }
+        if others == 0 {
+            bail!("{} has one block: it is a subproject of its own already", held.name);
+        }
+        let names: BTreeSet<&str> = p.nests.values().map(|n| n.name.as_str()).collect();
+        let name = (2..)
+            .map(|n| format!("{} {n}", held.name))
+            .find(|n| !names.contains(n.as_str()))
+            .expect("a free name");
+        // New ids for the tracks first: their routes point at each other.
+        let id = NestId(self.new_id());
+        let sources: Vec<Arc<Track>> = self.project.nest_tracks(old).cloned().collect();
+        let mut ids: HashMap<Id, Id> = HashMap::new();
+        for t in &sources {
+            let made = self.new_id();
+            ids.insert(t.id, made);
+        }
+        let copies: Vec<Arc<Track>> = sources.iter().map(|t| Arc::new(self.copy_track(t, id, &ids))).collect();
+        let nest = Nest {
+            id,
+            name,
+            master: ids[&held.master],
+            source: None,
+            origin: held.source.clone().or_else(|| held.origin.clone()),
+            ..(*held).clone()
+        };
+        let mut candidate = self.project.clone();
+        candidate.tracks.extend(copies);
+        candidate.nests.insert(id, Arc::new(nest));
+        for t in candidate.tracks.iter_mut() {
+            if !t.clips.iter().chain(&t.cues).any(|c| ours.contains(&c.id)) {
+                continue;
+            }
+            let t = Arc::make_mut(t);
+            for c in t.clips.iter_mut().chain(t.cues.iter_mut()).filter(|c| ours.contains(&c.id)) {
+                if let ClipContent::Nest { nest, play, .. } = &mut Arc::make_mut(c).content {
+                    *nest = id;
+                    if let NestPlay::Track(track) = play {
+                        *track = ids.get(track).copied().unwrap_or(*track);
+                    }
+                }
+            }
+        }
+        candidate.validate()?;
+        self.edit(|p| {
+            *p = candidate;
+            Ok(id)
+        })
+    }
+
+    /// Copies of a track's devices and lanes, with new ids: a lane of a
+    /// device follows its copy, and the side-chains and output pairs of the
+    /// devices go to the tracks `tracks` names (by old id), else stay.
+    pub(super) fn copy_devices_and_lanes(&mut self, t: &Track, tracks: &HashMap<Id, Id>) -> (Vec<Arc<DeviceInst>>, Vec<Arc<Lane>>) {
+        let track = |id: Id| tracks.get(&id).copied().unwrap_or(id);
+        let mut ids: HashMap<Id, Id> = HashMap::new();
+        let devices = t
+            .devices
+            .iter()
+            .map(|d| {
+                let made = DeviceInst {
+                    id: self.new_id(),
+                    sidechain: d.sidechain.map(track),
+                    outputs: d.outputs.iter().map(|(k, o)| (*k, track(*o))).collect(),
+                    ..(**d).clone()
+                };
+                ids.insert(d.id, made.id);
+                Arc::new(made)
+            })
+            .collect();
+        let device = |id: Id| ids.get(&id).copied().unwrap_or(id);
+        let lanes = t
+            .lanes
+            .iter()
+            .map(|l| {
+                let target = match &l.target {
+                    Target::Param { device: d, param } => Target::Param { device: device(*d), param: param.clone() },
+                    Target::State { device: d } => Target::State { device: device(*d) },
+                    other => other.clone(),
+                };
+                Arc::new(Lane { id: self.new_id(), target, ..(**l).clone() })
+            })
+            .collect();
+        (devices, lanes)
+    }
+
+    /// A copy of a nest's track for the nest `nest`, with the new track ids
+    /// `ids` (by old id), and new ids for its devices, lanes and clips. Its
+    /// routes to tracks of the nest follow the copies.
+    fn copy_track(&mut self, t: &Track, nest: NestId, ids: &HashMap<Id, Id>) -> Track {
+        let map = |id: Id| ids.get(&id).copied().unwrap_or(id);
+        let mut copy = t.clone();
+        copy.id = map(t.id);
+        copy.nest = Some(nest);
+        copy.output = t.output.map(map);
+        for s in copy.sends.iter_mut() {
+            s.target = map(s.target);
+        }
+        (copy.devices, copy.lanes) = self.copy_devices_and_lanes(t, ids);
+        copy.clips = t.clips.iter().map(|c| Arc::new(Clip { id: self.new_id(), ..(**c).clone() })).collect();
+        copy.cues = t.cues.iter().map(|c| Arc::new(Clip { id: self.new_id(), ..(**c).clone() })).collect();
+        if let Some(group) = t.meta.get("group").and_then(Value::as_u64) {
+            copy.meta.insert("group".into(), json!(map(group)));
+        }
+        copy.source = None;
+        copy.origin = t.source.clone().or_else(|| t.origin.clone());
+        copy
+    }
+}

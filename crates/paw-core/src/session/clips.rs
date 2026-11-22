@@ -235,7 +235,14 @@ impl Session {
             .with_context(|| format!("no track {track}"))?
             .nest;
         self.project.check_place(nest, host)?;
-        Ok((content, (held.length - opts.offset).max(1e-3), held.name.clone()))
+        // A subproject with a tempo of its own lasts its seconds in the song.
+        let length = if host.is_none() && held.has_own_tempo() {
+            let timing = held.timing(self.project.tempo_map(), None, opts.start, opts.offset);
+            timing.song_beat(held.length) - opts.start
+        } else {
+            held.length - opts.offset
+        };
+        Ok((content, length.max(1e-3), held.name.clone()))
     }
 
     /// The checks of a new clip's timing, fades, stretch and loop.

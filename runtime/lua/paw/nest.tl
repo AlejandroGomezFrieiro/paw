@@ -50,9 +50,13 @@ local record NewOptions
   name: string
   --- How many bars from `from`: 8 when no time is given.
   bars: integer
-  --- A meter of its own (`6/8`): written into the song's map over its time.
+  --- A meter of its own (`6/8`): written into the song's map over its time,
+  --- unless `polymeter`: then the song's map stays as it is.
   num: integer
   den: integer
+  polymeter: boolean
+  --- A tempo of its own, the song's tempo at its start to begin with.
+  own_tempo: boolean
   --- Its time; `from` alone: `bars` bars from there.
   from: number
   to: number
@@ -259,19 +263,27 @@ function M.new(o: NewOptions): Made
     name = "Subproject " .. (#api.nest_list() + 1)
   end
   local place = paw.scope.nest()
-  local song_from = from + paw.time.origin()
+  local song_from = paw.time.song_beat(from)
   local meter: types.NestMeter = nil
-  local moved = ends and math.abs(to - ends) > 1e-9 and to - ends or nil
+  -- With a meter of its own apart from the song's (polymeter), the song's
+  -- map and its bars after the section stay as they are.
+  local moved = not o.polymeter and ends and math.abs(to - ends) > 1e-9 and to - ends or nil
   if moved then
     shift_after(place, ends, moved)
   end
   if o.num then
     meter = {mode = "own", changes = {{beat = 0, num = o.num, den = o.den}}}
-    write_meter(song_from, song_from + (to - from), o.num, o.den)
+    if not o.polymeter then
+      write_meter(song_from, song_from + (to - from), o.num, o.den)
+    end
+  end
+  local tempo: types.NestTempo = nil
+  if o.own_tempo then
+    tempo = {mode = "own", points = {{beat = 0, bpm = api.tempo_at(song_from), ramp = false}}}
   end
   -- The words of the message: the song's bars, the meter written.
   local where = bars_text(from, to)
-  local nest = api.nest_add({name = name, length = to - from, meter = meter})
+  local nest = api.nest_add({name = name, length = to - from, meter = meter, tempo = tempo})
   -- The return row, below the track given (in the place the window shows).
   local below = o.below or paw.cursor.track_id()
   local index: integer
@@ -287,11 +299,15 @@ function M.new(o: NewOptions): Made
   paw.cursor.set_track(track.id)
   paw.cursor.set_beat(0)
   local message = string.format(
-    "added the subproject %s over %s%s, on its own row; inside it now: `zw` goes back",
+    "added the subproject %s over %s%s%s, on its own row; inside it now: `zw` goes back",
     name,
     where,
-    o.num and string.format(" in %d/%d", o.num, o.den) or ""
+    o.num and string.format(" in %d/%d", o.num, o.den) or "",
+    (o.polymeter and o.num) and " (the song's meter stays)" or ""
   )
+  if o.own_tempo then
+    message = message .. string.format("; its own tempo, %g bpm", tempo.points[1].bpm)
+  end
   if moved then
     message = message
       .. string.format(
@@ -324,11 +340,18 @@ local function parse(args: contracts.CommandArgs): NewOptions
     end
   end
   local named = args as {string: string}
-  if named.meter then
+  if named.meter == "own" then
+    o.polymeter = true
+  elseif named.meter then
     if not tostring(named.meter):match("^%d+/%d+$") then
-      error("a meter is written 6/8, not " .. tostring(named.meter), 0)
+      error("a meter is written 6/8, or meter=own, not " .. tostring(named.meter), 0)
     end
     meter(tostring(named.meter))
+  end
+  if named.tempo == "own" then
+    o.own_tempo = true
+  elseif named.tempo then
+    error("tempo=own gives the subproject its own tempo, not tempo=" .. tostring(named.tempo), 0)
   end
   if named.bars then
     o.bars = math.tointeger(tonumber(named.bars))
@@ -365,7 +388,7 @@ commands.define(
   {
     range = true,
     label = "Add a subproject",
-    desc = "Add a subproject with its own row and tracks, and go inside: `nest.new Ballad 8 6/8` (8 bars of 6/8 from the cursor's bar); over the selection or the region at the cursor when no bars are given",
+    desc = "Add a subproject with its own row and tracks, and go inside: `nest.new Ballad 8 6/8` (8 bars of 6/8 from the cursor's bar; `meter=own` keeps the song's meter, `tempo=own` gives it its own tempo); over the selection or the region at the cursor when no bars are given",
   }
 )
 
@@ -416,18 +439,45 @@ function M.blocks(nest: integer): {Block}
   return out
 end
 
+--- What tells one instance of a subproject from another: the stems of
+--- one block start at the same beat, from the same beat of it.
+local function instance_key(c: types.Clip): string
+  return string.format("%.9g:%.9g", c.start, c.offset or 0)
+end
+
 --- How many times the song plays a subproject: its blocks, counting the
 --- stems of one block once.
 local function instances(nest: integer): integer
   local seen: {string: boolean} = {}
   local n = 0
   for _, b in ipairs(M.blocks(nest)) do
-    local key = string.format("%.9g:%.9g", b.clip.start, b.clip.offset or 0)
+    local key = instance_key(b.clip)
     if not seen[key] then
       seen[key], n = true, n + 1
     end
   end
   return n
+end
+
+--- The song's bars where the other instances of block `c`'s subproject
+--- start, as a message names them: "bar 97", "bars 49 and 97".
+local function other_places(c: types.Clip): string
+  local bars: {string} = {}
+  local seen: {string: boolean} = {[instance_key(c)] = true}
+  for _, b in ipairs(M.blocks(c.nest)) do
+    local key = instance_key(b.clip)
+    if not seen[key] then
+      seen[key] = true
+      bars[#bars + 1] = tostring(api.tempo_bar_of(b.clip.start) + 1)
+    end
+  end
+  if #bars == 0 then
+    return nil
+  elseif #bars == 1 then
+    return "bar " .. bars[1]
+  end
+  local last = table.remove(bars)
+  return "bars " .. table.concat(bars, ", ") .. " and " .. last
 end
 
 --- The notes that a block plays, from its start, for the small picture
@@ -850,6 +900,57 @@ local function region_over(from: number, to: number, name: string): MarkersModul
   return paw.markers.add(from, name, {length = to - from})
 end
 
+--- Write the own tempo of subproject `n` into the song's map over its block
+--- `c` (a block of the song), and the song's tempo back after it, so that
+--- the sound and the beats stay: the block then lasts its beats of the
+--- subproject, and the song after it moves by what that changes. The
+--- subproject then follows the song's tempo. Part of the caller's undo
+--- step. Returns the words of the message.
+local function tempo_into_song(c: types.Clip, n: types.Nest): string
+  local own = api.nest_time(c.id)
+  local offset = c.offset or 0
+  local finish = c.start + c.length
+  local span = own:nest_beat(finish) - offset
+  local back = api.tempo_at(finish)
+  -- The song after the block keeps its seconds: it moves by the beats the
+  -- block gains or loses.
+  local moved = span - c.length
+  if math.abs(moved) > 1e-9 then
+    shift_after(nil, finish, moved)
+  end
+  local to = c.start + span
+  local tempos: {types.TempoPoint} = {}
+  for _, t in ipairs(api.tempo_points().tempos) do
+    if t.beat < c.start - 1e-9 or t.beat > to + 1e-9 then
+      tempos[#tempos + 1] = t
+    end
+  end
+  -- The tempo in effect where the block starts, then its changes inside.
+  local ramp = false
+  for _, p in ipairs(n.tempo.points) do
+    if p.beat <= offset + 1e-9 then
+      ramp = p.ramp
+    elseif p.beat < offset + span - 1e-9 then
+      tempos[#tempos + 1] = {beat = c.start + p.beat - offset, bpm = p.bpm, ramp = p.ramp}
+    end
+  end
+  tempos[#tempos + 1] = {beat = c.start, bpm = own:tempo(offset), ramp = ramp}
+  tempos[#tempos + 1] = {beat = to, bpm = back, ramp = false}
+  table.sort(tempos, function(a: types.TempoPoint, b: types.TempoPoint): boolean return a.beat < b.beat end)
+  api.tempo_set_points(tempos, api.tempo_points().signatures)
+  api.nest_set(n.id, {tempo = {mode = "follow"}} as types.Nest)
+  local bpms: {string} = {}
+  for _, p in ipairs(n.tempo.points) do
+    bpms[#bpms + 1] = string.format("%g", p.bpm)
+  end
+  return string.format(
+    "its own tempo, %s bpm, in the song's map over %s, and %g bpm back after it",
+    table.concat(bpms, " to "),
+    bars_text(c.start, to, true),
+    back
+  )
+end
+
 --- Promote the subproject of block `clip` to a view, as `:nest.promote`
 --- does: its tracks come back in a group named after it at the place of
 --- its return row (`paw.api.nest_promote`); its regions come back as
@@ -865,6 +966,7 @@ function M.promote(clip: integer, deep?: boolean): string
     error("not a block of a subproject: put the cursor on one", 0)
   end
   local markers = (n.meta and n.meta.markers or {}) as {MarkersModule.Marker}
+  local old_name = n.name
   local inside = paw.scope.nest()
   local was_inside = inside and inside.id == n.id
   local track, beat = paw.cursor.track_id(), paw.cursor.beat
@@ -875,6 +977,23 @@ function M.promote(clip: integer, deep?: boolean): string
     if t then
       row_of[t] = b.row
     end
+  end
+  -- Other blocks play it too: this block gets a copy of its own to promote.
+  local still = other_places(c)
+  if still then
+    -- The copy goes in this step: the group takes the subproject's name.
+    local copy = api.nest_unique(clip)
+    api.nest_set(copy, {name = old_name} as types.Nest)
+    c = api.clip_get(clip)
+    n = M.get(copy)
+    markers = (n.meta and n.meta.markers or {}) as {MarkersModule.Marker}
+  end
+  -- Its own tempo, into the song's map over the block, from the song's
+  -- time (the song moves after the block).
+  local tempo_words: string = nil
+  if n.tempo and n.tempo.mode == "own" then
+    paw.scope.widen(true)
+    tempo_words = tempo_into_song(c, n)
   end
   local r = api.nest_promote(clip)
   -- Its meter, where the song plays it.
@@ -947,8 +1066,14 @@ function M.promote(clip: integer, deep?: boolean): string
   if wrote then
     words[#words + 1] = string.format("%d/%d in the song's map", own.num, own.den)
   end
+  if tempo_words then
+    words[#words + 1] = tempo_words
+  end
   if #r.combined > 0 then
     words[#words + 1] = "its master's and its row's lanes made one: " .. table.concat(r.combined, ", ")
+  end
+  if still then
+    words[#words + 1] = string.format("%s still plays at %s", old_name, still)
   end
   -- The subprojects inside it, with `!`.
   if deep then
@@ -981,6 +1106,166 @@ for _, bang in ipairs({"", "!"}) do
     }
   )
 end
+
+-- Its own time, and a block of its own ----------------------------------------------------
+
+--- The song's tempo over a block `c` of the song, from the subproject's
+--- beat 0, as a tempo of its own keeps it: the sound does not change
+--- when it starts to keep it.
+local function song_tempo_over(c: types.Clip, length: number): {types.TempoChange}
+  local zero = c.start - (c.offset or 0)
+  local points: {types.TempoChange} = {{beat = 0, bpm = api.tempo_at(zero), ramp = false}}
+  for _, t in ipairs(api.tempo_points().tempos) do
+    if t.beat <= zero + 1e-9 then
+      points[1].ramp = t.ramp
+    elseif t.beat < zero + length - 1e-9 then
+      points[#points + 1] = {beat = t.beat - zero, bpm = t.bpm, ramp = t.ramp}
+    end
+  end
+  return points
+end
+
+--- Give subproject `nest` a tempo of its own (`own`: the song's over its
+--- first block, or `bpm` throughout) or the song's again (`follow`), as
+--- `:nest.time` does. Its blocks keep their start; their length in the
+--- song follows. Call it in one undo step. Returns the message.
+function M.set_time(nest: integer, how: string, bpm?: number): string
+  local n = M.get(nest)
+  if not n then
+    error("no subproject " .. tostring(nest), 0)
+  end
+  if how == "follow" then
+    if n.tempo.mode ~= "own" then
+      error(n.name .. " follows the song's tempo already", 0)
+    end
+    api.nest_set(nest, {tempo = {mode = "follow"}} as types.Nest)
+    return n.name .. " follows the song's tempo again: a tempo change of the song changes it"
+  elseif how ~= "own" then
+    error("nest.time takes own or follow, not " .. tostring(how), 0)
+  end
+  if bpm and not (bpm >= 1 and bpm <= 999) then
+    error(string.format("a tempo is from 1 to 999 bpm, not %s", tostring(bpm)), 0)
+  end
+  local points: {types.TempoChange}
+  if bpm then
+    points = {{beat = 0, bpm = bpm, ramp = false}}
+  else
+    local first = M.blocks(nest)[1]
+    points = first and song_tempo_over(first.clip, n.length) or {{beat = 0, bpm = api.tempo_at(0), ramp = false}}
+  end
+  api.nest_set(nest, {tempo = {mode = "own", points = points}} as types.Nest)
+  return string.format(
+    "%s has its own tempo, %g bpm: a tempo change of the song leaves it as it is, and its blocks last its seconds",
+    n.name,
+    points[1].bpm
+  )
+end
+
+--- Give subproject `nest` a meter of its own (`6/8`), with the song's map
+--- as it is (polymeter), or the song's meter again (`follow`), as
+--- `:nest.meter` does. Returns the message.
+function M.set_meter(nest: integer, meter: string): string
+  local n = M.get(nest)
+  if not n then
+    error("no subproject " .. tostring(nest), 0)
+  end
+  if meter == "follow" then
+    api.nest_set(nest, {meter = {mode = "follow"}} as types.Nest)
+    return n.name .. " follows the song's meter"
+  end
+  local num, den = (meter or ""):match("^(%d+)/(%d+)$")
+  local a, b = math.tointeger(tonumber(num)), math.tointeger(tonumber(den))
+  if not (a and b and a >= 1 and a <= 64 and (b == 1 or b == 2 or b == 4 or b == 8 or b == 16 or b == 32)) then
+    error("nest.meter takes a meter (6/8) or follow, not " .. tostring(meter), 0)
+  end
+  api.nest_set(nest, {meter = {mode = "own", changes = {{beat = 0, num = a, den = b}}}} as types.Nest)
+  return string.format("%s in %d/%d of its own; the song's meter stays as it is", n.name, a, b)
+end
+
+--- The subproject at the cursor: the one the window is in, else the one of
+--- the block at the cursor.
+local function nest_here(): integer
+  local here = paw.scope.nest()
+  if here then
+    return here.id
+  end
+  local c = block_at_cursor()
+  if not c then
+    error("not in a subproject or on a block of one", 0)
+  end
+  return c.nest
+end
+
+commands.define(
+  "nest.time",
+  function(ctx: contracts.CommandContext): contracts.CommandResult
+    local how = tostring(ctx.args[1] or "")
+    local bpm = ctx.args[2] and tonumber(ctx.args[2]) or nil
+    if ctx.args[2] and not bpm then
+      error("a tempo is a number of bpm, not " .. tostring(ctx.args[2]), 0)
+    end
+    paw.notify(M.set_time(nest_here(), how, bpm))
+  end,
+  {
+    label = "Give the subproject its own tempo, or the song's",
+    desc = "Give the subproject at the cursor its own tempo (`nest.time own`, or `nest.time own 90`): the song's tempo no longer changes it; or the song's again (`nest.time follow`)",
+    complete = function(): {string} return {"own", "follow"} end,
+  }
+)
+
+commands.define(
+  "nest.meter",
+  function(ctx: contracts.CommandContext): contracts.CommandResult
+    paw.notify(M.set_meter(nest_here(), tostring(ctx.args[1] or "")))
+  end,
+  {
+    label = "Give the subproject its own meter, or the song's",
+    desc = "Give the subproject at the cursor a meter of its own with the song's meter as it is (`nest.meter 6/8`), or the song's meter again (`nest.meter follow`)",
+    complete = function(): {string} return {"follow", "6/8", "3/4", "4/4", "7/8"} end,
+  }
+)
+
+--- Make the block `clip` a subproject of its own, as `:nest.unique` does:
+--- a copy of its subproject that only this block plays; the others keep
+--- the subproject. A window inside it through this block goes inside the
+--- copy. Call it in one undo step. Returns the message.
+function M.unique(clip: integer): string
+  local c = api.clip_get(clip)
+  local n = c and c.nest and M.get(c.nest)
+  if not n then
+    error("not a block of a subproject: put the cursor on one", 0)
+  end
+  local still = other_places(c)
+  local here = paw.scope.nest()
+  local copy = api.nest_unique(clip)
+  local made = M.get(copy)
+  if here and here.clip == clip then
+    paw.scope.widen(true)
+    paw.scope.enter({kind = "nest", id = copy, clip = clip})
+  end
+  return string.format(
+    "%s: the block at bar %d is a subproject of its own; %s still plays at %s",
+    made.name,
+    api.tempo_bar_of(c.start) + 1,
+    n.name,
+    still
+  )
+end
+
+commands.define(
+  "nest.unique",
+  function(): contracts.CommandResult
+    local c = block_at_cursor()
+    if not c then
+      error("not on a block of a subproject: put the cursor on one", 0)
+    end
+    paw.notify(M.unique(c.id))
+  end,
+  {
+    label = "Make the block a subproject of its own",
+    desc = "Make the block at the cursor a subproject of its own: an edit inside it then changes this block only, and the other blocks keep the subproject",
+  }
+)
 
 -- Save a view: <Space>zw per track, <Space>zW with a row of its own ----------------------
 

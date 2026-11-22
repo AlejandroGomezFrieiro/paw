@@ -556,6 +556,23 @@ function M.origin(): number
   return M.song_offset(s)
 end
 
+--- The own time of the subproject that the window (the one being drawn,
+--- else the current one) is in, when it has its own tempo or meter
+--- (`paw.api.nest_time` of the block it was entered through); else nil.
+--- `paw.time` counts in it then.
+function M.own_time(): types.NestTime
+  local u = paw.ui
+  if not (u.drawing_win or u.tabs[u.tab]) then
+    return nil
+  end
+  local w = window_of()
+  local nest = w and w.scope and M.nest(w.scope)
+  if not (nest and nest.clip) then
+    return nil
+  end
+  return api.nest_time(nest.clip)
+end
+
 -- Bars --------------------------------------------------------------------------------
 
 --- How many bars of the song come before the first bar of a scope (the
@@ -585,7 +602,13 @@ end
 
 --- A place as the scope numbers it: `bar.beat.hundredths`, as `paw.time.format`.
 function M.format(beat: number): string
-  local bar, b, frac = api.tempo_bbt(beat + M.origin())
+  local own = M.own_time()
+  local bar, b, frac: integer, integer, number
+  if own then
+    bar, b, frac = own:bbt(beat)
+  else
+    bar, b, frac = api.tempo_bbt(beat + M.origin())
+  end
   local part = math.floor(frac * 100 + 0.5)
   if part >= 100 then
     part = 99
@@ -1514,6 +1537,30 @@ local record Arrange
   ruler2: {string: function(view: Arrange): boolean}
 end
 
+--- The song's bar lines from beat `from` up to `to` of the window's time:
+--- { beat, bar } each, the song's bars from 1. In a subproject with a time
+--- of its own, its beats are not the song's, so each line is found in the
+--- song and placed in the window's time.
+local function song_bars(from: number, to: number): {objects.BarLine}
+  if not paw.time.own() then
+    return paw.time.bars(from, to)
+  end
+  local out: {objects.BarLine} = {}
+  local a, b = paw.time.song_beat(from), paw.time.song_beat(to)
+  local bar = api.tempo_bar_of(math.max(0, a))
+  while #out < 10000 do
+    local beat = api.tempo_bar_start(bar)
+    if beat >= b then
+      break
+    end
+    if beat >= a - 1e-9 then
+      out[#out + 1] = {beat = paw.time.local_beat(beat), bar = bar + 1}
+    end
+    bar = bar + 1
+  end
+  return out
+end
+
 --- Whether the ruler shows the song's bars under the scope's: in a scope
 --- with time, with `scopebars=both`.
 local function song_row(): boolean
@@ -1545,7 +1592,7 @@ if arrange and arrange.layers then
       return true
     end
     local free = 0
-    for _, line in ipairs(paw.time.bars(layer.scroll, layer.scroll + layer.span)) do
+    for _, line in ipairs(song_bars(layer.scroll, layer.scroll + layer.span)) do
       local x = layer.x(line.beat)
       local text = tostring(line.bar)
       if x >= free and x >= 0 and x < row.width and clear(x, x + #text + 1) then

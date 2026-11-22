@@ -6139,6 +6139,22 @@ function paw.nest.promote(clip, deep) end
 ---@param own_row any
 function paw.nest.save(name, own_row) end
 
+--- Give subproject `nest` a meter of its own (`6/8`), with the song's map
+--- as it is (polymeter), or the song's meter again (`follow`), as
+--- `:nest.meter` does. Returns the message.
+---@param nest any
+---@param meter any
+function paw.nest.set_meter(nest, meter) end
+
+--- Give subproject `nest` a tempo of its own (`own`: the song's over its
+--- first block, or `bpm` throughout) or the song's again (`follow`), as
+--- `:nest.time` does. Its blocks keep their start; their length in the
+--- song follows. Call it in one undo step. Returns the message.
+---@param nest any
+---@param how any
+---@param bpm any
+function paw.nest.set_time(nest, how, bpm) end
+
 paw.nest.shift = paw.cursor.shift
 
 --- `za` on a return row: open its subproject's tracks under it, in the
@@ -6148,6 +6164,13 @@ paw.nest.shift = paw.cursor.shift
 function paw.nest.toggle(track) end
 
 paw.nest.under = paw.groups.under
+
+--- Make the block `clip` a subproject of its own, as `:nest.unique` does:
+--- a copy of its subproject that only this block plays; the others keep
+--- the subproject. A window inside it through this block goes inside the
+--- copy. Call it in one undo step. Returns the message.
+---@param clip any
+function paw.nest.unique(clip) end
 
 --- Tells if option `name` accepts `value`: true, or nil and an error that
 --- tells what it accepts. An option with no default accepts any value.
@@ -7645,6 +7668,12 @@ function paw.scope.open(how, spec) end
 --- starts; else 0. `paw.time` adds it, so that a subproject's bars are the
 --- song's bars at its place.
 function paw.scope.origin() end
+
+--- The own time of the subproject that the window (the one being drawn,
+--- else the current one) is in, when it has its own tempo or meter
+--- (`paw.api.nest_time` of the block it was entered through); else nil.
+--- `paw.time` counts in it then.
+function paw.scope.own_time() end
 
 --- The levels of a scope's path (the current one by default), from the
 --- outermost to it.

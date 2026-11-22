@@ -471,7 +471,7 @@ spec(
         -- Counting in: the beats left before the take starts, in place of the time.
         return {state, {" count " .. t.counting, "StatusRec"}}
       end
-      return {state, {" " .. paw.time.format(t.position - paw.time.origin()), "StatusTime"}}
+      return {state, {" " .. paw.time.format(paw.time.local_beat(t.position)), "StatusTime"}}
     end,
   }
 )
@@ -484,7 +484,7 @@ spec(
     min = 90,
     rank = 8,
     fn = function(ctx: Context): StatusText
-      return {{paw.time.clock(ctx.transport.position - paw.time.origin()), "StatusDim"}}
+      return {{paw.time.clock(paw.time.local_beat(ctx.transport.position)), "StatusDim"}}
     end,
   }
 )
@@ -728,8 +728,15 @@ spec(
       if paw.scope.span(scope) then
         local beat = paw.cursor.beat
         local here = paw.scope.format(beat):match("^(%d+%.%d+)")
-        local song = paw.time.format(beat):match("^(%d+%.%d+)")
+        local bar, unit = api.tempo_bbt(paw.time.song_beat(beat))
+        local song = string.format("%d.%d", bar + 1, unit + 1)
         out[#out + 1] = {" " .. here .. (here ~= song and (" (" .. song .. ")") or ""), "StatusDim"}
+      end
+      -- A subproject with a tempo of its own says so: the song's tempo
+      -- does not change it.
+      local own = paw.time.own()
+      if own and own.own_tempo then
+        out[#out + 1] = {" own tempo", "StatusDim"}
       end
       local rest = opt.scope_rest
       if rest ~= "play" and ctx.width >= 100 then

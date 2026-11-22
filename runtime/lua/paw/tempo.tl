@@ -139,8 +139,18 @@ local function origin(): number
   return paw.time and paw.time.origin() or 0
 end
 
+--- The own time of the subproject the window is in, when it has its own
+--- tempo or meter (`paw.time.own`): the window's beats are its beats then.
+local function own(): types.NestTime
+  return paw.time and paw.time.own() or nil
+end
+
 --- Whether a bar starts at this beat of the window's time.
 function M.is_bar_line(beat: number): boolean
+  local o = own()
+  if o then
+    return o:is_bar_line(beat)
+  end
   return api.tempo_is_bar_line(beat + origin())
 end
 
@@ -159,8 +169,13 @@ end
 --- mark: { beat, text, kind = "tempo" | "signature" }, the start's left out.
 function M.marks(from: number, to: number): {Mark}
   local p, out: types.TempoPoints, {Mark} = api.tempo_points(), {}
-  -- In the window's time: in a subproject, from its start.
+  -- In the window's time: in a subproject, from its start, or its own
+  -- changes when it has its own time.
   local o = origin()
+  local mine = own()
+  if mine then
+    p, o = mine:points(), 0
+  end
   for i, t in ipairs(p.tempos) do
     if i > 1 and t.beat - o >= from and t.beat - o < to then
       out[#out + 1] = {beat = t.beat - o, text = M.label(t), kind = "tempo"}
@@ -199,7 +214,12 @@ function M.place(text?: commands.Arg): number
   end
   -- In a scope with time, its own bars.
   local offset = song == "" and paw.scope and paw.scope.bar_offset() or 0
-  return api.tempo_from_bbt(bar - 1 + offset, math.max(0, (tonumber(beat) or 1) - 1) as integer) - origin()
+  local unit = math.max(0, (tonumber(beat) or 1) - 1) as integer
+  local mine = own()
+  if mine and song == "" then
+    return mine:from_bbt(bar - 1 + offset, unit)
+  end
+  return paw.time.local_beat(api.tempo_from_bbt(bar - 1 + offset, unit))
 end
 
 --- The tempo point in effect at a beat.
@@ -218,7 +238,7 @@ end
 local function where(beat: number): string
   local offset = paw.scope and paw.scope.bar_offset() or 0
   if M.is_bar_line(beat) then
-    return "bar " .. (M.bar_of(beat + origin()) - offset)
+    return "bar " .. (paw.time.bar_of(beat) - offset)
   end
   return paw.time.format(beat)
 end
@@ -237,6 +257,55 @@ local function following(): Scope.Level
     return nil
   end
   return nest
+end
+
+--- The subproject the window is in when it has a tempo of its own, or
+--- nil: there `:tempo` changes its own map.
+local function owning(): Scope.Level
+  local nest = paw.scope and paw.scope.nest()
+  if not nest then
+    return nil
+  end
+  local ok, tempo = pcall(nest_tempo, nest.id, "tempo") as (boolean, types.NestTempo)
+  if ok and tempo and tempo.mode == "own" then
+    return nest
+  end
+  return nil
+end
+
+--- Refuse command `what`, which edits the song's map at a beat of the
+--- window, inside a subproject with a tempo of its own: its beats are not
+--- the song's there.
+local function song_map_only(what: string)
+  local here = owning()
+  if here then
+    local name = api.nest_get(here.id).name
+    error(
+      string.format(
+        "%s has its own tempo: %s changes the song's map, so use :tempo inside it, or `:nest.time follow` first",
+        name,
+        what
+      ),
+      0
+    )
+  end
+end
+
+--- Set the tempo of subproject `nest`'s own map from its beat `beat` on.
+local function set_own(nest: integer, beat: number, bpm: number)
+  local points: {types.TempoChange} = {}
+  local found = false
+  for _, p in ipairs(nest_tempo(nest, "tempo").points or {}) do
+    if math.abs(p.beat - beat) < 1e-9 then
+      p.bpm, found = bpm, true
+    end
+    points[#points + 1] = p
+  end
+  if not found then
+    points[#points + 1] = {beat = beat, bpm = bpm, ramp = false}
+    table.sort(points, function(a: types.TempoChange, b: types.TempoChange): boolean return a.beat < b.beat end)
+  end
+  api.nest_set(nest, {tempo = {mode = "own", points = points}} as types.Nest)
 end
 
 --- Where a change at a beat of the window is, for a message: in a
@@ -310,7 +379,13 @@ function M.commands(command: Define)
         error(string.format("a tempo is from 1 to 999 bpm, not %s", a.by and tostring(bpm) or tostring(a[1])), 0)
       end
       local at = a.at or (a[2] == "at" and (a[3] or "cursor")) or ((a[2] == "here" or a[2] == "cursor") and "cursor")
-      if not at and following() then
+      local mine = owning()
+      if mine then
+        -- A subproject with its own tempo: its map, not the song's.
+        local beat = at and M.place(at) or 0
+        set_own(mine.id, beat, bpm)
+        paw.notify(string.format("%g bpm: the subproject's own tempo%s", bpm, at and (" from " .. where(beat)) or ""))
+      elseif not at and following() then
         -- Inside a subproject that follows the song's tempo, its tempo is
         -- the song's where it starts: one map for both.
         api.tempo_set(origin(), bpm)
@@ -343,6 +418,7 @@ function M.commands(command: Define)
   command(
     "tempo.ramp",
     function(ctx: commands.Context): commands.Result
+      song_map_only(":tempo.ramp")
       local a = ctx.args
       local beat = (a[1] or a.at) and M.place(a.at or (a[1] == "at" and a[2] or a[1])) or paw.cursor.beat
       local p = M.point_at(beat + origin())
@@ -365,6 +441,7 @@ function M.commands(command: Define)
   command(
     "tempo.remove",
     function(ctx: commands.Context): commands.Result
+      song_map_only(":tempo.remove")
       local a = ctx.args
       local beat = a[1] and M.place(a[1]) or paw.cursor.beat
       local p = M.point_at(beat + origin())
@@ -402,6 +479,7 @@ function M.commands(command: Define)
   command(
     "tempo.tap",
     function(): commands.Result
+      song_map_only(":tempo.tap")
       local now = api.now()
       if #taps > 0 and now - taps[#taps] > 2000 then
         taps = {}
@@ -429,10 +507,11 @@ function M.commands(command: Define)
       local a = ctx.args
       local text = a[1]
       if text == nil then
-        local num, den = M.signature_at(paw.cursor.beat + origin())
+        local num, den = paw.time.signature_at(paw.cursor.beat)
         paw.notify(string.format("%d/%d at %s", num, den, where(paw.cursor.beat)))
         return
       end
+      song_map_only(":timesig")
       local num, den = tostring(text):match("^(%d+)/(%d+)$")
       if not num then
         error("write a time signature as 6/8", 0)
@@ -457,6 +536,7 @@ function M.commands(command: Define)
   command(
     "timesig.remove",
     function(ctx: commands.Context): commands.Result
+      song_map_only(":timesig.remove")
       local beat = (ctx.args[1] and M.place(ctx.args[1]) or paw.cursor.beat) + origin()
       local found: types.SigPoint
       for _, s in ipairs(M.signatures()) do

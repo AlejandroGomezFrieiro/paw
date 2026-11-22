@@ -184,6 +184,11 @@ local function piece(c: types.Clip, notes: {types.Note}, from: number, to: numbe
       snap.controls = snap.controls or {}
       snap.controls[#snap.controls + 1] = with(move, {start = (move.start + moved.shift) as Value})
     end
+  elseif c.nest then
+    -- A block: a copy plays the same subproject (one subproject, two
+    -- blocks), from where the piece begins in it.
+    snap.nest, snap.play = c.nest, c.play
+    snap.offset = (c.offset or 0) + (a - c.start)
   elseif c.kind == "midi" then
     snap.notes = {}
     for _, n in ipairs(notes) do
