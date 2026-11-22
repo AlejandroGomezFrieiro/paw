@@ -69,7 +69,7 @@ The bottom of a picker lists its own keys. If the picker has a preview, a pane o
 
 ### Keys of every picker
 
-These keys work in every picker. The own keys of a picker come before them, e.g., `Ctrl-t` in the device picker steps between instruments and effects.
+The keys below work in every picker. The own keys of a picker come before them, e.g., `Ctrl-t` in the device picker steps between instruments and effects.
 
 | Keys | Effect |
 | --- | --- |
@@ -128,7 +128,7 @@ What you try on the project is a trial, which paw makes so that you hear and see
 
 ## In the graphical window
 
-The graphical window shows a picker as it shows any float, through `paw.frontend.float`. The selected line has the mark `▶`, not only a color, and the preview pane shows with its piano roll and waveform.
+The graphical window shows a picker as it shows any float, through `paw.frontend.float`. The selected line has the mark `▶` as well as a color, and the preview pane shows with its piano roll and waveform.
 
 ## Lua
 

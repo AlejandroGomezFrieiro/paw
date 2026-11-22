@@ -1,6 +1,6 @@
 # utau
 
-This extension adds vocal tracks whose notes and lyrics the engines of OpenUtau sing, including classic
+The utau extension adds vocal tracks whose notes and lyrics the engines of OpenUtau sing, including classic
 UTAU voicebanks, DiffSinger, ENUNU, Vogen and VOICEVOX. The engines sing through the
 own engine of the extension, `paw-utau-engine`, and the extension also has its
 own vocal editor.
@@ -127,7 +127,7 @@ A vocal track is a kind of track (`paw.track_kinds`).
 
 ### Keys after the leader
 
-These keys work from every view, and they are in the domain `<Space>u` (utau).
+The keys below work from every view, and they are in the domain `<Space>u` (utau).
 
 | Keys | Command | Effect |
 | --- | --- | --- |

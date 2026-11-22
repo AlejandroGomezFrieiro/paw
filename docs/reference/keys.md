@@ -1,7 +1,7 @@
 # Keys, by idea
 <!-- tags: course-keys -->
 
-This page is a list of keys to keep next to the keyboard, and the keys are written as Vim writes them. `<C-r>` is Ctrl and r, `<A-j>` is Alt and j, `<CR>` is Enter, and `<Esc>` is Escape. `<Space>` (the space bar) is the leader key, and `\` is the local leader of a view (the notation popovers). **A** is the arrange view, **R** is the piano roll, **M** is the mixer, and **D** is the device panel.
+The keys page is a list of keys to keep next to the keyboard, and the keys are written as Vim writes them. `<C-r>` is Ctrl and r, `<A-j>` is Alt and j, `<CR>` is Enter, and `<Esc>` is Escape. `<Space>` (the space bar) is the leader key, and `\` is the local leader of a view (the notation popovers). **A** is the arrange view, **R** is the piano roll, **M** is the mixer, and **D** is the device panel.
 
 The tests of the tutor compare every key here with the mappings of paw, and `?` in paw lists every key of the view that you are in.
 
@@ -26,7 +26,7 @@ A command is a count, an operator, and a motion or a text object, e.g., `3>ic`, 
 | `)` `(` | | next phrase, start of this phrase or the one before |
 | `zz` `zh` `zl` | center the cursor, scroll a bar | |
 
-These keys only move, in every view. In **M**, `h` `l` are strips, `j` `k` are the rows of a strip (devices, sends, fader, pan, mute, solo, arm), `gg` `G` are its top and bottom, and `0` `$` are the first and last strip. In **D**, `j` `k` are rows, `w` `b` are devices, and `e` is the last parameter of a device.
+The motion keys only move, in every view. In **M**, `h` `l` are strips, `j` `k` are the rows of a strip (devices, sends, fader, pan, mute, solo, arm), `gg` `G` are its top and bottom, and `0` `$` are the first and last strip. In **D**, `j` `k` are rows, `w` `b` are devices, and `e` is the last parameter of a device.
 
 ## Act (operators and single keys)
 

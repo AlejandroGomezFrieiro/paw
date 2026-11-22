@@ -1,6 +1,6 @@
 # vinput
 
-This extension adds virtual inputs. A virtual input is a chain that changes another kind of signal into an input that
+The vinput extension adds virtual inputs. A virtual input is a chain that changes another kind of signal into an input that
 a track can take, and the only kind now changes a guitar into MIDI. You play
 chords or single notes into the audio interface, and a track gets them as
 notes, either to play an instrument or to record.

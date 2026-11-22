@@ -1,6 +1,6 @@
 # Addresses, diagnostics and lists in Lua
 
-This page describes the addresses of paw and the modules that use them, which are diagnostics, annotations, language servers, the quickfix list and the search of the project.
+The reference page describes the addresses of paw and the modules that use them, which are diagnostics, annotations, language servers, the quickfix list and the search of the project.
 
 ## `paw.address`
 

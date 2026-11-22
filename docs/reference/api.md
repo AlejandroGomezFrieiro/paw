@@ -384,7 +384,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.clip_kinds.compile(clip)`: Compile a clip of a kind again from its data (after something that it links to changed). One undo step.
 - `paw.clip_kinds.data(clip)`: The data of a clip of a kind, by its kind's `deserialize`: nil for a MIDI or audio clip, and nil and why when the kind cannot read it. Without its kind, the plain data as it is stored.
 - `paw.clip_kinds.define(name, spec)`: Define a kind of clip (see above). `name` is a lowercase word that is not a built-in kind (`midi`, `audio`): what a clip of the kind keeps. Defining a kind again replaces it. Clips of an older version of its data are migrated.
-- `paw.clip_kinds.describe(clip)`: A few words on a clip of a kind, for `K`: "Film clip · intro.mp4", or "film (no extension here defines it)". Nil for a MIDI or audio clip.
+- `paw.clip_kinds.describe(clip)`: A few words on a clip of a kind, for `K`: `Film clip · intro.mp4`, or "film (no extension here defines it)". Nil for a MIDI or audio clip.
 - `paw.clip_kinds.list()`: The names of the defined kinds, in the order they were defined.
 - `paw.clip_kinds.look(clip, ctx)`: How a clip of a kind looks in the arrange view, by its kind's `look`: nil without the kind, or when `look` fails (said once per kind).
 - `paw.clip_kinds.migrate(name)`: Move the clips of the kind `name` (of each kind when nil) whose data is of an older version to their kind's version, by its `deserialize`, and compile them again. Says how many moved; a clip whose migration fails stays as it was, with a message. Gives how many moved.
@@ -753,7 +753,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.frontend.format_value(param, value)`: A parameter's value as text in its unit (see `paw.params.format`).
 - `paw.frontend.input_menu(track)`: The menu of the input of a track: the choices of `paw.audio.choices` under their headings, `audio`, `midi` and `channel`. It also gives the MIDI output of the track: `midi_out`, `midi_out_channel` and `midi_out_form`. Each is a list of `{ label, checked }`. `act.choose_input` takes one by heading and place.
 - `paw.frontend.lane_name(lane)`: What a lane moves, in words: `Volume`, `Pan`, `Synth · cutoff`.
-- `paw.frontend.lane_span(lane)`: The stretch of a lane's range that is worth drawing it over: a fader's travel for volume, the whole range for anything else.
+- `paw.frontend.lane_span(lane)`: The stretch of a lane's range that the drawing covers: a fader's travel for volume, the whole range for anything else.
 - `paw.frontend.layout_get()`: How the window was left (its size, the zoom, the heights of rows and of the piano roll, if the mixer shows): a table, empty when nothing was kept. It belongs to the machine, so it is kept here, where a window attached to this kernel finds it too. (`M.layout_path` names another file, for tests.)
 - `paw.frontend.layout_set(layout)`: Keep the window's layout (see `layout_get`).
 - `paw.frontend.menu(kind, args)`: Menu `kind` for `args`, as plain data for a window to show.
@@ -1660,7 +1660,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
               a render in the foreground emits `render.finished` with what it returns
   ```
 
-  When it is done, it returns `types.RenderResult`. This has the path, the frames, the seconds, the peak, the gain and the loudness. It also has the format, the bits (nil for a lossy format) and the channels. paw emits `render.before` first. Its handlers run before the render starts, so an extension that makes audio of its own can complete it. paw refuses a file that it cannot write before it renders. When a render fails or stops, no file has the name that you gave.
+  When it is done, it returns `types.RenderResult`. The result has the path, the frames, the seconds, the peak, the gain and the loudness. It also has the format, the bits (nil for a lossy format) and the channels. paw emits `render.before` first. Its handlers run before the render starts, so an extension that makes audio of its own can complete it. paw refuses a file that it cannot write before it renders. When a render fails or stops, no file has the name that you gave.
 - `paw.render.renders_dir()`: The folder that renders go to when no place is named: `renders/` in the project's folder, apart from the files of the project; the folder of a project kept in one file; nil before the first save.
 - `paw.render.status`: the same as `paw.render_status`.
 - `paw.render.stems`: the same as `paw.render_stems`.
@@ -1728,7 +1728,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.roll_draw.bend_of(controls, note)`: The bend of a note of a clip in the clip's beats, or nil: `semis` at its end and where its ramp starts, as a fraction of its length. The piano roll shows it on the note, `K` says it.
 - `paw.roll_draw.chord(pitches, name)`: Make the notes being drawn these pitches, the first under the cursor: a chord at the same start and as long.
 - `paw.roll_draw.controls_of(id)`: Per-note bends of a clip, read once for each frame that shows it.
-- `paw.roll_draw.describe()`: The note being drawn, in words: "C4 · end · 2 steps · 0.5 beats", or nil.
+- `paw.roll_draw.describe()`: The note being drawn, in words: `C4 · end · 2 steps · 0.5 beats`, or nil.
 - `paw.roll_draw.digit(d)`: A digit of the count for the next key, or of a length after `=`.
 - `paw.roll_draw.edge(edge)`: Go to the other edge of the note (`o`), or to `edge`.
 - `paw.roll_draw.edge_now()`: The edge the cursor is on: "start" or "end", nil when not drawing.
@@ -2019,7 +2019,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.track_kinds.add(name, opts)`: A new track of the kind `name`. `opts.name` is its name (if not given, the title of the kind without "track"), and `opts.index` its place. The other options go to `create`.
 - `paw.track_kinds.clear(which)`: Make a track an ordinary one again, as far as its kind goes: what the kind made (its devices) stays, for the extension to take away.
 - `paw.track_kinds.define(name, spec)`: Define a kind of track (see above). `name` is a word: what is typed after `:track.add` and kept in the track's `meta.kind`.
-- `paw.track_kinds.describe(which)`: A few words on a track's kind, for `K` and the track header: "Vocal track · Kitane", "vocal (no extension here defines it)", or nil.
+- `paw.track_kinds.describe(which)`: A few words on a track's kind, for `K` and the track header: `Vocal track · Kitane`, "vocal (no extension here defines it)", or nil.
 - `paw.track_kinds.known_words()`: ": there are vocal, drums", for messages.
 - `paw.track_kinds.list()`: The defined kinds, in the order they were defined.
 - `paw.track_kinds.of(which)`: The name of the kind of a track: the kind that it keeps. If not, a kind whose `is` claims it. Nil for a usual track.

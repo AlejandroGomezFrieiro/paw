@@ -2,7 +2,7 @@
 
 <!-- tags: screen how-it-looks -->
 
-This page describes the parts of paw's screen in a terminal. Each view
+The screen page describes the parts of paw's screen in a terminal. Each view
 has a page for its keys, and the views are [the arrange view](arrange-view.md),
 [the piano roll](piano-roll.md), [the device panel](device-panel.md),
 [the mixer](mixer-view.md) and [the curve editor](curve-editor.md).

@@ -3,7 +3,7 @@
 # or "whether": the skill uses them.
 extends: substitution
 message: "Use '%s' instead of '%s' (plain-writing 1)."
-level: warning
+level: error
 ignorecase: true
 swap:
   utilize: use

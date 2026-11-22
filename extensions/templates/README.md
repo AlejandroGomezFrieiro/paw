@@ -1,6 +1,6 @@
 # templates
 
-This extension saves a track, a group of tracks or a chain of devices under a name, so that you can make it again in any project. For example, you can save a vocal track with its chain and levels, a string section with all its instruments, or a mastering chain.
+The templates extension saves a track, a group of tracks or a chain of devices under a name, so that you can make it again in any project. For example, you can save a vocal track with its chain and levels, a string section with all its instruments, or a mastering chain.
 
 ```lua
 paw.ext.load("/path/to/paw/extensions/templates")   -- or link it into ~/.config/paw/extensions

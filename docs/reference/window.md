@@ -3,7 +3,7 @@
 
 `paw-gui` is the graphical frontend of paw, and it shows the kernel's views
 for the mouse, which are the transport, the tracks, the clips on a
-timeline, the devices of the selected track, the mixer and the piano roll. This page
+timeline, the devices of the selected track, the mixer and the piano roll. The window page
 describes its command line, its parts and what each gesture does. For the
 reasons behind its design, see [About scenes](../explanation/about-scenes.md).
 For the Lua functions behind it, see [The graphical window in
@@ -778,7 +778,7 @@ articulation of a note, the cursor, the selection) shows over it, as in
 the terminal. A menu that the view opens (a right-click) shows as a menu
 of the window. An idle pane does no work.
 
-These keys and commands do in the window what they do in the terminal.
+The keys and commands below do in the window what they do in the terminal.
 
 `:vs paw://lane/3`, `Enter` on a lane row, `:copen`, `:sp quickfix`,
 `:e paw://tracks`, `Ctrl-w` and its keys, `:q`, `:only`, `:tabnew mixer`,

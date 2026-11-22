@@ -1,6 +1,6 @@
 # Timers, programs and other modules in Lua
 
-This page describes the timers, the helper programs, the state of each seat, and the small modules of `paw`.
+The reference page describes the timers, the helper programs, the state of each seat, and the small modules of `paw`.
 
 ## Timers and state
 

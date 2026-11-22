@@ -1,6 +1,6 @@
 # Project objects in Lua
 
-This page describes the Lua objects of the project, which are tracks, devices, clips, notes, note attributes, the transport, the tempo map and automation. Units are in [The Lua interface](scripting.md#units).
+The reference page describes the Lua objects of the project, which are tracks, devices, clips, notes, note attributes, the transport, the tempo map and automation. Units are in [The Lua interface](scripting.md#units).
 
 ## Objects are handles
 
@@ -35,7 +35,7 @@ with its devices, clips and automation.
 
 ## Notes
 
-A note has a place among the notes of its clip, and the notes of a clip are in the order that they start. These functions edit one note at a time.
+A note has a place among the notes of its clip, and the notes of a clip are in the order that they start. The functions below edit one note at a time.
 
 ```lua
 local note, at = clip:note_at("E2", 1.25)       -- the note that sounds there, and its place

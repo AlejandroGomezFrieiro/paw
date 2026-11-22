@@ -3,7 +3,7 @@
 # name the thing.
 extends: existence
 message: "Do not open a sentence with '%s' (plain-writing 24). Name the thing."
-level: warning
+level: error
 scope: sentence
 raw:
   - '^(?:This|That|These|Those)\b'

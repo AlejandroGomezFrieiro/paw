@@ -1,6 +1,6 @@
 # sampler
 
-This extension is the sample player of paw, and it plays SFZ and Decent Sampler instruments.
+The sampler extension is the sample player of paw, and it plays SFZ and Decent Sampler instruments.
 Each note can choose its articulation by its MIDI 2.0 attribute, so a
 chord can mix sustain and staccato on one channel. The player is a CLAP plugin
 (`dev.paw.sampler`) that the extension builds from its own source, in
@@ -82,8 +82,8 @@ Run `paw-sampler describe file.sfz`, which prints the description as JSON.
   When the selection stays on one, paw loads it for a trial, and a short
   phrase in its range plays through the track. Enter keeps the instrument (one undo
   step), and Escape restores the instrument that was there.
-- `K` and the track header show "Sampler track · Violins · SFZ · 3
-  articulations".
+- `K` and the track header show `Sampler track · Violins · SFZ · 3
+  articulations`.
 - A load is an edit, as the load of a preset is, and undo removes it. The
   project keeps the state of the plugin, which names the file and the
   parameters.

@@ -1,7 +1,7 @@
 # plugstate
 
 Many plugins keep a part of their sound outside their parameters, for example the model of an amp simulator, the impulse response of a cabinet or a
-room, and the instrument file of a sampler. This extension gives you access to that
+room, and the instrument file of a sampler. The extension gives you access to that
 part without the window of the plugin.
 
 You choose a model or a file with
@@ -150,7 +150,7 @@ names to the paths of a JUCE plugin, add a description, as
 
 ### Keys
 
-These keys work in the device panel, and they act on the device of the row.
+The keys below work in the device panel, and they act on the device of the row.
 
 | Key | Effect |
 | --- | --- |

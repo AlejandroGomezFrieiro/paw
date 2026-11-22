@@ -1,6 +1,6 @@
 # sections
 
-This extension adds song sections, which are named parts of the timeline such as intro, verse and chorus.
+The sections extension adds song sections, which are named parts of the timeline such as intro, verse and chorus.
 A section has a name and a start, and it continues to the start of the next
 section. The last section continues to the end of the project, for at least
 one bar.

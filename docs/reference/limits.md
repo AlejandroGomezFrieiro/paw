@@ -2,7 +2,7 @@
 
 <!-- tags: missing -->
 
-This page lists what paw does not do, and the known limits of what it does. Each item is a fact about the current version, and an item goes away when paw gets the function.
+The limits page lists what paw does not do, and the known limits of what it does. Each item is a fact about the current version, and an item goes away when paw gets the function.
 
 ## Edit and undo
 

@@ -524,7 +524,7 @@ objects.Clip.data = function<D>(self: objects.Clip): D, string return M.data(sel
 --- Give a clip of a kind new data, as one undo step (`paw.clip_kinds.set`).
 objects.Clip.set_data = function<D>(self: objects.Clip, data: D) M.set(self, data) end
 
---- A few words on a clip of a kind, for `K`: "Film clip · intro.mp4", or
+--- A few words on a clip of a kind, for `K`: `Film clip · intro.mp4`, or
 --- "film (no extension here defines it)". Nil for a MIDI or audio clip.
 function M.describe(clip: integer | objects.Clip): string
   local id = id_of(clip)

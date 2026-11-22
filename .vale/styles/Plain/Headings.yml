@@ -2,7 +2,7 @@
 # and the name of an extension stays in lowercase, as paw writes it.
 extends: capitalization
 message: "Write the heading '%s' in sentence case (plain-writing 18)."
-level: warning
+level: error
 scope: heading
 match: $sentence
 exceptions:

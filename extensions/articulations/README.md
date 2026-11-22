@@ -1,7 +1,7 @@
 # Articulations
 
 An articulation is how a note is played, for example sustain, staccato,
-pizzicato or a trill. This extension writes it on the note and sends it to
+pizzicato or a trill. The extension writes it on the note and sends it to
 the instrument of the track. The instrument can be a sampler that reads MIDI
 2.0, or any MIDI 1.0 instrument through its keyswitches, controllers or
 programs.

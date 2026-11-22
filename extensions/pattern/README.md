@@ -1,6 +1,6 @@
 # pattern
 
-This extension turns a line of text into the notes of a MIDI clip. The text uses the
+The pattern extension turns a line of text into the notes of a MIDI clip. The text uses the
 mini-notation of TidalCycles, and you can change it while the song
 plays.
 

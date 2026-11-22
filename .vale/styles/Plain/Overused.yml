@@ -4,7 +4,7 @@
 # from the figurative one: the writer judges it.
 extends: existence
 message: "'%s' is a word that AI tools overuse (plain-writing 1). Use a simple, everyday word."
-level: warning
+level: error
 ignorecase: true
 tokens:
   - delve[sd]?

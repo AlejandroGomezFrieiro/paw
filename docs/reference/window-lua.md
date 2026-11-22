@@ -1,6 +1,6 @@
 # The graphical window in Lua
 
-This page describes the Lua tables and functions of the kernel that the
+The reference page describes the Lua tables and functions of the kernel that the
 graphical window uses, and that extensions use to add to it. The window
 itself is described in [The graphical window](window.md). Each function
 also has an entry in the [Lua API reference](api.md).

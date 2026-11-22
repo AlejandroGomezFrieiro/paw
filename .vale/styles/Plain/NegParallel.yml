@@ -2,7 +2,7 @@
 # "not only X, but Y"). State what the thing is.
 extends: existence
 message: "'%s' is negative parallelism (plain-writing 22). State what the thing is."
-level: warning
+level: error
 ignorecase: true
 raw:
   - '\bnot\s+(?:just|only|merely)\b[^.!?]{0,80}?\b(?:but|it[''’]?s|it is)\b'

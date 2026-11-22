@@ -3,7 +3,7 @@
 
 While paw runs, it is a server that other programs connect to, such as the
 graphical window, `paw ctl`, `paw attach`, the MCP server and your scripts.
-They call functions in it, and it tells them what happens. This page
+They call functions in it, and it tells them what happens. The protocol page
 describes the whole protocol, version 3.
 
 ## Connections
