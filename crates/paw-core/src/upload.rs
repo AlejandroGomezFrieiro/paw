@@ -148,7 +148,7 @@ mod tests {
     #[test]
     fn names_from_elsewhere_stay_names() {
         assert_eq!(plain_name("take.wav").as_deref(), Some("take.wav"));
-        assert_eq!(plain_name("/home/me/take.wav").as_deref(), Some("take.wav"));
+        assert_eq!(plain_name("/media/me/take.wav").as_deref(), Some("take.wav"));
         assert_eq!(plain_name("..\\..\\x.wav").as_deref(), Some("x.wav"));
         assert_eq!(plain_name("../.hidden").as_deref(), Some("hidden"));
         assert_eq!(plain_name("dir/").as_deref(), None);

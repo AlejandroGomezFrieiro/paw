@@ -281,6 +281,8 @@ sealed::seal(&mut paw, dir.path()).args(["--clean", "--audio", "null"]);
 - The lint `tools/testlint.lua` counts `thread::sleep`, `Instant::now`,
   `cpu_percent` and `quiet(` with a `Duration` in the Rust tests. A count
   over `tests/timing-allowed.txt` fails the suite and `nix flake check`.
+  It also fails on each `var("HOME")`, `var_os("USER")`, `home_dir(`,
+  `/etc/passwd` or `"/home/` in the test code. These have no allow-list.
 - A test does not sleep: no `std::thread::sleep`, no busy loop, no
   `recv_timeout` as the condition of a pass. Step the code: call
   `engine.process()`, call the `poll` of a scheduler with a time that

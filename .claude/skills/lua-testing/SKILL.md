@@ -166,6 +166,9 @@ the owner's computer or folders. Mock what it needs.
   `bench/`, for example `bench/heavy.lua`.
 - The lint `tools/testlint.lua` refuses a new sleep, clock read or speed
   check. The suite (`tests/testlint.lua`) and `nix flake check` run it.
+  It also fails on each `os.getenv("HOME")`, `os.getenv("USER")`,
+  `/etc/passwd` or `'/home/` path in a test file. These have no
+  allow-list: use `T.home()` or `T.scratch`.
   Its allow-list `tests/timing-allowed.txt` holds the uses of today. A
   count that goes down fails until you make its line smaller.
 - A test does not sleep: no `api.sleep`, no `api.wait(ms)`, no

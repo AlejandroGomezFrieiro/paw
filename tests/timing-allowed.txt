@@ -118,7 +118,6 @@ tests/guides_howto.lua :meter( 2
 tests/guides_howto.lua api.now() 8
 tests/guides_howto.lua api.sleep( 1
 tests/guides_howto.lua paw.wait( 10
-tests/guides_mix.lua paw.wait( 1
 tests/guides_projects.lua api.now() 1
 tests/guides_render.lua api.now() 2
 tests/guides_render.lua paw.wait( 1
