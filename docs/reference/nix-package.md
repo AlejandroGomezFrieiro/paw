@@ -14,6 +14,8 @@ need the dev shell.
 | `.#paw-utau` | The default package with `extensions/utau` and its engine. |
 | `.#utau-engine` | The engine of `extensions/utau` alone. |
 | `.#paw-sampler` | The plugin and the command of `extensions/sampler` alone. |
+| `.#paw-pod` | The pod image: paw in a BrowserPod pod, with the page files. `x86_64-linux` only. See [paw in a BrowserPod pod](../../web/browserpod/README.md). |
+| `.#paw-pod-bin` | paw for a BrowserPod pod alone, a WebAssembly program. `x86_64-linux` only. |
 | `.#default.programs` | The programs as cargo builds them, without wrappers. |
 | `.#default.deps` | The compiled dependencies of the workspace. |
 | `.#default.extensions` | Each extension as a package that holds `share/paw/extensions/<name>`. |
