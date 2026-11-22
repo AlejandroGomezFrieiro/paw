@@ -11,9 +11,16 @@
 --   :region.loop Verse      -- loop a region
 --   :render out.wav range=Verse     -- a region is a range to render
 --   :render.regions out/    -- every region to a file of its own
+--   ]r and [r               -- the next region at the same level, the one before
+--   :region.move Chorus +8  -- 8 bars later, with the regions and markers inside
+--
+-- Regions nest by time: a region inside another's time is its child (see
+-- "The tree of regions" below). `2ar` takes the region around the one at
+-- the cursor.
 --
 -- In scripts: `paw.markers.add(16, "Chorus")`, `paw.markers.add(0, "Intro", { length = 16 })`,
--- `paw.markers.list()`, `paw.markers.find("Chorus")`, `paw.markers.remove(id)`.
+-- `paw.markers.list()`, `paw.markers.find("Chorus")`, `paw.markers.remove(id)`,
+-- `paw.markers.tree()`, `paw.markers.parent(id)`, `paw.markers.path(beat)`.
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
@@ -25,6 +32,7 @@ local type partial = require("paw.partial")
 local type UiModule = require("paw.ui")
 local type objects = require("paw.objects")
 local type CursorModule = require("paw.cursor")
+local type RulerModule = require("paw.ruler")
 
 --- A marker, or a region when it has a `length` in beats. `id` is its own
 --- for good; `color` is a colour of the theme, or nil.
@@ -77,20 +85,6 @@ local record InputOptions
   label: string
 end
 
---- What a layer of the arrange view gets (paw/views/arrange.lua): the
---- ruler's rows, and the column of a beat.
-local record Layer
-  ruler: contracts.Buf
-  ruler2: contracts.Buf
-  x: function(beat: number): integer
-end
-
---- The arrange view, as far as this module adds to it.
-local record Arrange
-  layers: {string: function(view: Arrange, layer: Layer)}
-  ruler2: {string: function(view: Arrange): boolean}
-end
-
 --- A range that a render can use: where it starts and ends, in beats.
 local type Range = function(): number, number
 
@@ -114,6 +108,7 @@ local record Paw is partial.Paw
   time: objects.Time
   transport: objects.Transport
   render: function(path: string, opts: RenderOptions)
+  ruler: RulerModule
 end
 local paw = (_G as {string: Paw}).paw
 
@@ -165,6 +160,178 @@ function M.regions(): {Marker}
   return out
 end
 
+-- The tree of regions -------------------------------------------------------------
+--
+-- Regions nest by time: a region whose time is inside another's is its
+-- child, so nothing is saved for it and the files do not change. The parent
+-- of a region is the smallest region that holds its time; of two with the
+-- same time, the one made first (the smaller id) holds the other. Two
+-- regions that overlap and do not nest are siblings. A marker belongs to
+-- the innermost region around its beat.
+
+--- A region in the tree (`paw.markers.tree`): the region, its level (1 at
+--- the top), its place among its siblings (1 for the first), the region
+--- around it (nil at the top) and the regions inside it, in order of time.
+local record Node
+  region: Marker
+  depth: integer
+  place: integer
+  parent: Node
+  children: {Node}
+end
+
+local record Tree
+  roots: {Node}
+  order: {Node}
+  by_id: {integer: Node}
+end
+
+local EPS = 1e-9
+
+--- True when region `a` holds region `b` (and is not it).
+local function holds(a: Marker, b: Marker): boolean
+  if a.id == b.id then
+    return false
+  end
+  local a1, b1 = a.beat + a.length, b.beat + b.length
+  if a.beat > b.beat + EPS or a1 < b1 - EPS then
+    return false
+  end
+  if math.abs(a.beat - b.beat) <= EPS and math.abs(a1 - b1) <= EPS then
+    return a.id < b.id
+  end
+  return true
+end
+
+-- Earlier first; of two that start together, the longer (the outer) first.
+local function in_order(a: Node, b: Node): boolean
+  local x, y = a.region, b.region
+  if math.abs(x.beat - y.beat) > EPS then
+    return x.beat < y.beat
+  end
+  if math.abs(x.length - y.length) > EPS then
+    return x.length > y.length
+  end
+  return x.id < y.id
+end
+
+local cached_key: string
+local cached: Tree
+
+-- The tree of the regions as they are now, made again when one changes.
+local function tree(): Tree
+  local regions = M.regions()
+  local parts: {string} = {}
+  for i, r in ipairs(regions) do
+    parts[i] = string.format("%d:%.17g:%.17g:%s:%s", r.id, r.beat, r.length, r.name, r.color or "")
+  end
+  local key = table.concat(parts, "\n")
+  if cached and key == cached_key then
+    return cached
+  end
+  local t: Tree = {roots = {}, order = {}, by_id = {}}
+  for _, r in ipairs(regions) do
+    t.by_id[r.id] = {region = r, children = {}}
+  end
+  for _, r in ipairs(regions) do
+    -- The smallest region that holds it; of two as small, the later.
+    local best: Marker
+    for _, o in ipairs(regions) do
+      if holds(o, r) then
+        local better = not best or o.length < best.length - EPS
+        if not better and math.abs(o.length - best.length) <= EPS then
+          better = o.beat > best.beat + EPS or (math.abs(o.beat - best.beat) <= EPS and o.id > best.id)
+        end
+        if better then
+          best = o
+        end
+      end
+    end
+    local node = t.by_id[r.id]
+    if best then
+      node.parent = t.by_id[best.id]
+      table.insert(node.parent.children, node)
+    else
+      t.roots[#t.roots + 1] = node
+    end
+  end
+  local function walk(list: {Node}, depth: integer)
+    table.sort(list, in_order)
+    for i, node in ipairs(list) do
+      node.depth, node.place = depth, i
+      t.order[#t.order + 1] = node
+      walk(node.children, depth + 1)
+    end
+  end
+  walk(t.roots, 1)
+  cached_key, cached = key, t
+  return t
+end
+
+--- The regions as a tree: the top-level regions, each a node with
+--- `region`, `depth` (1 at the top), `place` (among its siblings),
+--- `parent` and `children`, in order of time. Flat regions are a tree of
+--- depth 1.
+function M.tree(): {Node}
+  return tree().roots
+end
+
+--- Every region's node in the order of the tree: each region, then the
+--- regions inside it.
+function M.walk(): {Node}
+  return tree().order
+end
+
+--- The node of a region by its id, or nil.
+function M.node(id: integer): Node
+  return tree().by_id[id]
+end
+
+--- The regions one level inside a region, in order of time; with no id, the
+--- regions at the top.
+function M.children(id?: integer): {Marker}
+  local list: {Node}
+  if id then
+    local node = tree().by_id[id]
+    list = node and node.children or {}
+  else
+    list = tree().roots
+  end
+  local out: {Marker} = {}
+  for i, node in ipairs(list) do
+    out[i] = node.region
+  end
+  return out
+end
+
+--- The level of a region: 1 at the top, 2 inside one region, and so on.
+--- Nil for a marker.
+function M.depth(id: integer): integer
+  local node = tree().by_id[id]
+  return node and node.depth
+end
+
+--- The regions around a beat, the outermost first. Where two siblings
+--- overlap, the one that starts later is taken.
+function M.path(beat: number): {Marker}
+  local out: {Marker} = {}
+  local level = tree().roots
+  while true do
+    local pick: Node
+    for _, node in ipairs(level) do
+      local r = node.region
+      if beat >= r.beat - EPS and beat < r.beat + r.length - EPS and (not pick or r.beat >= pick.region.beat - EPS) then
+        pick = node
+      end
+    end
+    if not pick then
+      return out
+    end
+    out[#out + 1] = pick.region
+    level = pick.children
+  end
+end
+
 --- What a marker is called on screen: its name, or its number in the song.
 function M.label(marker: Marker): string
   if marker.name and marker.name ~= "" then
@@ -176,6 +343,21 @@ function M.label(marker: Marker): string
     end
   end
   return "?"
+end
+
+--- A region's names from the top down, joined by `/`: `Chorus 2/Verse A`.
+--- `:render range=` and `paw.markers.region` take it when names repeat.
+function M.pathname(region: Marker): string
+  local names: {string} = {}
+  local node = tree().by_id[region.id]
+  if not node then
+    return M.label(region)
+  end
+  while node do
+    table.insert(names, 1, M.label(node.region))
+    node = node.parent
+  end
+  return table.concat(names, "/")
 end
 
 --- Add a marker at a beat. With `opts.length`, add a region from there. Returns it.
@@ -226,8 +408,45 @@ function M.find(which: number | string | ById): Marker
   end
 end
 
---- A region by number, id or name.
+-- A region by its path of names, `Chorus 2/Verse A`: each name is looked
+-- for among the regions inside the one before (a whole name first, then
+-- the start of one).
+local function by_path(text: string): Marker
+  local level = tree().roots
+  local found: Node
+  for part in text:gmatch("[^/]+") do
+    local want = part:match("^%s*(.-)%s*$"):lower()
+    local pick: Node
+    for _, node in ipairs(level) do
+      if M.label(node.region):lower() == want then
+        pick = node
+        break
+      end
+    end
+    if not pick then
+      for _, node in ipairs(level) do
+        if node.region.name:lower():find(want, 1, true) == 1 then
+          pick = node
+          break
+        end
+      end
+    end
+    if not pick then
+      return nil
+    end
+    found, level = pick, pick.children
+  end
+  return found and found.region
+end
+
+--- A region by number, id, name or path of names (`Chorus 2/Verse A`).
 function M.region(which: number | string | ById): Marker
+  if which is string and which:find("/", 1, true) then
+    local r = by_path(which)
+    if r then
+      return r
+    end
+  end
   local m = M.find(which)
   if m and m.length then
     return m
@@ -269,11 +488,67 @@ function M.set(id: integer, fields: Fields): Marker
   return found
 end
 
---- Remove a marker by id.
-function M.remove(id: integer): boolean
-  local list, gone: {Marker}, boolean = {}, false
-  for _, m in ipairs(M.list()) do
+-- The ids of the regions inside a region, at every level below it.
+local function inside(id: integer): {integer: boolean}
+  local out: {integer: boolean} = {}
+  local function add(node: Node)
+    for _, child in ipairs(node.children) do
+      out[child.region.id] = true
+      add(child)
+    end
+  end
+  local node = tree().by_id[id]
+  if node then
+    add(node)
+  end
+  return out
+end
+
+--- Move a marker or a region so that it starts at `beat`. A region takes
+--- the regions and the markers inside it along, in one undo step, unless
+--- `alone`. Returns it and how many moved with it.
+function M.move(id: integer, beat: number, alone?: boolean): Marker, integer
+  local list = M.list()
+  local found: Marker
+  for _, m in ipairs(list) do
     if m.id == id then
+      found = m
+    end
+  end
+  if not found then
+    error("no marker " .. tostring(id), 2)
+  end
+  local by = math.max(0, beat) - found.beat
+  local along: {integer: boolean} = {}
+  if found.length and not alone then
+    along = inside(id)
+    local stop = found.beat + found.length
+    for _, m in ipairs(list) do
+      if not m.length and m.beat >= found.beat - EPS and m.beat < stop - EPS then
+        along[m.id] = true
+      end
+    end
+  end
+  local moved = 0
+  for _, m in ipairs(list) do
+    if m.id == id then
+      m.beat = m.beat + by
+    elseif along[m.id] then
+      m.beat = math.max(0, m.beat + by)
+      moved = moved + 1
+    end
+  end
+  save(list)
+  return found, moved
+end
+
+--- Remove a marker by id. With `with_inside`, a region's regions inside it
+--- go too (never clips, nor markers); without, they move up one level.
+function M.remove(id: integer, with_inside?: boolean): boolean
+  local list, gone: {Marker}, boolean = {}, false
+  local also = with_inside and inside(id) or {}
+  for _, m in ipairs(M.list()) do
+    if m.id == id or also[m.id] then
       gone = true
     else
       list[#list + 1] = m
@@ -307,17 +582,23 @@ function M.at(beat: number, reach?: number): Marker
   return best
 end
 
---- The region a beat is in: the shortest of those that hold it, or nil.
-function M.around(beat: number): Marker
-  local best: Marker
-  for _, m in ipairs(M.list()) do
-    if
-      m.length and beat >= m.beat - 1e-9 and beat < m.beat + m.length - 1e-9 and (not best or m.length < best.length)
-    then
-      best = m
-    end
+--- The region a beat is in: the innermost of those that hold it, or nil.
+--- With `level` 2, the region around that one, and so on out (the
+--- outermost when there are fewer).
+function M.around(beat: number, level?: integer): Marker
+  local path = M.path(beat)
+  return path[math.max(1, #path - (level or 1) + 1)]
+end
+
+--- The region around a region (the smallest that holds it), or around a
+--- marker (the innermost at its beat). Nil at the top.
+function M.parent(id: integer): Marker
+  local node = tree().by_id[id]
+  if node then
+    return node.parent and node.parent.region
   end
-  return best
+  local m = M.find({id = id})
+  return m and M.around(m.beat)
 end
 
 --- The first marker after a beat, and the last before it.
@@ -356,26 +637,53 @@ do
   )
 end
 
---- Render every region to a file of its own in `dir`, named after it:
---- `01 Intro.wav`. `opts` is as for `paw.render`, plus `format` ("wav",
---- "flac", "mp3", "ogg" or "opus"). Returns the files.
+-- A region's file name: its place among its siblings and its name, for
+-- each level from the top: `03 Chorus 2 - 01 Verse A`.
+local function file_name(node: Node): string
+  local parts: {string} = {}
+  while node do
+    local name = M.label(node.region):gsub("[/%z]", "_")
+    table.insert(parts, 1, string.format("%02d %s", node.place, name))
+    node = node.parent
+  end
+  return table.concat(parts, " - ")
+end
+
+--- Render every region to a file of its own in `dir`, named by its path:
+--- `01 Intro.wav`, and inside a region `03 Chorus 2 - 01 Verse A.wav`
+--- (each number is the place among its siblings). `opts` is as for
+--- `paw.render`, plus `format` ("wav", "flac", "mp3", "ogg" or "opus") and
+--- `level`: a number renders the regions of that level only (1 the top),
+--- "leaves" the regions with no region inside. Returns the files.
 function M.render_regions(dir: string, opts?: RenderOptions): {string}
   opts = opts or {}
-  local regions = M.regions()
-  if #regions == 0 then
-    error("there are no regions to render: `:region name` makes one", 0)
+  local level = opts.level as string | number
+  local depth = level and math.tointeger(tonumber(level))
+  if level and level ~= "leaves" and not (depth and depth >= 1) then
+    error("level= is a level from 1, or leaves", 0)
+  end
+  local nodes: {Node} = {}
+  for _, node in ipairs(M.walk()) do
+    if not level or node.depth == depth or (level == "leaves" and #node.children == 0) then
+      nodes[#nodes + 1] = node
+    end
+  end
+  if #nodes == 0 then
+    error(
+      level and "there are no regions at that level" or "there are no regions to render: `:region name` makes one", 0
+    )
   end
   pcall(api.fs_mkdir, dir)
   local files: {string} = {}
-  for i, region in ipairs(regions) do
+  for i, node in ipairs(nodes) do
+    local region = node.region
     local each: RenderOptions = {}
     for k, v in pairs(opts) do
       each[k] = v
     end
-    each.format, each.range = nil, nil
+    each.format, each.range, each.level = nil, nil, nil
     each.start, each["end"] = region.beat as RenderValue, (region.beat + region.length) as RenderValue
-    local name = M.label(region):gsub("[/%z]", "_")
-    files[i] = string.format("%s/%02d %s.%s", dir, i, name, opts.format as string or "wav")
+    files[i] = string.format("%s/%s.%s", dir, file_name(node), opts.format as string or "wav")
     paw.render(files[i], each)
   end
   return files
@@ -555,17 +863,46 @@ commands.define(
       paw.notify("that marker is gone", "warn")
       return
     end
-    M.set(
-      id,
-      {
-        beat = tonumber(ctx.args.beat),
-        length = tonumber(ctx.args.length),
-        name = ctx.args.name and tostring(ctx.args.name),
-      }
-    )
+    local beat = tonumber(ctx.args.beat)
+    local was = M.children(id)
+    if beat then
+      -- Moved: a region takes the regions and markers inside it along.
+      M.move(id, beat)
+    end
+    local length = tonumber(ctx.args.length)
+    local name: string = ctx.args.name and tostring(ctx.args.name) or nil
+    local m = (length ~= nil or name ~= nil) and M.set(id, {length = length, name = name}) or M.find({id = id})
+    -- Resized: a region that is no longer inside becomes a sibling.
+    local out: {string} = {}
+    for _, child in ipairs(was) do
+      local parent = M.parent(child.id)
+      if not (parent and (parent.id == id or inside(id)[parent.id])) and M.find({id = child.id}) then
+        out[#out + 1] = M.label(child)
+      end
+    end
+    if #out > 0 then
+      paw.notify(table.concat(out, ", ") .. (#out == 1 and " is" or " are") .. " no longer inside " .. M.label(m))
+    end
   end,
-  {desc = "Move or change a marker by its id: `marker.set id=3 beat=16`"}
+  {
+    desc = "Move or change a marker by its id: `marker.set id=3 beat=16`; a region takes the regions and markers inside it along",
+  }
 )
+
+-- What a move says: where it went, and what went with it.
+local function moved(m: Marker, along: integer, alone: boolean): string
+  local text = "moved the " .. describe(m)
+  if alone and m.length then
+    return text .. ", alone"
+  end
+  if along > 0 then
+    text = text
+      .. string.format(
+        ", with %d marker%s and region%s inside", along, along == 1 and "" or "s", along == 1 and "" or "s"
+      )
+  end
+  return text
+end
 
 commands.define(
   "marker.move",
@@ -575,9 +912,12 @@ commands.define(
       paw.notify("there are no markers", "warn")
       return
     end
-    M.set(m.id, {beat = paw.cursor.beat})
+    local _, along = M.move(m.id, paw.cursor.beat)
+    paw.notify(moved(M.find({id = m.id}), along, false))
   end,
-  {desc = "Bring the nearest marker to the cursor"}
+  {
+    desc = "Bring the nearest marker or region start to the cursor; a region takes the regions and markers inside it along",
+  }
 )
 
 commands.define(
@@ -637,8 +977,10 @@ commands.define(
       if m.length then
         where = where .. " – " .. paw.time.format(m.beat + m.length)
       end
+      -- Regions inside regions are indented under them.
+      local indent = string.rep("  ", (m.length and M.depth(m.id) or 1) - 1)
       items[i] = {
-        text = string.format("%2d  %-7s %-24s %s", i, m.length and "region" or "marker", M.label(m), where),
+        text = string.format("%2d  %-7s %-24s %s", i, m.length and "region" or "marker", indent .. M.label(m), where),
         beat = m.beat,
         name = M.label(m),
         kind = m.length and "region" or "marker",
@@ -700,20 +1042,147 @@ commands.define(
   {desc = "Make a region over the selection, or over the loop, asking for its name"}
 )
 
+local function remove_region(ctx: Context, with_inside: boolean)
+  local m = wanted(ctx, "region")
+  if not m then
+    return
+  end
+  local within = M.children(m.id)
+  local text = "removed the " .. describe(m)
+  local n = 0
+  for _ in pairs(inside(m.id)) do
+    n = n + 1
+  end
+  M.remove(m.id, with_inside)
+  if with_inside and n > 0 then
+    text = text .. string.format(" and the %d region%s inside it", n, n == 1 and "" or "s")
+  elseif #within > 0 then
+    text = text
+      .. string.format(
+        "; the %d region%s inside it move%s up a level", #within, #within == 1 and "" or "s", #within == 1 and "s" or ""
+      )
+  end
+  paw.notify(text .. "; its clips stay")
+end
+
 commands.define(
   "region.remove",
-  function(ctx: Context): Result
-    local m = wanted(ctx, "region")
-    if not m then
-      return
-    end
-    M.remove(m.id)
-    paw.notify("removed the " .. describe(m) .. "; its clips stay")
-  end,
+  function(ctx: Context): Result remove_region(ctx, false) end,
   {
-    desc = "Remove the region the cursor is in, or the one named: `region.remove Verse`; its clips and the markers stay",
+    desc = "Remove the region the cursor is in, or the one named: `region.remove Verse`; its clips, the markers and the regions inside it stay",
     complete = names,
   }
+)
+
+commands.define(
+  "region.remove!",
+  function(ctx: Context): Result remove_region(ctx, true) end,
+  {
+    desc = "Remove the region the cursor is in, or the one named, and the regions inside it: `region.remove! Chorus 2`; the clips and the markers stay",
+    complete = names,
+  }
+)
+
+-- `:region.move Chorus 2 +8`: the region named (or the one the cursor is
+-- in) N bars later or earlier; with no count of bars, to the cursor.
+local function move_region(ctx: Context, alone: boolean)
+  local text = tostring(ctx.args[1] or ""):match("^%s*(.-)%s*$")
+  local name, bars = text:match("^(.-)%s*([+-]%d+)$")
+  if not name then
+    name = text
+  end
+  local m: Marker
+  if name ~= "" then
+    m = M.region(name)
+    if not m then
+      paw.notify("no region `" .. name .. "`", "warn")
+      return
+    end
+  else
+    m = M.around(paw.cursor.beat)
+    if not m then
+      paw.notify("no region at the cursor: `region.move Chorus +8` names one", "warn")
+      return
+    end
+  end
+  local to = paw.cursor.beat
+  if bars then
+    local bar = paw.time.bar_of(m.beat)
+    to = paw.time.bar_start(math.max(1, bar + math.tointeger(tonumber(bars)))) + (m.beat - paw.time.bar_start(bar))
+  elseif name == "" then
+    paw.notify("say how far: `region.move +8` moves it 8 bars later", "warn")
+    return
+  end
+  local _, along = M.move(m.id, to, alone)
+  paw.notify(moved(M.find({id = m.id}), along, alone))
+end
+
+commands.define(
+  "region.move",
+  function(ctx: Context): Result move_region(ctx, false) end,
+  {
+    desc = "Move a region with the regions and markers inside it: `region.move Chorus 2 +8` 8 bars later, `-2` earlier; `region.move Chorus 2` to the cursor; alone, the region the cursor is in",
+    raw = true,
+    complete = names,
+  }
+)
+
+commands.define(
+  "region.move!",
+  function(ctx: Context): Result move_region(ctx, true) end,
+  {
+    desc = "Move a region alone, without the regions and markers inside it: `region.move! Chorus 2 +8`",
+    raw = true,
+    complete = names,
+  }
+)
+
+-- The next region (`dir` 1) or the one before (-1) at the level of the
+-- innermost region at the cursor; at the top level when it is in none.
+local function step_region(ctx: Context, dir: integer)
+  local beat = paw.cursor.beat
+  local here = M.around(beat)
+  local level = here and M.depth(here.id) or 1
+  local list: {Marker} = {}
+  for _, node in ipairs(M.walk()) do
+    if node.depth == level then
+      list[#list + 1] = node.region
+    end
+  end
+  table.sort(list, function(a: Marker, b: Marker): boolean return a.beat < b.beat end)
+  local found: Marker
+  for _ = 1, ctx.count or 1 do
+    local pick: Marker
+    for _, r in ipairs(list) do
+      if dir > 0 and r.beat > beat + EPS then
+        pick = r
+        break
+      elseif dir < 0 and r.beat < beat - EPS then
+        pick = r
+      end
+    end
+    if not pick then
+      break
+    end
+    found, beat = pick, pick.beat
+  end
+  if not found then
+    paw.notify(dir > 0 and "no region after this at this level" or "no region before this at this level", "warn")
+    return
+  end
+  paw.cursor.set_beat(found.beat)
+end
+
+commands.define(
+  "region.next",
+  function(ctx: Context): Result step_region(ctx, 1) end,
+  {desc = "Go to the next region at the level of the one the cursor is in (`]r`)"}
+)
+
+commands.define(
+  "region.prev",
+  function(ctx: Context): Result step_region(ctx, -1) end,
+  {desc = "Go to the region before, at the level of the one the cursor is in (`[r`)"}
 )
 
 commands.define(
@@ -760,50 +1229,107 @@ commands.define(
   }
 )
 
--- On the arrange view's ruler ------------------------------------------------------
+-- The regions' lane on the ruler ----------------------------------------------------
 
-local function draw(_: Arrange, layer: Layer)
-  local list = M.list()
-  if #list == 0 then
-    return
+--
+-- Under the bar numbers, a row for each level of the tree of regions (up to
+-- `regionlevels`): a region is drawn under the region around it, as a
+-- track under its group. Deeper regions share the last row, marked `+`.
+-- Markers are on the first row. The lane is a part of `paw.ruler`, so an
+-- extension changes its look: `paw.ruler.set_lane("regions", { styles = { level1 = "Title" } })`.
+
+options.define(
+  "regionlevels", 3, {}
+) -- rows of the regions' lane on the ruler; deeper regions share the last row, marked `+`
+
+local function levels(): integer
+  return math.max(1, math.tointeger((options.opt as {string: number}).regionlevels) or 3)
+end
+
+--- The row of the regions' lane that a marker or region is on: 0 for the
+--- first row (the top level, and the markers).
+function M.lane_row(id: integer): integer
+  local depth = M.depth(id)
+  return depth and math.min(depth, levels()) - 1 or 0
+end
+
+local record Label
+  x: integer
+  text: string
+  style: string
+end
+
+local function lane_rows(): integer
+  if #M.list() == 0 then
+    return 0
   end
-  local ruler = layer.ruler2 or layer.ruler
-  local width = ruler.width
-  -- Regions first, as bands; then every name where it starts, each given
-  -- the room up to the next one.
-  for _, m in ipairs(list) do
-    if m.length then
-      local x0, x1 = math.max(0, layer.x(m.beat)), math.min(width, layer.x(m.beat + m.length))
-      if x1 > x0 then
-        ruler:fill(x0, 0, x1 - x0, 1, " ", "Region")
-      end
+  local deepest = 1
+  for _, node in ipairs(M.walk()) do
+    deepest = math.max(deepest, node.depth)
+  end
+  return math.min(deepest, levels())
+end
+
+local function render(ctx: contracts.RulerLaneContext)
+  local buf, g, s = ctx.buf, ctx.glyphs, ctx.styles
+  local width, last = buf.width, ctx.rows
+  local labels: {integer: {Label}} = {}
+  local function put(row: integer, label: Label)
+    labels[row] = labels[row] or {}
+    table.insert(labels[row], label)
+  end
+  -- Each region as a band on the row of its level, its name where it starts.
+  for _, node in ipairs(M.walk()) do
+    local r = node.region
+    local row = math.min(node.depth, last) - 1
+    local style = node.depth == 1 and s.level1 or node.depth == 2 and s.level2 or s.deep
+    local x0, x1 = math.max(0, ctx.x(r.beat)), math.min(width, ctx.x(r.beat + r.length))
+    if x1 > x0 then
+      buf:fill(x0, row, x1 - x0, 1, " ", style)
+    end
+    local mark = #node.children > 0 and g.open or g.start
+    put(row, {x = ctx.x(r.beat), text = (node.depth > last and g.deeper or "") .. mark .. M.label(r), style = style})
+  end
+  for _, m in ipairs(M.list()) do
+    if not m.length then
+      put(0, {x = ctx.x(m.beat), text = g.marker .. M.label(m), style = s.marker})
     end
   end
-  for i, m in ipairs(list) do
-    local x = layer.x(m.beat)
-    local stop = width
-    for j = i + 1, #list do
-      local nx = layer.x(list[j].beat)
-      if nx > x then
-        stop = math.min(stop, nx)
-        break
+  -- Each name gets the room up to the next one on its row.
+  for row, list in pairs(labels) do
+    table.sort(list, function(a: Label, b: Label): boolean return a.x < b.x end)
+    for i, l in ipairs(list) do
+      local stop = width
+      for j = i + 1, #list do
+        if list[j].x > l.x then
+          stop = math.min(stop, list[j].x)
+          break
+        end
       end
-    end
-    if x >= 0 and x < width and stop > x then
-      local text = (m.length and "▏" or "▼") .. M.label(m)
-      -- Cut where the next one starts; nothing is padded over a region's band.
-      if api.str_width(text) > stop - x then
-        text = util.fit(text, stop - x)
+      if l.x >= 0 and l.x < width and stop > l.x then
+        local text = l.text
+        if api.str_width(text) > stop - l.x then
+          text = util.fit(text, stop - l.x)
+        end
+        buf:text(l.x, row, text, l.style)
       end
-      ruler:text(x, 0, text, m.length and "RegionName" or "Marker")
     end
   end
 end
 
-local arrange = paw.ui.views.arrange as Arrange
-if arrange and arrange.layers then
-  arrange.layers.timeline_markers = draw
-  arrange.ruler2.timeline_markers = function(): boolean return #M.list() > 0 end
-end
+-- Glyphs: `open` before a region with regions inside (as a group's fold in
+-- the track column), `start` before one with none, `deeper` before a region
+-- deeper than the last row, `marker` before a marker. Styles: `level1`,
+-- `level2`, `deep` (the third level and deeper), `marker`.
+paw.ruler.add_lane(
+  "regions",
+  {
+    order = 10,
+    rows = lane_rows,
+    render = render,
+    glyphs = {open = "▾", start = "▏", deeper = "+", marker = "▼"},
+    styles = {level1 = "RulerRegion1", level2 = "RulerRegion2", deep = "RulerRegionDeep", marker = "Marker"},
+  }
+)
 
 return M

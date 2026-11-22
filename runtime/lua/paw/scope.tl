@@ -406,6 +406,26 @@ function M.path(s?: Scope): {Scope}
   return out
 end
 
+--- The scopes one level inside a scope (the current one by default): for
+--- a region scope, the regions one level inside its region (paw/markers.tl), in
+--- order of time; for a group scope, its members (a group or a track), in
+--- order. Each has that scope as its parent. Other kinds have none.
+function M.children(s?: Scope): {Scope}
+  local scope = s or M.current()
+  local out: {Scope} = {}
+  if scope and scope.kind == "region" and paw.markers then
+    for _, m in ipairs(paw.markers.children(scope.id)) do
+      out[#out + 1] = {kind = "region", id = m.id, name = m.name, parent = scope}
+    end
+  elseif scope and scope.kind == "group" and valid(scope) then
+    for _, id in ipairs(groups().members(scope.id)) do
+      local kind: Kind = groups().is_group(id) and "group" or "track"
+      out[#out + 1] = {kind = kind, id = id, name = name_of(id), parent = scope}
+    end
+  end
+  return out
+end
+
 --- The path in words: `Song › Bridge › Strings`.
 function M.breadcrumb(s?: Scope): string
   local names = {"Song"}
@@ -514,7 +534,27 @@ function M.named(which: string | integer): Scope
       return named_scopes[i]
     end
   end
-  local regions = paw.markers and paw.markers.regions() or {}
+  -- A path of regions, `Chorus 2/Verse A`, when names repeat.
+  if wanted:find("/", 1, true) and paw.markers then
+    local r = paw.markers.region(which as string)
+    if r then
+      return {kind = "region", id = r.id, name = r.name}
+    end
+  end
+  -- Of two regions of one name, the one inside the current scope's time.
+  local regions: {MarkersModule.Marker} = {}
+  local later: {MarkersModule.Marker} = {}
+  local from, to = M.span()
+  for _, m in ipairs(paw.markers and paw.markers.regions() or {}) do
+    if not from or (m.beat >= from - 1e-9 and m.beat + m.length <= to + 1e-9) then
+      regions[#regions + 1] = m
+    else
+      later[#later + 1] = m
+    end
+  end
+  for _, m in ipairs(later) do
+    regions[#regions + 1] = m
+  end
   for _, id in ipairs(api.track_list()) do
     if groups().is_group(id) and name_of(id):lower() == wanted then
       return {kind = "group", id = id, name = name_of(id)}
@@ -556,9 +596,19 @@ local function name_for(s: Scope): string
 end
 
 --- The scope that `znn` enters at the cursor: the innermost not entered
---- yet, of the group at the cursor (its header or one of its tracks), else
+--- yet. In a region scope, the region one level inside it at the cursor;
+--- else the group at the cursor (its header or one of its tracks), else
 --- the track. Nil when the window shows that track already.
 function M.at_cursor(): Scope
+  local here = M.current()
+  if here and here.kind == "region" and paw.markers then
+    local path = paw.markers.path(paw.cursor.beat)
+    for i, m in ipairs(path) do
+      if m.id == here.id and path[i + 1] then
+        return {kind = "region", id = path[i + 1].id}
+      end
+    end
+  end
   local id = paw.cursor.track_id()
   if not id or id == 0 then
     return nil
@@ -573,7 +623,6 @@ function M.at_cursor(): Scope
   if g and not entered[g] then
     return {kind = "group", id = g}
   end
-  local here = M.current()
   if here and here.kind == "track" and here.id == id then
     return nil
   end
@@ -778,7 +827,9 @@ local function siblings(s: Scope): {Scope}, integer
   local out: {Scope} = {}
   local at: integer
   if s.kind == "region" then
-    for _, m in ipairs(paw.markers.regions()) do
+    -- The regions of the same parent region (paw/markers.tl's tree).
+    local parent = paw.markers.parent(s.id)
+    for _, m in ipairs(paw.markers.children(parent and parent.id)) do
       out[#out + 1] = {kind = "region", id = m.id}
       if m.id == s.id then
         at = #out
@@ -1325,8 +1376,11 @@ local function items(): {Item}
       out[#out + 1] = {scope = {kind = "group", id = id}, kind = "group", label = name_of(id)}
     end
   end
-  for _, m in ipairs(paw.markers and paw.markers.regions() or {}) do
-    out[#out + 1] = {scope = {kind = "region", id = m.id}, kind = "region", label = paw.markers.label(m)}
+  -- The regions as their tree: each one indented under its parent.
+  for _, node in ipairs(paw.markers and paw.markers.walk() or {}) do
+    local m = node.region
+    local indent = string.rep("  ", node.depth - 1)
+    out[#out + 1] = {scope = {kind = "region", id = m.id}, kind = "region", label = indent .. paw.markers.label(m)}
   end
   return out
 end

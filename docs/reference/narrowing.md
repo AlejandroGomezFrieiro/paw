@@ -13,13 +13,13 @@ a scope, and the Lua module is `paw.scope`.
 | Keys, command | Effect |
 | --- | --- |
 | `zn{motion}`, `{Visual}zn` | Enter the scope that the motion or the selection covers, in this window. `znar`: the region at the cursor. `znag`: the group. `znit`: the track. `Vjjzn`: the three tracks. A visual block: those tracks in that time. |
-| `znn` | Enter the innermost scope at the cursor that the window does not show yet: the group of the track, else the track. |
-| `:narrow Strings`, `:narrow Bridge` | Enter a group or a region by name. A named scope comes first, then a group, then a region of the same name. A name can be the start of the name. Alone, `:narrow` is `znn`. |
+| `znn` | Enter the innermost scope at the cursor that the window does not show yet. In a region: the region inside it at the cursor. Else the group of the track, else the track. |
+| `:narrow Strings`, `:narrow Bridge` | Enter a group or a region by name. A named scope comes first, then a group, then a region of the same name. A name can be the start of the name. Of two regions with the same name, the region in the current scope comes first. A path of regions also finds one: `:narrow Chorus 2/Verse A`. Alone, `:narrow` is `znn`. |
 | `zw`, `:widen` | Go up one level. |
 | `zW`, `:widen!` | Go up to the whole song. |
-| `]z` `[z`, `:scope.next`, `:scope.prev` | Go to the next scope beside this one, or to the one before, in the same parent. A region: the next region. A group: the next group in the same group. A track: the next track of the parent scope. A block with time: the same tracks, the next stretch of the same length. `3]z` goes three on. |
+| `]z` `[z`, `:scope.next`, `:scope.prev` | Go to the next scope beside this one, or to the one before, in the same parent. A region: the next region of the same parent region. A group: the next group in the same group. A track: the next track of the parent scope. A block with time: the same tracks, the next stretch of the same length. `3]z` goes three on. |
 | `<C-o>` `<C-i>` | Move backward and forward through the jump list. To enter, to leave and `]z` are jumps. A jump keeps the scope, so `<C-o>` returns into the scope and to the place. |
-| `<Space>zz`, `<Space>fz`, `:scope.list` | Choose from a list: the levels of this window's scope (to go up to), the named scopes, the groups and the regions. |
+| `<Space>zz`, `<Space>fz`, `:scope.list` | Choose from a list: the levels of this window's scope (to go up to), the named scopes, the groups and the regions as a tree. |
 | `<Space>zs` `<Space>zv` `<Space>zt`, `:scope.split`, `:scope.vsplit`, `:scope.tab` | Show the scope at the cursor (or of the selection, or one by name) in a new split, vertical split or tab. The window that you were in stays as it was. |
 | `<Space>zn`, `:scope.name Strings in bridge` | Name the scope of this window, so that the list and `:narrow` find it again. |
 | `:set scope_rest=mute` | Set what the tracks outside the scope do (see below). |
@@ -121,6 +121,7 @@ the innermost level in `win.scope`.
 | `paw.scope.name(name)` | Name the scope of the current window. |
 | `paw.scope.current(win)` | The scope of a window, or nil. Without a window: of the window that paw draws, else of the current window. |
 | `paw.scope.group()` | The innermost group of the current scope, or nil. |
+| `paw.scope.children()` | The scopes one level inside the current scope: for a region, the regions inside it, and for a group, its members. |
 | `paw.scope.tracks()` | The tracks that the current scope shows. |
 | `paw.scope.span()` | The time that the current scope shows, `from, to` in beats, or nil for all of it. |
 | `paw.scope.contains(track)` | True if the current scope shows the track. |

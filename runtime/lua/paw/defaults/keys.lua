@@ -302,17 +302,19 @@ for _, lhs in ipairs({ "il", "al" }) do
 end
 -- A region: its time on this track (`ir`), or on every track (`ar`), so
 -- `dar` empties the region in the whole song and keeps the region itself.
-local function region_here()
-  local r = paw.markers.around(cursor.beat)
+-- The innermost region at the cursor; with a count, the region around it
+-- (`2ar`), as Vim's `2a(`.
+local function region_here(ctx)
+  local r = paw.markers.around(cursor.beat, ctx.count)
   if not r then paw.notify("the cursor is in no region", "warn") end
   return r
 end
-aobject("ir", function()
-  local r = region_here()
+aobject("ir", function(ctx)
+  local r = region_here(ctx)
   if r then return on_row(r.beat, r.beat + r.length) end
-end, "The region the cursor is in, on this track")
-aobject("ar", function()
-  local r = region_here()
+end, "The region the cursor is in, on this track (2ir: the region around it)")
+aobject("ar", function(ctx)
+  local r = region_here(ctx)
   local n = #api.track_list()
   if r and n > 0 then
     return {
@@ -325,7 +327,7 @@ aobject("ar", function()
       scope = { kind = "region", id = r.id },
     }
   end
-end, "The region the cursor is in, on every track")
+end, "The region the cursor is in, on every track (2ar: the region around it)")
 for _, lhs in ipairs({ "it", "at" }) do
   aobject(lhs, function()
     local row = cursor.index() or 1
@@ -448,6 +450,8 @@ amap("zT", "tempo.lane", "Show or hide the tempo curve under the ruler")
 amap("zt", "take.lanes", "Show the track's takes as lanes under its clips, or hide them")
 amap("]'", "marker.next", "The next marker or region", { motion = true })
 amap("['", "marker.prev", "The marker or region before", { motion = true })
+amap("]r", "region.next", "The next region at the level of the one the cursor is in", { motion = true })
+amap("[r", "region.prev", "The region before, at the level of the one the cursor is in", { motion = true })
 amap("g'", "marker.new", "Put a marker at the cursor: type its name")
 amap('g"', "marker.list", "Go to a marker or region from a list")
 amap("gx", "marker.remove", "Remove the marker at the cursor")
@@ -801,13 +805,7 @@ for _, lhs in ipairs({ "ir", "ar" }) do
   pobject(lhs, function(ctx)
     local clip = roll:clip()
     if not clip then return end
-    local beat = clip.start + roll.beat
-    local around = {}
-    for _, m in ipairs(paw.markers.list()) do
-      if m.length and beat >= m.beat - 1e-9 and beat < m.beat + m.length - 1e-9 then around[#around + 1] = m end
-    end
-    table.sort(around, function(x, y) return x.length < y.length end)
-    local r = around[math.min(#around, ctx.count or 1)]
+    local r = paw.markers.around(clip.start + roll.beat, ctx.count)
     if not r then return paw.notify("the cursor is in no region", "warn") end
     return stretch(r.beat - clip.start, r.beat + r.length - clip.start)
   end, "The region of the song the cursor is in (2ir: the region around it)")
