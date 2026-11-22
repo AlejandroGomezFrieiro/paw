@@ -43,7 +43,7 @@ local record Paw is partial.Paw
   groups: GroupsModule
   harmony: Harmony
 end
-local paw = (_G as {string: Paw}).paw
+local runtime = (_G as {string: Paw}).paw
 local opt = options.opt
 
 local EPS = 1e-9
@@ -143,17 +143,17 @@ local function look(ctx: derived.Ctx, id: integer): Look
   if not t then
     return nil
   end
-  local group = paw.groups.of(id)
+  local group = runtime.groups.of(id)
   if ctx and group then
     ctx:track(group, FIELDS)
   end
   return {
     name = t.name,
-    color = paw.draw.track_colour(t),
-    drums = paw.harmony.is_drums(t),
+    color = runtime.draw.track_colour(t),
+    drums = runtime.harmony.is_drums(t),
     master = t.master,
     group = group,
-    head = paw.groups.is_group(id),
+    head = runtime.groups.is_group(id),
   }
 end
 
@@ -183,7 +183,7 @@ local function clips_of(id: integer): {types.Clip}
 end
 
 local function scope(): Scope
-  return rawget(paw as {string: Scope}, "scope")
+  return rawget(runtime as {string: Scope}, "scope")
 end
 
 --- Whether a track's notes show, before the toggles: by `paw.opt.roll_context`.
