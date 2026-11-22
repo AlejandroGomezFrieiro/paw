@@ -364,6 +364,12 @@ impl Kernel {
         // this thread, and the watchdog is detached from the old state before the new one
         // takes over.
         let lua = unsafe { Lua::unsafe_new() };
+        // In a BrowserPod pod the Lua is PUC Lua 5.2: LuaJIT's globals first.
+        #[cfg(target_vendor = "browserpod")]
+        lua.load(include_str!("../../../runtime/lua/paw/portable.lua"))
+            .set_name("@runtime/lua/paw/portable.lua")
+            .exec()
+            .map_err(lua_error)?;
         api::install(&lua, &self.shared).map_err(lua_error)?;
         install_loader(&lua, &self.shared.env).map_err(lua_error)?;
         // The Lua 5.3 library that Teal declares and its compiled code calls

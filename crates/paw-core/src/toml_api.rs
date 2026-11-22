@@ -15,7 +15,7 @@ fn ordered(lua: &Lua, keys: Vec<String>) -> mlua::Result<Table> {
 fn value_to_lua(lua: &Lua, v: &Value) -> mlua::Result<LuaValue> {
     Ok(match v {
         Value::String(s) => LuaValue::String(lua.create_string(s.value())?),
-        Value::Integer(i) => LuaValue::Integer(*i.value()),
+        Value::Integer(i) => crate::api::lua_integer(*i.value()),
         Value::Float(f) => LuaValue::Number(*f.value()),
         Value::Boolean(b) => LuaValue::Boolean(*b.value()),
         // A date or a time, as its text.
@@ -125,7 +125,7 @@ fn get(t: &Table, k: &str) -> mlua::Result<LuaValue> {
 fn to_value(v: &LuaValue) -> mlua::Result<Value> {
     Ok(match v {
         LuaValue::String(s) => Value::from(s.to_string_lossy()),
-        LuaValue::Integer(i) => Value::from(*i),
+        LuaValue::Integer(i) => Value::from(crate::api::wide_integer(*i)),
         LuaValue::Number(n) if n.fract() == 0.0 && n.abs() < 9.0e15 => Value::from(*n as i64),
         LuaValue::Number(n) => Value::from(*n),
         LuaValue::Boolean(b) => Value::from(*b),

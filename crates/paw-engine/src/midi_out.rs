@@ -89,6 +89,8 @@ pub fn on_channel(kind: EventKind, ch: Option<u8>) -> EventKind {
     }
 }
 
+// Without the `midi` feature no thread reads the commands.
+#[cfg_attr(not(feature = "midi"), allow(dead_code))]
 enum Command {
     /// Read messages from this queue from now on: a new engine's.
     Queue(Consumer<MidiOut>),
