@@ -61,6 +61,11 @@ impl Engine {
     /// Whether this callback rests. `woken` says that a message or a MIDI
     /// input event came: then it does not, and the count starts again.
     pub(super) fn rests(&mut self, woken: bool) -> bool {
+        if self.launching && !self.playing && !woken {
+            // Stopped, a launch starts in the block after it came: look
+            // again whether one is still queued.
+            self.next_launch(self.position);
+        }
         if woken || self.busy() {
             self.rest = Rest::default();
             return false;

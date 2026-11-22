@@ -3,6 +3,7 @@
 //! the song is stopped and nothing sounds, the whole engine rests.
 
 use paw_engine::host::HostPath;
+use paw_engine::launch::{Launch, Quantize, Target};
 use paw_engine::{
     Attr, ClipSet, DeviceSlot, Engine, EngineHandle, EventKind, MAX_BLOCK, Msg, Registry,
     SchedEntry, Schedule, SendRt, TrackRt, TrackSlot,
@@ -230,7 +231,17 @@ fn note(on: bool) -> EventKind {
 
 #[test]
 fn a_stopped_engine_with_nothing_to_sound_rests() {
-    let (mut engine, _h) = stopped(true, &[&["synth"][..]; 64]);
+    let (mut engine, mut h) = stopped(true, &[&["synth"][..]; 64]);
+    // A launch while stopped happens at once: it does not keep the engine
+    // awake after that.
+    let launch = Launch {
+        track: TrackSlot(1),
+        target: Target::Arrangement,
+        quantize: Quantize::Off,
+        legato: false,
+        from: None,
+    };
+    send(&mut h, &mut engine, Msg::Launch(Box::new(vec![launch])));
     for _ in 0..16 {
         block(&mut engine);
     }
