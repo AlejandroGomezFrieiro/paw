@@ -2,8 +2,7 @@
 
 <!-- tags: scripting-events -->
 
-This page lists every event of paw, with the payload that its handler
-gets.
+Every event of paw is listed below, with the payload that its handler gets.
 
 ## Listen and send
 
@@ -17,21 +16,12 @@ gets.
 
 ## When events arrive
 
-- Change events come from the kernel. paw delivers them when the current
-  command or callback returns, or at `paw.flush()`. The other events
-  arrive when they occur.
-- A command or a key press is one undo step. A handler can answer an edit
-  with edits of its own. Those edits join the same undo step.
-- Events from undo, redo, the undo tree or `project.loaded` have
-  `restored = true`. That state already holds the answers of the handlers.
-- Some events ask a question: `edit.before`, `project.saving` and
-  `key.pre`. A handler that returns `false, "why"` refuses the action.
-  `paw.emit` then returns `false, "why"` to the code that sent the event.
-- paw calculates `edit.before`, `edit.after`, `selection.changed`,
-  `view.opened` and `view.closed` at the end of each turn. It sends
-  `key.pre`, `undo` and `redo` when they occur.
-- paw sends those eight events only when a handler listens to them by name
-  or by family. `paw.on("*")` alone does not get them.
+- Change events come from the kernel. paw delivers them when the current command or callback returns, or at `paw.flush()`, and the other events arrive when they occur.
+- A command or a key press is one undo step. A handler can answer an edit with edits of its own, and those edits join the same undo step.
+- Events from undo, redo, the undo tree or `project.loaded` have `restored = true`, because that state already holds the answers of the handlers.
+- Some events ask a question, namely `edit.before`, `project.saving` and `key.pre`. A handler that returns `false, "why"` refuses the action, and `paw.emit` then returns `false, "why"` to the code that sent the event.
+- paw calculates `edit.before`, `edit.after`, `selection.changed`, `view.opened` and `view.closed` at the end of each turn, and it sends `key.pre`, `undo` and `redo` when they occur.
+- paw sends those eight events only when a handler listens to them by name or by family, so `paw.on("*")` alone does not get them.
 
 ## Every event
 
