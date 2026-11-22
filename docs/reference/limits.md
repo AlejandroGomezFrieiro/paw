@@ -344,8 +344,7 @@ The limits page lists what paw does not do, and the known limits of what it does
     is. A meter of its own that the song's map does not have
     (`meter=own`) is not drawn yet.
   - Promote works on a subproject with one block, on a row that holds
-    nothing else. `:nest.promote` does not keep a key of the subproject on
-    its region yet.
+    nothing else.
   - The tracks that `za` shows under a return row find their clips at the
     cursor. Keys that work on a time at the cursor (`i`, `p`, `d` with a
     motion) still work in the time of the song there.
