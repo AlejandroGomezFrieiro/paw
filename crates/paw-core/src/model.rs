@@ -1594,8 +1594,11 @@ impl Project {
     /// Change to a new tempo map, moving audio clips as their timebase
     /// says: each keeps its length (and fades) in seconds, and its start in
     /// seconds or in beats. MIDI clips and automation stay on their beats.
+    /// A block of a subproject with a tempo of its own keeps its start on
+    /// its beat and its length in seconds.
     pub fn retime(&mut self, map: TempoMap) {
         let old = self.map.clone();
+        self.fit_own_tempo_blocks(&old, &map);
         let tracks = std::iter::once(&mut self.master).chain(self.tracks.iter_mut());
         for track in tracks {
             let audio = |c: &Arc<Clip>| matches!(c.content, ClipContent::Audio { .. });

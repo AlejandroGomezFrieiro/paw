@@ -133,7 +133,8 @@ local function params_of(fn)
 end
 
 -- The other files that add functions to `paw.api`, each with `api.set("name",
--- lua.create_function(|lua, args: Types| ...))` (or tempo_api.rs's `reader`)
+-- lua.create_function(|lua, args: Types| ...))` (or tempo_api.rs's `reader`
+-- and `nest_reader`, whose closures leave out the first argument, `clip`)
 -- under its `//` comment.
 M.KERNEL_FILES = {
   "crates/paw-core/src/fs_api.rs",
@@ -180,7 +181,7 @@ end
 local function kernel_file(path, out)
   local lines = lines_of(path) or {}
   for i, line in ipairs(lines) do
-    local name = line:match('^%s*"([%w_]+)",%s*$') or line:match('^%s*reader%(lua, api, shared, "([%w_]+)"')
+    local name = line:match('^%s*"([%w_]+)",%s*$') or line:match('^%s*[%w_]*reader%(lua, api, shared, "([%w_]+)"')
     if name and type(api[name]) == "function" and not out[name] then
       -- The closure's arguments: the last one, `pattern: Types`.
       local text = table.concat(lines, " ", i, math.min(i + 3, #lines))
@@ -191,13 +192,21 @@ local function kernel_file(path, out)
       if last and last:find(":") then
         args, types = last:match("^%s*(.-)%s*:%s*(.-)%s*$")
       end
+      -- A `nest_reader` passes its first argument, the block, before them.
+      if line:match("nest_reader%(") or (lines[i - 4] or ""):match("^%s*nest_reader%($") then
+        local function first(list, item)
+          local inner = list:match("^%((.*)%)$") or list
+          return "(" .. item .. (inner ~= "" and (", " .. inner) or "") .. ")"
+        end
+        args, types = first(args, "clip"), first(types, "Id")
+      end
       -- The comment over it, past the lines that start the call.
       local n = i - 1
       while
         n > 0
         and (
           lines[n]:match("^%s*api%.set%($")
-          or lines[n]:match("^%s*reader%($")
+          or lines[n]:match("^%s*[%w_]*reader%($")
           or lines[n]:match("^%s*lua,%s*$")
           or lines[n]:match("^%s*api,%s*$")
           or lines[n]:match("^%s*shared,%s*$")
