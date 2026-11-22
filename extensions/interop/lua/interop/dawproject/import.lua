@@ -26,8 +26,6 @@ local function num(v, default)
   return n
 end
 
-local function truthy(v) return v == "true" or v == "1" end
-
 --- A value of a parameter element in paw's units: a volume in dB, a pan
 --- from -1 to 1.
 local function level(e)

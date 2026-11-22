@@ -477,7 +477,7 @@ end)
 
 test("where the terminal shows pictures the plot is a strip under the cells, one for each window", function()
   start()
-  local _, lane = lane_with({ { 0, -12 }, { 4, 0 } })
+  local _ = lane_with({ { 0, -12 }, { 4, 0 } })
   local function plot_text(lines, s)
     local out = {}
     for row = s.y, s.y + s.h - 1 do

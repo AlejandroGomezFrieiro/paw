@@ -1,6 +1,5 @@
 -- Commands and keys of the pattern extension.
 local pattern = require("pattern")
-local api = paw.api
 local command, map = paw.command, paw.keymap.set
 
 local M = {}

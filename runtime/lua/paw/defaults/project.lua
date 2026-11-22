@@ -1,9 +1,9 @@
 -- The default commands and keys: project and program. Loaded by paw/defaults.lua;
 -- like it, it uses nothing but the public `paw` module.
 local api = paw.api
-local command, map = paw.command, paw.keymap.set
+local command = paw.command
 local cursor, transport = paw.cursor, paw.transport
-local keymap, edit = paw.keymap, paw.edit
+local keymap = paw.keymap
 local roll = paw.ui.views.pianoroll
 local common = require("paw.defaults.common")
 local need_track, plain_folder = common.need_track, common.plain_folder

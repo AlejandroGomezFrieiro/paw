@@ -38,7 +38,7 @@ end
 
 --- Put the cursor on the first line that holds `text`, on its first character.
 local function cursor_on(text)
-  local win, _, t, s = paw.textbuf.here()
+  local _, _, t, s = paw.textbuf.here()
   for row = 1, t:count() do
     local at = t:line(row):find(text, 1, true)
     if at then

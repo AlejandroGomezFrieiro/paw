@@ -3,7 +3,7 @@
 local api = paw.api
 local util = paw.util
 local vinput = require("vinput")
-local run = require("vinput.run")
+require("vinput.run")
 
 local view = { row = 1, scroll = 0 }
 
@@ -91,7 +91,7 @@ end
 local state_style = { running = "MeterLow", failed = "Error", blocked = "Warn", off = "Faint" }
 
 function view:render(buf, ctx)
-  local row, rows = self:current()
+  local _, rows = self:current()
   local inputs = 0
   for _, r in ipairs(rows) do if r.heading then inputs = inputs + 1 end end
   local inner = paw.ui.titlebar(buf, {

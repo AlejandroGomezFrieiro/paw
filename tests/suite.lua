@@ -182,7 +182,6 @@ local function frequency(info, from, to)
   return rises / (to - from)
 end
 
-local fixtures = "tests/fixtures/"
 
 local function read_file(path)
   local file = assert(io.open(path, "rb"))

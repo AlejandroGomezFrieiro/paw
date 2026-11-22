@@ -1,6 +1,5 @@
 -- The doctor in a graphical frontend: the same page painted in pixels, with
 -- buttons for what the keys do (see runtime/lua/paw/canvas.tl).
-local api = paw.api
 local util = paw.util
 local doctor = require("doctor")
 local view = require("doctor.panel")
@@ -31,7 +30,7 @@ function view:paint(g, ctx)
     button(g, x, 13, "Stop", doctor.cancel, { fill = c.error, color = c.surface })
   else
     x = button(g, x, 13, "Run all", function() doctor.start() end, { fill = c.select, color = c.surface })
-    x = button(g, x, 13, "Those that need nobody", function() doctor.start({ unattended = true }) end)
+    button(g, x, 13, "Those that need nobody", function() doctor.start({ unattended = true }) end)
   end
   button(g, w - PAD - 70, 13, "Close", function() paw.cmd("doctor.close") end)
 

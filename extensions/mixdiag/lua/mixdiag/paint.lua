@@ -2,7 +2,6 @@
 -- and peaks of the mix as bars (with the target marked), each track's peak
 -- as a meter, the spectrum as a shape, and the findings to go to. It works
 -- on the terminal report's selection (`list_view`), so its keys work here.
-local api = paw.api
 local mixdiag = require("mixdiag")
 local list = require("mixdiag.view").list_view
 local canvas = require("paw.canvas")

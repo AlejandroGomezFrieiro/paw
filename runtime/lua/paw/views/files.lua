@@ -17,7 +17,6 @@
 -- it in on a new track; `gh` hears it. The tree opens and closes folders
 -- with Enter and `za`.
 local api = paw.api
-local util = paw.util
 local tb = paw.textbuf
 local quote, unquote, cells = tb.quote, tb.unquote, tb.cells
 
@@ -305,7 +304,6 @@ local function plan(ch, ctx)
     return path
   end
   local moves, copies, makes, folders = {}, {}, {}, {}
-  local made = {}
   for _, e in ipairs(ch.lines) do
     local f = e.fields
     if e.base and not e.copy_of then

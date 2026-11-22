@@ -111,7 +111,7 @@ end)
 
 test("qf: :copen docks the list along the bottom; j and Enter go to an entry in the view that shows it", function()
   start()
-  local a, b, clip, synth = song()
+  local a, _, clip, synth = song()
   local lane = a:automate("volume")
   lane:set_points({ { 0, -6 }, { 6, -3 } })
   paw.flush()

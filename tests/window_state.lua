@@ -35,12 +35,6 @@ local function windows()
   return table.concat(out, " ")
 end
 
-local function rects()
-  local out = {}
-  for _, r in ipairs(paw.ui.arrange(W, H)) do out[r.name] = r end
-  return out
-end
-
 local keys = T.keys
 
 --- Run `fn` with the screen of the size the tests draw.

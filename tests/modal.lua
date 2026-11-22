@@ -1,6 +1,6 @@
 -- Modal editing tests.
 local T = ...
-local test, last, after, eq, fails, fresh, render, tone = T.test, T.last, T.after, T.eq, T.fails, T.fresh, T.render, T.tone
+local test, eq, fresh, tone = T.test, T.eq, T.fresh, T.tone
 local scratch, three_clips, layout, melody, keys = T.scratch, T.three_clips, T.layout, T.melody, T.keys
 local paw = require("paw")
 local api = paw.api

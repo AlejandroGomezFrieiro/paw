@@ -2,8 +2,8 @@
 -- like it, it uses nothing but the public `paw` module.
 local api = paw.api
 local util = paw.util
-local command, map = paw.command, paw.keymap.set
-local cursor, transport = paw.cursor, paw.transport
+local command = paw.command
+local cursor = paw.cursor
 local roll = paw.ui.views.pianoroll
 
 command("view.next", function() paw.ui.focus_next(1) end, { desc = "Focus the next view" })

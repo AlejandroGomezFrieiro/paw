@@ -149,8 +149,6 @@ local function merge_keyed(base, ours, theirs, path, ctx, field)
   end
 
   -- What theirs added goes after the item before it in theirs.
-  local at = {}
-  for i, k in ipairs(keep) do at[k] = i end
   local result = {}
   for _, k in ipairs(keep) do result[#result + 1] = k end
   local previous

@@ -1,9 +1,9 @@
 -- The default commands and keys: modal editing. Loaded by paw/defaults.lua;
 -- like it, it uses nothing but the public `paw` module.
 local api = paw.api
-local command, map = paw.command, paw.keymap.set
-local cursor, transport = paw.cursor, paw.transport
-local keymap, edit = paw.keymap, paw.edit
+local command = paw.command
+local cursor = paw.cursor
+local keymap = paw.keymap
 local common = require("paw.defaults.common")
 local need_track = common.need_track
 
@@ -26,7 +26,7 @@ command("registers", function()
   for name in pairs(keymap.registers) do names[#names + 1] = name end
   table.sort(names)
   for _, name in ipairs(names) do
-    local value, what = keymap.registers[name], nil
+    local value, what = keymap.registers[name]
     if value.kind == "keys" then
       what = "macro   " .. value.keys
     elseif value.kind == "tracks" then

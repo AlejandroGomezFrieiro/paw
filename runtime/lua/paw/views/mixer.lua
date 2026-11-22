@@ -174,7 +174,6 @@ local function strip(buf, x, t, index, selected, height, sw, here)
       text = (fold_devices and #devices .. " " or "") .. (fold_sends and g.send .. #sends or "")
     end
     buf:text(x + 1, y, util.fit(text, w - 1), "TrackInfo")
-    y = y + 1
   end
 
   -- Meters and fader, over what the rows under them leave.

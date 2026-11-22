@@ -17,7 +17,10 @@ give the rules for a change.
 | `runtime/lua/paw/*.tl` | The modules of the runtime written in Teal. The build compiles them to Lua. `types.tl` holds the records of the data that crosses `paw.api`. |
 | `runtime/lua/tl.lua` | The compiler of Teal, version 0.24.8 (MIT license, `tl.LICENSE`). |
 | `runtime/types/` | `paw.lua`, the type definitions of the `paw` module for LuaLS. `paw.d.tl` and `paw/api.d.tl`, the declarations of `paw` and `paw.api` for Teal. `paw/untyped.d.tl`, the type that a module of the runtime in Teal gives to the parts of `paw` that are still Lua. `any-allowed.txt`, each `any` that they can have, with the reason. `tools/apidoc.lua` makes them. |
-| `tlconfig.lua` | The configuration of Teal for `tl check` and editors. |
+| `tlconfig.lua` | The configuration of Teal for `cyan check`, `tl check` and the language server of Teal. |
+| `.luacheckrc` | The configuration of `luacheck`, which checks the Lua files: LuaJIT, the global `paw`, the warnings that paw does not use. |
+| `stylua.toml`, `.styluaignore` | The settings of StyLua, the formatter of Lua. The code is not formatted with it. |
+| `.luarc.json` | The configuration of the language server of Lua (LuaLS): LuaJIT, the global `paw` and `runtime/types`. |
 | `extensions/` | The bundled extensions. Each folder has a `README.md`, a `manifest.lua`, an `init.lua` (or an `init.tl` in Teal), its Lua in `lua/` and its tests in `tests*.lua`. Some also have `doc/`, `images/`, `native/` and `nix/`. |
 | `config/` | The example configuration: an `init.lua` that loads the bundled extensions, and three small extensions in `config/extensions/`. |
 | `examples/` | The demo song (`examples/demo-song.lua`) and the files of the tutorial [Make music with paw](../tutorials/make-music/README.md). |
@@ -25,11 +28,12 @@ give the rules for a change.
 | `tests/` | The Lua suite: the runner `tests/suite.lua`, the tests of the core in `tests/<area>.lua`, the guides' tests in `tests/guides*.lua`, and files for the tests in `tests/fixtures/`. |
 | `tests/e2e/` | The end-to-end scenarios: the harness, the reference model, the scenarios and their golden files. See [About the end-to-end scenarios](../explanation/about-the-e2e-tests.md). |
 | `tests/tools/` | The scripts that run the tests: `suite.sh` (the Lua suite), `gui.sh`, `live.sh`, `loaded.sh`, `e2e.sh` (the end-to-end scenarios). |
-| `tools/` | `apidoc.lua` (the API reference and the types), `tlcheck.sh` (`tl check` on each Teal file), `vale.sh` (Vale on the docs), `vale-hook.sh`, `ste-check.lua`, `sweep.sh` (frees the disk that old builds use). |
+| `tools/` | `apidoc.lua` (the API reference and the types), `tlcheck.sh` (`cyan check` on all the Teal files), `fmtcheck.sh` (how many files StyLua and cerulean would change), `vale.sh` (Vale on the docs), `vale-hook.sh`, `ste-check.lua`, `sweep.sh` (frees the disk that old builds use). |
 | `bench/` | The benchmarks and the stress tests. See [bench/README.md](../../bench/README.md). |
 | `.vale/` | The project's Vale styles (STE) and its vocabulary. `.vale.ini` configures Vale. |
 | `.claude/skills/` | The instructions for agents: write an extension, write the docs, prune the tests. |
 | `flake.nix` | The Nix package, the dev shell and the checks. See [The Nix package](nix-package.md). |
+| `nix/lua-tools.nix` | The tools for Teal of the dev shell that nixpkgs does not have, or has in an old version. |
 
 ## The crates
 

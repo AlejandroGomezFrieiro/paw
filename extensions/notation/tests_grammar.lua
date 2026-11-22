@@ -4,7 +4,6 @@
 local T = ...
 local test, eq, fresh = T.test, T.eq, T.fresh
 local paw = require("paw")
-local api = paw.api
 
 local function load()
   if not package.loaded["notation.keys"] then paw.ext.load("extensions/notation") end
@@ -37,7 +36,7 @@ local function written(view, staff, voice)
 end
 
 -- Steps of the staff, as the cursor counts them.
-local C4, D4, E4, F4, G4, A4, B4, C5 = 35, 36, 37, 38, 39, 40, 41, 42
+local C4, D4, E4, G4 = 35, 36, 37, 39
 
 -- Text objects -----------------------------------------------------------------------------------
 

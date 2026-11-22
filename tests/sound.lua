@@ -1,6 +1,6 @@
 -- Sound tests.
 local T = ...
-local test, after, eq, near, fails, fresh, render, tone = T.test, T.after, T.eq, T.near, T.fails, T.fresh, T.render, T.tone
+local test, eq, near, fails, fresh, render, tone = T.test, T.eq, T.near, T.fails, T.fresh, T.render, T.tone
 local until_, scratch, read_file, write_file, frequency, channel_peaks = T.until_, T.scratch, T.read_file, T.write_file, T.frequency, T.channel_peaks
 local paw = require("paw")
 local api = paw.api

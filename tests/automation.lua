@@ -1,6 +1,6 @@
 -- Automation tests.
 local T = ...
-local test, last, after, eq, near, fails, fresh, render = T.test, T.last, T.after, T.eq, T.near, T.fails, T.fresh, T.render
+local test, eq, near, fails, fresh, render = T.test, T.eq, T.near, T.fails, T.fresh, T.render
 local tone, scratch, channel_peaks = T.tone, T.scratch, T.channel_peaks
 local paw = require("paw")
 local api = paw.api

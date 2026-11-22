@@ -3,7 +3,7 @@
 local T = ...
 local paw = require("paw")
 local api = paw.api
-local test, eq, near, fails = T.test, T.eq, T.near, T.fails
+local test, eq, near = T.test, T.eq, T.near
 
 local HERE = "extensions/interop"
 local FIXTURES = HERE .. "/fixtures/rpp/"

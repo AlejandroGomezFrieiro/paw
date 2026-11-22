@@ -3,7 +3,7 @@
 local api = paw.api
 local util = paw.util
 local command, map = paw.command, paw.keymap.set
-local cursor, transport = paw.cursor, paw.transport
+local cursor = paw.cursor
 local common = require("paw.defaults.common")
 local need_track, read_pan, param_reader = common.need_track, common.read_pan, common.param_reader
 

@@ -21,7 +21,7 @@ M.FORMATS = { ustx = true, ust = true, mid = true, midi = true }
 function M.describe(opts)
   opts = opts or {}
   local snap = utau.snapshot()
-  local project = api.project_get()
+  api.project_get()
   local wanted
   if opts.tracks then
     wanted = {}

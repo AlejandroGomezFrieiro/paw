@@ -183,7 +183,6 @@ days[3] = function(E)
   local r = E.rng
   local last = #E.model.tracks
   add_track(E, last, "Verb", "reverb")
-  local verb = last + 1
   local lead = index_of(E.model, "Lead")
   for _, i in ipairs({ lead, index_of(E.model, "Bass") }) do
     local level = -r.int(6, 18)

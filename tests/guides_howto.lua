@@ -1042,6 +1042,19 @@ test("guide: write an extension in Teal", function()
   eq(paw.ui.message and paw.ui.message.text, "C4 D4 D#4 F4 G4 A4 A#4 C5", "the command says the notes")
 end)
 
+test("guide: configure an editor for paw's code", function()
+  -- What the page says each server reads: the types of paw for both.
+  local page = T.read_file("docs/how-to/configure-an-editor-for-paws-code.md")
+  local include = table.concat(paw.lang.tlconfig().include_dir, " ")
+  eq(include:find("runtime/types", 1, true) ~= nil, true, "tlconfig.lua points the Teal server at runtime/types")
+  local luarc = T.read_file(".luarc.json")
+  eq(luarc:find('"workspace.library": ["runtime/types"]', 1, true) ~= nil, true, ".luarc.json gives LuaLS runtime/types")
+  eq(luarc:find('"diagnostics.globals": ["paw"]', 1, true) ~= nil, true, "and the global paw")
+  eq(T.read_file("runtime/types/paw.lua"):find("---@class paw\n", 1, true) ~= nil, true, "which declares paw")
+  local example = page:match("for example\n   `([^`]+)`")
+  eq(#paw.lang.check({ example }), 0, "the page's example file is there and checks")
+end)
+
 test("guide: write an extension in Teal, with the contracts and an option", function()
   start()
   local dir = T.scratch .. "/howto-teal-contracts"

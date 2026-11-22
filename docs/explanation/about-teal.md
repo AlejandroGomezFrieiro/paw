@@ -217,6 +217,38 @@ goes down.
 - The test files. The runner loads them with `loadfile`. They can move
   later.
 
+## The tools for Teal and Lua
+
+The dev shell of the flake has these tools. Each one uses Teal 0.24.8, the
+version in `runtime/lua/tl.lua`, and LuaJIT, as paw does.
+
+- `cyan check` checks the types of all of the Teal files in one process.
+  `tools/tlcheck.sh` runs it, and so does the `teal` check of the flake.
+  The program `tl check` checks one file at a time, and it checks again
+  each module that the file uses. For the source tree, `cyan` takes 7
+  seconds and `tl check` took 100.
+- `teal-language-server` and `lua-language-server` give completion,
+  types and errors in an editor. The first reads `tlconfig.lua`, and the
+  second reads `.luarc.json`. See
+  [How to configure an editor for paw's code](../how-to/configure-an-editor-for-paws-code.md).
+- `luacheck` finds names that are not used and global names that are not
+  declared in the Lua files. `.luacheckrc` declares the global `paw`. The
+  `lua` check of the flake runs it. It found a function that the import
+  of MusicXML called outside the loop that declared it.
+- StyLua formats Lua, and cerulean (`ceru`) formats Teal. paw's code is
+  not formatted with them. Each one puts a comment after code one space
+  from it, and puts each statement on a line of its own. paw aligns its
+  comments and keeps short functions on one line: StyLua would change
+  most of the Lua files, and cerulean all of the Teal files. The
+  `format` check of the flake says how many, and does not fail.
+  `stylua.toml` and `tools/fmtcheck.sh` hold the settings nearest to
+  paw's style.
+- `tl` compiles one file, for example to look at the Lua that Teal makes
+  (`tl gen`).
+
+`nix/lua-tools.nix` pins the tools that nixpkgs does not have, or has in
+an old version or with a fault.
+
 ## The plan
 
 The order is from the bottom: a module moves after the modules that it

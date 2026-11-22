@@ -81,7 +81,6 @@ local CHANGES = { ["rit."] = "rit.", rit = "rit.", ritardando = "rit.", ["rall."
   ["accel."] = "accel.", accel = "accel.", accelerando = "accel.", ["a tempo"] = "a tempo", ["tempo i"] = "a tempo",
   ["tempo primo"] = "a tempo" }
 local UNIT_XML = { w = "whole", h = "half", q = "quarter", e = "eighth" }
-local UNIT_BEATS = { w = 4, h = 2, q = 1, e = 0.5 }
 
 -- Chord symbols: MusicXML's kinds and the suffixes written for them.
 local KINDS = {
@@ -579,12 +578,12 @@ local function build_voices(sc, m, rec, staves, maps, len, meter, out)
     -- Rests where nothing is written, and what overlaps dropped.
     local list, t = {}, 0
     local any = false
+    local function rests_to(b)
+      for _, p in ipairs(D.values(t, b, meter, true)) do list[#list + 1] = { id = D.id(sc, "e"), kind = "rest", dur = p.dur, dots = p.dots } end
+      t = b
+    end
     for _, it in ipairs(evs) do
       local s = int(it.start)
-      local function rests_to(b)
-        for _, p in ipairs(D.values(t, b, meter, true)) do list[#list + 1] = { id = D.id(sc, "e"), kind = "rest", dur = p.dur, dots = p.dots } end
-        t = b
-      end
       if (it.grace and s < t) or (not it.grace and s < t - 2) then
         out.count("notes overlapping others in their voice")
       else
@@ -643,7 +642,7 @@ local function read_part(part_el, info, count)
   local pending_clefs = {}
   local tempos, rehearsals = {}, {}
   local wedges, slurs = {}, {}
-  local f_starts, at = {}, 0
+  local at = 0
   for i, rec in ipairs(recs) do
     local m = sc.measures[i]
     if rec.time then
@@ -674,7 +673,6 @@ local function read_part(part_el, info, count)
     end
     sc._frame = nil
     local mt = { num, den, groups = want.groups }
-    f_starts[i] = at
     -- Everything in the bar moves by a pickup's empty start.
     if shift > 0 then
       for _, n in ipairs(rec.notes) do n.start = n.start + shift end

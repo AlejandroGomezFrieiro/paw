@@ -3,7 +3,6 @@
 -- the order of the `?` list.
 local T = ...
 local test, eq, fresh = T.test, T.eq, T.fresh
-local api = paw.api
 local pick = paw.pick
 
 local function start()

@@ -238,7 +238,6 @@ view.grid = {
 
 local map = keymap.set
 local motion = { motion = true }
-local linewise = { motion = true, linewise = true }
 local far = { motion = true, jump = true }
 local function mmap(lhs, rhs, desc, opts) map(lhs, rhs, util.merge({ view = "mixer", desc = desc }, opts)) end
 local function count(n, ctx) return n * (ctx.count or 1) end

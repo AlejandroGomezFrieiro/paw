@@ -3,8 +3,8 @@
 local api = paw.api
 local util = paw.util
 local command, map = paw.command, paw.keymap.set
-local cursor, transport = paw.cursor, paw.transport
-local keymap, edit = paw.keymap, paw.edit
+local cursor = paw.cursor
+local keymap = paw.keymap
 local common = require("paw.defaults.common")
 local motion, need_track, read_pan, param_reader, amap = common.motion, common.need_track, common.read_pan, common.param_reader, common.amap
 

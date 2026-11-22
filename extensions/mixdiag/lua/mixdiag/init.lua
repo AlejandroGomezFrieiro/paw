@@ -163,7 +163,7 @@ end
 --- What a rule's `check` gets.
 function M.context(result, range)
   local target, target_name = M.target()
-  local bar = paw.time.bar()
+  paw.time.bar()
   local ctx = {
     result = result,
     range = range,

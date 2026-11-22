@@ -707,7 +707,7 @@ end
 --- mode while lanes are open (paw/cursor.tl `move_track`). A take lane and,
 --- in other modes, a lane row is on no line.
 local function counted_lines(L, cursor_track, cursor_lane)
-  local line_of, at = {}, nil
+  local line_of, at = {}
   if paw.lanes.any_open() and paw.keymap.mode == "n" then
     local lines = paw.lanes.lines()
     local index = {}

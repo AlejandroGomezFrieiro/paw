@@ -614,7 +614,7 @@ function view:status_text()
   if note then
     return string.format("%s  played at %s, %.2f beats long, velocity %d", model.name(written), paw.time.format(clip.start + note.start), note.length, note.velocity)
   end
-  local layout = self:layout()
+  self:layout()
   if paw.keymap.mode == "i" then
     return "click the staff to enter a " .. (self.dot and "dotted " or "") .. model.NAMES[self.value] .. " there · letters enter notes · Esc ends"
   end

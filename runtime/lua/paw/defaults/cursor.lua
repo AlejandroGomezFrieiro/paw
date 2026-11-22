@@ -2,7 +2,7 @@
 -- like it, it uses nothing but the public `paw` module.
 local api = paw.api
 local util = paw.util
-local command, map = paw.command, paw.keymap.set
+local command = paw.command
 local cursor, transport = paw.cursor, paw.transport
 
 command("cursor.down", function(ctx) cursor.move_track(ctx.count or 1) end, { desc = "Next track" })

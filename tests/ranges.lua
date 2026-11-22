@@ -3,7 +3,6 @@
 -- tests/suite.lua with its helpers.
 local T = ...
 local test, eq, fails, keys = T.test, T.eq, T.fails, T.keys
-local api = paw.api
 
 local got
 paw.command("test.range", function(ctx)

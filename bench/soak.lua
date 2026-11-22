@@ -24,7 +24,7 @@ local function rand(n)
 end
 
 local deadline = api.now() + minutes * 60000
-local edits, worst, samples = 0, 0, {}
+local edits, samples = 0, {}
 local rss_start = B.rss()
 local next_sample = api.now() + 10000
 while api.now() < deadline do

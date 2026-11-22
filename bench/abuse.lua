@@ -57,13 +57,6 @@ local function load(text)
   return "ok", string.format("%d tracks, %.1f beats, peak %.3f", #api.track_list(), length, info.peak)
 end
 
-local function edit(project, fn)
-  local text = valid_project()
-  local p = assert(load and text)
-  local json = text:gsub(fn[1], fn[2], 1)
-  return json
-end
-
 local cases = {}
 local order = {}
 local function case(n, fn)
@@ -165,10 +158,10 @@ case("api: note start inf", function()
   return still_sane("clip_add")
 end)
 case("api: note length -1", function()
-  local t, d = synth_track()
-  local c = api.clip_add(t, { start = 0, length = 4, notes = { { pitch = 60, start = 0, length = -1 } } })
+  local t = synth_track()
+  api.clip_add(t, { start = 0, length = 4, notes = { { pitch = 60, start = 0, length = -1 } } })
   -- A note-off before its note-on leaves the note sounding to the end.
-  local info = api.render(dir .. "/neg.wav", { start = 0, ["end"] = 16, tail = 0, bits = 16 })
+  api.render(dir .. "/neg.wav", { start = 0, ["end"] = 16, tail = 0, bits = 16 })
   local tail = api.render(dir .. "/neg2.wav", { start = 12, ["end"] = 16, tail = 0, bits = 16 })
   if tail.peak > 0.001 then return "BAD", "a note with a negative length keeps sounding after its clip ends (peak " .. tail.peak .. ")" end
   return still_sane("negative note length")
@@ -189,7 +182,7 @@ case("api: clip offset -inf", function()
   return still_sane("clip offset -inf")
 end)
 case("api: live note velocity NaN", function()
-  local t, d = synth_track()
+  local t = synth_track()
   api.device_add(t, "delay")
   api.note_on(t, 60, 0 / 0)
   api.sleep(100)
@@ -214,9 +207,9 @@ case("api: render sample rate 0", function()
   return "BAD", "rendered at 0 Hz: " .. tostring(info.frames) .. " frames"
 end)
 case("api: render sample rate 4e9", function()
-  local _, d = synth_track()
+  local _ = synth_track()
   api.device_add(api.track_list()[1], "delay")
-  local info = api.render(dir .. "/sr4e9.wav", { sample_rate = 4000000000, ["end"] = 0.001, tail = 0 })
+  api.render(dir .. "/sr4e9.wav", { sample_rate = 4000000000, ["end"] = 0.001, tail = 0 })
   return "BAD", "rendered at 4 GHz"
 end)
 case("api: engine sample rate 0", function()
@@ -268,7 +261,7 @@ case("api: 2000 tracks", function()
   for i = 1, 1000 do api.track_remove(list[i]) end
   paw.flush()
   local t = list[2000]
-  local d = api.device_add(t, "synth")
+  api.device_add(t, "synth")
   api.clip_add(t, { start = 0, length = 4, notes = { { pitch = 60, start = 0, length = 2 } } })
   paw.flush()
   api.note_on(t, 60, 100)
@@ -296,7 +289,7 @@ case("api: 1e6 notes in one clip", function()
   paw.flush()
   local add = api.now() - t0
   t0 = api.now()
-  local info = api.render(dir .. "/many.wav", { ["end"] = 64, tail = 0 })
+  api.render(dir .. "/many.wav", { ["end"] = 64, tail = 0 })
   return "ok", string.format("added in %.0f ms, rendered 64 beats in %.0f ms", add, api.now() - t0)
 end)
 

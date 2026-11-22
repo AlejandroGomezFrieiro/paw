@@ -1,7 +1,7 @@
 -- Singing tests.
 local T = ...
-local test, eq, near, fresh, render, tone, scratch, read_file = T.test, T.eq, T.near, T.fresh, T.render, T.tone, T.scratch, T.read_file
-local channel_peaks, keys = T.channel_peaks, T.keys
+local test, eq, near, fresh, render, scratch, read_file = T.test, T.eq, T.near, T.fresh, T.render, T.scratch, T.read_file
+local channel_peaks = T.channel_peaks
 local paw = require("paw")
 local api = paw.api
 local fixtures = "tests/fixtures/"
@@ -495,7 +495,7 @@ end)
 
 test("the vocal editor edits transition points and vibrato with the pointer", function()
   local win = vocal_window({ 60, 64, 62 })
-  local editor, clip, gui = win.editor, win.clip, win.gui
+  local clip, gui = win.clip, win.gui
   local shapes = require("utau.shapes")
   gui.tool = "pitch"
   gui.zoom = 240

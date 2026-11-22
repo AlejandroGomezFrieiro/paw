@@ -280,20 +280,57 @@
         touch $out
       '';
 
-      # `tl check` on every Teal file, strict, with the Teal of nixpkgs: the
-      # version runtime/lua/tl.lua is (0.24.8).
+      # `cyan check` on every Teal file (tools/tlcheck.sh), with the Teal of
+      # nixpkgs: the version runtime/lua/tl.lua is (0.24.8).
       tealCheck = pkgs: pkgs.runCommand "paw-teal-check" {
         src = nixpkgs.lib.fileset.toSource {
           root = ./.;
           fileset = nixpkgs.lib.fileset.unions [ ./runtime ./config ./extensions ./tlconfig.lua ./tools/tlcheck.sh ];
         };
-        nativeBuildInputs = [ pkgs.luajitPackages.tl ];
+        nativeBuildInputs = [ (luaTools pkgs).cyan ];
       } ''
-        sh $src/tools/tlcheck.sh tl
+        sh $src/tools/tlcheck.sh cyan
+        touch $out
+      '';
+
+      # luacheck on every Lua file, with .luacheckrc: unused and undefined
+      # names, values set and never read.
+      luaCheck = pkgs: pkgs.runCommand "paw-luacheck" {
+        src = nixpkgs.lib.fileset.toSource {
+          root = ./.;
+          fileset = nixpkgs.lib.fileset.unions [
+            ./.luacheckrc
+            (nixpkgs.lib.fileset.fileFilter (file: file.hasExt "lua") ./.)
+          ];
+        };
+        nativeBuildInputs = [ pkgs.luajitPackages.luacheck ];
+      } ''
+        cd $src
+        luacheck --no-cache --formatter plain --codes .
+        touch $out
+      '';
+
+      # How many Lua and Teal files StyLua and cerulean would change
+      # (tools/fmtcheck.sh). The tree is not formatted with them, so this
+      # says the number and does not fail, as the rustfmt check does.
+      formatCheck = pkgs: pkgs.runCommand "paw-format" {
+        src = nixpkgs.lib.fileset.toSource {
+          root = ./.;
+          fileset = nixpkgs.lib.fileset.unions [
+            ./stylua.toml ./.styluaignore ./tools/fmtcheck.sh
+            (nixpkgs.lib.fileset.fileFilter (file: file.hasExt "lua" || file.hasExt "tl") ./.)
+          ];
+        };
+        nativeBuildInputs = [ pkgs.stylua (luaTools pkgs).cerulean ];
+      } ''
+        sh $src/tools/fmtcheck.sh
         touch $out
       '';
 
       pawUtau = pkgs: (paw pkgs).withExtensions (exts: [ exts.utau ]);
+
+      # The Teal tools that nixpkgs has not, or has old or with a fault.
+      luaTools = pkgs: pkgs.callPackage ./nix/lua-tools.nix { };
     in {
       packages = forAll (pkgs: {
         default = paw pkgs;
@@ -310,8 +347,9 @@
       });
 
       # `nix flake check`: clippy, rustfmt, the Rust tests a sandbox can run,
-      # the program itself, Vale on the docs, and `tl check` on the Teal.
-      checks = forAll (pkgs: (rust pkgs).checks // { paw = paw pkgs; docs = docsCheck pkgs; teal = tealCheck pkgs; });
+      # the program itself, Vale on the docs, `cyan check` on the Teal,
+      # luacheck on the Lua, and how much the formatters would change.
+      checks = forAll (pkgs: (rust pkgs).checks // { paw = paw pkgs; docs = docsCheck pkgs; teal = tealCheck pkgs; lua = luaCheck pkgs; format = formatCheck pkgs; });
 
       apps = forAll (pkgs:
         nixpkgs.lib.genAttrs [ "paw" "paw-gui" "paw-mcp" ] (name: {
@@ -366,9 +404,14 @@
           # What the window tests (`crates/paw-gui/tests/window.rs`) drive: a
           # private X server, a window manager, a pointer and key sender, and
           # tesseract to find words on a screenshot.
-          # `tl` checks the Teal files (tools/tlcheck.sh): the version of
-          # runtime/lua/tl.lua.
-          packages = with pkgs; [ xvfb openbox xdotool imagemagick tesseract vale curl luajitPackages.tl ];
+          # The Teal and Lua tools (docs/explanation/about-teal.md): `tl`
+          # (the version of runtime/lua/tl.lua), `cyan` (tools/tlcheck.sh),
+          # the language servers of both, the formatters (`ceru` for Teal,
+          # `stylua` for Lua) and `luacheck`; nix/lua-tools.nix has those
+          # that nixpkgs has not, or has old.
+          packages = with pkgs; [ xvfb openbox xdotool imagemagick tesseract vale curl luajitPackages.tl ]
+            ++ (with luaTools pkgs; [ cyan teal-language-server cerulean ])
+            ++ [ pkgs.lua-language-server pkgs.stylua pkgs.luajitPackages.luacheck ];
           # The style packages Vale checks the docs with (tools/vale.sh joins
           # them with the project's own in .vale/styles; see .vale.ini).
           PAW_VALE_STYLES = "${valeStyles pkgs}";

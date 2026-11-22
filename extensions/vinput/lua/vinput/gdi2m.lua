@@ -14,7 +14,6 @@
 -- gdi2m runs as a program of its own, takes the audio from the port itself
 -- and sends its notes to the input's MIDI port; nothing of it passes through
 -- this program's audio thread.
-local api = paw.api
 local music = paw.music
 local vinput = require("vinput")
 

@@ -1,10 +1,9 @@
 -- Model tests.
 local T = ...
-local test, last, after, eq, fails, fresh, render, tone = T.test, T.last, T.after, T.eq, T.fails, T.fresh, T.render, T.tone
+local test, eq, fails, fresh, render, tone = T.test, T.eq, T.fails, T.fresh, T.render, T.tone
 local until_, scratch, read_file, write_file = T.until_, T.scratch, T.read_file, T.write_file
 local paw = require("paw")
 local api = paw.api
-local fixtures = "tests/fixtures/"
 
 test("tracks have properties that read back", function()
   fresh()

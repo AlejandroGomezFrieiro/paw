@@ -6,7 +6,6 @@
 --   lyric, tuning in cents, the phonemizer for these notes, the vibrato and
 --   its numbers, the transition, the per-note expressions the track's
 --   renderer has (velocity, volume, attack, ...), and the note's phonemes.
-local api = paw.api
 local util = paw.util
 local music = paw.music
 local utau = require("utau")

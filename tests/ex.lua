@@ -163,7 +163,7 @@ test("ex: :s changes notes that match, the first of each bar, or all with g", fu
 end)
 
 test("ex: :s sets velocity and length by field, and an empty replacement removes", function()
-  local t, drums = song()
+  local _, drums = song()
   local d = drums:clips()[1]
   run("%s/vel>100/vel=90/g")
   local vels = {}
@@ -265,7 +265,7 @@ test("ex: transpose, quantize, > and j work on ranges", function()
 end)
 
 test("ex: normal runs keys at each bar, track or match", function()
-  local t, drums = song()
+  song()
   local seen = {}
   paw.keymap.set("Q", function() seen[#seen + 1] = paw.cursor.track().name .. "@" .. paw.cursor.beat end, { view = "arrange" })
   run("t1 1,3normal Q")
