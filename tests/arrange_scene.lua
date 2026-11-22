@@ -170,6 +170,37 @@ test("in a scope a clip across its edges is in the scene with the cuts, for a wi
 end)
 
 test(
+  "a time fold is in the scene: its column on the ruler, a clip across it in two cut pieces, the playhead's jumps",
+  function()
+    local _, _, riff = song()
+    T.after(function() paw.folds.clear() end)
+    paw.folds.make({ kind = "range", from = 5, to = 7 })
+    local pieces = {}
+    for _, n in ipairs(nodes_of("clip")) do
+      if n.props.id == riff.id then pieces[#pieces + 1] = n end
+    end
+    table.sort(pieces, function(x, y) return x.r[1] < y.r[1] end)
+    -- "Fold 1 ▸ 1" and a cell on each side: 12 cells, 4 beats of the view at 3 a beat.
+    eq(#pieces, 2, "two pieces")
+    eq(
+      pieces[1].r[1] .. " " .. tostring(pieces[1].props.cut_in) .. " " .. pieces[1].props.cut_out,
+      "4 nil 1",
+      "the first cut at the fold"
+    )
+    eq(
+      pieces[2].r[1] .. " " .. pieces[2].props.cut_in .. " " .. tostring(pieces[2].props.cut_out),
+      "6 3 nil",
+      "the second after its column"
+    )
+    local playhead = nodes_of("playhead")[1]
+    eq(api.json_encode(playhead.props.jumps), "[[5,7,4]]", "the playhead jumps the fold")
+    api.scene_forget(0)
+    local text = api.json_encode(redraw())
+    eq(text:find("Fold 1", 1, true) ~= nil, true, "the column's name is in the scene's cells")
+  end
+)
+
+test(
   "in a window a clip dragged by fractions of a cell moves on the grid by the beats it went, and to another track",
   function()
     local _, b, riff, _, at = song()
@@ -355,4 +386,60 @@ test("in a window the new track button under the tracks offers the kinds of trac
   local items = require("paw.menu").shown()
   eq(items ~= nil and items[1].label, "Empty track", "the menu of new tracks")
   paw.frontend.act.menu_dismiss()
+end)
+
+test("a jump to a marker off screen puts it at the left margin, or in the middle with jumpview center", function()
+  song()
+  local saved = { view = paw.opt.jumpview, margin = paw.opt.jumpmargin }
+  T.after(function()
+    paw.opt.jumpview, paw.opt.jumpmargin = saved.view, saved.margin
+  end)
+  paw.markers.add(200, "far")
+  paw.markers.add(210, "farther")
+  paw.opt.jumpview, paw.opt.jumpmargin = "left", 6
+  paw.keymap.feed("]'")
+  redraw()
+  near(view.scroll, 200 - 6 / 3, 0.01, "the marker 6 columns from the left edge")
+  paw.keymap.feed("]'")
+  redraw()
+  near(view.scroll, 200 - 2, 0.01, "a marker on screen does not scroll")
+  paw.keymap.feed("0")
+  redraw()
+  eq(view.scroll, 0, "back at the start")
+  paw.opt.jumpview = "center"
+  paw.keymap.feed("]'")
+  redraw()
+  near(view.scroll + view.geometry.span / 2, 200, 0.01, "in the middle")
+  paw.keymap.feed("zs")
+  redraw()
+  near(view.scroll, 200 - 2, 0.01, "zs puts the cursor at the left margin")
+  paw.keymap.feed("zz")
+  redraw()
+  near(view.scroll + view.geometry.span / 2, 200, 0.01, "zz puts it in the middle")
+end)
+
+test("a jump just past the right edge aligns the target at the left margin; a step scrolls just enough", function()
+  song()
+  local saved = { view = paw.opt.jumpview, margin = paw.opt.jumpmargin }
+  T.after(function()
+    paw.opt.jumpview, paw.opt.jumpmargin = saved.view, saved.margin
+  end)
+  paw.opt.jumpview, paw.opt.jumpmargin = "left", 6
+  local span = view.geometry.span
+  local edge = math.ceil(span - 1 / 3) + 2
+  paw.markers.add(edge, "just past")
+  paw.keymap.feed("]'")
+  redraw()
+  near(view.scroll, edge - 2, 0.01, "2 beats past the edge: at the left margin")
+  paw.keymap.feed("<Esc>0")
+  redraw()
+  eq(view.scroll, 0, "back at the start")
+  paw.cursor.set_beat(math.floor(span - 1 / 3))
+  redraw()
+  paw.keymap.feed("l")
+  redraw()
+  eq(paw.cursor.beat - view.scroll > span * 0.75, true, "a step past the edge scrolls just enough")
+  paw.keymap.feed("ze")
+  redraw()
+  near(view.scroll + span - 1 / 3, paw.cursor.beat, 0.01, "ze puts the cursor at the right edge")
 end)

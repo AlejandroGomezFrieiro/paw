@@ -77,6 +77,14 @@ end
 local record Audio
   load: function(cpu?: number): number
 end
+--- paw/folds.tl, the part of it that this module reads: the time fold
+--- at the cursor, by its label (`Bridge ▸ 8`).
+local record FoldSpan
+  label: string
+end
+local record Folds
+  time_at: function(beat: number): FoldSpan
+end
 local record Lister
   status: function(): StatusText
 end
@@ -90,6 +98,7 @@ local record Paw is partial.Paw
   mouse: MouseModule
   qf: Lister
   scope: Scope
+  folds: Folds
   tempo: TempoModule
   time: objects.Time
 end
@@ -668,17 +677,23 @@ spec(
 
 -- The scope shown, as its path (`Song › Bridge › Strings`); in a scope
 -- with time, the cursor's place in its bars and in the song's
--- (`3.2 (19.2)`); and what the rest of the song does.
+-- (`3.2 (19.2)`); and what the rest of the song does. On a time fold
+-- (paw/folds.tl), its name and its bars (`Bridge ▸ 8`), in a scope or not.
 spec(
   "scope",
   {
     rank = 2,
     fn = function(ctx: Context): StatusText
       local scope = paw.scope and paw.scope.current()
+      -- The cursor on a time fold: its name and its bars.
+      local fold = paw.folds and paw.folds.time_at(paw.cursor.beat)
       if not scope then
-        return
+        return fold and {{fold.label, "StatusOn"}} or nil
       end
       local out: {Piece} = {{paw.scope.breadcrumb(scope), "StatusOn"}}
+      if fold then
+        out[#out + 1] = {" " .. fold.label, "StatusOn"}
+      end
       if paw.scope.span(scope) then
         local beat = paw.cursor.beat
         local here = paw.scope.format(beat):match("^(%d+%.%d+)")

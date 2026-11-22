@@ -70,7 +70,8 @@ A clip has a name row and a darker body that shows its notes or waveform in the 
 | `:tempo.move 9` | Moves the tempo change at the cursor to bar 9. |
 | `]t` `[t` | Selects the next or the previous take of the clip. |
 | `zi` `zo` | Zooms in and out. |
-| `zz` `zh` `zl` | Puts the cursor in the center. Scrolls left and right. |
+| `zs` `zz` `ze` | Puts the cursor at the left, in the middle or at the right of the timeline. |
+| `zh` `zl` | Scrolls a bar left or right. |
 | `[g` `]g` | Makes the grid finer or coarser. |
 | `zn{motion}` `znn` `zw` `zW` `]z` `[z` | Enter a scope in this window (`znag` the group, `znar` the region, `znn` the innermost at the cursor). Go up one level, up to the song. Go to the scope beside. See [Scopes](narrowing.md). |
 | `<Space>tv` | Makes a VCA over the selected tracks. |
@@ -95,7 +96,7 @@ In paw a track works like a line of text, so `5j` goes down five tracks, `5G` go
   of the cursor shows its own number, or `0` when `:set nonumber`. The
   master has no number.
 - `signs`: one character for each track that has one. The diagnostics of language servers show here, and the sign gives the worst diagnostic of the track, its devices and its clips.
-- `fold`: the groups as a tree. An open group has `▾` on its row and a line down its members, with `╰` on its last member. A folded group has `▸`, and its name tells how many tracks it holds (`Strings +3`). Each level of groups inside groups takes one more column. A click on `▾` or `▸` folds or opens the group, like `za`.
+- `fold`: the groups as a tree. An open group has `▾` on its row and a line down its members, with `╰` on its last member. A folded group has `▸`, and its name tells how many tracks it holds (`Strings +3`). Each level of groups inside groups takes one more column. A fold of tracks (`zf`) has `▸` on its row too. A click on `▾` or `▸` folds or opens the group or the fold, like `za`.
 
 ```text
  2   ▌ Drums
@@ -143,7 +144,7 @@ Waveforms are cells, also in a terminal that shows pictures. A terminal that sho
 
 ## Automation lanes as rows
 
-`<Space>aa` shows the automation lanes of a track as rows under it, two rows for each lane, and `<Space>aa` again hides them. (`za`, `zM` and `zR` fold groups, not lanes.) `<Space>al` chooses a lane to make or show, which can be the volume, the pan, or a parameter of a device of the track.
+`<Space>aa` shows the automation lanes of a track as rows under it, two rows for each lane, and `<Space>aa` again hides them. (`za`, `zM` and `zR` fold groups and tracks, not lanes.) `<Space>al` chooses a lane to make or show, which can be the volume, the pan, or a parameter of a device of the track.
 
 A lane header gives what the lane moves, its value at the cursor, and if the lane is read or bypassed. The curve and its points (`◆`) show along the timeline, and `j` and `k` go onto lane rows in the same way as onto tracks.
 

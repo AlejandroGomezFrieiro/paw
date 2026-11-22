@@ -61,6 +61,16 @@ role("clip", {
   cells = function(buf, p)
     local g = draw.g
     local w, h = buf.width, buf.height
+    -- Cut (by a scope's edge or a time fold), only the part between the
+    -- cuts is drawn: the buffer keeps its place and draws on fewer cells.
+    if p.cut_in or p.cut_out then
+      local a = p.cut_in and math.floor(p.cut_in * p.per + 0.5) or 0
+      local b = p.cut_out and math.floor(p.cut_out * p.per + 0.5) or w
+      local cut = buf:sub(0, 0, w, h)
+      local left, right = math.max(cut.cx, cut.x + a), math.min(cut.cx + cut.cw, cut.x + b)
+      cut.cx, cut.cw = left, math.max(0, right - left)
+      buf = cut
+    end
     if p.ghost then
       buf:fill(0, 0, w, h, nil, "MouseGhost")
       if p.name then buf:text(1, 0, (util.fit(p.name, math.max(0, w - 1)):gsub("%s+$", "")), "MouseGhost") end

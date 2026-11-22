@@ -65,6 +65,7 @@ local record M
   beat: number
   lens: function(): integer
   bounds: function(): number, number
+  over: function(old: number, new: number): number
   shift: function(track: integer): number
   master_reachable: function(): boolean
 end
@@ -243,6 +244,11 @@ end
 --- or nil for all of it: paw/scope.tl sets it, for the scope shown.
 M.bounds = nil
 
+--- A function that gives where the cursor goes when it moves from one
+--- beat to another: paw/folds.tl sets it, so that the cursor takes a
+--- folded span as one step and stays on its column.
+M.over = nil
+
 --- Put the cursor at a beat (not before 0, and in the scope's time).
 function M.set_beat(beat: number)
   beat = math.max(0, beat)
@@ -252,6 +258,9 @@ function M.set_beat(beat: number)
   end
   if from then
     beat = math.min(math.max(beat, from), to)
+  end
+  if M.over then
+    beat = M.over(M.beat, beat)
   end
   M.beat = beat
   save()

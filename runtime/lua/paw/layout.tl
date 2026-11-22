@@ -226,6 +226,8 @@ local record SpecNode is {string | SpecNode}
   tab: integer
   tabs: {SpecNode}
   scope: {types.SavedScope}
+  folds: {types.SavedFold}
+  foldlevel: integer
 end
 local type Spec = string | SpecNode
 
@@ -480,6 +482,28 @@ end
 
 local function copy<T>(value: T): T
   return seats.copy(value)
+end
+
+--- A window's folds as plain data, or from it: a copy, for a window of
+--- its own (a split keeps the folds of the window it comes from, as Vim's
+--- windows do).
+local function copy_folds(folds: {contracts.Fold}): {contracts.Fold}
+  if not folds then
+    return nil
+  end
+  local out: {contracts.Fold} = {}
+  for i, f in ipairs(folds) do
+    out[i] = {
+      kind = f.kind as contracts.ScopeKind,
+      id = f.id,
+      tracks = f.tracks and copy(f.tracks),
+      from = f.from,
+      to = f.to,
+      name = f.name,
+      closed = f.closed,
+    }
+  end
+  return out
 end
 
 --- A new window that shows `view`, with fields such as `size` or `hidden`.
@@ -1877,6 +1901,8 @@ function M.split(opts: SplitOptions): Node, string
   -- A new window shows the part of the song that the one it is split
   -- from shows, as Vim's windows keep their folds.
   win.scope = cur and cur.scope
+  win.folds = cur and copy_folds(cur.folds)
+  win.foldlevel = cur and cur.foldlevel
   local root = t.layout
   local parent, at: Node, integer
   if cur then
@@ -2507,6 +2533,12 @@ local function export(node: Node, scopes?: boolean): SpecNode
     if scopes and node.scope then
       out.scope = scope_levels(node.scope)
     end
+    if scopes and node.folds and #node.folds > 0 then
+      out.folds = copy_folds(node.folds) as {types.SavedFold}
+    end
+    if scopes then
+      out.foldlevel = node.foldlevel
+    end
     if node.opts and next(node.opts) then
       out.opts = copy(node.opts)
     end
@@ -2584,6 +2616,8 @@ local function import(spec: Spec): Node
       }
     )
     win.scope = scope_chain(node_spec.scope)
+    win.folds = copy_folds(node_spec.folds as {contracts.Fold})
+    win.foldlevel = node_spec.foldlevel
     if M.types[name] then
       win.buf = M.buf_create(name, node_spec.target).id
     else
@@ -3466,10 +3500,10 @@ function M.setup()
   events.on(
     kernel.project_loaded,
     function()
-      -- The scopes were the last project's: its tracks and regions.
+      -- The scopes and folds were the last project's: its tracks and regions.
       local function wide()
         for _, tw in ipairs(M.all_windows()) do
-          tw.win.scope = nil
+          tw.win.scope, tw.win.folds, tw.win.foldlevel = nil, nil, nil
         end
       end
       for _, id in ipairs(seats.list()) do

@@ -35,7 +35,8 @@ A count moves it more places, so `3<A-j>` moves it down three tracks.
    press `Enter`. The group track shows above its tracks, which are
    indented.
 4. To fold the group, put the cursor on the group track and press `za`.
-   Press `za` again to open it.
+   Press `za` again to open it. The fold is in this window only, and it is
+   not an undo step.
 
 To put one more track into the group, type `:track.into Drums` on that
 track. To take a track out of its group, press `<Space>tG`.

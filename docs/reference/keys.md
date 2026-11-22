@@ -27,7 +27,8 @@ A command is a count, an operator, and a motion or a text object, e.g., `3>ic`, 
 | `]r` `[r` | next region at the same level, the one before | |
 | `]z` `[z` | the next scope beside this window's scope, the one before (a region, a group, a track; `3]z` three on): [Scopes](narrowing.md) | |
 | `)` `(` | | next phrase, start of this phrase or the one before |
-| `zz` `zh` `zl` | center the cursor, scroll a bar | |
+| `zs` `zz` `ze` | put the cursor at the left, in the middle, at the right of the timeline | |
+| `zh` `zl` | scroll a bar | |
 
 The motion keys only move, in every view. In **M**, `h` `l` are strips, `j` `k` are the rows of a strip (devices, sends, fader, pan, mute, solo, arm), `gg` `G` are its top and bottom, and `0` `$` are the first and last strip. In **D**, `j` `k` are rows, `w` `b` are devices, and `e` is the last parameter of a device.
 
@@ -61,6 +62,11 @@ The motion keys only move, in every view. In **M**, `h` `l` are strips, `j` `k` 
 | `M` `s` `r` | mute, solo, arm the track | |
 | `zn` `znn` | `zn` and a motion: enter what the motion covers as a scope, in this window: `znar` the region, `znag` the group, `znit` the track, `Vjjzn` the selected tracks; `znn` the innermost scope at the cursor ([Scopes](narrowing.md)) | |
 | `zw` `zW` | up one level of scope; up to the whole song | |
+| `zf` | `zf` and a motion: fold what the motion covers: `zfar` the region into one column (`Bridge ▸ 8`), `zfag` the group into one row, `Vjjzf` the selected tracks into one row (`Fold 1`) ([Folds](narrowing.md#folds)) | |
+| `za` `zc` | close the fold, group or region at the cursor, or open it; close it | |
+| `zm` `zr` | close one more level of regions, the deepest first; open one level | |
+| `zd` `zE` | delete the fold at the cursor (its tracks and clips stay); delete every fold of the window | |
+| `zM` `zR` | close every group, region and fold of the window; open them all | |
 | `<Space>tv` `<Space>ta` `<Space>tr` `<Space>tx` `<Space>tl` | a new VCA over the selected tracks; put them under a VCA; take them out of their VCAs; take the VCA at the cursor away; link the faders of a group | |
 | `I` `<A-i>` | choose the input (audio, MIDI port and channel), monitor it | |
 | `a` | add a device | enter notes after the note |

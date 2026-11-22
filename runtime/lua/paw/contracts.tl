@@ -569,11 +569,27 @@ local record contracts
     parent: Scope
   end
 
+  --- A fold of a window (paw/folds.tl): a scope drawn in place, as one
+  --- row ("group", "tracks") or one column ("region", "range"). `closed`
+  --- says whether it is folded now; nil for a region means that the
+  --- window's `foldlevel` decides. View state: never in the project.
+  record Fold
+    kind: ScopeKind
+    id: integer
+    tracks: {integer}
+    from: number
+    to: number
+    name: string
+    closed: boolean
+  end
+
   --- A window of the layout (paw/layout.tl): its id, the view or buffer
   --- type it shows, its buffer, its options and its own state. An
   --- interface: a window of the layout is a node of a tab's tree too
   --- (`paw.layout.Node`). `scope` is the part of the song it shows, the
-  --- innermost level of its stack (nil: the whole song).
+  --- innermost level of its stack (nil: the whole song). `folds` are its
+  --- folds (paw/folds.tl), and `foldlevel` how many levels of regions
+  --- stay open (nil: all of them).
   interface Window
     id: integer
     view: string
@@ -582,6 +598,8 @@ local record contracts
     opts: {string: string | number | boolean}
     state: {string: string | number | boolean}
     scope: Scope
+    folds: {Fold}
+    foldlevel: integer
   end
 
   --- A buffer (paw/layout.tl): its number, its name, its type, the
@@ -1009,13 +1027,17 @@ local record contracts
   --- What a lane of the ruler draws on (`paw.ruler.add_lane`): `buf` its
   --- rows under the bar numbers (`rows` of them), `x` the column of a beat,
   --- `scroll` and `span` the beats in sight, `glyphs` and `styles` the
-  --- lane's own.
+  --- lane's own. With time folds (paw/folds.tl), `folded(beat)` is true for
+  --- a beat inside a folded span, after its start, and `closed(id)` for a
+  --- region that is folded into its column.
   record RulerLaneContext
     buf: Buf
     rows: integer
     x: function(beat: number): integer
     scroll: number
     span: number
+    folded: function(beat: number): boolean
+    closed: function(region: integer): boolean
     glyphs: {string: string}
     styles: {string: string}
   end

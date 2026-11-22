@@ -72,7 +72,9 @@ local record role_props
 
    --- The playhead at beat `at`: in a view whose columns are `per` cells a
    --- beat from beat `from`, shown from `lo` to `hi`; or along `segments` of
-   --- time, `{ from, to, x0, x1, top, bottom }` each, in points.
+   --- time, `{ from, to, x0, x1, top, bottom }` each, in points. With
+   --- `jumps`, the view has time folds, and `from` is a place in its beats
+   --- (see [`PlayheadProps::view_beat`]).
    record PlayheadProps is Props
       at: number
       from: number
@@ -80,6 +82,7 @@ local record role_props
       lo: number
       hi: number
       segments: {{number}}
+      jumps: {{number, number, number}}
    end
 
    --- Level meters, `levels` a linear peak for each column; `hold` the
