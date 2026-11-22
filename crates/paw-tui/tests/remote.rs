@@ -2,6 +2,8 @@
 //! over TCP, the frontend's state pushed in parts, and a terminal attached
 //! to a kernel that runs without one.
 
+mod sealed;
+
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
@@ -49,7 +51,7 @@ fn start_with(name: &str, state: Option<&std::path::Path>, more: &[&str]) -> Ins
     let state = state.unwrap_or(&dir).to_path_buf();
     let socket = dir.join("paw.sock");
     let token_file = state.join("token");
-    let mut child = Command::new(env!("CARGO_BIN_EXE_paw"))
+    let mut child = sealed::seal(&mut Command::new(env!("CARGO_BIN_EXE_paw")), &dir)
         .args(["--headless", "--clean", "--no-plugins", "--audio", "null"])
         .arg("--listen")
         .arg(&socket)

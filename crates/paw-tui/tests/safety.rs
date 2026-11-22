@@ -1,6 +1,8 @@
 //! A take survives what ends it badly: a disk that will take no more, and the
 //! program being killed in the middle of it.
 
+mod sealed;
+
 use std::io::{BufRead, BufReader};
 use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
@@ -39,6 +41,7 @@ fn paw_plugins(dir: &Path, script: &str, args: &[&Path], plugins: bool) -> Comma
     ] {
         command.env(var, dir.join("xdg"));
     }
+    sealed::seal(&mut command, dir);
     command
 }
 

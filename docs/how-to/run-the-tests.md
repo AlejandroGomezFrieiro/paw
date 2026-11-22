@@ -15,6 +15,12 @@ build.
 
 The suite writes its full output to `target/test-scratch/suite.out`.
 
+The tests never use your own files or plugins. Each test run gets a scratch
+home folder and empty plugin folders under `target/test-scratch`, so your
+plugins, your settings and your Wine prefix stay untouched. To run paw by
+hand in the same setup, use `tests/tools/run.sh` in place of `paw`, for
+example `tests/tools/run.sh --clean --no-plugins -l tools/apidoc.lua check`.
+
 `tests/suite.lua` is the runner and the helpers (`T`). The tests of the
 core are in `tests/<area>.lua`, and the tests of an extension are beside
 it, in `extensions/<name>/tests.lua` and `tests_<part>.lua`. The runner
