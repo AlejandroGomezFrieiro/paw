@@ -117,7 +117,7 @@ test("an edit of the roll's own notes keeps the notes behind them, an edit of th
   local before = made()
   -- `x` on the E of the chords clip.
   roll.pitch, roll.beat = 64, 1
-  paw.keymap.feed("x")
+  keys("x")
   paw.flush()
   eq(#s.keys:notes(), 2, "the note is gone")
   eq(pitches(rc.context()), "36@2 40@4 43@3 72@0 76@4", "the same notes behind")

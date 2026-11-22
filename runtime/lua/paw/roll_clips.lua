@@ -344,7 +344,9 @@ end
 
 --- The pitches that sound at roll beat `beat`, in the editable clips and
 --- the context, lowest first. The second value is the name of the chord
---- that they make, when `paw.harmony` can tell it.
+--- that they make, when `paw.harmony` can tell it. The name comes from
+--- the chords that paw has read so far, so right after an edit it can be
+--- the name from before the edit.
 function M.sounding(beat)
   local set, out = {}, {}
   for _, n in ipairs(M.notes({ from = beat, to = beat + EPS })) do
@@ -360,7 +362,8 @@ function M.sounding(beat)
   local name
   local harmony, a = rawget(paw, "harmony"), midi(M.active())
   if harmony and harmony.at and a then
-    local ok, chord = pcall(harmony.at, a.start + beat)
+    -- The reading as it stands: a frame after an edit does not wait for it.
+    local ok, chord = pcall(harmony.at, a.start + beat, true)
     if ok and type(chord) == "table" then name = chord.name end
   end
   return out, name

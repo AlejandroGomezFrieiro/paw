@@ -134,6 +134,8 @@ test(
     track("Strings", { { "C3 G3 C4 E4", 4, 4 } }, 8)
     open(clip, 60, 2)
     paw.opt.note_zoom = 8
+    -- The view draws the reading as it stands: read the chords first.
+    paw.harmony.chords()
     local function screen() return table.concat(api.ui_snapshot(140, 48), "\n") end
     local function has(text) return screen():find(text, 1, true) ~= nil end
     eq(has("▏Dm7") and has("▏C"), true, "the chord row: D minor seventh, then C")
@@ -144,7 +146,8 @@ test(
     eq(has("▏B3") and has("▏G3"), true, "and the roll shows it as ghosts:\n" .. screen())
     eq(#clip:notes(), 4, "nothing written yet")
     keys("<CR>")
-    eq(has("▏G7/D"), true, "the chord row reads the new chord")
+    -- The chord row draws the reading as it stands: the new chord comes when it is read.
+    T.until_(function() return has("▏G7/D") end, "the chord row reads the new chord")
     eq(has("dominant · Tab: voicing"), true, "the snippet's span says what Tab does")
     keys("<Tab>")
     eq(has("dominant · voicing: smooth (1/5)"), true, "Tab: the voicing")
@@ -158,9 +161,9 @@ test(
     eq(screen() ~= before, true, "drawn anew")
     keys("<C-y>")
     eq(paw.snippet.marks(clip.id), nil, "C-y: done, the marks are gone")
-    eq(has("▏G7"), true, "the notes stay")
+    T.until_(function() return has("▏G7") end, "the notes stay")
     keys("u")
-    eq(has("▏G7"), false, "u: the whole snippet undone")
+    T.until_(function() return not has("▏G7") end, "u: the whole snippet undone")
     paw.ui.focus("arrange")
   end
 )
