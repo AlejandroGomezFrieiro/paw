@@ -27,11 +27,12 @@ The state belongs to the computer and not to a project.
 | --- | --- |
 | `audio.json` | The audio devices, block size and sample rate chosen in paw. See [How to choose the audio devices](../how-to/choose-audio-devices.md). |
 | `recent.json` | The recent projects (below). |
+| `shada.json` | What paw keeps of your editing across restarts (see "Editing history" below). |
 | `devices.json` | The favorite devices, the devices added last, and the device chosen for each search. |
 | `window.json` | The layout of the graphical window. |
 | `layouts/` | The layouts written by `:layout save <name>`, one JSON file each. |
 | `recovery/` | The safety copies of unsaved work (`paw.opt.autosave`). `:recover` opens one. |
-| `projects/` | What paw remembers about each project outside its file, for example the plugins that stopped. |
+| `projects/` | What paw remembers about each project outside its file, for example the plugins that stopped, and the marks and the last cursor (`shada.json`). |
 | `media-index` | The hash of each media file that paw read on this computer, by its path, size, modification time and `inode` number. So paw hashes a file one time. See [Media files](media.md#what-a-file-is). |
 | `token` | The token for network connections. paw makes it at the first start. |
 | `tls/` | The certificate and key of this instance for network connections. paw makes them the first time that it listens. |
@@ -47,6 +48,29 @@ paw can delete the cache and make it again, so you don't need to keep it.
 | `bakes/` | What paw makes from sound files and keeps for the next time: the waveform overviews, and the sound of stretched clips and of clips with an edit list. All projects use one cache. It stays within `paw.opt.media_cache` gigabytes, and paw removes what it used least recently. |
 | `media/` | The decoded sound of long files, up to `paw.opt.media_cache` gigabytes. |
 | `stderr.log` | The error output while the terminal interface runs. Plugins write there. |
+
+## Editing history
+
+paw keeps your editing history across restarts, as Neovim does. The file
+`shada.json` in the state directory holds the history of each prompt (`:`,
+`/` and the named prompts), the last search, and the registers `a` to `z`
+and `0`. A register is kept when it holds plain data, such as notes, clips,
+text or keys, and is smaller than 1 MB. The `shada.json` in the folder of a
+project under `projects/` holds the marks, the jump list, the places of the
+last edits and the last cursor (track, beat and view). Nothing goes in the
+project folder.
+
+paw reads the files at the start and when a project opens. It writes them
+when it quits and when a project closes. When two paw instances write the
+same file, paw merges the histories and the registers by time, so no entry is
+lost. Only the local seat's state is kept.
+
+| Option | Effect |
+| --- | --- |
+| `paw.opt.shada` | When `false`, paw reads and writes none of these files. The default is `true`. |
+| `paw.opt.history` | The number of lines that each prompt history keeps. The default is `200`. |
+
+`--clean` and a script run (`-l`) read and write nothing.
 
 ## Recent projects
 

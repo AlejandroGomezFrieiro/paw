@@ -543,6 +543,8 @@ command("clip.fade", function(ctx)
   local fade_in, fade_out = tonumber(ctx.args["in"]), tonumber(ctx.args.out)
   if ctx.args[1] then
     fade_in, fade_out = tonumber(ctx.args[1]), tonumber(ctx.args[2] or ctx.args[1])
+    -- `:adjust` changes one end and keeps the other as the first line gave it.
+    ctx.args = { ["in"] = fade_in, out = fade_out }
   end
   if not fade_in and not fade_out then
     -- Alone, it asks: one number for both ends, or two.
@@ -560,6 +562,7 @@ command("clip.fade", function(ctx)
   paw.notify(string.format("%s fades in over %g beats and out over %g", clip.name, clip.fade_in, clip.fade_out))
 end, {
   desc = "Fade an audio clip in and out, in beats: `clip.fade in=1 out=2`, `clip.fade 0.5`, `clip.fade 0`; alone, it asks",
+  adjust = { { name = "in", min = 0, step = 0.25 }, { name = "out", min = 0, step = 0.25 } },
 })
 command("clip.fade.cursor", function(ctx)
   local which = tostring(ctx.args[1] or "")

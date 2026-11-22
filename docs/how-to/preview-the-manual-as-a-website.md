@@ -28,5 +28,8 @@ tells how the build works.
 4. To build without Nix, run `tools/website/build.sh /tmp/paw-site` in the
    dev shell. The pages are in `/tmp/paw-site/site`.
 
+Each page has a "Suggest an edit" link to its file on GitHub. `nix flake
+check` builds the site too, so a broken link fails the check.
+
 If the build fails with `BROKEN`, the line names the page and the link that
 reaches nothing. Fix the link in the Markdown file.

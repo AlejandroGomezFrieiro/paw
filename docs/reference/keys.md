@@ -20,7 +20,8 @@ A command is a count, an operator, and a motion or a text object, e.g., `3>ic`, 
 | `W` `B` | next, previous bar | next, previous bar |
 | `0` `^` `$` | start of the project, first clip, end of the last clip | start of the clip, first note, end of the clip |
 | `gg` `G` | first, last track (`5G` track 5) | highest, lowest note |
-| `5\|` | bar 5 (also `:5`) | |
+| `5\|` | bar 5 (also `:5`); in a scope with time, its bar 5 | |
+| `@19\|` | bar 19 of the song, also in a scope with its own bars (also `:@19`) | |
 | `gP` | cursor to the playhead | |
 | `]'` `['` | next marker or region, the one before | |
 | `]r` `[r` | next region at the same level, the one before | |
@@ -151,7 +152,7 @@ In the **curve editor**:
 | `ir` | the region, on this track (`2ir` the region around it) | the region (`2ir` the region around it) |
 | `il` | the loop | |
 | `it` | everything on the track | |
-| `ie` | the entire project | every note of the clip |
+| `ie` | the entire project (in a scope, the entire scope) | every note of the clip |
 
 In visual mode, the same text object again takes in one more, so `vic` and then `ic` selects two chords.
 
@@ -227,6 +228,7 @@ In visual mode, the same text object again takes in one more, so `vic` and then 
 | `<BS>` | take back what was entered last |
 | `I` (in step input) | back to drawing |
 | `<Esc>` | write all the notes (one undo step) |
+| the sustain pedal | a rest of one step with no key held, the held keys a step longer otherwise; `:step.learn` binds more [controls](piano-roll.md#controls-of-the-controller) |
 
 ## Write from the harmony (snippets, R)
 
@@ -256,6 +258,7 @@ See [Snippets](snippets.md) and [Completion](completion.md).
 | Keys | |
 | --- | --- |
 | `.` | repeat the last change (`3.` with a new count) |
+| `<Space>.` | adjust the last change: the command line holds `:adjust` and the parameters of the last command (`:quantize`, `:transpose`, `:clip.fade`), so that you can change them and run it again in place of its undo step |
 | `"a` | the register for the next command; `"0` last yank, `"_` nowhere |
 | `qa` … `q` | record keys into register a |
 | `@a` `@@` `@:` | play them, the last macro again, the last command line |
@@ -288,7 +291,7 @@ After the leader, the first key is a domain, and the next key is what to do in i
 | v: views | `<Space>vm` mixer, `<Space>vd` device panel, `<Space>vp` piano roll, `<Space>vs` session view, `<Space>vn` notation, `<Space>vu` undo tree |
 | z: scopes | `<Space>zz` a scope from a list, `<Space>zs` `<Space>zv` `<Space>zt` the scope at the cursor (or of the selection) in a new split, vertical split, tab, `<Space>zn` name this window's scope |
 
-`u` and `<C-r>` (undo and redo) have no leader, and the keys of one view are on the local leader `\`.
+`u` and `<C-r>` (undo and redo) have no leader, and the keys of one view are on the local leader `\`. `<Space>.` is the one leader key that is not a domain: it adjusts the last change (see [Repeat and remember](#repeat-and-remember)).
 
 ## Play
 

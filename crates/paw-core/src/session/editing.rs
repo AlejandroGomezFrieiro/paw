@@ -100,6 +100,7 @@ impl Session {
         }
         let sweep = std::mem::take(&mut self.undo.sweep);
         let join = self.undo.join.take();
+        self.undo.adjusting = None;
         if !self.undo.touched {
             self.undo.history.clear_labels();
             return;

@@ -46,6 +46,8 @@ pub struct Shared {
     /// [`Device::resting`]), since the engine was made.
     pub(super) device_runs: AtomicU64,
     pub(super) device_sleeps: AtomicU64,
+    /// Blocks in which the whole engine rested, since it was made.
+    pub(super) engine_rests: AtomicU64,
     /// Groups of tracks shared out between threads, since the engine was made.
     pub(super) shared_groups: AtomicU64,
     /// Callbacks the engine has finished since it was made. Unlike
@@ -84,6 +86,7 @@ impl Shared {
             preview_seconds: AtomicF64::new(0.0),
             device_runs: AtomicU64::new(0),
             device_sleeps: AtomicU64::new(0),
+            engine_rests: AtomicU64::new(0),
             shared_groups: AtomicU64::new(0),
             processed: AtomicU64::new(0),
             device_ran: (0..MAX_DEVICES).map(|_| AtomicU64::new(0)).collect(),
@@ -97,6 +100,12 @@ impl Shared {
             self.device_runs.load(Relaxed),
             self.device_sleeps.load(Relaxed),
         )
+    }
+
+    /// Blocks in which the whole engine rested since it was made: stopped,
+    /// with nothing that sounds, it wrote silence and did no other work.
+    pub fn engine_rests(&self) -> u64 {
+        self.engine_rests.load(Relaxed)
     }
 
     /// Groups of tracks shared out between threads since the engine was
