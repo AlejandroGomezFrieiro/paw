@@ -62,7 +62,8 @@ Two more words change what `:nest.new` does with the time of the song:
   subproject its meter and leaves the tempo map of the song as it is. The
   song keeps its bars over the block, so the two meters run side by side,
   and nothing after the section moves. The message ends with `(the song's
-  meter stays)`.
+  meter stays)`. Inside the subproject, the ruler, the grid and the
+  status line count its meter.
 - `tempo=own` gives the subproject a tempo of its own from the start, at
   the tempo of the song where the block starts. The message ends with
   `its own tempo, 120 bpm`, with the tempo it took.

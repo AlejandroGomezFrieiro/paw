@@ -2426,10 +2426,10 @@ function paw.diagnostic.where(d) end
 ---@param filter any
 function paw.diagnostic.worst(uri, filter) end
 
---- The bars and beats from `from` for `span` beats, as the project counts
---- them. `{ beat = b, bar = n }` is a bar line (n from 1), and
---- `{ beat = b }` is a beat inside a bar. Bar lines come from
---- `paw.time.bar_start`, so a change of time signature moves them.
+--- The bars and beats from `from` for `span` beats of the window's time, as
+--- the window counts them (`paw.time.lines`): in a subproject with its own
+--- meter, its bars. `{ beat = b, bar = n }` is a bar line (n from 1), and
+--- `{ beat = b }` is a beat inside a bar. A change of time signature moves them.
 ---@param from any
 ---@param span any
 function paw.draw.bar_lines(from, span) end

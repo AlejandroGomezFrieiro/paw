@@ -71,8 +71,9 @@ a subproject with tracks and a meter of its own:
 2. Type `:nest.new Bridge 8 6/8 meter=own`. The message ends with
    `(the song's meter stays)`, and the window goes inside the
    subproject, with one empty track.
-3. Add the tracks of the bridge there. Inside the subproject, `3|` goes
-   to bar 3 of 6/8, and the song keeps its bars in 4/4.
+3. Add the tracks of the bridge there. Inside the subproject, the ruler
+   and the status line count bars of 6/8, and `3|` goes to bar 3. The
+   song keeps its bars in 4/4.
 4. Press `zw` to return to the song.
 
 See [Subprojects](../reference/subprojects.md) for the details.

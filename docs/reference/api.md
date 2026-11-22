@@ -595,7 +595,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 ## Module paw.draw
 
-- `paw.draw.bar_lines(from, span)`: The bars and beats from `from` for `span` beats, as the project counts them. `{ beat = b, bar = n }` is a bar line (n from 1), and `{ beat = b }` is a beat inside a bar. Bar lines come from `paw.time.bar_start`, so a change of time signature moves them.
+- `paw.draw.bar_lines(from, span)`: The bars and beats from `from` for `span` beats of the window's time, as the window counts them (`paw.time.lines`): in a subproject with its own meter, its bars. `{ beat = b, bar = n }` is a bar line (n from 1), and `{ beat = b }` is a beat inside a bar. A change of time signature moves them.
 - `paw.draw.beats(ruler, scroll, span, zoom, origin)`: Write the numbers of a ruler above a roll that shows `span` beats from `scroll`, at `zoom` columns for each beat. Bars have the numbers of the project (`origin` is the project beat of the beat 0 of the roll). Beats between them are ticks. Returns the positions of the lines, as `{ x, bar }`, for the rows below.
 - `paw.draw.braille(bits)`: A braille character from its eight dots: bit k is dot k + 1.
 - `paw.draw.chips(buf, x, y, list, gap)`: Small on/off marks side by side, each a letter on a cell of its own: `chips(buf, x, y, { { "M", on, "Mute" }, ... }, gap)`. Returns the columns used.
