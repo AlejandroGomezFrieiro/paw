@@ -1276,10 +1276,12 @@ function view:render(buf, ctx)
   -- Keep the playhead in view while playing, and the cursor whenever it
   -- moves; unless another window leads this one's time (`timebind`).
   local led = ctx.follower
+  -- In a subproject, the playhead's beat of the song is `origin` later
+  -- than the window's beat (paw.time).
+  local origin = paw.time.origin()
   if t.playing and opt.follow and not led then
-    if t.position < self.scroll or t.position >= self.scroll + span then
-      self.scroll = paw.time.bar_floor(t.position)
-    end
+    local position = t.position - origin
+    if position < self.scroll or position >= self.scroll + span then self.scroll = paw.time.bar_floor(position) end
   elseif cursor.beat ~= self.seen_beat and not led then
     if cursor.beat < self.scroll then
       self.scroll = paw.time.bar_floor(cursor.beat)
@@ -1322,7 +1324,7 @@ function view:render(buf, ctx)
   end
   local loop
   if t.loop_enabled and t.loop_end > t.loop_start then
-    local x0, x1 = math.max(0, col(t.loop_start)), math.min(tw, col(t.loop_end))
+    local x0, x1 = math.max(0, col(t.loop_start - origin)), math.min(tw, col(t.loop_end - origin))
     if x1 > x0 then
       loop = { x0, x1 }
       ruler:fill(x0, 0, x1 - x0, 1, nil, "RulerLoop")
@@ -1366,10 +1368,12 @@ function view:render(buf, ctx)
     end
   end
   if loop then
-    if col(t.loop_start) >= 1 then ruler:text(col(t.loop_start) - 1, 0, g.loop_in, "RulerLoopEdge") end
+    if col(t.loop_start - origin) >= 1 then
+      ruler:text(col(t.loop_start - origin) - 1, 0, g.loop_in, "RulerLoopEdge")
+    end
     -- The end's mark sits in the band's last cell, clear of the next bar's number.
-    if col(t.loop_end) >= 1 and col(t.loop_end) <= tw then
-      ruler:text(col(t.loop_end) - 1, 0, g.loop_out, "RulerLoopEdgeIn")
+    if col(t.loop_end - origin) >= 1 and col(t.loop_end - origin) <= tw then
+      ruler:text(col(t.loop_end - origin) - 1, 0, g.loop_out, "RulerLoopEdgeIn")
     end
   end
   if punch then
@@ -1410,7 +1414,7 @@ function view:render(buf, ctx)
   for i, line in ipairs(lines) do
     marks[i] = { line.beat, line.bar and true or false }
   end
-  local loop_beats = loop and { t.loop_start, t.loop_end } or nil
+  local loop_beats = loop and { t.loop_start - origin, t.loop_end - origin } or nil
   -- A take being made: from where the playhead was when it began, or from
   -- the punch-in.
   if t.take then
@@ -1594,11 +1598,11 @@ function view:render(buf, ctx)
   end
   buf:mark("playhead", hw, 0, tw, mst.y, {
     at = t.position,
-    from = self.scroll,
+    from = self.scroll + origin,
     per = zoom,
     lo = 0,
     hi = 1e12,
-    spans = spans_at(col(t.position)),
+    spans = spans_at(col(t.position - origin)),
     spans_at = spans_at,
     bind = "position",
   })
@@ -1669,7 +1673,8 @@ function view:moving()
   local g = self.geometry
   if not (g and g.span and paw.opt.follow) then return false end
   local t = paw.ui.transport()
-  return t.playing and (t.position < self.scroll or t.position >= self.scroll + g.span)
+  local position = t.position - paw.time.origin()
+  return t.playing and (position < self.scroll or position >= self.scroll + g.span)
 end
 
 paw.ui.view("arrange", view)

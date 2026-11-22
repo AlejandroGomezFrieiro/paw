@@ -65,6 +65,7 @@ local record Opts
    mixer_height: number
    mouse: boolean
    native_dialogs: boolean
+   nest_track: string
    note_grid: number
    note_snap: boolean
    note_zoom: number

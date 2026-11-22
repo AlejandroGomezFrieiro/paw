@@ -1450,6 +1450,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 - `paw.nest.get(id)`: The subproject `id`, or nil when there is none.
 - `paw.nest.list()`: Every subproject, in the order they were made: { id, name, length, tempo, meter, master, tracks, kind, meta, used }.
+- `paw.nest.new(o)`: Make a subproject with a row of its own, as `:nest.new` does (see the top): the subproject over the time given, a return row below the track `below` with one block, the meter in the song's map when one is given; then the window enters it, with one empty track (`paw.opt.nest_track`). Call it in one undo step (a command is one).
 
 ## Module paw.option
 
@@ -1889,6 +1890,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.scope.of_region(r)`: The scope an operator's region covers (`zn{motion}`, `{Visual}zn`): the region, group or track its text object names (`ar`, `ag`, `it`), else a block of its tracks, with its time when it has some. Nil for the whole of what the window shows (`ie`).
 - `paw.scope.of_tab(tab)`: The scope of a tab: that of its current window.
 - `paw.scope.open(how, spec)`: Open a scope (the one at the cursor by default) in a new window: `how` is "split", "vsplit" or "tab". The new window starts with the scope of the one it comes from, and enters this one inside it.
+- `paw.scope.origin()`: The song's beat of beat 0 of the time the window shows (the window being drawn, else the current one): in a subproject, where its block starts; else 0. `paw.time` adds it, so that a subproject's bars are the song's bars at its place.
 - `paw.scope.path(s)`: The levels of a scope's path (the current one by default), from the outermost to it.
 - `paw.scope.rest_parts(s)`: The parts of the rest of the song that paw can freeze for a scope. These are the tracks outside it at the top of their branch (a whole group, not its members). They are not the tracks that the sound of the scope goes through (its groups, and a bus that its sends reach). They are not empty.
 - `paw.scope.restore(s, win)`: Show a scope in a window as it was (a jump back, `<C-o>`): no jump of its own, no check. Nil is the song.
@@ -2066,11 +2068,11 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.tempo.beats_to_seconds`: the same as `paw.api.tempo_seconds`.
 - `paw.tempo.commands(command)`: Define the tempo and time signature commands with `command`.
 - `paw.tempo.describe()`: The whole map as text, for example "120 bpm 4/4 at bar 1, 90 bpm from bar 3 with a ramp, ...".
-- `paw.tempo.is_bar_line`: the same as `paw.api.tempo_is_bar_line`.
+- `paw.tempo.is_bar_line(beat)`: Whether a bar starts at this beat of the window's time.
 - `paw.tempo.label(point)`: What a tempo change reads as on a ruler: "96" or "120>" for a ramp.
 - `paw.tempo.lines(from, to, limit)`: The bar and beat lines from one beat to another: { beat, bar, index }, `index` 0 on a bar line (bars count from 1).
 - `paw.tempo.marks(from, to)`: Tempo and signature changes from one beat to another, for a ruler to mark: { beat, text, kind = "tempo" | "signature" }, the start's left out.
-- `paw.tempo.place(text)`: A place given to a command: a bar (`17`), a bar and beat (`17.3`), a bar of the song (`@19`), or `cursor` / `here`. The beat of the cursor when nothing is given. In a scope with time (`paw.scope`), bars are its own, from 1 at its start; `@19` is bar 19 of the song all the same.
+- `paw.tempo.place(text)`: A place given to a command: a bar (`17`), a bar and beat (`17.3`), a bar of the song (`@19`), or `cursor` / `here`. The beat of the cursor when nothing is given. In a scope with time (`paw.scope`), bars are its own, from 1 at its start; `@19` is bar 19 of the song all the same. The beat is of the window's time (in a subproject, from its start).
 - `paw.tempo.point_at(beat)`: The tempo point in effect at a beat.
 - `paw.tempo.points()`: Every tempo point, the start's first: { beat, bpm, ramp }.
 - `paw.tempo.remove(beat)`: Remove the tempo change at `beat`.

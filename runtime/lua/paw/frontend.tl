@@ -1673,8 +1673,8 @@ function M.state(known: integer): State
     position = t.position,
     -- Beats of a count-in still to be counted before the take starts; 0 for none.
     counting = t.counting or 0,
-    time = paw.time.format(t.position),
-    clock = paw.time.clock(t.position),
+    time = paw.time.format(t.position - paw.time.origin()),
+    clock = paw.time.clock(t.position - paw.time.origin()),
     -- The tempo and signature where the playhead is.
     tempo = math.floor(paw.tempo.at(t.position) * 100 + 0.5) / 100,
     signature = num .. "/" .. den,
@@ -2024,7 +2024,11 @@ function M.render_dialog(): RenderDialog
   if t.loop_end > t.loop_start then
     ranges[#ranges + 1] = {
       name = "loop",
-      label = string.format("The loop (%s – %s)", paw.time.format(t.loop_start), paw.time.format(t.loop_end)),
+      label = string.format(
+        "The loop (%s – %s)",
+        paw.time.format(t.loop_start - paw.time.origin()),
+        paw.time.format(t.loop_end - paw.time.origin())
+      ),
     }
   end
   local sel = paw.keymap.selection()

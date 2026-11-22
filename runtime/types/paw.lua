@@ -5865,6 +5865,14 @@ function paw.nest.get(id) end
 --- tempo, meter, master, tracks, kind, meta, used }.
 function paw.nest.list() end
 
+--- Make a subproject with a row of its own, as `:nest.new` does (see the
+--- top): the subproject over the time given, a return row below the
+--- track `below` with one block, the meter in the song's map when one is
+--- given; then the window enters it, with one empty track
+--- (`paw.opt.nest_track`). Call it in one undo step (a command is one).
+---@param o any
+function paw.nest.new(o) end
+
 --- Tells if option `name` accepts `value`: true, or nil and an error that
 --- tells what it accepts. An option with no default accepts any value.
 ---@param name any
@@ -7328,6 +7336,12 @@ function paw.scope.of_tab(tab) end
 ---@param spec any
 function paw.scope.open(how, spec) end
 
+--- The song's beat of beat 0 of the time the window shows (the window
+--- being drawn, else the current one): in a subproject, where its block
+--- starts; else 0. `paw.time` adds it, so that a subproject's bars are the
+--- song's bars at its place.
+function paw.scope.origin() end
+
 --- The levels of a scope's path (the current one by default), from the
 --- outermost to it.
 ---@param s any
@@ -8066,7 +8080,9 @@ function paw.tempo.commands(command) end
 --- The whole map as text, for example "120 bpm 4/4 at bar 1, 90 bpm from bar 3 with a ramp, ...".
 function paw.tempo.describe() end
 
-paw.tempo.is_bar_line = paw.api.tempo_is_bar_line
+--- Whether a bar starts at this beat of the window's time.
+---@param beat any
+function paw.tempo.is_bar_line(beat) end
 
 --- What a tempo change reads as on a ruler: "96" or "120>" for a ramp.
 ---@param point any
@@ -8089,6 +8105,7 @@ function paw.tempo.marks(from, to) end
 --- bar of the song (`@19`), or `cursor` / `here`. The beat of the cursor
 --- when nothing is given. In a scope with time (`paw.scope`), bars are its
 --- own, from 1 at its start; `@19` is bar 19 of the song all the same.
+--- The beat is of the window's time (in a subproject, from its start).
 ---@param text any
 function paw.tempo.place(text) end
 

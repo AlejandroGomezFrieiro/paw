@@ -303,7 +303,7 @@ After the leader, the first key is a domain, and the next key is what to do in i
 | T: tempo and transport | `<Space>Tt` tap the tempo, `<Space>Tm` the metronome, `<Space>Tc` the count-in |
 | u: utau | `<Space>ut` add a vocal track, `<Space>uv` make the track vocal, `<Space>us` the singer, `<Space>ue` the vocal editor, `<Space>ul` the lyric sheet, `<Space>ur` render again, `<Space>uf` `<Space>uF` freeze, unfreeze, `<Space>uo` OpenUtau, `<Space>ui` the engine |
 | v: views | `<Space>vm` mixer, `<Space>vd` device panel, `<Space>vp` piano roll, `<Space>vs` session view, `<Space>vn` notation, `<Space>vu` undo tree |
-| z: scopes | `<Space>zz` a scope from a list, `<Space>zs` `<Space>zv` `<Space>zt` the scope at the cursor (or of the selection) in a new split, vertical split, tab, `<Space>zn` name this window's scope |
+| z: scopes | `<Space>zz` a scope from a list, `<Space>za` add a subproject here (see [Subprojects](subprojects.md)), `<Space>zs` `<Space>zv` `<Space>zt` the scope at the cursor (or of the selection) in a new split, vertical split, tab, `<Space>zn` name this window's scope |
 
 `u` and `<C-r>` (undo and redo) have no leader, and the keys of one view are on the local leader `\`. `<Space>.` is the one leader key that is not a domain: it adjusts the last change (see [Repeat and remember](#repeat-and-remember)).
 
