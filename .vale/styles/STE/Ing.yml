@@ -13,3 +13,5 @@ exceptions:
   - (?i)building|routing|listing|listings|padding|spacing|beginning|offering|wiring|keyring
   # "plain-writing" is the name of a skill and of a style, a technical name.
   - (?i)writing
+  # "rust-testing" and "lua-testing" are the names of skills, technical names.
+  - (?i)testing
