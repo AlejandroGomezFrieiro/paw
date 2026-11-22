@@ -257,7 +257,14 @@ fn a_watching_frontend_is_sent_what_changed_and_nothing_when_nothing_did() {
     assert!(quiet(&c, Duration::from_millis(400)), "an idle kernel sends nothing");
     // A change sends the parts it touched, and not the bar lines again.
     c.call("eval", json!(["paw.add_track({ name = 'two' })"])).unwrap();
-    let next = event(&c, "frontend.state");
+    // A state with only the levels can come first: the engine wakes up
+    // from its rest when the track is added.
+    let next = loop {
+        let state = event(&c, "frontend.state");
+        if state["sections"].is_object() {
+            break state;
+        }
+    };
     let changed = next["sections"].as_object().expect("something changed");
     assert_eq!(changed["tracks"][1]["name"], "two");
     assert!(!changed.contains_key("lines"), "the lines did not change: {:?}", changed.keys());

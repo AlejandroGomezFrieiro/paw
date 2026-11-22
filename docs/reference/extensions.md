@@ -158,6 +158,7 @@ paw stops Lua that runs for more than two seconds and does not return. The limit
 
 - Time in the kernel does not count, for example a render, the read of a project, the start of a plugin, and `paw.wait`.
 - `:lua` that you type gets one minute, and scripts that run with `-l` have no limit.
+- `paw.opt.budget_ms` is a much shorter time that warns and doesn't stop the code. See [The budget of a callback](lua-other.md#the-budget-of-a-callback).
 - A build without `LUAJIT_ENABLE_CHECKHOOK` uses a count hook, and code that is not part of the runtime then runs in the interpreter of LuaJIT.
 
 ## Views in the graphical window

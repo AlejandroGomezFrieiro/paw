@@ -37,7 +37,10 @@ command("undo.name", function(ctx)
   local name = table.concat(ctx.args, " ")
   local id = api.undo_name(name ~= "" and name or nil)
   paw.notify(name ~= "" and ("named #" .. id .. " " .. name) or ("#" .. id .. " has no name now"))
-end, { desc = "Name the current state, in this session (`checkpoint` also writes it to disk)", raw = true })
+end, {
+  desc = "Name the current state; the undo file keeps it after a save (`checkpoint` writes a file of its own)",
+  raw = true,
+})
 
 command("undo.diff", function(ctx)
   local diff = api.undo_diff(tonumber(ctx.args[1]), tonumber(ctx.args[2]))

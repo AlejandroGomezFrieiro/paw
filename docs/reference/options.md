@@ -47,11 +47,14 @@ An extension adds options of its own with `paw.option.define(name, default, spec
 | --- | --- | --- |
 | `paw.opt.undo_steps` | `1000` | The number of steps that the undo history keeps, 10 to 1000000. |
 | `paw.opt.undo_memory` | `1024` | About how many megabytes of changes the undo history keeps, from 16. |
+| `paw.opt.undofile` | `true` | After each save of a project folder, paw keeps the undo history in the undo file, so you can undo past the save when you open the project again. It is `false` under `--clean`. See [Files that paw keeps](state-files.md#the-undo-file). |
+| `paw.opt.undofile_mb` | `256` | About how many megabytes the undo file of one project takes, from 1. Past it, paw removes the oldest states. |
 | `paw.opt.shada` | `true` | paw keeps the prompt histories, the last search, the registers and, for each project, the marks and the last cursor across restarts. See [Files that paw keeps](state-files.md#editing-history). |
 | `paw.opt.history` | `200` | The number of lines that each prompt history keeps, 1 to 100000. |
 | `paw.opt.autosave` | `60` | The seconds between safety copies of unsaved work. `0` gives no copies. It is `0` under `--clean`. |
 | `paw.opt.reopen_last` | `false` | A start with no project opens the newest recent project. |
 | `paw.opt.lua_limit` | `2000` | The time in ms after which paw stops Lua code that does not return. `0` gives no limit. |
+| `paw.opt.budget_ms` | `0` | The time in ms that a key, an event handler, a timer or the drawing of the screen should take. A callback that takes longer writes one warning to `:messages`. `0` turns the check off. See [The budget of a callback](lua-other.md#the-budget-of-a-callback). |
 | `paw.opt.clip_kind_limit` | `50` | The time in ms that a function of a kind of clip (e.g., `compile` or `serialize`) can run. `0` gives no limit. |
 
 When the undo history has more steps than `undo_steps` or more data than `undo_memory`, paw removes the oldest steps and shows a message one time. A step keeps about what it changed, because paw keeps the notes of a clip in runs of a few hundred and the steps share the runs. One note changed in a clip of 200,000 notes therefore keeps a copy of its run (about 30 kB), not of the clip. `:set undo_steps=200` removes the oldest steps at once.

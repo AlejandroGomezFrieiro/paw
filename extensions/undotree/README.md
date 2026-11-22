@@ -49,6 +49,11 @@ paw.ext.load("extensions/undotree")   -- or put the directory in ~/.config/paw/e
 
 The restore is a new step, so `u` returns to where you were.
 
+After a save, the undo file also keeps every state, so the tree is there
+when you open the project again. A checkpoint stays when the undo file
+does not, for example after a change of the project's files with `git`. See
+[Files that paw keeps](../../docs/reference/state-files.md#the-undo-file).
+
 ### How to see what a step changed
 
 - For the last step, type `:undo.diff`, or press `<Space>p.`.
@@ -133,7 +138,7 @@ its last line. `:view.window undotree`, or "Open in a window" on
 | `:earlier 5`, `:earlier 30s`, `:earlier 2m`, `:earlier 1h`, `:earlier 1d` | back by a count of states or by a time, across branches |
 | `:later …` | does the same, forward |
 | `:undo.goto 12` | goes to state 12 |
-| `:undo.name verse` | names the current state, for this session only |
+| `:undo.name verse` | names the current state. The undo file keeps the name after a save of the project, but a checkpoint is a file of its own |
 | `:undo.diff`, `:undo.diff 3`, `:undo.diff 3 7` | show what the last step changed, what changed from state 3 to now, and what changed from 3 to 7 |
 | `:checkpoint before the bridge` | names the current state and writes it beside the project |
 | `:checkpoints` | lists checkpoints, and paw restores the one that you choose |
