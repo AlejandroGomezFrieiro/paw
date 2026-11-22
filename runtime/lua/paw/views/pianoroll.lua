@@ -776,6 +776,23 @@ function view:render(buf, ctx)
   end
 end
 
+--- What a window of the roll shows besides what events announce (the
+--- screen keeps the window while it is the same): its clip, its cursor,
+--- its scroll, and whether a jump or another window moves its time.
+function view:stamp(ctx)
+  return table.concat({
+    tostring(self.clip_id),
+    self.pitch,
+    self.beat,
+    tostring(self.top),
+    self.scroll,
+    tostring(self.length),
+    tostring(self.fit_next),
+    tostring(self.seen_jump == paw.keymap.jump_serial),
+    tostring(ctx.follower),
+  }, " ")
+end
+
 --- Play the pitch under the cursor on the track of the clip it is in.
 function view:audition(pitch)
   local part = clips.target(self.beat)
