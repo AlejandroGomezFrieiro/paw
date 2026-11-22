@@ -1,6 +1,6 @@
 # Scopes
 
-<!-- tags: narrowing scope narrow region zn znn zw zW -->
+<!-- tags: narrowing scope narrow region subproject nest zn znn zw zW -->
 
 In a large project, you can narrow a window to a part of the song. The
 part is a group of tracks, the time of a region, some tracks, or both
@@ -13,13 +13,14 @@ a scope, and the Lua module is `paw.scope`.
 | Keys, command | Effect |
 | --- | --- |
 | `zn{motion}`, `{Visual}zn` | Enter the scope that the motion or the selection covers, in this window. `znar`: the region at the cursor. `znag`: the group. `znit`: the track. `Vjjzn`: the three tracks. A visual block: those tracks in that time. |
-| `znn` | Enter the innermost scope at the cursor that the window does not show yet. In a region: the region inside it at the cursor. Else the group of the track, else the track. |
+| `znn` | Enter the innermost scope at the cursor that the window does not show yet. On a clip of a subproject, the subproject. In a region, the region inside it at the cursor. Else the group of the track, else the track. |
+| `<CR>` on a clip of a subproject | Enter the subproject, as `znn` does. |
 | `:narrow Strings`, `:narrow Bridge` | Enter a group or a region by name. A named scope comes first, then a group, then a region of the same name. A name can be the start of the name. Of two regions with the same name, the region in the current scope comes first. A path of regions also finds one: `:narrow Chorus 2/Verse A`. Alone, `:narrow` is `znn`. |
 | `zw`, `:widen` | Go up one level. |
 | `zW`, `:widen!` | Go up to the whole song. |
-| `]z` `[z`, `:scope.next`, `:scope.prev` | Go to the next scope beside this one, or to the one before, in the same parent. A region: the next region of the same parent region. A group: the next group in the same group. A track: the next track of the parent scope. A block with time: the same tracks, the next stretch of the same length. `3]z` goes three on. |
+| `]z` `[z`, `:scope.next`, `:scope.prev` | Go to the next scope beside this one, or to the one before, in the same parent. A subproject: the next clip of a subproject in time, which is the next block of the same subproject or another subproject. A region: the next region of the same parent region. A group: the next group in the same group. A track: the next track of the parent scope. A block with time: the same tracks, the next stretch of the same length. `3]z` goes three on. |
 | `<C-o>` `<C-i>` | Move backward and forward through the jump list. To enter, to leave and `]z` are jumps. A jump keeps the scope, so `<C-o>` returns into the scope and to the place. |
-| `<Space>zz`, `<Space>fz`, `:scope.list` | Choose from a list: the levels of this window's scope (to go up to), the named scopes, the groups and the regions as a tree. |
+| `<Space>zz`, `<Space>fz`, `:scope.list` | Choose from a list: the levels of this window's scope (to go up to), the named scopes, the groups, the subprojects (marked `nest`) and the regions as a tree. |
 | `<Space>zs` `<Space>zv` `<Space>zt`, `:scope.split`, `:scope.vsplit`, `:scope.tab` | Show the scope at the cursor (or of the selection, or one by name) in a new split, vertical split or tab. The window that you were in stays as it was. |
 | `<Space>zn`, `:scope.name Strings in bridge` | Name the scope of this window, so that the list and `:narrow` find it again. |
 | `:set scope_rest=mute` | Set what the tracks outside the scope do (see below). |
@@ -107,6 +108,41 @@ loop:
 | `scopebars` | `"both"` | `"local"`: the bars count from 1 at the start of the scope. `"song"`: the bars of the song. `"both"`: from 1, with the bars of the song on a second row of the ruler. |
 | `scopeloop` | `true` | Loop the time of the scope while its window is in front. |
 
+## A subproject
+
+A subproject has its own tracks and its own timeline, and a clip of the
+subproject places it in the song. The commands and the Lua functions
+call a subproject a nest. You enter a subproject as you enter any other
+scope, with `znn` or `<CR>` on its clip, or from `<Space>zz`.
+
+- The song does not show the tracks of a subproject. The arrange view,
+  the mixer, `paw://tracks`, the pickers, `t*` and `%` list the tracks of
+  the song only. In the subproject, they list its tracks only.
+- The status line marks a subproject with `⧉`, for example
+  `Song › ⧉Ballad 1.2 (9.2)`. The first place is in the bars of the
+  subproject, and the place in brackets is in the bars of the song, at the
+  clip that you entered through.
+- The bars count from 1 at the start of the subproject. With
+  `scopebars=both`, the second row of the ruler shows the bars of the song
+  at that clip.
+- The cursor keeps its place in the song when you enter or leave. The
+  loop is the time of the clip in the song.
+- `]z` and `[z` go to the next clip of a subproject and to the one before.
+- A track that you add in a subproject belongs to the subproject.
+- The subproject plays in the song through the track that holds its
+  clip, its return row. Its tracks play into its master track, and its
+  master plays into the return row, so the fader, pan, sends and devices
+  of the return row act on the whole subproject. Two clips of one
+  subproject on the row play it twice, through the same devices. A muted
+  clip places no notes, and a reverb inside the subproject rings on past
+  the end of a clip.
+- An edit in a subproject is an edit of the project, in the one undo
+  tree. The name of the undo step starts with the name of the subproject,
+  for example `Ballad: add note`, so that `u` in the song undoes it and
+  the undo list says where it was.
+- Inside a subproject, a scope of a group, a track or a time goes one
+  level down as in the song, for example `Song › ⧉Ballad › Strings`.
+
 ## The rest of the song
 
 `paw.opt.scope_rest` sets what the tracks outside the scope do while a
@@ -123,10 +159,13 @@ its time.
 ## Lua
 
 A scope is a table. `kind` is `"group"`, `"track"`, `"tracks"`,
-`"region"` or `"range"`. `id` is the group, track or region. `tracks` is
-a list of track ids, and `from` and `to` are beats. `name` is its
-name, and `parent` is the scope that it is in, or nil. A window keeps
-the innermost level in `win.scope`.
+`"region"`, `"range"` or `"nest"`. `id` is the group, track, region or
+subproject. `tracks` is a list of track ids, and `from` and `to` are
+beats. For a subproject, `clip` is the clip that the window entered
+through. `name` is its name, and `parent` is the scope that it is in, or
+nil.
+
+A window keeps the innermost level in `win.scope`.
 
 | Function | Result |
 | --- | --- |
@@ -139,11 +178,18 @@ the innermost level in `win.scope`.
 | `paw.scope.current(win)` | The scope of a window, or nil. Without a window: of the window that paw draws, else of the current window. |
 | `paw.scope.group()` | The innermost group of the current scope, or nil. |
 | `paw.scope.children()` | The scopes one level inside the current scope: for a region, the regions inside it, and for a group, its members. |
-| `paw.scope.tracks()` | The tracks that the current scope shows. |
+| `paw.scope.tracks()` | The tracks that the current scope shows. In the song, the tracks of the song without those of the subprojects. |
+| `paw.scope.nest()` | The innermost subproject of the current scope, or nil in the song. |
+| `paw.scope.of_clip(id)` | The scope of the subproject that a clip places, or nil. |
+| `paw.scope.song_beat(beat)` | The beat of the song for a beat that the current scope shows. In a subproject, the beat at the clip that the window entered through. |
 | `paw.scope.span()` | The time that the current scope shows, `from, to` in beats, or nil for all of it. |
 | `paw.scope.contains(track)` | True if the current scope shows the track. |
 | `paw.scope.breadcrumb()` | The path, for example `Song › Bridge › Strings`. |
 | `paw.scope.song_bar(n)` | The bar of the song for bar `n` of the scope. |
+
+`paw.api.track_list()` gives the tracks of the song. `paw.api.track_list({ nest = id })`
+gives the tracks of a subproject, and `paw.api.track_list({ all = true })`
+gives every track.
 
 `paw.api.engine_audible(ids)` and `paw.api.engine_hold(track, file)` give
 `mute` and `frozen` (see

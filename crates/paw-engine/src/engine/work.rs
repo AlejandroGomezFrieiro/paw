@@ -341,7 +341,11 @@ impl Work<'_> {
     /// at rest sleep through silence, and passing over or silencing those
     /// that fail.
     fn run_chain(&self, t: &mut TrackRt, programs: &Programs) {
-        let Block { ref ctx, n, .. } = *self.block;
+        let Block { ref ctx, n, map, .. } = *self.block;
+        // A track with a time of its own (a subproject's) gives its devices
+        // its bars: a copy of the block's context, on the stack.
+        let local = t.local.as_deref().map(|l| l.context(ctx, map));
+        let ctx = local.as_ref().unwrap_or(ctx);
         let [left, right] = &mut t.buf;
         // Whether the block is silent with no events, as far as it is known:
         // looked at when a device at rest asks, and true still after a

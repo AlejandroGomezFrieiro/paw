@@ -182,6 +182,23 @@ local function name_of(id: integer): string
   return (api.track_get as function(integer, string): string)(id, "name")
 end
 
+--- A track's subproject, or nil for a track of the song (one field: quick).
+local nest_field = api.track_get as function(id: integer, key: string): integer
+local function nest_of(id: integer): integer
+  local ok, nest = pcall(nest_field, id, "nest") as (boolean, integer)
+  return ok and nest or nil
+end
+
+local nest_get = api.nest_get as function(id: integer, key: string): string | number
+local function nest_exists(id: integer): boolean
+  for _, other in ipairs(api.nest_list()) do
+    if other == id then
+      return true
+    end
+  end
+  return false
+end
+
 local function region(id: integer): MarkersModule.Marker
   local m = paw.markers and paw.markers.find({id = id})
   if m and m.length then
@@ -199,6 +216,9 @@ local function valid(s: Scope): boolean
   end
   if s.kind == "region" then
     return region(s.id) ~= nil
+  end
+  if s.kind == "nest" then
+    return nest_exists(s.id)
   end
   return true
 end
@@ -298,6 +318,8 @@ local function own_contains(s: Scope, id: integer): boolean
     return false
   elseif s.kind == "track" then
     return id == s.id
+  elseif s.kind == "nest" then
+    return nest_of(id) == s.id
   elseif s.tracks then
     for _, other in ipairs(s.tracks) do
       if other == id then
@@ -327,9 +349,27 @@ function M.contains(track: TrackRef, s?: Scope | integer): boolean
     if valid(scope) and not own_contains(scope, id) then
       return false
     end
+    if scope.kind == "nest" and valid(scope) then
+      -- A subproject's tracks are its own: the levels above it show the song's.
+      return true
+    end
     scope = scope.parent
   end
-  return true
+  -- The song shows its own tracks, not those of a subproject.
+  return id == 0 or nest_of(id) == nil
+end
+
+--- The innermost subproject of a scope's path (the current scope by
+--- default), or nil when the path is in the song: its tracks and its
+--- timeline are what the window shows.
+function M.nest(s?: Scope | integer): Scope
+  local scope = resolve(s)
+  while scope do
+    if scope.kind == "nest" and valid(scope) then
+      return scope
+    end
+    scope = scope.parent
+  end
 end
 
 --- True if a scope, or one of the levels above it, limits the tracks.
@@ -344,12 +384,26 @@ function M.limits_tracks(s?: Scope | integer): boolean
   return false
 end
 
+--- Whether a level below the innermost subproject (or below the song)
+--- limits the tracks: else the scope shows all of that place's tracks.
+local function limits_inside(scope: Scope): boolean
+  while scope and scope.kind ~= "nest" do
+    if scope.kind ~= "region" and not (scope.kind == "range" and not scope.tracks) then
+      return true
+    end
+    scope = scope.parent
+  end
+  return false
+end
+
 --- The tracks of a scope (the current one by default), in the order of the
---- track list. With no scope, or one that keeps every track, all tracks.
+--- track list. With no scope, or one that keeps every track, all tracks of
+--- the song; in a subproject, its tracks.
 function M.tracks(s?: Scope | integer): {integer}
   local scope = resolve(s)
-  local list = api.track_list()
-  if not (scope and M.limits_tracks(scope)) then
+  local nest = M.nest(scope)
+  local list = nest and api.track_list({nest = nest.id}) or api.track_list()
+  if not (scope and limits_inside(scope)) then
     return list
   end
   local out: {integer} = {}
@@ -363,7 +417,12 @@ end
 
 --- One level's own time, or nil for all of it.
 local function own_span(s: Scope): number, number
-  if s.kind == "region" then
+  if s.kind == "nest" then
+    local ok, length = pcall(nest_get, s.id, "length") as (boolean, number)
+    if ok and length then
+      return 0, length
+    end
+  elseif s.kind == "region" then
     local m = region(s.id)
     if m then
       return m.beat, m.beat + m.length
@@ -384,6 +443,10 @@ function M.span(s?: Scope | integer): number, number
     if a and valid(scope) then
       from = from and math.max(from, a) or a
       to = to and math.min(to, b) or b
+    end
+    if scope.kind == "nest" and valid(scope) then
+      -- A subproject's timeline is its own: the song's time above it is not.
+      break
     end
     scope = scope.parent
   end
@@ -426,13 +489,38 @@ function M.children(s?: Scope): {Scope}
   return out
 end
 
---- The path in words: `Song › Bridge › Strings`.
+--- The path in words: `Song › Bridge › Strings`; a subproject is marked
+--- `⧉`: `Song › ⧉Ballad › Strings`.
 function M.breadcrumb(s?: Scope): string
   local names = {"Song"}
   for _, level in ipairs(M.path(s)) do
-    names[#names + 1] = level.name
+    names[#names + 1] = (level.kind == "nest" and "⧉" or "") .. level.name
   end
   return table.concat(names, " › ")
+end
+
+--- What a subproject's clip places: where its start is in the song, and
+--- the beat of the subproject that starts there.
+local clip_field = api.clip_get as function(id: integer): types.Clip
+
+--- The beats to add to a beat of the window to get the song's beat: in a
+--- subproject, where the clip it was entered through places its beat 0
+--- (the clip's start less its offset); else 0.
+function M.song_offset(s?: Scope): number
+  local nest = M.nest(s)
+  if not (nest and nest.clip) then
+    return 0
+  end
+  local ok, c = pcall(clip_field, nest.clip) as (boolean, types.Clip)
+  if not (ok and c and c.nest == nest.id) then
+    return 0
+  end
+  return c.start - (c.offset or 0)
+end
+
+--- The song's beat of a beat that the current scope shows.
+function M.song_beat(beat: number, s?: Scope): number
+  return beat + M.song_offset(s)
 end
 
 -- Bars --------------------------------------------------------------------------------
@@ -588,6 +676,10 @@ local function name_for(s: Scope): string
     local m = region(s.id)
     return m and m.name
   end
+  if s.kind == "nest" then
+    local ok, name = pcall(nest_get, s.id, "name") as (boolean, string)
+    return ok and name or ("Subproject " .. tostring(s.id))
+  end
   if s.from and s.to and paw.time then
     local a, b = paw.time.bar_of(s.from), paw.time.bar_of(math.max(s.from, s.to - 1e-6))
     return a == b and ("Bar " .. a) or string.format("Bars %d-%d", a, b)
@@ -595,11 +687,26 @@ local function name_for(s: Scope): string
   return s.tracks and (#s.tracks .. " tracks") or "Range"
 end
 
+--- The scope of a subproject's clip (`znn` or `<CR>` on it enters it), or
+--- nil when the clip places no subproject.
+function M.of_clip(id: integer): Scope
+  local ok, c = pcall(clip_field, id) as (boolean, types.Clip)
+  if ok and c and c.nest then
+    return {kind = "nest", id = c.nest, clip = id}
+  end
+end
+
 --- The scope that `znn` enters at the cursor: the innermost not entered
---- yet. In a region scope, the region one level inside it at the cursor;
---- else the group at the cursor (its header or one of its tracks), else
---- the track. Nil when the window shows that track already.
+--- yet. A subproject's clip at the cursor; in a region scope, the region
+--- one level inside it at the cursor; else the group at the cursor (its
+--- header or one of its tracks), else the track. Nil when the window shows
+--- that track already.
 function M.at_cursor(): Scope
+  local clip = paw.cursor.clip()
+  local nest = clip and M.of_clip(clip.id)
+  if nest then
+    return nest
+  end
   local here = M.current()
   if here and here.kind == "region" and paw.markers then
     local path = paw.markers.path(paw.cursor.beat)
@@ -687,6 +794,10 @@ local function sync_loop(s: Scope)
   local from, to: number, number
   if s then
     from, to = M.span(s)
+    if from then
+      local offset = M.song_offset(s)
+      from, to = from + offset, to + offset
+    end
   end
   local tr = paw.transport
   if from and to > from and opt.scopeloop then
@@ -738,6 +849,7 @@ local function level(spec: Scope, parent: Scope): Scope
     from = spec.from,
     to = spec.to,
     name = spec.name,
+    clip = spec.clip,
   }
   if not valid(s) then
     error("no " .. s.kind .. " " .. tostring(s.id), 0)
@@ -747,7 +859,8 @@ local function level(spec: Scope, parent: Scope): Scope
   end
   s.name = name_for(s)
   s.parent = parent
-  if parent then
+  -- A subproject shows its own tracks and time, whatever the parent shows.
+  if parent and s.kind ~= "nest" then
     local why = empty_inside(s)
     if why then
       error(why, 0)
@@ -757,7 +870,7 @@ local function level(spec: Scope, parent: Scope): Scope
 end
 
 local function same_level(a: Scope, b: Scope): boolean
-  if not (a and b) or a.kind ~= b.kind or a.id ~= b.id or a.from ~= b.from or a.to ~= b.to then
+  if not (a and b) or a.kind ~= b.kind or a.id ~= b.id or a.from ~= b.from or a.to ~= b.to or a.clip ~= b.clip then
     return false
   end
   return table.concat(a.tracks or {}, ",") == table.concat(b.tracks or {}, ",")
@@ -843,6 +956,32 @@ local function siblings(s: Scope): {Scope}, integer
         if id == s.id then
           at = #out
         end
+      end
+    end
+  elseif s.kind == "nest" then
+    -- The clips of subprojects on the tracks of the parent, by time: the
+    -- next block of this subproject, or the next subproject.
+    local clips: {types.Clip} = {}
+    for _, track in ipairs(M.tracks(s.parent)) do
+      for _, c in ipairs(api.clip_list(track)) do
+        if c.kind == "nest" then
+          clips[#clips + 1] = c
+        end
+      end
+    end
+    table.sort(
+      clips,
+      function(a: types.Clip, b: types.Clip): boolean
+        if a.start ~= b.start then
+          return a.start < b.start
+        end
+        return a.id < b.id
+      end
+    )
+    for _, c in ipairs(clips) do
+      out[#out + 1] = {kind = "nest", id = c.nest, clip = c.id}
+      if c.id == s.clip then
+        at = #out
       end
     end
   elseif s.kind == "track" then
@@ -1238,6 +1377,18 @@ local function follow(force?: boolean, win?: Window)
   if s == followed and not force then
     return
   end
+  -- Into or out of a subproject, the cursor keeps its place in the song:
+  -- its beat is now one of the other timeline.
+  local function root(at: Scope): Scope
+    return at and M.nest(at) or nil
+  end
+  local function offset(at: Scope): number
+    return at and M.song_offset(at) or 0
+  end
+  if root(followed) ~= root(s) and paw.cursor.beat then
+    local beat = paw.cursor.beat + offset(followed) - offset(s)
+    paw.cursor.set_beat(math.max(0, beat))
+  end
   followed = s
   cursor_inside(s)
   sync_loop(s)
@@ -1314,7 +1465,7 @@ end
 --- Whether the ruler shows the song's bars under the scope's: in a scope
 --- with time, with `scopebars=both`.
 local function song_row(): boolean
-  return opt.scopebars == "both" and M.span() ~= nil and M.bar_offset() ~= 0
+  return opt.scopebars == "both" and M.span() ~= nil and (M.bar_offset() ~= 0 or M.song_offset() ~= 0)
 end
 
 local arrange = paw.ui.views.arrange as Arrange
@@ -1342,9 +1493,10 @@ if arrange and arrange.layers then
       return true
     end
     local free = 0
+    local offset = M.song_offset()
     for _, line in ipairs(paw.time.bars(layer.scroll, layer.scroll + layer.span)) do
       local x = layer.x(line.beat)
-      local text = tostring(line.bar)
+      local text = tostring(offset ~= 0 and paw.time.bar_of(line.beat + offset) or line.bar)
       if x >= free and x >= 0 and x < row.width and clear(x, x + #text + 1) then
         free = x + row:text(x, 0, text, "RulerTick") + 1
       end
@@ -1375,6 +1527,19 @@ local function items(): {Item}
     if groups().is_group(id) then
       out[#out + 1] = {scope = {kind = "group", id = id}, kind = "group", label = name_of(id)}
     end
+  end
+  -- The subprojects, each by the first clip that places it in the song.
+  local first: {integer: integer} = {}
+  for _, track in ipairs(api.track_list()) do
+    for _, c in ipairs(api.clip_list(track)) do
+      if c.kind == "nest" and not first[c.nest] then
+        first[c.nest] = c.id
+      end
+    end
+  end
+  for _, id in ipairs(api.nest_list()) do
+    local scope: Scope = {kind = "nest", id = id, clip = first[id]}
+    out[#out + 1] = {scope = scope, kind = "nest", label = name_for(scope)}
   end
   -- The regions as their tree: each one indented under its parent.
   for _, node in ipairs(paw.markers and paw.markers.walk() or {}) do
@@ -1409,9 +1574,9 @@ local function choose(item: Item)
 end
 
 M.source = {
-  desc = "Enter a scope: a level of this window's, a named scope, a group, a region",
+  desc = "Enter a scope: a level of this window's, a named scope, a group, a subproject, a region",
   title = "Scopes",
-  empty = "No scope to enter: make a group or a region, or name a scope with `:scope.name`.",
+  empty = "No scope to enter: make a group, a region or a subproject, or name a scope with `:scope.name`.",
   items = items,
   format = function(item: Item): string return string.format("%-7s %s", item.kind, item.label) end,
   primary = function(item: Item): string return item.label end,

@@ -324,6 +324,17 @@ fn the_audio_thread_never_allocates() {
             .map(|k| DeviceSlot((i * kinds.len() + k) as u32))
             .collect();
         send(&mut handle, Msg::SetChain { track: slot, chain });
+        // Every other track has a time of its own, as a subproject's track
+        // does: its devices see its bars.
+        if i % 2 == 1 {
+            let blocks = vec![
+                paw_engine::Place { from: 0.0, to: 8.0, zero: 0.0 },
+                paw_engine::Place { from: 8.0, to: 64.0, zero: 6.0 },
+            ];
+            let six = [paw_engine::SigPoint { beat: 0.0, num: 6, den: 8 }];
+            let time = paw_engine::LocalTime::new(blocks, if i == 3 { &six } else { &[] });
+            send(&mut handle, Msg::SetLocalTime { track: slot, time: Some(Box::new(time)) });
+        }
         send(
             &mut handle,
             Msg::SetClips {

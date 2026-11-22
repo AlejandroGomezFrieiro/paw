@@ -228,6 +228,64 @@ impl Project {
         Ok(())
     }
 
+    /// The tracks of a place: the song's (`None`) or a nest's, without the
+    /// nest's master, in their order.
+    pub fn place_tracks(&self, place: Option<NestId>) -> impl Iterator<Item = &Arc<Track>> {
+        let master = place.and_then(|n| self.nests.get(&n)).map(|n| n.master);
+        self.tracks
+            .iter()
+            .filter(move |t| t.nest == place && Some(t.id) != master)
+    }
+
+    /// Where in the track list the track at `index` (from 0) among the
+    /// tracks of a place goes: before the one there now, else after the
+    /// place's last track, else at the end.
+    pub fn place_position(&self, place: Option<NestId>, index: usize) -> usize {
+        let master = place.and_then(|n| self.nests.get(&n)).map(|n| n.master);
+        let mut last = None;
+        let mut count = 0;
+        for (at, t) in self.tracks.iter().enumerate() {
+            if t.nest != place || Some(t.id) == master {
+                continue;
+            }
+            if count == index {
+                return at;
+            }
+            count += 1;
+            last = Some(at);
+        }
+        last.map_or(self.tracks.len(), |at| at + 1)
+    }
+
+    /// Whether nest `nest` may be placed by a clip on a track of `host`
+    /// (the song when `None`): an error with the path when it would hold
+    /// itself, or be more than [`MAX_DEPTH`] deep.
+    pub fn check_place(&self, nest: NestId, host: Option<NestId>) -> Result<()> {
+        let name = |n: NestId| self.nests.get(&n).map_or_else(|| n.to_string(), |x| x.name.clone());
+        let Some(host) = host else {
+            return Ok(());
+        };
+        // The nests below `nest`, each with the path that reaches it.
+        let held = self.nests_held();
+        let mut stack = vec![vec![nest]];
+        while let Some(path) = stack.pop() {
+            let at = *path.last().expect("a path has a nest");
+            if at == host {
+                let names: Vec<String> = std::iter::once(host).chain(path).map(name).collect();
+                bail!("a subproject cannot hold itself: {}", names.join(" › "));
+            }
+            if path.len() > MAX_DEPTH {
+                continue;
+            }
+            for next in held.get(&Some(at)).into_iter().flatten() {
+                let mut longer = path.clone();
+                longer.push(*next);
+                stack.push(longer);
+            }
+        }
+        Ok(())
+    }
+
     /// The nests the song plays: those its clips place, and those their
     /// clips place, all the way down.
     pub fn nests_in_use(&self) -> BTreeSet<NestId> {
