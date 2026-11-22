@@ -752,8 +752,8 @@ fn the_audio_thread_never_allocates() {
             hold: Default::default(),
             direction: Default::default(),
         });
-        let midi: Vec<_> = set.midi.iter().map(|e| paw_engine::MidiEv { beat: e.beat + id as f64, kind: e.kind }).collect();
-        paw_engine::Part::new(id, order, midi.into(), audio.collect())
+        // Its events counted from where it plays them, as copies of a clip share them.
+        paw_engine::Part::new(id, order, set.midi.into(), audio.collect()).with_offset(id as f64)
     };
     for &slot in &tracks[..3] {
         let parts = (0..40).map(|id| part(id, (id + 1) * 1000)).collect();
