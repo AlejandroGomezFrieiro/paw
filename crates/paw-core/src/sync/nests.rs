@@ -25,7 +25,7 @@ use std::sync::Arc;
 
 use rustc_hash::FxHasher;
 
-use crate::model::{Clip, ClipContent, Clips, Id, NestId, NestPlay, Note, Notes, Project, Track};
+use crate::model::{Clip, ClipContent, Clips, Id, NestId, NestPlay, Project, Track};
 
 /// Where a nest plays in the song: one nest clip (or a chain of them, for a
 /// nest inside a nest), as song beats.
@@ -225,9 +225,17 @@ pub(crate) fn expand(project: &Project, placed: &Placed, mut old: ExpandedTracks
         list.sort_by(|a, b| a.start.total_cmp(&b.start).then(a.id.cmp(&b.id)));
         let mut clips = Clips::new();
         clips.extend(list);
+        // Its lanes play where its clips do, at each place of the nest.
+        let places: Vec<(f64, f64, f64)> = instances.iter().map(|i| (i.zero, i.from, i.to)).collect();
+        let lanes = t
+            .lanes
+            .iter()
+            .map(|l| Arc::new(crate::model::nest::placed_lane(l, &places)))
+            .collect();
         let track = Arc::new(Track {
             clips,
             cues: Clips::new(),
+            lanes,
             ..(**t).clone()
         });
         out.insert(
@@ -247,48 +255,10 @@ fn copy_id(instance: &Instance, clip: Id) -> Id {
 }
 
 /// A clip of a nest track placed in the song for one instance, cut at its
-/// window. None when nothing of it is inside the window, or when it is cut
-/// at its start and cannot be (a looped clip, a custom clip's sound).
+/// window (see [`crate::model::nest::placed_clip`]).
 fn place(clip: &Clip, instance: &Instance, id: Id) -> Option<Clip> {
     if matches!(clip.content, ClipContent::Nest { .. }) {
         return None;
     }
-    let start = instance.song_beat(clip.start);
-    let end = (start + clip.length).min(instance.to);
-    let from = start.max(instance.from);
-    if end <= from {
-        return None;
-    }
-    let mut copy = Clip {
-        id,
-        start: from,
-        length: end - from,
-        ..clip.clone()
-    };
-    let cut = from - start;
-    if cut > 1e-9 {
-        if clip.looped {
-            return None;
-        }
-        copy.content = match &clip.content {
-            ClipContent::Midi { notes, controls } => {
-                let notes: Notes = notes
-                    .iter()
-                    .filter(|n| n.start >= cut)
-                    .map(|n| Note { start: n.start - cut, ..n.clone() })
-                    .collect();
-                let controls = controls
-                    .iter()
-                    .filter(|c| c.start >= cut)
-                    .map(|c| crate::model::Control { start: c.start - cut, ..c.clone() })
-                    .collect();
-                ClipContent::Midi { notes, controls }
-            }
-            // The rest of the sound from the cut on: the clip's start moves,
-            // and its offset follows in seconds at the tempo there.
-            ClipContent::Audio { .. } => return None,
-            _ => return None,
-        };
-    }
-    Some(copy)
+    crate::model::nest::placed_clip(clip, instance.zero, instance.from, instance.to, id)
 }

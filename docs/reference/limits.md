@@ -334,8 +334,21 @@ The limits page lists what paw does not do, and the known limits of what it does
   - A terminal and a graphical window can attach at the same time, each
     with its own windows. Then the last frontend to change windows sets
     what the rest does.
-  - `<CR>` does not enter a fold or a subproject yet: paw has no folds of
-    time and no subprojects.
+  - `<CR>` does not enter a fold yet: paw has no folds of time.
+- Subprojects:
+  - A subproject on two rows plays into the first row, and its devices run
+    once.
+  - An audio clip or a looped clip that a block cuts at its start does not
+    play, and promote leaves it out.
+  - Inside a subproject, the bars are the bars of the song where its block
+    is. A meter of its own that the song's map does not have
+    (`meter=own`) is not drawn yet.
+  - Promote works on a subproject with one block, on a row that holds
+    nothing else. `:nest.promote` does not keep a key of the subproject on
+    its region yet.
+  - The tracks that `za` shows under a return row find their clips at the
+    cursor. Keys that work on a time at the cursor (`i`, `p`, `d` with a
+    motion) still work in the time of the song there.
 - VCAs:
   - No VCA over the own fader of a group, no VCA under a VCA, and no VCA
     gain on the master.

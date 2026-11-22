@@ -353,6 +353,19 @@ local record types
     meta: Meta
   end
 
+  --- What `paw.api.nest_promote` did (`session::promote::Promoted`): the
+  --- `group` track, the subproject's `tracks`, the block's window `from`
+  --- and `to` and `zero` (song beats), and the targets of the lanes that
+  --- were made one (`combined`).
+  record NestPromoted
+    group: integer
+    tracks: {integer}
+    from: number
+    to: number
+    zero: number
+    combined: {string}
+  end
+
   --- The track of a subproject that a nest clip plays (`model::NestPlay`);
   --- the string "master" plays its mix.
   record NestTrack

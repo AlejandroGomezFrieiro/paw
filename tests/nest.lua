@@ -371,3 +371,142 @@ test(
     eq(paw.groups.is_group(b.row), false, "not a group")
   end
 )
+
+-- Promote: <Space>zp ------------------------------------------------------------------------
+
+--- The project as its file says it, for comparing two states.
+local function project_text() return api.json_encode(api.undo_project()) end
+
+--- The 6/8 Ballad of nest.md made with keys at bar 33 of a metal song,
+--- with two tracks (Piano, Strings) that each have a synth and a note, two
+--- regions inside it, a volume lane on its master and one on its row.
+local function ballad_68()
+  metal()
+  keys("33|")
+  keys(":nest.new Ballad 8 6/8<CR>")
+  local nest = paw.scope.nest().id
+  local piano = paw.scope.tracks()[1]
+  api.track_set(piano, { name = "Piano" })
+  local strings = paw.add_track({ name = "Strings" }).id
+  for i, id in ipairs({ piano, strings }) do
+    paw.track(id):add_device("synth", { attack = 0.001, release = 0.01 })
+    api.clip_add(id, { start = 3 * (i - 1), length = 6, notes = { { pitch = 60 + 7 * i, start = 0, length = 2 } } })
+  end
+  local master = api.nest_get(nest, "master")
+  paw.track(master):automate("volume"):set_points({ { 0, -6 }, { 12, 0 } })
+  local meta = api.nest_get(nest).meta
+  meta.markers = {
+    { id = 1, beat = 0, name = "Intro", length = 6 },
+    { id = 2, beat = 12, name = "Theme", length = 12 },
+  }
+  api.nest_set(nest, { meta = meta })
+  keys("zw")
+  local row = api.track_list()[2]
+  paw.track(row):automate("volume"):set_points({ { 128, -3 } })
+  paw.flush()
+  api.undo_checkpoint()
+  return { nest = nest, row = row, piano = piano, strings = strings, master = master }
+end
+
+--- The regions as "name@beat+length", in order.
+local function regions()
+  local out = {}
+  for _, m in ipairs(paw.markers.regions()) do
+    out[#out + 1] = string.format("%s@%g+%g", m.name, m.beat, m.length)
+  end
+  return table.concat(out, " ")
+end
+
+test(
+  "<Space>zp promotes the subproject to a view: its tracks in a group at the row's place, regions, the lane, 6/8; the window is in Song › Ballad",
+  function()
+    local b = ballad_68()
+    -- The song's map without the 6/8, as for a subproject in a meter of its own.
+    api.signature_remove(152)
+    api.signature_remove(128)
+    api.undo_checkpoint()
+    paw.cursor.set_track(b.row)
+    keys("znn")
+    paw.cursor.set_track(b.strings)
+    paw.cursor.set_beat(4)
+    keys("<Space>zp")
+    eq(#api.nest_list(), 0, "no subproject left")
+    eq(names(api.track_list()), "Drums Ballad Piano Strings", "a group Ballad at the row's place, its tracks under it")
+    local group = api.track_list()[2]
+    eq(
+      paw.groups.is_group(group) and table.concat(paw.groups.members(group), " "),
+      b.piano .. " " .. b.strings,
+      "the group"
+    )
+    eq(
+      api.clip_list(b.piano)[1].start .. " " .. api.clip_list(b.strings)[1].start,
+      "128 131",
+      "the clips at song beats"
+    )
+    eq(regions(), "Ballad@128+24 Intro@128+6 Theme@140+12", "the regions inside a region named after it")
+    local lanes = paw.track(group):lanes()
+    local points = {}
+    for _, p in ipairs(lanes[1]:points()) do
+      points[#points + 1] = string.format("%g:%g", p[1], p[2])
+    end
+    eq(
+      #lanes .. " " .. table.concat(points, " "),
+      "1 128:-9 140:-3 152:-3",
+      "the row's lane and the master's, one lane in dB"
+    )
+    eq(signatures(), "0:4/4 128:6/8 152:4/4", "6/8 in the song's map")
+    eq(paw.scope.breadcrumb(), "Song › Ballad", "the window in the view that took its place")
+    eq(paw.cursor.track_id() .. " " .. paw.cursor.beat, b.strings .. " 132", "at the same place")
+    eq(
+      paw.ui.message.text:find("promoted Ballad: 2 tracks in the group Ballad, bars 33-40", 1, true) ~= nil,
+      true,
+      paw.ui.message.text
+    )
+  end
+)
+
+test("promote: the same sound, u gives back the project as it was, and a plugin inside keeps its instance", function()
+  local b = ballad_68()
+  local dir = (function()
+    local built = "target/release/examples/libstub_clap.so"
+    if not io.open(built) then return nil end
+    local d = T.scratch .. "/nest-stub"
+    os.execute("mkdir -p '" .. d .. "' && cp '" .. built .. "' '" .. d .. "/stub.clap'")
+    return d
+  end)()
+  local plugin
+  if dir then
+    paw.plugins.add_dir(dir, "stubs")
+    plugin = paw.track(b.piano):add_device("clap:dev.paw.stub")
+  end
+  paw.flush()
+  api.undo_checkpoint()
+  local before = project_text()
+  local function sound()
+    local info = T.render({ tail = 0, bits = 16, start = 120, ["end"] = 160 })
+    return T.read_file(info.path)
+  end
+  --- The largest difference of two 16-bit renders, in steps of the last bit.
+  local function apart(a, b)
+    if #a ~= #b then return math.huge end
+    local worst = 0
+    for i = 45, #a - 1, 2 do
+      local x, y = a:byte(i) + a:byte(i + 1) * 256, b:byte(i) + b:byte(i + 1) * 256
+      if x >= 32768 then x = x - 65536 end
+      if y >= 32768 then y = y - 65536 end
+      worst = math.max(worst, math.abs(x - y))
+    end
+    return worst
+  end
+  local heard = sound()
+  paw.cursor.set_track(b.row)
+  paw.cursor.set_beat(130)
+  keys(":nest.promote<CR>")
+  eq(apart(sound(), heard) <= 1, true, "a render after promote is the same, to the last bit of rounding")
+  if plugin then
+    local d = api.device_get(plugin.id)
+    eq(d.track .. " " .. d.status, b.piano .. " running", "the plugin on the same track, its instance running")
+  end
+  keys("u")
+  eq(project_text(), before, "u: the project before promote")
+end)

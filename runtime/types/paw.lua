@@ -5917,6 +5917,18 @@ function paw.nest.notes(c, limit) end
 ---@param how any
 function paw.nest.outputs(nest, row, how) end
 
+--- Promote the subproject of block `clip` to a view, as `:nest.promote`
+--- does: its tracks come back in a group named after it at the place of
+--- its return row (`paw.api.nest_promote`); its regions come back as
+--- children of a region named after it over the block (made if there is
+--- none); its own meter goes into the song's map over the block; and the
+--- window that was inside it is now inside a view of the group's tracks
+--- over the region's time, at the same place. With `deep`, the
+--- subprojects inside it too. Call it in one undo step. Returns the message.
+---@param clip any
+---@param deep any
+function paw.nest.promote(clip, deep) end
+
 paw.nest.shift = paw.cursor.shift
 
 --- `za` on a return row: open its subproject's tracks under it, in the
@@ -10077,6 +10089,19 @@ function paw.api.nest_get(id, key) end
 --- --- nests (subprojects): tracks with a timeline of their own ---
 --- The ids of the subprojects, in the order they were made.
 function paw.api.nest_list() end
+
+--- Promote the subproject of a block (`clip`) to song data, as one
+--- undo step: its tracks come back in a group named after it at the
+--- place of its return row, their clips at the row's beats, cut at
+--- the block. The group track gets the master's devices and then the
+--- row's, the sum of their faders in dB, the row's pan and sends, and
+--- their lanes (two volume lanes added in dB). The row, the master
+--- and the subproject go. Returns `group`, `tracks`, `from`, `to`,
+--- `zero` (the song's beat of the subproject's beat 0) and `combined`
+--- (the targets of the lanes made one). `paw.nest.promote` does the
+--- rest: regions, the meter, the view.
+---@param clip integer
+function paw.api.nest_promote(clip) end
 
 --- Change a subproject: a table of the entries to change (`name`,
 --- `length`, `tempo`, `meter`, `kind`, `meta`), as `nest_get` gives

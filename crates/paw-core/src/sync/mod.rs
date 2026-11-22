@@ -264,7 +264,8 @@ impl<'p> Pass<'p, '_, '_> {
                 Some(plays) => self.map.played.insert(track.id, plays),
                 None => self.map.played.remove(&track.id),
             };
-            self.track_lanes(track, &pass, same_chain);
+            // A nest track's lanes play at the places of its nest, as its clips do.
+            self.track_lanes(now.map_or(track, |t| &**t), prev, &pass, same_chain);
         }
     }
 
@@ -447,8 +448,9 @@ impl<'p> Pass<'p, '_, '_> {
     }
 
     /// A track's automation lanes, and what the lanes it lost give back.
-    fn track_lanes(&mut self, track: &Track, pass: &TrackPass, same_chain: bool) {
-        let same_lanes = pass.prev.map_or(track.lanes.is_empty(), |p| {
+    /// `prev` is the track as the engine last had it.
+    fn track_lanes(&mut self, track: &Track, prev: Option<&Track>, pass: &TrackPass, same_chain: bool) {
+        let same_lanes = prev.map_or(track.lanes.is_empty(), |p| {
             p.lanes.len() == track.lanes.len()
                 && p.lanes.iter().zip(&track.lanes).all(|(a, b)| Arc::ptr_eq(a, b))
         });
@@ -461,7 +463,7 @@ impl<'p> Pass<'p, '_, '_> {
                 automation: Box::new(automation),
             });
         }
-        if let Some(prev) = pass.prev.filter(|_| !same_lanes) {
+        if let Some(prev) = prev.filter(|_| !same_lanes) {
             release_targets(prev, track, self.map, self.ctx, self.send);
         }
     }

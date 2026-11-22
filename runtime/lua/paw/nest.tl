@@ -732,6 +732,144 @@ commands.define(
   }
 )
 
+-- Promote: a subproject becomes a view ---------------------------------------------------
+
+--- The block at the cursor: the clip under it when it places a
+--- subproject, else the block on the cursor's row; inside a subproject,
+--- the block the window entered it through.
+local function block_at_cursor(): types.Clip
+  local here = paw.scope.nest()
+  if here and here.clip then
+    local ok, c = pcall(api.clip_get, here.clip) as (boolean, types.Clip)
+    if ok and c and c.nest == here.id then
+      return c
+    end
+  end
+  local clip = paw.cursor.clip()
+  if clip then
+    local c = api.clip_get(clip.id)
+    if c.nest then
+      return c
+    end
+  end
+  local id = paw.cursor.track_id()
+  local n = id and id ~= 0 and returned(id)
+  return n and block_on(id, n) or nil
+end
+
+--- A region over `from..to` of the song named `name`: the one there, or a new one.
+local function region_over(from: number, to: number, name: string): MarkersModule.Marker
+  for _, m in ipairs(paw.markers.regions()) do
+    if math.abs(m.beat - from) < 1e-9 and math.abs(m.beat + m.length - to) < 1e-9 then
+      return m
+    end
+  end
+  return paw.markers.add(from, name, {length = to - from})
+end
+
+--- Promote the subproject of block `clip` to a view, as `:nest.promote`
+--- does: its tracks come back in a group named after it at the place of
+--- its return row (`paw.api.nest_promote`); its regions come back as
+--- children of a region named after it over the block (made if there is
+--- none); its own meter goes into the song's map over the block; and the
+--- window that was inside it is now inside a view of the group's tracks
+--- over the region's time, at the same place. With `deep`, the
+--- subprojects inside it too. Call it in one undo step. Returns the message.
+function M.promote(clip: integer, deep?: boolean): string
+  local c = api.clip_get(clip)
+  local n = c and c.nest and M.get(c.nest)
+  if not n then
+    error("not a block of a subproject: put the cursor on one", 0)
+  end
+  local markers = (n.meta and n.meta.markers or {}) as {MarkersModule.Marker}
+  local inside = paw.scope.nest()
+  local was_inside = inside and inside.id == n.id
+  local track, beat = paw.cursor.track_id(), paw.cursor.beat
+  local r = api.nest_promote(clip)
+  -- Its meter, where the song plays it.
+  local own = n.meter and n.meter.mode == "own" and n.meter.changes and n.meter.changes[1]
+  local wrote = false
+  if own then
+    local num, den = api.tempo_signature(r.from)
+    if not (num == own.num and den == own.den) then
+      write_meter(r.from, r.to, own.num, own.den)
+      wrote = true
+    end
+  end
+  -- The bars of the message, with its meter in the song's map.
+  local where = bars_text(r.from, r.to)
+  -- Its regions, inside a region named after it.
+  local parent = region_over(r.from, r.to, n.name)
+  local regions = 0
+  for _, m in ipairs(markers) do
+    local at = m.beat + r.zero
+    if at >= r.from - 1e-9 and at < r.to then
+      local length = m.length and math.min(m.length, r.to - at) or nil
+      paw.markers.add(at, m.name, {length = length, color = m.color})
+      regions = regions + 1
+    end
+  end
+  -- The view that takes its place: the group's tracks over the region's time.
+  local tracks: {integer} = {r.group}
+  for _, id in ipairs(r.tracks) do
+    tracks[#tracks + 1] = id
+  end
+  paw.scope.widen(true)
+  paw.scope.enter({kind = "range", tracks = tracks, from = parent.beat, to = parent.beat + parent.length})
+  paw.scope.name(n.name)
+  if was_inside then
+    paw.cursor.set_track(track)
+    paw.cursor.set_beat(beat + r.zero)
+  else
+    paw.cursor.set_track(r.group)
+    paw.cursor.set_beat(r.from)
+  end
+  local words = {
+    string.format(
+      "promoted %s: %d track%s in the group %s, %s", n.name, #r.tracks, #r.tracks == 1 and "" or "s", n.name, where
+    ),
+  }
+  if regions > 0 then
+    words[#words + 1] = string.format("%d regions inside the region %s", regions, n.name)
+  end
+  if wrote then
+    words[#words + 1] = string.format("%d/%d in the song's map", own.num, own.den)
+  end
+  if #r.combined > 0 then
+    words[#words + 1] = "its master's and its row's lanes made one: " .. table.concat(r.combined, ", ")
+  end
+  -- The subprojects inside it, with `!`.
+  if deep then
+    for _, id in ipairs(r.tracks) do
+      for _, inner in ipairs(clip_list(id)) do
+        if inner.nest and not stem_of(inner) then
+          local ok, said = pcall(M.promote, inner.id, true) as (boolean, string)
+          words[#words + 1] = ok and said or (n.name .. " keeps a subproject: " .. tostring(said))
+        end
+      end
+    end
+  end
+  return table.concat(words, "; ")
+end
+
+for _, bang in ipairs({"", "!"}) do
+  commands.define(
+    "nest.promote" .. bang,
+    function(): contracts.CommandResult
+      local c = block_at_cursor()
+      if not c then
+        error("not on a block of a subproject: put the cursor on one", 0)
+      end
+      paw.notify(M.promote(c.id, bang == "!"))
+    end,
+    {
+      label = "Promote the subproject to a view",
+      desc = bang == ""
+        and "Promote the subproject at the cursor to a view: its tracks come back into the song in a group named after it, and a view of them takes its place" or "Promote the subproject at the cursor to a view, and the subprojects inside it too",
+    }
+  )
+end
+
 -- The rows in place: the arrange view and the cursor ask here.
 paw.groups.under = M.under
 paw.cursor.shift = M.shift

@@ -1,6 +1,6 @@
 # Subprojects
 
-<!-- tags: subproject subprojects nest :nest.new <Space>za nest_track :nest.list :nest.outputs -->
+<!-- tags: subproject subprojects nest :nest.new <Space>za nest_track :nest.list :nest.outputs :nest.promote <Space>zp -->
 
 A subproject is a section of the song with tracks of its own and a
 timeline of its own. The song plays it from a row of its own, its return
@@ -99,3 +99,42 @@ devices into its stem row, and the stem rows play into the return row, so
 the fader, the sends and the devices of each stem row act on one track,
 and those of the return row on their sum. The master track of the
 subproject does not play with stems: its devices and fader are skipped.
+
+## Promote a subproject to a view
+
+| Keys or command | Effect |
+| --- | --- |
+| `<Space>zp`, `:nest.promote` | Promote the subproject of the block at the cursor to a view. Inside a subproject, the subproject of the block that you entered it through. One undo step. |
+| `:nest.promote!` | The same, and then each subproject inside it whose row holds only its block. |
+
+Promote makes the subproject song data again, and puts a view of it where
+the subproject was, so that you keep your place:
+
+- The tracks of the subproject become tracks of the song, in a group
+  named after the subproject, at the place of its return row. Their clips
+  move to the beats where the block plays them, cut at the edges of the
+  block, as the song played them.
+- The devices of the tracks stay on the tracks, so no plugin loads again.
+  The group track gets the devices of the subproject's master track first,
+  then those of the return row, the sum of their faders in dB, and the
+  pan, the sends, the output and the color of the return row.
+- The lanes of the master track and of the return row go to the group
+  track. Two volume lanes become one, with their values added in dB, and
+  the message says so. For other lanes with the same target, the lane of
+  the return row stays.
+- The regions of the subproject come back at their beats in the song,
+  inside a region named after the subproject over the block. Promote makes
+  that region if there is none.
+- A subproject with its own meter writes the meter into the tempo map of
+  the song over the block, and the meter of the song back after it.
+- The return row, the master track and the subproject go.
+- The window shows a view of the group's tracks over the time of the
+  region, named after the subproject, for example `Song › Ballad`. The
+  view is in the picker of scopes. When the window was inside the
+  subproject, it is now inside the view, at the same place.
+
+`u` gives back the subproject as it was. The render of the song is the same
+before and after.
+
+Promote refuses a subproject that has more than one block, a stem row
+(`:nest.outputs master` first), and a return row that holds other clips.
