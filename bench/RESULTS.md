@@ -7,6 +7,38 @@ How to run everything: [README.md](README.md). Raw numbers:
 matrix before it). The processor time of the whole program while it plays,
 against REAPER, Ardour and LMMS, is in [DAWS.md](DAWS.md).
 
+## 2026-11-22: the search index on the graph of derived data
+
+The records of `paw.grep` and the nodes of clips and notes that
+`paw.query` gives are now nodes of `paw.derived` (backlog design
+`derived.md`, D3, `runtime/lua/paw/query/tree.tl`). After an edit, a
+search makes again the records and the note nodes of the edited clip
+only. The project: `bench/profile/project.lua` (64 tracks, 2 000 MIDI
+clips, 50 000 notes). The script (not in the repository) edits one note,
+calls `paw.flush()`, then times `paw.grep.search("pizz")` (the search of
+`:vimgrep /pizz/`). It edits one more note, then times
+`paw.query.run("note[pitch>=c6]")`.
+
+The times are the processor time of
+the kernel thread, 15 rounds in each run. `main` at 8e996909 and the
+branch ran in turns, 5 pairs, under the measure lock on cores 16 to 23.
+All values were measured under external load (load average 49 to 59).
+
+| After one note edit | main | branch |
+| --- | ---: | ---: |
+| `:vimgrep /pizz/` (the search) | 38.1 to 101.3 ms (p50 39.5 to 88.5) | 2.6 to 11.1 ms (p50 3.0 to 5.4) |
+| `note[pitch>=c6]` | 94.3 to 231.5 ms (p50 98.4 to 210.1) | 10.2 to 20.1 ms (p50 11.0 to 18.9) |
+
+The first search in a session makes the index: 142 ms on the branch, 59
+ms on main (one run). The first query after it takes 8.9 ms, because
+the query reads the same nodes. The index keeps 31.7 MB of Lua heap on
+the bench project (main keeps 2.3 MB after a search and a query).
+
+The query is also quicker without the index. A test of a field finds how
+it reads the field once for each kind of node, the `paw.ex` item of a
+node stays in the node, and the loops over the notes use numbers, not
+`ipairs`.
+
 ## 2026-11-22: the chord reading on the graph of derived data
 
 The chord reading is now nodes of `paw.derived` (backlog design

@@ -127,8 +127,9 @@ local notes_spec: derived.Spec<integer, {Node}, boolean> = {
     end
     return out
   end,
-  -- A node and the note it holds take about 300 bytes.
-  bytes = function(list: {Node}): integer return 64 + 300 * #list end,
+  -- A node and the note it holds take about 500 bytes (31.7 MB of Lua heap
+  -- for the 50 000 notes of bench/profile/project.lua).
+  bytes = function(list: {Node}): integer return 64 + 500 * #list end,
   limit = 32 * 1048576,
 }
 M.notes = derived.node(notes_spec)
