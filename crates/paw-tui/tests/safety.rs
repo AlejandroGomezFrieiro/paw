@@ -61,7 +61,11 @@ fn a_disk_that_fills_up_stops_the_take_and_keeps_it() {
         r#"{RECORD}
 paw.transport.record()
 local waited = 0
-while paw.transport.playing and waited < 15000 do paw.wait(100) waited = waited + 100 end
+-- The take stops by itself, and its clip comes after.
+while (paw.transport.playing or paw.api.transport_get().closing > 0) and waited < 15000 do
+  paw.wait(100)
+  waited = waited + 100
+end
 paw.flush()
 local clips = mic:clips()
 print("playing", tostring(paw.transport.playing))

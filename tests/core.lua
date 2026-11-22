@@ -317,7 +317,7 @@ test("recording keeps controller moves, and can be moved earlier to line up", fu
   paw.midi.inject({ type = "pressure", key = "C4", value = 0.25 })
   paw.midi.note_off("C4")
   until_beat(0.9)
-  paw.transport.stop()
+  T.stop()
   local clip = keys:clips()[1]
   local moves = clip:controls()
   eq(#moves, 3, "three controller moves in the take")
@@ -336,7 +336,7 @@ test("recording keeps controller moves, and can be moved earlier to line up", fu
   paw.midi.note_on("C4", 90)
   until_beat(0.7)
   paw.midi.note_off("C4")
-  paw.transport.stop()
+  T.stop()
   local shifted = keys:clips()[1]:notes()[1].start
   -- 100 ms at 120 bpm is 0.2 beats; the two takes were played at the same
   -- beat, a few hundredths of a beat apart.
@@ -618,7 +618,7 @@ test("moving a fader while the song plays writes automation", function()
   local second = paw.transport.position
   t.volume = -24
   until_beat(second + 0.4)
-  paw.transport.stop()
+  T.stop()
   local last = paw.transport.position
   paw.flush()
   local lane = t:lane("volume")
@@ -634,7 +634,7 @@ test("moving a fader while the song plays writes automation", function()
   until_beat(0.1)
   t.volume = 0
   until_beat(second + 0.4)
-  paw.transport.stop()
+  T.stop()
   paw.flush()
   near(lane:value_at(second), 0, 0.001, "the new pass replaces the old moves it passes")
   paw.transport.write = false
@@ -644,7 +644,7 @@ test("moving a fader while the song plays writes automation", function()
   local points = #lane:points()
   t.volume = -6
   until_beat(from + 0.3)
-  paw.transport.stop()
+  T.stop()
   eq(#lane:points(), points, "with write off, a move writes nothing")
 end)
 
@@ -838,7 +838,7 @@ test("tracks are processed on several threads, and sound the same", function()
   paw.opt.threads = 1
   until_(function() return api.engine_get().threads == 1 end, "the number to change while the song plays")
   eq(type(api.engine_get().shared_groups), "number", "the engine counts the groups it shared out")
-  paw.transport.stop()
+  T.stop()
   paw.opt.threads = before
   next_block(5)
   eq(api.engine_get().threads >= 1, true, "and goes back")
@@ -969,7 +969,7 @@ test("a track takes MIDI from one port and channel, playing and recording", func
       paw.midi.inject({ type = "note_off", pitch = n[1], port = n[2], channel = n[3] })
     end
     next_block(3)
-    paw.transport.stop()
+    T.stop()
     local pitches = function(t)
       local out = {}
       for i, n in ipairs(t:clips()[1]:notes()) do
@@ -1013,7 +1013,7 @@ test("a whole first session: input, monitoring, an effect, a take that plays bac
     gtr.armed = true
     paw.transport.record()
     until_beat(paw.transport.position + 1.6)
-    paw.transport.stop()
+    T.stop()
     paw.flush()
     local clips = gtr:clips()
     eq(#clips, 1, "the take is a clip")

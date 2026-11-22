@@ -32,6 +32,9 @@ pub struct TransportView {
     pub write: bool,
     /// The number of the take being recorded.
     pub take: Option<u32>,
+    /// Takes that stopped and are not clips yet: each becomes clips a
+    /// moment after it stops (`transport.recorded`).
+    pub closing: u32,
 }
 
 /// A control of MIDI input that tracks do not get, as a script names it:
@@ -341,6 +344,7 @@ impl Session {
             record_offset: self.rec.offset,
             write: self.writing.on,
             take: self.rec.take.as_ref().map(|t| t.number),
+            closing: self.rec.closing.len() as u32,
         }
     }
 
@@ -365,7 +369,7 @@ impl Session {
         // Turning recording on or off while playing punches in or out.
         if field == TransportField::Recording {
             if !self.transport.recording {
-                self.finish_take();
+                self.close_take();
             } else if self.play.playing {
                 self.start_take();
             }

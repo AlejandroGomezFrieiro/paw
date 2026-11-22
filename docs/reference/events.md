@@ -54,6 +54,7 @@ Every event of paw is listed below, with the payload that its handler gets.
 | `transport.play`, `transport.stop` | `{ position, count_in }` | the transport started (after the count-in) or stopped |
 | `transport.seek` | `{ position }` | the playhead moved |
 | `transport.record` | `{ ... }` | recording started, or a take started |
+| `transport.recorded` | `{ take }` | a take that stopped is now clips in the project, as one undo step. It comes a moment after the stop |
 | `transport.changed` | `{}` | the loop, the punch, the metronome or a similar setting changed |
 | `midi.in` | `{ port, ... }` | a MIDI message arrived |
 | `midi.lost`, `midi.returned` | `{ port, tracks }` | a MIDI port disappeared, or is available again |

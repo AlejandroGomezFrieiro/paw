@@ -192,7 +192,7 @@ test(
       eq(at >= 4 and at < 5, true, "playing from a bar before the punch in: " .. at)
       T.until_beat(8.5)
       eq(paw.transport.position > 8, true, "past the punch in")
-      paw.transport.stop()
+      T.stop()
       paw.flush()
       local clips = mic:clips()
       eq(#clips, 1, "one take")
@@ -206,25 +206,25 @@ test(
       paw.transport.record()
       at = api.transport_get().position
       eq(at >= 4 and at < 5, true, "from a playhead inside the pre-roll, back to its start: " .. at)
-      paw.transport.stop()
+      T.stop()
       -- From further back than the pre-roll, the playhead stays.
       paw.transport.seek(1)
       paw.transport.record()
       at = api.transport_get().position
       eq(at >= 1 and at < 2, true, "from earlier than that, where it was: " .. at)
-      paw.transport.stop()
+      T.stop()
       -- Inside the range, or with punch off, there is none.
       paw.transport.seek(10)
       paw.transport.record()
       at = api.transport_get().position
       eq(at >= 10 and at < 11, true, "from inside the range, none: " .. at)
-      paw.transport.stop()
+      T.stop()
       paw.transport.punch_enabled = false
       paw.transport.seek(8)
       paw.transport.record()
       at = api.transport_get().position
       eq(at >= 8 and at < 9, true, "without punch, none: " .. at)
-      paw.transport.stop()
+      T.stop()
       paw.cmd("preroll", { "off" })
     end)
   end
@@ -239,7 +239,7 @@ test("pre-roll: seconds count back from the bars, and a count-in comes first", f
     local at = api.transport_get().position
     -- A bar is 2 s at 120 bpm: 4, and a second (2 beats) before that.
     eq(at >= 2 and at < 3, true, "a bar and a second before: " .. at)
-    paw.transport.stop()
+    T.stop()
     paw.opt.pre_roll_seconds = 0
     paw.opt.count_in = 1
     paw.transport.seek(8)
@@ -247,7 +247,7 @@ test("pre-roll: seconds count back from the bars, and a count-in comes first", f
     local t = api.transport_get()
     eq(t.counting, 4, "the count comes first")
     eq(t.position, 4, "and the playhead waits at the pre-roll's start")
-    paw.transport.stop()
+    T.stop()
     paw.opt.count_in, paw.opt.pre_roll = 0, 0
   end)
 end)

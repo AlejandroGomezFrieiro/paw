@@ -54,7 +54,7 @@ impl Session {
     /// Send pending edits to the engine and queue their change events.
     pub fn flush(&mut self) {
         self.engine.handle.collect_garbage();
-        self.drain_take();
+        self.collect_take();
         if !self.dirty {
             return;
         }

@@ -93,7 +93,7 @@ test("a stretched clip renders at its new length with the pitch of its file", fu
   paw.transport.play()
   paw.wait(300)
   local level = t:meter()
-  paw.transport.stop()
+  T.stop()
   eq(level > 0.05, true, "heard while playing")
 end)
 
@@ -114,7 +114,7 @@ test("a clip plays a rough preview until its stretch is made, then the stretch",
   eq(clip.preview, nil, "the stretch plays")
   paw.wait(100)
   level = t:meter()
-  paw.transport.stop()
+  T.stop()
   eq(level > 0.05, true, "heard after the swap")
 end)
 
@@ -218,7 +218,7 @@ test("a recording knows the tempo it was made at", function()
   paw.transport.seek(0)
   paw.transport.record()
   T.until_beat(1.4)
-  paw.transport.stop()
+  T.stop()
   paw.flush()
   local clip = t:clips()[1]
   api.engine_restart({ backend = "null" })

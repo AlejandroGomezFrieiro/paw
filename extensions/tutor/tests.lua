@@ -132,6 +132,9 @@ local function play_lesson(tutor, n)
       else
         perform(step, lesson)
       end
+      -- A take that the keys stopped becomes clips a moment later.
+      T.until_recorded()
+      tutor.poll()
       if step.unchecked then
         eq(tutor.state().step, i, where .. ": an unchecked step waits for the learner")
         type_keys("<leader>hn")

@@ -6,7 +6,6 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, anyhow, bail};
@@ -14,9 +13,7 @@ use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use paw_engine::backend::{self, BackendChoice, BackendOptions, Stream, StreamInfo};
 use paw_engine::midi::{MidiInputs, MidiSink};
-use paw_engine::record::{self, AudioCapture, MidiCapture, Take, TakeShared};
 use paw_engine::{Engine, EngineHandle, EventKind, Msg, ParamInfo, Pool, Registry};
-use rtrb::RingBuffer;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::{Map, Value, json};
 
@@ -35,6 +32,8 @@ pub use devices::DeviceQuery;
 mod clips;
 mod automation;
 mod transport;
+mod recording;
+use recording::Recorder;
 mod midi_in;
 pub use midi_in::FilterRule;
 mod engine;
@@ -137,77 +136,6 @@ impl Default for Transport {
             click_output: 0,
         }
     }
-}
-
-/// What records takes: the take under way, how many takes were begun, and
-/// how much earlier recordings are moved.
-#[derive(Default)]
-struct Recorder {
-    take: Option<Recording>,
-    /// Takes begun so far: the next take's number is one more.
-    takes: u32,
-    /// Milliseconds to move recordings earlier by, on top of what the audio
-    /// system reports: found by recording the metronome through a loop-back.
-    offset: f64,
-}
-
-/// A take being recorded: the writer threads filling its files, and the notes
-/// played into armed tracks so far.
-struct Recording {
-    number: u32,
-    shared: Arc<TakeShared>,
-    audio: Vec<(Id, PathBuf, JoinHandle<record::Written>)>,
-    midi: rtrb::Consumer<MidiCapture>,
-    /// Notes still held, by track and key: the beat they began on, their
-    /// velocity, which time round the loop they began in, and their attribute.
-    held: HashMap<(Id, u8), (f64, u8, u32, Option<NoteAttr>)>,
-    /// Finished notes by track and time round the loop, with `start` in
-    /// project beats.
-    notes: BTreeMap<(Id, u32), Vec<Note>>,
-    /// Controller moves by track and time round, with `start` in project beats.
-    controls: BTreeMap<(Id, u32), Vec<Control>>,
-    /// The loop the take goes round, if the loop was on when it began, and
-    /// the frames captured each time it jumped back.
-    looped: Option<(f64, f64)>,
-    /// The range it was punched into, in beats of the song, if punching was
-    /// on when it began: only what was played there is captured.
-    punch: Option<(f64, f64)>,
-    wraps: rtrb::Consumer<u64>,
-    wrapped: Vec<u64>,
-}
-
-impl Recording {
-    /// End a held note at `at`, played in pass `pass`. A note still held
-    /// when the loop jumps back ends at the loop's end.
-    fn end_note(&mut self, track: Id, key: u8, at: f64, pass: u32) {
-        if let Some((start, velocity, began, attr)) = self.held.remove(&(track, key)) {
-            let at = match self.looped {
-                Some((_, end)) if pass > began => end,
-                _ => at,
-            };
-            self.notes.entry((track, began)).or_default().push(Note {
-                start,
-                length: (at - start).max(1.0 / 128.0),
-                pitch: key,
-                velocity,
-                meta: Default::default(),
-                id: 0,
-                attr,
-            });
-        }
-    }
-}
-
-/// One time round the loop of a take, or the whole of a take that never
-/// went round: where it lies on the timeline and where its sound begins in
-/// the take's files.
-struct Pass {
-    /// Its number among the take's passes, from 0.
-    index: u32,
-    start: f64,
-    end: f64,
-    /// Seconds into the files, before the latency is taken off.
-    seconds: f64,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -745,15 +673,11 @@ impl Dither {
 
 impl Drop for Session {
     fn drop(&mut self) {
-        // Finish the files of a take still being recorded.
+        // Finish the files of a take still being recorded, and make the
+        // clips of those that close.
         self.stop();
+        self.finish_takes_now();
     }
-}
-
-/// Where recordings go while the project has no file.
-fn scratch_media_dir() -> PathBuf {
-    let base = paw_proto::dirs::data().unwrap_or_else(std::env::temp_dir);
-    base.join("paw").join("recordings")
 }
 
 /// A name made of letters, digits, `-` and `_`, for use in a file name.

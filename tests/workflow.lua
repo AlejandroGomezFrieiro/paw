@@ -252,7 +252,7 @@ test("recording with the loop on goes round it and keeps every time round as a t
     api.undo_checkpoint()
     paw.transport.record()
     until_beat(5.5, 2) -- twice round the second-long loop, and three quarters of a third time
-    paw.transport.stop()
+    T.stop()
     paw.flush()
     eq(paw.transport.position >= 4 and paw.transport.position < 6, true, "the song went round the loop")
     local clips = mic:clips()
@@ -324,7 +324,7 @@ test("a take that never went round the loop is one clip, and a lead-in is a clip
     paw.transport.seek(4)
     paw.transport.record()
     until_beat(5.4)
-    paw.transport.stop()
+    T.stop()
     paw.flush()
     local clips = mic:clips()
     eq(#clips, 1, "one clip")
@@ -335,7 +335,7 @@ test("a take that never went round the loop is one clip, and a lead-in is a clip
     paw.transport.seek(3)
     paw.transport.record()
     until_beat(5.5, 1) -- the lead-in, once round, and three quarters of a second time
-    paw.transport.stop()
+    T.stop()
     paw.flush()
     clips = mic:clips()
     eq(#clips, 2, "a clip before the loop and one over it")
@@ -366,7 +366,7 @@ test("notes recorded round the loop are takes too", function()
     until_beat(5)
     paw.midi.inject({ type = "note_off", pitch = 64 })
     until_beat(5.3)
-    paw.transport.stop()
+    T.stop()
     paw.flush()
     local clips = keys:clips()
     eq(#clips, 1, "one clip")
@@ -430,7 +430,7 @@ test("a count-in counts a bar before the take, which starts on the beat where th
       local now = api.transport_get()
       return now.counting == 0 and now.position > 4 and now
     end, "the count to end and the song to play")
-    paw.transport.stop()
+    T.stop()
     paw.flush()
     local played = paw.transport.position - 4
     local clips = mic:clips()
@@ -445,7 +445,7 @@ test("a count-in counts a bar before the take, which starts on the beat where th
     local edits = paw.project.get().edits
     paw.transport.record()
     next_block(5)
-    paw.transport.stop()
+    T.stop()
     paw.flush()
     eq(#mic:clips(), 1, "stopped during the count: no take")
     eq(paw.transport.recording, false, "and record mode is off")
@@ -462,7 +462,7 @@ test("a count-in counts a bar before the take, which starts on the beat where th
     paw.wait(50)
     paw.transport.recording = true
     eq(api.transport_get().counting, 0, "punched in by hand: no count")
-    paw.transport.stop()
+    T.stop()
     paw.cmd("countin", { "off" })
     eq(paw.transport.count_in, 0, "off")
     paw.cmd("countin")
@@ -490,7 +490,7 @@ test("a punched take records from the punch in to the punch out while the song p
     paw.transport.record()
     until_beat(9.2) -- from beat 2 to past beat 9
     eq(paw.transport.playing and paw.transport.position > 8, true, "the song plays on past the punch out")
-    paw.transport.stop()
+    T.stop()
     paw.flush()
     local clips = mic:clips()
     eq(#clips, 1, "one clip")
@@ -504,7 +504,7 @@ test("a punched take records from the punch in to the punch out while the song p
     paw.transport.seek(2)
     paw.transport.record()
     until_beat(8.4)
-    paw.transport.stop()
+    T.stop()
     paw.flush()
     clips = mic:clips()
     eq(#clips .. " " .. table.concat({ paw.takes.count(clips[1].id) }, " "), "1 2 2", "one clip, the new take playing")
@@ -514,7 +514,7 @@ test("a punched take records from the punch in to the punch out while the song p
     paw.transport.seek(6)
     paw.transport.record()
     until_beat(8.8)
-    paw.transport.stop()
+    T.stop()
     paw.flush()
     c = mic:clips()[1]:get()
     eq(c.start .. "+" .. c.length, "6+2", "from the playhead to the punch out")
@@ -525,7 +525,7 @@ test("a punched take records from the punch in to the punch out while the song p
     paw.flush()
     eq(tostring(paw.ui.message and paw.ui.message.text):find("past the punch out") ~= nil, true, "it says so")
     next_block(10)
-    paw.transport.stop()
+    T.stop()
     paw.flush()
     eq(#mic:clips(), 0, "and records nothing")
     -- Kept with the project, as the loop is.
@@ -575,7 +575,7 @@ test("notes punched in are kept inside the range and cut at the punch out", func
   until_beat(6.8) -- past the punch out, still held
   paw.midi.inject({ type = "note_off", pitch = 64 })
   until_beat(7.2)
-  paw.transport.stop()
+  T.stop()
   paw.flush()
   local clips = keys:clips()
   eq(#clips, 1, "one clip")
@@ -601,7 +601,7 @@ test("punching with the loop on keeps every time through the punch range as a ta
     paw.transport.seek(0)
     paw.transport.record()
     until_beat(3.5, 2) -- twice round the two-second loop, and through the range a third time
-    paw.transport.stop()
+    T.stop()
     paw.flush()
     local clips = mic:clips()
     eq(#clips, 1, "one clip")
@@ -786,7 +786,7 @@ test("a track's automation mode says what moving a control writes", function()
   until_beat(0.1)
   t.volume = -6
   until_beat(0.3)
-  paw.transport.stop()
+  T.stop()
   eq(t:lane("volume"), nil, "in read mode a move writes nothing")
   -- Latch: from the first move until the song stops.
   t.automation = "latch"
@@ -797,7 +797,7 @@ test("a track's automation mode says what moving a control writes", function()
   until_beat(2)
   local late = paw.transport.position
   until_beat(late + 0.1)
-  paw.transport.stop()
+  T.stop()
   paw.flush()
   local lane = t:lane("volume")
   eq(lane ~= nil, true, "in latch mode a move makes a lane")
@@ -816,7 +816,7 @@ test("a track's automation mode says what moving a control writes", function()
   local during = paw.transport.position
   paw.wait(1100) -- let go: no move for longer than the release time
   local after = paw.transport.position
-  paw.transport.stop()
+  T.stop()
   paw.flush()
   near(lane:value_at(touched + 0.1), -3, 0.001, "written while it was touched")
   near(lane:value_at(during - 0.05), -3, 0.001, "held")
@@ -835,7 +835,7 @@ test("a track's automation mode says what moving a control writes", function()
   api.automation_hold(t.id, "volume", nil, nil, false)
   until_beat(held + 0.7)
   local released = paw.transport.position
-  paw.transport.stop()
+  T.stop()
   paw.flush()
   near(lane:value_at(held), -9, 0.001, "held under the hand, it keeps writing without a move")
   near(lane:value_at(released), -20, 0.001, "and is let go when the hand is")
@@ -847,7 +847,7 @@ test("a track's automation mode says what moving a control writes", function()
   paw.transport.play()
   until_beat(2.6)
   local written = paw.transport.position
-  paw.transport.stop()
+  T.stop()
   paw.flush()
   near(lane:value_at(written - 0.2), -1, 0.001, "write mode writes the fader over the lane without a move")
   -- Off: the lanes stay and do not play.
@@ -907,7 +907,7 @@ test("a long file is played from the disk, sample for sample as from memory", fu
   paw.transport.seek(12)
   paw.transport.play()
   until_(function() return t:meter() > 0.05 end, "the long file to be heard while playing")
-  paw.transport.stop()
+  T.stop()
   -- Kept between runs: the next time it is not decoded again.
   local _, dir = api.media_store()
   local kept = 0
@@ -967,7 +967,7 @@ test("the window is told of markers, takes, automation modes and lanes shown as 
   local held = paw.transport.position
   paw.frontend.act.hold(t.id, "volume", 0, "", false)
   until_beat(held + 0.4)
-  paw.transport.stop()
+  T.stop()
   paw.flush()
   near(t:lane("volume"):value_at(held - 0.2), t.volume, 0.001, "held, the fader is written without a move")
   paw.learn.start({ track = t.id, target = "pan" })

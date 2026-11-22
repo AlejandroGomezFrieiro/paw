@@ -176,6 +176,7 @@ test("make music 2: a lead played on a MIDI keyboard is recorded over the loop a
     key(pitch, false)
   end
   step("R", "<Space><Space>")
+  T.until_recorded()
   eq(paw.transport.recording or paw.transport.playing, false, "the recording stopped")
   local clip = lead:clips()[1]
   eq(clip ~= nil and clip.kind, "midi", "the take is a MIDI clip")

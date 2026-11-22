@@ -87,7 +87,7 @@ test("recording the input makes a clip where recording began", function()
     -- Takes are counted over the session: the number is the next one.
     eq(type(paw.transport.take), "number", "a take is under way")
     api.sleep(1000) -- real time is the point: a take of about a second
-    paw.transport.stop()
+    T.stop()
     local stopped = paw.transport.position
     paw.flush()
     paw.off(handle)
@@ -123,7 +123,7 @@ test("recordings of an unsaved project move beside it when it is saved", functio
     t.input, t.armed = "1", true
     paw.transport.record()
     api.sleep(300) -- real time is the point: a short take
-    paw.transport.stop()
+    T.stop()
     local before = t:clips()[1].file
     eq(before:find("/paw/recordings/", 1, true) ~= nil, true, "unsaved takes go to the data directory, got " .. before)
     paw.project.save(scratch .. "/later.json")
@@ -169,7 +169,7 @@ test("MIDI input plays armed tracks and records into a clip", function()
     local e4 = paw.transport.position
     paw.midi.inject({ type = "note_on", pitch = 64, velocity = 80, channel = 2 })
     api.sleep(250)
-    paw.transport.stop()
+    T.stop()
     local stopped = paw.transport.position
 
     eq(#other:clips(), 0, "the unarmed track records nothing")
@@ -206,7 +206,7 @@ test("the status line shows recording", function()
   eq(status():find("rec", 1, true) ~= nil, true, "and then it is there")
   paw.transport.play()
   eq(status():find("●", 1, true) ~= nil, true, "the transport shows it is recording")
-  paw.transport.stop()
+  T.stop()
   paw.transport.recording = false
   eq(status():find("●", 1, true), nil, "and stops showing it")
 end)

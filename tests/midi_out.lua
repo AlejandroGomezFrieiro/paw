@@ -67,7 +67,7 @@ test("a track sends its clip's notes to a MIDI port, on its channel, in order an
     paw.transport.record_offset = 0
     paw.transport.record()
     wait_for(function() return paw.transport.position >= 8.2 end, 15000)
-    paw.transport.stop()
+    T.stop()
     local clip = keys:clips()[1]
     eq(clip ~= nil, true, "what the track sent came back on its channel")
     local notes = clip:notes()
@@ -100,7 +100,7 @@ test("removing a track that sends MIDI ends the notes it left sounding", functio
     wait_for(function() return paw.transport.position >= 2 end, 10000)
     t:remove()
     wait_for(function() return paw.transport.position >= 4 end, 10000)
-    paw.transport.stop()
+    T.stop()
     local clip = keys:clips()[1]
     eq(clip ~= nil and #clip:notes(), 1, "the note came back")
     near(clip:notes()[1].length, 2, 0.3, "and ended when its track went, not when the song stopped")
@@ -195,7 +195,7 @@ test("a script that waits hears what is played into a port", function()
     t.midi_output = { port = "paw: " .. LOOP }
     paw.transport.play()
     local got = wait_for(function() return #heard >= 2 end, 8000)
-    paw.transport.stop()
+    T.stop()
     paw.off(handler)
     eq(got, true, "the notes arrived while the script waited")
     eq(table.concat(heard, " "), ("60@%s 64@%s"):format(LOOP, LOOP), "as events that name the port they came in on")
