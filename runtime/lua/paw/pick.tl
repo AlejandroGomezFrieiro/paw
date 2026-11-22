@@ -172,6 +172,8 @@ local record Picker
   typed: string
   hear_timer: integer
   more_job: slices.Job
+  more_new: boolean
+  more_shown: number
   hear_ticker: integer
   hear_item: Item
   heard: Item
@@ -1447,31 +1449,45 @@ end
 
 local open_spec: function(spec: Source, source_name: string): Picker
 
+-- While a picker reads in slices, the time between two filters and
+-- frames of what it read: a filter of every item and a frame for each
+-- slice would cost more than the reading.
+local MORE_SHOWN_MS = 100
+
 --- Read the next slice of a picker that gives its items in slices (`more`),
---- for at most `ms` milliseconds, and keep what is typed and the item
---- selected. True when there is no more to read.
+--- for at most `ms` milliseconds. At most every `MORE_SHOWN_MS`, and at the
+--- end, filter what was read and draw it, and keep what is typed and the
+--- item selected. True when there is no more to read.
 local function read_more(p: Picker, ms: number): boolean
   if active ~= p or not p.spec.more then return true end
   local items, done, note = p.spec.more(ms)
   if items and #items > 0 then
-    local _, chosen = current(p)
     local added = entries_of(items, p.spec.format, p.spec.primary, p.spec.search)
     local n = #p.entries
     for i, e in ipairs(added) do
       e.index = n + i
       p.entries[n + i] = e
     end
-    p.last_query = ""
-    refilter(p)
-    if chosen then
-      for i, e in ipairs(p.matches) do
-        if e == chosen then p.selected = i break end
-      end
-      p.top = max(1, p.selected - 3)
-    end
+    p.more_new = true
   end
   p.note = note
-  api.ui_redraw()
+  local now = api.now()
+  if done or now - (p.more_shown or 0) >= MORE_SHOWN_MS then
+    if p.more_new then
+      p.more_new = false
+      local _, chosen = current(p)
+      p.last_query = ""
+      refilter(p)
+      if chosen then
+        for i, e in ipairs(p.matches) do
+          if e == chosen then p.selected = i break end
+        end
+        p.top = max(1, p.selected - 3)
+      end
+    end
+    p.more_shown = now
+    api.ui_redraw()
+  end
   return done
 end
 
