@@ -294,6 +294,9 @@
       '';
 
       pawUtau = pkgs: (paw pkgs).withExtensions (exts: [ exts.utau ]);
+
+      # The Teal tools that nixpkgs has not, or has old or with a fault.
+      luaTools = pkgs: pkgs.callPackage ./nix/lua-tools.nix { };
     in {
       packages = forAll (pkgs: {
         default = paw pkgs;
@@ -366,9 +369,14 @@
           # What the window tests (`crates/paw-gui/tests/window.rs`) drive: a
           # private X server, a window manager, a pointer and key sender, and
           # tesseract to find words on a screenshot.
-          # `tl` checks the Teal files (tools/tlcheck.sh): the version of
-          # runtime/lua/tl.lua.
-          packages = with pkgs; [ xvfb openbox xdotool imagemagick tesseract vale curl luajitPackages.tl ];
+          # The Teal and Lua tools (docs/explanation/about-teal.md): `tl`
+          # (the version of runtime/lua/tl.lua), `cyan` (tools/tlcheck.sh),
+          # the language servers of both, the formatters (`ceru` for Teal,
+          # `stylua` for Lua) and `luacheck`; nix/lua-tools.nix has those
+          # that nixpkgs has not, or has old.
+          packages = with pkgs; [ xvfb openbox xdotool imagemagick tesseract vale curl luajitPackages.tl ]
+            ++ (with luaTools pkgs; [ cyan teal-language-server cerulean ])
+            ++ [ pkgs.lua-language-server pkgs.stylua pkgs.luajitPackages.luacheck ];
           # The style packages Vale checks the docs with (tools/vale.sh joins
           # them with the project's own in .vale/styles; see .vale.ini).
           PAW_VALE_STYLES = "${valeStyles pkgs}";
