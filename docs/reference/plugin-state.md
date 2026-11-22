@@ -1,16 +1,16 @@
 # The saved state of plugins
 
 The [plugstate](../../extensions/plugstate/README.md) extension reads the
-saved state of a plugin as a tree, and writes it back. A reader for each
-framework finds the form of the state from its bytes. This page describes
-the forms that plugstate reads, the trees that it makes of them, and the
-module `plugstate.frameworks`. For the layers of JUCE, see
+saved state of a plugin as a tree and writes it back, and a reader for each
+framework finds the form of the state from its bytes. The reference describes the
+forms that plugstate reads, the trees that it makes from them, and the module
+`plugstate.frameworks`. For the layers of JUCE, see
 [The state of JUCE plugins](juce-plugin-state.md).
 
 ## The readers
 
-plugstate asks the readers in this order. The first reader that knows the
-bytes opens the state.
+plugstate asks the readers in the order below, and the first reader that knows
+the bytes opens the state.
 
 | Reader | Detected by | Root of the tree | Parameters |
 | --- | --- | --- | --- |
@@ -27,19 +27,18 @@ bytes opens the state.
   finds: `nih-plug` and `vital` (`json`), `dpf` and `lsp` (`lv2`), `hise`
   (`juce`, with the hint `hise`).
 - When nothing changes, `doc:write()` gives the same bytes as the state
-  that was opened. A reader writes each value that does not change with its
-  bytes or text of before.
-- A VST3 state is the part of the component and the part of the
-  controller. The readers read the part of the component. The part of the
-  controller does not change.
+  that was opened, because a reader writes each unchanged value with its
+  original bytes or text.
+- A VST3 state has a component part and a controller part. The readers read
+  the component part, and the controller part does not change.
 
 ## The forms
 
 ### DPF
 
 `DistrhoPluginVST3.cpp` (`getState`, line 1169) and `DistrhoPluginCLAP.cpp`
-(`stateSave`, line 1456) of DPF write the same text. Each string ends with
-a zero byte. A byte `0xFE` and a zero byte end the state.
+(`stateSave`, line 1456) of DPF write the same text, where each string ends
+with a zero byte, and a byte `0xFE` followed by a zero byte ends the state.
 
 | Part | Content |
 | --- | --- |
@@ -50,8 +49,8 @@ a zero byte. A byte `0xFE` and a zero byte end the state.
 The tree is `/DPF@program`, `/DPF/State@<key>` and
 `/DPF/Parameters@<symbol>`. `DistrhoPluginLV2.cpp` (`lv2_save`, line 912)
 keeps the state keys as `urn:distrho:<key>`, and the parameters are ports.
-The `lv2` reader gives these the same paths. So a preset of path edits
-goes into each format of a DPF plugin.
+The `lv2` reader gives the keys and ports the same paths, so a preset of path
+edits works in each format of a DPF plugin.
 
 ### LSP
 
@@ -68,16 +67,16 @@ wrapper (`wrap/vst3/impl/wrapper.h`, `save_state`, line 1296) writes
 
 The tree is `/LSP/Parameters@<port id>` and `/LSP/State@<name>`. The
 name of a KVT entry has no first `/`, and `_` replaces each other `/`.
-The LV2 state of an LSP plugin has the ports as LV2 ports. So
+The LV2 state of an LSP plugin has the ports as LV2 ports, so
 `/LSP/Parameters@<id>` is the same path in CLAP, VST3 and LV2.
 
 ### iPlug2
 
-`IPluginBase::SerializeParams` (`IPlugPluginBase.cpp`, line 109) puts the
-value of each parameter as a 64-bit float, in the order of the
-parameters. A plugin that has its own `SerializeState` often puts strings
-first (`IByteChunk::PutStr`: a 32-bit length, the bytes). After the
-parameters, it can put its own data. The VST3 wrapper
+`IPluginBase::SerializeParams` (`IPlugPluginBase.cpp`, line 109) writes the
+value of each parameter as a 64-bit float, in the order of the parameters. A
+plugin that has its own `SerializeState` often writes strings first
+(`IByteChunk::PutStr` writes a 32-bit length and then the bytes), and it can
+write its own data after the parameters. The VST3 wrapper
 (`IPlugVST3_Common.h`, `GetState`, line 25) adds a 32-bit bypass flag at
 the end. The CLAP wrapper (`IPlugCLAP.cpp`, `stateSave`, line 407) writes
 the chunk alone.
@@ -94,8 +93,8 @@ the chunk alone.
 
 ### Dplug
 
-`writeStateChunk` in `dplug/client/preset.d` writes this, little endian
-after the magic.
+`writeStateChunk` in `dplug/client/preset.d` writes the form below, little
+endian after the magic.
 
 | Bytes | Content |
 | --- | --- |
@@ -114,7 +113,7 @@ The tree is `/Dplug@preset`, `/Dplug/Parameters@<key>` and
 `PluginState` in `src/wrapper/state.rs` (line 31) is `version`, `params`
 and `fields`. `serialize_json` (line 134) writes it as JSON. With the
 feature `zstd` of nih-plug, it compresses the JSON with Zstandard.
-plugstate does not read a compressed state: it is a `binary` state.
+plugstate does not read a compressed state, so it opens as a `binary` state.
 
 - A parameter is its plain value (not normalized) as `{"f32": 0.5}`, `{"i32": 3}`,
   `{"bool": true}` or `{"string": "<id>"}`.
@@ -125,8 +124,8 @@ plugstate does not read a compressed state: it is a `binary` state.
 ### Vital
 
 `SynthPlugin::getStateInformation` (`src/plugin/synth_plugin.cpp`, line 189)
-writes the JSON of the preset with `MemoryOutputStream::writeString`.
-So a zero byte ends the text. The `json` reader names it `vital` when
+writes the JSON of the preset with `MemoryOutputStream::writeString`,
+so a zero byte ends the text. The `json` reader names it `vital` when
 the object has `synth_version`, or `settings` and `author`.
 `/state/settings` holds the parameters.
 
@@ -171,16 +170,15 @@ JUCE layer.
 
 ### Windows plugins through yabridge
 
-A Windows plugin through yabridge is a VST3 or CLAP plugin for paw. Its
-state is the state of the Windows plugin, and the readers read it as
-they read the state of another plugin. plugstate does not read the binary
-of a Windows plugin, so no hint comes from its markers.
+A Windows plugin through yabridge is a VST3 or CLAP plugin for paw, and its
+state is the state of the Windows plugin, so the readers read it like the
+state of any other plugin. plugstate does not read the binary of a Windows
+plugin, so no hint comes from its markers.
 
 ### The VST3 SDK and VSTGUI
 
-The VST3 SDK has no common form of state. Each plugin writes its own
-bytes with `IBStreamer`. The `binary` reader keeps them as
-`/State@data`.
+The VST3 SDK has no common form of state, because each plugin writes its own
+bytes with `IBStreamer`, and the `binary` reader keeps them as `/State@data`.
 
 - When at least 9 in 10 of the 32-bit words are plausible floats, the
   reader adds `/State/Floats`. Each float has the name `at<n>`, with `n`
@@ -193,9 +191,9 @@ bytes with `IBStreamer`. The `binary` reader keeps them as
 
 `frameworks.binary_of(plugin)` finds the binary of a plugin in the plugin
 folders (`CLAP_PATH`, `VST3_PATH`, `LV2_PATH`, else the usual folders).
-`frameworks.markers(path)` reads the binary one time, and gives the name
-of a framework and the version of JUCE. paw does not run the binary. A
-bridge of Windows plugins (`yabridge`) is not read.
+`frameworks.markers(path)` reads the binary once and gives the name of a
+framework and the version of JUCE. paw does not run the binary, and it does
+not read the bridge of Windows plugins (`yabridge`).
 
 | Marker | Framework |
 | --- | --- |
@@ -209,11 +207,12 @@ bridge of Windows plugins (`yabridge`) is not read.
 | `VSTGUI` | `vstgui` |
 
 The hint `iplug2` lets the `iplug2` reader open a state without a string
-`###...###`. The hint `hise` names a JUCE state `hise`.
+`###...###`, and the hint `hise` makes a JUCE state report the framework
+`hise`.
 
 ## The module
 
-`require("plugstate.frameworks")` gives these functions.
+`require("plugstate.frameworks")` gives the functions below.
 
 | Function | Result |
 | --- | --- |
@@ -225,7 +224,7 @@ The hint `iplug2` lets the `iplug2` reader open a state without a string
 
 A document has the functions of the JUCE document: `get`, `query`, `set`,
 `remove`, `insert`, `params`, `param`, `set_param`, `dump`, `diff`,
-`write`, `write_as` and `layer_names`. These fields are also there.
+`write`, `write_as` and `layer_names`. A document also has the fields below.
 
 | Field | Content |
 | --- | --- |
@@ -234,17 +233,17 @@ A document has the functions of the JUCE document: `get`, `query`, `set`,
 | `doc.root` | the tree |
 | `doc.notes` | what the reader could not find, for example the parameters of an iPlug2 state without the list of the host |
 
-`doc:write_as(format, template)` gives the data in another format. Only
-CLAP and VST3 hold the same data. An LV2 state is Turtle text, and the
-data of CLAP or VST3 does not go into it.
+`doc:write_as(format, template)` gives the data in another format. Only CLAP
+and VST3 hold the same data, because an LV2 state is Turtle text and the data
+of CLAP or VST3 does not go into it.
 
 ## Limits
 
 - A reader knows the form of the state, not the meaning of each value.
   A description gives names to the paths of a JUCE plugin.
-- A plugin can refuse a state, or ignore a value in it. Some VST3 plugins
-  take a state from paw, then their controller gives them the parameters
-  of before (VoLum).
-- A state of nih-plug that Zstandard compresses is a `binary` state.
+- A plugin can refuse a state or ignore a value in it. Some VST3 plugins
+  take a state from paw, and then their controller restores the earlier
+  parameters (VoLum).
+- A nih-plug state that Zstandard compresses opens as a `binary` state.
 - The JSON reader and the LV2 reader change values only. They do not add
   or remove keys.

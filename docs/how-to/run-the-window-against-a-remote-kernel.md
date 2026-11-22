@@ -1,8 +1,8 @@
 # How to run the graphical window against a kernel on another machine
 
-This guide shows you how to control a paw kernel on another machine with
-the graphical window on your machine. Here, the other machine is `studio`. It
-assumes that paw is installed on the two machines.
+You can control a paw kernel on another machine with the graphical window
+on your machine. On the page, the other machine is `studio`, and the steps
+assume that paw is installed on the two machines.
 
 ## Start the kernel
 
@@ -30,10 +30,10 @@ assumes that paw is installed on the two machines.
 2. Compare the fingerprint that the window remembers in
    `~/.local/state/paw/known_instances` with the fingerprint of step 2.
 
-If the window refuses a different certificate, find the cause first.
-If `studio` made a new certificate (its state directory is lost, or paw
-moved to a new machine), add `--accept-certificate`. Otherwise, do not
-connect: a different machine can pretend to be `studio`.
+If the window refuses a different certificate, find the cause first. If
+`studio` made a new certificate, because its state directory is lost or
+paw moved to a new machine, add `--accept-certificate`. In any other case,
+do not connect, because a different machine can pretend to be `studio`.
 
 ## Use SSH in place of TLS
 
@@ -54,25 +54,25 @@ If you can sign in to `studio` with SSH, you do not need `--listen-tcp`:
 
 ## Hear the sound on your machine
 
-The sound plays on `studio`. To hear it also on your machine, do one of
-these:
+The sound plays on `studio`. If you also want to hear it on your machine,
+do one of the following:
 
 - Add `--listen-audio` to the `paw-gui` command.
 - In the engine menu, click "Hear it on this machine".
 
 The sound comes 0.25 seconds late or more, and it uses about 1 Mbit/s.
-Use it to monitor a mix, not to play along.
+Use it to monitor a mix and not to play along.
 
 ## Import a sound file from your machine
 
 Open, Save and Render use the disk of `studio`. To import a sound file
-from your disk, do one of these:
+from your disk, do one of the following:
 
 - Drag the file from your file manager into the window (on X11).
-- Use File → Import…. The desktop's file dialog shows your disk.
+- Use File → Import…, where the desktop's file dialog shows your disk.
 
 The window sends the file into the media folder of the project on
-`studio`. Then paw imports it on a new track.
+`studio`, and then paw imports it on a new track.
 
 ## Related
 

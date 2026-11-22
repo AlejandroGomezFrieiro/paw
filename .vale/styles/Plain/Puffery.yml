@@ -1,0 +1,10 @@
+# plain-writing rule 3: no puffery or empty emphasis. State the point, or cut
+# the sentence. The skill also lists "real", but paw's docs need the
+# literal word ("the real hardware", "real audio" and not a test signal),
+# and a pattern cannot tell the two uses apart: the writer judges it.
+extends: existence
+message: "'%s' adds emphasis and no information (plain-writing 3). State the point."
+level: error
+ignorecase: true
+raw:
+  - '\b(?:really|matters|worth|carr(?:y|ies) weight|boasts?|a testament to|pivotal|renowned|quietly)\b'

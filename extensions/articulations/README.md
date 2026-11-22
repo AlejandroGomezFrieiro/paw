@@ -1,9 +1,10 @@
 # Articulations
 
-How each note is played (sustain, staccato, pizzicato, a trill), written
-on the note, and sent to the instrument of the track. The instrument can
-be a sampler that reads MIDI 2.0, or any MIDI 1.0 instrument through its
-keyswitches, controllers or programs.
+An articulation is how a note is played, for example sustain, staccato,
+pizzicato or a trill. The extension writes it on the note and sends it to
+the instrument of the track. The instrument can be a sampler that reads MIDI
+2.0, or any MIDI 1.0 instrument through its keyswitches, controllers or
+programs.
 
 ```lua
 paw.ext.load("/path/to/paw/extensions/articulations")
@@ -87,21 +88,21 @@ Type `:art.check`. The problems of the notes go to the quickfix list.
 
 ### Where the data is
 
-- The articulation is the **MIDI 2.0 attribute** of the note (`note.attr =
+- The articulation is the MIDI 2.0 attribute of the note (`note.attr =
   { type, data }`). It is a code of the MIDI 2.0 Note-On Orchestral
   Articulation Profile (M2-123): `11.0` staccato, `11.A` pizzicato, `13.2`
   a whole-step trill. See [Project objects in
   Lua](../../docs/reference/lua-objects.md#note-attributes-noteattr).
-- A **map** gives the names of the codes on one instrument, and how to
-  send them to it. Each instrument has one `.art.toml` file.
+- A map gives the names of the codes on one instrument, and how to send
+  them to it. Each instrument has one `.art.toml` file.
 - When you bind a map to a track, the track keeps the binding
-  (`track.meta.articulations`). The extension gives the core the
-  **downgrade map** of the track (`track.attr_map`). It sends the
-  keyswitch, controller or program of each note before the note, to an
-  instrument that does not take the attribute.
-- The core does not use the map. The extension reads the TOML of the map with `paw.toml`.
-- The extension also reads an attribute in `note.meta.art`, where older
-  versions kept it.
+  (`track.meta.articulations`). The extension gives the core the downgrade
+  map of the track (`track.attr_map`), which sends the keyswitch, controller
+  or program of each note before the note, to an instrument that does not
+  take the attribute.
+- The core does not use the map, and the extension reads the TOML of the map
+  with `paw.toml`. The extension also reads an attribute in `note.meta.art`,
+  where older versions kept it.
 
 ### A map
 
@@ -130,8 +131,8 @@ con-sord   = { m2 = "mute=straight", out = "cc20=127", off = "cc20=0", text = "c
 The full example is in the folder of this extension, at
 `articulations/examples/violin-section.art.toml` (from the top of the
 source of paw:
-`extensions/articulations/articulations/examples/violin-section.art.toml`).
-`:art.map examples/violin-section` binds it.
+`extensions/articulations/articulations/examples/violin-section.art.toml`),
+and `:art.map examples/violin-section` binds it.
 
 Each articulation is one inline table on one line, in the order that the
 popover numbers them.
@@ -149,9 +150,9 @@ popover numbers them.
 | `delay` | how much earlier its notes play: `"-80ms"` |
 
 Key names are as paw names them: middle C is C4, 60. For a vendor whose
-chart calls key 60 `C3`, put `middle_c = "C3"` at the top of the map. Then
-the keys of the map are as the chart writes them, and paw sends them as
-paw names them.
+chart calls key 60 `C3`, put `middle_c = "C3"` at the top of the map, and
+the keys of the map are then as the chart writes them, while paw sends them
+as paw names them.
 
 Other fields at the top of a map:
 
@@ -163,10 +164,9 @@ Other fields at the top of a map:
 
 ### Maps of plugins
 
-The extension has these maps, in
-`articulations/plugins/<vendor>/`. Each one comes from the documentation of
-its vendor, which the top of the file names. paw did not check them with
-the plugins.
+The extension has the following maps, in `articulations/plugins/<vendor>/`.
+Each one comes from the documentation of its vendor, which the top of the
+file names, and paw did not check them with the plugins.
 
 | Map | Instrument |
 | --- | --- |
@@ -174,10 +174,11 @@ the plugins.
 | `sine-keyswitch` | SINE Player in key switch mode, a template. It binds itself to SINE Player |
 | `sine-cc`, `sine-channel`, `sine-program` | SINE Player in its other modes: a controller divided in ranges, a channel for each articulation, program changes |
 
-Drum plugins have no articulations: the `drums` extension names their
+Drum plugins have no articulations, and the `drums` extension names their
 notes (`:drums.map mt-powerdrumkit`).
 
-paw looks for maps in these places. The first map with an id wins.
+paw looks for maps in the following places, and the first map with an id
+wins.
 
 1. `~/.config/paw/articulations/**`
 2. beside a library (`Violins.art.toml` next to `Violins.sfz`)
@@ -193,7 +194,7 @@ name or a file.
 Many libraries start the sound of an articulation late (the attack of a
 legato sample, the start of a bow). `delay = "-80ms"` on an articulation,
 or on the full instrument at the top of its map, plays those notes that
-much earlier. So they sound on the grid.
+much earlier, so they sound on the grid.
 
 - The delay goes into the downgrade map of the track
   (`attr_map.arts[code].delay`, and `attr_map.delay` for the instrument).
@@ -219,7 +220,7 @@ on CC1 and CC11, a vibrato on CC21 and CC1. The map links them:
 dynamics = { cc = [1, 11], curve = ["linear", "0:0.4 1:1"], default = 0.7, name = "Dynamics" }
 ```
 
-- `\c` in the piano roll (or `:art.lane dynamics`) opens them as **one**
+- `\c` in the piano roll (or `:art.lane dynamics`) opens them as one
   curve in the curve view. Its keys and the pointer edit it, in the
   terminal and in the graphical window.
 - Each point writes every controller of the link through its own curve
@@ -231,7 +232,7 @@ dynamics = { cc = [1, 11], curve = ["linear", "0:0.4 1:1"], default = 0.7, name 
 
 ### In the piano roll
 
-With a map bound:
+With a map bound, the piano roll changes as follows:
 
 - Rows outside the range are dark. Rows outside the comfortable range are
   dimmer.
@@ -299,30 +300,30 @@ The `art` field matches and sets the articulation of a note in patterns:
 - Of the 1426 articulations of the 218 factory banks of Reaticulate, 1283
   get a code (90 %), 120 of them from the icon alone.
 - Most of the rest are what the profile makes a controller (`sul pont`,
-  `con sord`), or a word of one library. These get a code of the library
-  (classification 1A and up). Two articulations with one code get two
-  variations of it. So you can choose each articulation.
+  `con sord`), or a word of one library. Those get a code of the library
+  (classification 1A and up), and two articulations with one code get two
+  variations of it, so you can choose each articulation.
 - What the library does not say comes from the profile. Each coded
   articulation gets the tag of the profile (`stc`, `pz`, the tags that
   `:g/art=pz/` finds) and a class for its color. Where the profile has one,
   it also gets the mark (`staccato`) or text (`pizz.`, `trem.`, `harm.`) of
   the score.
-- Each generated map links dynamics on CC1 and CC11 (`[linked]`). So `\c`
+- Each generated map links dynamics on CC1 and CC11 (`[linked]`), so `\c`
   works on it at once. Edit the file when the library uses other
   controllers.
 
 ### With notation
 
-When the notation extension is loaded too:
+When the notation extension is loaded too, the following changes apply:
 
 - The articulation of a note shows in the score as its `mark` (a staccato
   dot).
 - A run of notes starts with its `text` (`pizz.`), with `ord.` where the
   default returns.
 - A mark in the score (`g'` a staccato) or a technique (`\p pizz.`, `arco`)
-  sets the attribute of the notes. This occurs when the map of the track
-  has an articulation with that mark or text. `paw.opt.art_from_notation = false`
-  stops this.
+  sets the attribute of the notes, when the map of the track has an
+  articulation with that mark or text. `paw.opt.art_from_notation = false`
+  turns this off.
 
 ### Options
 
@@ -352,9 +353,9 @@ When the notation extension is loaded too:
 
 ## About
 
-The articulation is MIDI, not data of the extension. So it is copied,
-moved, undone and saved with the note, and it plays when the extension is
+The articulation is MIDI and not data of the extension, so paw copies,
+moves, undoes and saves it with the note, and it plays when the extension is
 not loaded. A part moved to another instrument keeps its meaning. An
 instrument that does not have that exact articulation plays the nearest
-one that the profile names: another variation, then the same family, then
-sustain.
+one that the profile names, which is another variation, then the same
+family, then sustain.

@@ -1,17 +1,18 @@
 # musicops: musical operators
 
-The edits that a musician makes to notes each day, as operators: humanize,
-strum, arpeggiate, quantize with swing, crescendo, transpose in the key,
-and other. Motions, text objects, visual selections, counts, `.` and
-macros all work with them. The extension also adds text objects for
-phrases and chords, and motions for phrases. It keeps the key of the
-project, and has a scale lock for the entry and the movement of notes.
+The extension turns the edits that a musician makes to notes each day into
+operators, for example humanize, strum, arpeggiate, quantize with swing,
+crescendo and transpose in the key. Motions, text objects, visual
+selections, counts, `.` and macros all work with them. The extension also
+adds text objects for phrases and chords, and motions for phrases. It keeps
+the key of the project, and it has a scale lock for the entry and the
+movement of notes.
 
 ```lua
 paw.ext.load("/path/to/paw/extensions/musicops")   -- or link it into ~/.config/paw/extensions
 ```
 
-In the picture, `gzpie` arpeggiates every chord and `u` undoes it. Then
+In the picture, `gzpie` arpeggiates every chord and `u` undoes it, and then
 `gzsie` strums the chords and `gzhie` humanizes them:
 
 ![The demo song's chords in the piano roll: arpeggiated, undone, strummed, humanized, then played](images/tui-musicops.gif)
@@ -22,8 +23,8 @@ All keys start with `gz`.
 
 1. Type `:ext.load musicops`.
 2. Open a clip with chords in the piano roll. Put the cursor on a chord.
-3. Type `gzsic`. The notes of the chord now start one after the other: a
-   strum.
+3. Type `gzsic`. The notes of the chord now start one after the other,
+   which is a strum.
 4. Press `u`. The chord is as before.
 5. Type `gzpic`. The chord becomes an arpeggio, for its full length.
 
@@ -55,13 +56,14 @@ the amount.
 
 ### How to edit every clip of a track
 
-In the arrange view, type the operator two times: `gzkk` moves every clip
-of the track one scale step up. `3gzkk` does it on three tracks.
+In the arrange view, type the operator two times. For example, `gzkk` moves
+every clip of the track one scale step up, and `3gzkk` does it on three
+tracks.
 
 ### How to apply a function to a full clip
 
 Type `:musicops.apply` with the name of a function of the module and its
-options. For example: `:musicops.apply humanize timing=0.05 seed=3`, or
+options. For example, type `:musicops.apply humanize timing=0.05 seed=3`, or
 `:musicops.apply transpose_scale 2`.
 
 ## Reference
@@ -70,22 +72,23 @@ options. For example: `:musicops.apply humanize timing=0.05 seed=3`, or
 
 An operator acts on what a motion, a text object or a selection covers:
 
-- In the **piano roll** (`pianoroll`) and the **vocal editor** (`utau`): the
-  notes of the region, as `d` and `>` do. `gzkip` moves the phrase under
-  the cursor a step up the scale. `gzs2w` strums the next two notes.
-  `vjjgzq` quantizes a selection.
-- In the **arrange view**: the notes of the MIDI clips in the region. For a
-  time, these are the notes that start in it: `gzkic` the clip under the
-  cursor, `gzh2W` two bars. paw edits each clip separately.
+- In the piano roll (`pianoroll`) and the vocal editor (`utau`), an operator
+  acts on the notes of the region, as `d` and `>` do. `gzkip` moves the
+  phrase under the cursor a step up the scale, `gzs2w` strums the next two
+  notes, and `vjjgzq` quantizes a selection.
+- In the arrange view, an operator acts on the notes of the MIDI clips in the
+  region. For a time, these are the notes that start in it: `gzkic` the clip
+  under the cursor, `gzh2W` two bars. paw edits each clip separately.
 
 Typed two times, an operator takes the full row. In the piano roll, that
-is all the notes of the pitch under the cursor (`gzhh`). In the arrange
-view, it is the full track. `.` repeats each operator, and macros record them.
+is all the notes of the pitch under the cursor (`gzhh`), and in the arrange
+view, it is the full track. `.` repeats each operator, and macros record
+them.
 
-**Counts.** With a motion or a text object, the count belongs to the motion
-or the text object, as for each operator (`gzk3w`, `gzk2ip`). In visual
-mode, a count before the operator sets its amount: `vip2gzk` is two scale
-steps, `vip50gzq` quantizes half way.
+With a motion or a text object, the count belongs to the motion or the text
+object, as for each operator (`gzk3w`, `gzk2ip`). In visual mode, a count
+before the operator sets its amount: `vip2gzk` is two scale steps, and
+`vip50gzq` quantizes half way.
 
 | Keys | Effect | Count in visual mode | Views | Example |
 | --- | --- | --- | --- | --- |
@@ -129,7 +132,7 @@ The operators take paw's text objects of the piano roll: `ic` the chord,
 lists. `gzsic` strums the chord at the cursor, `gzkip` moves the phrase a
 step up the scale.
 
-In the vocal editor, musicops gives these:
+In the vocal editor, musicops adds the following:
 
 | Keys | What it selects |
 | --- | --- |
@@ -150,7 +153,7 @@ In the vocal editor, musicops gives these:
 
 - The key of the project is the key of the core (`paw.harmony.key`, see
   [Harmony](../../docs/reference/harmony.md)). The project keeps it as
-  `key` (`"D minor"`). So the project saves it, and undo applies to it.
+  `key` (`"D minor"`), so the project saves it, and undo applies to it.
 - With no key, the operators use C major. They do not use the key that the
   core reads from the notes.
 - Scales: `major` (`ionian`), `minor` (`aeolian`), `harmonic_minor`,
@@ -158,7 +161,8 @@ In the vocal editor, musicops gives these:
   `locrian`, `pentatonic`, `minor_pentatonic`, `blues`, `whole_tone`,
   `chromatic`, and any other scale in `paw.music.scales`.
 
-**Scale lock** (`musicops_scale_lock`, `gzL`). While it is on:
+The scale lock (`musicops_scale_lock`, `gzL`) works as follows while it is
+on:
 
 - Insert mode in the piano roll moves the note being drawn by steps of
   the scale (`+` `-` and `<C-a>` `<C-x>`, `2+` from C is E in C major).
@@ -169,8 +173,9 @@ In the vocal editor, musicops gives these:
 
 ### The module
 
-`require("musicops")` is a set of pure functions on lists of notes
-`{ pitch, start, length, velocity, meta }`, for any script.
+`require("musicops")` is a set of functions on lists of notes
+`{ pitch, start, length, velocity, meta }`, for any script. The functions
+have no side effects.
 
 - Each function returns a new list in time order, and does not change its
   input.
@@ -262,7 +267,7 @@ views, fn)` adds an operator of your own in the same way.
 ### Tests
 
 The suite runs `tests.lua` (`paw --clean --no-plugins -l tests/suite.lua
-musicops`):
+musicops`), and the tests cover the following:
 
 - each function on known notes, with exact results
 - the operators through typed keys in the piano roll, the arrange view and
@@ -273,38 +278,38 @@ musicops`):
 
 ### Limits
 
-- **Counts in normal mode** go to the motion or the text object, never to
+- Counts in normal mode go to the motion or the text object, and never to
   the amount. `3gzkip` moves three phrases a step up, not one phrase three
-  steps. Use visual mode for an amount.
-- **Typed two times is the full row.** `gzhh`, `gzjj`, `gzkk`, `gzll`,
-  `gzww`, `gzbb`, `gzee` take full pitches (full tracks), as `>>` does. So
-  the motions `h` `j` `k` `l` `w` `b` `e` cannot come directly after the
+  steps, so use visual mode for an amount.
+- Typed two times is the full row. `gzhh`, `gzjj`, `gzkk`, `gzll`, `gzww`,
+  `gzbb` and `gzee` take full pitches (full tracks), as `>>` does, so the
+  motions `h` `j` `k` `l` `w` `b` `e` cannot come directly after the
   operator with the same last key. No operator ends in `i` or `a`, because
   it would take the text objects.
-- **The piano roll does not shade rows outside the key.** It shows the
-  key beside the row of chords. Its layers paint over notes, not under the
-  rows.
-- **The scale lock** applies to insert mode and to `<C-a>` `<C-x>` only. The
+- The piano roll does not shade rows outside the key. It shows the key
+  beside the row of chords, because its layers paint over notes and not under
+  the rows.
+- The scale lock applies to insert mode and to `<C-a>` `<C-x>` only. The
   `j` `k` of the cursor, `Enter` (a note at the cursor), the pointer and
   pasted notes stay chromatic. It does not apply in the arrange view, where
-  `<C-a>` transposes a full clip in semitones. It does not apply in the
+  `<C-a>` transposes a full clip in semitones, and it does not apply in the
   normal mode of the vocal editor, which has no `<C-a>` of its own.
-- **Operators in the arrange view** edit each clip separately. A phrase
-  across two clips is reversed, stretched or ramped clip by clip. Notes of
-  a clip that start before the region do not change, also when they sound
-  in it.
-- The extension has no motions of the form `]p` and `[p`. So `]` and `[` (velocity
-  in the piano roll) do not wait for a second key.
+- Operators in the arrange view edit each clip separately. A phrase across
+  two clips is reversed, stretched or ramped clip by clip, and notes of a
+  clip that start before the region do not change, also when they sound in
+  it.
+- The extension has no motions of the form `]p` and `[p`, so `]` and `[`
+  (velocity in the piano roll) do not wait for a second key.
 - Nobody tried the extension by hand in a terminal. The suite checked all
   of it through `paw.keymap.feed`.
 
 ## About
 
-An edit that a musician makes each day should be an operator. Then the
-grammar of Vim gives it all the regions that it can need, with no more
-code. Examples are a phrase, a chord, two bars, a selection, a full
+An edit that a musician makes each day should be an operator, because then
+the grammar of Vim gives it all the regions that it can need, with no more
+code. Examples are a phrase, a chord, two bars, a selection and a full
 track.
 
 The scale lock puts mappings over the mappings of the runtime for its
-keys. While the lock is off, these mappings give the key back to the
-runtime. Nothing in the runtime changes.
+keys. While the lock is off, those mappings give the key back to the
+runtime, so nothing in the runtime changes.

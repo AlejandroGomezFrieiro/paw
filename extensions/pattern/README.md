@@ -1,7 +1,7 @@
 # pattern
 
-A line of text that becomes the notes of a MIDI clip. The text is in the
-form of the mini-notation of TidalCycles. You can change it while the song
+The pattern extension turns a line of text into the notes of a MIDI clip. The text uses the
+mini-notation of TidalCycles, and you can change it while the song
 plays.
 
 ```
@@ -18,37 +18,37 @@ paw.ext.load("extensions/pattern")   -- or put the directory in ~/.config/paw/ex
 
 1. Type `:ext.load pattern`.
 2. In the arrange view, put the cursor on an empty part of a drum track.
-3. Press `\tt`. Type `bd*2 [~ sn]` and press Enter. A clip appears, named
+3. Press `\tt`. Type `bd*2 [~ sn]` and press Enter, and a clip appears, named
    `≈ bd*2 [~ sn]`.
-4. Press Space two times. You hear two kicks and a snare in each bar.
+4. Press Space two times, and you hear two kicks and a snare in each bar.
 5. Press `\tt` again. Change the text to `bd*2 [~ sn] hh*8` and press
-   Enter. The clip now has hats too, and you hear them in the next bar.
+   Enter, and the clip now has hats too, which you hear in the next bar.
 
 ## How to
 
 ### How to change a beat while the song plays
 
 1. Put the cursor on the pattern clip.
-2. Press `\tt`. The prompt shows the text of the clip.
-3. Change the text and press Enter. The loop plays the new notes on its
+2. Press `\tt`, and the prompt shows the text of the clip.
+3. Change the text and press Enter, and the loop plays the new notes on its
    next pass.
 
-If the text has a mistake, nothing changes. The prompt opens again with
+If the text has a mistake, nothing changes, and the prompt opens again with
 the text and the error.
 
 ### How to roll the random choices again
 
-Press `\tr` for the next seed, or `\tR` for the previous seed. A count
+Press `\tr` for the next seed, or `\tR` for the previous seed, and a count
 moves that many seeds.
 
 ### How to make a clip longer or shorter
 
-Change the length of the clip. A longer clip plays more cycles. To make
+Change the length of the clip, and a longer clip plays more cycles. To make
 a new clip of 8 cycles, type `8` before `:pattern.set`.
 
 ### How to edit the notes by hand
 
-1. Press `\td`. The clip no longer follows its text. Its notes stay.
+1. Press `\td`, and the clip no longer follows its text, but its notes stay.
 2. Edit the notes in the piano roll.
 
 An edit of the notes by other means also detaches the clip, with a
@@ -62,59 +62,59 @@ In the arrange view, on the clip under the cursor:
 
 | Keys | Command | Effect |
 | --- | --- | --- |
-| `<localleader>tt` | `pattern.edit` | edits the pattern of the clip on the command line, from its text. With no clip under the cursor, makes a new clip there |
+| `<localleader>tt` | `pattern.edit` | edits the pattern of the clip on the command line, from its text, and makes a new clip there when no clip is under the cursor |
 | `<localleader>tn` | | makes a new pattern clip after the clip under the cursor, or at the cursor |
-| `<localleader>tr`, `<localleader>tR` | `pattern.seed` | the next or the previous seed: the random choices again. A count moves that many |
+| `<localleader>tr`, `<localleader>tR` | `pattern.seed` | the next or the previous seed, which rolls the random choices again. A count moves that many |
 | `<localleader>tc` | `pattern.cycle` | asks for the number of beats in a cycle (`bar` for one bar) |
 | `<localleader>ti` | `pattern.info` | shows the text, the seed and the length of a cycle |
-| `<localleader>td` | `pattern.detach` | the clip no longer follows its pattern. Its notes stay |
+| `<localleader>td` | `pattern.detach` | the clip no longer follows its pattern, and its notes stay |
 
 | Command | Effect |
 | --- | --- |
-| `:pattern.set <text>` | gives the clip under the cursor this pattern, or makes a new clip at the cursor with it. The rest of the line is the text, with its spaces: `:pattern.set bd*2 [~ sn]`. A new clip is `pattern_cycles` cycles long (4), or the count |
+| `:pattern.set <text>` | gives the clip under the cursor this pattern, or makes a new clip at the cursor with it. The rest of the line is the text, with its spaces, as in `:pattern.set bd*2 [~ sn]`. A new clip is `pattern_cycles` cycles long (4), or as long as the count |
 | `:pattern.edit` | as `<localleader>tt` |
-| `:pattern.seed [n]` | sets the seed. With no number, the next seed. `by=-1` the previous seed |
+| `:pattern.seed [n]` | sets the seed. With no number, it sets the next seed, and `by=-1` sets the previous seed |
 | `:pattern.cycle <beats>` | the beats in a cycle, or `bar` (the default: a cycle is one bar, with any time signature) |
 | `:pattern.info`, `:pattern.detach` | as the keys |
 
 | Option | Default | Effect |
 | --- | --- | --- |
-| `pattern_names` | true | names a clip after its text, as `≈ bd*2 [~ sn]`. So the text shows on the clip in the arrange view, and `/` finds it. A clip that you renamed keeps your name |
+| `pattern_names` | true | names a clip after its text, as `≈ bd*2 [~ sn]`, so the text shows on the clip in the arrange view, and `/` finds it. A clip that you renamed keeps your name |
 | `pattern_cycles` | 4 | the length in cycles of a clip that `pattern.set` makes |
 
 ### Errors
 
 When the text has a mistake, nothing changes, and the message gives the
-place: `pattern: col 4: missing ] for the bracket at col 4`. Columns count
-from 1: `col 4: unknown name zz: not a note, a number or a drum`.
+place, for example `pattern: col 4: missing ] for the bracket at col 4`. Columns count
+from 1, as in `col 4: unknown name zz: not a note, a number or a drum`.
 `pattern.caret(err)` gives the text with a `^` under the place.
 
 ### How a clip follows its text
 
 - paw calculates the notes again when the text, the length of the clip,
   the seed, the length of a cycle or the time signature changes.
-- A clip that you move, mute or split continues to follow its text. The
+- A clip that you move, mute or split continues to follow its text, and the
   left part of a split keeps the pattern, cut at the split.
-- **An edit of the notes by other means detaches the clip**: the piano
-  roll, insert mode, transpose, snap, join, a script that calls
-  `set_notes`. paw keeps the edit and shows a warning. The text goes to
+- An edit of the notes by other means detaches the clip, for example an edit in the piano
+  roll, insert mode, transpose, snap, join, or a script that calls
+  `set_notes`. paw keeps the edit and shows a warning, and the text goes to
   `meta.pattern_detached`, so `<localleader>tt` offers it again. If you submit
-  it, it replaces the edits. Undo removes the edit and the detach together.
-- Undo and redo restore the text and the notes together. A saved project
+  the text, it replaces the edits, and undo removes the edit and the detach together.
+- Undo and redo restore the text and the notes together, and a saved project
   keeps both.
 - While the transport plays, a change goes to the audio engine at the end
-  of the key press that made it. A song in a loop plays the new notes on
-  the next pass, and does not stop.
-- Cycles count from the start of the clip. Alternation starts again at
+  of the key press that made it, so a song in a loop plays the new notes on
+  the next pass and does not stop.
+- Cycles count from the start of the clip, and alternation starts again at
   each pattern clip.
 - Copies made by yank and paste, `&` and `clip.duplicate`, and the right
-  part of a split, have the notes but not the pattern. The snapshots of
+  part of a split, have the notes but not the pattern, because the snapshots of
   clips in the runtime do not keep the `meta` of the clip.
 
 ### The language
 
-A pattern is one cycle. A cycle is one bar, unless the clip gives another
-length. Steps with spaces between them share the cycle equally. Each
+A pattern is one cycle, and a cycle is one bar unless the clip gives another
+length. Steps with spaces between them share the cycle equally, and each
 example below gives the events of the first cycle as `start–end` in
 cycles.
 
@@ -136,7 +136,7 @@ cycles.
 
 - `*` and `/` take a number (`hh*1.5`) or a pattern of numbers: `hh*<2 3>`
   plays two hats in one cycle and three in the next.
-- A step repeats at most 256 times. A clip takes at most 20000 notes from
+- A step repeats at most 256 times, and a clip takes at most 20000 notes from
   a pattern. paw refuses a longer result with an error.
 
 #### Cycles
@@ -174,9 +174,9 @@ The rhythms are the rhythms of Bjorklund, as in TidalCycles: `(5,8)` is
 | `?` drop | `hh*8?` | drops each hat with probability ½ |
 | `?p` | `hh*8?0.2` | drops with probability 0.2 |
 
-- The choices come from the **seed** of the clip (`pattern.seed`, 0 at the
-  start). The same text and seed always give the same notes. A saved
-  project gives them back.
+- The choices come from the seed of the clip (`pattern.seed`, 0 at the
+  start), and the same text and seed always give the same notes. A saved
+  project gives the same notes back.
 - Each `|` and `?` in the text decides separately.
 - `|` binds more tightly than `,`: `[a | b, c]` is `[[a | b], c]`.
 
@@ -213,16 +213,16 @@ Drums, as `require("pattern").drums`:
 | `cow` | 56 | | `tb` `tamb`, `sp`, `cy`, `vs`, `sh`, `cl` | 54, 55, 52, 58, 70, 75 |
 
 - The built-in `drums` device plays 36, 38, 39, 40, 42, 44 and 46.
-- A word in the drum table has priority over a note name. So the cowbell
-  is `cow`, not `cb` (C flat).
+- A word in the drum table has priority over a note name, so the cowbell
+  is `cow` and not `cb` (C flat).
 - Other words are errors.
 
 #### Parameters
 
 After the notes, `# name values` sets a parameter for each event. The
-values are a pattern of their own. Each event takes the value that plays
+values are a pattern of their own, and each event takes the value that plays
 when the event starts (the `#` of Tidal). A `#` is a parameter only at the
-start of a word. `f#` is a note.
+start of a word, so `f#` is a note.
 
 ```
 bd*4 # vel 1 0.6 0.8 0.6        velocities 127 76 102 76
@@ -233,7 +233,7 @@ c'maj e'min # oct -1 # add <0 5>
 
 | Parameter | Values | Effect |
 | --- | --- | --- |
-| `vel` | 0 to 1, or above 1 | velocity. A value from 0 to 1 is a share of 127 (rounded). Above 1 is a MIDI velocity (at most 127). 0 drops the note. Without it, notes have `paw.opt.velocity` (100) |
+| `vel` | 0 to 1, or above 1 | velocity. A value from 0 to 1 is a share of 127 (rounded), and a value above 1 is a MIDI velocity (at most 127). 0 drops the note. Without the parameter, notes have `paw.opt.velocity` (100) |
 | `legato` | number | the note length as a share of the length of the event (1 by default). The end of the clip cuts notes. 0 drops the note |
 | `add` | whole number | semitones up (or down). For degrees, steps along the scale |
 | `oct` | whole number | octaves up or down |
@@ -242,7 +242,7 @@ c'maj e'min # oct -1 # add <0 5>
 | `ch` | number | kept in `meta.channel` of each note, for a device or an extension that reads it. The built-in devices do not read it |
 
 - `add` and `oct` do not move drums.
-- A rest in the pattern of a parameter keeps the default.
+- A rest in the pattern of a parameter keeps the default value.
 - paw drops notes outside 0 to 127, and the second of two notes with the same
   pitch that start together.
 
@@ -268,11 +268,11 @@ pattern.chords.mu = { 0, 2, 4, 7 }
 pattern.scales.hijaz = { 0, 1, 4, 5, 7, 8, 10 }
 ```
 
-- `opts.beats` is the beats in a cycle (`false` for one bar).
-  `opts.length` in `pattern.notes` gives the length in beats, in place of
+- `opts.beats` is the beats in a cycle (`false` for one bar), and
+  `opts.length` in `pattern.notes` gives the length in beats in place of
   the count of cycles.
 - The pattern of a clip is `clip.meta.pattern`: `text`, `seed`, `beats`
-  (nil for a bar), and `digest` and `name`. The extension uses `digest`
+  (nil for a bar), and `digest` and `name`, and the extension uses `digest`
   and `name` to find edits by hand and its own names.
 - A script can write `clip.meta = { pattern = { text = "bd*4" } }`. The clip
   follows the text at the end of the turn.
@@ -280,7 +280,7 @@ pattern.scales.hijaz = { 0, 1, 4, 5, 7, 8, 10 }
   `compress`, `euclid`, `degrade`, `choose` and `bjorklund`, to make
   patterns in Lua.
 
-### What of the notation of Tidal is not here
+### What the notation of Tidal has that pattern does not
 
 - Functions and operators outside the mini-notation: `every`, `jux`,
   `off`, `sometimes`, `+` and `|+|` between patterns, `~>` and `<~`,
@@ -290,7 +290,7 @@ pattern.scales.hijaz = { 0, 1, 4, 5, 7, 8, 10 }
   drums or chords.
 - Amounts of `@`, `!` and `?` as patterns. The random values of `?` and `|`
   are not the values of Tidal. They are the same for each seed.
-- Tidal counts degrees from 0 and calls middle C `c5`. Here, degrees count
+- Tidal counts degrees from 0 and calls middle C `c5`, but here degrees count
   from 1, as `paw.music.degree` does, and middle C is `c4`.
 - Variables (`^name`) and the `-` rest.
 - Cycles count from the start of each clip, not from the start of the
@@ -298,11 +298,11 @@ pattern.scales.hijaz = { 0, 1, 4, 5, 7, 8, 10 }
 
 ## About
 
-The text of a pattern is in the `meta` of the clip. The notes of the clip
+The text of a pattern is in the `meta` of the clip, and the notes of the clip
 are its result over the length of the clip. Playback, renders, the
-piano roll and saved projects see ordinary notes, and know nothing about
-patterns. So a project with pattern clips plays without the extension.
+piano roll and saved projects see ordinary notes and know nothing about
+patterns, so a project with pattern clips plays without the extension.
 See [About MIDI as the truth](../../docs/explanation/about-midi-as-the-truth.md).
 
-Inside, a pattern is a function of time, as in Tidal. Events have a whole
+Inside the extension, a pattern is a function of time, as in Tidal. Events have a whole
 and a part, and only the starts of events become notes.

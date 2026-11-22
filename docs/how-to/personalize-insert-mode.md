@@ -1,10 +1,10 @@
 # How to personalize insert mode
 
-This guide shows you how to change what the keys of insert mode insert
-in the arrange view, in your `init.lua`. In the arrange view, `i` starts
-insert mode, and then `m` inserts a MIDI clip, `r` a region, `'` a
-marker. [Insert mode in the arrange view](../reference/insert-mode.md)
-lists all the keys.
+You can change what the keys of insert mode insert in the arrange view,
+with a few lines in your `init.lua`. In the arrange view, `i` starts insert
+mode, and then `m` inserts a MIDI clip, `r` a region and `'` a marker.
+[Insert mode in the arrange view](../reference/insert-mode.md) lists all
+the keys.
 
 ## Change what a key inserts
 
@@ -28,8 +28,9 @@ The fields that you do not give stay as they are.
 
 ## Add a key for a clip with notes in it
 
-This key inserts a drum clip of two bars. The clip has a kick on each
-beat, and a snare on beats 2 and 4. Add the key to your `init.lua`:
+You can add a key that inserts a clip with notes. The example key inserts
+a drum clip of two bars, with a kick on each beat and a snare on beats 2
+and 4. Add the key to your `init.lua`:
 
 ```lua
 local notes = {}
@@ -46,8 +47,8 @@ paw.insert.add("M", {
 })
 ```
 
-On a track, press `i`, then `M` two times, then `Esc`. Two drum clips are
-on the track, one after the other. `u` removes both.
+On a track, press `i`, then `M` two times, and then `Esc`. Two drum clips
+are on the track, one after the other, and `u` removes both.
 
 ## Move a key, or remove it
 

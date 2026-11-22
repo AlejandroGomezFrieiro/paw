@@ -2,10 +2,10 @@
 
 <!-- tags: statusline lualine paw.statusline -->
 
-The status line has six sections, as lualine has in Neovim. Sections `a`,
-`b` and `c` are on the left, and `x`, `y` and `z` at the right edge. Each section is a
+The status line has six sections, as lualine has in Neovim, where sections `a`,
+`b` and `c` are on the left and `x`, `y` and `z` are at the right edge. Each section is a
 list of components. `paw.statusline.setup` changes the sections that you
-give it. The other sections keep their defaults.
+give it, and the other sections keep their defaults.
 
 ## The default line
 
@@ -17,7 +17,7 @@ give it. The other sections keep their defaults.
 | `x` | `keys`, `scope`, `project`, `engine`, `cpu` |
 | `y`, `z` | (empty) |
 
-Each component has the narrowest screen that shows it. So the line does
+Each component has the narrowest screen that shows it, so the line does
 not change its shape when the width changes by one column. paw shortens the
 name of the project before it removes a component.
 
@@ -79,10 +79,10 @@ paw.statusline.setup({
 
 ## Components
 
-A component is one of these:
+A component is one of the following:
 
 - a name: `"tempo"`.
-- a function, `function(ctx) return "text" end`. It gives nothing (it has nothing to show now), a string, or a list of `{ text, group }` pieces.
+- a function, `function(ctx) return "text" end`. It returns nothing when it has nothing to show, or a string, or a list of `{ text, group }` pieces.
 - a table with a name or a function first, and options after it:
   `{ "grid", min = 120 }`,
   `{ fn, rank = 2, style = "StatusDim", cond = function(ctx) return ... end, fmt = function(text) return text:upper() end }`.
@@ -96,7 +96,7 @@ A component is one of these:
 | `fmt` | A function that changes the text. |
 | `key` | A function. paw calls the component again only when the value of `key(ctx)` changes. The `project`, `engine` and `cpu` components use it. |
 
-`ctx` holds these fields:
+`ctx` holds the fields below.
 
 | Field | Value |
 | --- | --- |
@@ -118,7 +118,7 @@ A component is one of these:
 
 ## In the graphical window
 
-Until `setup` runs, the graphical window shows its own line. After
-`setup`, the kernel sends the pieces of the line as `modal.statusline`
+Until `setup` runs, the graphical window shows its own line, and after
+`setup` the kernel sends the pieces of the line as `modal.statusline`
 (`{ left, right }`, each a list of `{ text, group }`), and the window shows
 them. See [The graphical frontend](window.md).

@@ -2,9 +2,9 @@
 
 <!-- tags: trackcolumn statuscolumn paw.trackcolumn paw.ruler number relativenumber relativebar -->
 
-The track column is at the left of the track headers of the arrange view.
-The bar labels are on its ruler. Each is a list of parts, and an extension
-adds its own parts. The arrange view draws them in cells, so the terminal
+The track column is at the left of the track headers of the arrange view,
+and the bar labels are on its ruler. Each is a list of parts, and an extension
+can add its own parts. The arrange view draws them in cells, so the terminal
 and the graphical window show the same column and ruler. For what the
 user sees, see [The arrange view](arrange-view.md#the-track-column).
 
@@ -16,10 +16,10 @@ user sees, see [The arrange view](arrange-view.md#the-track-column).
 | `signs` | 20 | One sign for each track: the sign of the highest priority. No column when no track has one. |
 | `fold` | 30 | The groups as a tree: `▾` `▸` on a group, `│` and `╰` down its members. A click on `▾` or `▸` folds or opens the group. |
 
-The parts show from the left by their order. `paw.opt.trackcolumn` names
-the parts that show: `:set trackcolumn=number,fold` removes the signs.
-Without `fold`, the header puts the mark of a group before its name, and
-its members a step in.
+The parts show from the left by their order, and `paw.opt.trackcolumn` names
+the parts that show, so `:set trackcolumn=number,fold` removes the signs.
+Without `fold`, the header puts the mark of a group before its name and
+indents its members a step.
 
 ## paw.trackcolumn.add
 
@@ -36,8 +36,8 @@ paw.trackcolumn.add("rec", {
 ```
 
 `add` puts the name of the part in `paw.opt.trackcolumn`, so the part
-shows at once. `hidden = true` adds it without that. A part with a name
-that exists replaces it. `paw.trackcolumn.remove("rec")` removes it.
+shows at once, and `hidden = true` adds it without doing so. A part with a name
+that exists replaces the old part, and `paw.trackcolumn.remove("rec")` removes it.
 
 | Field | Meaning |
 | --- | --- |
@@ -52,7 +52,7 @@ that exists replaces it. `paw.trackcolumn.remove("rec")` removes it.
 `frame` has `rows`, the ids of the tracks that show, in order, and
 `count`, how many lines the counts of `j` and `k` go over.
 
-`ctx` tells about the line:
+`ctx` has the fields below, which describe the line.
 
 | Field | Meaning |
 | --- | --- |
@@ -66,13 +66,13 @@ that exists replaces it. `paw.trackcolumn.remove("rec")` removes it.
 | `g` | The glyphs of paw (`paw.draw.g`), plain ASCII with `paw.opt.ascii`. |
 | `glyphs`, `styles` | The glyphs and the styles of the part. |
 
-A part that has an error shows `!` and the other parts still show.
+A part that has an error shows `!`, and the other parts still show.
 
 ## paw.trackcolumn.set
 
-`set` changes a part that exists, also a part that comes with paw. It
+`set` changes a part that exists, including a part that comes with paw, and it
 changes only the fields that you give. The `glyphs` and `styles` that
-you give go into those of the part. The other glyphs and styles stay.
+you give go into those of the part, and the other glyphs and styles stay.
 
 ```lua
 -- The folds at the far left, with plus and minus signs, in the dim color.
@@ -83,13 +83,13 @@ paw.trackcolumn.set("number", { width = 4, styles = { cursor = "Title" } })
 paw.trackcolumn.set_sign("diagnostics", { glyphs = { error = "E", warn = "W" } })
 ```
 
-To change the order, give a new `order`. To replace a part, add a part
-with its name. To remove one, use `paw.trackcolumn.remove`, or take its
+To change the order, give a new `order`, and to replace a part, add a part
+with its name. To remove one, use `paw.trackcolumn.remove` or take its
 name out of `paw.opt.trackcolumn`.
 
-`set` does not change the table of the part. It puts a changed copy in
+`set` does not change the table of the part, and instead puts a changed copy in
 `paw.trackcolumn.components` and returns it. To put a part back as it
-was, keep its table before you change it and add it again:
+was, keep its table before you change it and add it again, as follows.
 
 ```lua
 local fold = paw.trackcolumn.components.fold
@@ -97,8 +97,8 @@ paw.trackcolumn.set("fold", { glyphs = { open = "-" } })
 paw.trackcolumn.add("fold", fold)   -- the folds of paw again
 ```
 
-paw records each part, sign and change that an extension makes. When
-the extension unloads, paw removes its parts and signs, and puts back
+paw records each part, sign and change that an extension makes, and when
+the extension unloads, paw removes its parts and signs and puts back
 each part that it changed. The field `ext` of a part names the
 extension that added it or changed it last.
 
@@ -109,8 +109,8 @@ extension that added it or changed it last.
 | `fold` | `open`, `closed`, `guide`, `last` | `fold` |
 | the sign `diagnostics` | `error`, `warn` | `error`, `warn` |
 
-`K` on a track adds what the parts say: `fold` tells the group of the
-track and, on a group, how many tracks it holds. `signs` tells what each
+`K` on a track adds what the parts say, where `fold` gives the group of the
+track and, on a group, how many tracks it holds, and `signs` gives what each
 sign says, for example the count of the diagnostics.
 
 ## paw.trackcolumn.sign
@@ -125,7 +125,7 @@ paw.trackcolumn.sign("todo", {
 ```
 
 A sign is one character in the `signs` part. When two signs have a
-character for a track, the sign with the higher `priority` shows. The
+character for a track, the sign with the higher `priority` shows, and the
 diagnostics of language servers have priority 30.
 `paw.trackcolumn.sign("todo", nil)` removes the sign.
 
@@ -142,21 +142,21 @@ paw.ruler.add("odd", {
 
 The label of each bar on the ruler is a list of parts. The part `number`
 (order 10) shows the number of the bar, or with `relativebar` how many `W`
-or `B` go to it. A part shows after the parts of a lower order.
+or `B` go to it, and a part shows after the parts of a lower order.
 `paw.opt.barlabel` names the parts that show, and `add` puts the name in
 it. `paw.ruler.remove("odd")` removes the part.
 
 `paw.ruler.set(name, patch)` changes a part that exists: its `order`,
-its `render`, its `glyphs` and its `styles`. As `paw.trackcolumn.set`,
+its `render`, its `glyphs` and its `styles`. Like `paw.trackcolumn.set`,
 it puts a changed copy in `paw.ruler.labels`. The part `number` has the
-styles `cursor` and `relative`:
+styles `cursor` and `relative`.
 
 ```lua
 paw.ruler.set("number", { styles = { cursor = "Title", relative = "Dim" } })
 ```
 
-A bar label has no `click` and no `describe`. A click on the ruler moves
-the playhead, and `K` describes the track and the clip at the cursor.
+A bar label has no `click` and no `describe`, because a click on the ruler moves
+the playhead and `K` describes the track and the clip at the cursor.
 
 | Field of `ctx` | Meaning |
 | --- | --- |
@@ -172,7 +172,7 @@ the playhead, and `K` describes the track and the clip at the cursor.
 
 [How to personalize the track column and the
 ruler](../how-to/personalize-the-track-column-and-the-ruler.md) gives
-the steps. Two bundled extensions use all of this API:
+the steps. Two bundled extensions use the whole API,
 [columnplus](../../extensions/columnplus/README.md) for the track column
 and [rulerplus](../../extensions/rulerplus/README.md) for the bar labels.
 

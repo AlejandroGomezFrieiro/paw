@@ -1404,7 +1404,7 @@ function M.float(width: integer, height: integer): FloatText
   return {title = paw.ui.float.title or paw.ui.float.name, lines = out}
 end
 
---- The stretch of a lane's range that is worth drawing it over: a fader's
+--- The stretch of a lane's range that the drawing covers: a fader's
 --- travel for volume, the whole range for anything else.
 function M.lane_span(lane: types.Lane): number, number
   if lane.target == "volume" then

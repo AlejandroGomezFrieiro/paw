@@ -1,0 +1,31 @@
+# plain-writing rule 1: simple, everyday words, not the words that AI tools
+# overuse. The skill also lists "reach", but paw's docs need the literal
+# verb ("the playhead reaches the loop end"), and a pattern cannot tell it
+# from the figurative one: the writer judges it.
+extends: existence
+message: "'%s' is a word that AI tools overuse (plain-writing 1). Use a simple, everyday word."
+level: error
+ignorecase: true
+tokens:
+  - delve[sd]?
+  - delving
+  - tapestry
+  - landscapes?
+  - robust(?:ly|ness)?
+  - leverag(?:e|es|ed|ing)
+  - seamless(?:ly)?
+  - unlock(?:s|ed)?
+  - empower(?:s|ed)?
+  - elevat(?:e|es|ed)
+  - harness(?:es|ed)?
+  - showcas(?:e|es|ed)
+  - crucial
+  - realm
+  - embark(?:s|ed)?
+  - foster(?:s|ed)?
+  - intricate
+  - meticulous(?:ly)?
+  - underscor(?:e|es|ed)
+  - vibrant
+  - powerful
+  - effortless(?:ly)?

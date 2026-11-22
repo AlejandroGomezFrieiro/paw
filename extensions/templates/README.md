@@ -1,8 +1,6 @@
 # templates
 
-A track, a group of tracks or a chain of devices, saved under a name, to
-make again in any project. For example: a vocal track with its chain and
-levels, a string section with all its instruments, a mastering chain.
+The templates extension saves a track, a group of tracks or a chain of devices under a name, so that you can make it again in any project. For example, you can save a vocal track with its chain and levels, a string section with all its instruments, or a mastering chain.
 
 ```lua
 paw.ext.load("/path/to/paw/extensions/templates")   -- or link it into ~/.config/paw/extensions
@@ -16,9 +14,9 @@ paw.ext.load("/path/to/paw/extensions/templates")   -- or link it into ~/.config
 2. Put the cursor on a track with devices, and press `\Ts`. Type `Keys`
    and press Enter. The message says that the template is saved.
 3. Move the cursor to another track, and press `\Tl`.
-4. Type `ke` and press Enter. A copy of the track appears below the
+4. Type `ke` and press Enter, and a copy of the track appears below the
    cursor track.
-5. Press `<Space>dd`. The devices of the new track are the devices of the saved
+5. Press `<Space>dd`, and the devices of the new track are the devices of the saved
    track.
 
 ## How to
@@ -29,7 +27,7 @@ paw.ext.load("/path/to/paw/extensions/templates")   -- or link it into ~/.config
 2. Press `\Ts`, type a name and press Enter.
 
 If a template has the same name, paw asks first. To keep the clips of the
-track too, call `templates.save_track(track, name, { clips = true })`.
+track as well, call `templates.save_track(track, name, { clips = true })`.
 
 ### How to save the devices of a track as a chain
 
@@ -41,12 +39,12 @@ track too, call `templates.save_track(track, name, { clips = true })`.
 1. Put the cursor on a track.
 2. Press `\Tl`. Type a part of the name, or choose from the list.
 
-A track or a group appears below the cursor track. A chain goes at the end
+A track or a group appears below the cursor track, and a chain goes at the end
 of the devices of the cursor track.
 
 ### In the graphical window
 
-- Choose `Track` → "From a template…".
+- Choose `Track`, then "From a template…".
 - In the menu of a track, choose "Save as a template…", "Save its devices
   as a chain…" or "Add devices from a template…".
 
@@ -54,7 +52,7 @@ of the devices of the cursor track.
 
 | Keys | Command | Effect |
 | --- | --- | --- |
-| `\Ts` | `template.save [name]` | saves the cursor track. On a group, saves the group with all its tracks |
+| `\Ts` | `template.save [name]` | saves the cursor track, or the group with all its tracks when the cursor is on a group |
 | `\Tf` | `template.fx [name]` | saves the devices of the track as a chain |
 | `\Tl` | `template.load [name]` | makes a template again: a track or a group below the cursor track, a chain at the end of the devices of the cursor track. A part of the name is enough. Without a name, you choose from a list |
 | | `template.delete [name]` | deletes a template |
@@ -62,7 +60,7 @@ of the devices of the cursor track.
 
 <!-- tags: :templates -->
 
-A name that a file cannot hold (`Bass/Sub`) becomes a name that it can
+paw changes a name that a file cannot hold (`Bass/Sub`) into a name that it can
 hold (`Bass_Sub`), and the message tells you.
 
 ### What a template holds
@@ -74,9 +72,9 @@ hold (`Bass_Sub`), and the message tells you.
 | a chain | the devices of a track, in order, with their parameters and plugin state |
 
 A template does not hold the track that its track played into, or the
-tracks that it sent to. Those belong to the project that it came from.
+tracks that it sent to, because both belong to the project that the template came from.
 
-Templates are JSON files in
+The templates are JSON files in
 `~/.local/share/paw/templates/<kind>/<name>.json`, in the shape that
 `Track:snapshot()` gives. `paw.opt.templates_dir` puts them in another
 directory.

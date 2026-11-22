@@ -9,9 +9,9 @@ use mlua::{Lua, Table, Value as LuaValue};
 use serde::Deserialize;
 
 use crate::model::Id;
-use crate::session::RenderOpts;
+use crate::session::{FilterRule, RenderOpts};
 
-use super::{LuaResult, Shared, options, to_lua};
+use super::{LuaResult, Shared, from_lua, options, to_lua};
 
 #[derive(Default, Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -122,6 +122,28 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         fn engine_follow(_, sh, track => Option<Id>) {
             sh.session.borrow_mut().set_follow(track);
             Ok(())
+        }
+        // The track that plays MIDI input as if monitored, also while another
+        // track is armed, or none with nil. While set, it takes the place of
+        // `engine_follow`'s track. Step input sets it to the track of the
+        // clip it enters into, so that the controller sounds there.
+        // @return nil
+        fn engine_follow_always(_, sh, track => Option<Id>) {
+            sh.session.borrow_mut().set_follow_always(track);
+            Ok(())
+        }
+        // Controls of MIDI input that tracks do not get: they neither sound
+        // nor record. Scripts still hear them, as `midi.in` events with
+        // `filtered = true`. Each `name` (`"step"`, `"learn"`) keeps its own
+        // list beside the others; nil or an empty list removes it.
+        // @param rules? {types.MidiFilterRule}
+        // @return nil
+        fn engine_midi_filter(lua, sh, (name, rules) => (String, LuaValue)) {
+            let rules: Vec<FilterRule> = match rules {
+                LuaValue::Nil => Vec::new(),
+                rules => from_lua(lua, rules)?,
+            };
+            sh.session.borrow_mut().set_midi_filter(&name, rules).lua()
         }
         // The number of threads that process tracks, with the audio thread. 0
         // lets paw select the number. `engine_get().threads` gives the number in use.

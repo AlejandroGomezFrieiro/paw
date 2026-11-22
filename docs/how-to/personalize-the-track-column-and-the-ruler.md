@@ -1,9 +1,9 @@
 # How to personalize the track column and the ruler
 
-This guide shows you how to change the track column and the bar labels
-in your `init.lua`. The track column is at the left of the track
-headers. It shows the number of each track, its signs and the folds of
-the groups. The bar labels are the numbers of the bars on the ruler.
+You can change the track column and the bar labels in your `init.lua`. The
+track column is at the left of the track headers. It shows the number of
+each track, its signs and the folds of the groups. The bar labels are
+the numbers of the bars on the ruler.
 
 ## Change a part of paw
 
@@ -29,8 +29,8 @@ glyphs and the styles of each part.
 
 ## Add a sign
 
-A sign is one character in the column. This sign is a red dot on each
-track that is ready to record. Add it to your `init.lua`:
+A sign is one character in the column. The example sign is a red dot on
+each track that is ready to record. Add it to your `init.lua`:
 
 ```lua
 paw.trackcolumn.sign("armed", {
@@ -44,11 +44,13 @@ paw.trackcolumn.sign("armed", {
 })
 ```
 
-Press `K` on an armed track. The description tells "ready to record".
+When you press `K` on an armed track, the description says "ready to
+record".
 
 ## Add a part to the bar labels
 
-This part puts a dot before the number of every eighth bar, from bar 9:
+The example part puts a dot before the number of every eighth bar, from
+bar 9:
 
 ```lua
 paw.ruler.add("eight", {
@@ -59,8 +61,8 @@ paw.ruler.add("eight", {
 })
 ```
 
-A part with an `order` less than 10 shows before the number of the bar.
-A higher `order` shows after it.
+A part with an `order` less than 10 shows before the number of the bar,
+and a part with a higher `order` shows after it.
 
 ## Hide a part
 
@@ -71,11 +73,11 @@ To hide a part, take its name out of the option:
 
 ## Make it an extension
 
-To load and unload your changes as one, put them in a file in
+If you want to load and unload your changes as one, put them in a file in
 `~/.config/paw/extensions`, for example `mycolumn.lua`, in place of
-`init.lua`. Then `:ext.unload mycolumn` removes your parts and signs and
-puts back the parts of paw that you changed. Two bundled extensions are
-fuller examples to copy:
+`init.lua`. Then `:ext.unload mycolumn` removes your parts and signs, and
+it puts back the parts of paw that you changed. The bundled extensions
+below are fuller examples to copy:
 
 - [columnplus](../../extensions/columnplus/README.md): a color strip, clip
   counts, signs for takes and frozen tracks, other fold glyphs, keys and

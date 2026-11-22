@@ -7,6 +7,7 @@ use crate::clip::ClipSet;
 use crate::device::Device;
 use crate::event::EventKind;
 use crate::launch::{Launch, Slots};
+use crate::midi_filter::MidiFilter;
 use crate::midi_out::MidiOut;
 use crate::pool::Pool;
 use crate::preview::Preview;
@@ -176,6 +177,9 @@ pub enum Msg {
         port: u32,
         kind: EventKind,
     },
+    /// The controls of MIDI input that tracks do not get (see
+    /// [`crate::midi_filter`]), in place of those before.
+    SetMidiFilter(Box<MidiFilter>),
     /// Worker threads to process tracks on, or `None` for the audio thread alone.
     SetPool(Option<Box<Pool>>),
     /// The clips in a track's slots, to be launched.
@@ -221,4 +225,5 @@ pub(super) enum Garbage {
     Slots(#[allow(dead_code)] Box<Slots>),
     Launches(#[allow(dead_code)] Box<Vec<Launch>>),
     Preview(#[allow(dead_code)] Box<Preview>),
+    MidiFilter(#[allow(dead_code)] Box<MidiFilter>),
 }

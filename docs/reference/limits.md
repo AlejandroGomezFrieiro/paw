@@ -2,40 +2,26 @@
 
 <!-- tags: missing -->
 
-This page lists what paw does not do, and the known limits of what it does.
-Each item is a fact about the current version. An item goes away when paw
-gets the function.
+The limits page lists what paw does not do, and the known limits of what it does. Each item is a fact about the current version, and an item goes away when paw gets the function.
 
 ## Edit and undo
 
-- Undo: the steps share the notes of a clip in runs of a few hundred, but
-  not its controller moves. A step that changes a clip keeps a full copy of
-  its controller moves. The engine plays a changed clip again from all its
-  notes. So an edit or an undo on a clip of 200,000 notes takes some
-  milliseconds to reach the engine.
-- A MIDI clip has its own length, as in REAPER. When you delete its last
-  notes, the clip does not become shorter. `:clip.resize`, or a drag on its
-  end, changes the length.
+- The undo steps share the notes of a clip in runs of a few hundred, but they do not share its controller moves, so a step that changes a clip keeps a full copy of its controller moves. The engine plays a changed clip again from all its notes, so an edit or an undo on a clip of 200,000 notes takes some milliseconds to reach the engine.
+- A MIDI clip has its own length, so when you delete its last notes, the clip does not become shorter. `:clip.resize`, or a drag on its end, changes the length.
 - Harmony:
-  - The reading uses steps of half a beat. So it reads a chord shorter
-    than about a beat as passing tones (a technical name).
+  - The reading uses steps of half a beat, so it reads a chord shorter than about a beat as passing tones.
   - The arrange ruler does not show the chords and the key. The piano roll
     shows them, and the `rulerplus` extension shows them on the ruler.
-  - A slash chord can have a bass that is not a chord tone. Then its name
-    comes from the full set of pitches: C G B D is Cmaj9, not G/C.
-  - paw reads the full song again after each edit. This is fast for songs
-    of some thousands of notes, but it is not incremental.
+  - A slash chord can have a bass that is not a chord tone, and its name then comes from the full set of pitches, so C G B D is Cmaj9 and not G/C.
+  - paw reads the full song again after each edit, which is fast for songs of some thousands of notes but is not incremental.
 - Snippets:
-  - Only the piano roll offers snippets. A snippet can name other views,
-    but nothing opens the picker there yet.
+  - Only the piano roll offers snippets, and a snippet can name other views, but nothing opens the picker there yet.
   - A snippet taken as a suggestion (`Ctrl-Space`) has no choices.
   - The preview of the picker uses the layer of the snippet, not
     `paw.complete.show`.
   - A melody of eighth notes alone can give chords, because a beat with
     two pitches is a sign of a chord.
-- A smooth tempo curve: a drawn stroke makes a change about each beat,
-  each change a ramp to the next. The curve editor writes a smooth part as
-  ramps of a sixteenth of a beat.
+- A smooth tempo curve from a drawn stroke makes a change about each beat, and each change is a ramp to the next. The curve editor writes a smooth part as ramps of a sixteenth of a beat.
 - In the curve editor:
   - Send levels and clip gain are not curves yet.
   - The moves of a controller only hold. A ramp is written as many moves.
@@ -45,56 +31,40 @@ gets the function.
 - Stretch:
   - Ratios are 0.25 to 4 (also each part between warp markers). Shifts are
     24 semitones at most in each direction.
-  - paw always makes a stretch from the start of its file. If you put the
-    playhead far into a long clip that changed a short time before, the clip is silent
-    there until paw reaches that point.
+  - paw always makes a stretch from the start of its file, so if you put the playhead far into a long clip that changed a short time before, the clip is silent there until paw reaches that point.
   - Only the `tonal` method keeps formants.
   - A looped clip that follows the tempo stretches evenly. paw does not
     bend it along a ramp inside it.
-  - paw does not find warp markers at onsets: you put each marker by hand.
-    The other takes of a clip share its markers.
+  - paw does not find warp markers at onsets, so you put each marker by hand, and the other takes of a clip share its markers.
 - The piano roll with several clips:
   - `i` on a selection of clips in the arrange view does not open them,
     because `i` there starts a text object. `Enter` opens them.
   - The phrase and chord text objects of musicops see only the active
     clip.
   - The graphical window does not shade the gaps between the edited clips.
-  - A click on a context note always makes its clip active. So a click
-    cannot add a note on top of a context note. A drag draws it.
-- Insert mode's drawing writes nothing until it ends: notes drawn are not
-  heard when the song plays meanwhile, nor seen by suggestions or language
-  servers, and the window shows them as marks, not as notes to drag.
-  Notes drawn have no length shorter than the grid, and a count before `i`
-  does not draw the insert several times.
+  - A click on a context note always makes its clip active, so a click cannot add a note on top of a context note, but a drag draws it.
+- The drawing of insert mode writes nothing until the mode ends, so notes drawn are not heard when the song plays meanwhile, nor seen by suggestions or language servers, and the window shows them as marks, not as notes to drag. Notes drawn have no length shorter than the grid, and a count before `i` does not draw the insert several times.
 - Suggestions:
-  - Sources can say that they offer suggestions in the arrange view
-    (whole clips) and the drum view (`views`). But only the piano roll asks
-    for them and shows them.
-  - paw writes the controller moves of a suggestion when you accept it,
-    but does not draw them before.
+  - Sources can say that they offer suggestions in the arrange view (whole clips) and the drum view (`views`), but only the piano roll asks for them and shows them.
+  - paw writes the controller moves of a suggestion when you accept it, but it does not draw them before.
   - The badge has no list of the details of the alternatives.
-  - To play a suggestion, paw uses the live input of the track. So the
-    timers of the kernel set its time, not the clock of the engine.
+  - To play a suggestion, paw uses the live input of the track, so the timers of the kernel set its time and not the clock of the engine.
 
 ## Keys, views and the terminal
 
 - Pickers that you can hear:
   - `paw.opt.audition_level` sets the level of sound files only. A phrase plays through the track at the level of the track, to give the sound of the preset in the mix.
-  - The timers of the kernel time a phrase, not the engine. So under load, a phrase can be a few milliseconds uneven.
+  - The timers of the kernel time a phrase, not the engine, so under load a phrase can be a few milliseconds uneven.
   - A factory preset of a plugin takes as long to try as to load. Some plugins stop the program for up to a third of a second.
   - You cannot hear the pickers of templates, UTAU presets and singers, sends and drum maps.
   - The graphical window shows the pane of a picker as text, and the outline of a sound file in block characters, not as a waveform.
-- The waveform of an audio clip in cells (`paw.opt.wave_scale`) shows the
-  lowest to the highest sample of each column. It does not show the
-  loudness: there is no darker inner band for the RMS. The graphical window
-  draws the peaks of a clip from the same data as before (`paw.frontend.peaks`:
-  the lowest, the highest and the loudness of each point).
+- The waveform of an audio clip in cells (`paw.opt.wave_scale`) shows the lowest to the highest sample of each column, and it does not show the loudness, because there is no darker inner band for the RMS. The graphical window draws the peaks of a clip from the same data as before (`paw.frontend.peaks`, which gives the lowest, the highest and the loudness of each point).
 - Windows, buffers and tabs:
   - The arrange view, the piano roll, the notation view, the mixer, the device panel and the session view of the clip launcher have a state for each window. The views of extensions that name no state for each window show in one window at a time.
   - The edit cursor of the arrange view (the track and the time) and the selections are one for all the windows of a frontend.
   - Floats (help, pickers, pages) are not windows of a tab yet.
-  - Each view draws its own window title bar (the winbar of Neovim).
-  - The project keeps a layout for each kind of seat (the graphical window, the terminal), not for each seat. Two terminals attached at the same time share one layout in the project: that of the terminal that saved it last.
+  - Each view draws its own window title bar (the winbar).
+  - The project keeps a layout for each kind of seat (the graphical window, the terminal), not for each seat. Two terminals attached at the same time share one layout in the project, which is the layout of the terminal that saved it last.
   - `:new` starts a new project. `:vnew` and `Ctrl-w n` open an empty window.
 - The quickfix list:
   - `:g/pattern/` and `:vimgrep` fill it. paw has no `:grep` that runs a program on the files of the project folder. `/` does not fill it.
@@ -106,11 +76,11 @@ gets the function.
   - `d`, `m` and `co` move clips, not the automation, tempo changes or markers in the range.
   - `:m`, `:co` and `:>` move notes as the piano roll does.
   - Notation does not keep the name of a note typed in a replacement (`:s/c4/db4/`). It spells the note by the key.
-  - A term of a pattern has no spaces. So `name=` cannot name a clip with a space in its name.
+  - A term of a pattern has no spaces, so `name=` cannot name a clip with a space in its name.
   - The `:t` of Vim (copy) is not there, because `t` starts a range of tracks. `:k`, `:j!`, `:retab` and similar commands are not there.
   - The graphical window shows the matches and ghosts of the piano roll as the terminal draws them. It gets the count (`prompt.note`), but does not show it yet. It does not shade the range or light clips in the arrange view.
 - Search:
-  - The regex mode of the pickers and `:vimgrep` change the common kind of regular expression into Lua patterns. So a group cannot repeat (`(ab)+`), and there is no `\b`, no backreference and no lookaround.
+  - The regex mode of the pickers and `:vimgrep` change the common kind of regular expression into Lua patterns, so a group cannot repeat (`(ab)+`), and there is no `\b`, no backreference and no lookaround.
   - The preview of a picker draws a clip as a piano roll or a waveform, not as a score (the notation extension draws staves only in its own view).
   - A picker over a hundred thousand notes takes most of a second to open.
   - The live grep of `<Space>fg` searches the text in the project, not the text that a plugin shows. It does not search the text of automation and of device parameters.
@@ -122,13 +92,13 @@ gets the function.
   - `:helpgrep` takes words, not patterns.
   - paw has no `:helptags`. paw makes the tags in short steps when it has no other work after it starts, or the first time that you ask for help before then.
   - Help is only in English.
-  - The Nix package installs the extensions next to the program, but not `docs/`. So an installed paw has the pages of the extensions, but not the manual, unless `PAW_HOME` names a source tree.
+  - The Nix package installs the extensions next to the program, but not `docs/`, so an installed paw has the pages of the extensions but not the manual, unless `PAW_HOME` names a source tree.
 - Lists edited as text (`paw://tracks` and the others):
   - The input, MIDI ports, height and automation of a track are not fields of its line. The side-chain, outputs and parameters of a device are not fields either. The place of a send among the sends of a track is not a field. A copy keeps all of them.
   - An edit of the name of a device does not rename or replace the device.
   - paw puts the lines in columns again only when it reads the buffer again (`:w`, `:e!`).
   - `:s` takes Lua patterns with `\d` `\s` `\w` `\(` `\)` of Vim, not the full syntax of Vim.
-  - These buffers have no `:g`. They do not complete track and device names while you type.
+  - These buffers have no `:g`, and they do not complete track and device names while you type.
   - paw has no buffer of clips, lanes or notes yet.
   - The graphical frontend draws a text buffer as the terminal does, in the monospace font, not with its own widgets.
 - The key rule ([The key rule](key-rule.md)):
@@ -136,10 +106,7 @@ gets the function.
   - `]` and `[` wait a moment for `]d`, `]g` and similar keys before they run. Vim does the same when a longer mapping starts with a key.
   - `paw.opt.keys = "classic"` gives the old keys. It will go after a release.
 - Pictures in the terminal:
-  - paw sends pictures only by the kitty graphics protocol, as direct
-    placements. It does not use Sixel, the protocol of iTerm, or Unicode
-    placeholders. So pictures do not go through tmux, which does not pass
-    them on.
+  - paw sends pictures only by the kitty graphics protocol, as direct placements, and it does not use Sixel, the protocol of iTerm, or Unicode placeholders, so pictures do not go through tmux, which does not pass them on.
   - paw knows a terminal that puts images over images well only by its
     name (kitty, Ghostty, herdr). In any other terminal, paw draws the
     parts that move into the page.
@@ -147,14 +114,12 @@ gets the function.
     the text) only by its name (kitty, Ghostty, herdr, WezTerm). In any
     other terminal (Konsole), paw paints the backgrounds of the cells into
     the picture. There, a single run along one row hides the line under
-    it, for example a cursor block, the note under the cursor or a
-    selection one row high.
+    it, e.g., a cursor block, the note under the cursor or a selection one row high.
   - The score, the plot of the curve editor, the controller strip of the
     piano roll, audio waveforms, and the pitch and curves of the utau
     editor are pictures. The automation lanes of the arrange view, the
     velocity strip, the tempo lane and the meters are still cells.
-  - In Konsole, a scrolled strip sends again the pieces at its edges,
-    because their painted backgrounds changed.
+  - In Konsole, a scrolled strip sends again the pieces at its edges, because their painted backgrounds changed.
 - The mouse in the terminal:
   - You cannot drag the fades and gain of an audio clip. The keys and the
     commands of the clip set them.
@@ -170,7 +135,7 @@ gets the function.
   - The graphical window does not show the line of `paw.statusline` (it
     gets the pieces, `modal.statusline`). It does not draw the own sections
     of the tab line, and `tabline.always` is for the terminal only.
-  - A "scope" component has no meaning here, so paw has none.
+  - paw has no "scope" component, because a scope has no meaning there.
   - Disk recording shows as `take N`, with no count of bytes written. The
     engine does not report one.
   - The file manager moves nothing between disks as a folder: it copies a
@@ -196,8 +161,7 @@ gets the function.
     goes to the kernel, which draws the plane again.
   - paw-raster makes pictures into images when their drawing changes. They
     are not drawn as egui shapes.
-  - The name of a node is the place where it is written. So a view that
-    scrolls sends again what scrolled.
+  - The name of a node is the place where it is written, so a view that scrolls sends again what scrolled.
   - A drag on a hit region costs a turn of the kernel for each move, also
     over `--connect`.
 - The piano roll of the graphical window is the piano roll of the
@@ -209,8 +173,7 @@ gets the function.
     panel beside it.
   - The alternatives of a suggestion show with `Alt-1`…`Alt-9`, not as
     chips to click.
-  - It opens at the zoom of the roll (`note_zoom`), not fitted to the clip.
-    So short notes are too narrow for their names until you zoom in.
+  - It opens at the zoom of the roll (`note_zoom`), not fitted to the clip, so short notes are too narrow for their names until you zoom in.
   - While you drag a note, the note stays where it was and a copy of it
     follows the pointer.
 - The arrange view of the graphical window is the arrange view of the
@@ -233,8 +196,7 @@ gets the function.
   own only when the mixer is at least twenty rows tall. At the usual
   height of the graphical window, they fold into one row that counts them.
   The accent of the theme still differs between the terminal (amber focus)
-  and the graphical window (blue selection). This is the decision of the
-  owner.
+  and the graphical window (blue selection), by decision of the owner.
 - The device panel of the graphical window is the device panel of the
   terminal, laid out in cells:
   - A row is one cell high, lower than the cards of the earlier panel of
@@ -276,9 +238,7 @@ gets the function.
 
 - Pre-roll without a punch: a take from the playhead does not play in from
   before it. Pre-roll in parts of a bar.
-- MIDI-CI: no discovery, profiles or property exchange. MIDI-CI uses
-  SysEx, and the MIDI ports do not send or read SysEx yet. So a loopback
-  test is not possible.
+- MIDI-CI has no discovery, profiles or property exchange. MIDI-CI uses SysEx, and the MIDI ports do not send or read SysEx yet, so a loopback test is not possible.
 - MPE for plugins that take only MIDI 1.0 (LV2, some CLAP plugins): the
   bend and controllers of a note do not reach them. MPE is a form of MIDI
   output only.
@@ -288,9 +248,7 @@ gets the function.
   - paw does not keep the attribute of a note-off (the endings of M2-123).
   - The `attr_map` of a track does not change notes played on a MIDI
     keyboard into keyswitches. It changes clips and `track:play_note`.
-  - In a chord on one channel with different articulations, each
-    keyswitch goes before its note. But a controller or a program change
-    applies to the full chord (route one with `ch=`).
+  - In a chord on one channel with different articulations, each keyswitch goes before its note, but a controller or a program change applies to the full chord (route one with `ch=`).
   - A MIDI file keeps the attribute in an event of paw, not in the NRPN
     form that some other programs read.
   - `paw.plugins.add_dir` finds CLAP and VST3 plugins, not LV2 plugins.
@@ -309,8 +267,7 @@ gets the function.
   - paw does not import key signatures, sysex, text and copyright events,
     and SMPTE offsets. The message counts them. The project has no place
     for them.
-  - Lyrics go only on notes of their own track. So a karaoke file with its
-    words in a separate track keeps no words.
+  - Lyrics go only on notes of their own track, so a karaoke file with its words in a separate track keeps no words.
   - paw does not import controller moves on a channel or track with no
     notes.
   - A format 1 track that plays on several channels stays one track. Each
@@ -323,9 +280,7 @@ gets the function.
 - Cues and the clip launcher:
   - No follow actions (a clip that launches the next clip, or a random
     clip, after some bars).
-  - Under a tempo ramp, a clip that a cue plays spreads the beats of each
-    block evenly. Its notes can be about one frame from where the timeline
-    puts them.
+  - Under a tempo ramp, a clip that a cue plays spreads the beats of each block evenly, so its notes can be about one frame from where the timeline puts them.
   - paw does not render cues directly. Capture them into the timeline
     first.
   - In the graphical window, a clip dragged from the timeline onto the
@@ -335,9 +290,7 @@ gets the function.
 ## Mix, devices and plugins
 
 - paw's sampler (extensions/sampler):
-  - It reads the samples of an instrument whole into memory while the
-    program waits. Nothing streams from disk. The time limit of the plugin
-    helper stops a library that takes more than 30 s to read.
+  - It reads the samples of an instrument whole into memory while the program waits, and nothing streams from disk. The time limit of the plugin helper stops a library that takes more than 30 s to read.
   - It does not play these parts of SFZ: the LFOs (`amplfo_*`, `fillfo_*`,
     `pitchlfo_*`, `lfoN_*`), the v2 envelopes (`egN_*`), `<effect>`,
     `amp_keytrack` and `sw_vel`. It also does not play controllers on
@@ -457,23 +410,19 @@ gets the function.
     on clips or notes.
   - A fix that renders again is not an undo step, because a render is not
     an edit of the project.
-  - The graphical window shows the marks only on notes. The terminal marks
-    tracks, devices, time and renders. The graphical window shows them
-    through `:diagnostics` and the float.
+  - The graphical window shows the marks only on notes, while the terminal marks tracks, devices, time and renders. The graphical window shows those through `:diagnostics` and the float.
   - The settings check of MIDI LSP names the render dialog of REAPER in its
     messages.
 - Kinds of track:
   - A kind says how a track is made and how its clips open. It does not
     say how a new clip on it starts. Kinds have no `new_clip`: a double click
     makes an empty clip on any track.
-  - Commands of the extension change the kind of a track (`:utau.voice`,
-    `:drums.map off`), not a list.
+  - Commands of the extension change the kind of a track (`:utau.voice`, `:drums.map off`), and not a list.
   - The header shows the letter of a kind in the column before the name.
     Diagnostics mark the same column and draw over it.
   - An extension finds the CLAP and VST3 plugins of its own with
     `paw.plugins.add_dir`. It cannot add LV2 plugins that way.
-- Packaged extensions (`paw.withExtensions`) load at startup. To leave
-  them out for one run, you must run the plain program.
+- Packaged extensions (`paw.withExtensions`) load at startup, and to leave them out for one run, you must run the plain program.
 - Extensions:
   - `paw.ext.unload` takes away what an extension registers later only
     when a function of its files is in it, or its code put it there. A key
@@ -498,10 +447,7 @@ gets the function.
 ## Notation and articulations
 
 - Notation:
-  - A tempo mark writes a point of the song's tempo map when it is
-    written. After that, nothing keeps the two together. If you move the
-    clip or the mark, the point stays where it was. No option makes the
-    score own the song's tempo.
+  - A tempo mark writes a point of the song's tempo map when it is written, and after that nothing keeps the two together, so if you move the clip or the mark, the point stays where it was. No option makes the score own the song's tempo.
   - Repeats and endings are written, not unfolded.
   - Trills, mordents, turns and tremolos are written, not played. A fermata
     holds the whole value of its note, but it does not stop the time.
