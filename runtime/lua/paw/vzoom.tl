@@ -59,6 +59,7 @@ local record Opt
   track_height: integer | string
 end
 local record Paw is partial.Paw
+  keymap: KeymapModule
   layout: Layout
   ui: Ui
   groups: Groups

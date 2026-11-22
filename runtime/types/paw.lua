@@ -7685,6 +7685,11 @@ function paw.scope.narrow(which) end
 ---@param s any
 function paw.scope.nest(s) end
 
+--- The own time of the subproject of block `clip`, or nil when it follows
+--- the song's tempo and meter.
+---@param clip any
+function paw.scope.nest_time(clip) end
+
 --- Go to the scope `n` places beside the current one (`]z`, `3]z`, `[z`),
 --- in the same parent. A jump. Returns the scope.
 ---@param n any
@@ -7726,7 +7731,7 @@ function paw.scope.origin() end
 
 --- The own time of the subproject that the window (the one being drawn,
 --- else the current one) is in, when it has its own tempo or meter
---- (`paw.api.nest_time` of the block it was entered through); else nil.
+--- (`paw.api.nest_own_tempo` of the block it was entered through); else nil.
 --- `paw.time` counts in it then.
 function paw.scope.own_time() end
 
@@ -10491,6 +10496,11 @@ function paw.api.midi_ump(event) end
 ---@param opts any
 function paw.api.nest_add(opts) end
 
+--- The subproject's beat of the song's beat `beat`, for block `clip`.
+---@param clip integer
+---@param beat number
+function paw.api.nest_beat(clip, beat) end
+
 --- A subproject as a table: its fields, `tracks` (its tracks in order,
 --- without its master) and `used` (whether the song plays it). With
 --- `key`, only that field of its own (`name`, `length`, `master`...):
@@ -10502,6 +10512,13 @@ function paw.api.nest_get(id, key) end
 --- --- nests (subprojects): tracks with a timeline of their own ---
 --- The ids of the subprojects, in the order they were made.
 function paw.api.nest_list() end
+
+--- Whether the subproject that block `clip` places counts its own time:
+--- true with its own tempo, false with only its own meter, nil when it
+--- follows the song's tempo and meter (the song's map from the block's
+--- start is its time then). The `nest_tempo_*` functions give its map.
+---@param clip integer
+function paw.api.nest_own_tempo(clip) end
 
 --- Promote the subproject of a block (`clip`) to song data, as one
 --- undo step: its tracks come back in a group named after it at the
@@ -10537,6 +10554,61 @@ function paw.api.nest_save(opts) end
 ---@param key any
 ---@param value any
 function paw.api.nest_set(id, key, value) end
+
+--- The song's beat of beat `beat` of the subproject of block `clip`.
+---@param clip integer
+---@param beat number
+function paw.api.nest_song_beat(clip, beat) end
+
+---@param clip integer
+---@param beat number
+function paw.api.nest_tempo_at(clip, beat) end
+
+---@param clip integer
+---@param beat number
+function paw.api.nest_tempo_bar_length(clip, beat) end
+
+---@param clip integer
+---@param beat number
+function paw.api.nest_tempo_bar_of(clip, beat) end
+
+---@param clip integer
+---@param bar integer
+function paw.api.nest_tempo_bar_start(clip, bar) end
+
+---@param clip integer
+---@param beat number
+function paw.api.nest_tempo_bbt(clip, beat) end
+
+---@param clip integer
+---@param bar integer
+---@param beat integer
+---@param fraction number?
+function paw.api.nest_tempo_from_bbt(clip, bar, beat, fraction) end
+
+---@param clip integer
+---@param beat number
+function paw.api.nest_tempo_is_bar_line(clip, beat) end
+
+---@param clip integer
+function paw.api.nest_tempo_points(clip) end
+
+--- The `tempo_*` conversions in the own map of the subproject of block
+--- `clip`, in its beats: `nest_tempo_bbt(clip, beat)`.
+---@param clip integer
+---@param beat number
+function paw.api.nest_tempo_seconds(clip, beat) end
+
+---@param clip integer
+---@param beat number
+function paw.api.nest_tempo_signature(clip, beat) end
+
+--- Make the block `clip` a subproject of its own, as one undo step: a
+--- copy of its subproject (tracks, devices, lanes and clips) named
+--- `Ballad 2`, which the block and the stems of the same block then
+--- play. The other blocks keep the subproject. Returns the copy's id.
+---@param clip integer
+function paw.api.nest_unique(clip) end
 
 ---@param track integer
 ---@param pitch integer?
