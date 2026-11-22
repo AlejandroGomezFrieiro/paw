@@ -34,6 +34,10 @@ folders and `HOME`, and a control socket of its own. It answers the
 terminal probe, writes the keys and reads what paw draws. A frame is
 what paw writes between the start and the end of a synchronized update.
 
+The driver gives `PAW_RUNTIME` to paw. To measure the Lua of a branch
+with a binary of main, set `PAW_RUNTIME` to the folder that
+`tools/dev-runtime.sh` makes, and give the binary with `--paw`.
+
 The first run makes the large project with
 [profile/project.lua](profile/project.lua). It has 64 tracks with a synth
 each, 2 000 MIDI clips and 50 000 notes. Each fourth track has a volume

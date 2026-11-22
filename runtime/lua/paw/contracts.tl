@@ -435,6 +435,10 @@ local record contracts
     modal: boolean
     --- Draws the view in cells.
     render: function(self: View, buf?: Buf, ctx?: RenderContext)
+    --- A text of what `render` reads that no event announces, such as
+    --- the cursor and the scroll of the window. A window without the
+    --- keyboard whose text did not change keeps its cells.
+    stamp: function(self: View, ctx?: RenderContext): string
     --- Gets the keys that have no mapping. True when it took the key.
     on_key: function(self: View, key: string): boolean
     on_mouse: function(self: View, e: MouseEvent): boolean

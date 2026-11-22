@@ -56,7 +56,10 @@ values, and then it sends only the cells that changed.
 
 When no cell changed, the kernel sends nothing, so the cost of a frame is
 the cost of the parts that move and not the cost of the whole view. A key
-or an edit draws the whole screen at once, as before. `paw.opt.fps` is the
+or an edit draws the whole screen at once, as before, but a window without
+the keyboard whose view says that nothing it shows changed keeps its cells
+(see [A stamp for each window](../reference/lua-views.md#a-stamp-for-each-window)).
+So a key in the piano roll doesn't draw the arrange view above it again. `paw.opt.fps` is the
 highest number of frames a second, not a fixed rate.
 
 ## What a scene is
