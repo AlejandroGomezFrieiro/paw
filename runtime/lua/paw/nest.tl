@@ -1084,6 +1084,10 @@ function M.save(name?: string, own_row?: boolean): string
     error("the view has no time to save", 0)
   end
   name = name and name:match("^%s*(.-)%s*$") or ""
+  -- A name has no slash; a word with one is a path (a folder, TASK-7.14).
+  if name:find("/", 1, true) then
+    error(string.format("%s is a path: a subproject's name has no `/`", name), 0)
+  end
   if name == "" then
     name = view_name(s)
   end

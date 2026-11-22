@@ -121,7 +121,9 @@ A view is a part of the song that the window shows, for example the
 region that `znar` enters (see [Narrowing](narrowing.md)). Both commands
 take the clips of the view's tracks in the view's time, cut at its
 edges, and move them into a new subproject. The subproject takes the name
-that you type, else the name of the view or of its region.
+that you type, else the name of the view or of its region. A name has no
+`/`: paw refuses a word with a slash, such as `~/lib/bridge`, because it
+is a path to a folder.
 
 The subproject keeps the meter of the song over that time as its own,
 so the song's bars stay where they are. The markers and regions inside
