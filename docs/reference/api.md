@@ -739,6 +739,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.folds.at(id, win)`: The fold at a track (the cursor's by default), in a window: the largest closed one, which its row stands for, else the smallest. Nil when the track is in none.
 - `paw.folds.clear(win)`: Delete every fold of a window, as `zE`. Returns how many there were.
 - `paw.folds.close(id, win)`: Close the fold at the cursor, as `zc`; on a closed fold, the one around it. Returns it, or nil and the reason.
+- `paw.folds.closed_at(win)`: The closed fold at the cursor, in a window: the time fold that the cursor is in, else the fold that the cursor's row stands for. Nil when the cursor is on no closed fold.
 - `paw.folds.collapse(rows, win)`: The rows that a window draws, from the rows of its tracks without its folds of tracks: each closed fold of tracks keeps its first row, which stands for all of it.
 - `paw.folds.count(f)`: How many tracks of a fold are there.
 - `paw.folds.delete(id, win)`: Delete the fold at a track (the cursor's by default), as `zd`: the fold goes, its tracks stay, drawn as before. Returns it, or nil and the reason.
@@ -1919,7 +1920,8 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.scope.children(s)`: The scopes one level inside a scope (the current one by default): for a region scope, the regions one level inside its region (paw/markers.tl), in order of time; for a group scope, its members (a group or a track), in order. Each has that scope as its parent. Other kinds have none.
 - `paw.scope.contains(track, s)`: True if a scope (the current one by default; a group's id is a scope of that group) shows a track: it and every level above it do. With no scope, every track is inside.
 - `paw.scope.current(win)`: The scope a window shows, or nil for the song: the window given, else the window being drawn, else the current one. A level whose group, track or region is gone is left out.
-- `paw.scope.describe(s)`: What a scope shows, in words: its path, its tracks and its bars.
+- `paw.scope.describe(s, extra)`: What a scope (the current one by default) shows, in words: its path, its bars (its own, and the song's), its meter, its tracks, and whether it is named, with `extra` last: `Song › Bridge · bars 1-8 (song 17-24) · 6/8 · 12 tracks · named`.
+- `paw.scope.describe_fold(f)`: A fold of the current window in words, as a scope inside the one the window shows, and whether it is folded: `Song › Strings · 3 tracks · folded`.
 - `paw.scope.enter(spec, win)`: Enter a scope (`{ kind, id, tracks, from, to, name }`) in a window (the current one by default). In a window that shows a scope, it becomes its child: it shows what both show, and an empty one is refused with the reason. Changes nothing in the project; a jump. Returns the scope.
 - `paw.scope.find(which)`: A group by its id, its track, or its name (or part of it).
 - `paw.scope.format(beat)`: A place as the scope numbers it: `bar.beat.hundredths`, as `paw.time.format`.
@@ -1936,6 +1938,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.scope.nest(s)`: The innermost subproject of a scope's path (the current scope by default), or nil when the path is in the song: its tracks and its timeline are what the window shows.
 - `paw.scope.next(n)`: Go to the scope `n` places beside the current one (`]z`, `3]z`, `[z`), in the same parent. A jump. Returns the scope.
 - `paw.scope.of_clip(id)`: The scope of a subproject's clip (`znn` or `<CR>` on it enters it), or nil when the clip places no subproject.
+- `paw.scope.of_fold(f)`: A fold of a window (paw/folds.tl) as a scope to enter: its group, its region, its tracks or its bars, with the name it shows.
 - `paw.scope.of_region(r)`: The scope an operator's region covers (`zn{motion}`, `{Visual}zn`): the region, group or track its text object names (`ar`, `ag`, `it`), else a block of its tracks, with its time when it has some. Nil for the whole of what the window shows (`ie`).
 - `paw.scope.of_tab(tab)`: The scope of a tab: that of its current window.
 - `paw.scope.open(how, spec)`: Open a scope (the one at the cursor by default) in a new window: `how` is "split", "vsplit" or "tab". The new window starts with the scope of the one it comes from, and enters this one inside it.
