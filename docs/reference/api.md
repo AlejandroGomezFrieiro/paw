@@ -101,6 +101,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.Clip:set_data(data)`: Give a clip of a kind new data, as one undo step (`paw.clip_kinds.set`).
 - `paw.Clip:set_note(index, fields)`: Change one note, by its place in the notes of the clip (from 1). The other notes do not change: `clip:set_note(3, { length = 2 })`. Returns the new place of the note, because notes stay in the order of their start. `attr = false` removes its attribute.
 - `paw.Clip:set_notes(notes)`: Replace every note of the clip with `notes` (as `add_note` takes each).
+- `paw.Clip:shifted(semitones)`: A handle on the same clip whose pitches are `semitones` above the stored ones. The notes that it reads, and the notes and pitches that it takes, are at those pitches. The piano roll edits a clip with a transpose through such a handle, so that it shows each note at the pitch it plays at.
 - `paw.Clip:snapshot()`: The clip as plain data, for `paw.restore_clip`.
 - `paw.Clip:track()`: The track the clip is on.
 
@@ -1808,7 +1809,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.roll_clips.offset(id)`: Where a clip's beats are in the roll: add this to them.
 - `paw.roll_clips.only()`: Edit the active clip alone. This is what paw does when you open a clip.
 - `paw.roll_clips.open(ids, active)`: Edit these clips together. `active` (or the first of them) gets the new notes. paw does not use clips that are not MIDI.
-- `paw.roll_clips.parts()`: The editable clips, the active one first: `{ id, clip, offset, start, length, track, name }` each, `clip` a handle (`paw.clip`).
+- `paw.roll_clips.parts()`: The editable clips, the active one first: `{ id, clip, offset, start, length, track, name }` each, `clip` a handle (`paw.clip`) whose pitches are those that the clip plays (`Clip:shifted`).
 - `paw.roll_clips.pick()`: `:roll.tracks`: a list of the tracks near the roll and of their clips. On a track, Enter shows or hides its notes. On a clip, Enter adds it to the editable set or removes it.
 - `paw.roll_clips.rows()`: Each clip near the roll, as rows for a list. Each shown track is a row (`kind` "track", `on` tells if its notes show). Under it are its MIDI clips in the range of the roll (`kind` "clip", `on` tells if it is editable, `active`). The track of the active clip is first, with its clips.
 - `paw.roll_clips.show_track(id, on)`: Show the notes of a track behind the notes of the roll, or not. nil returns to the value of `paw.opt.roll_context`.
@@ -2472,6 +2473,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.clip_kind_define(name)`: Let `clip_add` make clips of the kind `name`: a lowercase word that is not `midi`, `audio` or another built-in. `paw.clip_kinds.define` calls it.
 - `paw.api.clip_kind_remove(name)`: Stop making clips of the kind `name`. Clips of it that the project has stay.
 - `paw.api.clip_kinds()`: The kinds of clip that extensions defined, by name (sorted).
+- `paw.api.clip_link(id)`: Put a linked copy of a MIDI clip right after it, and return the id of the copy. The clips of a link share their notes and controller moves: an edit of one changes all of them. A clip that has no link yet starts one, named after the clip. `clip_get` gives a linked clip's `link` and `link_count`.
 - `paw.api.clip_list(track, from, to)`: --- clips --- The clips of a track, in timeline order. With `from` and `to` (beats), only those that overlap that stretch: a view that shows part of the song asks for what it shows.
 - `paw.api.clip_normalize(id, level)`
 - `paw.api.clip_note_add(id, note)`: One note at a time, by its place in the notes of the clip (from 1). The functions that add and change a note return its new place, because the notes stay in the order of their start.
@@ -2489,6 +2491,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.clip_set_notes(id, notes)`
 - `paw.api.clip_source_length(id)`: Beats of sound left in an audio clip's file from where the clip starts in it.
 - `paw.api.clip_to_cues(id, track)`: Copy a clip, with its `meta`, off the timeline of a track. Returns the copy's id.
+- `paw.api.clip_unlink(id)`: Take a clip out of its link. It keeps its notes, and edits of it no longer change the other clips.
 - `paw.api.clip_warp_add(id, beat)`: Warp markers of an audio clip (`session/stretching.rs`), counted from 1.
 - `paw.api.clip_warp_move(id, index, beat)`
 - `paw.api.clip_warp_remove(id, index)`

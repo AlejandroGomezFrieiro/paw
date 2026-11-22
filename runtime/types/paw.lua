@@ -645,6 +645,14 @@ function paw.Clip:set_note(index, fields) end
 ---@param notes any
 function paw.Clip:set_notes(notes) end
 
+--- A handle on the same clip whose pitches are `semitones` above the
+--- stored ones. The notes that it reads, and the notes and pitches that it
+--- takes, are at those pitches. The piano roll edits a clip with a
+--- transpose through such a handle, so that it shows each note at the pitch
+--- it plays at.
+---@param semitones any
+function paw.Clip:shifted(semitones) end
+
 --- The clip as plain data, for `paw.restore_clip`.
 function paw.Clip:snapshot() end
 
@@ -7079,7 +7087,8 @@ function paw.roll_clips.only() end
 function paw.roll_clips.open(ids, active) end
 
 --- The editable clips, the active one first: `{ id, clip, offset, start,
---- length, track, name }` each, `clip` a handle (`paw.clip`).
+--- length, track, name }` each, `clip` a handle (`paw.clip`) whose pitches
+--- are those that the clip plays (`Clip:shifted`).
 function paw.roll_clips.parts() end
 
 --- `:roll.tracks`: a list of the tracks near the roll and of their clips.
@@ -9728,6 +9737,14 @@ function paw.api.clip_kind_remove(name) end
 --- The kinds of clip that extensions defined, by name (sorted).
 function paw.api.clip_kinds() end
 
+--- Put a linked copy of a MIDI clip right after it, and return the
+--- id of the copy. The clips of a link share their notes and
+--- controller moves: an edit of one changes all of them. A clip that
+--- has no link yet starts one, named after the clip. `clip_get`
+--- gives a linked clip's `link` and `link_count`.
+---@param id integer
+function paw.api.clip_link(id) end
+
 --- --- clips ---
 --- The clips of a track, in timeline order. With `from` and `to`
 --- (beats), only those that overlap that stretch: a view that shows
@@ -9827,6 +9844,11 @@ function paw.api.clip_source_length(id) end
 ---@param id integer
 ---@param track integer
 function paw.api.clip_to_cues(id, track) end
+
+--- Take a clip out of its link. It keeps its notes, and edits of it no
+--- longer change the other clips.
+---@param id integer
+function paw.api.clip_unlink(id) end
 
 --- Warp markers of an audio clip (`session/stretching.rs`), counted from 1.
 ---@param id integer

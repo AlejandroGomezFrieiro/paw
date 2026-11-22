@@ -39,6 +39,7 @@ local record api
    clip_kind_define: function(name: string)
    clip_kind_remove: function(name: string)
    clip_kinds: function(): {string}
+   clip_link: function(id: integer): integer
    clip_list: function(track: integer, from?: number, to?: number): {types.Clip}
    clip_normalize: function(id: integer, level?: number): number
    clip_note_add: function(id: integer, note: types.Note): integer
@@ -57,6 +58,7 @@ local record api
    clip_set_notes: function(id: integer, notes: {types.Note})
    clip_source_length: function(id: integer): number
    clip_to_cues: function(id: integer, track: integer): integer
+   clip_unlink: function(id: integer)
    clip_warp_add: function(id: integer, beat: number): integer
    clip_warp_move: function(id: integer, index: integer, beat: number): integer
    clip_warp_remove: function(id: integer, index: integer)
