@@ -1,45 +1,57 @@
-# Narrowed tabs
+# Scopes
 
-<!-- tags: narrowing scope narrow region -->
+<!-- tags: narrowing scope narrow region zn znn zw zW -->
 
-In a large project, you can narrow a tab to a part of the song. The part
-is a group of tracks, the time of a region, or both. The tab then shows only that
-part. This is similar to a subproject in REAPER, but it is the same
-project. The part is a scope, and the module is `paw.scope`.
+In a large project, you can narrow a window to a part of the song. The
+part is a group of tracks, the time of a region, some tracks, or both
+tracks and time. The window then shows only that part. This is similar to
+a subproject in REAPER, but it is the same project. The part is a scope,
+and the module is `paw.scope`.
 
-## Commands
+## Keys and commands
 
 | Keys, command | Effect |
 | --- | --- |
-| `:narrow Strings`, `zn` | Show a group and the tracks inside it, at any depth. `zn`: the group at the cursor, on its header or on one of its tracks. |
-| `:narrow Bridge` | Show every track in the time of the region Bridge. |
-| `:widen`, `zw` | Go up one level. From the first level, close the narrowed tab and go to the tab that it came from. |
-| `:widen!` | Go up to the whole song, and close the narrowed tab. |
-| `gt` | Go between the tabs, as for any tabs. |
+| `zn{motion}`, `{Visual}zn` | Enter the scope that the motion or the selection covers, in this window. `znar`: the region at the cursor. `znag`: the group. `znit`: the track. `Vjjzn`: the three tracks. A visual block: those tracks in that time. |
+| `znn` | Enter the innermost scope at the cursor that the window does not show yet: the group of the track, else the track. |
+| `:narrow Strings`, `:narrow Bridge` | Enter a group or a region by name. A named scope comes first, then a group, then a region of the same name. A name can be the start of the name. Alone, `:narrow` is `znn`. |
+| `zw`, `:widen` | Go up one level. |
+| `zW`, `:widen!` | Go up to the whole song. |
+| `]z` `[z`, `:scope.next`, `:scope.prev` | Go to the next scope beside this one, or to the one before, in the same parent. A region: the next region. A group: the next group in the same group. A track: the next track of the parent scope. A block with time: the same tracks, the next stretch of the same length. `3]z` goes three on. |
+| `<C-o>` `<C-i>` | Move backward and forward through the jump list. To enter, to leave and `]z` are jumps. A jump keeps the scope, so `<C-o>` returns into the scope and to the place. |
+| `<Space>zz`, `<Space>fz`, `:scope.list` | Choose from a list: the levels of this window's scope (to go up to), the named scopes, the groups and the regions. |
+| `<Space>zs` `<Space>zv` `<Space>zt`, `:scope.split`, `:scope.vsplit`, `:scope.tab` | Show the scope at the cursor (or of the selection, or one by name) in a new split, vertical split or tab. The window that you were in stays as it was. |
+| `<Space>zn`, `:scope.name Strings in bridge` | Name the scope of this window, so that the list and `:narrow` find it again. |
 | `:set scope_rest=mute` | Set what the tracks outside the scope do (see below). |
 
-`:narrow` takes a group or a region by name. A group comes before a
-region of the same name. A name can be the start of the name.
+## A scope belongs to a window
 
-From the song, `:narrow` opens a tab after the current tab. If a tab
-already shows that scope, paw goes to that tab.
+- Each arrange window keeps its own scope, as each window of Vim keeps its
+  folds. A split can show the whole song beside the bridge.
+- A new split starts with the scope of the window that it comes from.
+- The other windows of a tab (the mixer, the device panel, the piano roll)
+  show the scope of the arrange window of the tab that had the keyboard last.
+- The tab has the name of the scope of its current window.
+- The status line shows the path of the scope of the current window.
+- The project keeps the scope of each window and the named scopes with its
+  windows (`screen.json`). They are not in the song and not in undo.
 
 ## A scope in a scope
 
-In a narrowed tab, `:narrow` goes one level down in the same tab. The new
-scope shows only what both scopes show. For example, `:narrow Bridge`,
-then `:narrow Strings`, shows the strings in the time of the bridge. The
-status line shows the path: `Song › Bridge › Strings`. `zw` goes up one
-level, and `:widen!` goes up to the song.
+In a narrowed window, a new scope goes one level down. It shows only
+what both scopes show. For example, `:narrow Bridge`, then `:narrow
+Strings`, shows the strings in the time of the bridge. The status line
+shows the path: `Song › Bridge › Strings`. `zw` goes up one level, and
+`zW` goes up to the song.
 
 If the two scopes have no track or no time in common, paw does not go
 down. The message gives the reason, for example `no track of Brass is in
 Strings`.
 
-## In a narrowed tab
+## In a narrowed window
 
-- It is the same project, with one undo tree. Undo in any tab undoes an
-  edit made in the narrowed tab.
+- It is the same project, with one undo tree. Undo in any window undoes an
+  edit made in the narrowed window. Every window shows an edit at once.
 - To narrow and to widen change nothing in the project. They are not undo
   steps.
 - Only the tracks of the scope show in these: the arrange view, the
@@ -49,15 +61,12 @@ Strings`.
   tracks. `t1` is the first track of the scope, `t*` and `%` are its
   tracks, and `:g` and `:s` look only in them.
 - The fold of the group is open.
-- The status line shows the path of the scope, and the tab has the name of
-  the innermost scope.
 - A track that you add in the scope of a group goes into the group.
-- Several scopes can be open at the same time, each in its own tab.
-- The graphical window shows the tab as the terminal does.
+- The graphical window shows the window as the terminal does.
 
 ## A scope with time
 
-A scope of a region shows the time of the region.
+A scope of a region, or a block with time, shows that time.
 
 - The cursor stays in that time. `0` goes to its start, and `$`, `W` and
   `l` stop at its end.
@@ -70,8 +79,8 @@ A scope of a region shows the time of the region.
   `Song › Bridge 3.2 (19.2)`.
 - The bars that you type are those of the scope: `3|` and `:3` go to
   bar 3 of the scope, and `:timesig 3/4 at 3` sets the signature there.
-- While the tab is in front, the loop is the time of the scope. The loop
-  that you had returns when you widen or go to another tab.
+- While the window is in front, the loop is the time of the scope. The
+  loop that you had returns when you widen or go to a window of the song.
 
 `paw.opt.scopebars` sets the bar numbers, and `paw.opt.scopeloop` the
 loop:
@@ -79,12 +88,12 @@ loop:
 | Option | Default | Effect |
 | --- | --- | --- |
 | `scopebars` | `"both"` | `"local"`: the bars count from 1 at the start of the scope. `"song"`: the bars of the song. `"both"`: from 1, with the bars of the song on a second row of the ruler. |
-| `scopeloop` | `true` | Loop the time of the scope while its tab is in front. |
+| `scopeloop` | `true` | Loop the time of the scope while its window is in front. |
 
 ## The rest of the song
 
 `paw.opt.scope_rest` sets what the tracks outside the scope do while a
-narrowed tab is in front. No value changes the project. A scope of time
+narrowed window is in front. No value changes the project. A scope of time
 only (a region) has no tracks outside it: the loop keeps the playhead in
 its time.
 
@@ -92,26 +101,29 @@ its time.
 | --- | --- |
 | `play` | Default. The rest plays, as a reference. |
 | `mute` | The rest is silent, as with a solo of the scope. The tracks that the sound of the scope goes through still play. The mutes and solos of the project do not change. |
-| `frozen` | paw renders each part of the rest in the background (each full group, and each track outside a group), and plays the files, so that their devices rest. A part that you edit plays live until paw renders it again. paw releases the files when the tab is not in front. |
+| `frozen` | paw renders each part of the rest in the background (each full group, and each track outside a group), and plays the files, so that their devices rest. A part that you edit plays live until paw renders it again. paw releases the files when a window of the song is in front. |
 
 ## Lua
 
 A scope is a table. `kind` is `"group"`, `"track"`, `"tracks"`,
 `"region"` or `"range"`. `id` is the group, track or region. `tracks` is
 a list of track ids, and `from` and `to` are beats. `name` is its
-name, and `parent` is the scope
-that it is in, or nil.
+name, and `parent` is the scope that it is in, or nil. A window keeps
+the innermost level in `win.scope`.
 
 | Function | Result |
 | --- | --- |
-| `paw.scope.narrow(which)` | Narrow to a group or a region, by its id, its track or its name. |
-| `paw.scope.enter(scope)` | Narrow to a scope, for example `{ kind = "range", tracks = { 3, 4 }, from = 64, to = 96 }`. |
-| `paw.scope.widen(top)` | Go up one level, or with `top` up to the song. |
-| `paw.scope.current()` | The scope of the current tab, or nil. |
+| `paw.scope.narrow(which)` | Narrow the current window to a group or a region, by its id, its track or its name. |
+| `paw.scope.enter(scope, win)` | Narrow a window (the current one by default) to a scope, for example `{ kind = "range", tracks = { 3, 4 }, from = 64, to = 96 }`. |
+| `paw.scope.widen(top, win)` | Go up one level, or with `top` up to the song. |
+| `paw.scope.next(n)` | Go to the scope `n` places beside the current one. |
+| `paw.scope.open(how, scope)` | Show a scope in a new `"split"`, `"vsplit"` or `"tab"`. |
+| `paw.scope.name(name)` | Name the scope of the current window. |
+| `paw.scope.current(win)` | The scope of a window, or nil. Without a window: of the window that paw draws, else of the current window. |
 | `paw.scope.group()` | The innermost group of the current scope, or nil. |
-| `paw.scope.tracks()` | The tracks that the current tab shows. |
-| `paw.scope.span()` | The time that the current tab shows, `from, to` in beats, or nil for all of it. |
-| `paw.scope.contains(track)` | True if the current tab shows the track. |
+| `paw.scope.tracks()` | The tracks that the current scope shows. |
+| `paw.scope.span()` | The time that the current scope shows, `from, to` in beats, or nil for all of it. |
+| `paw.scope.contains(track)` | True if the current scope shows the track. |
 | `paw.scope.breadcrumb()` | The path, for example `Song › Bridge › Strings`. |
 | `paw.scope.song_bar(n)` | The bar of the song for bar `n` of the scope. |
 

@@ -102,8 +102,9 @@ A name that is not a clip or a track shows a message, and the window shows the v
 | `:tabclose`, `:tabclose 2` | Closes the tab, or tab 2. |
 | `:tabmove`, `:tabmove 0`, `:tabmove 2`, `:tabmove +1` | Moves the tab to the end, to the start, after tab 2, or one place on. |
 | `:tabs` | Lists the tabs and their windows. |
-| `:narrow Strings`, `zn` | Makes a tab of the tracks of one group (`zn`: the group at the cursor). |
-| `:widen`, `zw` | Closes the narrowed tab and returns. |
+| `:narrow Strings`, `znn` | Shows only the tracks of one group in this window (`znn`: the scope at the cursor). |
+| `:widen`, `zw` | Goes up one level of scope in this window. |
+| `<Space>zs` `<Space>zv` `<Space>zt` | Show the scope at the cursor in a new split, vertical split or tab. |
 | `:view.open undotree` | Shows a view where it docks, else in a window split from this window (the More menu of the graphical window). |
 | `:layout save edit`, `:layout edit` | Write the tabs and windows as layout `edit`. Put them back. |
 
@@ -169,18 +170,20 @@ each seat gets its own. A seat that has none in the project gets the
 default. A window that attaches to paw after the project opened gets the
 layout of the windows, if the project has one.
 
-## Narrowed tabs
+## Scopes of windows
 
-`:narrow Strings` (or `zn`) narrows a tab to a group. The tab starts with
-the windows of the tab before it. Everything in it sees only the tracks of
-that group. This includes the arrange view, the mixer, the device panel and
-the session view of the clip launcher. It also includes `paw://tracks`, the pickers, `:query`,
-the motions and the Ex ranges.
-`:widen` (`zw`) closes the tab and returns.
+`:narrow Strings` (or `znag`) narrows the window to a group. Each arrange
+window keeps its own scope, as each window of Vim keeps its folds. A split
+starts with the scope of the window that it comes from. The other windows
+of the tab show the scope of its arrange window that had the keyboard last.
+This includes the mixer, the device panel and the session view of the clip
+launcher. It also includes `paw://tracks`, the pickers, `:query`, the
+motions and the Ex ranges. `:widen` (`zw`) goes up one level.
 
-The status line shows `Song › Strings`. Each tab has its own group. So
-`gt` goes from the whole song to the strings and to the brass.
-`paw://tracks` in a narrowed tab lists the tracks of the group, and `:w`
-does not change the other tracks. `paw.opt.scope_rest` sets what the other
+The status line shows `Song › Strings`, and the tab has the name of the
+scope. A split can show the whole song beside the strings.
+`paw://tracks` in a narrowed window lists the tracks of the group, and `:w`
+does not change the other tracks. The project keeps the scope of each
+window with its windows. `paw.opt.scope_rest` sets what the other
 tracks do: play, mute, or play from frozen files. See
 [Render](render.md).

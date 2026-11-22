@@ -5,27 +5,34 @@
 --   paw.scope.narrow("Strings")   -- a group and every track in it
 --   paw.scope.narrow("Bridge")    -- a region: every track, in its time
 --   paw.scope.enter({ kind = "range", tracks = { 3, 4 }, from = 64, to = 96 })
---   paw.scope.widen()             -- up one level; at the first, back to the tab it came from
+--   paw.scope.widen()             -- up one level; `widen(true)` up to the song
+--   paw.scope.next(1)             -- the next scope beside this one (`]z`)
 --   paw.scope.current()           -- the scope shown, or nil for the song
 --   paw.scope.tracks()            -- the tracks it shows, in order
 --   paw.scope.span()              -- its time, `from, to` in beats, or nil for all of it
 --
+-- A scope belongs to a window, as Vim's folds do: each window keeps its
+-- scope stack (`win.scope`, each level naming its parent), so that a split
+-- shows the song beside the bridge. A split starts with the scope of the
+-- window it is split from. What a view shows while it draws is the scope
+-- of the window it draws (`paw.ui.drawing_win`); everything else reads the
+-- scope of the current window. The tab is named after the scope of its
+-- current window. The project's screen (`screen.json`) keeps the stacks.
+--
 -- Scopes nest: a scope entered inside another is its child, and shows only
--- what both show (the strings in the bridge). Each level names its parent
--- (`scope.parent`), and what a scope shows is always its own part
--- intersected with its parent's, so that a group or a region that changes
--- changes the scopes made of it at once.
+-- what both show (the strings in the bridge). What a scope shows is always
+-- its own part intersected with its parent's, so that a group or a region
+-- that changes changes the scopes made of it at once.
 --
 -- The scope is view state: entering and leaving change nothing in the
--- project and make no undo step. In this version a tab keeps the scope of
--- its windows; every read goes through `current(win)`, so that a window can
--- keep its own later.
+-- project and make no undo step. Entering, leaving and `]z` are jumps:
+-- `<C-o>` comes back into the scope and to the place (paw/keymap.lua).
 --
 -- In a scope with time, bars count from 1 at its start (`scopebars`); the
--- loop is its time while it is shown (`scopeloop`); the cursor stays in it.
--- What the tracks outside do is `paw.opt.scope_rest`: "play" (the
--- default), "mute", or "frozen": each part of the rest is rendered in the
--- background and played from its file, so that its devices rest (see
+-- loop is its time while its window is in front (`scopeloop`); the cursor
+-- stays in it. What the tracks outside do is `paw.opt.scope_rest`: "play"
+-- (the default), "mute", or "frozen": each part of the rest is rendered in
+-- the background and played from its file, so that its devices rest (see
 -- paw/freeze.lua). None of it touches the project.
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
@@ -34,6 +41,7 @@ local events = require("paw.events")
 local kernel = require("paw.events.kernel")
 local options = require("paw.options")
 local commands = require("paw.commands")
+local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
 local type objects = require("paw.objects")
@@ -45,43 +53,16 @@ local type MarkersModule = require("paw.markers")
 local type TextbufModule = require("paw.textbuf")
 local type UiModule = require("paw.ui")
 
---- What a scope is made from. A group or a region scope follows its source:
---- a track added to the group, or the region moved, changes the scope.
-local enum Kind
-  "group"
-  "track"
-  "tracks"
-  "region"
-  "range"
-end
+local type Scope = contracts.Scope
+local type Kind = contracts.ScopeKind
+local type Window = contracts.Window
+local type Node = LayoutModule.Node
 
---- A scope: what a view shows of the song. `id` is the group, track or
---- region it is made of; `tracks` a fixed list ("tracks", "range"), nil for
---- every track of the parent; `from` and `to` its time in beats ("range"),
---- nil for all the time of the parent. `parent` is the scope it was entered
---- from (nil: the song).
-local record Scope
-  kind: Kind
-  id: integer
-  tracks: {integer}
-  from: number
-  to: number
-  name: string
-  parent: Scope
-end
-
---- What a tab keeps: the scope its windows show, the tab it was narrowed
---- from, and the loop that was set before the scope set its own.
+--- The loop that was set before a scope set its own.
 local record Loop
   start: number
   stop: number
   enabled: boolean
-end
-local record ScopedTab
-  name: string
-  scope: Scope
-  from: LayoutModule.Tab
-  loop_was: Loop
 end
 
 --- A track, by its id or itself.
@@ -98,6 +79,16 @@ local record Freeze
 end
 local record Frontend
   refresh: function()
+end
+--- The key mappings (paw/keymap.lua, in Lua): what this module calls of them.
+local record Keymap
+  push_jump: function()
+end
+--- What `paw.ui.input` takes.
+local record InputOptions
+  prompt: string
+  text: string
+  label: string
 end
 local record Paw is partial.Paw
   ui: UiModule
@@ -117,9 +108,21 @@ local record Paw is partial.Paw
 end
 local paw = (_G as {string: Paw}).paw
 
+--- An entry of the scope picker (`<leader>zz`): a scope to enter, or a
+--- level of the window's stack to go back up to (`level`, nil `scope` for
+--- the song).
+local record Item
+  scope: Scope
+  level: boolean
+  kind: string
+  label: string
+end
+
 local record M
   type Scope = Scope
   type Kind = Kind
+  type Item = Item
+  source: contracts.PickSource<Item>
 end
 
 local opt = options.opt
@@ -129,11 +132,12 @@ options.define(
 options.define(
   "scopebars", "both", {values = {"local", "song", "both"}}
 ) -- bar numbers in a scope with time: "local" (from 1 at its start), "song", or "both" (local, and the song's on a second ruler row)
-options.define("scopeloop", true) -- entering a scope with time loops its time
+options.define("scopeloop", true) -- entering a scope with time loops its time while its window is in front
 
---- The payload of `scope.changed`: the group of the scope, if any.
+--- The payload of `scope.changed`: the window, and the group of its scope if any.
 local record Changed
   scope: integer
+  win: integer
 end
 local changed: events.Event<Changed> = events.event("scope.changed")
 --- `track.added`, which says whether undo or a load put the track back.
@@ -147,6 +151,10 @@ local record Option
 end
 local option_changed: events.Event<Option> = events.event("option.changed")
 local tab_enter: events.Event<events.Payload> = events.event("tab.enter")
+local record WinEvent
+  win: integer
+end
+local win_enter: events.Event<WinEvent> = events.event("win.enter")
 local render_done: events.Event<kernel.RenderEnd> = events.event("render.done")
 
 local function L(): LayoutModule
@@ -154,6 +162,9 @@ local function L(): LayoutModule
 end
 local function groups(): GroupsModule
   return paw.groups
+end
+local function keymap(): Keymap
+  return paw.keymap as Keymap
 end
 
 local function id_of(track: TrackRef): integer
@@ -192,40 +203,78 @@ local function valid(s: Scope): boolean
   return true
 end
 
---- The tab that holds a window (the current tab without one).
-local function tab_of(win?: LayoutModule.Node): ScopedTab
-  if win then
-    for _, tw in ipairs(L().all_windows()) do
-      if tw.win == win then
-        return paw.ui.tabs[tw.tab] as ScopedTab
-      end
+--- The views whose windows keep a scope stack of their own. A window of
+--- another view (the mixer, the device panel, the piano roll) shows the
+--- scope of the arrange window of its tab that had the keyboard last.
+local own_views: {string: boolean} = {arrange = true}
+
+--- The window that keeps the scope stack a window shows.
+local function owner(w: Window): Window
+  if not w or own_views[w.view] then
+    return w
+  end
+  local u = paw.ui
+  local order = {u.tab}
+  for i = 1, #u.tabs do
+    if i ~= u.tab then
+      order[#order + 1] = i
     end
   end
-  return L().tab() as ScopedTab
+  for _, i in ipairs(order) do
+    local t = u.tabs[i]
+    if t and L().find_id(t.layout, w.id) then
+      local id = t.last and t.last.arrange
+      local found: Window = id and L().find_id(t.layout, id)
+      if not (found and found.view == "arrange") then
+        found = L().find(t.layout, "arrange")
+      end
+      return found or w
+    end
+  end
+  return w
 end
 
---- The scope a window shows (the current window's by default), or nil for
---- the song. A level whose group, track or region is gone is left out.
-function M.current(win?: LayoutModule.Node): Scope
-  local t = tab_of(win)
-  local s = t and t.scope
+--- The window whose scope is meant when reading: the one given, else the
+--- one being drawn, else the current one; its stack's keeper.
+local function window_of(win?: Window): Window
+  return owner(win or paw.ui.drawing_win or L().current())
+end
+
+--- The window whose scope an action changes: the one given, else the
+--- current one; its stack's keeper.
+local function holder(win?: Window): Window
+  return owner(win or L().current())
+end
+
+--- A level, or the first level above it whose source is still there.
+local function live(s: Scope): Scope
   while s and not valid(s) do
     s = s.parent
   end
   return s
 end
 
---- The scope of a tab, for the frontends that draw each tab.
+--- The scope a window shows, or nil for the song: the window given, else
+--- the window being drawn, else the current one. A level whose group,
+--- track or region is gone is left out.
+function M.current(win?: Window): Scope
+  local w = window_of(win)
+  return w and live(w.scope)
+end
+
+--- The window of a tab that has the keyboard there.
+local function tab_window(tab: LayoutModule.Tab): Window
+  return tab.win and L().find_id(tab.layout, tab.win) or L().windows(tab.layout)[1]
+end
+
+--- The scope of a tab: that of its current window.
 function M.of_tab(tab: LayoutModule.Tab): Scope
-  local s = (tab as ScopedTab).scope
-  while s and not valid(s) do
-    s = s.parent
-  end
-  return s
+  local win = tab_window(tab)
+  return win and M.current(win)
 end
 
 --- The innermost group of a scope's path (the current scope by default):
---- what a narrowed tab's tracks are shown under. Nil when no level is a group.
+--- what a narrowed window's tracks are shown under. Nil when no level is a group.
 function M.group(s?: Scope): integer
   s = s or M.current()
   while s do
@@ -343,7 +392,8 @@ function M.span(s?: Scope | integer): number, number
   end
 end
 
---- The levels of a scope's path, from the outermost to it.
+--- The levels of a scope's path (the current one by default), from the
+--- outermost to it.
 function M.path(s?: Scope): {Scope}
   local out: {Scope} = {}
   local at = s or M.current()
@@ -402,7 +452,7 @@ function M.format(beat: number): string
   return string.format("%d.%d.%02d", bar + 1 - M.bar_offset(), b + 1, part)
 end
 
--- Entering and leaving -------------------------------------------------------------------
+-- Finding scopes ---------------------------------------------------------------------
 
 --- A group by its id, its track, or its name (or part of it).
 function M.find(which: TrackRef | string): integer
@@ -447,13 +497,23 @@ function M.group_at(track: TrackRef): integer
   return groups().of(id)
 end
 
---- A scope by name: a group of that name, else a region of that name, else
---- a group or a region whose name starts with it. A number is a group's id.
+--- The scopes named with `:scope.name`, the latest last. View state: the
+--- project's screen keeps them.
+local named_scopes: {Scope} = {}
+
+--- A scope by name: a named scope (`:scope.name`), else a group of that
+--- name, else a region of that name, else a group or a region whose name
+--- starts with it. A number is a group's id.
 function M.named(which: string | integer): Scope
   if which is integer then
     return groups().is_group(which) and {kind = "group", id = which, name = name_of(which)} or nil
   end
   local wanted = (which as string):lower()
+  for i = #named_scopes, 1, -1 do
+    if named_scopes[i].name:lower() == wanted then
+      return named_scopes[i]
+    end
+  end
   local regions = paw.markers and paw.markers.regions() or {}
   for _, id in ipairs(api.track_list()) do
     if groups().is_group(id) and name_of(id):lower() == wanted then
@@ -488,80 +548,123 @@ local function name_for(s: Scope): string
     local m = region(s.id)
     return m and m.name
   end
-  return s.kind == "tracks" and (#s.tracks .. " tracks") or "Range"
+  if s.from and s.to and paw.time then
+    local a, b = paw.time.bar_of(s.from), paw.time.bar_of(math.max(s.from, s.to - 1e-6))
+    return a == b and ("Bar " .. a) or string.format("Bars %d-%d", a, b)
+  end
+  return s.tracks and (#s.tracks .. " tracks") or "Range"
 end
 
-local function same(a: Scope, b: Scope): boolean
-  if a == b then
-    return true
+--- The scope that `znn` enters at the cursor: the innermost not entered
+--- yet, of the group at the cursor (its header or one of its tracks), else
+--- the track. Nil when the window shows that track already.
+function M.at_cursor(): Scope
+  local id = paw.cursor.track_id()
+  if not id or id == 0 then
+    return nil
   end
-  if not (a and b) then
-    return false
+  local entered: {integer: boolean} = {}
+  for _, level in ipairs(M.path()) do
+    if level.kind == "group" or level.kind == "track" then
+      entered[level.id] = true
+    end
   end
-  if a.kind ~= b.kind or a.id ~= b.id or a.from ~= b.from or a.to ~= b.to then
-    return false
+  local g = M.group_at(id)
+  if g and not entered[g] then
+    return {kind = "group", id = g}
   end
-  if table.concat(a.tracks or {}, ",") ~= table.concat(b.tracks or {}, ",") then
-    return false
+  local here = M.current()
+  if here and here.kind == "track" and here.id == id then
+    return nil
   end
-  return same(a.parent, b.parent)
+  return {kind = "track", id = id}
 end
+
+--- The scope an operator's region covers (`zn{motion}`, `{Visual}zn`):
+--- the region, group or track its text object names (`ar`, `ag`, `it`),
+--- else a block of its tracks, with its time when it has some. Nil for the
+--- whole of what the window shows (`ie`).
+function M.of_region(r: contracts.Region): Scope
+  if r.scope then
+    return r.scope
+  end
+  if r.entire then
+    return nil
+  end
+  local rows, ids = groups().rows(), {}
+  for row = math.max(1, math.floor(r.r0)), math.floor(r.r1) do
+    if rows[row] then
+      ids[#ids + 1] = rows[row]
+    end
+  end
+  if #ids == 0 then
+    return nil
+  end
+  local from, to = math.min(r.c0, r.c1), math.max(r.c0, r.c1)
+  if r.kind == "line" or to - from < 1e-9 then
+    return {kind = "tracks", tracks = ids}
+  end
+  return {kind = "range", tracks = ids, from = from, to = to}
+end
+
+-- Entering and leaving -------------------------------------------------------------------
 
 --- Put the cursor inside the current scope: on its first track when it is
 --- on one outside, and in its time.
-local function cursor_inside()
-  local s = M.current()
+local function cursor_inside(s: Scope)
   if not s then
     return
   end
   local cursor = paw.cursor
   local at = cursor.track_id()
-  if not (at and M.contains(at)) then
-    local first = M.tracks()[1]
+  if not (at and M.contains(at, s)) then
+    local first = M.tracks(s)[1]
     if first then
       cursor.set_track(first)
     end
   end
-  local from, to = M.span()
+  local from, to = M.span(s)
   if from and (cursor.beat < from or cursor.beat > to) then
     cursor.set_beat(from)
   end
 end
 
---- The loop of a scope with time, while its tab is in front (`scopeloop`):
---- what was set before is kept, to come back when the scope is left.
-local function loop_in(t: ScopedTab)
-  local from, to = M.span(t.scope)
-  if not (from and to > from and opt.scopeloop) then
-    return
+--- The loop that was set before a scope with time set its own.
+local loop_was: Loop
+
+--- The loop is the time of the scope of the window in front (`scopeloop`);
+--- out of it, the loop that was set before comes back.
+local function sync_loop(s: Scope)
+  local from, to: number, number
+  if s then
+    from, to = M.span(s)
   end
   local tr = paw.transport
-  t.loop_was = t.loop_was or {start = tr.loop_start, stop = tr.loop_end, enabled = tr.loop_enabled}
-  tr.loop_start, tr.loop_end, tr.loop_enabled = from, to, true
+  if from and to > from and opt.scopeloop then
+    loop_was = loop_was or {start = tr.loop_start, stop = tr.loop_end, enabled = tr.loop_enabled}
+    if not (tr.loop_start == from and tr.loop_end == to and tr.loop_enabled) then
+      tr.loop_start, tr.loop_end, tr.loop_enabled = from, to, true
+    end
+  elseif loop_was then
+    local was = loop_was
+    loop_was = nil
+    tr.loop_start, tr.loop_end, tr.loop_enabled = was.start, was.stop, was.enabled
+  end
 end
 
-local function loop_out(t: ScopedTab)
-  local was = t.loop_was
-  if not was then
-    return
-  end
-  t.loop_was = nil
-  local tr = paw.transport
-  tr.loop_start, tr.loop_end, tr.loop_enabled = was.start, was.stop, was.enabled
-end
-
---- Show a scope in the current tab, in place of the one it shows.
-local function show(t: ScopedTab, s: Scope)
-  loop_out(t)
-  t.scope = s
-  t.name = s and s.name or nil
-  if not s then
-    t.from = nil
-  end
-  loop_in(t)
-  events.emit(changed, {scope = M.group(s)})
-  cursor_inside()
+--- Show a scope in a window, in place of the one it shows.
+local function set(win: Window, s: Scope)
+  win.scope = s
+  events.emit(changed, {scope = s and M.group(s) or nil, win = win.id})
   api.ui_redraw()
+end
+
+--- Before a window in front changes its scope: where the cursor is, with
+--- the scope, goes on the jump list.
+local function jump(win: Window)
+  if win == holder() then
+    keymap().push_jump()
+  end
 end
 
 --- Why a scope inside another would show nothing, or nil.
@@ -576,12 +679,8 @@ local function empty_inside(s: Scope): string
   end
 end
 
---- Enter a scope (`{ kind, id, tracks, from, to, name }`). In a tab that
---- shows a scope, it becomes its child, in the same tab: it shows what both
---- show. In a tab that shows the song, a tab of its own opens after it, or
---- the tab that shows the same scope comes to the front. Changes nothing in
---- the project. Returns the scope.
-function M.enter(spec: Scope): Scope
+--- A new level from what `enter` takes, checked, with its name.
+local function level(spec: Scope, parent: Scope): Scope
   assert(spec and spec.kind, "a scope has a kind")
   local s: Scope = {
     kind = spec.kind,
@@ -598,47 +697,45 @@ function M.enter(spec: Scope): Scope
     error("a range ends after it starts", 0)
   end
   s.name = name_for(s)
-  local t = L().tab() as ScopedTab
-  local here = M.current()
-  -- A tab that shows this scope at its first level comes to the front.
-  local function shown_in_tab(): boolean
-    for i, other in ipairs(paw.ui.tabs) do
-      if same(M.of_tab(other), s) then
-        L().tab_go(i)
-        return true
-      end
-    end
-    return false
-  end
-  if here then
-    if here.kind == s.kind and here.id ~= nil and here.id == s.id then
-      return here
-    end
-    s.parent = here
+  s.parent = parent
+  if parent then
     local why = empty_inside(s)
     if why then
-      s.parent = nil
-      if shown_in_tab() then
-        return s
-      end
       error(why, 0)
     end
-    show(t, s)
-    return s
   end
-  if shown_in_tab() then
-    return s
+  return s
+end
+
+local function same_level(a: Scope, b: Scope): boolean
+  if not (a and b) or a.kind ~= b.kind or a.id ~= b.id or a.from ~= b.from or a.to ~= b.to then
+    return false
   end
-  local from = t as LayoutModule.Tab
-  local nt = L().tab_copy(s.name) as ScopedTab
-  nt.from = from
-  show(nt, s)
+  return table.concat(a.tracks or {}, ",") == table.concat(b.tracks or {}, ",")
+end
+
+--- Enter a scope (`{ kind, id, tracks, from, to, name }`) in a window (the
+--- current one by default). In a window that shows a scope, it becomes its
+--- child: it shows what both show, and an empty one is refused with the
+--- reason. Changes nothing in the project; a jump. Returns the scope.
+function M.enter(spec: Scope, win?: Window): Scope
+  local w = holder(win)
+  if not w then
+    error("no window to show a scope in", 0)
+  end
+  local here = M.current(w)
+  if here and same_level(here, spec) then
+    return here
+  end
+  local s = level(spec, here)
+  jump(w)
+  set(w, s)
   return s
 end
 
 --- Narrow to a group or a region, by its id, its track or its name (see
---- `named`): `enter` of that scope. Returns the tab it shows in.
-function M.narrow(which: TrackRef | string): LayoutModule.Tab
+--- `named`): `enter` of that scope in the current window. Returns the scope.
+function M.narrow(which: TrackRef | string): Scope
   local s: Scope
   if which is string then
     s = M.named(which)
@@ -649,70 +746,190 @@ function M.narrow(which: TrackRef | string): LayoutModule.Tab
   if not s then
     error(which == nil and "not in a group" or ("no group or region `" .. tostring(which) .. "`"), 0)
   end
-  M.enter(s)
-  return L().tab()
+  return M.enter(s)
 end
 
---- Leave the scope of the current tab: up one level, or with `top` to the
---- song. Leaving the first level closes the tab and shows the tab it was
---- narrowed from again; when it is the last tab, it stays, wide. False when
---- the tab shows the song.
-function M.widen(top?: boolean): boolean
-  local u = paw.ui
-  local t = L().tab() as ScopedTab
-  local s = M.current()
+--- Leave the scope of a window (the current one by default): up one level,
+--- or with `top` to the song. False when it shows the song.
+function M.widen(top?: boolean, win?: Window): boolean
+  local w = holder(win)
+  local s = w and M.current(w)
   if not s then
     return false
   end
-  if s.parent and not top then
-    show(t, s.parent)
-    return true
-  end
-  local back = t.from
-  loop_out(t)
-  if not L().tab_close(u.tab) then
-    show(t, nil)
-  elseif back then
-    for i, other in ipairs(u.tabs) do
-      if other == back then
-        L().tab_go(i)
-      end
-    end
-  end
-  api.ui_redraw()
+  jump(w)
+  set(w, (not top) and live(s.parent) or nil)
   return true
 end
 
--- A tab follows its scope's name. A tab whose scope is taken away is wide again.
+--- Show a scope in a window as it was (a jump back, `<C-o>`): no jump of
+--- its own, no check. Nil is the song.
+function M.restore(s: Scope, win?: Window)
+  local w = holder(win)
+  if w and w.scope ~= s then
+    set(w, s)
+  end
+end
+
+--- The scopes beside the current one, in order, and its place among them:
+--- regions by time, groups with the same parent group, tracks of the
+--- parent scope. Nil and the reason when it has none.
+local function siblings(s: Scope): {Scope}, integer
+  local out: {Scope} = {}
+  local at: integer
+  if s.kind == "region" then
+    for _, m in ipairs(paw.markers.regions()) do
+      out[#out + 1] = {kind = "region", id = m.id}
+      if m.id == s.id then
+        at = #out
+      end
+    end
+  elseif s.kind == "group" then
+    local parent = groups().of(s.id)
+    for _, id in ipairs(api.track_list()) do
+      if groups().is_group(id) and groups().of(id) == parent then
+        out[#out + 1] = {kind = "group", id = id}
+        if id == s.id then
+          at = #out
+        end
+      end
+    end
+  elseif s.kind == "track" then
+    for _, id in ipairs(M.tracks(s.parent or {kind = "range"})) do
+      out[#out + 1] = {kind = "track", id = id}
+      if id == s.id then
+        at = #out
+      end
+    end
+  end
+  return out, at
+end
+
+--- The scope `n` places after the current one (before it, with a negative
+--- `n`), beside it in the same parent: the next region, group or track; a
+--- block's next stretch of the same length. Nil and the reason when there
+--- is none.
+function M.sibling(n: integer): Scope, string
+  local s = M.current()
+  if not s then
+    return nil, "the song has nothing beside it: `zn` enters a scope"
+  end
+  if s.kind == "range" or s.kind == "tracks" then
+    if not (s.from and s.to) then
+      return nil, "a scope of tracks has no next: `zw` goes up"
+    end
+    local length = s.to - s.from
+    local from = s.from + n * length
+    if from < -1e-9 then
+      return nil, "no stretch before " .. s.name
+    end
+    return {kind = s.kind, tracks = s.tracks, from = from, to = from + length}
+  end
+  local list, at = siblings(s)
+  local found = at and list[at + n]
+  if not found then
+    return nil, string.format("no %s %s %s", s.kind, n > 0 and "after" or "before", s.name)
+  end
+  return found
+end
+
+--- Go to the scope `n` places beside the current one (`]z`, `3]z`, `[z`),
+--- in the same parent. A jump. Returns the scope.
+function M.next(n?: integer): Scope
+  local s = M.current()
+  local spec, why = M.sibling(n or 1)
+  if not spec then
+    error(why, 0)
+  end
+  local w = holder()
+  local new = level(spec, live(s.parent))
+  jump(w)
+  set(w, new)
+  return new
+end
+
+--- Open a scope (the one at the cursor by default) in a new window:
+--- `how` is "split", "vsplit" or "tab". The new window starts with the
+--- scope of the one it comes from, and enters this one inside it.
+function M.open(how: string, spec?: Scope): Scope
+  local from = holder()
+  spec = spec or M.at_cursor() or M.current(from)
+  if how == "tab" then
+    L().tab_copy()
+  else
+    local win, why = L().split({win = from as Node, view = "arrange", vertical = how == "vsplit"})
+    if not win then
+      error(why, 0)
+    end
+  end
+  local w = holder()
+  if spec and not same_level(M.current(w), spec) then
+    local ok, err = pcall(M.enter, spec, w) as (boolean, string)
+    if not ok then
+      -- Not inside the scope it came from: from the song.
+      w.scope = nil
+      M.enter(spec, w)
+      paw.notify(tostring(err) .. ": opened from the song", "warn")
+    end
+  end
+  return M.current(w)
+end
+
+--- Name the current scope, so that the picker and `:narrow` find it
+--- again. View state, kept with the project's screen. Returns it.
+function M.name(name: string, win?: Window): Scope
+  local w = holder(win)
+  local s = w and M.current(w)
+  if not s then
+    error("the song has its name: `zn` enters a scope to name", 0)
+  end
+  local named: Scope = {
+    kind = s.kind, id = s.id, tracks = s.tracks, from = s.from, to = s.to, name = name, parent = s.parent
+  }
+  for i = #named_scopes, 1, -1 do
+    if named_scopes[i].name == name then
+      table.remove(named_scopes, i)
+    end
+  end
+  named_scopes[#named_scopes + 1] = named
+  set(w, named)
+  return named
+end
+
+--- The named scopes, the latest last.
+function M.names(): {Scope}
+  return named_scopes
+end
+
+--- The named scopes as the project's screen keeps them (paw/layout.tl).
+function M.saved_names(): {{types.SavedScope}}
+  local out: {{types.SavedScope}} = {}
+  for i, s in ipairs(named_scopes) do
+    out[i] = L().scope_levels(s)
+  end
+  return out
+end
+
+-- A scope follows its group's or track's name. A track added in a scope of
+-- a group goes into the group, so that it stays in sight (undo and opening
+-- a project put tracks back where they were).
 events.on(
   kernel.track_changed,
   function(event: kernel.TrackId)
-    for _, tab in ipairs(paw.ui.tabs) do
-      local s = (tab as ScopedTab).scope
-      if s and s.kind ~= "region" and s.kind ~= "range" and s.id == event.id and exists(event.id) then
-        s.name = name_of(event.id)
-        tab.name = s.name
+    if not exists(event.id) then
+      return
+    end
+    for _, tw in ipairs(L().all_windows()) do
+      local s = tw.win.scope
+      while s do
+        if (s.kind == "group" or s.kind == "track") and s.id == event.id then
+          s.name = name_of(event.id)
+        end
+        s = s.parent
       end
     end
   end
 )
-events.on(
-  kernel.track_removed,
-  function(event: kernel.TrackId)
-    for _, tab in ipairs(paw.ui.tabs) do
-      local t = tab as ScopedTab
-      if t.scope and not M.of_tab(tab) then
-        t.scope, t.from, t.name = nil, nil, nil
-      end
-      if t.scope and t.scope.kind == "group" and t.scope.id == event.id then
-        t.name = nil
-      end
-    end
-  end
-)
-
--- A track added in a scope of a group goes into the group, so that it stays
--- in sight (undo and opening a project put tracks back where they were).
 events.on(
   added,
   function(event: Added)
@@ -946,7 +1163,7 @@ for _, ev in ipairs(
   events.on(ev, touched)
 end
 
---- Lists edited as text read what the tab in front sees: read them again
+--- Lists edited as text read what the window in front sees: read them again
 --- (one with changes not written is marked as behind instead).
 local function reread()
   for _, buf in pairs(L().buffers) do
@@ -958,33 +1175,37 @@ local function reread()
   end
 end
 
---- Everything that shows tracks catches up with the tab in front: lists
---- edited as text, a graphical frontend's state, the engine, the loop.
-local function follow()
-  cursor_inside()
+--- What the rest of the program last followed: the scope of the window in
+--- front (nil: the song, as at the start).
+local followed: Scope
+
+--- Everything that shows tracks catches up with the window in front when
+--- its scope is another: lists edited as text, a graphical frontend's
+--- state, the engine, the loop, the cursor.
+local function follow(force?: boolean, win?: Window)
+  local s = M.current(holder(win))
+  if s == followed and not force then
+    return
+  end
+  followed = s
+  cursor_inside(s)
+  sync_loop(s)
   reread()
   paw.frontend.refresh()
-  M.apply(M.current())
+  M.apply(s)
 end
-events.on(
-  tab_enter,
-  function()
-    -- The loop is the scope's while its tab is in front.
-    for _, tab in ipairs(paw.ui.tabs) do
-      if tab ~= L().tab() then
-        loop_out(tab as ScopedTab)
-      end
-    end
-    loop_in(L().tab() as ScopedTab)
-    follow()
-  end
-)
-events.on(changed, follow)
+events.on(tab_enter, function() follow(false, tab_window(L().tab())) end)
+-- The window entered, from the event: while it is entered, the focused
+-- view is not yet its view.
+events.on(win_enter, function(e: WinEvent) follow(false, (L().get(e.win))) end)
+events.on(changed, function() follow(true) end)
 events.on(
   option_changed,
   function(e: Option)
     if e.name == "scope_rest" then
-      M.apply(M.current())
+      M.apply(M.current(holder()))
+    elseif e.name == "scopeloop" then
+      sync_loop(M.current(holder()))
     end
   end
 )
@@ -999,19 +1220,25 @@ events.on(kernel.track_removed, again)
 events.on(kernel.track_moved, again)
 events.on(kernel.clip_added, again)
 events.on(kernel.clip_removed, again)
--- Another project: nothing of the last one is held.
+-- Another project: nothing of the last one is held, and its named scopes
+-- come back (paw/layout.tl gives the windows theirs).
 events.on(
   kernel.project_loaded,
   function()
     held, pending, gens = {}, {}, {}
-    for _, tab in ipairs(paw.ui.tabs) do
-      local t = tab as ScopedTab
-      t.scope, t.loop_was = nil, nil
-    end
+    loop_was, followed = nil, nil
     applied = {hold = {}}
     api.engine_audible(nil)
     for _, id in ipairs(api.engine_held()) do
       pcall(api.engine_hold, id, nil)
+    end
+    named_scopes = {}
+    local screen = api.project_screen()
+    for _, levels in ipairs(screen and screen.scopes or {}) do
+      local s = L().scope_chain(levels)
+      if s then
+        named_scopes[#named_scopes + 1] = s
+      end
     end
   end
 )
@@ -1074,10 +1301,77 @@ if arrange and arrange.layers then
   end
 end
 
+-- The scope picker ---------------------------------------------------------------------
+
+--- The entries of the scope picker: the levels of the window's stack (and
+--- the song) to go up to, the named scopes, the groups and the regions.
+local function items(): {Item}
+  local out: {Item} = {}
+  local path = M.path()
+  if #path > 0 then
+    out[#out + 1] = {level = true, kind = "up", label = "Song"}
+    for i = 1, #path - 1 do
+      out[#out + 1] = {level = true, scope = path[i], kind = "up", label = M.breadcrumb(path[i])}
+    end
+  end
+  for i = #named_scopes, 1, -1 do
+    local s = named_scopes[i]
+    if valid(s) then
+      out[#out + 1] = {scope = s, kind = "named", label = s.name}
+    end
+  end
+  for _, id in ipairs(api.track_list()) do
+    if groups().is_group(id) then
+      out[#out + 1] = {scope = {kind = "group", id = id}, kind = "group", label = name_of(id)}
+    end
+  end
+  for _, m in ipairs(paw.markers and paw.markers.regions() or {}) do
+    out[#out + 1] = {scope = {kind = "region", id = m.id}, kind = "region", label = paw.markers.label(m)}
+  end
+  return out
+end
+
+--- Go to a picker's entry: up the stack to a level, or into a scope (from
+--- the song when it is not inside the one shown).
+local function choose(item: Item)
+  paw.ui.focus("arrange")
+  if item.level then
+    jump(holder())
+    set(holder(), item.scope)
+  else
+    local ok, err = pcall(M.enter, item.scope) as (boolean, string)
+    if not ok then
+      local w = holder()
+      jump(w)
+      w.scope = nil
+      ok, err = pcall(M.enter, item.scope) as (boolean, string)
+      if not ok then
+        paw.notify(tostring(err), "warn")
+        return
+      end
+    end
+  end
+  paw.notify(M.breadcrumb())
+end
+
+M.source = {
+  desc = "Enter a scope: a level of this window's, a named scope, a group, a region",
+  title = "Scopes",
+  empty = "No scope to enter: make a group or a region, or name a scope with `:scope.name`.",
+  items = items,
+  format = function(item: Item): string return string.format("%-7s %s", item.kind, item.label) end,
+  primary = function(item: Item): string return item.label end,
+  search = function(item: Item): string return item.label end,
+  on_choose = choose,
+}
+
 -- Commands -----------------------------------------------------------------------------
 
 local function scope_names(): {string}
   local out: {string} = {}
+  for _, s in ipairs(named_scopes) do
+    out[#out + 1] = s.name
+  end
   for _, id in ipairs(api.track_list()) do
     if groups().is_group(id) then
       out[#out + 1] = name_of(id)
@@ -1091,18 +1385,39 @@ local function scope_names(): {string}
   return out
 end
 
+--- What a scope shows, in words: its path, its tracks and its bars.
+function M.describe(s?: Scope): string
+  s = s or M.current()
+  local from, to = M.span(s)
+  local bars = from and string.format(", bars %d-%d", paw.time.bar_of(from), paw.time.bar_of(math.max(from, to - 1e-6)))
+    or ""
+  return string.format("%s: %d tracks%s", M.breadcrumb(s), #M.tracks(s), bars)
+end
+
+--- A step that changes the scope of a window.
+local type Step = function(): Scope
+
+--- Run a step and say what came of it, or why it did not.
+local function say(fn: Step, hint?: string)
+  local ok, err = pcall(fn) as (boolean, string)
+  if not ok then
+    paw.notify(tostring(err), "warn")
+    return
+  end
+  paw.notify(M.describe() .. (hint or ""))
+end
+
 commands.define(
   "narrow",
   function(ctx: contracts.CommandContext): contracts.CommandResult
     local which = ctx.args[1]
     local s: Scope
     if which == nil or which == true then
-      local g = M.group_at(paw.cursor.track_id())
-      if not g then
-        paw.notify("not in a group: `:narrow` takes a group or a region by name", "warn")
+      s = M.at_cursor()
+      if not s then
+        paw.notify("nothing smaller to enter at the cursor: `:narrow` takes a group or a region by name", "warn")
         return
       end
-      s = {kind = "group", id = g, name = name_of(g)}
     else
       s = M.named(table.concat(ctx.args as {string}, " "))
       if not s then
@@ -1110,39 +1425,108 @@ commands.define(
         return
       end
     end
-    local ok, err = pcall(function() M.enter(s) end) as (boolean, string)
-    if not ok then
-      paw.notify(tostring(err), "warn")
-      return
-    end
-    local from, to = M.span()
-    local bars = from
-      and string.format(", bars %d-%d", paw.time.bar_of(from), paw.time.bar_of(math.max(from, to - 1e-6))) or ""
-    paw.notify(string.format("%s: %d tracks%s · `:widen` or `zw` goes back", M.breadcrumb(), #M.tracks(), bars))
+    say(function(): Scope return M.enter(s) end, " · `zw` goes back")
   end,
   {
-    desc = "Show only a group's tracks or a region's time: `narrow Strings`, `narrow Bridge`; alone, the group at the cursor. Inside a scope, the new one is inside it",
+    desc = "Show only a group's tracks or a region's time in this window: `narrow Strings`, `narrow Bridge`; alone, the innermost scope at the cursor (as `znn`). Inside a scope, the new one is inside it",
     complete = scope_names,
   }
 )
 
 local function widen(top: boolean)
   if not M.widen(top) then
-    paw.notify("this tab shows the whole song", "warn")
+    paw.notify("this window shows the whole song", "warn")
     return
   end
   local s = M.current()
   paw.notify(s and M.breadcrumb(s) or "the whole song")
 end
 commands.define(
-  "widen",
-  function(): contracts.CommandResult widen(false) end,
-  {desc = "Up one level of scope; at the first, close the narrowed tab and go back to the one it was narrowed from"}
+  "widen", function(): contracts.CommandResult widen(false) end, {desc = "Up one level of scope in this window"}
 )
 commands.define(
   "widen!",
   function(): contracts.CommandResult widen(true) end,
-  {desc = "Leave every level of scope: show the whole song"}
+  {desc = "Leave every level of scope: this window shows the whole song"}
+)
+
+for _, dir in ipairs(
+  {
+    {"scope.next", 1, "The next scope beside this one: the next region, group or track, or a block's next stretch"},
+    {"scope.prev", -1, "The scope before this one, beside it"},
+  }
+) do
+  local name, sign, desc = dir[1] as string, dir[2] as integer, dir[3] as string
+  commands.define(
+    name,
+    function(ctx: contracts.CommandContext): contracts.CommandResult
+      local n = (ctx.count or math.tointeger(tonumber(ctx.args[1])) or 1) * sign
+      say(function(): Scope return M.next(n) end)
+    end,
+    {desc = desc}
+  )
+end
+
+for _, how in ipairs({{"split", "split"}, {"vsplit", "vertical split"}, {"tab", "tab"}}) do
+  commands.define(
+    "scope." .. how[1],
+    function(ctx: contracts.CommandContext): contracts.CommandResult
+      local spec: Scope
+      if ctx.args[1] then
+        spec = M.named(table.concat(ctx.args as {string}, " "))
+        if not spec then
+          paw.notify("no scope `" .. tostring(ctx.args[1]) .. "`", "warn")
+          return
+        end
+      end
+      say(function(): Scope return M.open(how[1], spec) end)
+    end,
+    {
+      desc = "The scope at the cursor, or one by name, in a new " .. how[2] .. ": `scope." .. how[1] .. " Bridge`",
+      complete = scope_names,
+    }
+  )
+end
+
+--- Name the current scope.
+local function name_it(name: string)
+  local ok, err = pcall(M.name, name) as (boolean, string)
+  if not ok then
+    paw.notify(tostring(err), "warn")
+    return
+  end
+  paw.notify("named " .. M.breadcrumb() .. " · `:scope.list` finds it")
+end
+commands.define(
+  "scope.name",
+  function(ctx: contracts.CommandContext): contracts.CommandResult
+    local name = table.concat(ctx.args as {string}, " "):match("^%s*(.-)%s*$")
+    if name ~= "" then
+      name_it(name)
+      return
+    end
+    local s = M.current()
+    if not s then
+      paw.notify("the song has its name: `zn` enters a scope to name", "warn")
+      return
+    end
+    (paw.ui.input as function(InputOptions, function(string)))(
+      {prompt = "Scope name: ", text = s.name, label = "Name the scope"},
+      function(text: string)
+        if text and text ~= "" then
+          name_it(text)
+        end
+      end
+    )
+  end,
+  {
+    desc = "Name the scope of this window, so that the picker and `:narrow` find it: `scope.name Strings in bridge`; alone, it asks",
+  }
+)
+commands.define(
+  "scope.list",
+  function(): contracts.CommandResult commands.run("pick", {"scopes"}) end,
+  {desc = "Choose a scope to enter, or a level to go up to, in a picker"}
 )
 
 return M

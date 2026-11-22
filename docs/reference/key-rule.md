@@ -38,7 +38,7 @@ For the reasons of the rule, see [About the key rule](../explanation/about-the-k
 | `A` | Automate the main value: a point at the cursor on the volume of the track, the parameter, the lane. |
 | `c` | Change what is under the cursor: an operator over clips and notes. On a lane point or a parameter, type its value. On a device, choose a preset. |
 | `~` | Switch a property of what is under the cursor: the mute of a clip, the shape of a part of a curve, the vibrato of a note. |
-| `]x` `[x` | The next and the previous item of a list: `]d` diagnostics, `]t` takes, `]p` presets (phonemes in the vocal editor), `]c` chords (piano roll) and clips of the same kind (arrange view), `]e` curves (vocal editor), `]'` markers. `]g` `[g` change the grid. |
+| `]x` `[x` | The next and the previous item of a list: `]d` diagnostics, `]t` takes, `]p` presets (phonemes in the vocal editor), `]c` chords (piano roll) and clips of the same kind (arrange view), `]e` curves (vocal editor), `]'` markers, `]z` scopes (arrange view). `]g` `[g` change the grid. |
 | `Ctrl-d` `Ctrl-u` | A big step along `j` `k`: four tracks, an octave (piano roll, score, vocal editor), ten steps of a curve. |
 
 ## The main and the second value

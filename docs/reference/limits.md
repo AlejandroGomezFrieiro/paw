@@ -371,17 +371,19 @@ gets the function.
   - paw does not render a frozen track again when the tempo changes.
   - The graphical window does not draw `F` on the header of a frozen track
     yet. The terminal does, and `paw.freeze.state(id)` tells it.
-- Narrowed tabs:
-  - `:layout save` does not keep a narrowed tab, because the id of a group
-    belongs to its project.
-  - The graphical window has no mark for a narrowed tab other than the
-    name of the tab.
+- Scopes:
+  - `:layout save` does not keep the scope of a window, because the id of
+    a group belongs to its project. The project keeps them.
+  - The graphical window has no mark for a scope other than the name of
+    the tab and the status line.
   - With `scope_rest=frozen`, a part of the rest that you edit from a
-    different tab plays live until paw renders it again. Renders always
+    different window plays live until paw renders it again. Renders always
     play it live.
   - A terminal and a graphical window can attach at the same time, each
-    with its own tabs. Then the last frontend to change tabs sets what the
-    rest does.
+    with its own windows. Then the last frontend to change windows sets
+    what the rest does.
+  - `<CR>` does not enter a fold or a subproject yet: paw has no folds of
+    time and no subprojects.
 - VCAs:
   - No VCA over the own fader of a group, no VCA under a VCA, and no VCA
     gain on the master.

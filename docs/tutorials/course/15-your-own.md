@@ -27,14 +27,14 @@ The tutor opens a practice project for this lesson. It checks each step when you
 1. First, set an option. Type `:lua paw.opt.grid = 0.5` and `<CR>`. Then press `l`: the cursor moves half a beat now.
    - *Hint:* Type the text exactly, with the spaces. On the command line, `<Up>` shows the text that you typed before.
    - ✓ The grid is half a beat, and the status line shows `grid 0.5`. `]g` and `[g` also change it.
-2. Now map a key of your own. Type `:lua paw.keymap.set("<leader>z", "transport.metronome", { desc = "Click" })` and `<CR>`. Then press `<Space>z`.
-   - ✓ `<Space>z` enables and disables the click. `?` shows your mapping with its description.
+2. Now map a key of your own. Type `:lua paw.keymap.set("<leader>k", "transport.metronome", { desc = "Click" })` and `<CR>`. Then press `<Space>k`.
+   - ✓ `<Space>k` enables and disables the click. `?` shows your mapping with its description.
 3. Now make a command of your own. Type `:lua paw.command("hello", function() paw.notify("hello from my command") end)` and `<CR>`. Then type `:hello` and `<CR>`.
    - ✓ Your command ran. `:commands` and the `<Space>f:` picker show it now, with the built-in commands.
 4. To keep them, open `~/.config/paw/init.lua` in your text editor. Add the same three lines without `:lua`, and save. Then type `:reload` here.
    - *Hint:* In init.lua, each line is usual Lua, for example `paw.opt.grid = 0.5`. If there is an error, `:extensions` and `:messages` show it.
    - *The tutor cannot check this step* (The tutor does not read or write your configuration). `<Space>hn` moves to the next step.
-5. Listen with your click. Press `<Space><Space>`, then `<Space><Space>` to stop and `<Space>z` to disable the click.
+5. Listen with your click. Press `<Space><Space>`, then `<Space><Space>` to stop and `<Space>k` to disable the click.
    - ✓ Your own key works.
 
 ## What we did

@@ -32,6 +32,7 @@ change.
 | `5\|` | bar 5 (also `:5`) | |
 | `gP` | cursor to the playhead | |
 | `]'` `['` | next marker or region, the one before | |
+| `]z` `[z` | the next scope beside this window's scope, the one before (a region, a group, a track; `3]z` three on): [Scopes](narrowing.md) | |
 | `)` `(` | | next phrase, start of this phrase or the one before |
 | `zz` `zh` `zl` | center the cursor, scroll a bar | |
 
@@ -68,7 +69,8 @@ are rows, `w` `b` devices, `e` the last parameter of a device.
 | `gw` `gW` | put a warp marker on an audio clip at the cursor, take off the nearest | |
 | `<A-j>` `<A-k>` | move the track down, up | |
 | `M` `s` `r` | mute, solo, arm the track | |
-| `zn` `zw` | narrow to the group at the cursor, in a tab of its own; widen one level (`:narrow Bridge` narrows to a region) | |
+| `zn` `znn` | `zn` and a motion: enter what the motion covers as a scope, in this window: `znar` the region, `znag` the group, `znit` the track, `Vjjzn` the selected tracks; `znn` the innermost scope at the cursor ([Scopes](narrowing.md)) | |
+| `zw` `zW` | up one level of scope; up to the whole song | |
 | `<Space>tv` `<Space>ta` `<Space>tr` `<Space>tx` `<Space>tl` | a new VCA over the selected tracks; put them under a VCA; take them out of their VCAs; take the VCA at the cursor away; link the faders of a group | |
 | `I` `<A-i>` | choose the input (audio, MIDI port and channel), monitor it | |
 | `a` | add a device | enter notes after the note |
@@ -306,6 +308,7 @@ and stops.
 | T: tempo and transport | `<Space>Tt` tap the tempo, `<Space>Tm` the metronome, `<Space>Tc` the count-in |
 | u: utau | `<Space>ut` add a vocal track, `<Space>uv` make the track vocal, `<Space>us` the singer, `<Space>ue` the vocal editor, `<Space>ul` the lyric sheet, `<Space>ur` render again, `<Space>uf` `<Space>uF` freeze, unfreeze, `<Space>uo` OpenUtau, `<Space>ui` the engine |
 | v: views | `<Space>vm` mixer, `<Space>vd` device panel, `<Space>vp` piano roll, `<Space>vs` session view, `<Space>vn` notation, `<Space>vu` undo tree |
+| z: scopes | `<Space>zz` a scope from a list, `<Space>zs` `<Space>zv` `<Space>zt` the scope at the cursor (or of the selection) in a new split, vertical split, tab, `<Space>zn` name this window's scope |
 
 `u` and `<C-r>` (undo and redo) have no leader. The keys of one view are on
 the local leader `\`.
@@ -336,6 +339,7 @@ the local leader `\`.
 | `<Space>fl` `<Space>ff` `<Space>fo` `<Space>fp` `<Space>f.` | messages, files, options, every picker, the last picker |
 | `<Space>fh` `<Space>fg` `<Space>fn` `<Space>fa` | help tags, any text in the project, notes (pitch, lyric, articulation), audio files |
 | `<Space>da` | a device to add to the track |
+| `<Space>fz` | a scope to enter, or a level of this window's scope to go up to (also `<Space>zz`) |
 | `<Space>pr` | recent projects (`:recent 2` opens the second) |
 | `<Space>fq` `<Space>fu` `<Space>fe` `<Space>fs` `<Space>fP` | the quickfix list, undo states, extensions, the Lua API, presets |
 | `<C-Space>` | in a picker of presets, devices, files, beats, snippets, clips or notes: hear the item under the selection, or stop the sound; `<Esc>` takes back what was tried |

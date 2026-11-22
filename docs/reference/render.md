@@ -218,7 +218,7 @@ group, into `renders/stems`:
 | `:render stems tracks` | One file for each track. |
 | `:render Strings` | One group, to `renders/Strings.wav`. |
 
-- In a narrowed tab, `:render stems` writes the parts of its group.
+- In a window narrowed to a group, `:render stems` writes the parts of its group.
 - The options of `:render` apply (`format=flac`, `tail=`, `bits=`,
   `master=false`, and the others).
 - In Lua, `paw.stems.plan({ dir, format, tracks, group })` gives the list

@@ -799,7 +799,7 @@ clip of that track (see [MIDI is the truth](#midi-is-the-truth)).
 
 | | |
 | --- | --- |
-| `:score` | the score of the tracks the tab is narrowed to (`:narrow`, `zn`; it follows the scope), else of every track |
+| `:score` | the score of the tracks the window is narrowed to (`:narrow`, `znag`; it follows the scope), else of every track |
 | `:score all`, `:part.score`, `\Ps` | every track with MIDI |
 | `:score Strings` | a group's tracks (by its name, or part of it) |
 | `:score selection`, `:'<,'>score` | the tracks of the arrange view's selection |

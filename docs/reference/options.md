@@ -84,9 +84,9 @@ clip. `:set undo_steps=200` removes the oldest steps at once.
 | `paw.opt.threads` | `0` | The threads that process tracks. `0` gives one for each core. |
 | `paw.opt.device_sleep` | `true` | A device at rest sleeps through silence: a reverb after its tail, a synth with no note that sounds. This saves processor time. The sound is the same with `false`. |
 | `paw.opt.audio_reconnect` | `true` | paw opens an audio device again when it returns. |
-| `paw.opt.scope_rest` | `"play"` | What the tracks outside the scope do in a narrowed tab: `"play"`, `"mute"` or `"frozen"`. |
+| `paw.opt.scope_rest` | `"play"` | What the tracks outside the scope do while a narrowed window is in front: `"play"`, `"mute"` or `"frozen"`. |
 | `paw.opt.scopebars` | `"both"` | The bar numbers in a scope with time: `"local"` (from 1 at its start), `"song"`, or `"both"` (from 1, and the bars of the song on a second row of the ruler). |
-| `paw.opt.scopeloop` | `true` | Loops the time of a scope while its tab is in front. |
+| `paw.opt.scopeloop` | `true` | Loops the time of a scope while its window is in front. |
 
 ## Media and render
 

@@ -4,7 +4,7 @@ A mix of many tracks needs structure. For example: a bus for the drums,
 one fader for all the strings, and a way to work on one part alone. paw gives
 this structure with usual tracks and data in their `meta`, not with new
 kinds of objects. This page tells why. For the commands, see
-[Routing](../reference/routing.md), [Narrowed tabs](../reference/narrowing.md)
+[Routing](../reference/routing.md), [Scopes](../reference/narrowing.md)
 and [Frozen tracks](../reference/freezing.md).
 
 ## A group is a track
@@ -34,13 +34,13 @@ the others by the same number of dB. This keeps the balance, as a VCA does,
 but without a separate fader. The fader of the group itself does not move,
 because it already acts on the sum.
 
-## Narrowed tabs
+## Narrowed windows
 
 REAPER opens a part of a large project as a subproject, in a separate
-file. paw narrows a tab to one group instead. The tab sees only the
+file. paw narrows a window to one group instead. The window sees only the
 group, but it is the same project, with one undo tree. So an edit in the
-narrowed tab is a usual edit, and you can go between the tabs at any
-time. While you work on the group, the rest of the song can play, be
+narrowed window is a usual edit. A split can show the whole song beside
+the group, and `zw` returns at any time. While you work on the group, the rest of the song can play, be
 silent, or play from rendered files. The last choice lets its devices
 rest.
 

@@ -30,6 +30,7 @@ local pick_keys = {
   { "keys", "k", "Find a key mapping for this view" },
   { "clips", "c", "Go to a clip" },
   { "regions", "r", "Go to a region" },
+  { "scopes", "z", "Enter a scope, or go up to a level" },
   { "markers", "m", "Go to a marker" },
   { "marks", "'", "Go to a mark" },
   { "tracks", "t", "Go to a track" },

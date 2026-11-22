@@ -4518,8 +4518,10 @@ function paw.layout.buffers_list() end
 
 paw.layout.buftype = paw.buftype
 
---- The tabs and windows as plain data: what `:layout save` writes.
-function paw.layout.capture() end
+--- The tabs and windows as plain data: what `:layout save` writes. With
+--- `scopes`, the windows' scope stacks too (what the project keeps).
+---@param scopes any
+function paw.layout.capture(scopes) end
 
 --- The clip a name of a window's thing stands for: an id (`7`), an
 --- address (`paw://clip/7`) or the name of a clip, the first in the order
@@ -4591,9 +4593,12 @@ function paw.layout.equalize() end
 ---@param count any
 function paw.layout.exchange(count) end
 
---- A tree of windows as plain data, for `paw.layouts` and to save.
+--- A tree of windows as plain data, for `paw.layouts` and to save. With
+--- `scopes`, each window's scope stack too: the project's screen keeps
+--- them, a named layout does not (its tracks are another project's).
 ---@param node any
-function paw.layout.export(node) end
+---@param scopes any
+function paw.layout.export(node, scopes) end
 
 --- The window of a view in a tree, one on screen first: the window with
 --- the keyboard, else the one whose state the view holds, else the one
@@ -4735,6 +4740,14 @@ function paw.layout.rotate(back) end
 --- Write the tabs and windows as layout `name`, in the state directory.
 ---@param name any
 function paw.layout.save(name) end
+
+--- A scope stack from its plain data: the innermost level, each naming its parent.
+---@param levels any
+function paw.layout.scope_chain(levels) end
+
+--- A window's scope stack as plain data, outermost first.
+---@param s any
+function paw.layout.scope_levels(s) end
 
 --- Set a window option (`timebind`) on a window (the current one).
 ---@param win any
@@ -6918,6 +6931,11 @@ function paw.scene.watchers() end
 ---@param s any
 function paw.scope.apply(s) end
 
+--- The scope that `znn` enters at the cursor: the innermost not entered
+--- yet, of the group at the cursor (its header or one of its tracks), else
+--- the track. Nil when the window shows that track already.
+function paw.scope.at_cursor() end
+
 --- How many bars of the song come before the first bar of a scope (the
 --- current one by default) when its bars are numbered from 1: 0 with no
 --- time, or with `scopebars=song`. A scope's bars are the song's (its meter
@@ -6936,18 +6954,23 @@ function paw.scope.breadcrumb(s) end
 ---@param s any
 function paw.scope.contains(track, s) end
 
---- The scope a window shows (the current window's by default), or nil for
---- the song. A level whose group, track or region is gone is left out.
+--- The scope a window shows, or nil for the song: the window given, else
+--- the window being drawn, else the current one. A level whose group,
+--- track or region is gone is left out.
 ---@param win any
 function paw.scope.current(win) end
 
---- Enter a scope (`{ kind, id, tracks, from, to, name }`). In a tab that
---- shows a scope, it becomes its child, in the same tab: it shows what both
---- show. In a tab that shows the song, a tab of its own opens after it, or
---- the tab that shows the same scope comes to the front. Changes nothing in
---- the project. Returns the scope.
+--- What a scope shows, in words: its path, its tracks and its bars.
+---@param s any
+function paw.scope.describe(s) end
+
+--- Enter a scope (`{ kind, id, tracks, from, to, name }`) in a window (the
+--- current one by default). In a window that shows a scope, it becomes its
+--- child: it shows what both show, and an empty one is refused with the
+--- reason. Changes nothing in the project; a jump. Returns the scope.
 ---@param spec any
-function paw.scope.enter(spec) end
+---@param win any
+function paw.scope.enter(spec, win) end
 
 --- A group by its id, its track, or its name (or part of it).
 ---@param which any
@@ -6958,7 +6981,7 @@ function paw.scope.find(which) end
 function paw.scope.format(beat) end
 
 --- The innermost group of a scope's path (the current scope by default):
---- what a narrowed tab's tracks are shown under. Nil when no level is a group.
+--- what a narrowed window's tracks are shown under. Nil when no level is a group.
 ---@param s any
 function paw.scope.group(s) end
 
@@ -6978,21 +7001,51 @@ function paw.scope.limits_tracks(s) end
 ---@param song_bar any
 function paw.scope.local_bar(song_bar) end
 
---- A scope by name: a group of that name, else a region of that name, else
---- a group or a region whose name starts with it. A number is a group's id.
+--- Name the current scope, so that the picker and `:narrow` find it
+--- again. View state, kept with the project's screen. Returns it.
+---@param name any
+---@param win any
+function paw.scope.name(name, win) end
+
+--- A scope by name: a named scope (`:scope.name`), else a group of that
+--- name, else a region of that name, else a group or a region whose name
+--- starts with it. A number is a group's id.
 ---@param which any
 function paw.scope.named(which) end
 
+--- The named scopes, the latest last.
+function paw.scope.names() end
+
 --- Narrow to a group or a region, by its id, its track or its name (see
---- `named`): `enter` of that scope. Returns the tab it shows in.
+--- `named`): `enter` of that scope in the current window. Returns the scope.
 ---@param which any
 function paw.scope.narrow(which) end
 
---- The scope of a tab, for the frontends that draw each tab.
+--- Go to the scope `n` places beside the current one (`]z`, `3]z`, `[z`),
+--- in the same parent. A jump. Returns the scope.
+---@param n any
+function paw.scope.next(n) end
+
+--- The scope an operator's region covers (`zn{motion}`, `{Visual}zn`):
+--- the region, group or track its text object names (`ar`, `ag`, `it`),
+--- else a block of its tracks, with its time when it has some. Nil for the
+--- whole of what the window shows (`ie`).
+---@param r any
+function paw.scope.of_region(r) end
+
+--- The scope of a tab: that of its current window.
 ---@param tab any
 function paw.scope.of_tab(tab) end
 
---- The levels of a scope's path, from the outermost to it.
+--- Open a scope (the one at the cursor by default) in a new window:
+--- `how` is "split", "vsplit" or "tab". The new window starts with the
+--- scope of the one it comes from, and enters this one inside it.
+---@param how any
+---@param spec any
+function paw.scope.open(how, spec) end
+
+--- The levels of a scope's path (the current one by default), from the
+--- outermost to it.
 ---@param s any
 function paw.scope.path(s) end
 
@@ -7002,6 +7055,22 @@ function paw.scope.path(s) end
 --- through (its groups, and a bus that its sends reach). They are not empty.
 ---@param s any
 function paw.scope.rest_parts(s) end
+
+--- Show a scope in a window as it was (a jump back, `<C-o>`): no jump of
+--- its own, no check. Nil is the song.
+---@param s any
+---@param win any
+function paw.scope.restore(s, win) end
+
+--- The named scopes as the project's screen keeps them (paw/layout.tl).
+function paw.scope.saved_names() end
+
+--- The scope `n` places after the current one (before it, with a negative
+--- `n`), beside it in the same parent: the next region, group or track; a
+--- block's next stretch of the same length. Nil and the reason when there
+--- is none.
+---@param n any
+function paw.scope.sibling(n) end
 
 --- The bar of the song for a bar as the current scope shows it.
 ---@param local_bar any
@@ -7018,12 +7087,11 @@ function paw.scope.span(s) end
 ---@param s any
 function paw.scope.tracks(s) end
 
---- Leave the scope of the current tab: up one level, or with `top` to the
---- song. Leaving the first level closes the tab and shows the tab it was
---- narrowed from again; when it is the last tab, it stays, wide. False when
---- the tab shows the song.
+--- Leave the scope of a window (the current one by default): up one level,
+--- or with `top` to the song. False when it shows the song.
 ---@param top any
-function paw.scope.widen(top) end
+---@param win any
+function paw.scope.widen(top, win) end
 
 --- Let go of a reason for `id`'s seat (or of all of them, with none): the
 --- seat closes with its last one.
