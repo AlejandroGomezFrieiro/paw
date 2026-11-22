@@ -8,33 +8,33 @@ An extension is a directory of Lua that paw loads, and the page below describes 
 
 Each extension has a README. Its pictures are in `extensions/<name>/images`, and the scenes in its `images/make` make them (`docs/images/make/make.sh <name>`).
 
-| Extension | What it adds |
-| --- | --- |
-| [`ara`](../../extensions/ara/README.md) | ARA plugins on audio tracks: the plugin reads whole clips (Melodyne, audio to MIDI), and its edits stay in the project |
-| [`articulations`](../../extensions/articulations/README.md) | the articulation of each note as its MIDI 2.0 attribute, with names for each instrument from `.art.toml` maps, and keyswitches for MIDI 1.0 instruments. Maps from SFZ, Decent Sampler, folders and Reaticulate banks, and maps of plugins (MODO BASS 2, SINE Player) that bind themselves |
-| [`columnplus`](../../extensions/columnplus/README.md) | an example that personalizes the track column: a color strip, clip counts, signs for takes and frozen tracks, other fold glyphs |
-| [`continue`](../../extensions/continue/README.md) | a small completion source: how the phrase before the cursor in the piano roll can continue |
-| [`doctor`](../../extensions/doctor/README.md) | a guided check of the hardware (audio, MIDI, recording, plugins), with a written report, also from the shell |
-| [`drums`](../../extensions/drums/README.md) | drum tracks in one step, and a grid of the pieces of the kit by name |
-| [`interop`](../../extensions/interop/README.md) | opens and writes REAPER projects and DAWproject files (Bitwig Studio, Studio One, Cubase) with `:e`, `:import` and `:export`; the example of how to add a format of files |
-| [`launcher`](../../extensions/launcher/README.md) | the clip launcher: slots and scenes in the session view, launched on the beat while the song plays, and a capture of the performance into the timeline |
-| [`luafx`](../../extensions/luafx/README.md) | devices written in Lua, to use and to copy |
-| [`midilsp`](../../extensions/midilsp/README.md) | MIDI LSP, the language server for music, in `paw.lsp`: diagnostics of voice leading with fixes, the chords it hears, suggestions |
-| [`mixdiag`](../../extensions/mixdiag/README.md) | measurements of the mix (LUFS, true peak, phase), as findings to jump to |
-| [`musicops`](../../extensions/musicops/README.md) | musical operators: humanize, strum, arpeggiate, scales |
-| [`notation`](../../extensions/notation/README.md) | a MIDI clip as staff notation, in the terminal and in the graphical window |
-| [`pattern`](../../extensions/pattern/README.md) | clips written as patterns of text, as in TidalCycles |
-| [`plugstate`](../../extensions/plugstate/README.md) | the models, impulse responses and instrument files of plugins, set without their windows, and snapshots of the state of a device |
-| [`projdiff`](../../extensions/projdiff/README.md) | the changes between two versions of a project, and three-way merges for git |
-| [`rulerplus`](../../extensions/rulerplus/README.md) | an example that personalizes the bar labels of the ruler: phrase marks, the chord and the key, signed relative bars |
-| [`sampler`](../../extensions/sampler/README.md) | the sample player of paw, a CLAP plugin written in Rust |
-| [`sections`](../../extensions/sections/README.md) | named sections of the song as text objects, and edits by section |
-| [`snippets`](../../extensions/snippets/README.md) | a set of snippets to start with: chords, parts and voices |
-| [`templates`](../../extensions/templates/README.md) | a track, a group of tracks or a chain of devices, saved under a name |
-| [`tutor`](../../extensions/tutor/README.md) | a course for new users, inside the program |
-| [`undotree`](../../extensions/undotree/README.md) | a window on the undo tree, named checkpoints, A/B comparison |
-| [`utau`](../../extensions/utau/README.md) | singing synthesis: vocal tracks, a vocal editor, the device that plays the voice and the engine that sings |
-| [`vinput`](../../extensions/vinput/README.md) | virtual inputs: a guitar heard as MIDI through gdi2m, as a port that any track takes |
+| Extension | What it adds | Needs |
+| --- | --- | --- |
+| [`ara`](../../extensions/ara/README.md) | ARA plugins on audio tracks: the plugin reads whole clips (Melodyne, audio to MIDI), and its edits stay in the project | `native` |
+| [`articulations`](../../extensions/articulations/README.md) | the articulation of each note as its MIDI 2.0 attribute, with names for each instrument from `.art.toml` maps, and keyswitches for MIDI 1.0 instruments. Maps from SFZ, Decent Sampler, folders and Reaticulate banks, and maps of plugins (MODO BASS 2, SINE Player) that bind themselves | none |
+| [`columnplus`](../../extensions/columnplus/README.md) | an example that personalizes the track column: a color strip, clip counts, signs for takes and frozen tracks, other fold glyphs | none |
+| [`continue`](../../extensions/continue/README.md) | a small completion source: how the phrase before the cursor in the piano roll can continue | none |
+| [`doctor`](../../extensions/doctor/README.md) | a guided check of the hardware (audio, MIDI, recording, plugins), with a written report, also from the shell | `ffi` |
+| [`drums`](../../extensions/drums/README.md) | drum tracks in one step, and a grid of the pieces of the kit by name | none |
+| [`interop`](../../extensions/interop/README.md) | opens and writes REAPER projects and DAWproject files (Bitwig Studio, Studio One, Cubase) with `:e`, `:import` and `:export`; the example of how to add a format of files | none |
+| [`launcher`](../../extensions/launcher/README.md) | the clip launcher: slots and scenes in the session view, launched on the beat while the song plays, and a capture of the performance into the timeline | none |
+| [`luafx`](../../extensions/luafx/README.md) | devices written in Lua, to use and to copy | `ffi` |
+| [`midilsp`](../../extensions/midilsp/README.md) | MIDI LSP, the language server for music, in `paw.lsp`: diagnostics of voice leading with fixes, the chords it hears, suggestions | `processes` |
+| [`mixdiag`](../../extensions/mixdiag/README.md) | measurements of the mix (LUFS, true peak, phase), as findings to jump to | none |
+| [`musicops`](../../extensions/musicops/README.md) | musical operators: humanize, strum, arpeggiate, scales | none |
+| [`notation`](../../extensions/notation/README.md) | a MIDI clip as staff notation, in the terminal and in the graphical window | none |
+| [`pattern`](../../extensions/pattern/README.md) | clips written as patterns of text, as in TidalCycles | none |
+| [`plugstate`](../../extensions/plugstate/README.md) | the models, impulse responses and instrument files of plugins, set without their windows, and snapshots of the state of a device | `ffi`, `processes`, `network` |
+| [`projdiff`](../../extensions/projdiff/README.md) | the changes between two versions of a project, and three-way merges for git | `processes` |
+| [`rulerplus`](../../extensions/rulerplus/README.md) | an example that personalizes the bar labels of the ruler: phrase marks, the chord and the key, signed relative bars | none |
+| [`sampler`](../../extensions/sampler/README.md) | the sample player of paw, a CLAP plugin written in Rust | `native` |
+| [`sections`](../../extensions/sections/README.md) | named sections of the song as text objects, and edits by section | none |
+| [`snippets`](../../extensions/snippets/README.md) | a set of snippets to start with: chords, parts and voices | none |
+| [`templates`](../../extensions/templates/README.md) | a track, a group of tracks or a chain of devices, saved under a name | none |
+| [`tutor`](../../extensions/tutor/README.md) | a course for new users, inside the program | none |
+| [`undotree`](../../extensions/undotree/README.md) | a window on the undo tree, named checkpoints, A/B comparison | none |
+| [`utau`](../../extensions/utau/README.md) | singing synthesis: vocal tracks, a vocal editor, the device that plays the voice and the engine that sings | `ffi`, `processes`, `native` |
+| [`vinput`](../../extensions/vinput/README.md) | virtual inputs: a guitar heard as MIDI through gdi2m, as a port that any track takes | `processes` |
 
 `crates/paw-mcp` is not an extension, but it is also outside the core. It is a Model Context Protocol server in front of the control socket.
 
@@ -153,7 +153,9 @@ Before an extension runs, paw loads what it requires (first from beside it, then
 | `network` | requests over the network |
 | `native` | a part that Nix builds, such as a plugin or a library |
 
-paw does not run an extension whose `needs` names a feature that the build doesn't have, and a name that paw doesn't know counts as missing. `:extensions` and `:checkhealth extensions` say what is missing, for example `needs ffi and native, which this build of paw does not have`. Each bundled extension declares its `needs`, and an empty list means that the extension works in every build.
+paw does not run an extension whose `needs` names a feature that the build doesn't have, and a name that paw doesn't know counts as missing. `:extensions` and `:checkhealth extensions` say what is missing, for example `needs ffi and native, which this build of paw does not have`. Each bundled extension declares its `needs`, and the table of [bundled extensions](#bundled-extensions) lists them.
+
+An extension that works without a feature, but has one part that uses it, leaves the feature out of `needs`. The part checks `paw.ext.build_has(feature)` and says what is missing when it can't run. For example, notation's filter `!` with a shell command needs `processes`, and in a build without them it says so, while the named filters and the rest of notation still work.
 
 `needs` isn't a security sandbox. paw only reads the list before it loads the extension, and an extension that is loaded can still call any function that the build has.
 

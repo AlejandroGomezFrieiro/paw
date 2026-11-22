@@ -689,6 +689,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 ## Module paw.ext
 
+- `paw.ext.build_has(feature)`: True if this build of paw has `feature`, one of the names of `paw.api.build().features` such as `"processes"`. An extension that works without a feature, but has one part that uses it, checks it here.
 - `paw.ext.bundled()`: The names of the bundled extensions, loaded or not, sorted.
 - `paw.ext.bundled_dir()`: The directory of the extensions that come with paw: `$PAW_HOME/extensions`, or `extensions` under the current directory in a source tree. Nil when there is no such directory.
 - `paw.ext.caller()`: The loaded extension whose code called the function this is called from, or nil for the core's or the user's.

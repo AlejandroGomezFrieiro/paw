@@ -320,6 +320,7 @@ test(":ext.unload takes a bundled extension away and :ext.load brings it back", 
 end)
 
 test("every bundled extension has a manifest that names it and asks for this API", function()
+  local page = T.read_file("docs/reference/extensions.md")
   for _, name in ipairs(paw.ext.bundled()) do
     local m, err = paw.ext.manifest(paw.ext.bundled_dir() .. "/" .. name, name)
     eq(err, nil, name .. "'s manifest reads")
@@ -327,6 +328,14 @@ test("every bundled extension has a manifest that names it and asks for this API
     eq(type(m.description), "string", name .. " has a description")
     eq(paw.ext.satisfies(api.version, m.requires and m.requires.paw), true, name .. " asks for this API")
     eq(type(m.needs), "table", name .. " says what it needs of the build")
+    -- The last column of its row in the table of bundled extensions.
+    local row = page:match("\n| %[`" .. name .. "`%][^\n]*") or ""
+    local listed = {}
+    for _, need in ipairs(m.needs) do
+      listed[#listed + 1] = "`" .. need .. "`"
+    end
+    local cell = #listed > 0 and table.concat(listed, ", ") or "none"
+    eq(row:sub(-#cell - 3), " " .. cell .. " |", name .. "'s needs in docs/reference/extensions.md")
   end
 end)
 

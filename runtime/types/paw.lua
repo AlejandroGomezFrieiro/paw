@@ -2874,6 +2874,11 @@ function paw.ex.substitution(r, pattern, replacement, flags) end
 ---@param spec any
 function paw.ex.view(name, spec) end
 
+--- True if this build of paw has `feature`, one of the names of
+--- `paw.api.build().features` such as `"processes"`. An extension that
+--- works without a feature, but has one part that uses it, checks it here.
+function paw.ext.build_has(feature) end
+
 --- The names of the bundled extensions, loaded or not, sorted.
 function paw.ext.bundled() end
 

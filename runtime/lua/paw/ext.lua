@@ -602,19 +602,25 @@ local function holder(name)
   end
 end
 
---- What the extension's `needs` names that this build does not have
---- (`paw.api.build().features`): nil, or the reason it does not load.
---- A name that no build knows is missing too, so that a typo is said.
-local function missing_needs(entry)
-  local needs = entry.manifest.needs or {}
-  if #needs == 0 then return end
-  local has = {}
-  for _, feature in ipairs(api.build().features) do
-    has[feature] = true
+--- True if this build of paw has `feature`, one of the names of
+--- `paw.api.build().features` such as `"processes"`. An extension that
+--- works without a feature, but has one part that uses it, checks it here.
+--- @param feature string
+--- @return boolean
+function M.build_has(feature)
+  for _, have in ipairs(api.build().features) do
+    if have == feature then return true end
   end
+  return false
+end
+
+--- What the extension's `needs` names that this build does not have:
+--- nil, or the reason it does not load. A name that no build knows is
+--- missing too, so that a typo is said.
+local function missing_needs(entry)
   local missing = {}
-  for _, need in ipairs(needs) do
-    if not has[need] then missing[#missing + 1] = tostring(need) end
+  for _, need in ipairs(entry.manifest.needs or {}) do
+    if not M.build_has(need) then missing[#missing + 1] = tostring(need) end
   end
   if #missing == 0 then return end
   return "needs " .. table.concat(missing, " and ") .. ", which this build of paw does not have"
