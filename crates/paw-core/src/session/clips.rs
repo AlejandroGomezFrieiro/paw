@@ -5,7 +5,7 @@ use super::*;
 impl Session {
     pub fn clip_view(&self, id: Id) -> Result<ClipView<'_>> {
         if let Some((track, index)) = self.project.find_cue_clip(id) {
-            let mut view = clip_json(&self.project.track(track).unwrap().cues[index], track);
+            let mut view = clip_json(&self.project.track(track).unwrap().cues[index], track, &self.files_there);
             view.cue = Some(true);
             return Ok(view);
         }
@@ -14,23 +14,33 @@ impl Session {
             .find_clip(id)
             .with_context(|| format!("no clip {id}"))?;
         let clip = self.project.clip(id).unwrap();
-        let mut view = clip_json(clip, track);
+        let mut view = clip_json(clip, track, &self.files_there);
         self.note_stretching(clip, &mut view);
         Ok(view)
     }
 
     /// The clips on a track, in timeline order, without their notes.
     pub fn clip_list(&self, track: Id) -> Result<Vec<ClipView<'_>>> {
+        self.clip_list_in(track, None)
+    }
+
+    /// The clips on a track that overlap `span` (`from`, `to` in beats; all
+    /// of them with `None`), in timeline order, without their notes.
+    pub fn clip_list_in(&self, track: Id, span: Option<(f64, f64)>) -> Result<Vec<ClipView<'_>>> {
         let t = self
             .project
             .track(track)
             .with_context(|| format!("no track {track}"))?;
-        let mut clips: Vec<&Arc<Clip>> = t.clips.iter().collect();
+        let mut clips: Vec<&Arc<Clip>> = t
+            .clips
+            .iter()
+            .filter(|c| span.is_none_or(|(from, to)| c.start < to && c.start + c.length > from))
+            .collect();
         clips.sort_by(|a, b| a.start.total_cmp(&b.start));
         Ok(clips
             .into_iter()
             .map(|c| {
-                let mut view = clip_json(c, track);
+                let mut view = clip_json(c, track, &self.files_there);
                 self.note_stretching(c, &mut view);
                 view
             })

@@ -17,7 +17,7 @@ local function column(p, beat) return math.floor((beat - (p.from or 0)) * (p.per
 --- a notch where each repeat of a looped clip begins (`repeats`, beats from
 --- its start) and a mark on each warp marker (`warps`, the same). `per` is
 --- columns a beat. The terminal draws the row in `title_style` and the
---- body in `body_style`, and `body(buf)` draws what is in the body (notes,
+--- body in `body_style`, and `body(buf, props)` draws what is in the body (notes,
 --- a waveform). A window paints it in `color` (its track's), lit when
 --- `current` (the cursor's) or `chosen`, faint when `muted`; its notes or
 --- its waveform from `content` (`midi` or not: `paw.frontend.preview`,
@@ -62,7 +62,7 @@ role("clip", {
     buf:text(w > 2 and 1 or 0, 0, p.label or p.name or "")
     if h >= 2 then
       buf:fill(0, 1, w, h - 1, " ", p.body_style)
-      if p.body then p.body(buf) end
+      if p.body then p.body(buf, p) end
     end
     -- A notch where each repeat of a looped clip begins.
     for _, at in ipairs(p.repeats or {}) do

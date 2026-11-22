@@ -1003,6 +1003,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.keymap.every()`: Every mapping in every mode and scope, sorted by scope, mode and keys. What checks the key rules walks (`tests/keys_constitution.lua`).
 - `paw.keymap.expand(lhs)`: Write `<leader>` and `<localleader>` as the keys the options name.
 - `paw.keymap.feed(keys)`: Type keys as if from the keyboard: `paw.keymap.feed("jj<Space>")`.
+- `paw.keymap.first(mode, test, view)`: The first mapping of `mode` (in `view`, then global) that `test(map)` is true for, in the order of `list`, with no list made and sorted.
 - `paw.keymap.getreg(name)`: What a register holds (the unnamed one when `name` is nil).
 - `paw.keymap.goto_mark(name)`: Move to a mark. With `'` or a backtick as the name, return to the start of the last jump. With `.`, go to the place of the last edit.
 - `paw.keymap.group(prefix, name, opts)`: Give a name to a prefix that only leads to more keys. The hints after it then show `+mix`, not the number of keys after it.
@@ -2210,8 +2211,10 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   local key = paw.canvas.image(png_bytes)
   buf:image(0, 0, buf.width, buf.height, key)
   ```
+- `paw.ui.Buf.keep(self, key, x, y, w, h)`: Keep the cells drawn in the area `x, y, w, h` as they are now, under `key`, to put back on a later frame with `buf:put_kept` instead of drawing them again. The caller knows when what they show is the same. A change of a highlight group forgets every kept area.
 - `paw.ui.Buf.mark`: the same as `paw.roles.mark`.
 - `paw.ui.Buf.plane`: the same as `paw.roles.plane`.
+- `paw.ui.Buf.put_kept(self, key, x, y, w, h)`: Put back the cells kept under `key` (`buf:keep`), if they were kept from the same place on the screen: true when they were.
 - `paw.ui.Buf.root(width, height)`: The buffer that covers a whole screen of the given size.
 - `paw.ui.Buf.strip(self, x, y, w, h, opts)`: Keep an area for pixels that `opts.draw(g, px)` draws, where the terminal shows images. `g` is a painter of `paw.canvas`. `px` is `{ w, h, cell = { w, h }, fg, bg, view }`: the size of the strip, the cell of the terminal in pixels, and its colors. For a strip that is partly off its window, `view` is the part that shows (x, y, w, h). paw calls it after it draws the screen. `opts.key` names the strip, and paw keeps images by this name. For a view that can be in two windows, put the id of the window in it. The default is the view and its window. With `opts.under`, the cells that the view draws there stay above the picture (its cursor, labels, the playhead). If not, they are blank. False where there are no pixels (`paw.opt.graphics` off, a terminal without images, tmux, or a terminal that cannot put text over an image). Then the view draws cells there:
 
@@ -2307,7 +2310,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.clip_kind_define(name)`: Let `clip_add` make clips of the kind `name`: a lowercase word that is not `midi`, `audio` or another built-in. `paw.clip_kinds.define` calls it.
 - `paw.api.clip_kind_remove(name)`: Stop making clips of the kind `name`. Clips of it that the project has stay.
 - `paw.api.clip_kinds()`: The kinds of clip that extensions defined, by name (sorted).
-- `paw.api.clip_list(track)`: --- clips ---
+- `paw.api.clip_list(track, from, to)`: --- clips --- The clips of a track, in timeline order. With `from` and `to` (beats), only those that overlap that stretch: a view that shows part of the song asks for what it shows.
 - `paw.api.clip_normalize(id, level)`
 - `paw.api.clip_note_add(id, note)`: One note at a time, by its place in the notes of the clip (from 1). The functions that add and change a note return its new place, because the notes stay in the order of their start.
 - `paw.api.clip_note_at(id, pitch, beat)`: The note on `pitch` that sounds at `beat`, and its place in the notes of the clip. Nothing when there is no such note.
@@ -2375,12 +2378,14 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.fs_space(path)`: The space of the disk that holds a path: `{ free, total }` in bytes (free: what a program that is not root can use).
 - `paw.api.fs_stat(path)`: `{ kind = "file" | "dir" | "link", dir, size, mtime }`, or nil when nothing is there. A link is looked at, not followed, for its kind, and `dir` is true if it leads to a directory.
 - `paw.api.fs_trash(path)`: Put a file or directory in the freedesktop trash; returns where it is.
-- `paw.api.grid_fill(x, y, w, h, fill, style, cx, cy, cw, ch)`: Restyle the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, and overwrite its characters when `fill` is given.
+- `paw.api.grid_fill(x, y, w, h, fill, style, cx, cy, cw, ch)`
 - `paw.api.grid_image(key, x, y, w, h, cx, cy, cw, ch)`: Draw the picture of pixels kept under `key` over the cells `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, two pixels a cell in half blocks (`▀`): what a terminal that shows no images shows of it. False for a key not kept (any more).
+- `paw.api.grid_keep(key, x, y, w, h, cx, cy, cw, ch)`: Restyle the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, and overwrite its characters when `fill` is given. Keep the cells of the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, under `key`, to put back on a later frame with `grid_put` when what they were drawn from has not changed.
 - `paw.api.grid_live_begin(x, y, w, h, cx, cy, cw, ch)`: A live part of the screen is drawn over the cells `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`: what is under them is kept, to draw it again by itself (`paw.ui.render_live`). Returns its number for `grid_live_end`, or nil when no part of it is on the screen.
 - `paw.api.grid_live_end(index)`
 - `paw.api.grid_live_restore()`: Take the live parts off the frame drawn last, to draw them again. Returns how many there were.
 - `paw.api.grid_live_seal()`: The frame is drawn: what is over the live parts now stays over them.
+- `paw.api.grid_put(key, x, y, w, h, cx, cy, cw, ch)`: Put the cells kept under `key` back, if they were kept from the same area: true when they were. Nothing is drawn else.
 - `paw.api.grid_surface(key, x, y, w, h, cx, cy, cw, ch, under)`: Keep the cells `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, for pixels under the name `key` (`buf:strip`), over the text or `under` it. Returns the number of the surface for `grid_surface_ops`, or nil when no part of it is on the screen.
 - `paw.api.grid_surface_ops(index, ops)`: The drawing a surface shows: the operations of `paw.canvas.paint`.
 - `paw.api.grid_surfaces_seal()`: The view being drawn is done with the surfaces it kept: what is drawn over them from now on covers them.

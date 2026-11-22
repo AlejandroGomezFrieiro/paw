@@ -176,6 +176,7 @@ impl Kernel {
             live_dirty: Cell::new(false),
             frames: Cell::new([0; 3]),
             snapshot: RefCell::new(None),
+            kept_cells: RefCell::new(HashMap::new()),
             redraws: Cell::new(0),
             attached: Cell::new(false),
             cursor: Cell::new(None),

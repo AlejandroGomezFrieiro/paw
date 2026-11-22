@@ -125,6 +125,14 @@ impl Surface {
     }
 }
 
+/// The cells of an area of a frame, kept to be put back on a later one when
+/// what they were drawn from has not changed (`paw.api.grid_keep`).
+pub struct KeptCells {
+    rect: Rect,
+    /// Row by row.
+    cells: Vec<Cell>,
+}
+
 /// A part of the screen that moves on its own while the song plays (the
 /// playhead, a meter, the status line), drawn again by itself between whole
 /// frames ([`Grid::live_restore`]). It keeps what its cells held before it
@@ -218,6 +226,28 @@ impl Grid {
             out.extend_from_slice(&self.cells[at..at + rect.w as usize]);
         }
         out
+    }
+
+    /// The cells of `area` as they are now, to put back on a later frame
+    /// ([`Grid::put_kept`]): nothing when it is off the screen.
+    pub fn keep(&self, area: Rect) -> Option<KeptCells> {
+        let rect = area.intersect(&self.rect());
+        (rect.w > 0 && rect.h > 0).then(|| KeptCells { rect, cells: self.cells_of(rect) })
+    }
+
+    /// Put kept cells back where they were kept, if `area` is where they
+    /// were kept from: true when it is.
+    pub fn put_kept(&mut self, area: Rect, kept: &KeptCells) -> bool {
+        let rect = area.intersect(&self.rect());
+        if rect != kept.rect {
+            return false;
+        }
+        let (width, w) = (self.width as usize, rect.w as usize);
+        for (row, cells) in kept.cells.chunks(w).enumerate() {
+            let at = (rect.y as usize + row) * width + rect.x as usize;
+            self.cells[at..at + w].copy_from_slice(cells);
+        }
+        true
     }
 
     /// A live part is about to be drawn over `area`: keep what is under it.

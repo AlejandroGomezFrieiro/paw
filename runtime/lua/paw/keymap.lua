@@ -364,6 +364,34 @@ end)
 --- The names given to prefixes with `group`: scope -> keys -> name.
 function M.groups() return groups end
 
+-- What `list` sorts each mapping by, made once for each: the status line
+-- lists the mappings on each frame.
+local sort_keys = setmetatable({}, { __mode = "k" })
+local function by_keys(a, b)
+  local ka, kb = sort_keys[a], sort_keys[b]
+  if not ka then
+    ka = a.lhs:lower() .. a.lhs
+    sort_keys[a] = ka
+  end
+  if not kb then
+    kb = b.lhs:lower() .. b.lhs
+    sort_keys[b] = kb
+  end
+  return ka < kb
+end
+
+--- The first mapping of `mode` (in `view`, then global) that `test(map)`
+--- is true for, in the order of `list`, with no list made and sorted.
+function M.first(mode, test, view)
+  for _, scope in ipairs({ view or false, "global" }) do
+    local best
+    for _, map in pairs(scope and maps[mode] and maps[mode][scope] or {}) do
+      if test(map) and (not best or by_keys(map, best)) then best = map end
+    end
+    if best then return best end
+  end
+end
+
 --- Mappings that apply in `mode` for `view`, the view's own first.
 function M.list(mode, view)
   local out = {}
@@ -372,7 +400,7 @@ function M.list(mode, view)
     for _, map in pairs(scope and maps[mode] and maps[mode][scope] or {}) do
       list[#list + 1] = map
     end
-    table.sort(list, function(a, b) return a.lhs:lower() .. a.lhs < b.lhs:lower() .. b.lhs end)
+    table.sort(list, by_keys)
     for _, map in ipairs(list) do
       out[#out + 1] = map
     end

@@ -504,9 +504,8 @@ end
 
 --- How to see every message: the key for the messages, and the command.
 function M.messages_hint()
-  for _, map in ipairs(paw.keymap.list("n")) do
-    if map.rhs == "pick.messages" or map.rhs == "messages" then return paw.keymap.human(map.lhs) .. " or :messages" end
-  end
+  local map = paw.keymap.first("n", function(m) return m.rhs == "pick.messages" or m.rhs == "messages" end)
+  if map then return paw.keymap.human(map.lhs) .. " or :messages" end
   return ":messages"
 end
 
