@@ -994,6 +994,24 @@ function M.bar_lines(from: number, span: number): {BarLine}
   return out
 end
 
+--- Where a view scrolls to for a move of its cursor to `target`, a beat, or
+--- nil when the move leaves the scroll to the caller. A step (`jumped` is
+--- false) is left to the caller, which scrolls just enough. A jump (it went
+--- into the jump list) to a target that is off screen, or in the last quarter
+--- of the view, puts the target at the left margin (`paw.opt.jumpview` "left",
+--- `paw.opt.jumpmargin` columns) or in the middle ("center"). `span` is the
+--- beats shown, `zoom` the columns a beat.
+function M.jump_scroll(target: number, scroll: number, span: number, zoom: number, jumped: boolean): number
+  if not jumped then
+    return nil
+  end
+  if target >= scroll and target < scroll + span * 0.75 then
+    return nil
+  end
+  local at = opt.jumpview == "center" and span / 2 or (opt.jumpmargin as number) / zoom
+  return target - at
+end
+
 --- Write the numbers of a ruler above a roll that shows `span` beats from
 --- `scroll`, at `zoom` columns for each beat. Bars have the numbers of the
 --- project (`origin` is the project beat of the beat 0 of the roll). Beats

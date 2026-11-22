@@ -27,7 +27,8 @@ A command is a count, an operator, and a motion or a text object, e.g., `3>ic`, 
 | `]r` `[r` | next region at the same level, the one before | |
 | `]z` `[z` | the next scope beside this window's scope, the one before (a region, a group, a track; `3]z` three on): [Scopes](narrowing.md) | |
 | `)` `(` | | next phrase, start of this phrase or the one before |
-| `zz` `zh` `zl` | center the cursor, scroll a bar | |
+| `zs` `zz` `ze` | put the cursor at the left, in the middle, at the right of the timeline | |
+| `zh` `zl` | scroll a bar | |
 
 The motion keys only move, in every view. In **M**, `h` `l` are strips, `j` `k` are the rows of a strip (devices, sends, fader, pan, mute, solo, arm), `gg` `G` are its top and bottom, and `0` `$` are the first and last strip. In **D**, `j` `k` are rows, `w` `b` are devices, and `e` is the last parameter of a device.
 
