@@ -480,12 +480,20 @@ impl Shown {
         let ppp = ui.ctx().pixels_per_point();
         // What moves: the roles bound to live values, and the one under
         // the pointer.
-        let moving: Vec<usize> = (0..self.roles.len())
-            .filter(|&i| {
-                let Placed { node, at, .. } = &self.roles[i];
-                node.bind.is_some() || ui.rect_contains_pointer(roles::rect_of(*at, rect.min, cell))
-            })
-            .collect();
+        // A role painted again over the rest would hide the roles over it
+        // (a lane's ground under the pointer, the clips on it): they move
+        // with it, and are painted again after it.
+        let mut moving: Vec<usize> = Vec::new();
+        let mut hovered: Vec<Rect> = Vec::new();
+        for (i, Placed { node, at, .. }) in self.roles.iter().enumerate() {
+            let at = roles::rect_of(*at, rect.min, cell);
+            if ui.rect_contains_pointer(at) || hovered.iter().any(|h| h.intersect(at).is_positive()) {
+                hovered.push(at);
+                moving.push(i);
+            } else if node.bind.is_some() {
+                moving.push(i);
+            }
+        }
         // The rest is painted once, and its shapes are given again while
         // nothing of it changes: no layout, no painting of roles.
         let still_key = StillKey { rect, cut: painter.clip_rect(), cell_scale: [cell.0, cell.1, ppp], moving: moving.clone(), pictures: crate::timeline::pictures_made() };

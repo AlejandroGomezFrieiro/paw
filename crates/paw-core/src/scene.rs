@@ -16,7 +16,8 @@ use std::collections::{HashMap, HashSet};
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::rc::Rc;
 
-use mlua::{Lua, Table, Value as LuaValue};
+use mlua::serde::DeserializeOptions;
+use mlua::{Lua, LuaSerdeExt, Table, Value as LuaValue};
 use paw_scene::cells::{Rect, Style};
 use paw_scene::{Axis, Kind, Map, Node, Picture, Plane, Scene};
 use serde::Deserialize;
@@ -384,7 +385,11 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
         "scene_open",
         lua.create_function(move |lua, (rect, opts): (LuaValue, LuaValue)| {
             let rect: Area = from_lua(lua, rect)?;
-            let opts: OpenOpts = from_lua(lua, opts)?;
+            // A role's props are data for a frontend, where an empty Lua
+            // table is most often an empty list (no warp markers): sent as
+            // a map, it would not read as one, and the frontend would take
+            // none of the props.
+            let opts: OpenOpts = lua.from_value_with(opts, DeserializeOptions::new().encode_empty_tables_as_array(true))?;
             sh.scenes.borrow_mut().open(rect.units(), opts).map_err(mlua::Error::runtime)
         })?,
     )?;
