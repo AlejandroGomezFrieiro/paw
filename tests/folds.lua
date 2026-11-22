@@ -127,6 +127,36 @@ test("znn on a fold enters it, and zw comes back with the fold closed", function
   eq(paw.cursor.track_id(), b.bass.id, "the cursor on its row")
 end)
 
+test("K on a folded group: its name, its tracks, and that it is folded", function()
+  start()
+  local b = band()
+  paw.cursor.set_track(b.strings)
+  keys("za")
+  keys("K")
+  local lines = {}
+  for _, line in ipairs(paw.ui.views.pager.lines) do
+    lines[#lines + 1] = line.text
+  end
+  local text = table.concat(lines, "\n")
+  eq(text:find("Fold  Strings\n  Song › Strings · 3 tracks · folded", 1, true) ~= nil, true, text)
+end)
+
+test("<Space>zz lists the window's folds, marked fold, with the path; choosing one enters it", function()
+  start()
+  local b = band()
+  paw.cursor.set_track(b.bass)
+  keys("Vjjzf")
+  keys("<Space>zz")
+  keys("Fold")
+  local text = table.concat(api.ui_snapshot(160, 40), "\n")
+  eq(text:find("fold%s+Fold 1") ~= nil, true, "marked fold:\n" .. text)
+  eq(text:find("│ Song › Fold 1%s") ~= nil, true, "the path in the preview:\n" .. text)
+  eq(text:find("│ 3 tracks · folded%s") ~= nil, true, "and what it holds:\n" .. text)
+  keys("<CR>")
+  eq(paw.scope.breadcrumb(), "Song › Fold 1", "entered")
+  eq(names(paw.groups.rows()), "Bass Keys Pad", "its tracks")
+end)
+
 -- Time folds -------------------------------------------------------------------------------
 
 local W, H = 160, 40

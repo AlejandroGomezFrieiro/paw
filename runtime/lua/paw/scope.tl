@@ -110,10 +110,11 @@ local paw = (_G as {string: Paw}).paw
 
 --- An entry of the scope picker (`<leader>zz`): a scope to enter, or a
 --- level of the window's stack to go back up to (`level`, nil `scope` for
---- the song).
+--- the song). `fold` is the window's fold that the scope is made of.
 local record Item
   scope: Scope
   level: boolean
+  fold: contracts.Fold
   kind: string
   label: string
 end
@@ -722,6 +723,20 @@ function M.of_clip(id: integer): Scope
   end
 end
 
+--- A fold of a window (paw/folds.tl) as a scope to enter: its group, its
+--- region, its tracks or its bars, with the name it shows.
+function M.of_fold(f: contracts.Fold): Scope
+  local s: Scope = {kind = f.kind, id = f.id, from = f.from, to = f.to, name = paw.folds.name(f)}
+  if f.tracks then
+    -- A copy: the fold's list changes with the fold, the scope's must not.
+    s.tracks = {}
+    for i, t in ipairs(f.tracks) do
+      s.tracks[i] = t
+    end
+  end
+  return s
+end
+
 --- The scope that `znn` enters at the cursor: the innermost not entered
 --- yet. On a closed time fold (paw/folds.tl), its region or its bars; a
 --- subproject's clip at the cursor; in a region scope, the region one
@@ -759,11 +774,7 @@ function M.at_cursor(): Scope
   end
   local fold = paw.folds.row(id)
   if fold then
-    local tracks: {integer} = {}
-    for i, t in ipairs(fold.tracks) do
-      tracks[i] = t
-    end
-    return {kind = "tracks", tracks = tracks, name = fold.name}
+    return M.of_fold(fold)
   end
   local entered: {integer: boolean} = {}
   for _, level in ipairs(M.path()) do
@@ -1505,6 +1516,7 @@ end
 local record Arrange
   layers: {string: function(view: Arrange, layer: Layer)}
   ruler2: {string: function(view: Arrange): boolean}
+  describe: function(view: Arrange): contracts.Description
 end
 
 --- Whether the ruler shows the song's bars under the scope's: in a scope
@@ -1548,10 +1560,89 @@ if arrange and arrange.layers then
   end
 end
 
+-- Describing a scope ------------------------------------------------------------------
+
+--- Whether a scope is one that `:scope.name` named.
+local function is_named(s: Scope): boolean
+  for _, named in ipairs(named_scopes) do
+    if named == s or (named.name == s.name and same_level(named, s)) then
+      return true
+    end
+  end
+  return false
+end
+
+--- A scope's bars, `bars 1-8 (song 17-24)`, and its meter at its start,
+--- `6/8`; nil for a scope with all the time of the song. Bars count from 1
+--- at the scope's start, as the ruler counts them with `scopebars=local`.
+local function bars_and_meter(s: Scope): string, string
+  local from, to = M.span(s)
+  if not from then
+    return nil
+  end
+  local time = paw.time
+  local first, last = time.bar_of(from), time.bar_of(math.max(from, to - 1e-6))
+  local bars = string.format("bars 1-%d", last - first + 1)
+  if first ~= 1 then
+    bars = bars .. string.format(" (song %d-%d)", first, last)
+  end
+  local upper, lower = time.signature_at(from)
+  return bars, string.format("%d/%d", upper, lower)
+end
+
+--- What a scope (the current one by default) shows, in words: its path,
+--- its bars (its own, and the song's), its meter, its tracks, and whether
+--- it is named, with `extra` last: `Song › Bridge · bars 1-8 (song 17-24) ·
+--- 6/8 · 12 tracks · named`.
+function M.describe(s?: Scope, extra?: string): string
+  s = s or M.current()
+  local parts = {M.breadcrumb(s)}
+  local bars, meter = bars_and_meter(s)
+  if bars then
+    parts[#parts + 1] = bars
+    parts[#parts + 1] = meter
+  end
+  local n = #M.tracks(s)
+  parts[#parts + 1] = string.format("%d track%s", n, n == 1 and "" or "s")
+  if s and is_named(s) then
+    parts[#parts + 1] = "named"
+  end
+  parts[#parts + 1] = extra
+  return table.concat(parts, " · ")
+end
+
+--- A fold of the current window in words, as a scope inside the one the
+--- window shows, and whether it is folded: `Song › Strings · 3 tracks ·
+--- folded`.
+function M.describe_fold(f: contracts.Fold): string
+  local s = M.of_fold(f)
+  s.parent = M.current()
+  return M.describe(s, f.closed and "folded" or "open")
+end
+
+--- What `K` says in the arrange view before the track: the closed fold
+--- under the cursor, else, in a scope and with no clip under the cursor,
+--- the scope. Nil when there is neither.
+local function under_cursor(): contracts.Description
+  local fold = paw.folds.closed_at()
+  if fold then
+    return {{text = "Fold  " .. paw.folds.name(fold), style = "Title"}, "  " .. M.describe_fold(fold), ""}
+  end
+  local s = M.current()
+  if s and not paw.cursor.clip() then
+    return {{text = "Scope  " .. s.name, style = "Title"}, "  " .. M.describe(s), ""}
+  end
+end
+if arrange then
+  -- `K` (the command `info`) puts this before what it says of the track.
+  arrange.describe = function(_: Arrange): contracts.Description return under_cursor() end
+end
+
 -- The scope picker ---------------------------------------------------------------------
 
 --- The entries of the scope picker: the levels of the window's stack (and
---- the song) to go up to, the named scopes, the groups and the regions.
+--- the song) to go up to, the named scopes, the window's folds, the
+--- groups, the subprojects and the regions.
 local function items(): {Item}
   local out: {Item} = {}
   local path = M.path()
@@ -1566,6 +1657,9 @@ local function items(): {Item}
     if valid(s) then
       out[#out + 1] = {scope = s, kind = "named", label = s.name}
     end
+  end
+  for _, f in ipairs(paw.folds.list()) do
+    out[#out + 1] = {scope = M.of_fold(f), fold = f, kind = "fold", label = paw.folds.name(f)}
   end
   for _, id in ipairs(api.track_list()) do
     if groups().is_group(id) then
@@ -1618,13 +1712,20 @@ local function choose(item: Item)
 end
 
 M.source = {
-  desc = "Enter a scope: a level of this window's, a named scope, a group, a subproject, a region",
+  desc = "Enter a scope: a level of this window's, a named scope, a fold, a group, a subproject, a region",
   title = "Scopes",
   empty = "No scope to enter: make a group, a region or a subproject, or name a scope with `:scope.name`.",
   items = items,
   format = function(item: Item): string return string.format("%-7s %s", item.kind, item.label) end,
   primary = function(item: Item): string return item.label end,
   search = function(item: Item): string return item.label end,
+  -- What the entry is, in words (a fold as a scope inside the window's):
+  -- its path on a line, the rest under it, as the preview is narrow.
+  preview = function(item: Item): {string | contracts.PageLine}
+    local text = item.fold and M.describe_fold(item.fold) or item.scope and M.describe(item.scope) or "Song"
+    local path, rest = text:match("^(.-) · (.*)$")
+    return path and {path, rest} or {text}
+  end,
   on_choose = choose,
 }
 
@@ -1646,15 +1747,6 @@ local function scope_names(): {string}
     end
   end
   return out
-end
-
---- What a scope shows, in words: its path, its tracks and its bars.
-function M.describe(s?: Scope): string
-  s = s or M.current()
-  local from, to = M.span(s)
-  local bars = from and string.format(", bars %d-%d", paw.time.bar_of(from), paw.time.bar_of(math.max(from, to - 1e-6)))
-    or ""
-  return string.format("%s: %d tracks%s", M.breadcrumb(s), #M.tracks(s), bars)
 end
 
 --- A step that changes the scope of a window.
