@@ -2,28 +2,29 @@
 
 <!-- tags: amp-models switch-presets tone3000 soundshed tone3000-library -->
 
-This guide shows you how to change the preset, the amp model and the
-impulse response of an amp plugin. You use keys and commands, and you do
-not open the window of the plugin. The examples use TONE3000 and Soundshed Guitar.
-The same steps work for Neural Amp Modeler and the other plugins that
+You can change the preset, the amp model and the impulse response of an
+amp plugin with keys and commands. You do not need to open the window of
+the plugin. The examples use TONE3000 and Soundshed Guitar. The same steps
+work for Neural Amp Modeler and the other plugins that
 [plugstate](../../extensions/plugstate/README.md) knows.
 
-The guide assumes a guitar track with the amp plugin on it. See
-[How to record a guitar or a bass](record-a-guitar-or-a-bass.md).
+The steps assume a guitar track with the amp plugin on it, as
+[How to record a guitar or a bass](record-a-guitar-or-a-bass.md) shows.
 
 ## Load the extension
 
-Type `:ext.load plugstate` and press `Enter`. To load it at each start,
-see [How to load an extension](load-an-extension.md).
+Type `:ext.load plugstate` and press `Enter`. If you want it to load at
+each start, see [How to load an extension](load-an-extension.md).
 
 ## Step through the presets
 
-1. Put the cursor on the guitar track, and press `<Space>dd`. The device panel
-   opens.
+1. Put the cursor on the guitar track, and press `<Space>dd`. The device
+   panel opens.
 2. Press `]m`. The plugin loads the next preset, and the message line
    shows its name.
-3. Press `[m` to return to the preset before. A count skips more: `3]m`.
-4. If you do not like the change, press `u`. The preset before plays
+3. Press `[m` to return to the preset before. A count skips more, as in
+   `3]m`.
+4. If you do not like the change, press `u`, and the preset before plays
    again.
 
 paw finds the factory presets that come with the plugin. To add your own
@@ -31,9 +32,9 @@ presets and packs, add their folder to `paw.opt.plugstate_folders`.
 
 ## Find a preset by name
 
-Type `:plugstate.load` and words of the name, then press `Enter`. For
-example, `:plugstate.load bogner`. If the words find more than one preset,
-a list opens. The selected preset plays while you move in the list.
+Type `:plugstate.load` and words of the name, and then press `Enter`, for
+example `:plugstate.load bogner`. If the words find more than one preset,
+a list opens, and the selected preset plays while you move in the list.
 `Enter` keeps it, and `Esc` puts back the preset before.
 
 ## Put a model or an impulse response into a block
@@ -42,23 +43,24 @@ a list opens. The selected preset plays while you move in the list.
    press `Enter`. The list shows the blocks of the chain, for example
    `block2` or `amp1`.
 2. Type `:plugstate.load slot=block2 ~/models/deluxe.nam` and press
-   `Enter`. The block plays the model.
+   `Enter`, and the block plays the model.
 
 A `.wav` file goes into a block in the same way, as an impulse response.
-TONE3000 keeps the bytes of the file in the project. Soundshed Guitar
+TONE3000 keeps the bytes of the file in the project, but Soundshed Guitar
 keeps the path of the file, so do not move the file.
 
 ## Find a model in TONE3000's library
 
-TONE3000 needs a token of your account to download a model. Sign in from
-paw first: see [How to sign in to TONE3000 from paw](sign-in-to-tone3000.md).
-For the other places of a token, see
+TONE3000 needs a token of your account to download a model. Sign in
+from paw first, as
+[How to sign in to TONE3000 from paw](sign-in-to-tone3000.md) shows. The
+other places of a token are in
 [TONE3000 tokens](../../extensions/plugstate/README.md#tone3000-tokens).
 
 1. In the device panel, put the row on the amp plugin and press `\t`.
 2. Type words of the tone, for example `plexi`, and press `Enter`. A list
-   of tones opens. The pane at the side shows the author, the license and
-   the description of the selected tone.
+   of tones opens, and the pane at the side shows the author, the license
+   and the description of the selected tone.
 3. To see more tones, press `Alt-n`. `Alt-p` shows the page before.
 4. Press `Enter` on a tone. If the tone has more than one model, select a
    model and press `Enter` again.
@@ -79,11 +81,10 @@ press `Enter`.
 
 ## Switch between your own sounds
 
-1. Press `\s` in the device panel. paw keeps the state of the plugin as
-   snapshot A.
+1. Press `\s` in the device panel, and paw keeps the state of the plugin
+   as snapshot A.
 2. Load another preset or model, and press `\s` again for snapshot B.
 3. Press `]v` and `[v` to switch between the snapshots.
 
-The project keeps the snapshots. See
-[plugstate](../../extensions/plugstate/README.md#keys) for each key and
-command.
+The project keeps the snapshots. Each key and command is in
+[plugstate](../../extensions/plugstate/README.md#keys).
