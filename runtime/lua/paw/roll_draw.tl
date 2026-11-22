@@ -1836,7 +1836,7 @@ local function pitches_text(): string
   return table.concat(names, " ")
 end
 
---- The note being drawn, in words: "C4 · end · 2 steps · 0.5 beats", or nil.
+--- The note being drawn, in words: `C4 · end · 2 steps · 0.5 beats`, or nil.
 function M.describe(): string
   if not M.active() then
     return nil

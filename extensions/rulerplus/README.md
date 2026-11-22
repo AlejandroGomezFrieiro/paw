@@ -1,6 +1,6 @@
 # rulerplus
 
-This extension is an example of how to personalize the bar labels of the ruler. You can use it as it is, or copy it and change it. It is written in Teal, in one file, [init.tl](init.tl).
+The rulerplus extension is an example of how to personalize the bar labels of the ruler. You can use it as it is, or copy it and change it. It is written in Teal, in one file, [init.tl](init.tl).
 
 ```lua
 paw.ext.load("extensions/rulerplus")   -- or type :ext.load rulerplus

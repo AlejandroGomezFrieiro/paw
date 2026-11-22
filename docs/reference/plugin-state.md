@@ -2,7 +2,7 @@
 
 The [plugstate](../../extensions/plugstate/README.md) extension reads the
 saved state of a plugin as a tree and writes it back, and a reader for each
-framework finds the form of the state from its bytes. This page describes the
+framework finds the form of the state from its bytes. The reference describes the
 forms that plugstate reads, the trees that it makes from them, and the module
 `plugstate.frameworks`. For the layers of JUCE, see
 [The state of JUCE plugins](juce-plugin-state.md).

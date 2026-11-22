@@ -1,6 +1,6 @@
 # Commands, keys and options in Lua
 
-This page describes how Lua defines commands, ranges, fields for `:s` and `:g`, keys, operators, text objects, registers and options. Every command and key of paw is in [Keys](keys.md) and in `:help`.
+The reference page describes how Lua defines commands, ranges, fields for `:s` and `:g`, keys, operators, text objects, registers and options. Every command and key of paw is in [Keys](keys.md) and in `:help`.
 
 ## `paw.command`
 

@@ -174,7 +174,7 @@ To open a project with its plugins offline, use one of the ways in this table.
 | Lua | `paw.open(path, { plugins_offline = true })` |
 | recovery | the "(plugins offline)" entries of `:recover`, or `:recover 1 offline` |
 
-These ways also set the devices written in Lua offline, because they run code in a process of their own, as a plugin does, while the devices that come with paw stay online. The project saves the offline flags that these ways set.
+The ways above also set the devices written in Lua offline, because they run code in a process of their own, as a plugin does, while the devices that come with paw stay online. The project saves the offline flags that these ways set.
 
 ### Plugins that failed to load
 

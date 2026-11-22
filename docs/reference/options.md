@@ -26,7 +26,7 @@ An extension adds options of its own with `paw.option.define(name, default, spec
 | --- | --- | --- |
 | `paw.opt.grid` | `1` | The step and snap of the arrange cursor, in beats. |
 | `paw.opt.note_grid` | `0.25` | The step and snap of the piano roll, in beats. |
-| `paw.opt.phrase_rest` | `0.5` | A rest in the piano roll longer than this, in beats, ends a phrase, which matters for `ip`, `ap`, `(` and `)`. |
+| `paw.opt.phrase_rest` | `0.5` | A rest in the piano roll longer than this, in beats, ends a phrase, which sets the phrase that `ip`, `ap`, `(` and `)` use. |
 | `paw.opt.note_snap` | `true` | Notes drawn with the pointer go on the grid of the piano roll. |
 | `paw.opt.ripple` | `false` | When `true`, deleting time closes the gap, and pasting moves the music after it. |
 | `paw.opt.clip_length` | `4` | The length of a new MIDI clip, in beats. |

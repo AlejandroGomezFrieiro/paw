@@ -1,6 +1,6 @@
 # tutor
 
-This extension is a course for new users inside paw, in the way that `vimtutor` teaches Vim. It has seventeen
+The tutor extension is a course for new users inside paw, in the way that `vimtutor` teaches Vim. It has seventeen
 lessons of about ten minutes each, and each lesson uses a practice project of its own. A
 panel at the bottom tells you what to do next in a sentence or two, with
 the exact keys, and it sees when you finish the step, tells you, and continues.

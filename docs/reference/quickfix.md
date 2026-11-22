@@ -47,6 +47,6 @@ the window, and `:e quickfix` in the window. A layout keeps its window. The
 graphical window docks it in a pane (`:copen`, More). `:qf.window` shows it
 in a window of its own.
 
-These commands fill the list: `:g/pattern/` (see [Ex commands](ex.md)),
+Several commands fill the list: `:g/pattern/` (see [Ex commands](ex.md)),
 `:vimgrep` (see [Search the text of the project](grep.md)), `:query` and
 `:select` (see [Structural queries](queries.md)), and `Ctrl-q` in a picker.

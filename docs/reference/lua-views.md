@@ -1,6 +1,6 @@
 # Views and buffers in Lua
 
-This page describes how Lua draws on the screen, and it covers views, roles, buffer types, windows and tabs, text buffers, the pointer, curves, completion and the layers of the views. The terms window, buffer and tab have the meanings that [Windows, buffers and tabs](windows.md) gives under "Windows, buffers and tabs".
+The reference page describes how Lua draws on the screen, and it covers views, roles, buffer types, windows and tabs, text buffers, the pointer, curves, completion and the layers of the views. The terms window, buffer and tab have the meanings that [Windows, buffers and tabs](windows.md) gives under "Windows, buffers and tabs".
 
 ## `paw.ui.view`
 

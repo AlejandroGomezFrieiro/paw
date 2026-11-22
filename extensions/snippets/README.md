@@ -1,6 +1,6 @@
 # snippets
 
-This extension is a first set of snippets for the snippet engine of the core (`paw.snippet`), in the same way that friendly-snippets is a set for LuaSnip. The snippets write chords that lead into the next chord of the song, parts made from the chords that are already there, and voices for a selection.
+The snippets extension is a first set of snippets for the snippet engine of the core (`paw.snippet`), in the same way that friendly-snippets is a set for LuaSnip. The snippets write chords that lead into the next chord of the song, parts made from the chords that are already there, and voices for a selection.
 
 ```lua
 paw.ext.load("/path/to/paw/extensions/snippets")   -- or link it into ~/.config/paw/extensions

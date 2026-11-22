@@ -2,7 +2,7 @@
 
 <!-- tags: extensions-pictures-in-the-terminal graphics kitty-graphics strips -->
 
-This page describes how a view shows pixels in the terminal and in the graphical window, and it covers strips, pictures of pixels, `paw.plot`, and what a frontend does with strips. "What paw asks the terminal" below explains how paw finds out which terminals show pictures.
+The pictures page describes how a view shows pixels in the terminal and in the graphical window, and it covers strips, pictures of pixels, `paw.plot`, and what a frontend does with strips. "What paw asks the terminal" below explains how paw finds out which terminals show pictures.
 
 ## Strips
 
@@ -184,4 +184,4 @@ Over a picture, the pointer goes to the view in pixels where the terminal report
 
 `paw attach` from a terminal that shows images shows them too, and it tells the instance what its terminal can do. The instance sends the drawing of each strip (only when it changes), and `paw attach` makes the pixels. It asks the instance one time for each picture of pixels that a drawing names (`scene.pixels`).
 
-Where the terminal shows no images, the view draws in cells. This happens in tmux (which does not send images through), in a terminal without the protocol, and in `paw attach` from such a terminal. `:set graphics!` (`paw.opt.graphics = false`) keeps cells everywhere, and the same command again gives the pictures back.
+Where the terminal shows no images, the view draws in cells. The view draws in cells in tmux (which does not send images through), in a terminal without the protocol, and in `paw attach` from such a terminal. `:set graphics!` (`paw.opt.graphics = false`) keeps cells everywhere, and the same command again gives the pictures back.

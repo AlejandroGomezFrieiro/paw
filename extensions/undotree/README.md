@@ -1,6 +1,6 @@
 # undotree
 
-This extension brings the undo tree of Neovim to paw. When you undo and then make a change, you do not lose an edit, because the change starts a new branch and the old branch stays.
+The undotree extension brings the undo tree of Neovim to paw. When you undo and then make a change, you do not lose an edit, because the change starts a new branch and the old branch stays.
 You can return to any earlier state by walking the tree, by stepping through time
 across branches, or by giving a time (`:earlier 2m`). You can also name states,
 write named states beside the project as checkpoints and restore them

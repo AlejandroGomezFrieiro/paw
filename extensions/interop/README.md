@@ -88,7 +88,7 @@ where `lost` is the lines of what did not carry over, and paw shows them on a
 page. paw says an error that they raise as the error. A format with no
 `export` only reads, and a format with no `import` only writes.
 
-This extension registers its two formats in `init.lua`, through
+The extension registers its two formats in `init.lua`, through
 `interop.register`, which makes the two functions from a module that has
 `import(path, opts)` and `export(path, opts)`:
 

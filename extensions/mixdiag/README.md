@@ -131,7 +131,7 @@ change.
 | `dc` | a DC offset over the full render, or in a passage of `seconds` whole seconds whose means are over `limit` on one side of zero | 0.01 (-40 dBFS), 2 s | warn |
 | `silence` | silence at the start of the render, or before its end (not the tail added for releases) | `start` 1 s, `ending` 2 s | info |
 | `infrasonic` | the energy below the 31.5 Hz octave band (22 Hz) is over `limit` of the total | -20 dB (1 %) | info |
-| `forgotten` | a soloed track (the measurement heard only solos), a muted track with clips in the part, muted clips, bypassed devices, disabled automation lanes with points | | warn for solo, else hint |
+| `forgotten` | a soloed track (the measurement heard only solos), a muted track with clips in the part, muted clips, bypassed devices, automation lanes with points that are off | | warn for solo, else hint |
 | `no_sound` | an unmuted track with clips in the part whose output never went above `floor` (no instrument, or a bypassed one) | -100 dBFS | hint |
 
 The rules about delivery (`loudness`, `true_peak`) apply only for the

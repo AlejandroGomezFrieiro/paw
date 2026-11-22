@@ -112,7 +112,7 @@ installed.
   `render_formats()` then gives `available = false` and `why`, and the
   render dialog of the graphical window does not offer the format.
 
-| `quality` | MP3 (LAME) | Ogg Vorbis | Opus |
+| `quality` | MP3 (`LAME`) | Ogg Vorbis | Opus |
 |---|---|---|---|
 | `low` | VBR `-q:a 6` (about 115 kbit/s) | `-q:a 3` | 64 kbit/s |
 | `medium` | VBR `-q:a 4` (about 165) | `-q:a 5` | 96 kbit/s |

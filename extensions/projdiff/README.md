@@ -1,6 +1,6 @@
 # projdiff
 
-This extension shows the changes between two versions of a project, and it merges two
+The projdiff extension shows the changes between two versions of a project, and it merges two
 versions that changed separately. A project is JSON in a stable form, so
 projdiff compares what the project holds (tracks, devices, clips, notes, automation,
 the tempo map and markers) and not lines of text.

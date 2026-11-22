@@ -1,7 +1,7 @@
 # plain-writing rule 17: straight quotes, not curly quotes.
 extends: existence
 message: "Use a straight quote, not '%s' (plain-writing 17)."
-level: warning
+level: error
 nonword: true
 tokens:
   - '[“”‘’]'

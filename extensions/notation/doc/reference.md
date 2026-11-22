@@ -2,7 +2,7 @@
 
 <!-- tags: notation-reference -->
 
-This page describes the view, the keys, the commands, the options and the
+The reference describes the view, the keys, the commands, the options and the
 Lua functions of the [notation](../README.md) extension. The README of the
 extension has the steps to try it and the how-to guides.
 
@@ -323,7 +323,7 @@ does not touch other voices or other staves.
 
 On a single staff, a note more than three ledger lines under or over the
 staff makes a grand staff, and the note goes on the new staff, for example a
-bass under a melody. This happens only for the first note after `i`, from the
+bass under a melody. The grand staff appears only for the first note after `i`, from the
 cursor line. The notes that follow it stay on the staff of the note before,
 on ledger lines, and replace what the voice had there. For example, the
 letters `g e a a` on a sketch of C4 D4 E4 F4 replace all four notes.
@@ -846,7 +846,7 @@ its name tells. The brackets of the score show it. On a grand staff,
 `Ctrl-j` goes to the lower hand first. `]v` `[v` reach the voices of the
 hands.
 
-Every edit goes to the staff of the cursor. This is true for note entry by
+Every edit goes to the staff of the cursor, including note entry by
 letter, the operators and text objects, the popovers, `:art`, the marks,
 `x`, `p` and undo. A passage yanked on one staff pastes into another
 (`yib`, `]]`, `P`), written as it was.
@@ -861,7 +861,7 @@ each). All of it is one undo step, for any number of tracks.
 In a score, a staff is a clip to Ex. `s4` is the fourth staff, `s2,s5` the
 second to the fifth, `s.` the staff of the cursor and `s$` the last. The
 name of a group or a family (`Strings`, `Woodwinds`) is its instruments.
-These go before or after the bars:
+The words below go before or after the bars:
 
 | | |
 | --- | --- |
@@ -985,7 +985,7 @@ under the arrange cursor on the track of the cursor. The message names it:
 pages as the page view lays them out, on white paper. The PDF has all the
 pages, and the last page ends under its last system. `svg` writes each page
 as an SVG file (numbered after the first), and `png` writes the first page
-as an image. These files come from the same drawing operations as the
+as an image. The files come from the same drawing operations as the
 screen (`paw.api.canvas_export`, in `crates/paw-raster`). The glyphs of the
 music font and the text are outlines, so the files need no fonts.
 
@@ -1263,7 +1263,7 @@ Of what notation keeps, these are not done:
   where it does not play.
 
 After each change, notation reads all the notes of a clip again, because
-their chords, swing, drift, hands and voices reach across bars. This takes
+their chords, swing, drift, hands and voices reach across bars. The read takes
 about 6 ms for 64 bars. Then notation keeps what each measure is written
 as, by what the measure comes from, and it writes, lays out and engraves
 again only the measures that changed.
