@@ -49,4 +49,5 @@ in a window of its own.
 
 Several commands fill the list: `:g/pattern/` (see [Ex commands](ex.md)),
 `:vimgrep` (see [Search the text of the project](grep.md)), `:query` and
-`:select` (see [Structural queries](queries.md)), and `Ctrl-q` in a picker.
+`:select` (see [Structural queries](queries.md)), `:profile stop` (see
+[The command line](cmdline.md)), and `Ctrl-q` in a picker.

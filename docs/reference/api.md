@@ -1557,6 +1557,13 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.plugins.note_names(device)`: What a device calls its keys, by pitch: a plugin that implements CLAP's `note-name` (a drum kit's drums, a sampler's keyswitches), or a built-in device of `M.builtin_names` (the `drums` kit). Empty for the rest. Asked again after `M.names_ttl`.
 - `paw.plugins.remove_dir(dir)`: Stop to find plugins in `dir`, and stop to offer the devices found there. The devices that exist continue to work.
 
+## Module paw.profile
+
+- `paw.profile.entries(report)`: The functions of a report as entries of the quickfix list: the share of the samples, the name, the file and the line.
+- `paw.profile.running()`: Whether `jit.profile` runs, and the samples it took so far.
+- `paw.profile.start(file)`: Start `jit.profile`, which takes a sample of the Lua code each millisecond. With `file`, `stop` writes the folded stacks there. Fails when it runs already.
+- `paw.profile.stop()`: Stop `jit.profile`. Returns the samples, the seconds and the functions that took the most time. Writes the folded stacks to the file that `start` was given. Fails when it does not run.
+
 ## Module paw.qf
 
 - `paw.qf.cdo(line, opts)`: Run a command line on each entry of the current list of a stack (`:cdo`), all as one undo step. For each entry, the cursor goes to the entry first. The command gets the address as `ctx.target`, and the whole location as `ctx.location`. With `per_track`, it runs one time for each track of the entries (`:cfdo`). Returns how many times it ran.
@@ -2517,6 +2524,9 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.sock_write(id, data)`
 - `paw.api.sound_envelope(path)`: The levels of a sound file, any format the engine plays: `{ rate, channels, frames, seconds, peaks, peak, onset, blocks }`, levels as linear gain. `peaks` holds the loudest sample of each channel, `peak` the loudest of all. `onset(level, from)` gives the time in seconds of the first frame, at `from` seconds or later, where a channel is louder than `level` (nil when none is). `blocks(from, to, ms)` gives the loudest sample of each block of `ms` milliseconds (default 1) between two times in seconds.
 - `paw.api.sound_write(path, opts, samples)`: Write a WAV file: `opts` is `{ rate, channels (2), bits (16, 24, or 32 for float) }`. `samples` is the interleaved samples as bytes of 32-bit floats in the order of the machine (`ffi.string` of a `float[?]`), or a function `(frame, count)` that gives them one piece at a time and nil at the end. Returns the number of frames.
+- `paw.api.startup_enter()`: Open an item of the start that `paw --startuptime` times: a module, an extension, the configuration. `startup_leave` closes it with its line. Nothing happens when the start is not timed.
+- `paw.api.startup_leave(label)`: Close the item `startup_enter` opened last: its line in the file of `--startuptime` gives its time with and without the items opened in it.
+- `paw.api.startup_timed()`: True while `paw --startuptime` times the start.
 - `paw.api.state_get(key)`
 - `paw.api.state_set(key, value)`
 - `paw.api.str_width(text)`
