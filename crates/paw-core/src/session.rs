@@ -40,6 +40,7 @@ pub use midi_in::FilterRule;
 mod engine;
 mod audition;
 mod clipops;
+mod links;
 mod encode;
 mod file_check;
 mod files_watch;
@@ -1009,6 +1010,11 @@ pub struct ClipView<'a> {
     /// The same for the controller moves.
     #[serde(skip_serializing_if = "Option::is_none")]
     control_stamp: Option<u64>,
+    /// A linked clip's link (`model/links.rs`), and how many clips it has.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    link: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    link_count: Option<usize>,
     // An audio clip's.
     #[serde(skip_serializing_if = "Option::is_none")]
     edits: Option<usize>,
@@ -1086,6 +1092,8 @@ fn clip_json<'a>(c: &'a Clip, track: Id, files: &file_check::FileCheck) -> ClipV
         control_count: None,
         stamp: None,
         control_stamp: None,
+        link: c.link.as_deref(),
+        link_count: None,
         edits: None,
         file: None,
         offset: None,

@@ -617,6 +617,10 @@ local record types
     control_count: integer
     stamp: integer
     control_stamp: integer
+    --- A linked clip's link, and how many clips it has (`link_count` only
+    --- from `clip_get`).
+    link: string
+    link_count: integer
     edits: integer
     file: string
     offset: number
