@@ -60,6 +60,7 @@ local type RulerModule = require("paw.ruler")
 local type SceneModule = require("paw.scene")
 local type ScopeModule = require("paw.scope")
 local type SeatsModule = require("paw.seats")
+local type SlicesModule = require("paw.slices")
 local type SnippetModule = require("paw.snippet")
 local type StatuslineModule = require("paw.statusline")
 local type StepModule = require("paw.step")
@@ -192,6 +193,7 @@ global record paw
    scene: SceneModule
    scope: ScopeModule
    seats: SeatsModule
+   slices: SlicesModule
    snippet: SnippetModule
    state: Untyped
    statusline: StatuslineModule

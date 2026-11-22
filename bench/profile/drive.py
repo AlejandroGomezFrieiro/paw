@@ -50,6 +50,9 @@ Options (all optional):
   --times N        repeat: how many rounds (default 20); it also gives the
                    time from each key to its first frame (median, min, max)
   --setup LUA      Lua run in the kernel after the start, before measuring
+  --budget MS      paw.opt.budget_ms (default 5, 0 is off): each callback
+                   that takes longer is named once; keys lists them with
+                   the key that ran them ("slow"), repeat at the end
 """
 
 import json
@@ -477,6 +480,8 @@ def start(opts, project, extra=(), env_extra=None):
         raise RuntimeError("no first frame; the terminal shows:\n" + tail)
     first = paw.screen.frames[0][0] - paw.t0
     paw.connect()
+    if opts.budget:
+        paw.eval("paw.opt.budget_ms = ...", opts.budget)
     if opts.setup:
         paw.eval(opts.setup)
         paw.screen.wait_quiet(300, 30)
@@ -501,6 +506,23 @@ KEYS = [
     ("picker <leader>fg", b" fg", None), ("picker Esc", ESC, None),
     (":help CR", b":help\r", None), ("C-d in help", b"\x04", None), ("help :q", b":q\r", None),
 ]
+
+
+SLOW_LUA = """
+local out = {}
+for i = ... + 1, #paw.limit.slow do
+  local s = paw.limit.slow[i]
+  out[#out + 1] = string.format("%s\t%.1f", s.name, s.ms)
+end
+return table.concat(out, "\n")
+"""
+
+
+def slow_since(paw, n):
+    """The callbacks over the budget named after the first n
+    (paw.limit.slow): [[name, ms], ...]."""
+    text = paw.eval(SLOW_LUA, n) or ""
+    return [[name, float(ms)] for name, ms in (line.rsplit("\t", 1) for line in text.split("\n") if line)]
 
 
 def measure_key(paw, name, data, quiet_ms=250):
@@ -529,6 +551,7 @@ def scenario_keys(opts, project):
     # The cursor on the second track, at the start.
     results = []
     reps = opts.reps
+    named = len(slow_since(paw, 0))
     for name, data, _ in KEYS:
         recs = [measure_key(paw, name, data)]
         # Moves are repeated: a key that changes the project is not.
@@ -543,6 +566,11 @@ def scenario_keys(opts, project):
                 rec[f + "_min"] = vals[0]
                 rec[f + "_max"] = vals[-1]
             rec["reps"] = len(recs)
+        # The callbacks of this key (and of the timers after it) over the budget.
+        slow = slow_since(paw, named)
+        named += len(slow)
+        if slow:
+            rec["slow"] = slow
         rec["scenario"] = "keys"
         emit(opts, rec)
         results.append(rec)
@@ -664,6 +692,8 @@ def scenario_repeat(opts, project):
                     first[name].append(paw.screen.frames[n][0] - t)
             paw.screen.wait_quiet(100, 10)
     res = probes.stop()
+    if opts.budget:
+        res["slow"] = slow_since(paw, 0)
     res.update({"scenario": "repeat", "keys": opts.keys, "times": opts.times,
                 "kernel_cpu_ms_per_round": round((paw.kernel_ns() - k0) / 1e6 / opts.times, 2),
                 "wall_s": round(time.monotonic() - t0, 2)})
@@ -698,6 +728,7 @@ def parse(argv):
     o.keys = "j,k"
     o.times = 20
     o.setup = None
+    o.budget = 5
     i = 1
     while i < len(argv):
         a = argv[i]
@@ -717,6 +748,7 @@ def parse(argv):
         elif a == "--keys": o.keys = v; i += 1
         elif a == "--times": o.times = int(v); i += 1
         elif a == "--setup": o.setup = v; i += 1
+        elif a == "--budget": o.budget = float(v); i += 1
         else:
             sys.exit(f"unknown option {a}\n{__doc__}")
         i += 1

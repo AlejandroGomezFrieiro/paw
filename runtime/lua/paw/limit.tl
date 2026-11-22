@@ -19,10 +19,19 @@
 --
 -- `-l` scripts and `paw.wait` run outside any limit; `:lua` gets a minute.
 --
+-- The budget (`paw.opt.budget_ms`, 0: off) is a far shorter time that a
+-- callback should take: a key handler, an event handler, a timer, a
+-- command, drawing. A callback over it is named once in `:messages`
+-- (`slow: the key j 12 ms (budget 5 ms)`). It costs two looks at the clock
+-- for each callback, and nothing when it is off. A slow callback inside
+-- another is named, not the one around it. Time spent waiting in the kernel
+-- (`unhurried`) does not count.
+--
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua. The
 -- functions that call another (`guard`, `call`, `named`, `unhurried`) pass
 -- on arguments of one type: give a closure for more.
 local api = require("paw.api")
+local events = require("paw.events")
 local options = require("paw.options")
 
 --- A value this module passes on and never reads.
@@ -54,14 +63,25 @@ local type Body<A> = function(A...): (Value...)
 local type Call<A> = function(Body<A>, A...): (Value...)
 
 local record M
+  --- A callback that took longer than `paw.opt.budget_ms`: its name and
+  --- how many milliseconds it took the first time.
+  record Slow
+    name: string
+    ms: number
+  end
   wrapped: boolean
+  --- Each callback that went over the budget, once for each name, in the
+  --- order they did (`paw.opt.budget_ms`).
+  slow: {Slow}
 end
+M.slow = {}
 
 -- What this module reads of `paw`, which paw/init.lua makes. A module of the
 -- runtime in Teal does not see the global `paw`: runtime/types/paw.d.tl
 -- declares it from these modules.
 local record Paw
   try: Fn
+  notify: function(string, string)
 end
 local paw = (_G as {string:Paw}).paw
 
@@ -75,6 +95,58 @@ options.define("lua_limit", 2000, { min = 0 })
 local opt = options.opt
 
 local async = api.limit_async == true
+
+-- The budget of a callback, `paw.opt.budget_ms`, kept here so that a
+-- callback reads no option: 0 is off.
+options.define("budget_ms", 0, { min = 0 })
+local slow_ms: number = 0
+local inner_slow = false  -- a call inside the running one went over the budget
+local paused = 0.0        -- the milliseconds spent waiting in the kernel, in all
+local warned: {string: boolean} = {}
+
+local record OptionChanged
+  name: string
+end
+events.on(
+  events.event("option.changed") as events.Event<OptionChanged>,
+  function(e: OptionChanged)
+    if e.name == "budget_ms" then
+      slow_ms = (opt.budget_ms as number) or 0
+    end
+  end
+)
+
+--- Name a callback that went over the budget, once. A timer has no name:
+--- the place of its function in the code names it.
+local function report(name: string, fn: function, ms: number)
+  if not name then
+    local info = debug.getinfo(fn, "S")
+    name = string.format("a timer (%s:%d)", info.short_src:match("[^/]*/?[^/]*$"), info.linedefined)
+  end
+  if warned[name] then
+    return
+  end
+  warned[name] = true
+  M.slow[#M.slow + 1] = { name = name, ms = ms }
+  paw.notify(string.format("slow: %s %d ms (budget %g ms)", name, math.floor(ms + 0.5), slow_ms), "warn")
+end
+
+--- The end of a call timed against the budget: what it returned, passed on.
+local function finish<R>(name: string, fn: function, saved: boolean, t0: number, p0: number, ...: R): R...
+  local ms = api.now() - t0 - (paused - p0)
+  local slow = slow_ms > 0 and ms > slow_ms
+  if slow and not inner_slow then
+    report(name, fn, ms)
+  end
+  inner_slow = saved or slow
+  return ...
+end
+
+--- Time spent waiting in the kernel, which the budget does not count.
+local function resume<R>(before: number, ...: R): R...
+  paused = paused + (api.now() - before)
+  return ...
+end
 
 --- Set when the running call must have returned (nil: it has).
 local function set(to: number)
@@ -112,20 +184,44 @@ local function limited<A>(name: string, call: Call<A>, fn: Body<A>, ...: A): Res
   return result
 end
 
+--- Call `fn(...)` against the budget of a callback (`paw.opt.budget_ms`):
+--- if it takes longer, paw names it as `name` once in `:messages`. A nil
+--- `name` is a timer, named by where `fn` is in the code. Returns what
+--- `fn` returns.
+function M.timed<A, R>(name: string, fn: function(A...): (R...), ...: A): R...
+  if slow_ms <= 0 then
+    return fn(...)
+  end
+  local saved = inner_slow
+  inner_slow = false
+  return finish(name, fn as function, saved, api.now(), paused, fn(...))
+end
+
+local function guarded<A, R>(name: string, fn: function(A...): (R...), ...: A): boolean, R...
+  if deadline or (opt.lua_limit or 0) <= 0 then return (paw.try as function(function(A...): (R...), A...): (boolean, R...))(fn, ...) end
+  return (lua51.unpack as function(Results): (boolean, R...))(limited(name, paw.try as Call<A>, fn as Body<A>, ...))
+end
+
 --- Call `fn(...)` under the time limit for Lua (`paw.opt.lua_limit`). paw
 --- stops a call that runs too long, and reports it as `name`. paw reports
 --- errors and does not raise them. Returns the results of `fn`.
 function M.guard<A, R>(name: string, fn: function(A...): (R...), ...: A): boolean, R...
-  if deadline or (opt.lua_limit or 0) <= 0 then return (paw.try as function(function(A...): (R...), A...): (boolean, R...))(fn, ...) end
-  return (lua51.unpack as function(Results): (boolean, R...))(limited(name, paw.try as Call<A>, fn as Body<A>, ...))
+  if slow_ms <= 0 then
+    return guarded(name, fn, ...)
+  end
+  local saved = inner_slow
+  inner_slow = false
+  local t0, p0 = api.now(), paused
+  return (finish as function(string, function, boolean, number, number, boolean, R...): (boolean, R...))(
+    name, fn as function, saved, t0, p0, guarded(name, fn, ...))
 end
 
 --- Call `fn(...)` with the time limit as `guard` does, but give its error
 --- to the caller and do not report it. Use it for a call whose caller must
 --- know the problem, for example a request on the control socket.
 function M.call<A, R>(name: string, fn: function(A...): (R...), ...: A): R...
-  if deadline or (opt.lua_limit or 0) <= 0 then return fn(...) end
-  local result = limited(name, pcall as Call<A>, fn as Body<A>, ...)
+  if deadline or (opt.lua_limit or 0) <= 0 then return M.timed(name, fn, ...) end
+  local result = limited(name, pcall as Call<A>, M.timed as Body<A>, name as A, fn as A, ...)
   if not result[1] then error(result[2], 0) end
   return (lua51.unpack as function(Results, integer, integer): R...)(result, 2, maxn(result))
 end
@@ -133,10 +229,10 @@ end
 --- Name what runs inside the limited call, for the error should it run away:
 --- `paw.limit.named("command `x`", fn, ...)`.
 function M.named<A, R>(name: string, fn: function(A...): (R...), ...: A): R...
-  if not deadline then return fn(...) end
+  if not deadline then return M.timed(name, fn, ...) end
   local depth = #what
   what[depth + 1] = name
-  local result = { fn(...) }
+  local result = { M.timed(name, fn, ...) }
   for i = #what, depth + 1, -1 do what[i] = nil end
   return lua51.unpack(result)
 end
@@ -186,13 +282,18 @@ end
 --- the kernel makes meanwhile (timers during a wait) get a limit of their
 --- own.
 function M.unhurried<A, R>(fn: function(A...): (R...), ...: A): R...
-  if not deadline then return fn(...) end
+  if not deadline then
+    if slow_ms <= 0 then return fn(...) end
+    return resume(api.now(), fn(...))
+  end
   local was, names, before = deadline, what, api.now()
   set(nil)
   what = {}
   local result = { (pcall as Call<A>)(fn as Body<A>, ...) }
   what = names
-  set(was + (api.now() - before))
+  local waited = api.now() - before
+  paused = paused + waited
+  set(was + waited)
   if not async then debug.sethook(hook, "", CHECK_EVERY) end
   if not result[1] then error(result[2], 0) end
   return (lua51.unpack as function(Results, integer, integer): R...)(result, 2, maxn(result))

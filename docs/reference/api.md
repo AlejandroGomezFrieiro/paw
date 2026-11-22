@@ -882,7 +882,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.harmony.provider()`: The provider the current reading came from.
 - `paw.harmony.range(track)`: The range of a part for a track, `{ low, high, name }`. This is the range of the track (`track.meta.range = { low, high }`). If not, paw guesses it from the words of its name and the names of its devices. If not, it is C3 to C6.
 - `paw.harmony.scale_names()`: Names of the known scales, sorted.
-- `paw.harmony.schedule()`: Some time after the project changes, paw makes the reading again, in slices of a few milliseconds. So `harmony.changed` comes even when nothing asks.
+- `paw.harmony.schedule()`: Some time after the project changes, paw makes the reading again, in slices of a few milliseconds (the job `harmony`). So `harmony.changed` comes even when nothing asks.
 - `paw.harmony.set_key(spec)`: Set the project's key (one edit), or clear it with nil. Returns the key.
 - `paw.harmony.snap(key, pitch, dir)`: The pitch of the key nearest to `pitch`: `dir` "nearest" (the default; halfway between two goes up), "up" or "down". Stays within 0..127.
 - `paw.harmony.step(key, pitch, n)`: Move a pitch by `n` scale degrees. A pitch outside the key keeps its distance from the scale note below it.
@@ -1228,6 +1228,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.limit.extend(ms)`: Give the current call more time, as `:lua` does: `ms` from now.
 - `paw.limit.guard(name, fn, ...)`: Call `fn(...)` under the time limit for Lua (`paw.opt.lua_limit`). paw stops a call that runs too long, and reports it as `name`. paw reports errors and does not raise them. Returns the results of `fn`.
 - `paw.limit.named(name, fn, ...)`: Name what runs inside the limited call, for the error should it run away: `paw.limit.named("command `x`", fn, ...)`.
+- `paw.limit.timed(name, fn, ...)`: Call `fn(...)` against the budget of a callback (`paw.opt.budget_ms`): if it takes longer, paw names it as `name` once in `:messages`. A nil `name` is a timer, named by where `fn` is in the code. Returns what `fn` returns.
 - `paw.limit.unhurried(fn, ...)`: Run `fn(...)` with its time not counted, for work that is known to be long and to end: `paw.limit.unhurried(synthesise, phrase)`. Callbacks the kernel makes meanwhile (timers during a wait) get a limit of their own.
 - `paw.limit.untrusted(fn)`: Mark a function that the runtime did not write. Where the limit can stop compiled code, this does nothing. Where it cannot, the JIT compiler does not compile the function and each function made inside it. So the limit can stop their loops (unless `paw.opt.lua_limit = 0` disables the limit before paw loads the code).
 - `paw.limit.within(ms, name, fn, ...)`: Call `fn(...)` with at most `ms` milliseconds, as `call` does: its error goes to the caller. Inside a limited call, the shorter of the two limits holds, and the rest of the outer one goes on after. Use it for code of an extension that must be fast, as a kind of clip's `compile` (`paw.opt.clip_kind_limit`).
@@ -1874,6 +1875,13 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.seats.list()`: The seats there are, the instance's first.
 - `paw.seats.open(id, why)`: Give connection `id` its own seat, for a reason (`terminal`, `window`). The seat stays while a reason stays.
 - `paw.seats.within(id, fn, ...)`: Run `fn` in seat `id` (in the seat of the instance, if that seat closed), then return to the current seat.
+
+## Module paw.slices
+
+- `paw.slices.job(name)`: The job `name` while it runs, or nil.
+- `paw.slices.run(name, step, opts)`: Call `step(ms)` again and again, each time from a timer of its own, until it returns true. The step works for at most `ms` milliseconds (`opts.ms`, 4) and keeps its place for the next call. The keys that wait run between two calls. `opts.after` is the time before the first call (0). A job of the same name stops first. An error in the step shows as a message and ends the job. Returns the job.
+- `paw.slices.running()`: The jobs that run, by name.
+- `paw.slices.stop(name)`: Stop the job `name`. Returns true if it was running.
 
 ## Module paw.snippet
 

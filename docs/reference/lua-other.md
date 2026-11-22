@@ -13,6 +13,40 @@ The reference page describes the timers, the helper programs, the state of each 
 | `paw.state.key = value` | a value that stays through `:reload` |
 | `project.meta`, `track.meta` | tables saved with the project, for the data of extensions |
 
+## Long work in slices
+
+A key should take a few milliseconds. Work that takes longer, for example reading every chord of a song or walking a large folder, runs in slices with `paw.slices`, and the keys that wait run between two slices.
+
+| Name | Effect |
+| --- | --- |
+| `paw.slices(name, step, opts)` | calls `step(ms)` again and again, each time from a new timer, until it returns true, and returns the job. `step` works for at most `ms` milliseconds and keeps its place for the next call. `opts.ms` is that time (4 by default), and `opts.after` the milliseconds before the first slice (0 by default). A new job with the same name stops the old one. An error in `step` shows as a message and ends the job |
+| `paw.slices.stop(name)` | stops a job, and returns true if it was running |
+| `paw.slices.job(name)` | the job while it runs, or nil |
+| `paw.slices.running()` | the jobs that run, sorted by name. Each job has `name`, `slices` (the number of slices so far), `ms` (their time in all) and `longest` (the longest slice) |
+
+```lua
+local i = 1
+paw.slices("count", function(ms)
+  local deadline = paw.api.now() + ms
+  while i <= #list and paw.api.now() < deadline do
+    -- the work for list[i]
+    i = i + 1
+  end
+  return i > #list
+end)
+```
+
+paw itself uses two jobs. The job `harmony` reads the chords and the keys again after an edit, and the job `pick` reads the files of the files picker.
+
+## The budget of a callback
+
+`paw.opt.budget_ms` finds code that makes keys slow. When it's more than 0, paw times each handler of a key, command, event handler, timer and drawing of the screen. A callback that takes longer than the budget writes one warning to `:messages`, for example `slow: the key gY (zz slow key) 20 ms (budget 5 ms)`. Each name warns once in a session. paw names a timer by the file and line of its function, for example `a timer (paw/harmony.tl:1040)`.
+
+- When a slow callback runs inside another one, paw names only the inner callback.
+- Time in the kernel doesn't count, for example a render, the read of a project and `paw.wait`, as for `paw.opt.lua_limit`.
+- `paw.limit.slow` is the list of the warnings, each with `name` and `ms`.
+- `paw.limit.timed(name, fn, ...)` runs `fn` and checks it against the budget, for a callback of an extension that paw doesn't call itself.
+
 ## Other modules
 
 | Name | Effect |

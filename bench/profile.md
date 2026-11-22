@@ -7,7 +7,7 @@ the terminal frontend. They do not measure the graphical window.
 
 ## What you need
 
-- A profiling build. It is the release build with line tables and
+- A build with the `profiling` profile. It is the release build with line tables and
   symbols, for `perf` and `heaptrack`:
   `nix develop -c cargo build --profile profiling -p paw-tui`.
   The scripts use the newer of `target/profiling/paw` and
@@ -65,9 +65,9 @@ These options add a probe to `idle`, `idle-armed`, `play`, `record` and
 - `--perf SECS`: `perf stat` for each thread: instructions, cycles,
   processor time, context switches, page faults. Instructions do not
   change with the load of the machine.
-- `--record SECS`: `perf record` with DWARF call graphs, then a flame
+- `--record SECS`: `perf record` with `--call-graph dwarf`, then a flame
   graph (`<label>-<scenario>.perf.svg`) and its folded stacks.
-- `--luaprof`: the sampling tool of LuaJIT (`jit.profile`) in the
+- `--luaprof`: the sampler of LuaJIT (`jit.profile`) in the
   kernel. It gives the Lua functions that cost the most, as a flame graph
   (`<label>-<scenario>.lua.svg`). A stack that ends in `[C]` is time in
   Rust, `[N]` in compiled Lua, `[I]` in the interpreter, `[G]` in the
@@ -77,6 +77,10 @@ These options add a probe to `idle`, `idle-armed`, `play`, `record` and
   allocations of the steady state, run the scenario twice with different
   `--secs`, and give both files to
   `heaptrack_print -f <long> -d <short>`.
+- `--budget MS`: the value of `paw.opt.budget_ms` (5 when you do not
+  give it, 0 disables it). paw names each callback that takes longer.
+  `keys` writes these callbacks in the field `slow` of the key that ran
+  them. `repeat` writes all of them in `slow` at the end.
 - `--setup LUA`: Lua that the kernel runs after the start. For example,
   `--setup "paw.harmony.provide('builtin', nil)"` stops the chord
   analysis.
