@@ -1281,7 +1281,10 @@ function view:render(buf, ctx)
       self.scroll = paw.time.bar_floor(t.position)
     end
   elseif cursor.beat ~= self.seen_beat and not led then
-    if cursor.beat < self.scroll then
+    local to = draw.jump_scroll(cursor.beat, self.scroll, span, zoom)
+    if to then
+      self.scroll = math.max(0, to)
+    elseif cursor.beat < self.scroll then
       self.scroll = paw.time.bar_floor(cursor.beat)
     elseif cursor.beat >= self.scroll + span - 1 / zoom then
       self.scroll = math.max(0, math.ceil((cursor.beat - span) / bar + 1) * bar)
@@ -1608,7 +1611,17 @@ end
 function view:center()
   local g = self.geometry
   if not g then return end
-  self.scroll = math.max(0, paw.time.bar_floor(math.max(0, paw.cursor.beat - g.span / 2)))
+  self.scroll = math.max(0, paw.cursor.beat - g.span / 2)
+  api.ui_redraw()
+end
+
+--- Scroll so that the cursor is at the left margin (`paw.opt.jumpmargin`)
+--- or, with `right`, at the right edge of the timeline.
+function view:place(right)
+  local g = self.geometry
+  if not g then return end
+  local at = right and g.span - 1 / g.zoom or paw.opt.jumpmargin / g.zoom
+  self.scroll = math.max(0, paw.cursor.beat - at)
   api.ui_redraw()
 end
 

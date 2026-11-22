@@ -528,8 +528,14 @@ function view:render(buf, ctx)
   self.top = util.clamp(self.top, rows - 1, 127)
   -- Unless another window leads this one's time (`timebind`).
   if not ctx.follower then
-    if self.beat < self.scroll then self.scroll = math.floor(self.beat) end
-    if self.beat >= self.scroll + span - grid then self.scroll = math.ceil(self.beat - span + 1) end
+    local to = paw.draw.jump_scroll(self.beat, self.scroll, span, zoom)
+    if to then
+      self.scroll = math.floor(to)
+    elseif self.beat < self.scroll then
+      self.scroll = math.floor(self.beat)
+    elseif self.beat >= self.scroll + span - grid then
+      self.scroll = math.ceil(self.beat - span + 1)
+    end
   end
   self.scroll = math.max(math.min(0, math.floor(lo)), self.scroll)
   self.geometry = { rows = rows, zoom = zoom, keys = KEYS, head = head, vel = vel, span = span }

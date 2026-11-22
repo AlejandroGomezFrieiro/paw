@@ -356,3 +356,33 @@ test("in a window the new track button under the tracks offers the kinds of trac
   eq(items ~= nil and items[1].label, "Empty track", "the menu of new tracks")
   paw.frontend.act.menu_dismiss()
 end)
+
+test("a jump to a marker off screen puts it at the left margin, or in the middle with jumpview center", function()
+  song()
+  local saved = { view = paw.opt.jumpview, margin = paw.opt.jumpmargin }
+  T.after(function()
+    paw.opt.jumpview, paw.opt.jumpmargin = saved.view, saved.margin
+  end)
+  paw.markers.add(200, "far")
+  paw.markers.add(210, "farther")
+  paw.opt.jumpview, paw.opt.jumpmargin = "left", 6
+  paw.keymap.feed("]'")
+  redraw()
+  near(view.scroll, 200 - 6 / 3, 0.01, "the marker 6 columns from the left edge")
+  paw.keymap.feed("]'")
+  redraw()
+  near(view.scroll, 200 - 2, 0.01, "a marker on screen does not scroll")
+  paw.keymap.feed("0")
+  redraw()
+  eq(view.scroll, 0, "back at the start")
+  paw.opt.jumpview = "center"
+  paw.keymap.feed("]'")
+  redraw()
+  near(view.scroll + view.geometry.span / 2, 200, 0.01, "in the middle")
+  paw.keymap.feed("zs")
+  redraw()
+  near(view.scroll, 200 - 2, 0.01, "zs puts the cursor at the left margin")
+  paw.keymap.feed("zz")
+  redraw()
+  near(view.scroll + view.geometry.span / 2, 200, 0.01, "zz puts it in the middle")
+end)

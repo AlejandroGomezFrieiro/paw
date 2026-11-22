@@ -2485,6 +2485,18 @@ function paw.draw.hold(key, peak) end
 ---@param colour any
 function paw.draw.hue(colour) end
 
+--- Where a view scrolls to for a jump of its cursor to `target`, a beat, or
+--- nil when the view keeps its place. The view keeps its place when the
+--- target is on screen, and for a step just past an edge (the caller then
+--- scrolls just enough). A jump further than that puts the target at the
+--- left margin (`paw.opt.jumpview` "left", `paw.opt.jumpmargin` columns) or in the
+--- middle ("center"). `span` is the beats shown, `zoom` the columns a beat.
+---@param target any
+---@param scroll any
+---@param span any
+---@param zoom any
+function paw.draw.jump_scroll(target, scroll, span, zoom) end
+
 --- A row of keys and their actions, for a line of hints: `{ { "o", "new track" }, ... }`,
 --- with a faint dot between them. `? keys` is always the last when it is in
 --- the list. Returns the columns used. The entries that do not fit are not shown.

@@ -48,6 +48,8 @@ local record Opts
    hints: boolean
    history: integer
    insertkeys: {string | number}
+   jumpmargin: integer
+   jumpview: string
    keybar: boolean
    keys: string
    layout: string

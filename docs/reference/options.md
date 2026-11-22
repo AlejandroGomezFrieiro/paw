@@ -64,6 +64,8 @@ When the undo history has more steps than `undo_steps` or more data than `undo_m
 | Option | Default | Effect |
 | --- | --- | --- |
 | `paw.opt.follow` | `true` | The view scrolls to keep the playhead in view. |
+| `paw.opt.jumpview` | `"left"` | Where a jump puts its target when the target is off screen, such as a jump to a region, a clip or a marker. `"left"` puts it near the left edge, so what follows reads to its right. `"center"` puts it in the middle. A step just past the edge scrolls only as far as it needs. |
+| `paw.opt.jumpmargin` | `6` | The columns between the left edge and the target of a jump when `jumpview` is `"left"`. |
 | `paw.opt.count_in` | `0` | The bars that the metronome counts before a recording from a stop, 0 to 16. |
 | `paw.opt.pre_roll` | `0` | The bars that play before a punch in, when you record from a stop, 0 to 64. |
 | `paw.opt.pre_roll_seconds` | `0` | The seconds that play before those bars, 0 to 60. |

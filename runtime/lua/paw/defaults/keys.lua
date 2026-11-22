@@ -232,6 +232,8 @@ amap("*", function()
   if clip then keymap.search(clip.name, 1) end
 end, "Next clip with this one's name", far)
 amap("zz", function() paw.ui.views.arrange:center() end, "Scroll the cursor to the middle")
+amap("zs", function() paw.ui.views.arrange:place(false) end, "Scroll the cursor to the left")
+amap("ze", function() paw.ui.views.arrange:place(true) end, "Scroll the cursor to the right")
 -- Groups of tracks.
 map("<leader>tg", "track.group", { view = "arrange", mode = nx, desc = "Group the selected tracks" })
 amap("<leader>tG", "track.ungroup", "Take the track out of its group; dissolve a group")
