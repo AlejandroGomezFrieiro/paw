@@ -468,7 +468,7 @@ test(
 test("promote: the same sound, u gives back the project as it was, and a plugin inside keeps its instance", function()
   local b = ballad_68()
   local dir = (function()
-    local built = "target/release/examples/libstub_clap.so"
+    local built = os.getenv("PAW_TEST_STUB") or "target/release/examples/libstub_clap.so"
     if not io.open(built) then return nil end
     local d = T.scratch .. "/nest-stub"
     os.execute("mkdir -p '" .. d .. "' && cp '" .. built .. "' '" .. d .. "/stub.clap'")

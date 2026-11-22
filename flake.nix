@@ -418,16 +418,24 @@
         default = pkgs.mkShell {
           # xmllint checks the DAWproject files of extensions/interop against the
           # format's XML schema.
-          nativeBuildInputs = with pkgs; [ cargo rustc clippy rustfmt rust-analyzer pkg-config rustPlatform.bindgenHook ffmpeg-headless sccache cargo-sweep (lib.getBin libxml2) ];
+          nativeBuildInputs = with pkgs; [ cargo rustc clippy rustfmt rust-analyzer pkg-config rustPlatform.bindgenHook ffmpeg-headless sccache cargo-sweep cargo-nextest (lib.getBin libxml2) ]
+            ++ pkgs.lib.optional pkgs.stdenv.isLinux pkgs.mold-wrapped;
           # Every git worktree has a `target/` of its own, and cargo shares
           # nothing between them: each one compiles the same four hundred
           # crates again. sccache keeps what rustc made in one place, shared
           # by every checkout, with a ceiling on its size; it only caches
           # builds that are not incremental. `cargo sweep -t 14` clears what
           # no build has used for two weeks (tools/sweep.sh does every tree).
+          # Dev builds (the default profile) are incremental: a build again of
+          # the same tree compiles only what changed. sccache then caches the
+          # dependencies only (cargo builds them without incremental); release
+          # builds are not incremental, so sccache caches all of them.
           RUSTC_WRAPPER = "sccache";
           SCCACHE_CACHE_SIZE = "40G";
-          CARGO_INCREMENTAL = "0";
+          # mold links the dev builds several times faster than ld. Only in the
+          # dev shell: the packages of the flake link with the default linker.
+          CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS = "-C link-arg=-fuse-ld=mold";
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS = "-C link-arg=-fuse-ld=mold";
           # What the window tests (`crates/paw-gui/tests/window.rs`) drive: a
           # private X server, a window manager, a pointer and key sender, and
           # tesseract to find words on a screenshot.
