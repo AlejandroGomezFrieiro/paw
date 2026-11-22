@@ -1777,8 +1777,10 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.roll_draw.stepping()`: True while step input is on: insert mode in the piano roll, with the keys of a MIDI controller entering notes (`I`).
 - `paw.roll_draw.suggest(dir)`: Show the next (`dir` 1, `<C-n>`) or the previous (-1, `<C-p>`) suggestion in place of the notes being drawn. Any key that edits takes it; `<C-e>` puts back what was there.
 - `paw.roll_draw.text()`: The notes that you drew and kept, as "60@1+0.5 64@1+0.5" in the beats of the roll. The second value is the notes that you draw now, "67@1.5+0".
+- `paw.roll_draw.tie(count)`: Make the notes being drawn `count` steps longer: a tie (the pedal pressed while keys are held, in step input).
 - `paw.roll_draw.toggle_step()`: Step input on or off (`I` in insert mode). The pen stays as it is. Without a MIDI input, paw says why and opens the track's list of inputs.
 - `paw.roll_draw.unsuggest()`: Put back the notes that were there before the suggestions (`<C-e>`).
+- `paw.roll_draw.value(value)`: Set the step (and the notes being drawn) to a note value, as `=` then `value` does: "8", "8.", "8t". `dot` and `triplet` turn the dot or the triplet of the step on and off.
 - `paw.roll_draw.velocity(dir)`: The velocity of the notes being drawn and of the next, by `dir` tens.
 
 ## Module paw.routes
@@ -1926,16 +1928,32 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 ## Module paw.step
 
+- `paw.step.action(name, fn)`: A new action for the controls: `fn(count)` runs in a target that has no action of that name itself.
+
+  ```lua
+  paw.step.action("accent", function(count) ... end)
+  ```
+- `paw.step.action_text(b)`: What a control does, in words: "rest", "keys =8t", "rest, tie while keys are held".
+- `paw.step.actions()`: Every action that a control can do: the core's, then the actions of extensions (`M.action`).
 - `paw.step.active()`: The name of the target that listens now, or nil.
 - `paw.step.ask_input(track)`: Say that step input has no MIDI input for `track`, and why, and open the MIDI part of the track's list of inputs. True if it had to.
+- `paw.step.bind(source, action)`: Let a control of the controller do an action while a target listens. `source` is `{ port, channel, note | cc }`; `port` and `channel` may be left out. `action` is a name (`paw.step.actions()`), `{ keys = "=8t" }` (types those keys in the view), or `{ down = "rest", held = "tie" }` (the first with no key held, the second while keys are held). It replaces the control of the same source, for this session: `:step.learn` keeps a control in the file.
+- `paw.step.bindings()`: The controls, each `{ source, action, keys, down, held, saved }`.
 - `paw.step.held()`: The pitches held now on the controller, in the order they were played.
 - `paw.step.held_text()`: The pitches held, in words: "C4 E4".
 - `paw.step.input(track)`: What step input listens to for `track`: its MIDI input's port and channel, or every port. Nil and why not when paw hears no MIDI: no port is listed or open, or the track's port is not connected.
+- `paw.step.learn(action)`: Wait for the next key, pad or pedal of the controller, and bind it to `action` by its port, channel and note or cc, in the file of the controls.
+- `paw.step.learn_cancel()`: Stop the wait of `:step.learn`.
+- `paw.step.load()`: Read the file of the controls again: what it keeps replaces what it kept before. With no file, the default of the pedal. The controls from Lua (`M.bind`) stay as they are.
 - `paw.step.paused()`: Why the keys only sound now: "playing" or "recording", or nil.
 - `paw.step.refresh()`: Look again at which target listens: its track plays the controller, and with none the held keys are forgotten. A target calls it when it starts or stops listening.
+- `paw.step.said()`: What a control did a moment ago ("rest", "back"), for the title; nil after a moment.
 - `paw.step.source(track)`: The port that step input listens to for `track`, in a few words: `"Keystation 49"`, `"Keystation 49 · ch 2"`, `"all ports"`, or nil with no input.
+- `paw.step.source_text(s)`: A control in words: "Test Pads C2 (note 36)", "cc 64 (pedal)".
 - `paw.step.target(name, spec)`: Let a view take step input: `spec` as `paw.contracts.StepTarget` says. The first target whose `active()` is true listens. A second call with the same name replaces the target.
+- `paw.step.unbind(source)`: Take away the control of `source`: `paw.step.unbind({ cc = 64 })` lets the pedal sustain again. True if there was one.
 - `paw.step.untarget(name)`: Remove the target of a view (its extension unloaded).
+- `paw.step.use(file)`: Keep the controls in `file`, for tests; with no file, where paw keeps them (nowhere with --clean). Then read them from there.
 - `paw.step.velocity()`: The velocity of the notes entered, in words: "key", or a number.
 
 ## Module paw.stretch

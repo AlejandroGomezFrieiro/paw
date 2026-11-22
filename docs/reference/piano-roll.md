@@ -186,6 +186,43 @@ The title shows what step input does, e.g., `STEP C4 E4 · 1 beat (=4) · vel ke
 - A key that an input filter maps (`paw.api.engine_midi_filter`) doesn't enter.
 - A view of an extension takes step input with `paw.step.target(name, spec)`. See `paw.step` in the [Lua API](api.md).
 
+### Controls of the controller
+
+<!-- tags: step-controls -->
+
+A key, pad or pedal of the controller can do an action of step input in place of a key of the computer. The sustain pedal works with no setup: pressed with no key held, it rests one step, and pressed while keys are held, it makes them one step longer.
+
+| Action | Effect, as the key of the pencil does it |
+| --- | --- |
+| `rest` | Rests one step (`Space`). |
+| `tie` | Makes the pen one step longer. |
+| `back` | Takes back what you entered last (`Backspace`). |
+| `erase` | Erases the pen (`x`). |
+| `again` | Enters the pen again after itself (`.`). |
+| `legato` | Keeps the pen, and the next note starts where it ends (`Enter`). |
+| `dur.1` `dur.2` `dur.4` `dur.8` `dur.16` `dur.32` | Sets the step to that note value (`=1` to `=32`). |
+| `dot`, `triplet` | Turns the dot or the triplet of the step on or off. |
+| `octave.up`, `octave.down` | Moves the pen an octave up or down (`K` `J`). |
+| `chord` | While the control is held, the keys join one chord, also after you release them. |
+| `finish` | Ends insert mode and writes the notes (`Esc`). |
+
+| Command | Effect |
+| --- | --- |
+| `:step.learn {action}` | Waits for the next key, pad or pedal of the controller, and binds it to the action by its port, channel and note or controller number. `Tab` completes the actions, and `Esc` stops the wait. |
+| `:step.controls` | Lists the controls. `Alt-d` removes one. |
+
+- A control works while step input is on. Then it doesn't enter a note, doesn't sound and doesn't record, and the title shows what it did for a moment, e.g., `STEP rest`. When step input is off, the control plays as before.
+- An action that the view doesn't have shows `not here: <action>`.
+- The controls belong to you, not to the song. `:step.learn` and a removal in `:step.controls` write them to `step-controls.json` in the state folder, and paw reads that file when it starts. With `--clean`, paw reads and writes no such file.
+- In `init.lua`, `paw.step.bind(source, action)` binds a control for the session. `source` is `{ port, channel, note }` or `{ port, channel, cc }`, where `port` and `channel` are optional. `action` is a name from the table, `{ keys = "=8t" }` to type those keys of the pencil, or `{ down = "rest", held = "tie" }` for one action with no key held and another while keys are held, as the pedal has.
+- `paw.step.unbind({ cc = 64 })` takes the default away from the pedal, so it sustains again. `paw.step.bindings()` lists the controls, and `paw.step.action(name, fn)` adds an action from an extension.
+
+```lua
+paw.step.bind({ port = "nanoPAD", note = 36 }, "rest")
+paw.step.bind({ port = "Keystation", note = 21 }, "dur.1")
+paw.step.bind({ port = "Keystation", note = 23 }, { keys = "=8t" })
+```
+
 ## Suggestions
 
 <!-- tags: suggestions -->
