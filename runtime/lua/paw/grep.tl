@@ -133,7 +133,7 @@ end
 -- to search: a consumer reads them and does not change them.
 
 --- Text on one line, as a record has it.
-local function line(text: string): string
+local function one_line(text: string): string
   return (tostring(text):gsub("[\r\n\t]", " "))
 end
 
@@ -146,7 +146,7 @@ local function track_records(ctx: derived.Ctx, id: integer, out: {Found})
   local loc: contracts.Location = {uri = A.track(id)}
   local function add(text: string, field: string, location: contracts.Location)
     if text then
-      out[#out + 1] = {text = line(text), field = field, location = location, where = t.name}
+      out[#out + 1] = {text = one_line(text), field = field, location = location, where = t.name}
     end
   end
   add(t.name, "track", loc)
@@ -167,7 +167,7 @@ local function clip_records(c: types.Clip, track: string, notes: {QueryModule.No
   local out: {Found} = {}
   local function add(text: string, field: string, location: contracts.Location, where: string)
     if text then
-      out[#out + 1] = {text = line(text), field = field, location = location, where = where}
+      out[#out + 1] = {text = one_line(text), field = field, location = location, where = where}
     end
   end
   local loc: contracts.Location = {uri = A.clip(c.id)}
