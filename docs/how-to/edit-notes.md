@@ -30,7 +30,7 @@ velocity.
    - `]` or `[` for the velocity.
    - `12<C-a>` to transpose the notes an octave up, `5<C-x>` five
      semitones down.
-3. The change ends the selection, as in Vim. To make one more change to
+3. The change ends the selection. To make one more change to
    the same notes, press `gv` to select them again, and then press the key.
 
 ## Quantize

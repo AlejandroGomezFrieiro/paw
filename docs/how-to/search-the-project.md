@@ -3,8 +3,8 @@
 <!-- tags: search-guide -->
 
 You can find each place in a song that has a text or a kind of note, and
-go from one place to the next. paw puts the places in the quickfix list,
-as Vim does. To find a track by its name, see
+go from one place to the next. paw puts the places in the quickfix list.
+To find a track by its name, see
 [How to find a track by name](find-a-track-clip-or-marker.md).
 
 ## Find a text anywhere

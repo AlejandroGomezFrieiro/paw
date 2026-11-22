@@ -44,7 +44,7 @@ press `ge` on the track.
 
 ## Use Windows plugins through yabridge
 
-1. Install the plugin in Wine, as on Windows.
+1. Install the plugin in Wine with its Windows installer.
 2. Tell yabridge where the plugin is, and then let yabridge make the
    bridges:
 

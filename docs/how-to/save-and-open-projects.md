@@ -49,7 +49,7 @@ the folder where you started paw. The lists of files that `:open` and
 `:import` show start in that folder too.
 
 - To see the folder, type `:pwd`.
-- To use a different folder, type `:cd` and the folder, as in Vim:
+- To use a different folder, type `:cd` and the folder, for example
   `:cd ~/songs/demo`. `:cd -` returns to the folder before it, and `:cd`
   alone goes to your home folder.
 
