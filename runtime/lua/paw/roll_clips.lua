@@ -67,14 +67,27 @@ end
 --- The id of the active clip, or nil with no clip open.
 function M.active() return roll().clip_id end
 
+--- The window's scope (`paw.scope`): it leaves out what it does not show.
+local function scope() return rawget(paw, "scope") end
+
+--- True if the window's scope shows a clip: its track, and some of its time.
+local function in_scope(c)
+  local s = scope()
+  if not s then return true end
+  local from, to = s.span()
+  return s.contains(c.track) and (not from or (c.start < to - EPS and c.start + c.length > from + EPS))
+end
+
 --- The ids of the editable clips, the active one first, then the others in
---- the order they were added.
+--- the order they were added. In a narrowed window, only the clips that its
+--- scope shows (the active one always).
 function M.ids()
   local active = M.active()
   if not midi(active) then return {} end
   local out = { active }
   for _, id in ipairs(others) do
-    if id ~= active and midi(id) then out[#out + 1] = id end
+    local c = id ~= active and midi(id)
+    if c and in_scope(c) then out[#out + 1] = id end
   end
   return out
 end
@@ -114,14 +127,28 @@ function M.parts()
   return out
 end
 
---- The stretch of the roll the editable clips cover: from, to.
+--- The stretch of the roll the editable clips cover: from, to. In a scope
+--- with time, only its time, as the arrange view (`0` and `$` stop there).
 function M.span()
   local lo, hi = 0, 0
-  for i, part in ipairs(M.parts()) do
+  local parts = M.parts()
+  for i, part in ipairs(parts) do
     if i == 1 then
       lo, hi = part.offset, part.offset + part.length
     end
     lo, hi = math.min(lo, part.offset), math.max(hi, part.offset + part.length)
+  end
+  local s = scope()
+  local from, to
+  if s and parts[1] then
+    from, to = s.span()
+  end
+  if from then
+    local start = parts[1].start
+    local a, b = math.max(lo, from - start), math.min(hi, to - start)
+    if b > a then
+      lo, hi = a, b
+    end
   end
   return lo, hi
 end
@@ -289,9 +316,9 @@ function M.tracks()
     end
   end
   local out = {}
-  -- In a tab narrowed to a group (`paw.scope`), the group's tracks alone.
-  local scope = rawget(paw, "scope")
-  for _, id in ipairs(scope and scope.tracks() or api.track_list()) do
+  -- In a narrowed window (`paw.scope`), the scope's tracks alone.
+  local s = scope()
+  for _, id in ipairs(s and s.tracks() or api.track_list()) do
     local t = api.track_get(id)
     if id ~= a.track and not t.master then
       local has_midi = false
@@ -344,6 +371,7 @@ function M.context()
     paw.opt.roll_context_max,
     lo,
     hi,
+    scope() and scope().breadcrumb() or "",
   }, "|")
   if cache.key == key then return cache.notes end
   local editable, out = {}, {}

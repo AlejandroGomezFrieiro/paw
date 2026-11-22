@@ -1,0 +1,37 @@
+/* The landing page of the website (tools/website/landing.md). */
+.landing-tagline {
+  font-size: 1.5em;
+  line-height: 1.4;
+  margin: 0.5em 0 1em;
+}
+.landing-actions p {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75em;
+  margin: 1em 0 1.5em;
+}
+.landing-actions a {
+  display: inline-block;
+  padding: 0.6em 1.1em;
+  border: 1px solid var(--links);
+  border-radius: 6px;
+  text-decoration: none;
+}
+.landing-actions a:first-child {
+  background: var(--links);
+  color: var(--bg);
+}
+.landing-actions a:hover {
+  opacity: 0.85;
+}
+.content main img {
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--table-border-color);
+  border-radius: 6px;
+}
+.landing-slot {
+  padding: 0.5em 1.25em;
+  border: 2px dashed var(--table-border-color);
+  border-radius: 6px;
+}

@@ -83,6 +83,37 @@ pub(super) struct Undo {
     pub join: Option<StateId>,
     /// Counts every change to the project, undo and redo included.
     pub edits: u64,
+    /// While a command is run again in place of its step
+    /// ([`Session::undo_adjust`]): the step as it was, to put back when the
+    /// command fails.
+    pub adjusting: Option<Adjusting>,
+}
+
+/// A step that a command is being run again for.
+pub(super) struct Adjusting {
+    project: Project,
+    label: Option<String>,
+}
+
+/// Whether the last step can be made again with other parameters.
+#[derive(Serialize, Clone, Copy, PartialEq, Eq, Debug)]
+#[serde(rename_all = "lowercase")]
+pub enum AdjustStatus {
+    /// The project is now as it was before the step: run the command again.
+    Ready,
+    /// The current state is not the newest one (after `undo`).
+    Old,
+    /// The current step is not the one of the command to adjust.
+    Other,
+    /// The step was saved, named or kept, and cannot change.
+    Kept,
+}
+
+/// What [`Session::undo_adjust`] found: `label` names the current step.
+#[derive(Serialize)]
+pub struct AdjustStart {
+    pub status: AdjustStatus,
+    pub label: Option<String>,
 }
 
 impl Undo {
@@ -97,6 +128,7 @@ impl Undo {
             restoring: false,
             join: None,
             edits: 0,
+            adjusting: None,
         }
     }
 }
@@ -258,6 +290,61 @@ impl Session {
         self.undo.join = None;
         self.undo.history.clear_labels();
         true
+    }
+
+    /// Put the project back as it was before the last step, so that a
+    /// command can run again and its new edits take the place of the step
+    /// (`paw.commands.adjust`). `before` is the state (None: no command to adjust) the command started
+    /// from: the step is the current one only if that is its parent and
+    /// nothing hangs on it. `label` is the step's new name. The caller runs
+    /// the command at once, and calls [`Session::undo_adjust_cancel`] if it
+    /// fails.
+    pub fn undo_adjust(&mut self, before: Option<StateId>, label: Option<String>) -> AdjustStart {
+        self.checkpoint();
+        let h = &self.undo.history;
+        let current = h.current();
+        let state = h.get(current).expect("the current state is in the tree");
+        let status = if !state.children.is_empty() {
+            AdjustStatus::Old
+        } else if before.is_none() || state.parent != before {
+            AdjustStatus::Other
+        } else if !h.can_extend() || self.audition.trial.is_some() {
+            AdjustStatus::Kept
+        } else {
+            AdjustStatus::Ready
+        };
+        let old_label = state.label.clone();
+        if status == AdjustStatus::Ready {
+            let parent = state.parent.expect("a step has a parent");
+            let parent = h.get(parent).expect("a parent is in the tree").snapshot.clone();
+            let project = std::mem::replace(&mut self.project, parent.clone());
+            self.undo.adjusting = Some(Adjusting { project, label: old_label.clone() });
+            self.undo.checkpoint = parent;
+            self.undo.history.set_label(current, label);
+            self.undo.touched = true;
+            self.undo.join = Some(current);
+            self.dirty = true;
+            self.undo.restoring = true;
+            self.undo.edits += 1;
+        }
+        AdjustStart { status, label: old_label }
+    }
+
+    /// The command that [`Session::undo_adjust`] ran again failed: put the
+    /// step back as it was.
+    pub fn undo_adjust_cancel(&mut self) {
+        let Some(step) = self.undo.adjusting.take() else { return };
+        self.project = step.project.clone();
+        self.undo.checkpoint = step.project;
+        let current = self.undo.history.current();
+        self.undo.history.set_label(current, step.label);
+        self.undo.touched = false;
+        self.undo.join = None;
+        self.undo.sweep = Default::default();
+        self.undo.history.clear_labels();
+        self.dirty = true;
+        self.undo.restoring = true;
+        self.undo.edits += 1;
     }
 
     /// The keys typed for the open step.

@@ -34,7 +34,7 @@ An extension adds options of its own with `paw.option.define(name, default, spec
 | `paw.opt.step_velocity` | `"key"` | The velocity of the notes that step input enters in the piano roll: `"key"`, the velocity of each key, or a number from 1 to 127. |
 | `paw.opt.bend_step` | `1` | The semitones that each `k` or `j` bends the note that you draw in the piano roll. |
 | `paw.opt.strum` | `0.0625` | The beats between the notes of a chord that `C` strums in the piano roll, which is a 64th note by default. |
-| `paw.opt.strum_dir` | `"up"` | Which way `C` strums: `"up"` from the lowest note, or `"down"`. |
+| `paw.opt.strum_dir` | `"up"` | Which way `C` strums: `"up"` from the lowest note, `"down"` from the highest, or `"updown"`, which rises through the first, third and fifth note and so on, and falls through the others. The picker of `C` can say it for one strum. |
 | `paw.opt.gdefault` | `false` | When `true`, `:s` changes every match without the flag `g`, and only the first match of each bar with it. |
 | `paw.opt.copy_imports` | `false` | An import copies the sound file into the `media` folder of the project. |
 | `paw.opt.send_level` | `-12` | The level of a new send, in dB, -150 to 24. |

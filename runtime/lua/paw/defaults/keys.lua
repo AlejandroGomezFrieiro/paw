@@ -72,8 +72,20 @@ map(
   function(ctx) keymap.record(ctx.char) end,
   { mode = nx, char = true, record = true, desc = "Record keys into a register; `q` again stops" }
 )
+--- `@19|`: bar 19 of the song, whatever bar a scope (`paw.scope`) shows
+--- there. The digits after `@` are read until `|`.
+local function song_bar(digits)
+  require("paw.views.cmdline").ask_key("@" .. digits, function(key)
+    if key:match("^%d$") then return song_bar(digits .. key) end
+    if key ~= "|" then return paw.notify("`@" .. digits .. "` goes to a bar of the song with `|`: `@19|`", "warn") end
+    keymap.push_jump()
+    cursor.set_beat(paw.time.bar_start(tonumber(digits)))
+  end)
+end
 map("@", function(ctx)
-  if ctx.char == ":" then
+  if ctx.char:match("^%d$") then
+    song_bar(ctx.char)
+  elseif ctx.char == ":" then
     for _ = 1, ctx.count or 1 do
       paw.commands.exec(paw.state.last_cmdline or "")
     end
@@ -84,7 +96,7 @@ end, {
   mode = nx,
   char = true,
   repeatable = false,
-  desc = "Play the keys in a register; `@@` the last one, `@:` the last command",
+  desc = "Play the keys in a register; `@@` the last one, `@:` the last command; `@19|` bar 19 of the song",
 })
 map("m", function(ctx) keymap.mark(ctx.char) end, { char = true, desc = "Set a mark at the cursor" })
 map(
@@ -127,6 +139,12 @@ map("<leader>rx", "marker.remove", { desc = "Remove the marker at the cursor" })
 map("<leader>rX", "region.remove", { desc = "Remove the region the cursor is in; its clips stay" })
 map("<leader>rl", "region.loop", { desc = "Loop the region the cursor is in" })
 map("<leader>rR", "render.regions", { desc = "Render every region to a file of its own: type the folder" })
+-- `.` repeats the last change; `<leader>.` adjusts it: its parameters are on the command line.
+map(
+  "<leader>.",
+  function() paw.commands.run("cmdline", { text = paw.commands.adjusting() or "adjust " }) end,
+  { desc = "Adjust the last command: change its parameters in place of its undo step", repeatable = false }
+)
 -- What other programs have taught the fingers.
 map("<Del>", function() keymap.normal("x") end, { desc = "Delete what is under the cursor" })
 -- On a selection it is the operator: what the Delete key does anywhere else.
@@ -304,6 +322,13 @@ end
 -- `dar` empties the region in the whole song and keeps the region itself.
 -- The innermost region at the cursor; with a count, the region around it
 -- (`2ar`), as Vim's `2a(`.
+--- A stretch of time cut at the edges of the window's scope (`paw.scope`)
+--- when it has time: a text object takes only what the scope shows.
+local function in_scope(c0, c1)
+  local from, to = paw.scope.span()
+  if from then return math.max(c0, from), math.min(c1, to) end
+  return c0, c1
+end
 local function region_here(ctx)
   local r = paw.markers.around(cursor.beat, ctx.count)
   if not r then paw.notify("the cursor is in no region", "warn") end
@@ -311,27 +336,28 @@ local function region_here(ctx)
 end
 aobject("ir", function(ctx)
   local r = region_here(ctx)
-  if r then return on_row(r.beat, r.beat + r.length) end
+  if r then return on_row(in_scope(r.beat, r.beat + r.length)) end
 end, "The region the cursor is in, on this track (2ir: the region around it)")
 aobject("ar", function(ctx)
   local r = region_here(ctx)
-  local n = #api.track_list()
+  local n = #paw.groups.rows()
   if r and n > 0 then
+    local c0, c1 = in_scope(r.beat, r.beat + r.length)
     return {
       view = "arrange",
       kind = "block",
       r0 = 1,
       r1 = n,
-      c0 = r.beat,
-      c1 = r.beat + r.length,
+      c0 = c0,
+      c1 = c1,
       scope = { kind = "region", id = r.id },
     }
   end
-end, "The region the cursor is in, on every track (2ar: the region around it)")
+end, "The region the cursor is in, on every track of the scope (2ar: the region around it)")
 for _, lhs in ipairs({ "it", "at" }) do
   aobject(lhs, function()
     local row = cursor.index() or 1
-    local c0, c1 = edit.arrange.span(rows(row))
+    local c0, c1 = in_scope(edit.arrange.span(rows(row)))
     if c1 > c0 then
       local reg = on_row(c0, c1)
       local id = cursor.track_id()
@@ -342,10 +368,14 @@ for _, lhs in ipairs({ "it", "at" }) do
 end
 for _, lhs in ipairs({ "ie", "ae" }) do
   aobject(lhs, function()
-    local n = #api.track_list()
-    if n == 0 or paw.project.length <= 0 then return end
-    return { view = "arrange", kind = "block", r0 = 1, r1 = n, c0 = 0, c1 = paw.project.length, entire = true }
-  end, "The entire project")
+    local n = #paw.groups.rows()
+    local c0, c1 = paw.scope.span()
+    if not c0 then
+      c0, c1 = 0, paw.project.length
+    end
+    if n == 0 or c1 <= c0 then return end
+    return { view = "arrange", kind = "block", r0 = 1, r1 = n, c0 = c0, c1 = c1, entire = true }
+  end, "The entire project, or the entire scope in a narrowed window")
 end
 
 -- Arrange: operators.
@@ -807,7 +837,8 @@ for _, lhs in ipairs({ "ir", "ar" }) do
     if not clip then return end
     local r = paw.markers.around(clip.start + roll.beat, ctx.count)
     if not r then return paw.notify("the cursor is in no region", "warn") end
-    return stretch(r.beat - clip.start, r.beat + r.length - clip.start)
+    local c0, c1 = in_scope(r.beat, r.beat + r.length)
+    return stretch(c0 - clip.start, c1 - clip.start)
   end, "The region of the song the cursor is in (2ir: the region around it)")
 end
 for _, lhs in ipairs({ "ie", "ae" }) do
@@ -1208,6 +1239,14 @@ drawmap(
   function() drawing.pick_chord(true) end,
   "A strummed chord here: its notes one after the other (strum, strum_dir)"
 )
+drawmap("~", function() drawing.tie() end, "Tie the note to the next note: it ends where the next one starts")
+drawmap(
+  "<C-r>",
+  function(ctx) drawing.put_register(ctx.char) end,
+  "Put the notes of a register at the note: <C-r> and its name",
+  { char = true }
+)
+drawmap("<Tab>", function() drawing.snippet() end, "Expand a snippet here: choose one")
 drawmap("a", function() drawing.articulate() end, "An articulation on the note (from the articulations extension)")
 drawmap(
   "e",

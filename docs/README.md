@@ -161,6 +161,7 @@ groups below link the main ones.
 - [How to run the tests](how-to/run-the-tests.md): the Lua suite, the Rust tests, the documentation checks
 - [How to run the graphical window without a graphics card](how-to/run-the-window-without-a-graphics-card.md)
 - [How to run the graphical window against a kernel on another machine](how-to/run-the-window-against-a-remote-kernel.md)
+- [How to preview the manual as a website](how-to/preview-the-manual-as-a-website.md): build the site, read it, serve it
 
 ## Reference
 
@@ -281,5 +282,6 @@ groups below link the main ones.
 - [About language servers](explanation/about-language-servers.md): the four layers, addresses with ids, subjects, LSP
 - [About project files](explanation/about-project-files.md): why a project is a folder of files, MIDI clip files, `unused`, safety copies
 - [About the Nix build](explanation/about-the-nix-build.md): two layers, and why crane
+- [About the website](explanation/about-the-website.md): how the manual becomes a site, and why mdBook
 - [About Teal in paw](explanation/about-teal.md): why the code of paw moves to Teal, how Teal and Lua work together, and the plan
 - [About the end-to-end scenarios](explanation/about-the-e2e-tests.md): a song over many days, and how each step knows the right result

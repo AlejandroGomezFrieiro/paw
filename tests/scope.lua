@@ -410,6 +410,135 @@ test("a scope inside a scope shows what both show: the strings in the bridge", f
   reset()
 end)
 
+-- Views in a scope ------------------------------------------------------------------------
+
+--- A clip on a track from one bar of the song to another, with a note in
+--- each of its bars a little after the bar's start.
+local function clip_over(track, first, last)
+  local start = paw.time.bar_start(first)
+  local notes = {}
+  for bar = first, last - 1 do
+    notes[#notes + 1] = { pitch = 60 + bar, start = paw.time.bar_start(bar) - start + 0.1, length = 0.5 }
+  end
+  return track:add_clip({ start = start, length = paw.time.bar_start(last) - start, notes = notes })
+end
+
+--- The line of the screen that holds a text.
+local function line_with(text, what)
+  for line in (text .. "\n"):gmatch("(.-)\n") do
+    if line:find(what, 1, true) then return line end
+  end
+  return ""
+end
+
+test("in Song › Bridge › Strings dar deletes only the strings' clips in the region; u restores", function()
+  start()
+  local o, from = bridge()
+  local inside = clip_over(o.violins, 18, 20)
+  local before = clip_over(o.violins, 2, 3)
+  local horns = clip_over(o.horns, 18, 20)
+  paw.flush()
+  api.undo_checkpoint()
+  keys(":narrow Bridge<CR>")
+  keys(":narrow Strings<CR>")
+  paw.cursor.set_track(o.violins)
+  paw.cursor.set_beat(from + 2)
+  -- The track column: the scope's tracks from 1, and the sign of a scope.
+  local text = screen()
+  local first = line_with(text, "Strings")
+  eq(first:find("›", 1, true) ~= nil and first:find("1", 1, true) ~= nil, true, "row 1, with ›: " .. first)
+  eq(line_with(text, "Cellos"):find("3", 1, true) ~= nil, true, "Cellos is row 3: " .. line_with(text, "Cellos"))
+  keys("vie")
+  local sel = paw.keymap.selection()
+  eq(
+    table.concat({ sel.r0, sel.r1, sel.c0, sel.c1 }, " "),
+    table.concat({ 1, 3, from, paw.time.bar_start(25) }, " "),
+    "vie: the scope's three rows in its time"
+  )
+  keys("<Esc>")
+  paw.cursor.set_beat(from + 2)
+  keys("dar")
+  local function has(t, clip)
+    for _, c in ipairs(api.clip_list(t.id)) do
+      if c.id == clip.id then return true end
+    end
+    return false
+  end
+  eq(has(o.violins, inside), false, "the violins' clip in the region is gone")
+  eq(has(o.violins, before), true, "the one before the region stays")
+  eq(has(o.horns, horns), true, "the horns are not in the scope: their clip stays")
+  keys("u")
+  eq(has(o.violins, inside), true, "u: back")
+  reset()
+end)
+
+test("in Song › Bridge, :%quantize sees the bridge's time, and @19 names a bar of the song", function()
+  start()
+  local o, from, to = bridge()
+  local clip = clip_over(o.cellos, 15, 27)
+  paw.flush()
+  keys(":narrow Bridge<CR>")
+  keys(":%quantize 1/4<CR>")
+  for _, n in ipairs(api.clip_notes(clip.id)) do
+    local at = clip.start + n.start
+    local snapped = math.abs(n.start - math.floor(n.start + 0.5)) < 1e-6
+    eq(snapped, at >= from and at < to, "only the notes in bars 17-24 of the song snap: " .. n.pitch)
+  end
+  keys(":tempo 96 at @19<CR>")
+  local point = paw.tempo.point_at(paw.time.bar_start(19))
+  eq(point.beat .. " " .. point.bpm, paw.time.bar_start(19) .. " 96", ":tempo 96 at @19: the song's bar 19")
+  keys("0")
+  keys(":@20<CR>")
+  eq(paw.cursor.beat, paw.time.bar_start(20), ":@20 is the song's bar 20")
+  keys("0")
+  keys("@21|")
+  eq(paw.cursor.beat, paw.time.bar_start(21), "@21| is the song's bar 21")
+  reset()
+end)
+
+test("a clip across the scope's start is drawn cut with ‹; x removes all of it", function()
+  start()
+  local o, from = bridge()
+  local clip = clip_over(o.violins, 15, 19)
+  paw.flush()
+  keys(":narrow Bridge<CR>")
+  eq(
+    line_with(screen(), "Violins"):find("‹", 1, true) ~= nil,
+    true,
+    "‹ at the cut: " .. line_with(screen(), "Violins")
+  )
+  paw.cursor.set_track(o.violins)
+  paw.cursor.set_beat(from)
+  keys("x")
+  eq(#api.clip_list(o.violins.id) == 1 and api.clip_list(o.violins.id)[1].id ~= clip.id, true, "the whole clip went")
+  reset()
+end)
+
+test("the piano roll opened in a scope shows the scope's clips, and $ stops at its end", function()
+  start()
+  local o, from, to = bridge()
+  local clip = clip_over(o.violins, 15, 27)
+  clip_over(o.cellos, 18, 20)
+  clip_over(o.horns, 18, 20)
+  paw.flush()
+  keys(":narrow Bridge<CR>")
+  keys(":narrow Strings<CR>")
+  paw.cursor.set_track(o.violins)
+  paw.cursor.set_beat(from + 1)
+  keys("<CR>")
+  eq(paw.ui.focused, "pianoroll", "the roll")
+  local tracks = {}
+  for _, n in ipairs(paw.roll_clips.context()) do
+    tracks[api.track_get(n.track).name] = true
+  end
+  eq(tracks.Cellos and not tracks.Horns and not tracks.Drums, true, "behind its notes: the cellos, not the rest")
+  keys("$")
+  eq(clip.start + paw.ui.views.pianoroll.beat, to, "$ stops at the scope's end")
+  keys("0")
+  eq(clip.start + paw.ui.views.pianoroll.beat >= from, true, "0 stays in it")
+  reset()
+end)
+
 -- What the rest does ---------------------------------------------------------------------
 
 test("scope_rest=mute silences the rest while the scope's window is in front", function()
