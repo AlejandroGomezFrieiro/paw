@@ -2,11 +2,11 @@
 
 <!-- tags: edit-notes quantize-notes -->
 
-This guide shows you how to correct the notes of a MIDI clip in the piano
-roll. For all the keys, see [The piano roll](../reference/piano-roll.md).
+You can correct the notes of a MIDI clip in the piano roll with a few
+keys. All the keys are listed in [The piano roll](../reference/piano-roll.md).
 
-1. In the arrange view, put the cursor on the clip and press `Enter`. The
-   piano roll opens with the notes of the clip.
+1. In the arrange view, put the cursor on the clip and press `Enter`, and
+   the piano roll opens with the notes of the clip.
 2. Press `w` and `b` to go from note to note, and `j` `k` to change the
    pitch of the cursor.
 
@@ -19,7 +19,7 @@ roll. For all the keys, see [The piano roll](../reference/piano-roll.md).
 | the pitch | `+` up, `-` down, a semitone. `12+` is an octave |
 | the start | `L` later, `H` earlier, by one grid step |
 
-`K` describes the note under the cursor: its pitch, start, length and
+`K` describes the note under the cursor, with its pitch, start, length and
 velocity.
 
 ## Change many notes
@@ -31,21 +31,21 @@ velocity.
    - `12<C-a>` to transpose the notes an octave up, `5<C-x>` five
      semitones down.
 3. The change ends the selection, as in Vim. To make one more change to
-   the same notes, press `gv` to select them again, then the key.
+   the same notes, press `gv` to select them again, and then press the key.
 
 ## Quantize
 
-1. Choose the grid: press `[g` for a finer grid or `]g` for a coarser
-   grid. The status line shows the grid, for example `grid 1/16`.
+1. Choose the grid. Press `[g` for a finer grid or `]g` for a coarser
+   grid, and the status line shows the grid, for example `grid 1/16`.
 2. Type `:notes.quantize`. paw moves the start of each note to the grid
-   and gives the number of notes moved.
+   and gives the number of notes that it moved.
 
 To quantize only a part, select it first with `v`. To move the notes only
 half of the distance to the grid, type `:notes.quantize 50`.
 
-To quantize the starts and the lengths too, press `=ie` (all the notes of
-the clip). `=` takes any selection or motion, for example `=ib` for this
-bar.
+To quantize the starts and the lengths, press `=ie` (all the notes
+of the clip). `=` takes any selection or motion, for example `=ib` for the
+current bar.
 
 In the graphical window, drag a note to move it, and drag its end to
 change its length. The strip under the notes shows the velocities.

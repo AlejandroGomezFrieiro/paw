@@ -1,11 +1,11 @@
 # How to change the status line
 
-This guide shows you how to change what the status line shows, in your
+You can change what the status line shows with a few lines in your
 `init.lua`.
 
 1. Open `~/.config/paw/init.lua`.
 2. Add a call to `paw.statusline.setup` with the sections to change.
-   This example puts the track and clip under the cursor in section `b`:
+   The example puts the track and clip under the cursor in section `b`:
 
    ```lua
    paw.statusline.setup({ sections = { b = { "cursor" } } })
@@ -13,7 +13,8 @@ This guide shows you how to change what the status line shows, in your
 
 3. Type `:reload` in paw.
 
-The sections that you do not give keep their defaults.
+The sections that you do not give keep their defaults. You can also change
+the line in the following ways:
 
 - To add a component of your own, give a function:
 
@@ -29,8 +30,8 @@ The sections that you do not give keep their defaults.
   paw.statusline.setup({ views = { mixer = { sections = { c = {} } } } })
   ```
 
-- To use one color for all modes, set `theme = "mono"`.
-- To return to the default line, call `paw.statusline.reset()`.
+- To use one color for all modes, set `theme = "mono"`. To return to the
+  default line, call `paw.statusline.reset()`.
 
 If a component has an error, the line does not show it. To see the errors,
 type `:lua =paw.statusline.line(120).errors`.
