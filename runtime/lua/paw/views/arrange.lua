@@ -20,13 +20,24 @@ local view = {
   share = { column = 2 / 5, least = 1 / 3 },
   -- Each window of the arrange view scrolls on its own. The edit cursor
   -- (paw/cursor.tl) is one for all of them.
-  window_state = { "scroll", "top", "flags", "seen_index", "seen_fit", "seen_lane", "seen_beat", "geometry", "comp" },
+  window_state = {
+    "scroll",
+    "top",
+    "flags",
+    "seen_index",
+    "seen_fit",
+    "seen_lane",
+    "seen_beat",
+    "seen_jump",
+    "geometry",
+    "comp",
+  },
   window_fresh = { "geometry", "flags" },
 }
 paw.seats.fields(
   "arrange",
   view,
-  { "scroll", "top", "flags", "seen_index", "seen_fit", "seen_lane", "seen_beat", "geometry", "comp" },
+  { "scroll", "top", "flags", "seen_index", "seen_fit", "seen_lane", "seen_beat", "seen_jump", "geometry", "comp" },
   { scroll = 0, top = 1, flags = {} }
 )
 
@@ -1312,13 +1323,16 @@ function view:render(buf, ctx)
     local position = t.position - origin
     if position < self.scroll or position >= self.scroll + span then self.scroll = paw.time.bar_floor(position) end
   elseif cursor.beat ~= self.seen_beat and not led then
-    if cursor.beat < self.scroll then
+    local to = draw.jump_scroll(cursor.beat, self.scroll, span, zoom, paw.keymap.jump_serial ~= self.seen_jump)
+    if to then
+      self.scroll = math.max(0, to)
+    elseif cursor.beat < self.scroll then
       self.scroll = paw.time.bar_floor(cursor.beat)
     elseif cursor.beat >= self.scroll + span - 1 / zoom then
       self.scroll = math.max(0, math.ceil((cursor.beat - span) / bar + 1) * bar)
     end
   end
-  self.seen_beat = cursor.beat
+  self.seen_beat, self.seen_jump = cursor.beat, paw.keymap.jump_serial
   -- In a scope with time, the view starts no earlier than the bar it starts in.
   local scope_from, scope_to = paw.scope.span()
   self.scroll = math.max(scope_from and paw.time.bar_floor(scope_from) or 0, self.scroll)
@@ -1641,7 +1655,17 @@ end
 function view:center()
   local g = self.geometry
   if not g then return end
-  self.scroll = math.max(0, paw.time.bar_floor(math.max(0, paw.cursor.beat - g.span / 2)))
+  self.scroll = math.max(0, paw.cursor.beat - g.span / 2)
+  api.ui_redraw()
+end
+
+--- Scroll so that the cursor is at the left margin (`paw.opt.jumpmargin`)
+--- or, with `right`, at the right edge of the timeline.
+function view:place(right)
+  local g = self.geometry
+  if not g then return end
+  local at = right and g.span - 1 / g.zoom or paw.opt.jumpmargin / g.zoom
+  self.scroll = math.max(0, paw.cursor.beat - at)
   api.ui_redraw()
 end
 

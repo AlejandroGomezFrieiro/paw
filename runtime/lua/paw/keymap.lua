@@ -42,6 +42,10 @@ local last_macro
 
 local registers = {}
 local marks, jumps = {}, {}
+
+--- Counts the jumps (what goes into the jump list), so that a view can tell
+--- a jump of the cursor from a step: the view scrolls to the target of a jump.
+M.jump_serial = 0
 local changes = {} -- view -> positions where the project was edited, newest last
 local groups = {} -- scope -> keys -> name of a prefix that only leads to more keys
 local group_lhs = {} -- the groups on a leader: { scope, prefix as written, name, keys now }
@@ -669,6 +673,7 @@ end
 function M.push_jump()
   local g = grid()
   if not g then return end
+  M.jump_serial = M.jump_serial + 1
   local list = jumps[paw.ui.focused] or {}
   jumps[paw.ui.focused] = list
   if list.at then
