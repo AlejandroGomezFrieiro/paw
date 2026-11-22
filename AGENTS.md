@@ -68,11 +68,26 @@ gives the details. Read it before you write or change a page.
   guide, a reference page or an explanation. The pages are in
   `docs/tutorials`, `docs/how-to`, `docs/reference` and
   `docs/explanation`. [docs/README.md](docs/README.md) lists them.
-- **ASD-STE100 Simplified Technical English.** Short sentences, active
-  voice, the present, past and future tenses only, one word for one
-  thing, American spelling.
+- **Two styles of language.** External pages are for the users of paw.
+  They use the plain-writing skill in
+  [.claude/skills/plain-writing](.claude/skills/plain-writing/SKILL.md).
+  Load it before you write or change an external page, and read its
+  `PAW.md`. Internal text is for the people and agents that change paw.
+  It uses ASD-STE100 Simplified Technical English: short sentences,
+  active voice, the present, past and future tenses only, one word for
+  one thing, American spelling. Both styles use one word for one thing
+  and American spelling.
+  - External: `README.md`, `docs/`, the READMEs and `doc/` pages of the
+    extensions, the READMEs of the crates, the tutor's lessons, and the
+    doc comments that `tools/apidoc.lua` turns into
+    `docs/reference/api.md`.
+  - Internal: `AGENTS.md`, `.claude/` (the skills), `bench/`, Backlog
+    tickets, design documents, the other code comments, commit messages,
+    pull request text and replies in chat.
 - **Vale.** Vale checks every Markdown file with the project's styles.
-  Run `nix develop -c tools/vale.sh` on the files that you change. Vale
+  `.vale.ini` gives each path its styles: the style `Plain` for the
+  external pages, the style `STE` for the internal files. Run
+  `nix develop -c tools/vale.sh` on the files that you change. Vale
   must report 0 errors. A hook runs Vale after each Markdown edit, and
   `nix flake check` fails on a Vale error.
 
