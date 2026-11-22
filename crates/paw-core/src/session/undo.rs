@@ -800,6 +800,9 @@ impl Diff {
         if a.meta != b.meta {
             self.project.push("meta");
         }
+        if a.nests != b.nests {
+            self.project.push("subprojects");
+        }
         let order = |p: &Project| p.tracks.iter().map(|t| t.id).collect::<Vec<_>>();
         if order(a) != order(b) {
             let ids_a: std::collections::HashSet<Id> = order(a).into_iter().collect();

@@ -27,7 +27,7 @@ use super::ClipContent;
 /// Words that a kind of clip cannot have: the built-in contents, and words
 /// kept for those to come, so that a new built-in content never meets an
 /// extension's kind of the same name in a project.
-pub const RESERVED: &[&str] = &["midi", "audio", "empty", "folder", "custom"];
+pub const RESERVED: &[&str] = &["midi", "audio", "empty", "folder", "custom", "nest"];
 
 /// A bad name or a bad content in a custom clip.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]

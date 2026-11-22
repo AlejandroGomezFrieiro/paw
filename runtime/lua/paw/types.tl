@@ -274,9 +274,11 @@ local record types
     origin: string
     chain_source: string
     chain_origin: string
+    nest: integer
   end
 
-  --- What `paw.api.track_add` takes (`TrackOpts`): `index` from 1.
+  --- What `paw.api.track_add` takes (`TrackOpts`): `index` from 1; `nest`
+  --- to make the track in that subproject.
   record TrackOptions
     name: string
     index: integer
@@ -284,6 +286,70 @@ local record types
     pan: number
     output: integer
     color: string
+    nest: integer
+  end
+
+  --- `follow` plays a subproject at the song's tempo where each clip is,
+  --- `own` at its own.
+  enum NestTempoMode
+    "follow"
+    "own"
+  end
+
+  --- The tempo of a subproject (`model::NestTempo`): with `follow`, `kept`
+  --- is the song's tempo over it when it was made; with `own`, `points`,
+  --- the first at beat 0.
+  record NestTempo
+    mode: NestTempoMode
+    kept: {TempoChange}
+    points: {TempoChange}
+  end
+
+  --- `follow` takes the song's meter where each clip is, `own` its own.
+  enum NestMeterMode
+    "follow"
+    "own"
+  end
+
+  --- The meter of a subproject (`model::NestMeter`): with `own`,
+  --- `changes`, the first at beat 0.
+  record NestMeter
+    mode: NestMeterMode
+    changes: {SigChange}
+  end
+
+  --- A subproject (`Session::nest_view`): `length` in beats, `master` its
+  --- master track, `tracks` its other tracks in order, `used` whether the
+  --- song plays it.
+  record Nest
+    id: integer
+    name: string
+    length: number
+    tempo: NestTempo
+    meter: NestMeter
+    master: integer
+    tracks: {integer}
+    kind: string
+    meta: Meta
+    source: string
+    origin: string
+    used: boolean
+  end
+
+  --- What `paw.api.nest_add` takes (`NestOpts`).
+  record NestOptions
+    name: string
+    length: number
+    tempo: NestTempo
+    meter: NestMeter
+    kind: string
+    meta: Meta
+  end
+
+  --- The track of a subproject that a nest clip plays (`model::NestPlay`);
+  --- the string "master" plays its mix.
+  record NestTrack
+    track: integer
   end
 
   --- A file of a project kept in a folder (`Session::project_files`).
@@ -1075,6 +1141,8 @@ local record types
     offset: number
     gain: number
     edits: {AudioEdit}
+    nest: integer
+    play: string | NestTrack
   end
 
   --- A clip as a project file holds it (`model::Clip`).
@@ -1147,6 +1215,21 @@ local record types
     origin: string
     chain_source: string
     chain_origin: string
+    nest: integer
+  end
+
+  --- A subproject as a project file holds it (`model::Nest`).
+  record NestData
+    id: integer
+    name: string
+    length: number
+    tempo: NestTempo
+    meter: NestMeter
+    master: integer
+    kind: string
+    meta: Meta
+    source: string
+    origin: string
   end
 
   --- A project as a project file holds it (`model::Project`), for
@@ -1162,6 +1245,7 @@ local record types
     key: string
     master: TrackData
     tracks: {TrackData}
+    nests: {NestData}
     meta: Meta
   end
 

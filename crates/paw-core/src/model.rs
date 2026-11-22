@@ -15,12 +15,14 @@ use serde_json::{Map, Value};
 
 mod clips;
 mod custom;
+pub(crate) mod nest;
 mod notes;
 pub use clips::Clips;
 pub use custom::{
     ClipKindId, CustomContent, CustomError, DATA_LIMIT, KindData, KindValue, MediaRef, MediaRole,
     OscAddress, OscArg, PortName, RESERVED, Signal, SignalTo, Sound, Timeline, Word,
 };
+pub use nest::{MAX_DEPTH, Nest, NestId, NestMeter, NestPlay, NestTempo, Route, check_nest};
 pub use notes::Notes;
 
 pub type Id = u64;
@@ -57,7 +59,12 @@ pub struct Project {
     #[serde(skip)]
     map: Arc<TempoMap>,
     pub master: Arc<Track>,
+    /// The song's tracks and the tracks of every nest (`Track::nest`), in
+    /// order.
     pub tracks: Vec<Arc<Track>>,
+    /// The nests (subprojects), by id: see `model/nest.rs`.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty", with = "nest::as_list")]
+    pub nests: BTreeMap<NestId, Arc<Nest>>,
     /// Free-form data for extensions, saved with the project.
     #[serde(default)]
     pub meta: Map<String, Value>,
@@ -96,6 +103,7 @@ impl Default for Project {
                 ..Track::new(MASTER_ID)
             }),
             tracks: Vec::new(),
+            nests: BTreeMap::new(),
             meta: Map::new(),
             places: Places::default(),
         }
@@ -172,6 +180,9 @@ pub struct Track {
     /// The chain file outside the project that the devices were copied from.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub chain_origin: Option<PathBuf>,
+    /// The nest (subproject) the track belongs to; `None` for the song's.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub nest: Option<NestId>,
 }
 
 /// The boundaries a cue waits for.
@@ -345,6 +356,7 @@ impl Track {
             origin: None,
             chain_source: None,
             chain_origin: None,
+            nest: None,
         }
     }
 
@@ -640,6 +652,15 @@ pub enum ClipContent {
     /// A clip of a kind that an extension defines. Boxed: the enum stays
     /// as small as it was, and MIDI clips, most clips, pay nothing.
     Custom(Box<CustomContent>),
+    /// A nest (subproject) placed here: see `model/nest.rs`.
+    Nest {
+        nest: NestId,
+        /// Beats into the nest where the clip starts (trim and slip change
+        /// it).
+        #[serde(default, skip_serializing_if = "is_zero")]
+        offset: f64,
+        play: NestPlay,
+    },
 }
 
 impl ClipContent {
@@ -649,6 +670,7 @@ impl ClipContent {
             ClipContent::Midi { .. } => "midi",
             ClipContent::Audio { .. } => "audio",
             ClipContent::Custom(custom) => custom.kind.as_str(),
+            ClipContent::Nest { .. } => "nest",
         }
     }
 }
@@ -926,7 +948,7 @@ impl Clip {
                     notes.weight_over(was) + controls.capacity() * size_of::<Control>()
                 }
                 // Its data, media and signals are shared behind `Arc`s.
-                ClipContent::Audio { .. } | ClipContent::Custom(_) => 0,
+                ClipContent::Audio { .. } | ClipContent::Custom(_) | ClipContent::Nest { .. } => 0,
             }
     }
 }
@@ -1411,6 +1433,7 @@ impl Project {
                     .chain(t.cues.iter().map(|c| c.id))
                     .chain(t.lanes.iter().map(|l| l.id))
             })
+            .chain(self.nests.keys().map(|n| n.0))
             .max()
             .unwrap_or(0)
     }
@@ -1561,9 +1584,10 @@ impl Project {
         m.tempos().eq(self.tempo_points()) && m.signatures().eq(self.sig_points())
     }
 
-    /// Where the last clip ends, in beats.
+    /// Where the song's last clip ends, in beats.
     pub fn end(&self) -> f64 {
         self.all_tracks()
+            .filter(|t| t.nest.is_none())
             .flat_map(|t| t.clips.iter().map(|c| c.start + c.length))
             .fold(0.0, f64::max)
     }
@@ -1580,7 +1604,8 @@ impl Project {
         for t in self.all_tracks() {
             check_track(t, &tracks)?;
         }
-        self.check_routing_loops(&tracks)
+        self.check_routing_loops(&tracks)?;
+        nest::check(self)
     }
 
     /// The tempo, the tempo changes and the time signatures are in range.
@@ -1783,6 +1808,11 @@ fn check_clip(c: &Clip) -> anyhow::Result<()> {
         ClipContent::Custom(custom) => {
             if !custom.offset.is_finite() {
                 bail!("{} clip {} has offset {}", custom.kind, c.id, custom.offset);
+            }
+        }
+        ClipContent::Nest { offset, .. } => {
+            if !offset.is_finite() || *offset < 0.0 {
+                bail!("subproject clip {} has offset {offset}", c.id);
             }
         }
     }
