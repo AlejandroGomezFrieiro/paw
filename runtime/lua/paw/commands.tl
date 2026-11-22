@@ -142,8 +142,10 @@ local record Adjustable
   ctx: Context
   before: integer
   line: string
+  about: string
 end
 local last: Adjustable
+local about: string -- what the command that runs says it worked on
 local running = 0 -- how many commands run inside each other
 
 --- Define or replace a command.
@@ -315,8 +317,11 @@ function M.run<C is Context>(name: string, args?: Args, ctx?: C): Result
   -- An outermost command that can be adjusted remembers where it started,
   -- if nothing else changed the project in this turn before it.
   local before: integer
-  if running == 0 and spec.adjust and not api.undo_pending() then
-    before = api.undo_current()
+  if running == 0 and spec.adjust then
+    about = nil
+    if not api.undo_pending() then
+      before = api.undo_current()
+    end
   end
   paw.emit("command.pre", {name = name, command = command, args = c.args})
   running = running + 1
@@ -327,7 +332,12 @@ function M.run<C is Context>(name: string, args?: Args, ctx?: C): Result
   end
   if before and api.undo_pending() then
     last = {
-      name = name, args = util.merge(c.args as {string: Arg}, {}) as Args, ctx = c, before = before, line = c.line
+      name = name,
+      args = util.merge(c.args as {string: Arg}, {}) as Args,
+      ctx = c,
+      before = before,
+      line = c.line,
+      about = about,
     }
   end
   paw.emit("command.post", {name = name, command = command, args = c.args})
@@ -537,6 +547,38 @@ function M.adjusting(): string
   return "adjust " .. table.concat(parts, " ")
 end
 
+--- A command that can be adjusted says the range it changed, as the panel
+--- of `<leader>.` shows it (`Quantize · 48 notes`). Call it from the handler.
+---   paw.commands.about("48 notes")
+function M.about(text: string)
+  about = text
+end
+
+--- What the panel of `<leader>.` shows: the title, the parameters of the
+--- last command that can be adjusted, and their values now. Nil when there
+--- is no such command.
+function M.panel(): contracts.AdjustPanel
+  local spec = last and registry[last.name]
+  if not (last and spec and spec.adjust) then
+    return nil
+  end
+  local params = read_params(spec, last.args, spec.raw)
+  local values: {string: Arg} = {}
+  for _, p in ipairs(spec.adjust) do
+    local value = params[p.name]
+    if value == nil then
+      value = p.default
+    end
+    values[p.name] = value
+  end
+  local label = M.label(spec) or last.name
+  return {
+    title = last.about and label .. " · " .. last.about or label,
+    params = spec.adjust,
+    values = values,
+  }
+end
+
 local function names_of(spec: Spec): string
   local names: {string} = {}
   for _, p in ipairs(spec.adjust) do
@@ -603,7 +645,7 @@ function M.adjust(given: Args)
     error(err, 0)
   end
   -- The adjusted command is the one that `.` repeats and the next `adjust` changes.
-  last = {name = name, args = args, ctx = ctx, before = before, line = shown}
+  last = {name = name, args = args, ctx = ctx, before = before, line = shown, about = about}
   local keys: {string} = {":"}
   for _, key in ipairs(paw.keymap.parse(line:sub(2))) do
     keys[#keys + 1] = key == "<" and "<lt>" or key

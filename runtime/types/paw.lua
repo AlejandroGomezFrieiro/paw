@@ -1660,6 +1660,12 @@ function paw.clip_kinds.split(clip, at) end
 ---@param to any
 function paw.clip_kinds.trim(clip, from, to) end
 
+--- A command that can be adjusted says the range it changed, as the panel
+--- of `<leader>.` shows it (`Quantize · 48 notes`). Call it from the handler.
+---   paw.commands.about("48 notes")
+---@param text any
+function paw.commands.about(text) end
+
 --- Run the last command that has `adjust` again with other parameters, in
 --- place of its undo step: `paw.commands.adjust({ grid = "1/8" })`, or
 --- positional ones, by the order of its `adjust`. The project goes back to
@@ -1722,6 +1728,11 @@ function paw.commands.main(name) end
 --- The extension that paw loads now, or whose code registers these commands
 --- and keys later. `:help` goes to its page for them, and an unload removes them.
 function paw.commands.owner() end
+
+--- What the panel of `<leader>.` shows: the title, the parameters of the
+--- last command that can be adjusted, and their values now. Nil when there
+--- is no such command.
+function paw.commands.panel() end
 
 --- The parameters of the command that runs: what the user gave, by the
 --- names that its `adjust` lists. A parameter not given is not in the table.
