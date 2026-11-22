@@ -399,12 +399,14 @@ seats.keep("ui",
 --- new window starts without, such as caches. Without `window_state`, the
 --- view shows in one window at a time. `open_target(self, target)` opens
 --- a thing by name in the window (`:e roll://7`), and `window_target(self)`
---- gives that name back for a saved layout. With `window_instances`, each
---- window has its own table of the `window_state` fields, which takes the
---- rest from the view (`paw.ui.instance_of`), and the view draws with that
---- table as `self`. The view that `paw.ui.view` returns then reads and writes
---- those fields in the window that drew or acted last. `share` says what part of the
+--- gives that name back for a saved layout. `share` says what part of the
 --- room the view keeps where windows share it: `{ column, least, most }`.
+---
+--- With `window_instances`, each window has its own table of the
+--- `window_state` fields, which takes the rest from the view
+--- (`paw.ui.instance_of`), and the view draws with that table as `self`.
+--- The view that `paw.ui.view` returns then reads and writes those fields
+--- in the window that drew or acted last.
 function M.view<V is contracts.View>(name: string, def: V): V
   def.name = name
   -- With `window_instances`, `paw.ui.views` holds a proxy of the view

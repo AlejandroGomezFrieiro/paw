@@ -1199,6 +1199,8 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.layout.get(id)`: A window by its number, and the tab it is in.
 - `paw.layout.hand_over(from, to)`: Give the state of the window `from` to the window `to` of the same view, in place of its own: a view in a window of its own that returns into its pane takes what it showed there.
 - `paw.layout.import(spec)`: A node as saved, or as a configuration writes it: `"roll"` or `{ view = "roll", size = 20 }` for a window, `{ dir = "h", "arrange", "roll" }` (or with `children`) for a split. Windows of views that are not there (an extension not loaded) are left out.
+- `paw.layout.instance_of(win)`: The instance of the view that a window shows, made the first time: a split takes a fresh copy of the bound window's state, a window after one that went takes all of its state, and the first window takes the home state. Nil for a view without instances.
+- `paw.layout.instances(name, def, keys, fresh)`: Give a view an instance for each window. `def` is the view's table and `keys` the fields of each window (`fresh`: the ones a split starts without). The fields leave `def` for the home state. Returns the proxy that `paw.ui.views` holds.
 - `paw.layout.layout_names()`: The names of the layouts there are: the configuration's and those saved.
 - `paw.layout.leaf(view, fields)`: A new window that shows `view`, with fields such as `size` or `hidden`.
 - `paw.layout.load(name)`: Put back layout `name`: the configuration's, else one saved.
@@ -1209,6 +1211,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.layout.one_window(name)`: True if a view is shown in one window at a time: a view without a state for each window. A buffer type is not.
 - `paw.layout.only(win)`: Close every window of the current tab but one.
 - `paw.layout.parent_of(node, target)`: The split that contains `target` in the tree under `node`, and its place there.
+- `paw.layout.per_window(name)`: True if a view keeps a state for each window: by fields that `bind` swaps (`window_keep`), or by instances (`instances`).
 - `paw.layout.powers(scope, def, wrap)`: Map the items that `def` declares in key scope `scope` (the name of a view, or a part of a view: see `paw.keymap.scopes`). So a buffer type or a kind of text buffer declares its keys where it is made:
 
   ```lua
@@ -2265,6 +2268,8 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   ```
 
   paw does not call the callback when the user cancels the prompt. The options are those of the command line (`paw.views.cmdline.open`): `complete`, `history`, `on_change` (live preview), `anchor` (draw it next to its subject), `on_key`, `still` (the preview asks for a whole frame itself when it changes another view).
+- `paw.ui.instance(name)`: The state of a view in its window with the keyboard, else in the window that had it last, else in any window of the view. With no window, the view itself (its proxy). Nil for a view without `window_instances`.
+- `paw.ui.instance_of(win)`: The state of a view for one window (a view with `window_instances`): a table with the fields of `window_state` that takes the rest from the view. Nil for another view.
 - `paw.ui.layer(view, part, name, order, paint)`: Draw `paint(ctx)` as a layer of a part of a view (`"arrange", "header"`). It replaces a layer with the same name (nil removes it). The view tells what `ctx` contains where it calls `paw.ui.paint`.
 - `paw.ui.live(buf, draw_part, stamp)`: Draw a live part on `buf`: `draw(buf)` draws it, now and each time it is drawn again by itself. With `stamp`, a function that gives a text of the values the part is drawn from (nil: unknown), the part is drawn again only when that text changes; its cells stay as they were drawn.
 - `paw.ui.live_drawing()`: True if a live part drawn now is one of the terminal's screen.
@@ -2323,6 +2328,8 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   Optional fields: `focusable` (default true), `on_key(self, key)` for keys with no mapping, `modal` (each key goes to `on_key`), `on_mouse(self, event)`, `on_show(self)`, `on_hide(self)`. A view is a buffer type with one buffer, with the name of the view or the name from `bufname`.
 
   `window_state` names the fields of the view's table that are each window's own (the cursor, the scroll, the open clip). Then any number of windows show the view, and the table holds the state of the window that draws or acts (`paw.layout.bind`). `window_fresh` names the fields a new window starts without, such as caches. Without `window_state`, the view shows in one window at a time. `open_target(self, target)` opens a thing by name in the window (`:e roll://7`), and `window_target(self)` gives that name back for a saved layout. `share` says what part of the room the view keeps where windows share it: `{ column, least, most }`.
+
+  With `window_instances`, each window has its own table of the `window_state` fields, which takes the rest from the view (`paw.ui.instance_of`), and the view draws with that table as `self`. The view that `paw.ui.view` returns then reads and writes those fields in the window that drew or acted last.
 - `paw.ui.visible(name)`: True if a view is on the screen now.
 - `paw.ui.wake()`: Start the frames of what moves, unless they run: nothing happens when nothing moves.
 

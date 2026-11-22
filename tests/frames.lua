@@ -272,7 +272,8 @@ test("frames: a move key in the piano roll does not draw the windows around it a
   local calls, renders = {}, {}
   for _, name in ipairs({ "arrange", "pianoroll", "mixer" }) do
     local view = paw.ui.views[name]
-    renders[name] = rawget(view, "render")
+    -- Not `rawget`: the piano roll's view is a proxy (`window_instances`).
+    renders[name] = view.render
     calls[name] = 0
     view.render = function(...)
       calls[name] = calls[name] + 1
