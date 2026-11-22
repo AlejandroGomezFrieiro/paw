@@ -1014,6 +1014,7 @@ mod tests {
             meta: Default::default(),
             source: None,
             origin: None,
+            link: None,
         }
     }
 }

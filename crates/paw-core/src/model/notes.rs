@@ -101,6 +101,13 @@ impl Notes {
         self.runs.is_empty()
     }
 
+    /// Whether `other` is a copy of these notes that no edit has changed:
+    /// it holds the very same runs. Notes that are only equal are not.
+    pub fn same_runs(&self, other: &Notes) -> bool {
+        self.runs.len() == other.runs.len()
+            && self.runs.iter().zip(&other.runs).all(|(a, b)| Arc::ptr_eq(a, b))
+    }
+
     /// Count the ends again from run `from` on.
     fn reindex(&mut self, from: usize) {
         let mut end = self.start(from);

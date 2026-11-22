@@ -18,6 +18,7 @@
 //! ├── media.json              what each file the clips use is: hash, size, header
 //! ├── media/                  sound files, and `derived/` for those a kind makes
 //! ├── nests/<name>/           a nest (subproject): see `folder/nests.rs`
+//! ├── linked/<link>.midi2     the notes of each link of clips (`model/links.rs`)
 //! └── unused/                 files the project does not use any more, and
 //!                             `unused/nests/`, the nests no clip places
 //! ```
@@ -41,7 +42,7 @@ use super::BASE64;
 use super::media::MEDIA_FILE;
 use super::project_files::{DiskFiles, ProjectFiles};
 use crate::clipfile;
-use crate::model::{Clip, ClipContent, KindData, Notes, Project, Target, Track};
+use crate::model::{Clip, ClipContent, Control, KindData, Notes, Project, Target, Track};
 
 mod nests;
 
@@ -51,7 +52,9 @@ pub const PROJECT_FILE: &str = "project.toml";
 const VERSION: u32 = 2;
 /// The folders and the files at the top of a project that paw writes, and
 /// so may move to `unused/` when the project does not need them.
-const MANAGED_DIRS: [&str; 3] = ["tracks", "master", "nests"];
+const MANAGED_DIRS: [&str; 4] = ["tracks", "master", "nests", LINKED_DIR];
+/// The folder of the notes of each link: one file for all of its clips.
+const LINKED_DIR: &str = "linked";
 const MANAGED_FILES: [&str; 3] = ["meta.json", "screen.json", MEDIA_FILE];
 const GITATTRIBUTES: &str = "*.midi2 diff=paw-midi2\n";
 
@@ -347,6 +350,9 @@ impl Writer<'_> {
             self.layout.clip_files.insert(clip.id, source.clone());
             return clip_entry(clip, Some(&file));
         }
+        if let Some(link) = &clip.link {
+            return self.linked_clip(clip, link, notes, controls);
+        }
         let bytes = clipfile::encode(notes.iter(), controls, clip.length);
         let path = match self.written.get(&bytes) {
             Some(path) => path.clone(),
@@ -363,6 +369,23 @@ impl Writer<'_> {
                 path
             }
         };
+        self.layout.clip_files.insert(clip.id, path.clone());
+        clip_entry(clip, Some(&path))
+    }
+}
+
+impl Writer<'_> {
+    /// A clip of a link: its entry names the link's file, `linked/<link>.midi2`,
+    /// which every clip of the link names. The file has no length of its
+    /// own: the clips of a link may each be of another length, and each
+    /// track writes the file alone in the undo file (`TrackCache`), so the
+    /// bytes come from the notes and the controller moves only.
+    fn linked_clip(&mut self, clip: &Clip, link: &str, notes: &Notes, controls: &[Control]) -> Result<Value> {
+        let path = Path::new(LINKED_DIR).join(format!("{link}.midi2"));
+        if !self.layout.files.contains_key(&path) {
+            let bytes = clipfile::encode(notes.iter(), controls, 0.0);
+            self.layout.files.insert(path.clone(), bytes);
+        }
         self.layout.clip_files.insert(clip.id, path.clone());
         clip_entry(clip, Some(&path))
     }
@@ -1333,12 +1356,20 @@ fn fill_clips(
         .into_iter()
         .collect();
     let decoded = read_clips(fs, &unique);
-    let mut by_path: HashMap<&Path, &Result<clipfile::Clip>> = HashMap::new();
+    // The notes of each file made once: the clips that name one file (the
+    // clips of a link, a split clip's halves) share them, as copies do.
+    type FileNotes<'r> = (Notes, &'r [Control]);
+    type Decoded<'r> = Result<FileNotes<'r>, &'r anyhow::Error>;
+    let decoded: Vec<Decoded<'_>> = decoded
+        .iter()
+        .map(|read| read.as_ref().map(|clip| (Notes::from(clip.notes.clone()), clip.controls.as_slice())))
+        .collect();
+    let mut by_path: HashMap<&Path, &Decoded<'_>> = HashMap::new();
     for (path, clip) in unique.iter().zip(&decoded) {
         by_path.insert(path, clip);
     }
     let mut clip_files = HashMap::new();
-    let mut contents: HashMap<u64, (Option<&clipfile::Clip>, PathBuf)> = HashMap::new();
+    let mut contents: HashMap<u64, (Option<&FileNotes<'_>>, PathBuf)> = HashMap::new();
     for (id, path) in files {
         clip_files.insert(*id, path.clone());
         let read = match by_path.get(path.as_path()) {
@@ -1357,11 +1388,11 @@ fn fill_clips(
             return;
         };
         let clip = Arc::make_mut(clip);
-        if let Some(read) = read
+        if let Some((read_notes, read_controls)) = read
             && let ClipContent::Midi { notes, controls } = &mut clip.content
         {
-            *notes = Notes::from(read.notes.clone());
-            *controls = read.controls.clone();
+            *notes = read_notes.clone();
+            *controls = read_controls.to_vec();
         }
         // A file outside the folder, or one that is missing, stays where
         // the project said it is.
