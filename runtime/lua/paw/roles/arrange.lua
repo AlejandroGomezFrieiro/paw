@@ -8,14 +8,25 @@ local role = paw.roles.define
 local draw = paw.draw
 local util = paw.util
 
+--- What a clip's row says in `room` columns: its label, and its take mark
+--- after it, or before it where both do not fit.
+local function title(p, room)
+  local label = p.label or p.name or ""
+  if not p.mark then return label end
+  local full = label .. " ‹" .. p.mark .. "›"
+  if paw.api.str_width(full) <= room then return full end
+  return "‹" .. p.mark .. "› " .. label
+end
+
 --- Where a beat falls in a role marked from beat `from`, `per` columns a
 --- beat: the column a terminal shows it on.
 local function column(p, beat) return math.floor((beat - (p.from or 0)) * (p.per or 1) + 0.5) end
 
 --- A clip on the timeline: a row with its `label` (its name, how it is
---- stretched, which take plays) over its body, a hairline where it starts,
---- a notch where each repeat of a looped clip begins (`repeats`, beats from
---- its start) and a mark on each warp marker (`warps`, the same). `per` is
+--- stretched) and its take `mark` ("2/4": `label ‹2/4›`, or `‹2/4› label`
+--- where that does not fit, so that the mark stays in view) over its body,
+--- a hairline where it starts, a notch where each repeat of a looped
+--- clip begins (`repeats`, beats from its start) and a mark on each warp marker (`warps`, the same). `per` is
 --- columns a beat. The terminal draws the row in `title_style` and the
 --- body in `body_style`, and `body(buf, props)` draws what is in the body (notes,
 --- a waveform). A window paints it in `color` (its track's), lit when
@@ -35,6 +46,7 @@ role("clip", {
     id = "clip id",
     name = "string",
     label = "string",
+    mark = "string",
     color = "#rrggbb",
     midi = "boolean",
     muted = "boolean",
@@ -77,7 +89,8 @@ role("clip", {
       return
     end
     buf:fill(0, 0, w, 1, " ", p.title_style)
-    buf:text(w > 2 and 1 or 0, 0, p.label or p.name or "")
+    local x0 = w > 2 and 1 or 0
+    buf:text(x0, 0, title(p, w - x0))
     if h >= 2 then
       buf:fill(0, 1, w, h - 1, " ", p.body_style)
       if p.body then p.body(buf, p) end
@@ -103,7 +116,7 @@ role("clip", {
       if x >= 0 and x < w then
         buf:text(x, 0, "‹", "ClipEdge")
         local room = math.max(0, w - x - 2)
-        if room > 0 then buf:text(x + 1, 0, util.fit(p.label or p.name or "", room), p.title_style) end
+        if room > 0 then buf:text(x + 1, 0, util.fit(title(p, room), room), p.title_style) end
       end
     end
     if p.cut_out then
