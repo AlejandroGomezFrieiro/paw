@@ -1,5 +1,4 @@
 -- Commands, keys and menu entries for templates.
-local api = paw.api
 local templates = require("templates")
 local command = paw.command
 

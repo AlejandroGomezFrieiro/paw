@@ -59,7 +59,6 @@ end
 -- Error messages that are not a clean rejection of bad input.
 local BAD = { "panicked", "attempt to", "stack overflow", "unwrap", "RefCell", "already borrowed", "index out of" }
 
-local function ids(list) return list end
 local function tracks() return api.track_list() end
 local function any_track()
   local list = tracks()

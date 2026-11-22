@@ -389,7 +389,7 @@ test("the doctor's round trip measures a click and says when the signal is no lo
   local found = doctor.round_trip(make(2.0123), 1.0, 0.004)
   near(found.round_trip, 1012.3, 0.1, "the round trip in milliseconds")
   near(found.residual, 1008.3, 0.1, "what the program does not take off yet")
-  local none, why = doctor.round_trip(read(path), 1.0, 0)
+  local none = doctor.round_trip(read(path), 1.0, 0)
   eq(none ~= nil, true, "the same file at another place")
   doctor.write_sound(path, 48000, 2, 48000 * 3, function(f) return 0.3 * math.sin(f / 20) end)
   local tone, problem = doctor.round_trip(read(path), 1.0, 0)

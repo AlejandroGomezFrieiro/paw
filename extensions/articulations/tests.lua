@@ -129,7 +129,7 @@ end)
 -- The roll -----------------------------------------------------------------------------
 
 test("articulations: the roll labels keyswitch rows, tags notes, shows the band and the pen", function()
-  local track, clip, roll = strings()
+  local track, _, roll = strings()
   paw.ui.focus("pianoroll")
   paw.commands.exec("%art stc")
   roll:set(69, 1)

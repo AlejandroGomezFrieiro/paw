@@ -1,7 +1,6 @@
 -- Tests of the templates extension; tests/suite.lua runs them.
 local T = ...
 local test, eq, near, fresh = T.test, T.eq, T.near, T.fresh
-local api = paw.api
 
 local templates
 local function load()

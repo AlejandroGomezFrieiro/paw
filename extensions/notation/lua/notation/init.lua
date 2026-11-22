@@ -1372,7 +1372,7 @@ function view:toggle_grace()
   if not source then return false end
   local made = false
   self:write(function(sc)
-    local mi, entry, k, at, ev = D.find(sc, source.id)
+    local mi, entry, _, at, ev = D.find(sc, source.id)
     if not ev then return false end
     local graces = graces_before(entry, ev)
     local f = D.frame(sc)

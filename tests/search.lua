@@ -5,7 +5,7 @@
 -- and the motions and text objects of the tree. Loaded by tests/suite.lua
 -- with its helpers.
 local T = ...
-local test, eq, fails, fresh = T.test, T.eq, T.fails, T.fresh
+local test, eq, fresh = T.test, T.eq, T.fresh
 local api = paw.api
 local pick = paw.pick
 

@@ -403,7 +403,7 @@ local function track_block(t, i, ctx, depth, unfoldered, index, receives)
   block:add(fmt.line("SEL", 0))
   local input, monitor = -1, 0
   if t.input then
-    local a, b = t.input:match("^(%d+)/(%d+)$")
+    local a = t.input:match("^(%d+)/(%d+)$")
     if a then input = 1024 + tonumber(a) - 1 else input = (tonumber(t.input) or 1) - 1 end
   end
   if t.monitor then monitor = 1 end

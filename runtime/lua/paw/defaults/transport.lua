@@ -2,7 +2,7 @@
 -- like it, it uses nothing but the public `paw` module.
 local api = paw.api
 local util = paw.util
-local command, map = paw.command, paw.keymap.set
+local command = paw.command
 local cursor, transport = paw.cursor, paw.transport
 local keymap, edit = paw.keymap, paw.edit
 local common = require("paw.defaults.common")

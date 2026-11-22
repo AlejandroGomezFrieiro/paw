@@ -1,7 +1,7 @@
 -- Input and recording tests.
 local T = ...
-local test, last, after, eq, near, fails, fresh, render = T.test, T.last, T.after, T.eq, T.near, T.fails, T.fresh, T.render
-local until_, next_block, scratch, frequency, keys = T.until_, T.next_block, T.scratch, T.frequency, T.keys
+local test, eq, near, fails, fresh, render = T.test, T.eq, T.near, T.fails, T.fresh, T.render
+local until_, next_block, scratch = T.until_, T.next_block, T.scratch
 local paw = require("paw")
 local api = paw.api
 

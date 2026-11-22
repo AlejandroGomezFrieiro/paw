@@ -56,7 +56,6 @@ test("a project saved to a folder name writes a folder of files and opens again 
   eq(T.read_file(dir .. "/tracks/Keys/clips/riff.midi2"):sub(1, 8), "SMF2CLIP", "a MIDI 2.0 clip file")
   eq(T.read_file(dir .. "/.gitattributes"), "*.midi2 diff=paw-midi2\n", ".gitattributes")
   eq(T.read_file(dir .. "/project.toml"):match("tempo = ([%d.]+)"), "96.0", "the tempo is in project.toml")
-  local before = api.project_file_text and nil
   local was = {}
   for _, t in ipairs(api.track_list()) do
     for _, c in ipairs(api.clip_list(t)) do was[c.name] = api.clip_notes(c.id) end

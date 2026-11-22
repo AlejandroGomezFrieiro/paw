@@ -217,7 +217,7 @@ test("the master is a header like the others, its level on both sides; the timel
 end)
 
 test("a header's bottom edge dragged in a window makes its track taller, the others keeping theirs", function()
-  local a, b, _, _, at = song()
+  local a, b = song()
   local row
   for _, r in ipairs(view.geometry.layout.rows) do if r.id == a.id then row = r end end
   local x = 6

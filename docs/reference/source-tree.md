@@ -18,6 +18,7 @@ give the rules for a change.
 | `runtime/lua/tl.lua` | The compiler of Teal, version 0.24.8 (MIT license, `tl.LICENSE`). |
 | `runtime/types/` | `paw.lua`, the type definitions of the `paw` module for LuaLS. `paw.d.tl` and `paw/api.d.tl`, the declarations of `paw` and `paw.api` for Teal. `paw/untyped.d.tl`, the type that a module of the runtime in Teal gives to the parts of `paw` that are still Lua. `any-allowed.txt`, each `any` that they can have, with the reason. `tools/apidoc.lua` makes them. |
 | `tlconfig.lua` | The configuration of Teal for `cyan check`, `tl check` and the language server of Teal. |
+| `.luacheckrc` | The configuration of `luacheck`, which checks the Lua files: LuaJIT, the global `paw`, the warnings that paw does not use. |
 | `.luarc.json` | The configuration of the language server of Lua (LuaLS): LuaJIT, the global `paw` and `runtime/types`. |
 | `extensions/` | The bundled extensions. Each folder has a `README.md`, a `manifest.lua`, an `init.lua` (or an `init.tl` in Teal), its Lua in `lua/` and its tests in `tests*.lua`. Some also have `doc/`, `images/`, `native/` and `nix/`. |
 | `config/` | The example configuration: an `init.lua` that loads the bundled extensions, and three small extensions in `config/extensions/`. |

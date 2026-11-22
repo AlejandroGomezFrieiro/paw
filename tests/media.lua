@@ -514,7 +514,7 @@ test("an audio clip is reversed, normalized and glued without touching its file"
   paw.undo()
 
   -- Two clips side by side, and one apart that is left alone.
-  local b = t:add_clip({ file = steady(T.scratch .. "/g.wav", 1, 0.25), start = 2, length = 2 })
+  t:add_clip({ file = steady(T.scratch .. "/g.wav", 1, 0.25), start = 2, length = 2 })
   local apart = t:add_clip({ file = steady(T.scratch .. "/h.wav", 1, 0.1), start = 8, length = 2 })
   paw.flush()
   local mix = T.render({ tail = 0, bits = 32 })

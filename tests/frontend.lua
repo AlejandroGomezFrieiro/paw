@@ -32,7 +32,7 @@ test("the window is told how many frames a second to draw while the song plays",
 end)
 
 test("the frontend is told colours, chains, both meter sides and when notes change", function()
-  local a, b, clip = song()
+  local a, _, clip = song()
   local state = paw.frontend.state(-1)
   eq(state.tracks[1].color, paw.draw.track_colour(a:get(), 1), "a track's colour")
   eq(state.tracks[1].chain, "Synth", "what it goes through")
@@ -141,7 +141,7 @@ test("menus act on what was clicked, and dragging selects or loops", function()
 end)
 
 test("the pointer edits notes, velocities, the mixer, automation and devices", function()
-  local a, b, clip = song()
+  local a, _, clip = song()
   eq(act.add_note(clip.id, 67, 2.1, 0.5), 3, "a click in the roll adds a note on the grid")
   eq(clip:notes()[3].start, 2, "where it was clicked")
   eq(act.add_note(clip.id, 67, 2.1), nil, "not on top of another")
@@ -189,7 +189,7 @@ test("the pointer edits notes, velocities, the mixer, automation and devices", f
 end)
 
 test("any parameter is automated, and lanes are drawn with a pencil", function()
-  local a, b, clip = song()
+  local a = song()
   local synth = a:devices()[1]
   local pan = paw.lane(act.lane(a.id, "pan"))
   local cutoff = paw.lane(act.lane(a.id, "param", synth.id, "cutoff"))
@@ -233,7 +233,7 @@ test("any parameter is automated, and lanes are drawn with a pencil", function()
 end)
 
 test("controller moves are drawn into a clip with a pencil", function()
-  local a, b, clip = song()
+  local _, _, clip = song()
   paw.opt.note_grid = 0.25
   local stroke = {}
   for i = 0, 20 do stroke[#stroke + 1] = { i * 0.05, 0.5 + i / 40 } end
@@ -261,7 +261,7 @@ test("controller moves are drawn into a clip with a pencil", function()
 end)
 
 test("the record button arms the selected track, and stopping ends record mode", function()
-  local a, b = song()
+  local _, b = song()
   api.engine_restart({ backend = "null", test_input = { frequency = 440, level = -12, channels = 2 } })
   act.select(b.id, 0)
   b.input = "1"
@@ -636,7 +636,7 @@ test("the keys act on the chosen clips", function()
 end)
 
 test("chosen clips move and copy together, by whole grid steps, as one undo step", function()
-  local tracks, c, chosen = grid_song()
+  local _, c, chosen = grid_song()
   local function at(name) local clip = paw.clip(c[name]) return clip:track().name .. "@" .. clip.start end
   act.select_clip(c["1.2"], 4, "only")
   act.select_clip(c["2.3"], 8, "toggle")
@@ -813,7 +813,7 @@ test("a track's height is its own, flags are swept, and headers are dragged into
 end)
 
 test("the chosen clips are split at the edit cursor and glued", function()
-  local tracks, c, chosen = grid_song()
+  local tracks, c = grid_song()
   paw.clip(c["2.2"]).length = 4
   act.select_clip(c["1.2"], 4, "only")
   act.select_clip(c["2.2"], 4, "toggle")

@@ -24,7 +24,7 @@ if mode == "bigclip" then
     notes[i] = { start = (i - 1) / 4, length = 0.25, pitch = 36 + i % 48, velocity = 90 }
   end
   api.clip_set_notes(clip, notes)
-  notes = nil
+  notes = nil -- luacheck: ignore 311 (dropped for the collector)
   paw.flush()
   api.undo_checkpoint()
   collectgarbage()

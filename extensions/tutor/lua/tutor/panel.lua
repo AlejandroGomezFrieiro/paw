@@ -70,7 +70,7 @@ function M.paragraphs()
   local out = {}
   local function add(text, style) out[#out + 1] = { text = M.keys(text), style = style or "TutorText" } end
   if not S.active then return out end
-  local lesson, step, index = tutor.current()
+  local lesson, step = tutor.current()
   lesson = lesson or tutor.by_id[S.lesson]
   if not lesson then
     add("This lesson is no longer there. `:tutor list` shows the lessons.")

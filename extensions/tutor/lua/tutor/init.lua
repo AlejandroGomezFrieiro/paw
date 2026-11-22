@@ -173,7 +173,7 @@ local function new_ctx()
 end
 
 local function begin_step()
-  local lesson, step = M.current()
+  local _, step = M.current()
   ctx = new_ctx()
   S.hint, S.error = false, nil
   remember()
@@ -316,7 +316,7 @@ function M.start(which, opts)
     lesson = cur and M.by_id[cur.lesson]
     if lesson then resume = cur.step else lesson = M.lessons[1] end
   else
-    lesson, n = M.find(which)
+    lesson = M.find(which)
     if not lesson then return paw.notify("no lesson `" .. tostring(which) .. "`: `:tutor list` shows them", "warn") end
     local cur = data().current
     if cur and cur.lesson == lesson.id and not opts.fresh then resume = cur.step end

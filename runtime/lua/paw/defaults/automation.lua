@@ -1,7 +1,7 @@
 -- The default commands and keys: automation. Loaded by paw/defaults.lua;
 -- like it, it uses nothing but the public `paw` module.
-local command, map = paw.command, paw.keymap.set
-local cursor, transport = paw.cursor, paw.transport
+local command = paw.command
+local cursor = paw.cursor
 local common = require("paw.defaults.common")
 local need_track = common.need_track
 

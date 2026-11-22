@@ -1,7 +1,7 @@
 -- The extension API: manifests and versions, what an extension owns and
 -- taking it away again. Loaded by tests/suite.lua with its helpers.
 local T = ...
-local test, eq, fails = T.test, T.eq, T.fails
+local test, eq = T.test, T.eq
 local api = paw.api
 
 local function write(path, text)

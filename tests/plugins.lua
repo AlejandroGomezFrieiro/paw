@@ -1,6 +1,6 @@
 -- Plugins tests.
 local T = ...
-local test, after, eq, near, fails, fresh, render, tone = T.test, T.after, T.eq, T.near, T.fails, T.fresh, T.render, T.tone
+local test, eq, near, fails, fresh, render, tone = T.test, T.eq, T.near, T.fails, T.fresh, T.render, T.tone
 local until_, next_block, scratch, channel_peaks = T.until_, T.next_block, T.scratch, T.channel_peaks
 local paw = require("paw")
 local api = paw.api

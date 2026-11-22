@@ -1,5 +1,4 @@
 -- The sampler's kind of track, its commands, and the instrument picker.
-local api = paw.api
 local sampler = require("sampler")
 local command = paw.command
 

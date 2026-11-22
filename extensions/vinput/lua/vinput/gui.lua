@@ -9,7 +9,6 @@
 --   bottom   what the tracker says, and a track that takes the input
 --
 -- Every key of the terminal panel works in the window too.
-local api = paw.api
 local util = paw.util
 local vinput = require("vinput")
 local run = require("vinput.run")
@@ -221,7 +220,7 @@ function view:paint(g, ctx)
     hit(x, 11, tw, 24, { down = function() view:go(other.name) end })
     x = x + tw + 8
   end
-  x = button(g, x, 11, "+ Add", function() commands.open(vinput.add({}).name) end)
+  button(g, x, 11, "+ Add", function() commands.open(vinput.add({}).name) end)
 
   if not input then
     g:text(PAD + 8, TOP + 40, "No virtual inputs yet.", { color = c.text, size = 16, bold = true })

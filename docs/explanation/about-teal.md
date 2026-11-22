@@ -231,6 +231,10 @@ version in `runtime/lua/tl.lua`, and LuaJIT, as paw does.
   types and errors in an editor. The first reads `tlconfig.lua`, and the
   second reads `.luarc.json`. See
   [How to configure an editor for paw's code](../how-to/configure-an-editor-for-paws-code.md).
+- `luacheck` finds names that are not used and global names that are not
+  declared in the Lua files. `.luacheckrc` declares the global `paw`. The
+  `lua` check of the flake runs it. It found a function that the import
+  of MusicXML called outside the loop that declared it.
 - `tl` compiles one file, for example to look at the Lua that Teal makes
   (`tl gen`).
 

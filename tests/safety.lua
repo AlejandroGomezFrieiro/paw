@@ -125,10 +125,6 @@ local function wav_sizes(path)
   return b1 + b2 * 256 + b3 * 65536 + b4 * 16777216, #data
 end
 
-local function last_message()
-  return (paw.ui.messages[#paw.ui.messages] or {}).text or ""
-end
-
 test("a take's file is a valid WAV while it is recorded, and is in the safety copy from the start", function()
   with_input(function()
     fresh()

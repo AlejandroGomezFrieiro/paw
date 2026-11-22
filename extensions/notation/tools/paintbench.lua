@@ -9,7 +9,6 @@
 -- With `notation` the edit is made in notation, and its time is the edit
 -- itself (the score changed and written back as MIDI) and the paint.
 local paw = require("paw")
-local api = paw.api
 local args = { ... }
 local bars = tonumber(args[1]) or 16
 local window = args[2] == "window" or args[3] == "window"

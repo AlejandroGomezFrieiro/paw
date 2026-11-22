@@ -415,7 +415,7 @@ local function room(st, ev)
   end
   local side = any and hw - st.stem or 0
   local acc = 0
-  if signs then _, acc = accidentals(st, ev.notes) end
+  if signs then acc = select(2, accidentals(st, ev.notes)) end
   local left = hw / 2 + (dir < 0 and side or 0) + acc
   local right = hw / 2 + (dir > 0 and side or 0)
   if ev.arpeggio or ev.grace then left = left + 0.4 * s end

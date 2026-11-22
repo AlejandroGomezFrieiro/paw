@@ -293,6 +293,23 @@
         touch $out
       '';
 
+      # luacheck on every Lua file, with .luacheckrc: unused and undefined
+      # names, values set and never read.
+      luaCheck = pkgs: pkgs.runCommand "paw-luacheck" {
+        src = nixpkgs.lib.fileset.toSource {
+          root = ./.;
+          fileset = nixpkgs.lib.fileset.unions [
+            ./.luacheckrc
+            (nixpkgs.lib.fileset.fileFilter (file: file.hasExt "lua") ./.)
+          ];
+        };
+        nativeBuildInputs = [ pkgs.luajitPackages.luacheck ];
+      } ''
+        cd $src
+        luacheck --no-cache --formatter plain --codes .
+        touch $out
+      '';
+
       pawUtau = pkgs: (paw pkgs).withExtensions (exts: [ exts.utau ]);
 
       # The Teal tools that nixpkgs has not, or has old or with a fault.
@@ -313,8 +330,9 @@
       });
 
       # `nix flake check`: clippy, rustfmt, the Rust tests a sandbox can run,
-      # the program itself, Vale on the docs, and `cyan check` on the Teal.
-      checks = forAll (pkgs: (rust pkgs).checks // { paw = paw pkgs; docs = docsCheck pkgs; teal = tealCheck pkgs; });
+      # the program itself, Vale on the docs, `cyan check` on the Teal and
+      # luacheck on the Lua.
+      checks = forAll (pkgs: (rust pkgs).checks // { paw = paw pkgs; docs = docsCheck pkgs; teal = tealCheck pkgs; lua = luaCheck pkgs; });
 
       apps = forAll (pkgs:
         nixpkgs.lib.genAttrs [ "paw" "paw-gui" "paw-mcp" ] (name: {

@@ -109,7 +109,7 @@ test("notation: the clef is chosen by the notes, or fixed by the track", functio
 end)
 
 test("notation: what was played loosely is written to the grid, and the notes stay as played", function()
-  local _, model = load()
+  local _ = load()
   local notes = { N(60, 0.03, 0.46), N(62, 0.52, 0.47), N(64, 0.98, 1.05) }
   eq(written(notes), "e C4 e D4 q E4 hr", "rounded to sixteenths")
   eq(notes[1].start, 0.03, "the notes themselves are not touched")
@@ -578,7 +578,7 @@ test("score editing: quantize to the notation, and write again from the playing"
 end)
 
 test("score editing: voices, triplets, and writing again from the playing", function()
-  local view, clip = song({ N(64, 0, 2), N(67, 0, 0.5), N(69, 0.5, 0.5), N(71, 1, 0.5), N(72, 1.5, 0.5), N(74, 2, 2) })
+  local view = song({ N(64, 0, 2), N(67, 0, 0.5), N(69, 0.5, 0.5), N(71, 1, 0.5), N(72, 1.5, 0.5), N(74, 2, 2) })
   local _, model = load()
   eq(model.text(view:layout(), 1, 2), "h E4 hr", "the held E is a second voice")
   view:set(37, 0)
@@ -603,7 +603,7 @@ test("score editing: voices, triplets, and writing again from the playing", func
 end)
 
 test("score editing: grace notes, strums, beams and spelling by key", function()
-  local view, clip = song({ N(72, 0, 0.5), N(74, 0.5, 0.5), N(76, 1, 0.5), N(77, 1.5, 0.5), N(60, 2, 1), N(64, 2, 1), N(67, 2, 1) })
+  local view = song({ N(72, 0, 0.5), N(74, 0.5, 0.5), N(76, 1, 0.5), N(77, 1.5, 0.5), N(60, 2, 1), N(64, 2, 1), N(67, 2, 1) })
   local _, model = load()
   view:set(43, 0.5)
   keys("gb")
@@ -658,7 +658,7 @@ test("notation: w, b and W move by what is written", function()
 end)
 
 test("notation: :notation.key and :notation.clef keep the key with the project and the clef with the track", function()
-  local view, clip, track = song({ N(72, 0, 1) })
+  local view, _, track = song({ N(72, 0, 1) })
   paw.cmd("notation.key", { "Eb", "major" })
   api.undo_checkpoint()
   eq(api.project_get().key, "Eb major", "the key is the project's")
@@ -672,7 +672,7 @@ test("notation: :notation.key and :notation.clef keep the key with the project a
 end)
 
 test("notation: the terminal draws the staff, clef, key, heads, stems and beams", function()
-  local view = song({ N(72, 0, 0.5), N(74, 0.5, 0.5), N(76, 1, 1), N(65, 2, 2) })
+  song({ N(72, 0, 0.5), N(74, 0.5, 0.5), N(76, 1, 1), N(65, 2, 2) })
   paw.cmd("notation.key", { "D", "major" })
   local text = table.concat(api.ui_snapshot(120, 40), "\n")
   eq(text:find("│●┼╮", 1, true) ~= nil, true, "a treble clef, curled round its G line")
@@ -758,7 +758,7 @@ test("marks: dynamics set the loudness, hairpins ramp it, slurs join the notes",
 end)
 
 test("tablature: a guitar track gets strings and frets, and the guitar's clef", function()
-  local view, clip, track = song(clean("E2+B2+E3+G#3+B3+E4 0 1, A2 1 1, C4 2 1, G2+B2+D3+G3+B3+G4 3 1"), 4)
+  local view, _, track = song(clean("E2+B2+E3+G#3+B3+E4 0 1, A2 1 1, C4 2 1, G2+B2+D3+G3+B3+G4 3 1"), 4)
   paw.cmd("notation.tab", { "guitar" })
   api.undo_checkpoint()
   eq(track.meta.notation.tab.tuning[1], 40, "standard tuning kept with the track, low E first")
@@ -785,7 +785,7 @@ test("tablature: a guitar track gets strings and frets, and the guitar's clef", 
 end)
 
 test("several tracks: a staff each, the open clip's the one edited; lyrics under the notes", function()
-  local view, clip, track = song({ { pitch = 72, start = 0, length = 1, velocity = 90, meta = { lyric = "la" } }, N(74, 1, 1) }, 4)
+  local view, clip = song({ { pitch = 72, start = 0, length = 1, velocity = 90, meta = { lyric = "la" } }, N(74, 1, 1) }, 4)
   local bass = paw.add_track({ name = "Bass" })
   local low = bass:add_clip({ start = 0, length = 4, notes = { N(40, 0, 2), N(43, 2, 2) } })
   paw.flush()
@@ -1758,7 +1758,7 @@ test("notation export: MusicXML has the key, ties, beams and accidentals", funct
 end)
 
 test("notation export: :notation.export writes a file for the clip or the whole track", function()
-  local _, clip, track = song({ N(72, 0, 1), N(74, 1, 1) })
+  local _, _, track = song({ N(72, 0, 1), N(74, 1, 1) })
   track:add_clip({ start = 8, length = 4, name = "more", notes = { N(76, 0, 4) } })
   local path = T.scratch .. "/notation-test.ly"
   paw.cmd("notation.export", { path, "track" })

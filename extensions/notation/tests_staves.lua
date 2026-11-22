@@ -190,7 +190,7 @@ test("a passage yanked from one staff pastes into another instrument's", functio
 end)
 
 test("Ex in a score: staves by number, by group, before or after the bars", function()
-  local view, clips = quartet()
+  local _, clips = quartet()
   local before = {}
   for name, clip in pairs(clips) do before[name] = names(clip) end
   paw.commands.exec("2 s3 d")

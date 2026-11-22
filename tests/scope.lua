@@ -496,7 +496,7 @@ end)
 
 test(":render stems shows a plan of one file per group, and they add up to the mix", function()
   start()
-  local o = orchestra()
+  orchestra()
   paw.flush()
   local mix = render({ master = false })
   local dir = T.scratch .. "/group-stems"

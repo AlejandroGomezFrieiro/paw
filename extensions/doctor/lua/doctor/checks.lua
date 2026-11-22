@@ -525,7 +525,7 @@ return function(M)
     unattended = true,
     limit = 120,
     run = function(ctx)
-      local spec, channels = first_input()
+      local spec = first_input()
       if not spec then return "skip", "no input is open" end
       local e = api.engine_get()
       local seconds = ctx.settings.record_seconds

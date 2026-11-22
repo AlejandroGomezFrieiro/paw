@@ -88,7 +88,7 @@ test("columns that reach full scale, after the clip's gain, are drawn in the err
   eq(#marks(1.0, -6.0206), 0, "and it is not when the gain takes it below")
 
   -- On the screen the column is red whichever way up its cells are drawn.
-  local _, clip = clip_with(1.0)
+  local _ = clip_with(1.0)
   paw.opt.zoom, paw.opt.track_height = 8, 4
   local red = require("paw.theme").palette.red
   local found = 0

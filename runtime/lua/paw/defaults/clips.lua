@@ -1,8 +1,8 @@
 -- The default commands and keys: clips. Loaded by paw/defaults.lua;
 -- like it, it uses nothing but the public `paw` module.
 local api = paw.api
-local command, map = paw.command, paw.keymap.set
-local cursor, transport = paw.cursor, paw.transport
+local command = paw.command
+local cursor = paw.cursor
 local keymap, edit = paw.keymap, paw.edit
 local roll = paw.ui.views.pianoroll
 local common = require("paw.defaults.common")

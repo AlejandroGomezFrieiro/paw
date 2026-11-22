@@ -394,7 +394,7 @@ test("params: one chosen by name is shown first on the card, and kept with the d
   fresh()
   local t = paw.add_track({ name = "keys" })
   paw.cursor.set_track(t.id)
-  local synth = t:add_device("synth")
+  t:add_device("synth")
   paw.flush()
   paw.ui.focus("devices")
   paw.ui.views.devices.row = 1

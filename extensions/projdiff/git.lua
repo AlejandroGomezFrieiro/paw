@@ -23,7 +23,7 @@ if command == "textconv" then
   io.write(projdiff.text.text(doc.project))
   paw.api.quit(0)
 elseif command == "merge" then
-  local base, err = projdiff.file(a or "")
+  local base = projdiff.file(a or "")
   -- A project added on both sides has no common version.
   if not base then base = nil end
   local ours, ours_err = projdiff.file(b or "")

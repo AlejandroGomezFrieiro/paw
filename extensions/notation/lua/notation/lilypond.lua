@@ -11,7 +11,7 @@ local D = require("notation.doc")
 
 local M = {}
 
-local Q, W = D.Q, D.W
+local W = D.W
 local floor = math.floor
 
 local LETTERS = { [0] = "c", "d", "e", "f", "g", "a", "b" }
@@ -172,7 +172,6 @@ local function part_text(part, pi, first_part)
       end
     end
   end
-  local out = {}
   for _, voice in ipairs(voices) do
     local words = {}
     local function w(x) words[#words + 1] = x end

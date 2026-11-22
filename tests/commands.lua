@@ -1,7 +1,7 @@
 -- Commands and keys tests.
 local T = ...
-local test, after, eq, near, fails, fresh, render, tone = T.test, T.after, T.eq, T.near, T.fails, T.fresh, T.render, T.tone
-local scratch, keys = T.scratch, T.keys
+local test, eq, fails, fresh, tone = T.test, T.eq, T.fails, T.fresh, T.tone
+local scratch = T.scratch
 local paw = require("paw")
 local api = paw.api
 

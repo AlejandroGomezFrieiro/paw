@@ -125,7 +125,7 @@ test("leader: a leader set in init.lua moves every key on it", function()
 end)
 
 test("popover: an empty prompt shows examples, and Tab fills the line", function()
-  local view = song()
+  song()
   local wait = paw.opt.timeoutlen
   T.after(function() paw.opt.timeoutlen = wait end)
   paw.opt.timeoutlen = 20
@@ -146,7 +146,7 @@ test("popover: an empty prompt shows examples, and Tab fills the line", function
 end)
 
 test("popover: it sits under the staff, so a tempo mark stays in sight", function()
-  local view = song()
+  song()
   paw.keymap.feed("<localleader>tAllegro q=132")
   local rows = rows_with("Allegro")
   eq(#rows >= 2, true, "the mark on the staff and the text in the prompt are both on the screen")
@@ -176,7 +176,7 @@ test("roll.toggle: with no clip open it opens the clip under the cursor, or says
   eq(api.json_encode(paw.ui.arrange()), before, "the layout is as it was")
   eq((paw.ui.message and paw.ui.message.text or ""):match("no clip") ~= nil, true, "the message line says so")
   local track = paw.add_track({ name = "Lead" })
-  local clip = track:add_clip({ start = 0, length = 4, name = "tune", notes = { { pitch = 60, start = 0, length = 1, velocity = 80 } } })
+  track:add_clip({ start = 0, length = 4, name = "tune", notes = { { pitch = 60, start = 0, length = 1, velocity = 80 } } })
   paw.flush()
   paw.cursor.set_track(track)
   paw.cursor.set_beat(1)

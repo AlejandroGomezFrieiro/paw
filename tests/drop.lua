@@ -3,7 +3,6 @@
 local T = ...
 local test, eq, fresh = T.test, T.eq, T.fresh
 local paw = require("paw")
-local api = paw.api
 local act = paw.frontend.act
 
 --- A short sound file called `name` in a folder whose name has a space in it.

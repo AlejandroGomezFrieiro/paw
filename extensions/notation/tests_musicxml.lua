@@ -345,13 +345,6 @@ local function write_file(path, data)
   f:close()
 end
 
-local function read_file(path)
-  local f = io.open(path, "rb")
-  local data = f and f:read("*a") or ""
-  if f then f:close() end
-  return data
-end
-
 -- Reading -------------------------------------------------------------------------------------
 
 test("musicxml: a piano piece reads as two staves, voices, a tie, a slur, a hairpin and a tempo mark", function()
@@ -373,6 +366,26 @@ test("musicxml: a piano piece reads as two staves, voices, a tie, a slur, a hair
   eq(text:find("mark dynamic 50400 value=f", 1, true) ~= nil, true, "the f")
   eq(text:find("mark tempo 0 value=Andante q=72 bpm=72", 1, true) ~= nil, true, "the tempo mark with its bpm")
   eq(mx.skipped_text(file), nil, "nothing left out")
+end)
+
+test("musicxml: a second voice that stops before the end of its bar gets rests to the barline", function()
+  -- Finale and Dorico leave out the rests at the end of a second voice.
+  local mx = load()
+  local file = assert(mx.parse(HEAD .. [[
+<score-partwise version="4.0">
+  <part-list><score-part id="P1"><part-name>Flute</part-name></score-part></part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes><divisions>1</divisions><time><beats>4</beats><beat-type>4</beat-type></time>
+        <clef><sign>G</sign><line>2</line></clef></attributes>
+      <note><pitch><step>G</step><octave>4</octave></pitch><duration>4</duration><voice>1</voice><type>whole</type></note>
+      <backup><duration>4</duration></backup>
+      <note><pitch><step>E</step><octave>4</octave></pitch><duration>1</duration><voice>2</voice><type>quarter</type></note>
+    </measure>
+  </part>
+</score-partwise>]]))
+  local text = describe(file.parts[1].score)
+  eq(text:find("  s1v2: E4/1:4  r/1:4  r/1:2", 1, true) ~= nil, true, "the quarter, then rests to the barline:\n" .. text)
 end)
 
 test("musicxml: a lead sheet keeps its pickup, chord symbols, lyrics in verses, rehearsal mark and text", function()
@@ -474,7 +487,7 @@ test("musicxml: :open makes a project of the file, its tempo, title, key and mar
   eq(api.project_get().meta.title, "Little Piece", "the title for the page")
   eq(math.floor(paw.tempo.at(0) + 0.5), 72, "the tempo mark's bpm is the song's tempo")
   local clip = tracks[1]:clips()[1]
-  local view = require("notation")
+  require("notation")
   eq((clip:notes()[1].meta or {}).notation ~= nil, true, "a MIDI clip whose notes keep what the score decided")
   local found
   for _, n in ipairs(clip:notes()) do

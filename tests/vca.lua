@@ -32,7 +32,7 @@ local function peak(from, to, opts)
 end
 
 test("a VCA fader moves its members by as many dB without changing their own faders", function()
-  local kick, snare, pad = setup()
+  local kick, snare = setup()
   local drums = paw.vca.make({ kick }, "Drums")
   eq(paw.vca.is_vca(drums), true, "it is marked")
   eq(paw.vca.is_vca(kick), false, "and a track is not")
@@ -85,7 +85,7 @@ test("a VCA's mute silences its members and its solo makes them the only sound",
 end)
 
 test("a VCA's automation moves its members sample by sample, with their own lanes", function()
-  local kick, snare = setup()
+  local kick = setup()
   local drums = paw.vca.make({ kick }, "Drums")
   -- At 120 BPM a beat is half a second: beat 2 is at 1 s, beat 6 at 3 s.
   drums:automate("volume"):set_points({ { 0, 0 }, { 4, -20 } })
@@ -120,7 +120,7 @@ test("a VCA's automation moves its members sample by sample, with their own lane
 end)
 
 test("renders with VCA automation are the same on any number of threads", function()
-  local kick, snare, pad = setup()
+  local kick, snare = setup()
   local drums = paw.vca.make({ kick, snare }, "Drums")
   drums:automate("volume"):set_points({ { 0, 0 }, { 4, -20 }, { 8, -3 } })
   snare:automate("volume"):set_points({ { 0, -2 }, { 6, 0 } })
@@ -200,8 +200,8 @@ test("VCA commands put the selected tracks under a VCA and take them out", funct
 end)
 
 test("VCAs are drawn after the tracks, in the arrange view's rows and the mixer's strips", function()
-  local kick, snare, pad = setup()
-  local drums = paw.vca.make({ kick }, "Drums")
+  local kick = setup()
+  paw.vca.make({ kick }, "Drums")
   paw.add_track({ name = "Late" })
   local names = {}
   for i, id in ipairs(paw.groups.rows()) do names[i] = api.track_get(id).name end

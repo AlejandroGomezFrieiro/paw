@@ -551,7 +551,7 @@ M.reader({
       remember(params, name, f32(data, at), nil, data:sub(at, at + 3))
     end
     local at = 25 + 4 * n
-    local extra = ""
+    local extra
     if major and major >= 1 and at + 3 <= #data then
       local size = i32(data, at) or 0
       remember(state, "data", { binary = data:sub(at + 4, at + 3 + size) }, nil, data:sub(at + 4, at + 3 + size))

@@ -575,7 +575,7 @@ end
 function M.tension(by)
   local win, t, s, points = here()
   if not win then return end
-  local at, q = point_at(points, s.beat, s.zoom)
+  local _, q = point_at(points, s.beat, s.zoom)
   if not (q and q.shape == "smooth") then return paw.notify("no smooth stretch from here: `~` makes one", "warn") end
   q.tension = util.clamp((q.tension or 0) + by, -1, 1)
   write(t, points, "Bend the curve")

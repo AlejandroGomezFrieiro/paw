@@ -106,7 +106,7 @@ end)
 test("a meter at full scale lights the clip light, and a click on the peak or the light puts it out", function()
   fresh()
   local a = paw.add_track({ name = "Alto" })
-  local s, at, lines
+  local s, at, _, lines
   metered(1.0, 0.5, function() s, at, _, lines = shown(a, 30) end)
   local x, y = at(s.x + 1, s.fader)
   eq(lines[y + 1]:find("▀", 1, true) ~= nil, true, "the clip light on top of the meters")

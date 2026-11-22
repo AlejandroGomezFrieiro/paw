@@ -17,7 +17,6 @@ local function test(name, fn)
     if not ok then error(err, 0) end
   end)
 end
-local music = paw.music
 
 local keys = T.keys
 
@@ -243,7 +242,7 @@ test("snippet: notes past the clip's end make it longer", function()
 end)
 
 test("snippet: the active snippet is drawn in the terminal and told to the window", function()
-  local clip, roll = open()
+  local clip = open()
   paw.ui.focus("pianoroll")
   keys(":snippet stack<CR><Tab>")
   local screen = table.concat(api.ui_snapshot(120, 40), "\n")

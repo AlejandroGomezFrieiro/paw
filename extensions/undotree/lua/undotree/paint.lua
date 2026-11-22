@@ -111,7 +111,7 @@ local function draw_diff(self, g, tree)
   local row = term.rows[term.sel]
   if not row then return end
   local s = row.state
-  local from, to, title = s.parent, s.id, nil
+  local from, to, title = s.parent, s.id
   if term.against == "current" then
     from, to = s.id, api.undo_current()
     title = string.format("from #%d to the current state #%d", from, to)
