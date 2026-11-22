@@ -99,6 +99,26 @@ What is left, in order of what the user feels:
    frame, and a key does not wait for it.
 2. A full frame costs 7 to 12 ms: the clip list is made again as JSON on each
    frame.
+
+   After (2026-11-22): the notes of a clip keep their stamp, a hash of the
+   notes. The kernel makes it again only after a change to the notes, not
+   on each call. The clip list goes into Lua from a typed record, with no
+   JSON between, and leaves out the fields that a clip does not have. The
+   clip lists of the 64 tracks cost 7.7 ms before and 3.1 ms after. Each
+   number is from one run of 200 calls. The draw of the arrange view now
+   makes the most of the cost of a frame. A full frame after `j` or `k`,
+   headless, 200 frames, in turns, 5 pairs:
+
+   | Measure | Before | After |
+   | --- | ---: | ---: |
+   | Instructions (millions) | 73 (72 to 75) | 59 (58 to 59) |
+   | Kernel time, measured under external load (load average 39 to 55) | 14.5 ms (14.0 to 27.8) | 13.5 ms (10.3 to 15.5) |
+
+   The kernel still looks for the file of each audio clip on each call, to
+   say if the clip is offline. The profile project has no audio clips, so
+   this cost is not in these numbers. A watch of file events does not see
+   when a folder above the file gets a new name. So it can say that a
+   missing file is there, and the kernel does not use one.
 3. The live ticker drew 60 frames per second when an armed input changed
    nothing on the screen. Fixed: after 20 frames in a row that change no
    cell, it slows to 8 per second, and a poke ends. Idle-armed kernel
