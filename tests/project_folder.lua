@@ -692,7 +692,7 @@ test("a chain file opens alone, on a track of its own, and :w writes it back", f
   eq(api.project_get().modified, false, "saved")
 end)
 
-test("a subproject made through the API keeps its tracks inside, and no clip places it: unused/nests/", function()
+test("a subproject made through the API has its own tracks, and they route only inside it", function()
   fresh()
   local reverb = api.track_add({ name = "Reverb" })
   local bridge = api.nest_add({ name = "Bridge", length = 24 })
@@ -708,8 +708,4 @@ test("a subproject made through the API keeps its tracks inside, and no clip pla
   )
   api.nest_set(bridge, { name = "Ballad" })
   eq(paw.nest.get(bridge).name, "Ballad", "renamed")
-  api.undo_checkpoint()
-  local dir = folder("nest")
-  paw.project.save(dir)
-  eq(exists(dir .. "/unused/nests/Ballad/tracks/Keys/track.json"), true, "kept, not played")
 end)

@@ -277,8 +277,9 @@ mod tests {
         add_nest(&mut p, 40, "Fill", Vec::new());
         save(&p, &dir);
         assert!(dir.join("nests/Fill/nest.toml").is_file());
-        let head = std::fs::read_to_string(dir.join(PROJECT_FILE)).expect("project.toml");
-        assert!(head.contains(r#"nests = ["Bridge", "Fill"]"#), "{head}");
+        let head: toml::Value = toml::from_str(&std::fs::read_to_string(dir.join(PROJECT_FILE)).expect("project.toml"))
+            .expect("TOML");
+        assert_eq!(head["nests"], toml::Value::Array(vec!["Bridge".into(), "Fill".into()]));
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
