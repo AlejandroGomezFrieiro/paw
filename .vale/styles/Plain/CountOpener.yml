@@ -5,4 +5,4 @@ message: "Do not announce a count ('%s') (plain-writing 25). State the first poi
 level: warning
 scope: sentence
 raw:
-  - '^(?:There\s+are\s+(?:two|three|four|five|six|seven|eight|nine|ten|several|a\s+few)|Two|Three|Four|Five|Six|Seven|Eight|Nine|Ten|Several|A\s+few)\s+(?:\w+\s+)?(?:things?|points?|cautions?|notes?|rules?|reasons?|ways?|ideas?|kinds?|options?|questions?|caveats?|warnings?|tips?|facts?|differences?|problems?|issues?|limits?|goals?|lessons?|takeaways?|observations?)\b'
+  - '^(?:There\s+are\s+(?:two|three|four|five|six|seven|eight|nine|ten|several|a\s+few)|Two|Three|Four|Five|Six|Seven|Eight|Nine|Ten|Several|A\s+few)\s+(?:\w+\s+)?(?:things?|points?|cautions?|rules?|reasons?|ways?|ideas?|kinds?|options?|questions?|caveats?|warnings?|tips?|facts?|differences?|problems?|issues?|limits?|goals?|lessons?|takeaways?|observations?)\b'
