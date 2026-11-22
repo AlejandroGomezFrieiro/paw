@@ -1,6 +1,6 @@
 # paw
 
-**A modal, keyboard-first (digital) audio workstation, inspired by neovim**
+**A modal, keyboard-first, fully customisable (digital) audio workstation, inspired by neovim**
 
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue)](#license)
 ![Linux](https://img.shields.io/badge/platform-Linux-informational)
