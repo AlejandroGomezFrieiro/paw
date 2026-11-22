@@ -152,14 +152,26 @@ command("transport.record", function()
     transport.record()
   end
 end, { desc = "Record armed tracks from the cursor (or, while the song plays, from the playhead), or stop recording" })
+-- The clip of event `e` when it is a take (its kind, a name that matches)
+-- on an armed track, or nil. The track comes first, by one field: the clips
+-- that an undo or a paste adds to a track that is not armed cost no read of
+-- the whole clip (its notes).
+local function armed(track)
+  local ok, on = pcall(api.track_get, track, "armed")
+  return ok and on == true
+end
+local function take_on_armed(e, kind, name)
+  if e.track and not armed(e.track) then return end
+  local ok, c = pcall(api.clip_get, e.id)
+  if not ok or c.kind ~= kind or not tostring(c.name):match(name) then return end
+  if not e.track and not armed(c.track) then return end
+  return c
+end
 -- Sound recorded over sound clips becomes their newest take, in the step
 -- that recorded it: the clips under it keep what they played as a take
 -- (paw.takes.record_over), and only the new take plays.
 paw.on("clip.added", function(e)
-  local ok, c = pcall(api.clip_get, e.id)
-  if not ok or c.kind ~= "audio" or not tostring(c.name):match("^take %d+") then return end
-  local ok_track, t = pcall(api.track_get, c.track or e.track)
-  if not ok_track or not t.armed then return end
+  if not take_on_armed(e, "audio", "^take %d+") then return end
   local step = api.undo_current()
   if paw.takes.record_over(e.id) > 0 then api.undo_join(step) end
 end)
@@ -168,14 +180,13 @@ end)
 -- take round a loop stays a clip of takes, for comping.
 paw.on("clip.added", function(e)
   if paw.opt.midi_record ~= "merge" then return end
-  local ok, c = pcall(api.clip_get, e.id)
-  if not ok or c.kind ~= "midi" or not tostring(c.name):match("^take %d+$") then return end
-  local ok_track, t = pcall(api.track_get, c.track or e.track)
-  if not ok_track or not t.armed then return end
+  local c = take_on_armed(e, "midi", "^take %d+$")
+  if not c then return end
+  local track = e.track or c.track
   if paw.takes.count(e.id) > 1 then return end
   local from, to, over = c.start, c.start + c.length, { [e.id] = true }
   local any = false
-  for _, other in ipairs(api.clip_list(t.id)) do
+  for _, other in ipairs(api.clip_list(track)) do
     if
       other.id ~= e.id
       and other.kind == "midi"
@@ -188,7 +199,7 @@ paw.on("clip.added", function(e)
   end
   if not any then return end
   local step = api.undo_current()
-  edit.arrange.join(t.id, from, to, over)
+  edit.arrange.join(track, from, to, over)
   api.undo_join(step)
 end)
 command(
