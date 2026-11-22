@@ -211,20 +211,20 @@ mod tests {
     use super::*;
 
     /// A project with one track of three clips: two of the link `riff`
-    /// that share their notes, and a plain copy of them.
+    /// that share their notes, and a plain copy of them. Built from the
+    /// defaults, so that a new field of a track or a project does not
+    /// change it.
     fn project() -> Project {
         let notes = json!([{ "start": 0.0, "length": 1.0, "pitch": 60, "velocity": 100 }]);
-        let clip = |id: u64, link: Option<&str>| {
-            json!({ "id": id, "name": "riff", "start": id as f64 * 4.0, "length": 4.0, "muted": false,
-                "link": link, "content": { "kind": "midi", "notes": notes } })
+        let clip = |id: u64, link: Option<&str>| -> Arc<Clip> {
+            let value = json!({ "id": id, "name": "riff", "start": id as f64 * 4.0, "length": 4.0,
+                "muted": false, "link": link, "content": { "kind": "midi", "notes": notes } });
+            Arc::new(serde_json::from_value(value).expect("a clip"))
         };
-        let mut p: Project = serde_json::from_value(json!({
-            "name": "t", "tempo": 120.0, "sig_num": 4, "sig_den": 4,
-            "master": { "id": 0, "name": "Master", "volume": 0.0, "pan": 0.0, "clips": [] },
-            "tracks": [{ "id": 1, "name": "T", "volume": 0.0, "pan": 0.0,
-                "clips": [clip(2, Some("riff")), clip(3, Some("riff")), clip(4, None)] }],
-        }))
-        .expect("a project");
+        let mut track = Track::new(1);
+        track.clips = vec![clip(2, Some("riff")), clip(3, Some("riff")), clip(4, None)].into();
+        let mut p = Project::default();
+        p.tracks.push(Arc::new(track));
         p.join_links();
         p
     }
