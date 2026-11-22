@@ -16,6 +16,11 @@ key and command is in [Takes](../reference/takes.md).
 
 A time round counts if it got to at least half of the loop.
 
+You can also record audio again over a clip, with or without the loop.
+Put the cursor where the clip starts and press `R`. The new recording
+becomes the take that plays, and the clip keeps the old recording as
+another take.
+
 ## Comp in the terminal
 
 1. Press `zt` to show the take lanes below the track.

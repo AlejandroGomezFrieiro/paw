@@ -500,6 +500,15 @@ test("a punched take records from the punch in to the punch out while the song p
     near(api.clip_source_length(c.id), 4, 0.001, "whose file holds the range and no more")
     near(render({ start = 4, ["end"] = 8, tail = 0 }).peak, 10 ^ (-12 / 20), 0.02, "it sounds over the range")
     eq(render({ start = 0, ["end"] = 4, tail = 0 }).peak < 1e-6, true, "and not before it")
+    -- Punched again: a take of the clip, which keeps the first as a take.
+    paw.transport.seek(2)
+    paw.transport.record()
+    until_beat(8.4)
+    paw.transport.stop()
+    paw.flush()
+    clips = mic:clips()
+    eq(#clips .. " " .. table.concat({ paw.takes.count(clips[1].id) }, " "), "1 2 2", "one clip, the new take playing")
+    near(render({ start = 4, ["end"] = 8, tail = 0 }).peak, 10 ^ (-12 / 20), 0.02, "one take sounds")
     -- Started inside the range: at once, up to the punch out.
     clips[1]:remove()
     paw.transport.seek(6)

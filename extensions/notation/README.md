@@ -53,6 +53,10 @@ To return to the arrange view, press `\n` again. To close the view, type
    the cursor, to make a chord (`CEg`).
 3. Press `Esc` to stop.
 
+To enter notes from a MIDI keyboard instead, press `i` and play. A chord
+is the keys held together, and the pedal rests. See
+[A MIDI controller in insert mode](doc/reference.md#a-midi-controller-in-insert-mode).
+
 See [Keys](doc/reference.md#keys) for the keys of insert mode.
 
 ### How to write a dynamic, a hairpin or a tempo

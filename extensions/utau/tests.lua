@@ -1222,3 +1222,108 @@ test("utau: a timing take moves note onsets, and take 0 puts them back", functio
   end
   eq(track ~= nil, true, "")
 end)
+
+-- Step input in the vocal editor (utau.step) -----------------------------------------
+
+--- A vocal track with an empty clip open in the editor, and a controller on a test port.
+local function stepping()
+  T.fresh()
+  load()
+  api.midi_test_ports({ "Test Keys" })
+  paw.opt.note_grid = 0.25
+  local track = paw.add_track({ name = "Vocal" })
+  track:add_device(utau.DEVICE)
+  local clip = track:add_clip({ start = 0, length = 8 })
+  paw.flush()
+  api.undo_checkpoint()
+  paw.cursor.set_track(track)
+  paw.cursor.set_beat(0)
+  paw.cmd("clip.edit")
+  local editor = require("utau.editor").editor
+  editor.beat, editor.pitch = 0, 60
+  return editor, clip
+end
+
+local function hold(pitch) paw.midi.inject({ type = "note_on", pitch = pitch, velocity = 100, port = "Test Keys" }) end
+local function let_go(pitch) paw.midi.inject({ type = "note_off", pitch = pitch, port = "Test Keys" }) end
+local function strike(pitch)
+  hold(pitch)
+  let_go(pitch)
+  paw.flush()
+end
+
+local function stepping_test(name, fn)
+  test(name, function()
+    local ok, err = xpcall(fn, debug.traceback)
+    paw.keymap.set_mode("n")
+    api.midi_test_ports({})
+    if not ok then error(err, 0) end
+  end)
+end
+
+stepping_test(
+  "utau step input: I, then keys one after the other add notes, and Esc with u takes them all back",
+  function()
+    local editor, clip = stepping()
+    T.keys("I")
+    eq(paw.step.active(), "utau", "the vocal editor listens")
+    strike(60)
+    strike(64)
+    local list = clip:notes()
+    eq(#list, 2, "two notes")
+    eq(list[1].pitch .. "@" .. list[1].start .. "+" .. list[1].length, "60@0+0.5", "a step long: two steps of the grid")
+    eq(list[2].pitch .. "@" .. list[2].start, "64@0.5", "the second after the first")
+    eq(list[1].meta == nil or list[1].meta.lyric == nil, true, "with the default lyric")
+    eq(editor.beat, 1, "the cursor is at the end of the second")
+    T.keys("<Esc>")
+    T.keys("u")
+    eq(#clip:notes(), 0, "u takes back every note of the insert")
+  end
+)
+
+stepping_test("utau step input: a chord enters its highest note, and paw says so once", function()
+  local editor, clip = stepping()
+  local said = {}
+  local notify = paw.notify
+  paw.notify = function(text, ...)
+    said[#said + 1] = text
+    return notify(text, ...)
+  end
+  local ok, err = pcall(function()
+    T.keys("I")
+    hold(60)
+    hold(67)
+    let_go(60)
+    let_go(67)
+    paw.flush()
+    hold(62)
+    hold(65)
+    let_go(62)
+    let_go(65)
+    paw.flush()
+  end)
+  paw.notify = notify
+  if not ok then error(err, 0) end
+  local list = clip:notes()
+  eq(#list, 2, "a note for each chord")
+  eq(list[1].pitch .. "," .. list[2].pitch, "67,65", "the highest of each")
+  local count = 0
+  for _, text in ipairs(said) do
+    if text:find("one note at a time", 1, true) then count = count + 1 end
+  end
+  eq(count, 1, "the message comes once")
+  eq(editor.beat, 1, "the cursor stepped on twice")
+end)
+
+stepping_test("utau step input: <Space> rests one step and adds nothing", function()
+  local editor, clip = stepping()
+  T.keys("I")
+  T.keys("<Space>")
+  eq(editor.beat, 0.5, "one step on")
+  eq(#clip:notes(), 0, "no note")
+  strike(60)
+  eq(clip:notes()[1].start, 0.5, "the next note starts after the rest")
+  T.keys("<BS>")
+  eq(#clip:notes(), 0, "<BS> takes the last note back")
+  eq(editor.beat, 0.5, "and the cursor")
+end)

@@ -12,6 +12,12 @@ local map, command = keymap.set, paw.command
 
 local function emap(lhs, rhs, desc, opts) map(lhs, rhs, util.merge({ view = "utau", desc = desc }, opts)) end
 
+-- Step input: `I` then the keys of a MIDI controller (utau.step).
+local step = require("utau.step")
+emap("I", step.start, "Step input: a key of the MIDI controller adds a note at the cursor")
+emap("<Space>", step.rest, "Step input: rest one step", { mode = "i" })
+emap("<BS>", step.back, "Step input: take the last note back", { mode = "i" })
+
 -- Several notes --------------------------------------------------------------------
 
 --- The selected notes (or the one under the cursor) as a register value

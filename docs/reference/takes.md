@@ -3,8 +3,9 @@
 <!-- tags: takes take-lanes comping -->
 
 A clip can hold several versions of what it plays, and the version that
-plays is the active take. Recording round the loop makes takes (see
-[Recording](recording.md#rules)), and `:take.new` makes a take by hand. For the
+plays is the active take. Recording round the loop makes takes, and so
+does recording audio again over an audio clip (see
+[Recording](recording.md#rules)). `:take.new` makes a take by hand. For the
 steps, see
 [How to record takes over a loop and comp them](../how-to/record-takes-and-comp.md).
 
