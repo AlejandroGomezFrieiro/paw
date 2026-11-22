@@ -1119,7 +1119,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.layout.buffer_names()`: Names to complete after `:b`, `:e`, `:sp`, `:vs`: every buffer's and every view's that can be shown.
 - `paw.layout.buffers_list()`: The buffers to list (`:ls`), by number: the views' that are in the layout or docked, and every other made since and not deleted.
 - `paw.layout.buftype`: the same as `paw.buftype`.
-- `paw.layout.capture()`: The tabs and windows as plain data: what `:layout save` writes.
+- `paw.layout.capture(scopes)`: The tabs and windows as plain data: what `:layout save` writes. With `scopes`, the windows' scope stacks too (what the project keeps).
 - `paw.layout.clip_named(target)`: The clip a name of a window's thing stands for: an id (`7`), an address (`paw://clip/7`) or the name of a clip, the first in the order of the tracks. Nil if there is none.
 - `paw.layout.close(win)`: Close a window. The window of a view keeps its place, hidden. Other windows go. The last window of a tab closes the tab. The last window of all does not close. Returns true if it closed.
 - `paw.layout.conceal(name)`: Hide the windows of a view in each tab, but the last window of a tab, which stays. Returns true if one that was on the screen went.
@@ -1132,7 +1132,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.layout.enter(win)`: Make a window the current one and give it the keyboard.
 - `paw.layout.equalize()`: Give every window of the current tab an equal share, but strips that do not take the keyboard.
 - `paw.layout.exchange(count)`: Exchange the current window with the next window next to it, or with the window number `count`, in their row or column. When it is the last window, use the previous window. The next window can be a split of several windows.
-- `paw.layout.export(node)`: A tree of windows as plain data, for `paw.layouts` and to save.
+- `paw.layout.export(node, scopes)`: A tree of windows as plain data, for `paw.layouts` and to save. With `scopes`, each window's scope stack too: the project's screen keeps them, a named layout does not (its tracks are another project's).
 - `paw.layout.find(root, name, on_screen)`: The window of a view in a tree, one on screen first: the window with the keyboard, else the one whose state the view holds, else the one that had the keyboard last. With `shown`, only one on screen.
 - `paw.layout.find_id(root, id)`: The window of an id in the tree under `root`.
 - `paw.layout.focusable_windows()`: The windows of the current tab that take the keyboard.
@@ -1172,6 +1172,8 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.layout.reveal(name, go)`: Put a view's window on screen in the current tab: where it was, else where it docked. With `go`, a view on screen in another tab is gone to instead. Returns the window, or nil for a view that has no place (one that floats).
 - `paw.layout.rotate(back)`: Rotate the windows of the current window's row or column: each moves one place on (`back`: one place back).
 - `paw.layout.save(name)`: Write the tabs and windows as layout `name`, in the state directory.
+- `paw.layout.scope_chain(levels)`: A scope stack from its plain data: the innermost level, each naming its parent.
+- `paw.layout.scope_levels(s)`: A window's scope stack as plain data, outermost first.
 - `paw.layout.set_option(win, name, value)`: Set a window option (`timebind`) on a window (the current one).
 - `paw.layout.set_size(node, axis, size)`: Set the size a node takes along its parent: a panel whose size is an option (`devices_width`) has it set there.
 - `paw.layout.settle()`: After a window drew or took the pointer: each view's table holds the state of its window in the current tab that had the keyboard last, so that keys and commands act there.
@@ -1817,28 +1819,38 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.scope
 
 - `paw.scope.apply(s)`: Tell the engine what the rest of the song does for a scope. This is the scope of the tab in front, which the last seat to change tabs (a terminal or a window) selected.
+- `paw.scope.at_cursor()`: The scope that `znn` enters at the cursor: the innermost not entered yet. In a region scope, the region one level inside it at the cursor; else the group at the cursor (its header or one of its tracks), else the track. Nil when the window shows that track already.
 - `paw.scope.bar_offset(s)`: How many bars of the song come before the first bar of a scope (the current one by default) when its bars are numbered from 1: 0 with no time, or with `scopebars=song`. A scope's bars are the song's (its meter map), counted from the bar its time starts in.
 - `paw.scope.breadcrumb(s)`: The path in words: `Song › Bridge › Strings`.
-- `paw.scope.children(s)`: The scopes one level inside a scope (the current one by default): for a region scope, the regions one level inside its region (paw/markers.tl), in order of time, each a region scope whose parent is that scope. Other kinds have none.
+- `paw.scope.children(s)`: The scopes one level inside a scope (the current one by default): for a region scope, the regions one level inside its region (paw/markers.tl), in order of time; for a group scope, its members (a group or a track), in order. Each has that scope as its parent. Other kinds have none.
 - `paw.scope.contains(track, s)`: True if a scope (the current one by default; a group's id is a scope of that group) shows a track: it and every level above it do. With no scope, every track is inside.
-- `paw.scope.current(win)`: The scope a window shows (the current window's by default), or nil for the song. A level whose group, track or region is gone is left out.
-- `paw.scope.enter(spec)`: Enter a scope (`{ kind, id, tracks, from, to, name }`). In a tab that shows a scope, it becomes its child, in the same tab: it shows what both show. In a tab that shows the song, a tab of its own opens after it, or the tab that shows the same scope comes to the front. Changes nothing in the project. Returns the scope.
+- `paw.scope.current(win)`: The scope a window shows, or nil for the song: the window given, else the window being drawn, else the current one. A level whose group, track or region is gone is left out.
+- `paw.scope.describe(s)`: What a scope shows, in words: its path, its tracks and its bars.
+- `paw.scope.enter(spec, win)`: Enter a scope (`{ kind, id, tracks, from, to, name }`) in a window (the current one by default). In a window that shows a scope, it becomes its child: it shows what both show, and an empty one is refused with the reason. Changes nothing in the project; a jump. Returns the scope.
 - `paw.scope.find(which)`: A group by its id, its track, or its name (or part of it).
 - `paw.scope.format(beat)`: A place as the scope numbers it: `bar.beat.hundredths`, as `paw.time.format`.
-- `paw.scope.group(s)`: The innermost group of a scope's path (the current scope by default): what a narrowed tab's tracks are shown under. Nil when no level is a group.
+- `paw.scope.group(s)`: The innermost group of a scope's path (the current scope by default): what a narrowed window's tracks are shown under. Nil when no level is a group.
 - `paw.scope.group_at(track)`: The group of a track when you narrow: the track itself if it is a group. If not, the group that contains it.
 - `paw.scope.held()`: The parts of the rest the engine plays from files now.
 - `paw.scope.limits_tracks(s)`: True if a scope, or one of the levels above it, limits the tracks.
 - `paw.scope.local_bar(song_bar)`: The bar the current scope shows for a bar of the song.
-- `paw.scope.named(which)`: A scope by name: a group of that name, else a region of that name, else a group or a region whose name starts with it. A number is a group's id.
-- `paw.scope.narrow(which)`: Narrow to a group or a region, by its id, its track or its name (see `named`): `enter` of that scope. Returns the tab it shows in.
-- `paw.scope.of_tab(tab)`: The scope of a tab, for the frontends that draw each tab.
-- `paw.scope.path(s)`: The levels of a scope's path, from the outermost to it.
+- `paw.scope.name(name, win)`: Name the current scope, so that the picker and `:narrow` find it again. View state, kept with the project's screen. Returns it.
+- `paw.scope.named(which)`: A scope by name: a named scope (`:scope.name`), else a group of that name, else a region of that name, else a group or a region whose name starts with it. A number is a group's id.
+- `paw.scope.names()`: The named scopes, the latest last.
+- `paw.scope.narrow(which)`: Narrow to a group or a region, by its id, its track or its name (see `named`): `enter` of that scope in the current window. Returns the scope.
+- `paw.scope.next(n)`: Go to the scope `n` places beside the current one (`]z`, `3]z`, `[z`), in the same parent. A jump. Returns the scope.
+- `paw.scope.of_region(r)`: The scope an operator's region covers (`zn{motion}`, `{Visual}zn`): the region, group or track its text object names (`ar`, `ag`, `it`), else a block of its tracks, with its time when it has some. Nil for the whole of what the window shows (`ie`).
+- `paw.scope.of_tab(tab)`: The scope of a tab: that of its current window.
+- `paw.scope.open(how, spec)`: Open a scope (the one at the cursor by default) in a new window: `how` is "split", "vsplit" or "tab". The new window starts with the scope of the one it comes from, and enters this one inside it.
+- `paw.scope.path(s)`: The levels of a scope's path (the current one by default), from the outermost to it.
 - `paw.scope.rest_parts(s)`: The parts of the rest of the song that paw can freeze for a scope. These are the tracks outside it at the top of their branch (a whole group, not its members). They are not the tracks that the sound of the scope goes through (its groups, and a bus that its sends reach). They are not empty.
+- `paw.scope.restore(s, win)`: Show a scope in a window as it was (a jump back, `<C-o>`): no jump of its own, no check. Nil is the song.
+- `paw.scope.saved_names()`: The named scopes as the project's screen keeps them (paw/layout.tl).
+- `paw.scope.sibling(n)`: The scope `n` places after the current one (before it, with a negative `n`), beside it in the same parent: the next region, group or track; a block's next stretch of the same length. Nil and the reason when there is none.
 - `paw.scope.song_bar(local_bar)`: The bar of the song for a bar as the current scope shows it.
 - `paw.scope.span(s)`: The time a scope shows (the current one by default): `from, to` in beats, its own time intersected with its parent's. Nil when it shows all of the song's time. `from` is `to` when the times do not meet.
 - `paw.scope.tracks(s)`: The tracks of a scope (the current one by default), in the order of the track list. With no scope, or one that keeps every track, all tracks.
-- `paw.scope.widen(top)`: Leave the scope of the current tab: up one level, or with `top` to the song. Leaving the first level closes the tab and shows the tab it was narrowed from again; when it is the last tab, it stays, wide. False when the tab shows the song.
+- `paw.scope.widen(top, win)`: Leave the scope of a window (the current one by default): up one level, or with `top` to the song. False when it shows the song.
 
 ## Module paw.seats
 

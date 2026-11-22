@@ -236,7 +236,10 @@ local function group_object(with_head: boolean): function(): contracts.Region
     if finish < first then
       return nil
     end
-    return {view = "arrange", kind = "line", r0 = first, r1 = finish, c0 = 0, c1 = 0}
+    -- `znag`: the group as a scope.
+    return {
+      view = "arrange", kind = "line", r0 = first, r1 = finish, c0 = 0, c1 = 0, scope = {kind = "group", id = group}
+    }
   end
 end
 

@@ -41,6 +41,7 @@ local domains = {
   T = "tempo and transport",
   u = "utau",
   v = "views",
+  z = "scopes",
 }
 local leader = table.concat(paw.keymap.parse("<leader>"))
 local groups = paw.keymap.groups()

@@ -306,9 +306,10 @@ function K.startup()
   paw.render = require("paw.render")
   paw.render_stems, paw.render_tags, paw.render_ranges = paw.render.stems, paw.render.tags, paw.render.ranges
   paw.render_status, paw.render_cancel = paw.render.status, paw.render.cancel
-  -- Freezing tracks, and tabs narrowed to a group.
+  -- Freezing tracks, and the scope of each window: a part of the song.
   paw.freeze = require("paw.freeze")
   paw.scope = require("paw.scope")
+  paw.pick.sources.scopes = paw.scope.source
   paw.stems = require("paw.stems")
   paw.markers = require("paw.markers")
   -- Insert mode in the arrange view, and what its keys insert (paw/insert.tl).

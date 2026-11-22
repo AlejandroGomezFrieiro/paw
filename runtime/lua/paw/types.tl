@@ -1466,6 +1466,19 @@ local record types
     opts: {string: string | number | boolean}
     dir: string
     children: {SavedNode}
+    --- The window's scope stack (paw/scope.tl), outermost first: only in
+    --- the screen a project keeps.
+    scope: {SavedScope}
+  end
+
+  --- A level of a window's scope stack as the project's screen keeps it.
+  record SavedScope
+    kind: string
+    id: integer
+    tracks: {integer}
+    from: number
+    to: number
+    name: string
   end
 
   --- A tab as a layout keeps it: its name, its tree, and the place in the
@@ -1489,6 +1502,8 @@ local record types
   record ProjectScreen
     default: SavedLayout
     seats: {string: SavedLayout}
+    --- The named scopes (`:scope.name`), each a stack outermost first.
+    scopes: {{SavedScope}}
     tab: integer
     tabs: {SavedTab}
   end

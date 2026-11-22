@@ -24,7 +24,7 @@ After a query, `:cdo` acts on each thing it found (see [The quickfix list](quick
 
 ## The tree
 
-- The project holds its tracks, markers and regions. A group holds its members. In a tab narrowed to a group (`:narrow`), the project holds only the tracks of that group.
+- The project holds its tracks, markers and regions. A group holds its members. In a window narrowed to a group (`:narrow`), the project holds only the tracks of that group.
 - A track holds its clips, devices and automation lanes.
 - A MIDI clip holds its notes and controller moves.
 - A lane holds its points.

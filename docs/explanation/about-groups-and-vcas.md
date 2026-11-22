@@ -5,8 +5,7 @@ their `meta`, and it adds no new kinds of objects for it. A mix of many
 tracks needs structure, e.g., a bus for the drums, one fader for all the
 strings, and a way to work on one part alone. The page explains why paw
 does it with usual tracks. For the commands, see
-[Routing](../reference/routing.md), [Narrowed
-tabs](../reference/narrowing.md) and [Frozen
+[Routing](../reference/routing.md), [Scopes](../reference/narrowing.md) and [Frozen
 tracks](../reference/freezing.md).
 
 ## A group is a track
@@ -36,12 +35,12 @@ moves the others by the same number of dB. Linked faders keep the balance
 like a VCA does, but without a separate fader. The fader of the group
 itself does not move, because it already acts on the sum.
 
-## Narrowed tabs
+## Narrowed windows
 
-To work on a part of a large project, paw narrows a tab to one group. The
-tab shows only the group,
-but it is the same project with one undo tree. An edit in the narrowed tab
-is a usual edit, and you can go between the tabs at any time.
+To work on a part of a large project, paw narrows a window to one group.
+The window shows only the group, but it is the same project with one undo
+tree. An edit in the narrowed window is a usual edit, a split can show the
+whole song beside the group, and `zw` returns at any time.
 
 While you work on the group, the rest of the song can play, be silent, or
 play from rendered files. When it plays from rendered files, its devices

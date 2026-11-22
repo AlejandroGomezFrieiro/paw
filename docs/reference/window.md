@@ -805,10 +805,10 @@ main area for the first time, the kernel shows the device panel if
 the tab has its closed place, as the default start layout has. A start layout of the
 configuration (`paw.ui.start_layout`) shows as it is.
 
-A tab narrowed to a group (`:narrow Strings`, `zn`, see
-[Narrowed tabs](narrowing.md))
-has the name of the group in the row of tabs. Its panes show only the
-tracks of the group, because the timeline, the mixer and the device panel take
+A window narrowed to a group (`:narrow Strings`, `znag`, see
+[Scopes](narrowing.md))
+gives the name of the group to its tab in the row of tabs. Its pane shows
+only the tracks of the group, because the timeline, the mixer and the device panel take
 their rows from `paw.groups.rows()`.
 
 ## Views in windows of their own

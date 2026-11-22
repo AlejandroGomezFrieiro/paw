@@ -225,6 +225,7 @@ local record SpecNode is {string | SpecNode}
   current: integer
   tab: integer
   tabs: {SpecNode}
+  scope: {types.SavedScope}
 end
 local type Spec = string | SpecNode
 
@@ -283,9 +284,14 @@ local record Keymap
 end
 --- A value of a key mapping's options (`desc`, `mode`, `motion`...).
 local type Opt = string | boolean | {string}
+--- What a window's scope is (paw/scope.tl, which names this module's types).
+local record Scopes
+  current: function(win?: contracts.Window): contracts.Scope
+end
 local record Paw is partial.Paw
   ui: Ui
   canvas: Canvas
+  scope: Scopes
   clip: function(id: integer): objects.Clip
   project: objects.Project
   time: objects.Time
@@ -420,7 +426,7 @@ local record M
   parent_of: function(node: Node, target: Node): Node, integer
   tab: function(): Tab
   focusable_windows: function(): {Node}
-  export: function(node: Node): SpecNode
+  export: function(node: Node, scopes?: boolean): SpecNode
   import: function(spec: Spec): Node
   get: function(id: integer): Node, integer
   find_id: function(root: Node, id: integer): Node
@@ -1843,6 +1849,9 @@ function M.split(opts: SplitOptions): Node, string
   local buf = opts.buf or (not single_view and M.buf_create(name).id) or nil
   local moved = one and remove_view(t.layout, name)
   local win = M.leaf(name, {buf = buf})
+  -- A new window shows the part of the song that the one it is split
+  -- from shows, as Vim's windows keep their folds.
+  win.scope = cur and cur.scope
   local root = t.layout
   local parent, at: Node, integer
   if cur then
@@ -2330,7 +2339,7 @@ function M.tab_copy(name?: string): Tab
   local u = ui()
   local from = tab()
   local here = M.current()
-  local root = M.import(M.export(from.layout))
+  local root = M.import(M.export(from.layout, true))
   if root.view then
     root = {dir = "v", root}
   end
@@ -2420,17 +2429,56 @@ function M.tab_title(t: Tab): string
     return t.name
   end
   local win = t.win and M.find_id(t.layout, t.win) or first_window(t.layout)
+  -- A window in a scope names its tab after the scope.
+  local scope = win and win.scope and paw.scope and paw.scope.current(win)
+  if scope then
+    return scope.name
+  end
   local buf = M.buf_of(win)
   return buf and buf.name or "?"
 end
 
 -- Saved layouts -------------------------------------------------------------------
 
---- A tree of windows as plain data, for `paw.layouts` and to save.
-local function export(node: Node): SpecNode
+--- A window's scope stack as plain data, outermost first.
+function M.scope_levels(s: contracts.Scope): {types.SavedScope}
+  local out: {types.SavedScope} = {}
+  while s do
+    table.insert(out, 1, {kind = s.kind, id = s.id, tracks = s.tracks, from = s.from, to = s.to, name = s.name})
+    s = s.parent
+  end
+  return out
+end
+local scope_levels = M.scope_levels
+
+--- A scope stack from its plain data: the innermost level, each naming its parent.
+function M.scope_chain(levels: {types.SavedScope}): contracts.Scope
+  local s: contracts.Scope
+  for _, level in ipairs(levels or {}) do
+    s = {
+      kind = level.kind as contracts.ScopeKind,
+      id = level.id,
+      tracks = level.tracks,
+      from = level.from,
+      to = level.to,
+      name = level.name,
+      parent = s,
+    }
+  end
+  return s
+end
+local scope_chain = M.scope_chain
+
+--- A tree of windows as plain data, for `paw.layouts` and to save. With
+--- `scopes`, each window's scope stack too: the project's screen keeps
+--- them, a named layout does not (its tracks are another project's).
+local function export(node: Node, scopes?: boolean): SpecNode
   local out: SpecNode = {size = node.size, weight = node.weight, min = node.min}
   if node.view then
     out.view, out.float_below, out.hidden = node.view, node.float_below, node.hidden or nil
+    if scopes and node.scope then
+      out.scope = scope_levels(node.scope)
+    end
     if node.opts and next(node.opts) then
       out.opts = copy(node.opts)
     end
@@ -2450,15 +2498,16 @@ local function export(node: Node): SpecNode
   end
   out.dir, out.children = node.dir, {}
   for i, child in ipairs(node) do
-    out.children[i] = export(child)
+    out.children[i] = export(child, scopes)
   end
   return out
 end
 
 M.export = export
 
---- The tabs and windows as plain data: what `:layout save` writes.
-function M.capture(): types.SavedLayout
+--- The tabs and windows as plain data: what `:layout save` writes. With
+--- `scopes`, the windows' scope stacks too (what the project keeps).
+function M.capture(scopes?: boolean): types.SavedLayout
   local u = ui()
   local tabs: {types.SavedTab} = {}
   for i, t in ipairs(u.tabs) do
@@ -2471,7 +2520,7 @@ function M.capture(): types.SavedLayout
         current = k
       end
     end
-    tabs[i] = {name = t.name, layout = export(t.layout) as types.SavedNode, current = current}
+    tabs[i] = {name = t.name, layout = export(t.layout, scopes) as types.SavedNode, current = current}
   end
   return {tab = u.tab, tabs = tabs}
 end
@@ -2506,6 +2555,7 @@ local function import(spec: Spec): Node
         opts = copy(node_spec.opts or {}),
       }
     )
+    win.scope = scope_chain(node_spec.scope)
     if M.types[name] then
       win.buf = M.buf_create(name, node_spec.target).id
     else
@@ -3373,12 +3423,12 @@ function M.setup()
         return
       end
       local screen = M.project_screen() or {seats = {}}
-      screen.default = M.capture()
+      screen.default = M.capture(true)
       screen.seats[seats.kind()] = screen.default
       -- The other seats open now keep theirs too.
       for _, id in ipairs(seats.list()) do
         if id ~= seats.current then
-          screen.seats[seats.kind(id)] = seats.within(id, M.capture)
+          screen.seats[seats.kind(id)] = seats.within(id, M.capture, true)
         end
       end
       api.project_screen_set(screen)
@@ -3387,6 +3437,19 @@ function M.setup()
   events.on(
     kernel.project_loaded,
     function()
+      -- The scopes were the last project's: its tracks and regions.
+      local function wide()
+        for _, tw in ipairs(M.all_windows()) do
+          tw.win.scope = nil
+        end
+      end
+      for _, id in ipairs(seats.list()) do
+        if id == seats.current then
+          wide()
+        else
+          seats.within(id, wide)
+        end
+      end
       if not opt.project_screen then
         return
       end

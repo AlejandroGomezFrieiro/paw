@@ -194,7 +194,7 @@ groups below link the main ones.
 - [The device panel](reference/device-panel.md): its keys
 - [The mixer](reference/mixer-view.md): its strips and keys
 - [The curve editor](reference/curve-editor.md): lanes, parameters, controllers and the tempo map as curves
-- [Windows, buffers and tabs](reference/windows.md): splits, tabs, layouts, narrowed tabs
+- [Windows, buffers and tabs](reference/windows.md): splits, tabs, layouts, scopes of windows
 - [Lists edited as text](reference/lists-edited-as-text.md): `paw://tracks`, `paw://sends`, devices, markers
 - [The file manager](reference/file-manager.md): folders as text and as a tree
 - [The terminal screen](reference/screen.md): the parts of the screen, the bottom line, colors
@@ -227,7 +227,7 @@ groups below link the main ones.
 
 - [Routing: groups, VCAs, sends and side-chains](reference/routing.md): groups, linked faders, VCAs, outputs, sends, side-chains, output pairs
 - [Automation](reference/automation.md): automation modes, how the controls write automation
-- [Narrowed tabs](reference/narrowing.md): a tab of one group, the rest of the song
+- [Scopes](reference/narrowing.md): a window of one group or one region, the keys that move between scopes, the rest of the song
 - [Frozen tracks](reference/freezing.md): frozen and held tracks
 - [Devices](reference/devices.md): the built-in devices, wet/dry and output gain, presets
 - [Device parameters](reference/device-parameters.md): the fields of each parameter, the ids of plugins, values as text

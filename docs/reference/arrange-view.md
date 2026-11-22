@@ -72,7 +72,7 @@ A clip has a name row and a darker body that shows its notes or waveform in the 
 | `zi` `zo` | Zooms in and out. |
 | `zz` `zh` `zl` | Puts the cursor in the center. Scrolls left and right. |
 | `[g` `]g` | Makes the grid finer or coarser. |
-| `zn` `zw` | Narrows to the group at the cursor, in a tab of its own. Widens again. |
+| `zn{motion}` `znn` `zw` `zW` `]z` `[z` | Enter a scope in this window (`znag` the group, `znar` the region, `znn` the innermost at the cursor). Go up one level, up to the song. Go to the scope beside. See [Scopes](narrowing.md). |
 | `<Space>tv` | Makes a VCA over the selected tracks. |
 | `<Space>ta` | Puts the selected tracks under a VCA. |
 | `<Space>tr` | Removes the selected tracks from their VCAs. |

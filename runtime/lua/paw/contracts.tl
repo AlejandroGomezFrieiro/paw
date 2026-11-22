@@ -307,6 +307,11 @@ local record contracts
     unstretched: boolean
     clips: {integer: boolean}
     notes: {integer: {integer: boolean}}
+    --- What a text object covers as a scope (`zn{motion}`): `ar` the
+    --- region, `ag` the group, `it` the track. Nil for a block.
+    scope: Scope
+    --- True for the whole of what the view shows (`ie`): `znie` enters nothing.
+    entire: boolean
   end
 
   --- What a function of a key mapping gets: the count typed before it,
@@ -531,10 +536,37 @@ local record contracts
 
   -- Buffer types -----------------------------------------------------------------
 
+  --- What a scope is made from (paw/scope.tl). A group or a region scope
+  --- follows its source: a track added to the group, or the region moved,
+  --- changes the scope.
+  enum ScopeKind
+    "group"
+    "track"
+    "tracks"
+    "region"
+    "range"
+  end
+
+  --- A scope: what a window shows of the song (paw/scope.tl). `id` is the
+  --- group, track or region it is made of; `tracks` a fixed list ("tracks",
+  --- "range"), nil for every track of the parent; `from` and `to` its time
+  --- in beats ("range"), nil for all the time of the parent. `parent` is
+  --- the scope it was entered from (nil: the song): the window's stack.
+  record Scope
+    kind: ScopeKind
+    id: integer
+    tracks: {integer}
+    from: number
+    to: number
+    name: string
+    parent: Scope
+  end
+
   --- A window of the layout (paw/layout.tl): its id, the view or buffer
   --- type it shows, its buffer, its options and its own state. An
   --- interface: a window of the layout is a node of a tab's tree too
-  --- (`paw.layout.Node`).
+  --- (`paw.layout.Node`). `scope` is the part of the song it shows, the
+  --- innermost level of its stack (nil: the whole song).
   interface Window
     id: integer
     view: string
@@ -542,6 +574,7 @@ local record contracts
     hidden: boolean
     opts: {string: string | number | boolean}
     state: {string: string | number | boolean}
+    scope: Scope
   end
 
   --- A buffer (paw/layout.tl): its number, its name, its type, the

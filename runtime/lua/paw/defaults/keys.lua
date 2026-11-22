@@ -31,6 +31,7 @@ keymap.group("<leader>r", "markers and regions")
 keymap.group("<leader>t", "tracks", { view = "arrange" })
 keymap.group("<leader>T", "tempo and transport")
 keymap.group("<leader>v", "views")
+keymap.group("<leader>z", "scopes")
 keymap.group("gr", "set a value")
 
 local nx = { "n", "x" }
@@ -216,8 +217,46 @@ amap("zz", function() paw.ui.views.arrange:center() end, "Scroll the cursor to t
 map("<leader>tg", "track.group", { view = "arrange", mode = nx, desc = "Group the selected tracks" })
 amap("<leader>tG", "track.ungroup", "Take the track out of its group; dissolve a group")
 amap("za", "track.fold", "Fold the group away, or open it")
-amap("zn", "narrow", "Narrow to the group: a tab of its tracks alone")
-amap("zw", "widen", "Widen: close the narrowed tab")
+-- Scopes (paw/scope.tl): `zn` enters what a motion covers in this window,
+-- `znn` the innermost scope at the cursor; `zw` goes up, `zW` to the song,
+-- `]z` `[z` to the scopes beside. The `<leader>z` keys open and name them.
+keymap.operator("zn", function(region, ctx)
+  local spec
+  if ctx.keys == "znn" then
+    spec = paw.scope.at_cursor()
+    if not spec then return paw.notify("nothing smaller to enter at the cursor: `zw` goes up", "warn") end
+  else
+    spec = paw.scope.of_region(region)
+    if not spec then return paw.notify("that is all that the window shows: nothing to enter", "warn") end
+  end
+  local ok, err = pcall(paw.scope.enter, spec)
+  if not ok then return paw.notify(tostring(err), "warn") end
+  paw.notify(paw.scope.describe() .. " · `zw` goes back")
+end, {
+  view = "arrange",
+  repeatable = false,
+  desc = "Enter a scope in this window: znar the region, znag the group, znit the track, znn the innermost at the cursor",
+})
+amap("zw", "widen", "Up one level of scope")
+amap("zW", "widen!", "Up to the whole song")
+-- The scope at the cursor, or the selection's, in a new window.
+for _, how in ipairs({ { "s", "split", "split" }, { "v", "vsplit", "vertical split" }, { "t", "tab", "tab" } }) do
+  map("<leader>z" .. how[1], function()
+    local spec
+    if keymap.mode == "x" then
+      local reg = keymap.selection()
+      keymap.set_mode("n")
+      spec = reg and paw.scope.of_region(reg)
+    end
+    local ok, err = pcall(paw.scope.open, how[2], spec)
+    if not ok then return paw.notify(tostring(err), "warn") end
+    paw.notify(paw.scope.describe())
+  end, { mode = nx, desc = "The scope at the cursor, or the selection, in a new " .. how[3] })
+end
+map("<leader>zn", "scope.name", { desc = "Name this window's scope: type its name" })
+map("<leader>zz", "scope.list", { desc = "Enter a scope, or go up to a level, from a list" })
+amap("]z", "scope.next", "The next scope beside this one: region, group, track", { motion = true, mode = "n" })
+amap("[z", "scope.prev", "The scope before this one, beside it", { motion = true, mode = "n" })
 -- VCAs, and the faders of a group moving together.
 map("<leader>tv", "vca.make", { view = "arrange", mode = nx, desc = "A new VCA over the selected tracks" })
 map("<leader>ta", "vca.assign", { view = "arrange", mode = nx, desc = "Put the selected tracks under a VCA" })
@@ -278,21 +317,34 @@ aobject("ar", function(ctx)
   local r = region_here(ctx)
   local n = #api.track_list()
   if r and n > 0 then
-    return { view = "arrange", kind = "block", r0 = 1, r1 = n, c0 = r.beat, c1 = r.beat + r.length }
+    return {
+      view = "arrange",
+      kind = "block",
+      r0 = 1,
+      r1 = n,
+      c0 = r.beat,
+      c1 = r.beat + r.length,
+      scope = { kind = "region", id = r.id },
+    }
   end
 end, "The region the cursor is in, on every track (2ar: the region around it)")
 for _, lhs in ipairs({ "it", "at" }) do
   aobject(lhs, function()
     local row = cursor.index() or 1
     local c0, c1 = edit.arrange.span(rows(row))
-    if c1 > c0 then return on_row(c0, c1) end
+    if c1 > c0 then
+      local reg = on_row(c0, c1)
+      local id = cursor.track_id()
+      reg.scope = id and id ~= 0 and { kind = "track", id = id } or nil
+      return reg
+    end
   end, "Everything on the track")
 end
 for _, lhs in ipairs({ "ie", "ae" }) do
   aobject(lhs, function()
     local n = #api.track_list()
     if n == 0 or paw.project.length <= 0 then return end
-    return { view = "arrange", kind = "block", r0 = 1, r1 = n, c0 = 0, c1 = paw.project.length }
+    return { view = "arrange", kind = "block", r0 = 1, r1 = n, c0 = 0, c1 = paw.project.length, entire = true }
   end, "The entire project")
 end
 

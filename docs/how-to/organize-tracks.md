@@ -40,7 +40,7 @@ A count moves it more places, so `3<A-j>` moves it down three tracks.
 To put one more track into the group, type `:track.into Drums` on that
 track. To take a track out of its group, press `<Space>tG`.
 
-To work on one group alone, press `zn` on the group, as
+To work on one group alone, press `znn` on the group, as
 [How to work on one group of a large project](work-on-one-group.md) shows.
 
 In the graphical window, you can use the mouse:

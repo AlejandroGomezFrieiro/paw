@@ -606,7 +606,18 @@ local function position(g)
   return { row, col }
 end
 
+--- A place on the jump list: where the cursor is, with the scope of the
+--- window (paw/scope.tl), so that `<C-o>` comes back into the scope.
+local function spot(g)
+  local pos = position(g)
+  if paw.scope then
+    pos.scoped, pos.scope = true, paw.scope.current()
+  end
+  return pos
+end
+
 local function go(g, pos)
+  if pos.scoped and paw.scope then paw.scope.restore(pos.scope) end
   if g.jump then return g.jump(pos) end
   g.set(pos[1], pos[2])
 end
@@ -614,6 +625,10 @@ end
 local function same(a, b)
   for k, v in pairs(a) do
     if b[k] ~= v then return false end
+  end
+  -- A place in the song is not the same place in a scope.
+  for k in pairs(b) do
+    if a[k] == nil then return false end
   end
   return true
 end
@@ -630,7 +645,7 @@ function M.push_jump()
     end
     list.at = nil
   end
-  local here = position(g)
+  local here = spot(g)
   if list[#list] and same(list[#list], here) then return end
   list[#list + 1] = here
   if #list > 100 then table.remove(list, 1) end
@@ -641,7 +656,7 @@ function M.jump(n)
   local g, list = grid(), jumps[paw.ui.focused]
   if not (g and list) or #list == 0 then return end
   if not list.at then
-    local here = position(g)
+    local here = spot(g)
     if not same(list[#list], here) then list[#list + 1] = here end
     list.at = #list
   end
@@ -704,7 +719,7 @@ function M.goto_mark(name)
   if name == "'" or name == "`" then
     local list = jumps[paw.ui.focused]
     if not list or #list == 0 then return end
-    local here = position(g)
+    local here = spot(g)
     go(g, list[#list])
     list[#list], list.at = here, nil
     return

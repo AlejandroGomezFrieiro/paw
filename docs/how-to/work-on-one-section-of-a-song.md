@@ -3,8 +3,8 @@
 <!-- tags: work-on-a-section narrow region -->
 
 You can see, edit and loop only one section of a song, for example the
-bridge, in a narrowed tab. The section is a region, and the rules are in
-[Narrowed tabs](../reference/narrowing.md).
+bridge, in a narrowed window. The section is a region, and the rules are in
+[Scopes](../reference/narrowing.md).
 
 ## Narrow to a region
 
@@ -12,8 +12,9 @@ bridge, in a narrowed tab. The section is a region, and the rules are in
    the bars of the section, press `<Space>rn` and type a name, for example
    `Bridge`. The details are in
    [How to loop a part of the song](loop-a-part-of-the-song.md#loop-a-region).
-2. Type `:narrow Bridge`. A new tab opens with the time of the region and
-   every track in it, and the status line shows `Song › Bridge`.
+2. Type `:narrow Bridge`. The window shows the time of the region and
+   every track in it, and the status line shows `Song › Bridge`. With the
+   cursor in the region, `znar` does the same.
 3. Work in the section:
    - The cursor stays in the time of the section. `0` goes to its start,
      and `$` to its end.
@@ -22,20 +23,21 @@ bridge, in a narrowed tab. The section is a region, and the rules are in
      The bars that you type are the bars of the section, so `3|` and `:3`
      go to bar 3 of the section.
    - Press `<Space><Space>`, and the playhead loops over the section while
-     the tab is in front.
-   - Edit as usual. The narrowed tab changes nothing in the project, and
-     undo works in any tab.
+     the window is in front.
+   - Edit as usual. The narrowed window changes nothing in the project, and
+     undo works in any window.
 4. To return to the whole song, press `zw`, and the loop that you had
    returns.
 
 ## Narrow to a group and a region
 
-To see only some tracks of the section, narrow again in the same tab. For
+To see only some tracks of the section, narrow again in the same window. For
 example, after `:narrow Bridge`, type `:narrow Strings` to see the strings
 in the time of the bridge. The status line then shows
 `Song › Bridge › Strings`.
 
-- `zw` goes up one level, and `:widen!` goes up to the whole song.
+- `zw` goes up one level, and `zW` goes up to the whole song.
+- `]z` goes to the next region, and `[z` to the region before.
 - If the group has no track in the section, paw does not narrow, and the
   message gives the reason.
 
