@@ -59,12 +59,16 @@ The tutor opens a practice project for the lesson, and it checks each step when 
 12. `<CR>` keeps the chord and continues after it. `K` and `J` move one octave. Press `<CR>`, `J` (the C below), `4l` and `<Esc>`.
    - *Hint:* `<Space>` adds a rest of one step before the next note.
    - ✓ The clip has a C major chord, followed by a C3 below it.
-13. In normal mode, `<Esc>` stays in the piano roll, and the same is true in every view. `<C-w>p` returns to the previous window. Press `<C-w>p`, then `gs` and `<Space><Space>` to listen, and `<Space><Space>` again to stop.
+13. With a MIDI keyboard, `I` starts step input, which enters the notes that you play at the cursor, one note or chord at a time. Press `I` in the piano roll. If you have a keyboard, play a key.
+   - ✓ The title row shows `STEP`, and a caret shows where the next note goes. With no keyboard, a list of inputs opens, and step input stays on. `<Space>` rests one step, and `=` and a value sets the step.
+14. `<Esc>` writes the notes that you played and leaves insert mode. Press `<Esc>`, and press it again if a list of inputs is open.
+   - ✓ Step input is off, and one undo step takes back all the notes that you played.
+15. In normal mode, `<Esc>` stays in the piano roll, and the same is true in every view. `<C-w>p` returns to the previous window. Press `<C-w>p`, then `gs` and `<Space><Space>` to listen, and `<Space><Space>` again to stop.
    - ✓ Your tune plays over the drums.
 
 ## What we did
 
-We moved by pitch and by time, and changed a note in normal mode. Then we drew a line and a chord in insert mode.
+We moved by pitch and by time, and changed a note in normal mode. Then we drew a line and a chord in insert mode, and met step input from a MIDI keyboard.
 
 - Previous: [Tracks, clips and notes](03-making.md)
 - Next: [The grammar: operators, motions, text objects](05-grammar.md)

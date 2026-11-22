@@ -86,6 +86,17 @@ you read it.
 | `:messages` | Shows all messages, newest at the bottom. A long message wraps over many rows. |
 | `<Space>fl` | Chooses a message from a list, newest first. |
 
+## Find what is slow
+
+| Command | Effect |
+| --- | --- |
+| `:profile start` | Starts `jit.profile`, the tool of LuaJIT that finds slow Lua code. Each millisecond, it notes the Lua function that runs. |
+| `:profile start {file}` | The same, and `:profile stop` also writes the folded stacks to the file, for a flame graph. |
+| `:profile stop` | Stops `jit.profile` and puts the 30 Lua functions that took the most time in the quickfix list, with their share of the samples, their file and their line. |
+| `:profile` | Says whether `jit.profile` runs. |
+
+To see where the time of the start goes, start paw with `--startuptime <file>` (see [The programs and their options](programs.md)).
+
 ## Keys that are not complete
 
 If you stop in the middle of a key sequence, paw lists the keys that can come next, and a group of keys shows its name, for example `+automation`. `paw.opt.hint_delay` sets the time before the list shows, and `paw.opt.hints` turns it off.

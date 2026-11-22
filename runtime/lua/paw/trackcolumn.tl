@@ -51,10 +51,15 @@ end
 local record Frontend
   act: Act
 end
+--- paw/scope.tl, the part of it that this module reads.
+local record Scope
+  current: function(): Field
+end
 local record Paw is partial.Paw
   groups: GroupsModule
   draw: DrawModule
   frontend: Frontend
+  scope: Scope
 end
 local paw = (_G as {string: Paw}).paw
 local opt = options.opt
@@ -331,6 +336,21 @@ M.add(
         end
       end
       return #out > 0 and table.concat(out, "; ") or nil
+    end,
+  }
+)
+
+-- A window in a scope (`paw.scope`) says so with `›` on its first row:
+-- the rows and their numbers are the scope's, not the song's.
+M.sign(
+  "scope",
+  {
+    priority = 100,
+    glyphs = {scope = "›"},
+    render = function(_: integer, ctx: Context): Cells
+      if ctx.row == 1 and paw.scope and paw.scope.current() then
+        return {{glyph(ctx, "scope") or "›", style(ctx, "sign", "TrackSign")}}
+      end
     end,
   }
 )

@@ -320,6 +320,7 @@ impl super::Session {
     /// Look for changes made outside paw: called from `idle`.
     pub(super) fn poll_file_changes(&mut self) {
         if let Some(paths) = self.files_watch.poll() {
+            self.files_there.forget();
             let root = self.files_watch.root.clone();
             let names: Vec<PathBuf> = paths
                 .iter()

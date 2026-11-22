@@ -148,6 +148,7 @@ impl Session {
             }
         }
         self.project = back;
+        self.files_there.forget();
         self.undo.touched = false;
         self.dirty = true;
         self.undo.restoring = true;

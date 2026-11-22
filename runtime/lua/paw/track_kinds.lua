@@ -73,13 +73,24 @@ end
 --- The name of the kind of a track: the kind that it keeps. If not, a kind
 --- whose `is` claims it. Nil for a usual track.
 function M.of(which)
-  local ok, t = pcall(function() return track_of(which):get() end)
-  if not ok or not t or t.master then return nil end
-  local meta = type(t.meta) == "table" and t.meta or {}
+  local id, meta
+  if type(which) == "number" then
+    -- One entry of the track, not all of it: each track header asks on
+    -- each frame. The master (id 0) has no kind.
+    if which == 0 then return nil end
+    local ok, m = pcall(api.track_get, which, "meta")
+    if not ok then return nil end
+    id, meta = which, m
+  else
+    local ok, t = pcall(function() return track_of(which):get() end)
+    if not ok or not t or t.master then return nil end
+    id, meta = t.id, t.meta
+  end
+  meta = type(meta) == "table" and meta or {}
   if type(meta.kind) == "string" then return meta.kind end
   for _, name in ipairs(M.order) do
     local spec = M.kinds[name]
-    if spec.is and spec.is(t.id) then return name end
+    if spec.is and spec.is(id) then return name end
   end
 end
 

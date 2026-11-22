@@ -15,7 +15,7 @@ Then type `:tutor` in paw. The tutor makes these pages from its lessons, so the 
 | 1 | [First steps: the screen, play and quit](01-first-steps.md) | We played a song, moved the cursor, used the command line and found the list of all the keys. |
 | 2 | [Move the cursor, and keys that change meaning](02-moving.md) | We moved by steps, clips, bars and tracks, with counts. The same keys had other meanings in visual mode and in the piano roll. |
 | 3 | [Tracks, clips and notes](03-making.md) | We made a track and gave it a name and an instrument. We added notes, repeated and deleted clips, and undid a change. |
-| 4 | [The piano roll and insert mode](04-pianoroll.md) | We moved by pitch and by time, and changed a note in normal mode. Then we drew a line and a chord in insert mode. |
+| 4 | [The piano roll and insert mode](04-pianoroll.md) | We moved by pitch and by time, and changed a note in normal mode. Then we drew a line and a chord in insert mode, and met step input from a MIDI keyboard. |
 | 5 | [The grammar: operators, motions, text objects](05-grammar.md) | We used operators with motions (`dw`, `d2W`) and with text objects (`dic`, `gcic`, `glic`), `dd` for tracks, and `.` to repeat. |
 | 6 | [The same grammar on notes](06-grammar-notes.md) | We used the grammar of lesson 5 on notes: `dw`, `.`, `>in`, `yie` `p`, `cin`, `dd` and `/`. |
 | 7 | [Visual mode: select, then act](07-visual.md) | We selected with `v`, `V` and motions, and then used `x`, `y`, `~`, or a count and `<C-a>`. We also used `gv` to select again, and we used visual mode in the piano roll. |

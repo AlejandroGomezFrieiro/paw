@@ -97,6 +97,7 @@ groups below link the main ones.
 - [How to record a guitar or a bass](how-to/record-a-guitar-or-a-bass.md): the instrument input, the level, the tuner, a take
 - [How to record vocals with a count-in and a click](how-to/record-vocals-with-a-count-in-and-a-click.md)
 - [How to record MIDI from a keyboard](how-to/record-midi-from-a-keyboard.md): a take, a take merged into a clip, a take over a loop
+- [How to enter notes from a MIDI keyboard](how-to/enter-notes-from-a-midi-keyboard.md): one note or chord at a time, rests, the pedal, a pad
 - [How to use the metronome](how-to/use-the-metronome.md): the click, the count-in
 - [How to record takes over a loop and comp them](how-to/record-takes-and-comp.md)
 - [How to punch in over a part](how-to/punch-in-over-a-part.md)

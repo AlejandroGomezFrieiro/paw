@@ -82,6 +82,63 @@ their tickets.
 - `repeat --keys j,k --times 20`, budget 0 and 5 in turns, 5 pairs, load
   average 40 to 57: 61.5 ms (39.1 to 63.9) and 39.9 ms (22.2 to 72.7)
   for each round. No measurable difference: the spread is much larger.
+## 2026-11-22: copies of a clip share their compiled events
+
+The sync now compiles the events of a MIDI clip from the clip's start and
+keeps them by what they are made from: the runs of notes, the controllers,
+the length and the loop. Copies of a clip that share its notes share one
+list, and each part in the engine plays it from its own start. An edit of
+notes that 100 copies share compiles them one time. `bench/nest.sh`, 8-bar
+clips on 10 tracks, the median of the runs' medians over 2 or 3 rounds that
+take turns before and after, in ms of processor time, measured under
+external load (load average 24 to 44). Raw numbers:
+`results/nest-2026-11-22.jsonl`.
+
+| Case | Before | After |
+| --- | --- | --- |
+| 100 copies of 384 notes, synced the first time | 1.925 (1.919 to 1.932) | 0.095 (0.094 to 0.096) |
+| 100 copies of 384 notes, a note of the shared clip edited | 1.886 (1.881 to 1.893) | 0.057 (0.057 to 0.057) |
+| The same, the sync alone (the copies made before) | | 0.044 (0.044 to 0.045) |
+| The same, each window cut 4 beats into the clip | 1.648 (1.638 to 1.657) | 0.060 (0.059 to 0.061) |
+| A note of one plain clip edited, beside the 100 copies | 0.036 (0.035 to 0.036) | 0.025 (0.025 to 0.026) |
+| 100 copies of 96 notes, a note of the shared clip edited | 0.191 (0.191 to 0.199) | 0.037 (0.036 to 0.037) |
+| The same, the sync alone | | 0.025 (0.025 to 0.025) |
+| A note of one plain clip edited, 96 notes | 0.012 (0.012 to 0.013) | 0.011 (0.010 to 0.011) |
+| 1 000 copies of 384 notes, a note of the shared clip edited | 19.060 (18.975 to 19.145) | 0.312 (0.299 to 0.326) |
+
+An edit of the shared notes costs 2.3 times a plain edit at 384 notes and
+3.4 times at 96, from 52 and 16 times. The sync alone costs 1.8 and 2.3
+times a plain edit. What is left is about 0.3 µs for each copy: the copy
+made again, its new part in the engine and its event to the frontends. A
+cut at the start of a window costs the cut one time, as the copies of one
+window share it. The engine keeps one list of events for 1 000 copies (the
+test `an_edit_of_notes_that_copies_share_compiles_them_once`). A render of
+copies, loops and cut clips is the same to the bit before and after.
+
+## 2026-11-22: the engine rests when stopped and silent
+
+When the song is stopped and nothing sounds, the whole engine rests: after
+8 quiet blocks, a callback writes silence and returns (see
+`docs/reference/engine.md`, "The engine at rest"). Before, each block still
+cleared, added and measured the buffers of every track, while every device
+slept.
+
+`bench/profile/run.sh idle --secs 30 --perf 30` on the profile project (64
+synth tracks, 2 000 clips), main at fb9882b against the engine at rest, 5 interleaved
+pairs. Measured under external load (load average 44 to 83, with the Lua
+suite running on the same machine). The raw numbers are in
+`results/rest-2026-11-22.jsonl`. The thread is the audio thread of the null
+backend.
+
+| Idle for 30 s, audio thread | main: median (range) | at rest: median (range) |
+| --- | ---: | ---: |
+| Instructions per second | 38.17 M (38.14 to 38.18 M) | 0.1096 M (0.1096 to 0.1096 M) |
+| Cycles per second | 42.5 M (40.6 to 42.6 M) | 2.76 M (2.62 to 2.86 M) |
+| Percent of a core | 1.86 (1.81 to 1.90) | 0.38 (0.36 to 0.39) |
+
+The instructions of the audio thread fall by 99.7 %. They do not change
+with the load. The thread of the null backend still wakes for each
+callback, so the processor time falls less than the instructions.
 
 ## 2026-11-21: paw in the terminal, profiled
 
@@ -195,6 +252,55 @@ What is left, in order of what the user feels:
    this cost is not in these numbers. A watch of file events does not see
    when a folder above the file gets a new name. So it can say that a
    missing file is there, and the kernel does not use one.
+
+   After that (2026-11-22): most of a frame was the drawing of
+   the clips' roles in Lua, every clip of every row on each frame. Now a
+   row of the timeline that the cursor is not on keeps its cells. On the
+   next frame it puts them back when its clips (every field) and what the
+   row is drawn from are the same. The layers of other modules are painted
+   over them again. A change of a highlight forgets the kept cells.
+
+   In a terminal a mark makes no data for a window and no closure. The view
+   asks the kernel only for the clips that it shows. The status line
+   finds the key for `:messages` without a sort of every mapping. The
+   kernel looks at the file of a clip at most once a second, and again at
+   once after each edit, undo, load, save or file event, so a file whose
+   folder gets a new name shows as offline within a second.
+
+   A full frame after a key, headless (`profile/frame.lua`, 100 keys and
+   frames), the old and the new build in turns, 2 pairs, load average 30
+   to 37:
+
+   | Instructions of a key and its frame (millions) | Before | After |
+   | --- | ---: | ---: |
+   | `j`, `k` | 53.0 and 53.5 | 25.2 and 26.5 |
+   | `<C-d>`, `<C-u>` | 52.6 and 53.9 | 26.5 and 27.5 |
+
+   The kernel's processor time of each key in a terminal (`drive.py keys`,
+   5 times each key, with the chord reading done before), the old and the
+   new build in turns, 3 pairs, measured under external load (load average
+   19 to 47). Median of the pairs (range):
+
+   | Key | Before | After |
+   | --- | ---: | ---: |
+   | `j` | 20.3 ms (19.6 to 34.1) | 17.4 ms (16.1 to 17.4) |
+   | `k` | 6.7 ms (6.6 to 24.6) | 5.0 ms (4.4 to 5.4) |
+   | `<C-d>` | 6.6 ms (6.6 to 8.7) | 4.8 ms (3.8 to 11.3) |
+   | `<C-u>` | 6.9 ms (6.6 to 7.9) | 4.6 ms (4.5 to 10.7) |
+   | `w`, `b`, `l`, `h` | 7.4 to 10.6 ms | 4.8 to 5.3 ms |
+
+   `j` is the first key that the scenario measures. Its first frame comes
+   after 5 ms. The rest of its time comes after the frame, in the old
+   build too, and it is not the drawing. It stays when the keys are
+   pressed 20 times first.
+
+   The chord reading after a mute of a track whose clips cover the whole
+   song reads every window again: each window holds notes of that track.
+   Its weighing now keeps its work tables between windows: a mute and an
+   unmute cost 325 million instructions before and 258 million after
+   (2 pairs), with the same readings. To read fewer windows needs a part
+   of each window for each track, which the planned dependency graph of derived data
+   takes up.
 3. The live ticker drew 60 frames per second when an armed input changed
    nothing on the screen. Fixed: after 20 frames in a row that change no
    cell, it slows to 8 per second, and a poke ends. Idle-armed kernel

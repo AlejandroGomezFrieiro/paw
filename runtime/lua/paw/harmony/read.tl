@@ -165,6 +165,36 @@ local function choose(b: Bass, span: number): integer, number
   return bass, most
 end
 
+-- The work tables of `weigh`, kept from one call to the next: a reading
+-- weighs hundreds of windows of hundreds of notes each, and new tables for
+-- each window were most of what the collector had to do. Each call writes
+-- what it reads, or clears it first.
+local la: {number} = {}
+local lb: {number} = {}
+local lp: {integer} = {}
+local ends: {number} = {}
+local ends_used = 0 -- how much of `ends` the last call filled
+local cuts: {number} = {}
+local first_of: {integer: integer} = {}
+local next_of: {integer} = {}
+local low_of: {integer} = {}
+local skip: {integer} = {}
+
+--- The first piece from `i` that no lower pitch took: `skip` leads past
+--- the pieces taken, its paths made short as they are walked.
+local function untaken(i: integer): integer
+  local j = i
+  while skip[j] do
+    j = skip[j]
+  end
+  while skip[i] do
+    local after = skip[i]
+    skip[i] = j
+    i = after
+  end
+  return j
+end
+
 --- Weights of the twelve pitch classes between `from` and `to`, the bass's
 --- pitch class, the total, and what the bass was read from (nil in
 --- silence). `notes` sorted by start; those before `first` have ended
@@ -177,9 +207,7 @@ local function weigh(notes: {Note}, from: number, to: number, first?: integer): 
   end
   -- What sounds in the window, note by note: from `la` to `lb`, pitch `lp`
   -- (the starts in order, as the notes are). `ends` are the ends before `to`.
-  local la, lb, lp: {number}, {number}, {integer} = {}, {}, {}
-  local ends: {number} = {}
-  local count, low_pitch, high_pitch = 0, math.huge, -math.huge
+  local count, stops, low_pitch, high_pitch = 0, 0, math.huge, -math.huge
   for i = first or 1, #notes do
     local n = notes[i]
     if n.start >= to then
@@ -195,20 +223,27 @@ local function weigh(notes: {Note}, from: number, to: number, first?: integer): 
       la[count], lb[count], lp[count] = a, b, n.pitch
       low_pitch, high_pitch = math.min(low_pitch, n.pitch), math.max(high_pitch, n.pitch)
       if b < to then
-        ends[#ends + 1] = b
+        stops = stops + 1
+        ends[stops] = b
       end
     end
   end
   if total == 0 then
     return w, nil, 0
   end
+  -- What the last call left after the ends of this one goes, so that the
+  -- sort sees only these.
+  for i = stops + 1, ends_used do
+    ends[i] = nil
+  end
+  ends_used = stops
   -- The bass: of the lowest pitches over time, the class that lasts longest.
   -- Time is cut at each start and end: the starts come in order, so only
   -- the ends are sorted, and the two are merged.
   table.sort(ends)
-  local cuts: {number} = {}
+  local ncuts = 0
   do
-    local i, j, starts, stops = 0, 1, count, #ends
+    local i, j, starts = 0, 1, count
     -- `from`, then the starts; the ends, then `to` for each note that lasts to it.
     local x = from
     while true do
@@ -216,11 +251,12 @@ local function weigh(notes: {Note}, from: number, to: number, first?: integer): 
       if not x and not y then
         break
       end
+      ncuts = ncuts + 1
       if y and (not x or y < x) then
-        cuts[#cuts + 1] = y
+        cuts[ncuts] = y
         j = j + 1
       else
-        cuts[#cuts + 1] = x
+        cuts[ncuts] = x
         i = i + 1
         x = i <= starts and la[i] or nil
       end
@@ -229,32 +265,20 @@ local function weigh(notes: {Note}, from: number, to: number, first?: integer): 
   -- The lowest pitch over each piece between two cuts: piece `i` is from
   -- `cuts[i]` to `cuts[i + 1]`, and a low covers the pieces in one run.
   -- The lows from the lowest up each take the pieces of their run that no
-  -- lower one took; `skip` leads past the pieces taken (with its paths
-  -- made short as they are walked), so that each piece is looked at about
-  -- once rather than once for each low.
-  local pieces = #cuts - 1
+  -- lower one took; `skip` leads past the pieces taken, so that each piece
+  -- is looked at about once rather than once for each low.
+  local pieces = ncuts - 1
+  for i = 1, pieces + 1 do
+    low_of[i], skip[i] = nil, nil
+  end
   -- The notes by pitch: a list for each pitch, through `next_of`.
-  local first_of, next_of: {integer: integer}, {integer} = {}, {}
   for k = count, 1, -1 do
     next_of[k] = first_of[lp[k]]
     first_of[lp[k]] = k
   end
-  local low_of: {integer} = {}
-  local skip: {integer} = {}
-  local function untaken(i: integer): integer
-    local j = i
-    while skip[j] do
-      j = skip[j]
-    end
-    while skip[i] do
-      local after = skip[i]
-      skip[i] = j
-      i = after
-    end
-    return j
-  end
   for pitch = math.floor(low_pitch), math.floor(high_pitch) do
     local k = first_of[pitch]
+    first_of[pitch] = nil
     while k do
       -- The first piece with `a <= cuts[i] + 1e-9` and the last with
       -- `b >= cuts[i + 1] - 1e-9`: the tests of a low that covers a piece.

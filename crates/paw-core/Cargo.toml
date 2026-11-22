@@ -37,6 +37,8 @@ flacenc = { version = "0.5", default-features = false }
 rubato = "5"
 # FFTs for the phase vocoder that stretches clips (stretch.rs).
 realfft = "3.5"
+# A fast hash for the sync's maps of clips and of compiled events (sync/clips.rs).
+rustc-hash = "2.1"
 # Content hashes of source files (media/hash.rs).
 blake3.workspace = true
 rustls.workspace = true

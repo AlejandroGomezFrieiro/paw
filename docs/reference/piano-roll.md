@@ -80,6 +80,9 @@ The edge of the pencil is the start or the end of its note, and the cursor is on
 | `=` and a value | Sets the length as a note value, so `=4` is a beat, `=8` an eighth, `=8.` a dotted eighth and `=8t` a triplet eighth. |
 | `c` | Makes the note a chord (see [Chords](#chords)). |
 | `C` | Makes the note a strummed chord (see [Chords](#chords)). |
+| `~` | Ties the note to the next note: its end goes to the start of the next note of the clip, or of the next note that you kept. |
+| `Ctrl-r` and a register | Puts the notes of the register at the note, as `p` pastes them. `Ctrl-r a` puts the notes of register `a`, `Ctrl-r "` the last yank, and a count first (`2 Ctrl-r a`) puts them twice. The pencil goes on where the last one ends. A register that holds no notes does nothing and says so. |
+| `Tab` | Opens the picker of snippets, and the snippet that you choose writes its notes at the note (see [Snippets](snippets.md)). While a snippet is active, `Tab` goes to its next choice. |
 | `a` | Gives the note an articulation, by name. The names come from the articulations extension, which uses the map of the track or the usual words. |
 | `e` and a kind | Puts a controller point where the note starts: `em` the modulation wheel, `ee` expression, `eb` breath, `es` the sustain pedal, and `e` and a number any controller. A count first is the value (`100em`), and otherwise paw asks for it. |
 | `Ctrl-n` `Ctrl-p` | Suggest what comes next, in place of the note. After a chord, the suggestions are the chords of the key that often follow it, and after a note, they are the notes of the key near it. The next key that edits takes the suggestion, and `Enter` takes it and stays. |
@@ -133,6 +136,8 @@ The key is the key of the last key change (`mk`) before the note, or the key of 
 
 `C` opens the same list and strums the chord, so each note starts a 64th note after the note below it (`paw.opt.strum`, in beats). A count gives the 64ths, as in `2C`, and `:set strum_dir=down` strums from the highest note. The notes of a strum end together.
 
+The picker of `C` also reads words at the end of what you type: `up`, `down` or `updown` for the way of this strum, and `@` and a number for the gap in 64ths. For example, `Cmaj7 down @2` strums C major seventh from the highest note, two 64ths apart. `updown` rises through the first, third and fifth note and so on, and falls through the others. The words and the count of `C` replace `paw.opt.strum_dir` and `paw.opt.strum` for that strum.
+
 The chord replaces the note, and all of its notes are the note that you draw, so `h` `l` `=` `<` `>` `+` `-` `k` `j` change all of them. The title gives the name of the chord. `Enter` keeps the chord and draws a note after it, and `Esc` keeps it and leaves insert mode.
 
 ### Marks of the song
@@ -185,6 +190,43 @@ The title shows what step input does, e.g., `STEP C4 E4 · 1 beat (=4) · vel ke
 - When a port goes away, step input releases the keys held on it.
 - A key that an input filter maps (`paw.api.engine_midi_filter`) doesn't enter.
 - A view of an extension takes step input with `paw.step.target(name, spec)`. See `paw.step` in the [Lua API](api.md).
+
+### Controls of the controller
+
+<!-- tags: step-controls -->
+
+A key, pad or pedal of the controller can do an action of step input in place of a key of the computer. The sustain pedal works with no setup: pressed with no key held, it rests one step, and pressed while keys are held, it makes them one step longer.
+
+| Action | Effect, as the key of the pencil does it |
+| --- | --- |
+| `rest` | Rests one step (`Space`). |
+| `tie` | Makes the pen one step longer. |
+| `back` | Takes back what you entered last (`Backspace`). |
+| `erase` | Erases the pen (`x`). |
+| `again` | Enters the pen again after itself (`.`). |
+| `legato` | Keeps the pen, and the next note starts where it ends (`Enter`). |
+| `dur.1` `dur.2` `dur.4` `dur.8` `dur.16` `dur.32` | Sets the step to that note value (`=1` to `=32`). |
+| `dot`, `triplet` | Turns the dot or the triplet of the step on or off. |
+| `octave.up`, `octave.down` | Moves the pen an octave up or down (`K` `J`). |
+| `chord` | While the control is held, the keys join one chord, also after you release them. |
+| `finish` | Ends insert mode and writes the notes (`Esc`). |
+
+| Command | Effect |
+| --- | --- |
+| `:step.learn {action}` | Waits for the next key, pad or pedal of the controller, and binds it to the action by its port, channel and note or controller number. `Tab` completes the actions, and `Esc` stops the wait. |
+| `:step.controls` | Lists the controls. `Alt-d` removes one. |
+
+- A control works while step input is on. Then it doesn't enter a note, doesn't sound and doesn't record, and the title shows what it did for a moment, e.g., `STEP rest`. When step input is off, the control plays as before.
+- An action that the view doesn't have shows `not here: <action>`.
+- The controls belong to you, not to the song. `:step.learn` and a removal in `:step.controls` write them to `step-controls.json` in the state folder, and paw reads that file when it starts. With `--clean`, paw reads and writes no such file.
+- In `init.lua`, `paw.step.bind(source, action)` binds a control for the session. `source` is `{ port, channel, note }` or `{ port, channel, cc }`, where `port` and `channel` are optional. `action` is a name from the table, `{ keys = "=8t" }` to type those keys of the pencil, or `{ down = "rest", held = "tie" }` for one action with no key held and another while keys are held, as the pedal has.
+- `paw.step.unbind({ cc = 64 })` takes the default away from the pedal, so it sustains again. `paw.step.bindings()` lists the controls, and `paw.step.action(name, fn)` adds an action from an extension.
+
+```lua
+paw.step.bind({ port = "nanoPAD", note = 36 }, "rest")
+paw.step.bind({ port = "Keystation", note = 21 }, "dur.1")
+paw.step.bind({ port = "Keystation", note = 23 }, { keys = "=8t" })
+```
 
 ## Suggestions
 

@@ -26,6 +26,7 @@ impl Session {
         let result = f(&mut self.project);
         if result.is_ok() {
             self.undo.history.edited();
+            self.files_there.forget();
             self.dirty = true;
             self.undo.touched = true;
             self.undo.edits += 1;
@@ -100,6 +101,7 @@ impl Session {
         }
         let sweep = std::mem::take(&mut self.undo.sweep);
         let join = self.undo.join.take();
+        self.undo.adjusting = None;
         if !self.undo.touched {
             self.undo.history.clear_labels();
             return;

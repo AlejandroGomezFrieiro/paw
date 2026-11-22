@@ -17,12 +17,15 @@ local function column(p, beat) return math.floor((beat - (p.from or 0)) * (p.per
 --- a notch where each repeat of a looped clip begins (`repeats`, beats from
 --- its start) and a mark on each warp marker (`warps`, the same). `per` is
 --- columns a beat. The terminal draws the row in `title_style` and the
---- body in `body_style`, and `body(buf)` draws what is in the body (notes,
+--- body in `body_style`, and `body(buf, props)` draws what is in the body (notes,
 --- a waveform). A window paints it in `color` (its track's), lit when
 --- `current` (the cursor's) or `chosen`, faint when `muted`; its notes or
 --- its waveform from `content` (`midi` or not: `paw.frontend.preview`,
 --- `paw.frontend.peaks`, fetched again when the key changes); an audio
---- clip's fades (`fade_in`, `fade_out`, beats) and `gain` (dB). `ghost`
+--- clip's fades (`fade_in`, `fade_out`, beats) and `gain` (dB). Where the
+--- window's scope cuts it (`cut_in`, `cut_out`, beats from its start), a
+--- `‹` after the cut at its start, its name beside it, and a `›` before
+--- the cut at its end. `ghost`
 --- is where a drag will put one. With `take` it is that take of the clip
 --- in a take lane (`paw.frontend.take_preview`), lit when `active`.
 role("clip", {
@@ -43,6 +46,8 @@ role("clip", {
     fade_in = "beats",
     fade_out = "beats",
     gain = "dB",
+    cut_in = "beats",
+    cut_out = "beats",
     content = "key of what it shows",
     ghost = "boolean",
     take = "number",
@@ -62,7 +67,7 @@ role("clip", {
     buf:text(w > 2 and 1 or 0, 0, p.label or p.name or "")
     if h >= 2 then
       buf:fill(0, 1, w, h - 1, " ", p.body_style)
-      if p.body then p.body(buf) end
+      if p.body then p.body(buf, p) end
     end
     -- A notch where each repeat of a looped clip begins.
     for _, at in ipairs(p.repeats or {}) do
@@ -76,6 +81,20 @@ role("clip", {
     end
     -- A hairline where the clip starts, so that clips side by side stay apart.
     buf:fill(0, 0, 1, h, g.clip_start, "ClipEdge")
+    -- Where a scope cuts it: `‹` and the name where the scope starts (the
+    -- start of the clip is out of sight), `›` where it ends.
+    if p.cut_in then
+      local x = math.floor(p.cut_in * p.per + 0.5)
+      if x >= 0 and x < w then
+        buf:text(x, 0, "‹", "ClipEdge")
+        local room = math.max(0, w - x - 2)
+        if room > 0 then buf:text(x + 1, 0, util.fit(p.label or p.name or "", room), p.title_style) end
+      end
+    end
+    if p.cut_out then
+      local x = math.floor(p.cut_out * p.per + 0.5) - 1
+      if x >= 0 and x < w then buf:text(x, 0, "›", "ClipEdge") end
+    end
   end,
 })
 

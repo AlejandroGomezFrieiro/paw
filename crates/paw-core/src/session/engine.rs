@@ -47,6 +47,8 @@ impl Session {
             "device_sleep": self.engine.sleep,
             "device_runs": self.engine.handle.shared.device_blocks().0,
             "device_sleeps": self.engine.handle.shared.device_blocks().1,
+            // Blocks in which the whole engine rested: stopped and silent.
+            "engine_rests": self.engine.handle.shared.engine_rests(),
             // Groups of tracks shared out between threads since the engine
             // started: one with little work runs on the audio thread alone.
             "shared_groups": self.engine.handle.shared.shared_groups(),

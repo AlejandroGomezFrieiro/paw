@@ -322,6 +322,7 @@ function K.startup()
   require("paw.views.tracklist")
   paw.files = require("paw.views.files")
   paw.recent = require("paw.recent")
+  paw.shada = require("paw.shada")
   paw.learn = require("paw.learn")
   paw.remote = require("paw.remote")
   -- What graphical frontends are sent of the views they show (paw/scene.tl).
@@ -344,6 +345,8 @@ function K.startup()
   paw.luadev = require("paw.luadev")
   -- `:checkhealth`, and the checks extensions add (paw/health.lua).
   paw.health = require("paw.health")
+  -- `:profile`: LuaJIT's sampling profiler (paw/profile.tl).
+  paw.profile = require("paw.profile")
   local env = api.env()
   -- Extensions the program was built with (`paw.withExtensions` in the
   -- flake): part of the program, so loaded with `--clean` too.
@@ -354,12 +357,14 @@ function K.startup()
     -- init.lua, or init.tl (or another language's) when there is no init.lua.
     local init = paw.lang.find(env.config_dir .. "/init")
     if init then
+      api.startup_enter()
       local chunk, err = paw.lang.loadfile(init)
       if chunk then
         paw.try(paw.limit.untrusted(chunk))
       else
         paw.notify(err, "error")
       end
+      api.startup_leave("sourcing " .. init)
     end
     paw.snippet.load_dir(env.config_dir .. "/snippets", "config")
   end
