@@ -575,6 +575,10 @@ end
 -- The options as the run started. The runner gives them back after each
 -- test, so a test never sees what an earlier test set: the leak check does
 -- not need to look at them.
+-- Each window that the screen keeps is drawn too, and a test fails when
+-- one drew other cells with the same stamp (paw/ui.tl). It is set
+-- before the snapshot of the options, so each test gets it back.
+paw.opt.check_stamps = true
 local start_options = paw.option.snapshot()
 local base = fingerprint()
 local leaked = {}
@@ -602,8 +606,18 @@ local function check(part)
   end
 end
 
+--- The windows that drew other cells with the same stamp while `fn` ran.
+local function stamps_kept(fn)
+  local misses = paw.ui.stamp_misses
+  for i = #misses, 1, -1 do
+    misses[i] = nil
+  end
+  local skipped = fn()
+  if #misses > 0 then error(table.concat(misses, "\n"), 0) end
+  return skipped
+end
 for i, t in ipairs(selected) do
-  local ok, err = xpcall(t.fn, debug.traceback)
+  local ok, err = xpcall(stamps_kept, debug.traceback, t.fn)
   for j = #cleanups, 1, -1 do
     pcall(cleanups[j])
     cleanups[j] = nil

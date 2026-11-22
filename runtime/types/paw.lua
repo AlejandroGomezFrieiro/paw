@@ -2729,6 +2729,10 @@ function paw.draw.waveform(peaks, rows) end
 
 paw.events.emit = paw.emit
 
+--- How many events paw has sent since it started. A number that is the
+--- same as before means that no event came in between.
+function paw.events.emitted() end
+
 --- The descriptor of an event whose payload is a `P`: Teal checks the
 --- handlers that `paw.on` is given for it, and what `paw.emit` sends.
 ---   local changed: paw.events.Event<OptionChanged> = paw.events.event("option.changed")
