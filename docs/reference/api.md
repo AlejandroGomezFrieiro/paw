@@ -398,6 +398,8 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 ## Module paw.commands
 
+- `paw.commands.adjust(given)`: Run the last command that has `adjust` again with other parameters, in place of its undo step: `paw.commands.adjust({ grid = "1/8" })`, or positional ones, by the order of its `adjust`. The project goes back to before the command, the command runs again with its first parameters and these laid over them, and the undo step is the new result. It works only on the last change: after `undo`, or another change, it says so.
+- `paw.commands.adjusting()`: The line `adjust a=1 b=2` that holds the parameters of the last command that can be adjusted, as they are now; nil when no command ran that can be adjusted. `<leader>.` puts it on the command line.
 - `paw.commands.alias(alias, target)`: Make `alias` another name for `target`.
 - `paw.commands.complete(line)`: What could finish a command line: a list of `{ text, label, desc }` with `text` the whole line it would become and `label` the part shown.
 
@@ -417,6 +419,11 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.commands.list()`: Every command, sorted by name.
 - `paw.commands.main(name)`: What a bare extension name (`:notation`) stands for: its `.open` or `.show` command, where it has one.
 - `paw.commands.owner()`: The extension that paw loads now, or whose code registers these commands and keys later. `:help` goes to its page for them, and an unload removes them.
+- `paw.commands.params(ctx)`: The parameters of the command that runs: what the user gave, by the names that its `adjust` lists. A parameter not given is not in the table.
+
+  ```lua
+  local p = paw.commands.params(ctx)  -- `:quantize 1/16 strength=50`: { grid = "1/16", strength = 50 }
+  ```
 - `paw.commands.parse(line)`: Split a command line into a name and arguments:
 
   ```lua
@@ -1038,6 +1045,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.keymap.put(mode, scope, keys, map)`: Put a mapping back as `map` (a mapping that `every` gave), or remove it with nil. The mapping is found by its mode, scope and joined keys (`table.concat(map.keys)`). An extension that unloads does this with the keys that it mapped.
 - `paw.keymap.record(name)`: Start recording keys into a register, or stop with no name.
 - `paw.keymap.recording()`: The register being recorded into, if any.
+- `paw.keymap.repeat_as(keys)`: Make `.` repeat `keys` (a list of keys), not the keys typed for the command that runs now. `:adjust` does it, so that `.` does the adjusted command again.
 - `paw.keymap.repeat_last(n)`: Do the last change again, with `n` in place of its count if given.
 - `paw.keymap.scopes()`: Where paw finds mappings, first to last. First comes the part of the focused view that has the cursor, if the view has such parts (`view:subscope()`). For example, "arrange.lane" on an automation lane row, or a list of parts, the first part first. Then comes the view, then all views.
 - `paw.keymap.search(text, dir)`: Search the focused view for `text`, forward (`dir` 1) or back (-1).
@@ -2580,6 +2588,8 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.ui_snapshot(width, height)`
 - `paw.api.ui_view_snapshot(name, width, height)`
 - `paw.api.undo()`: --- undo ---
+- `paw.api.undo_adjust(before, label)`: Put the project back as it was before the last step, so that a command runs again and its edits take the step's place: `paw.commands.adjust`. `before` is the state the command started from, and `label` the step's new name.
+- `paw.api.undo_adjust_cancel()`: Put the step back as it was, when the command run again failed.
 - `paw.api.undo_checkpoint()`
 - `paw.api.undo_current()`
 - `paw.api.undo_diff(a, b)`

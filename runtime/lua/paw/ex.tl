@@ -2178,6 +2178,7 @@ local record ExOptions
   items: boolean
   desc: string
   label: string
+  adjust: {contracts.AdjustParam}
 end
 
 --- Define an Ex command: a command that takes a range, as `:5,8d`.
@@ -2185,7 +2186,7 @@ end
 local function ex(names: {string}, run: function(Context): Result, opts: ExOptions)
   for i, name in ipairs(names) do
     if i == 1 then
-      commands.define(name, run, {desc = opts.desc, label = opts.label, range = true, raw = true})
+      commands.define(name, run, {desc = opts.desc, label = opts.label, range = true, raw = true, adjust = opts.adjust})
     else
       commands.alias(name, names[1])
     end
@@ -2316,23 +2317,51 @@ ex(
 ex(
   {"quantize"},
   function(ctx: Context): Result
-    local grid = grid_arg(arg_text(ctx))
+    local params = commands.params(ctx)
+    local grid = grid_arg(params.grid ~= nil and tostring(params.grid) or "")
+    local given = params.strength
+    local strength: number = 100
+    if given is number then
+      strength = given
+    elseif given ~= nil then
+      fail("`strength` is from 0 to 100, not `%s`", tostring(given))
+    end
+    if strength < 0 or strength > 100 then
+      fail("`strength` is from 0 to 100, not `%g`", strength)
+    end
     local items = notes_in(ctx)
     local changes: {Changed} = {}
     for i, item in ipairs(items) do
       -- On the song's grid, so that clips that start off it still line up.
+      -- A strength under 100 moves each note that part of the way.
       local at = util.round(item.at, grid)
-      changes[i] = {item = item, change = {start = math.max(0, item.note.start + at - item.at)}}
+      changes[i] = {item = item, change = {start = math.max(0, item.note.start + (at - item.at) * strength / 100)}}
     end
     M.apply(changes)
-    paw.notify(string.format("snapped %s to %g beats", plural(#items, "note"), grid))
+    paw.notify(
+      string.format(
+        "snapped %s to %g beats%s",
+        plural(#items, "note"),
+        grid,
+        strength < 100 and string.format(" at %g%%", strength) or ""
+      )
+    )
   end,
-  {items = true, desc = "Snap the notes of a range to the grid: `:%quantize`, `:5,8quantize 1/16`", label = "Quantize"}
+  {
+    items = true,
+    desc = "Snap the notes of a range to the grid: `:%quantize`, `:5,8quantize 1/16`, `:quantize 1/16 strength=50` moves them half way",
+    label = "Quantize",
+    adjust = {
+      {name = "grid", values = {"1/4", "1/8", "1/16", "1/32", "1/12", "1/24"}},
+      {name = "strength", min = 0, max = 100, step = 5, default = 100},
+    },
+  }
 )
 ex(
   {"transpose"},
   function(ctx: Context): Result
-    local by = math.tointeger(tonumber((arg_text(ctx):gsub("^%+", ""))))
+    local given = commands.params(ctx).semitones
+    local by = math.tointeger(tonumber((tostring(given == nil and "" or given):gsub("^%+", ""))))
     if not by then
       fail("`transpose` needs semitones: `:5,8transpose 12`, `-3`")
     end
@@ -2348,6 +2377,7 @@ ex(
     items = true,
     desc = "Move the notes of a range up or down: `:5,8transpose 12`, `:%transpose -3`",
     label = "Transpose",
+    adjust = {{name = "semitones", min = -127, max = 127, step = 1}},
   }
 )
 ex(

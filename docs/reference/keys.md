@@ -256,6 +256,7 @@ See [Snippets](snippets.md) and [Completion](completion.md).
 | Keys | |
 | --- | --- |
 | `.` | repeat the last change (`3.` with a new count) |
+| `<Space>.` | adjust the last change: the command line holds `:adjust` and the parameters of the last command (`:quantize`, `:transpose`, `:clip.fade`), so that you can change them and run it again in place of its undo step |
 | `"a` | the register for the next command; `"0` last yank, `"_` nowhere |
 | `qa` … `q` | record keys into register a |
 | `@a` `@@` `@:` | play them, the last macro again, the last command line |
@@ -288,7 +289,7 @@ After the leader, the first key is a domain, and the next key is what to do in i
 | v: views | `<Space>vm` mixer, `<Space>vd` device panel, `<Space>vp` piano roll, `<Space>vs` session view, `<Space>vn` notation, `<Space>vu` undo tree |
 | z: scopes | `<Space>zz` a scope from a list, `<Space>zs` `<Space>zv` `<Space>zt` the scope at the cursor (or of the selection) in a new split, vertical split, tab, `<Space>zn` name this window's scope |
 
-`u` and `<C-r>` (undo and redo) have no leader, and the keys of one view are on the local leader `\`.
+`u` and `<C-r>` (undo and redo) have no leader, and the keys of one view are on the local leader `\`. `<Space>.` is the one leader key that is not a domain: it adjusts the last change (see [Repeat and remember](#repeat-and-remember)).
 
 ## Play
 

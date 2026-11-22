@@ -1651,6 +1651,20 @@ function paw.clip_kinds.split(clip, at) end
 ---@param to any
 function paw.clip_kinds.trim(clip, from, to) end
 
+--- Run the last command that has `adjust` again with other parameters, in
+--- place of its undo step: `paw.commands.adjust({ grid = "1/8" })`, or
+--- positional ones, by the order of its `adjust`. The project goes back to
+--- before the command, the command runs again with its first parameters
+--- and these laid over them, and the undo step is the new result. It
+--- works only on the last change: after `undo`, or another change, it says so.
+---@param given any
+function paw.commands.adjust(given) end
+
+--- The line `adjust a=1 b=2` that holds the parameters of the last
+--- command that can be adjusted, as they are now; nil when no command ran
+--- that can be adjusted. `<leader>.` puts it on the command line.
+function paw.commands.adjusting() end
+
 --- Make `alias` another name for `target`.
 ---@param alias any
 ---@param target any
@@ -1699,6 +1713,12 @@ function paw.commands.main(name) end
 --- The extension that paw loads now, or whose code registers these commands
 --- and keys later. `:help` goes to its page for them, and an unload removes them.
 function paw.commands.owner() end
+
+--- The parameters of the command that runs: what the user gave, by the
+--- names that its `adjust` lists. A parameter not given is not in the table.
+---   local p = paw.commands.params(ctx)  -- `:quantize 1/16 strength=50`: { grid = "1/16", strength = 50 }
+---@param ctx any
+function paw.commands.params(ctx) end
 
 --- Split a command line into a name and arguments:
 ---   `track.add Bass volume=-6` -> "track.add", { "Bass", volume = -6 }
@@ -4238,6 +4258,12 @@ function paw.keymap.record(name) end
 
 --- The register being recorded into, if any.
 function paw.keymap.recording() end
+
+--- Make `.` repeat `keys` (a list of keys), not the keys typed for the
+--- command that runs now. `:adjust` does it, so that `.` does the adjusted
+--- command again.
+---@param keys any
+function paw.keymap.repeat_as(keys) end
 
 --- Do the last change again, with `n` in place of its count if given.
 ---@param n any
@@ -10266,6 +10292,17 @@ function paw.api.ui_view_snapshot(name, width, height) end
 
 --- --- undo ---
 function paw.api.undo() end
+
+--- Put the project back as it was before the last step, so that a
+--- command runs again and its edits take the step's place:
+--- `paw.commands.adjust`. `before` is the state the command started
+--- from, and `label` the step's new name.
+---@param before integer?
+---@param label string?
+function paw.api.undo_adjust(before, label) end
+
+--- Put the step back as it was, when the command run again failed.
+function paw.api.undo_adjust_cancel() end
 
 function paw.api.undo_checkpoint() end
 
