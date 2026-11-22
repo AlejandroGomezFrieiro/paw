@@ -280,6 +280,7 @@ function K.startup()
     "pianoroll",
     "eventlist",
     "help",
+    "adjust",
     "effect_windows",
   }) do
     require("paw.views." .. name)

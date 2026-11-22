@@ -302,8 +302,8 @@ end
 function M.row(id: integer, win?: Window): Fold
   for _, f in ipairs(M.list(win)) do
     if f.kind == "tracks" and f.closed and holds(f, id) and not is_whole_scope(f, win) then
-      -- Its first track drawn, in the order of the track list.
-      for _, other in ipairs(api.track_list()) do
+      -- Its first track drawn, in the order of the tracks of the scope.
+      for _, other in ipairs(paw.scope.tracks(paw.scope.current(win))) do
         if holds(f, other) then
           if other == id then
             return f
@@ -761,7 +761,7 @@ function M.all(on: boolean, win?: Window)
   end
   w.foldlevel = on and 0 or nil
   if on then
-    for _, id in ipairs(api.track_list()) do
+    for _, id in ipairs(paw.scope.tracks(paw.scope.current(w))) do
       if paw.groups.is_group(id) and #paw.groups.members(id) > 0 and not group_entry(folds, id) then
         folds[#folds + 1] = {kind = "group", id = id, closed = true}
       end

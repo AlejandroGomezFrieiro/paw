@@ -263,7 +263,7 @@ See [Snippets](snippets.md) and [Completion](completion.md).
 | Keys | |
 | --- | --- |
 | `.` | repeat the last change (`3.` with a new count) |
-| `<Space>.` | adjust the last change: the command line holds `:adjust` and the parameters of the last command (`:quantize`, `:transpose`, `:clip.fade`), so that you can change them and run it again in place of its undo step |
+| `<Space>.` | adjust the last change: a panel shows the parameters of the last command (`:quantize`, `:transpose`, `:clip.fade`), and the result changes while you change them (see [The adjust panel](#the-adjust-panel)) |
 | `"a` | the register for the next command; `"0` last yank, `"_` nowhere |
 | `qa` … `q` | record keys into register a |
 | `@a` `@@` `@:` | play them, the last macro again, the last command line |
@@ -272,6 +272,20 @@ See [Snippets](snippets.md) and [Completion](completion.md).
 | `<C-o>` `<C-i>` | back, forward through jumps |
 | `g;` `g,` | back, forward through the places the project was edited |
 | `` `. `` `'.` | the place of the last edit |
+
+### The adjust panel
+
+`<Space>.` after `:quantize`, `:transpose` or `:clip.fade` opens a small panel over the screen. Its title names the command and the range it changed, for example `Quantize · 48 notes`. Each row is one parameter and its value. The window shows the same panel as the terminal.
+
+| Keys | |
+| --- | --- |
+| `j` `k` | choose a parameter |
+| `+` `-`, `<C-a>` `<C-x>` | change the value by its step; a count multiplies the step (`5-`) |
+| `<CR>` | type a value for the parameter on the command line |
+| `:` | open the command line with `:adjust` and all the values |
+| `<Esc>` | close the panel and keep the result |
+
+Each change runs the command again as `:adjust` does, so all the changes are one undo step. When changes come quickly, as when you hold a key, paw runs only the last one, 50 ms after it. `u` after `<Esc>` undoes the whole command. With nothing to adjust, `<Space>.` opens the command line, which says why.
 
 ## The leader keys
 

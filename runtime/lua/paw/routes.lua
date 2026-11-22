@@ -17,10 +17,10 @@ local M = {}
 --- and the tracks of the devices that listen to it.
 local function edges()
   local out = {}
-  for _, id in ipairs(api.track_list()) do
+  for _, id in ipairs(api.track_list({ all = true })) do
     out[id] = out[id] or {}
   end
-  for _, id in ipairs(api.track_list()) do
+  for _, id in ipairs(api.track_list({ all = true })) do
     local t = api.track_get(id)
     table.insert(out[id], t.output or 0)
     for _, send in ipairs(t.sends or {}) do
@@ -54,6 +54,13 @@ end
 --- of ids: by outputs, sends and side-chains.
 function M.reached(from) return walk(edges(), from) end
 
+--- The tracks a track may route to: those of its place, the song or its
+--- subproject (the tracks of a subproject route only to each other).
+function M.peers(track)
+  local ok, nest = pcall(api.track_get, track, "nest")
+  return api.track_list({ nest = ok and nest or nil })
+end
+
 --- The tracks whose sound reaches a track, as a set of ids.
 function M.reaching(into)
   local back = {}
@@ -76,7 +83,7 @@ function M.sidechain_sources(device)
   local track = api.device_get(device).track
   local reached = M.reached(track)
   local out = {}
-  for _, id in ipairs(api.track_list()) do
+  for _, id in ipairs(api.track_list({ all = true })) do
     if id ~= track and not reached[id] then out[#out + 1] = { id = id, name = api.track_get(id, "name") } end
   end
   return out
@@ -97,7 +104,7 @@ local function track_of(track)
   if track == "" or track:lower() == "none" then return nil end
   local found = paw.track(track)
   if not found then
-    for _, id in ipairs(api.track_list()) do
+    for _, id in ipairs(api.track_list({ all = true })) do
       if api.track_get(id, "name"):lower():find(track:lower(), 1, true) then return paw.track(id) end
     end
     error("no track `" .. track .. "`", 0)
@@ -223,7 +230,7 @@ function M.setup()
     local function choose_track(pair)
       local items = { { id = false, name = "Nowhere: not heard" } }
       local reaching = M.reaching(device:get().track)
-      for _, id in ipairs(api.track_list()) do
+      for _, id in ipairs(M.peers(device:get().track)) do
         if id ~= device:get().track and not reaching[id] then
           items[#items + 1] = { id = id, name = api.track_get(id, "name") }
         end

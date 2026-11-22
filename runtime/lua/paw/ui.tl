@@ -104,14 +104,17 @@ local record Meter
   levels: {number}
   hold: number
   clipped: boolean
+  --- The live frame it was read for (`refreshing.frame`).
+  frame: integer
 end
 
 --- The live values of now, while the live parts are drawn again.
 local type Bound = {string:number | string | boolean}
 local record Refreshing
   position: number
-  meters: {integer:Meter}
   views: {contracts.LiveValues}
+  --- The number of the live frame: a meter read for another is read again.
+  frame: integer
 end
 
 --- A layer of a part of a view (`paw.ui.layer`).
@@ -972,6 +975,12 @@ end
 local live: Live           -- the live parts of the seat's screen: `{ buf, draw }` each
 local recording: Live      -- the list that the screen being drawn fills, or nil
 local refreshing: Refreshing     -- the live values of now, while the parts are drawn again
+-- The one table of live values, and the meters read, a table each for as
+-- long as paw runs: a live frame makes no new ones.
+local now_values: Refreshing = { frame = 0 }
+local meters: {integer:Meter} = {}
+-- The transport of the frame being drawn (`M.transport`).
+local frame_transport: types.Transport
 seats.keep("ui.live", function(): Live return live end, function(l: Live) live = l end, function(): Live return nil end)
 
 --- True if a live part drawn now is one of the terminal's screen.
@@ -979,10 +988,17 @@ function M.live_drawing(): boolean
   return recording ~= nil
 end
 
---- Draw a live part on `buf`: `draw(buf)` draws it, now and each time it
---- is drawn again by itself.
-function M.live(buf: Buf, draw_part: function(b: Buf))
-  if not recording then return draw_part(buf) end
+--- The transport as `paw.api.transport_get` gives it. While a frame is
+--- drawn, the one read first in that frame: the status line, the ruler
+--- and the views read it once between them.
+function M.transport(): types.Transport
+  if not M.screen then return api.transport_get() end
+  if not frame_transport then frame_transport = api.transport_get() end
+  return frame_transport
+end
+
+-- Draw a live part: `part`, kept from the frame before, or a new one.
+local function live_part(part: LivePart, buf: Buf, draw_part: function(b: Buf))
   local index = api.grid_live_begin(buf.x, buf.y, buf.width, buf.height, buf.cx, buf.cy, buf.cw, buf.ch)
   local was = recording
   recording = nil  -- what it draws inside is part of it
@@ -990,17 +1006,27 @@ function M.live(buf: Buf, draw_part: function(b: Buf))
   recording = was
   if index then
     api.grid_live_end(index)
-    recording[#recording + 1] = { buf = buf, draw = draw_part }
+    recording[#recording + 1] = part or { buf = buf, draw = draw_part }
   end
   if not ok then error(result, 0) end
 end
 
+--- Draw a live part on `buf`: `draw(buf)` draws it, now and each time it
+--- is drawn again by itself.
+function M.live(buf: Buf, draw_part: function(b: Buf))
+  if not recording then return draw_part(buf) end
+  live_part(nil, buf, draw_part)
+end
+
 local function meter_of(values: Refreshing, id: integer): Meter
-  local m = values.meters[id]
+  local m = meters[id]
   if not m then
+    m = { levels = { 0, 0 } }
+    meters[id] = m
+  end
+  if m.frame ~= values.frame then
     local l, r, hold, clipped = paw.draw.track_peak(id)
-    m = { levels = { l, r }, hold = hold, clipped = clipped }
-    values.meters[id] = m
+    m.levels[1], m.levels[2], m.hold, m.clipped, m.frame = l, r, hold, clipped, values.frame
   end
   return m
 end
@@ -1013,7 +1039,7 @@ function M.live_value(bind: string, props: contracts.MarkProps)
   if not values then return end
   local set = props as Bound
   if bind == "position" then
-    values.position = values.position or api.transport_get().position
+    values.position = values.position or M.transport().position
     set.at = values.position
   elseif bind:sub(1, 6) == "meter:" then
     local m = meter_of(values, (tonumber(bind:sub(7)) or 0) as integer)
@@ -1044,18 +1070,19 @@ end
 --- Whether the screen can be drawn by its live parts only: each view on
 --- it says what moves in it (`view.live_roles`) or that nothing does
 --- (`view.still`), and none must be drawn whole now (`view:moving()`).
-local function only_live(): boolean
-  local function fits(name: string, win?: Node): boolean
-    local view = M.views[name]
-    if not view then return true end
-    if not (view.live_roles or view.still or view.live_part) then return false end
-    if view.moving then
-      if win then L.bind(win) end
-      local moving = view:moving()
-      if moving then return false end
-    end
-    return true
+local function fits(name: string, win?: Node): boolean
+  local view = M.views[name]
+  if not view then return true end
+  if not (view.live_roles or view.still or view.live_part) then return false end
+  if view.moving then
+    if win then L.bind(win) end
+    local moving = view:moving()
+    if moving then return false end
   end
+  return true
+end
+
+local function only_live(): boolean
   for _, r in ipairs(M.rects) do
     if not fits(r.name, r.win and L.find_id(M.layout, r.win)) then
       L.settle()
@@ -1066,23 +1093,36 @@ local function only_live(): boolean
   return not (M.float and not fits(M.float.name))
 end
 
+-- What `M.live` lists while the live parts are drawn again: the screen
+-- keeps its list of them, so this one is emptied and used each time.
+local spare_live: Live = {}
+
+-- Draw the parts of `parts` again, listed in `into`.
+local function redraw_live(parts: Live, into: Live)
+  api.grid_live_restore()
+  for i = #into, 1, -1 do into[i] = nil end
+  recording = into
+  for _, part in ipairs(parts) do live_part(part, part.buf, part.draw) end
+end
+
 --- Draw the live parts of the screen again, on the frame drawn last.
 --- Called by the kernel (`paw.api.ui_redraw_live`). False when the screen
 --- must be drawn whole instead.
 function M.render_live(buf: Buf): boolean
   if not (live and live.width == buf.width and live.height == buf.height) then return false end
-  if not only_live() then return false end
-  M.screen = true
-  refreshing = { meters = {} }
-  local parts = live
-  local ok, err = pcall(function()
-    api.grid_live_restore()
-    recording = {}
-    for _, part in ipairs(parts) do M.live(part.buf, part.draw) end
-  end) as (boolean, string)
+  -- The views say whether they move with the transport of this frame.
+  M.screen, frame_transport = true, nil
+  if not only_live() then
+    M.screen, frame_transport = false, nil
+    return false
+  end
+  now_values.frame, now_values.position, now_values.views = now_values.frame + 1, nil, nil
+  refreshing = now_values
+  local parts, into = live, spare_live
+  local ok, err = pcall(redraw_live, parts, into) as (boolean, string)
   -- A part of a view with a state for each window bound that window's.
   L.settle()
-  recording, refreshing, M.screen = nil, nil, false
+  recording, refreshing, M.screen, frame_transport = nil, nil, false, nil
   api.grid_live_seal()
   if not ok then
     live = nil
@@ -1093,13 +1133,13 @@ end
 
 --- Draw the whole screen. Called by the kernel.
 function M.render(buf: Buf)
-  M.screen = true
+  M.screen, frame_transport = true, nil
   recording = {}
   local ok, err = pcall(M.render_screen, buf) as (boolean, string)
   live, recording = recording, nil
   live.width, live.height = buf.width, buf.height
   api.grid_live_seal()
-  M.screen = false
+  M.screen, frame_transport = false, nil
   if not ok then
     live = nil
     error(err, 0)
@@ -1613,7 +1653,7 @@ local field = api.track_get as function(integer, string): any
 
 local function count_listening()
   listening = false
-  for _, id in ipairs(api.track_list()) do
+  for _, id in ipairs(api.track_list({all = true})) do
     local input = field(id, "input") as string
     if input and input ~= "" and (field(id, "armed") as boolean or field(id, "monitor") as boolean) then
       listening = true

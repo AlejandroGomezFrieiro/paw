@@ -117,6 +117,24 @@ impl Session {
         Ok(view)
     }
 
+    /// One field of a nest's own (not `tracks` or `used`): quicker than
+    /// [`Session::nest_view`], which looks at every clip.
+    pub fn nest_field(&self, id: NestId, key: &str) -> Result<Value> {
+        let nest = self
+            .project
+            .nest(id)
+            .with_context(|| format!("no subproject {id}"))?;
+        Ok(match key {
+            "name" => json!(nest.name),
+            "length" => json!(nest.length),
+            "master" => json!(nest.master),
+            _ => serde_json::to_value(&**nest)?
+                .get(key)
+                .cloned()
+                .unwrap_or(Value::Null),
+        })
+    }
+
     /// The ids of the nests, in the order they were made.
     pub fn nest_list(&self) -> Vec<NestId> {
         self.project.nests.keys().copied().collect()

@@ -84,7 +84,7 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
     define! { lua, api, shared;
         // --- engine ---
         // @return types.EngineInfo
-        fn engine_get(lua, sh, () => ()) { to_lua(lua, &sh.session.borrow().engine_info()) }
+        fn engine_get(lua, sh, () => ()) { to_lua(lua, &sh.session.borrow().engine_view()) }
         // The number of audio blocks that the engine finished since it
         // started. With a device id, the number of blocks that this device
         // ran: the blocks that it slept through do not count. A change sent

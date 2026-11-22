@@ -59,6 +59,9 @@ pub struct TrackRt {
     pub(super) chase: bool,
     /// The clips in its slots, and which of them plays.
     pub(super) launcher: Launcher,
+    /// Its own time, which its devices see instead of the song's: a
+    /// subproject's bars.
+    pub(super) local: Option<Box<crate::tempo::LocalTime>>,
 }
 
 impl TrackRt {
@@ -93,6 +96,7 @@ impl TrackRt {
             flush: false,
             chase: false,
             launcher: Launcher::default(),
+            local: None,
         })
     }
 

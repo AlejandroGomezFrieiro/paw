@@ -848,38 +848,67 @@ function M.copy_tabs(tabs: {Tab}): {Tab}
   return walk(tabs as Kept) as {Tab}
 end
 
+-- The first window numbered `id` under `node`, or `found`. It walks the
+-- whole tree as `M.windows` does, and gives a window made by code its
+-- number the same way, but makes no list: a frame looks up windows often.
+local function find_id_in(node: Node, id: integer, found: Node): Node
+  if node.view then
+    if not node.id then
+      next_win = next_win + 1
+      node.id, node.opts, node.state = next_win, node.opts or {}, node.state or {}
+    end
+    if not found and node.id == id then
+      return node
+    end
+    return found
+  end
+  for _, child in ipairs(node) do
+    found = find_id_in(child, id, found)
+  end
+  return found
+end
+
+-- The first window of the view `name` under `node` that is not hidden and
+-- is numbered `id` (any number without), or with `any` the first window of
+-- the view at all. It makes no list of the windows: a frame looks up views.
+local function view_in(node: Node, name: string, id: integer, any: boolean): Node
+  if node.view then
+    if node.view == name and (any or not node.hidden and (id == nil or node.id == id)) then
+      return node
+    end
+    return nil
+  end
+  for _, child in ipairs(node) do
+    local win = view_in(child, name, id, any)
+    if win then
+      return win
+    end
+  end
+  return nil
+end
+
 --- The window of a view in a tree, one on screen first: the window with
 --- the keyboard, else the one whose state the view holds, else the one
 --- that had the keyboard last. With `shown`, only one on screen.
 function M.find(root: Node, name: string, on_screen?: boolean): Node
   local u = ui()
   local t = u.tabs and u.tabs[u.tab]
-  local prefer: {integer | boolean} = {}
-  if t and t.layout == root then
-    prefer[#prefer + 1] = t.win or false
-    prefer[#prefer + 1] = t.last and t.last[name] or false
-  end
-  prefer[#prefer + 1] = bound[name] and bound[name].id or false
-  local all = M.windows(root, true)
-  for _, id in ipairs(prefer) do
-    for _, win in ipairs(all) do
-      if id and win.id == id and win.view == name and not win.hidden then
-        return win
-      end
+  local mine = t and t.layout == root
+  root = root or u.layout
+  -- Each window gets its number first, as `M.windows` gives it.
+  find_id_in(root, -1, nil)
+  if mine then
+    local win = t.win and view_in(root, name, t.win, false)
+      or t.last and t.last[name] and view_in(root, name, t.last[name], false)
+    if win then
+      return win
     end
   end
-  local hidden: Node
-  for _, win in ipairs(all) do
-    if win.view == name then
-      if not win.hidden then
-        return win
-      end
-      hidden = hidden or win
-    end
+  local win = bound[name] and view_in(root, name, bound[name].id, false) or view_in(root, name, nil, false)
+  if win or on_screen then
+    return win
   end
-  if not on_screen then
-    return hidden
-  end
+  return view_in(root, name, nil, true)
 end
 
 --- A window by its number, and the tab it is in.
@@ -1159,7 +1188,7 @@ function M.clip_named(target: string | integer): objects.Clip
   if id then
     return pcall(api.clip_get, id as integer) and paw.clip(id as integer) or nil
   end
-  for _, track in ipairs(api.track_list()) do
+  for _, track in ipairs(api.track_list({all = true})) do
     for _, c in ipairs(api.clip_list(track)) do
       if c.name == target then
         return paw.clip(c.id)
@@ -1592,11 +1621,7 @@ end
 
 --- The window of an id in the tree under `root`.
 function M.find_id(root: Node, id: integer): Node
-  for _, win in ipairs(M.windows(root, true)) do
-    if win.id == id then
-      return win
-    end
-  end
+  return find_id_in(root or ui().layout, id, nil)
 end
 
 --- Make a window the current one and give it the keyboard.
@@ -2470,7 +2495,9 @@ end
 function M.scope_levels(s: contracts.Scope): {types.SavedScope}
   local out: {types.SavedScope} = {}
   while s do
-    table.insert(out, 1, {kind = s.kind, id = s.id, tracks = s.tracks, from = s.from, to = s.to, name = s.name})
+    table.insert(
+      out, 1, {kind = s.kind, id = s.id, tracks = s.tracks, from = s.from, to = s.to, name = s.name, clip = s.clip}
+    )
     s = s.parent
   end
   return out
@@ -2488,6 +2515,7 @@ function M.scope_chain(levels: {types.SavedScope}): contracts.Scope
       from = level.from,
       to = level.to,
       name = level.name,
+      clip = level.clip,
       parent = s,
     }
   end

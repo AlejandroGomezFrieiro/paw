@@ -96,6 +96,24 @@ A message from the kernel, such as a note that you play, a change of a parameter
 - A render removes the delay from the start of the file.
 - paw does not delay the clips of a track to match the sound that is routed into the track.
 
+## The transport in a subproject
+
+The devices on the tracks of a subproject see the bars of the subproject in
+their transport. Bar 1, beat 0, is the start of the clip of the subproject
+that plays, and the tempo is the tempo of the song at that place. The
+devices on the tracks of the song see the bars of the song. For example, a
+clip of a subproject at bar 33 of the song gives bar 1 to a delay inside
+the subproject, and bar 33 to a delay on a track of the song.
+
+- CLAP plugins get these bars in `clap_event_transport`, VST3 plugins in
+  `ProcessContext`, LV2 plugins in their time position, and Lua devices
+  in their block (see [Lua devices](lua-devices.md#the-block)).
+- The built-in devices that follow the tempo, for example the LFO of the
+  modulation devices, follow the same transport.
+- Before the first clip of the subproject, and between its clips, the
+  devices see the time of the clip before, or of the first clip.
+- A subproject with a meter of its own gives its devices its own meter.
+
 ## A device that fails
 
 - paw guards each device on the audio thread. A device that panics is marked failed, and the chain ignores it after that, so an instrument is silent and an effect lets its input through.

@@ -35,26 +35,23 @@ local view = {
   },
   window_fresh = { "geometry", "flags" },
 }
-paw.seats.fields(
-  "arrange",
-  view,
-  {
-    "scroll",
-    "top",
-    "flags",
-    "seen_index",
-    "seen_fit",
-    "seen_lane",
-    "seen_beat",
-    "geometry",
-    "comp",
-    "tmap",
-    "fold_ground",
-  },
-  { scroll = 0, top = 1, flags = {} }
-)
+paw.seats.fields("arrange", view, {
+  "scroll",
+  "top",
+  "flags",
+  "seen_index",
+  "seen_fit",
+  "seen_lane",
+  "seen_beat",
+  "geometry",
+  "comp",
+  "tmap",
+  "fold_ground",
+}, { scroll = 0, top = 1, flags = {} })
 
 local draw = paw.draw
+-- An empty list, to walk where there is none.
+local NONE = {}
 
 -- Another project is shown from its start, as the cursor is (paw/cursor.tl).
 paw.on("project.loaded", function()
@@ -143,11 +140,14 @@ local function preview(clip, width, rows, zoom)
       clip.loop_start or 0,
       tostring(clip.loop_length)
     )
-    out = keep(
-      rolls,
-      roll,
-      function() return draw.miniroll(paw.stretch.sounding(clip, api.clip_notes(clip.id)), width, rows, zoom) end
-    )
+    out = rolls[roll]
+    if out == nil then
+      out = keep(
+        rolls,
+        roll,
+        function() return draw.miniroll(paw.stretch.sounding(clip, api.clip_notes(clip.id)), width, rows, zoom) end
+      )
+    end
   else
     -- A file that has gone missing has been reported already; draw nothing.
     local ok, peaks = pcall(api.clip_peaks, clip.id, width)
@@ -175,7 +175,10 @@ local wave_style = { flip = "ClipWaveFlip", clip = "ClipWaveClip", clipflip = "C
 
 --- What a track's sound goes through, in a few words: `synth › delay`.
 local function chain(t)
-  local key = t.id .. ":" .. table.concat(t.devices or {}, ",") .. (paw.opt.ascii and "a" or "")
+  local key = t.id .. ":" .. table.concat(t.devices or NONE, ",") .. (paw.opt.ascii and "a" or "")
+  -- A row draws its chain each frame: the closure only when it is not kept.
+  local kept = chains[key]
+  if kept ~= nil then return kept end
   return keep(chains, key, function()
     local names = {}
     for _, id in ipairs(t.devices or {}) do
@@ -776,6 +779,40 @@ function view.clip_props(clip, track, hue, kind, zoom, chosen, from, to, colour)
   return props
 end
 
+--- True if the column `x` is in `span` (`{ from, to }`), when there is one.
+local function within(span, x) return span and x >= span[1] and x < span[2] end
+
+-- What `lane_sample` reads: the lane `lane` from the beat `scroll` at
+-- `zoom` columns a beat, in half columns, nothing over the columns of
+-- `skip` (spans), and the level of a value by `lo` and `hi` (a volume in
+-- dB when they are nil); with `view`, the view with time folds, whose map
+-- gives the beat of each column. Set before each curve that it samples: a
+-- frame draws a curve for each lane with no new function for it.
+local sampled = { lane = 0, scroll = 0, zoom = 1 }
+
+local function lane_sample(i)
+  local skip = sampled.skip
+  if skip then
+    local col = math.floor(i / 2)
+    for _, span in ipairs(skip) do
+      if col >= span[1] and col < span[2] then return nil end
+    end
+  end
+  local folded = sampled.view
+  local beat = folded and folded:beat((i + 0.5) / 2) or sampled.scroll + (i + 0.5) / (sampled.zoom * 2)
+  local v = api.lane_value_at(sampled.lane, beat)
+  local lo, hi = sampled.lo, sampled.hi
+  if lo == nil then return (v + 60) / 66 end
+  return hi ~= lo and util.clamp((v - lo) / (hi - lo), 0, 1) or 0.5
+end
+
+-- Set what `lane_sample` reads, and give it.
+local function lane_sampler(lane, scroll, zoom, skip, lo, hi, view)
+  sampled.lane, sampled.scroll, sampled.zoom, sampled.skip, sampled.lo, sampled.hi = lane, scroll, zoom, skip, lo, hi
+  sampled.view = view and #(view.tmap or no_folds).spans > 0 and view or nil
+  return lane_sample
+end
+
 --- A curve over `w` columns and `h` rows of `buf` from `x`, `y`, as the
 --- `curve` role: `value(i)` is its height at half column `i` (nil for
 --- none); `o.points` the points marked on it, `{ beat, height, glyph }`
@@ -997,16 +1034,7 @@ local function lane(self, buf, row, track, selected, cursor_clip, lanes, hue, ma
   -- show an `A` in their header; `<leader>a` opens their lanes as rows).
   for _, l in ipairs(lanes) do
     if selected and height >= 2 and l.target == "volume" and l.point_count > 0 then
-      local function over_clip(col)
-        for _, span in ipairs(spans) do
-          if col >= span[1] and col < span[2] then return true end
-        end
-        return false
-      end
-      curve(buf, 0, y + 1, w, height - 1, function(i)
-        if over_clip(math.floor(i / 2)) then return nil end
-        return (api.lane_value_at(l.id, self:beat((i + 0.5) / 2)) + 60) / 66
-      end, {
+      curve(buf, 0, y + 1, w, height - 1, lane_sampler(l.id, scroll, zoom, spans, nil, nil, self), {
         style = l.enabled and "Automation" or "Faint",
         color = colour,
         enabled = l.enabled,
@@ -1179,23 +1207,15 @@ function view:draw_lane_row(headers, timeline, row, lines)
     for i, p in ipairs(api.lane_points(l.id)) do
       points[i] = { p[1], level(p[2]) }
     end
-    curve(
-      timeline,
-      0,
-      y,
-      tw,
-      2,
-      l.point_count > 0 and function(i) return level(api.lane_value_at(l.id, self:beat((i + 0.5) / 2))) end or nil,
-      {
-        points = points,
-        style = l.enabled and "Automation" or "Faint",
-        from = vscroll,
-        v = v,
-        per = zoom,
-        color = draw.track_colour(api.track_get(row.id), row.index),
-        enabled = l.enabled,
-      }
-    )
+    curve(timeline, 0, y, tw, 2, l.point_count > 0 and lane_sampler(l.id, scroll, zoom, nil, lo, hi, self) or nil, {
+      points = points,
+      style = l.enabled and "Automation" or "Faint",
+      from = vscroll,
+      v = v,
+      per = zoom,
+      color = draw.track_colour(api.track_get(row.id), row.index),
+      enabled = l.enabled,
+    })
   end
   if not on then return end
   -- A selection on this lane: the stretch of time chosen.
@@ -1368,7 +1388,7 @@ function view:render(buf, ctx)
   local w, h = buf.width, buf.height
   local opt = paw.opt
   local zoom = opt.zoom
-  local t = api.transport_get()
+  local t = paw.ui.transport()
   local cursor = paw.cursor
   local cursor_track = cursor.track_id()
   local bar = paw.time.bar()
@@ -1454,8 +1474,7 @@ function view:render(buf, ctx)
     end
   end
   local lines = grid_lines(self, tw)
-  local in_loop = function(x) return loop and x >= loop[1] and x < loop[2] end
-  local in_punch = function(x) return punch and x >= punch[1] and x < punch[2] end
+
   -- Skip bar numbers that would run into each other when zoomed out.
   local every = math.max(1, math.ceil(5 / (paw.time.bar(self.scroll) * zoom)))
   local free = 0 -- the first column a label has not taken
@@ -1463,7 +1482,7 @@ function view:render(buf, ctx)
   for _, line in ipairs(lines) do
     if line.bar then
       if (line.bar - 1) % every == 0 and line.x >= free then
-        local style = in_punch(line.x) and "RulerPunch" or in_loop(line.x) and "RulerLoop" or "RulerBar"
+        local style = within(punch, line.x) and "RulerPunch" or within(loop, line.x) and "RulerLoop" or "RulerBar"
         -- Its label: the parts of `paw.opt.barlabel` (paw/ruler.tl).
         local x = line.x
         -- Its room: up to a column before the next bar whose label shows.
@@ -1478,7 +1497,7 @@ function view:render(buf, ctx)
         line.x,
         0,
         g.tick,
-        in_punch(line.x) and "RulerPunchTick" or in_loop(line.x) and "RulerLoopTick" or "RulerTick"
+        within(punch, line.x) and "RulerPunchTick" or within(loop, line.x) and "RulerLoopTick" or "RulerTick"
       )
     end
   end
@@ -1665,21 +1684,13 @@ function view:render(buf, ctx)
   -- Beside the master, its automation when it has some; else nothing.
   for _, l in ipairs(api.lane_list(0)) do
     if l.target == "volume" and l.point_count > 0 then
-      curve(
-        lanes,
-        0,
-        mst.y,
-        tw,
-        mst.h,
-        function(i) return (api.lane_value_at(l.id, self:beat((i + 0.5) / 2)) + 60) / 66 end,
-        {
-          style = l.enabled and "Automation" or "Faint",
-          color = draw.track_colour(master),
-          enabled = l.enabled,
-          from = self:v(self.scroll),
-          per = zoom,
-        }
-      )
+      curve(lanes, 0, mst.y, tw, mst.h, lane_sampler(l.id, self.scroll, zoom, nil, nil, nil, self), {
+        style = l.enabled and "Automation" or "Faint",
+        color = draw.track_colour(master),
+        enabled = l.enabled,
+        from = self:v(self.scroll),
+        per = zoom,
+      })
     end
   end
 
@@ -1714,14 +1725,18 @@ function view:render(buf, ctx)
   -- start where it does. A window moves it as the song plays, and so does
   -- a terminal, which asks for the spans at the column it moves it to.
   local rows = L.rows
+  -- The spans of the column the playhead was at last: a live frame asks
+  -- again for the same column until the playhead moves on.
+  local last_px, last_spans
   local function spans_at(px)
+    if px == last_px then return last_spans end
     local spans = {}
     for _, row in ipairs(rows) do
       local on_clip, on_name = false, false
-      for _, s in ipairs(covered[row] or {}) do
+      for _, s in ipairs(covered[row] or NONE) do
         if px >= s[1] and px < s[2] then on_clip = true end
       end
-      for _, s in ipairs(names_of[row] or {}) do
+      for _, s in ipairs(names_of[row] or NONE) do
         if px >= s[1] and px < s[2] then on_name = true end
       end
       if on_name then
@@ -1735,6 +1750,7 @@ function view:render(buf, ctx)
         spans[#spans + 1] = { row.y, row.h, "Playhead" }
       end
     end
+    last_px, last_spans = px, spans
     return spans
   end
   -- Over a folded span the playhead waits on its column, then goes on after it.
@@ -1827,7 +1843,7 @@ view.live_roles = { "playhead", "hmeter", "recording" }
 function view:moving()
   local g = self.geometry
   if not (g and g.span and paw.opt.follow) then return false end
-  local t = api.transport_get()
+  local t = paw.ui.transport()
   return t.playing and (t.position < self.scroll or self:x(t.position) >= g.span * g.zoom)
 end
 

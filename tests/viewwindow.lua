@@ -103,6 +103,26 @@ test("a view's runs have its groups' colours and attributes, whatever the termin
   if not ok then error(err, 0) end
 end)
 
+test("a highlight group's number draws as its name does, and follows the group when it changes", function()
+  start()
+  local id = api.hl_id("ViewWindowNumbered")
+  eq(api.hl_id("ViewWindowNumbered"), id, "a name has one number")
+  paw.ui.view("viewwindow_numbered", {
+    render = function(_, buf)
+      buf:text(0, 0, "by name", "ViewWindowNumbered")
+      buf:text(0, 1, "by number", id)
+    end,
+  })
+  -- The number was given before the group had a style.
+  paw.ui.hl("ViewWindowNumbered", { fg = "#112233" })
+  local snap = api.ui_view_snapshot("viewwindow_numbered", 20, 2)
+  eq(snap.rows[2][1].fg, "#112233", "the number draws in the group's style")
+  eq(snap.rows[1][1].fg, snap.rows[2][1].fg, "as the name does")
+  paw.ui.hl("ViewWindowNumbered", { fg = "#445566" })
+  snap = api.ui_view_snapshot("viewwindow_numbered", 20, 2)
+  eq(snap.rows[2][1].fg, "#445566", "and follows the group when the theme changes it")
+end)
+
 test("drawing a view for a window leaves the terminal's screen as it was", function()
   start()
   local screen = api.ui_snapshot(80, 24)

@@ -289,6 +289,13 @@ local record types
     nest: integer
   end
 
+  --- What `paw.api.track_list` takes: `nest` lists the tracks of that
+  --- subproject, `all` every track; neither, the song's.
+  record TrackListOptions
+    nest: integer
+    all: boolean
+  end
+
   --- `follow` plays a subproject at the song's tempo where each clip is,
   --- `own` at its own.
   enum NestTempoMode
@@ -581,10 +588,15 @@ local record types
     bent: boolean
     formants: boolean
     warp: {WarpMarker}
+    nest: integer
+    play: string | NestTrack
   end
 
   --- What `paw.api.clip_add` takes (`ClipOpts`): `kind` follows from
-  --- `file` when left out; `cue` keeps it off the timeline.
+  --- `file` when left out; `cue` keeps it off the timeline. A subproject's
+  --- clip (`kind = "nest"`, or `nest` given) places the subproject `nest`
+  --- and plays its mix, or one track with `play = { track = id }`;
+  --- `offset` is then the beat of the subproject where it starts.
   record ClipOptions
     kind: ClipKind
     name: string
@@ -615,6 +627,8 @@ local record types
     media: {MediaRef}
     sound: ClipContentData
     signals: {Signal}
+    nest: integer
+    play: string | NestTrack
   end
 
   enum Timeline
@@ -884,7 +898,7 @@ local record types
 
   -- The transport and the engine (session/midi_in.rs, session/engine.rs) ------
 
-  --- `paw.api.transport_get()` (`Session::transport_view`): `position` in
+  --- `paw.api.transport_get()` (`TransportView`): `position` in
   --- beats, `take` the number of the take being recorded.
   record Transport
     playing: boolean
@@ -910,7 +924,7 @@ local record types
     take: integer
   end
 
-  --- The process times of the audio blocks, in milliseconds (`block_json`).
+  --- The process times of the audio blocks, in milliseconds (`BlockTimes`).
   record BlockStats
     count: integer
     mean: number
@@ -927,7 +941,7 @@ local record types
     auto: boolean
   end
 
-  --- `paw.api.engine_get()` (`Session::engine_info`): latencies in
+  --- `paw.api.engine_get()` (`EngineView`): latencies in
   --- milliseconds.
   record EngineInfo
     backend: string
@@ -1604,6 +1618,7 @@ local record types
     from: number
     to: number
     name: string
+    clip: integer
   end
 
   --- A tab as a layout keeps it: its name, its tree, and the place in the

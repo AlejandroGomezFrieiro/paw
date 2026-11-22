@@ -332,7 +332,7 @@ local function live(): Live
     end
   end
   local track_input = api.track_get as function(id: integer, key: string): string
-  for _, id in ipairs(api.track_list()) do
+  for _, id in ipairs(api.track_list({all = true})) do
     meter(id)
     inputs[tostring(id)] = round(paw.audio.level({input = track_input(id, "input")}, levels))
   end

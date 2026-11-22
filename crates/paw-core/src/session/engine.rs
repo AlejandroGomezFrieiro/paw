@@ -19,51 +19,101 @@ pub(super) struct EngineLink {
     pub backend: BackendOptions,
 }
 
+/// The engine as Lua reads it (`paw.api.engine_get`): latencies in
+/// milliseconds.
+#[derive(Debug, Serialize)]
+pub struct EngineView<'a> {
+    pub backend: &'a BackendChoice,
+    pub device: &'a str,
+    pub sample_rate: u32,
+    pub device_id: &'a str,
+    pub input_device_id: &'a str,
+    pub buffer_size: u32,
+    pub cpu: f32,
+    /// Frames per callback as the device runs it, 0 until it has.
+    pub block: u32,
+    pub xruns: u32,
+    pub input_device: &'a str,
+    pub input_channels: u32,
+    pub input_latency: f64,
+    pub output_latency: f64,
+    /// How far the output is behind the transport because of devices that
+    /// look ahead.
+    pub latency: f64,
+    pub midi: bool,
+    pub blocks: BlockTimes,
+    pub leaked: u32,
+    /// Threads tracks are processed on, counting the audio thread, and
+    /// what was asked for (0 leaves it to the machine).
+    pub threads: u32,
+    pub threads_wanted: usize,
+    /// Whether devices at rest sleep through silence, and the blocks of
+    /// devices run and slept through since the engine started.
+    pub device_sleep: bool,
+    pub device_runs: u64,
+    pub device_sleeps: u64,
+    /// Blocks in which the whole engine rested: stopped and silent.
+    pub engine_rests: u64,
+    /// Groups of tracks shared out between threads since the engine
+    /// started: one with little work runs on the audio thread alone.
+    pub shared_groups: u64,
+    /// What went wrong while playing, for the status line: blocks plugins
+    /// did not deliver in time, MIDI events dropped, frames of the take
+    /// being recorded lost to a slow disk, devices that have stopped, and
+    /// decoded audio files held in memory.
+    pub late_blocks: u64,
+    pub midi_dropped: u64,
+    pub record_dropped: u64,
+    pub devices_stopped: usize,
+    pub audio_files: usize,
+    /// The device that went away and is waited for.
+    pub lost: Option<Lost<'a>>,
+}
+
 impl Session {
-    pub fn engine_info(&self) -> Value {
+    /// The engine as `paw.api.engine_get` gives it: typed, so that Lua gets
+    /// its table with no JSON between (the status line reads it each frame).
+    pub fn engine_view(&self) -> EngineView<'_> {
         let info: &StreamInfo = &self.engine.stream.info;
-        json!({
-            "backend": info.backend, "device": info.device, "sample_rate": info.sample_rate,
-            "device_id": info.device_id, "input_device_id": info.input_device_id,
-            "buffer_size": info.buffer_size, "cpu": self.engine.handle.shared.cpu(),
-            // Frames per callback as the device runs it, 0 until it has.
-            "block": self.engine.handle.shared.period(),
-            "xruns": self.engine.handle.shared.xruns(), "input_device": info.input_device,
-            "input_channels": info.input_channels,
-            "input_latency": self.engine.handle.shared.input_latency() as f64 * 1000.0,
-            "output_latency": self.engine.handle.shared.output_latency() as f64 * 1000.0,
-            // How far the output is behind the transport because of devices
-            // that look ahead, in milliseconds.
-            "latency": self.engine.map.latency as f64 * 1000.0 / info.sample_rate as f64,
-            "midi": self.midi.inputs.is_some(),
-            "blocks": block_json(&self.engine.handle.shared.blocks.summary(), info.sample_rate),
-            "leaked": self.engine.handle.shared.leaked(),
-            // Threads tracks are processed on, counting the audio thread, and
-            // what was asked for (0 leaves it to the machine).
-            "threads": self.engine.handle.shared.threads(),
-            "threads_wanted": self.engine.threads,
-            // Whether devices at rest sleep through silence, and the blocks
-            // of devices run and slept through since the engine started.
-            "device_sleep": self.engine.sleep,
-            "device_runs": self.engine.handle.shared.device_blocks().0,
-            "device_sleeps": self.engine.handle.shared.device_blocks().1,
-            // Blocks in which the whole engine rested: stopped and silent.
-            "engine_rests": self.engine.handle.shared.engine_rests(),
-            // Groups of tracks shared out between threads since the engine
-            // started: one with little work runs on the audio thread alone.
-            "shared_groups": self.engine.handle.shared.shared_groups(),
-            // What went wrong while playing, for the status line: blocks
-            // plugins did not deliver in time, MIDI events dropped, frames
-            // of the take being recorded lost to a slow disk, devices that
-            // have stopped, and decoded audio files held in memory.
-            "late_blocks": self.live.values().filter_map(|l| l.controller.as_ref()).map(|c| c.late_blocks()).sum::<u64>(),
-            "midi_dropped": paw_engine::event::dropped(),
-            "record_dropped": self.rec.take.as_ref().map_or(0, |t| t.shared.dropped()),
-            "devices_stopped": self.live.values().filter(|l| l.stopped.is_some()).count(),
-            "audio_files": self.audio.len(),
-            // The device that went away and is waited for, or nil.
-            "lost": self.audio_lost(),
-        })
+        let shared = &self.engine.handle.shared;
+        let (device_runs, device_sleeps) = shared.device_blocks();
+        EngineView {
+            backend: &info.backend,
+            device: &info.device,
+            sample_rate: info.sample_rate,
+            device_id: &info.device_id,
+            input_device_id: &info.input_device_id,
+            buffer_size: info.buffer_size,
+            cpu: shared.cpu(),
+            block: shared.period(),
+            xruns: shared.xruns(),
+            input_device: &info.input_device,
+            input_channels: info.input_channels,
+            input_latency: shared.input_latency() as f64 * 1000.0,
+            output_latency: shared.output_latency() as f64 * 1000.0,
+            latency: self.engine.map.latency as f64 * 1000.0 / info.sample_rate as f64,
+            midi: self.midi.inputs.is_some(),
+            blocks: BlockTimes::new(&shared.blocks.summary(), info.sample_rate),
+            leaked: shared.leaked(),
+            threads: shared.threads(),
+            threads_wanted: self.engine.threads,
+            device_sleep: self.engine.sleep,
+            device_runs,
+            device_sleeps,
+            engine_rests: shared.engine_rests(),
+            shared_groups: shared.shared_groups(),
+            late_blocks: self.live.values().filter_map(|l| l.controller.as_ref()).map(|c| c.late_blocks()).sum(),
+            midi_dropped: paw_engine::event::dropped(),
+            record_dropped: self.rec.take.as_ref().map_or(0, |t| t.shared.dropped()),
+            devices_stopped: self.live.values().filter(|l| l.stopped.is_some()).count(),
+            audio_files: self.audio.len(),
+            lost: self.audio_lost(),
+        }
+    }
+
+    /// [`Session::engine_view`] as JSON, for the events that carry it.
+    pub fn engine_info(&self) -> Value {
+        serde_json::to_value(self.engine_view()).unwrap_or(Value::Null)
     }
 
     /// Process tracks on this many threads, counting the audio thread, or

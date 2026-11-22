@@ -104,6 +104,17 @@ command("transport.record", function()
     transport.record()
   end
 end, { desc = "Record armed tracks from the cursor (or, while the song plays, from the playhead), or stop recording" })
+-- Sound recorded over sound clips becomes their newest take, in the step
+-- that recorded it: the clips under it keep what they played as a take
+-- (paw.takes.record_over), and only the new take plays.
+paw.on("clip.added", function(e)
+  local ok, c = pcall(api.clip_get, e.id)
+  if not ok or c.kind ~= "audio" or not tostring(c.name):match("^take %d+") then return end
+  local ok_track, t = pcall(api.track_get, c.track or e.track)
+  if not ok_track or not t.armed then return end
+  local step = api.undo_current()
+  if paw.takes.record_over(e.id) > 0 then api.undo_join(step) end
+end)
 -- MIDI overdub (`paw.opt.midi_record = "merge"`): a MIDI take that lands
 -- over clips joins its notes into them, in the step that recorded it. A
 -- take round a loop stays a clip of takes, for comping.

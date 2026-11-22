@@ -43,6 +43,7 @@ impl Engine {
                 quiet,
             } => self.set_mix(slot, gain, pan, mute, quiet),
             Msg::SetChain { track, chain } => self.set_chain(track, chain),
+            Msg::SetLocalTime { track, time } => self.set_local_time(track, time),
             Msg::InsertDevice { slot, device } => self.insert_device(slot, device),
             Msg::RemoveDevice { slot } => self.remove_device(slot),
             Msg::SetKey { device, key } => self.set_key(device, key),
@@ -170,6 +171,16 @@ impl Engine {
                 track.applied = track.target_gains();
                 track.applied_heard = if quiet { 0.0 } else { 1.0 };
             }
+        }
+    }
+
+    fn set_local_time(&mut self, track: TrackSlot, time: Option<Box<crate::tempo::LocalTime>>) {
+        let old = match self.track_mut(track) {
+            Some(t) => std::mem::replace(&mut t.local, time),
+            None => time,
+        };
+        if let Some(old) = old {
+            self.discard(Garbage::LocalTime(old));
         }
     }
 

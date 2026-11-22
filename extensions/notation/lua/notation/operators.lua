@@ -920,13 +920,14 @@ end
 --- In re-pitch mode (`R`), a letter: the chord at the cursor in the voice
 --- entered becomes that note, rhythm kept, and the cursor goes on to the
 --- next chord; with `add`, the note joins the chord re-pitched last.
-function P.repitch_enter(letter, add)
+function P.repitch_enter(letter, add, pitch)
   local fifths = key()
   local last = view.last
   local done
   P.on(nil, function(sc)
     local from = last and last.step or view.step
-    local sp = key_spelling(P.nearest(letter, from), fifths)
+    -- A pitch (a key of a controller) is written as the key spells it.
+    local sp = pitch and model.spell(pitch, fifths) or key_spelling(P.nearest(letter, from), fifths)
     local note = { step = sp.letter, alter = sp.alter, octave = sp.octave }
     if add then
       if not (last and last.event and D.find(sc, last.event)) then return false end
@@ -998,12 +999,12 @@ end
 --- A grace note (`view.grace`: acciaccatura or appoggiatura) of a letter
 --- before the note at the cursor, in the voice entered; the cursor stays.
 --- Where no note starts yet, it goes in with the note entered there next.
-function P.grace_enter(letter)
+function P.grace_enter(letter, pitch)
   local fifths = key()
   local kind = view.grace
   view.grace = nil
   local from = view.last and view.last.step or view.step
-  local sp = key_spelling(P.nearest(letter, from), fifths)
+  local sp = pitch and model.spell(pitch, fifths) or key_spelling(P.nearest(letter, from), fifths)
   local ok = P.on(nil, function(sc)
     local mi, at = view.where(sc, view.beat)
     D.ensure(sc, mi)

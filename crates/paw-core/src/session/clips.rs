@@ -53,14 +53,19 @@ impl Session {
         }
         let mut opts = opts;
         let source = Self::read_midi_source(&mut opts)?;
-        let kind = opts.kind.take().unwrap_or(if opts.file.is_some() {
+        let kind = opts.kind.take().unwrap_or(if opts.nest.is_some() {
+            ClipKind::Nest
+        } else if opts.file.is_some() {
             ClipKind::Audio
         } else {
             ClipKind::Midi
         });
+        if kind != ClipKind::Nest && (opts.nest.is_some() || opts.play.is_some()) {
+            bail!("only a subproject's clip has `nest` and `play`");
+        }
         // What a custom clip may do besides (fade, stretch) its sound decides.
         let playing = kind.playing(opts.sound.as_ref());
-        let (content, natural, default_name) = self.clip_content(&kind, &mut opts)?;
+        let (content, natural, default_name) = self.clip_content(track, &kind, &mut opts)?;
         let length = opts.length.unwrap_or(natural);
         Self::check_clip_opts(playing.clone(), &opts, length)?;
         let id = self.new_id();
@@ -118,6 +123,7 @@ impl Session {
     /// default name. Takes the notes, controls and file out of `opts`.
     fn clip_content(
         &mut self,
+        track: Id,
         kind: &ClipKind,
         opts: &mut ClipOpts,
     ) -> Result<(ClipContent, f64, String)> {
@@ -162,6 +168,7 @@ impl Session {
                 };
                 Ok((content, natural, name.unwrap_or_else(|| "audio".into())))
             }
+            ClipKind::Nest => self.nest_clip_content(track, opts),
             ClipKind::Custom(id) => {
                 if !self.clip_kinds.contains(id) {
                     bail!(
@@ -200,6 +207,35 @@ impl Session {
                 Ok((ClipContent::Custom(Box::new(content)), length, id.to_string()))
             }
         }
+    }
+
+    /// The content of a new nest clip, its natural length (the rest of its
+    /// subproject from `offset`) and its name (the subproject's). A clip
+    /// that would put a subproject inside itself is refused with the path.
+    fn nest_clip_content(&self, track: Id, opts: &mut ClipOpts) -> Result<(ClipContent, f64, String)> {
+        let nest = opts.nest.take().context("a subproject's clip needs `nest`, the subproject's id")?;
+        let held = self
+            .project
+            .nest(nest)
+            .with_context(|| format!("no subproject {nest}"))?;
+        if !opts.offset.is_finite() || opts.offset < 0.0 {
+            bail!("a subproject's clip starts at a beat of the subproject from 0 on");
+        }
+        if !opts.notes.is_empty() || !opts.controls.is_empty() || opts.file.is_some() {
+            bail!("a subproject's clip plays the subproject: it has no notes or file of its own");
+        }
+        let content = ClipContent::Nest {
+            nest,
+            offset: opts.offset,
+            play: opts.play.take().unwrap_or(NestPlay::Master),
+        };
+        let host = self
+            .project
+            .track(track)
+            .with_context(|| format!("no track {track}"))?
+            .nest;
+        self.project.check_place(nest, host)?;
+        Ok((content, (held.length - opts.offset).max(1e-3), held.name.clone()))
     }
 
     /// The checks of a new clip's timing, fades, stretch and loop.

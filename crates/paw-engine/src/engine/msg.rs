@@ -59,6 +59,12 @@ pub enum Msg {
         track: TrackSlot,
         chain: Box<[DeviceSlot]>,
     },
+    /// The track's own time, which its devices see (a subproject's bars),
+    /// or `None` for the song's.
+    SetLocalTime {
+        track: TrackSlot,
+        time: Option<Box<crate::tempo::LocalTime>>,
+    },
     SetParam {
         device: DeviceSlot,
         param: u32,
@@ -226,4 +232,5 @@ pub(super) enum Garbage {
     Launches(#[allow(dead_code)] Box<Vec<Launch>>),
     Preview(#[allow(dead_code)] Box<Preview>),
     MidiFilter(#[allow(dead_code)] Box<MidiFilter>),
+    LocalTime(#[allow(dead_code)] Box<crate::tempo::LocalTime>),
 }

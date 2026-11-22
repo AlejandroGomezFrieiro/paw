@@ -279,6 +279,18 @@ M.add(
 local shown_signs: {integer: Piece} = {}
 local signs_sorted: {Sign} = {}
 
+-- Signs by priority, the highest first, then by name.
+local function by_priority(a: Sign, b: Sign): boolean
+  if a.priority ~= b.priority then
+    return a.priority > b.priority
+  end
+  return a.name < b.name
+end
+
+-- The glyphs and styles of a component that gives none: read, never written.
+local NONE_GLYPHS: {string: string} = {}
+local NONE_STYLES: {string: string} = {}
+
 local function signs_width(frame: Frame): integer
   shown_signs, signs_sorted = {}, {}
   for _, s in pairs(M.signs) do
@@ -287,21 +299,14 @@ local function signs_width(frame: Frame): integer
   if #signs_sorted == 0 then
     return 0
   end
-  table.sort(
-    signs_sorted,
-    function(a: Sign, b: Sign): boolean
-      if a.priority ~= b.priority then
-        return a.priority > b.priority
-      end
-      return a.name < b.name
-    end
-  )
+  table.sort(signs_sorted, by_priority)
   local any = false
+  -- One context for every sign of every row, filled again for each.
+  local ctx: Context = {line = 0, kind = "track", width = 1}
   for i, id in ipairs(frame.rows) do
     for _, s in ipairs(signs_sorted) do
-      local ctx: Context = {
-        row = i, line = 0, kind = "track", width = 1, g = paw.draw.g, glyphs = s.glyphs or {}, styles = s.styles or {}
-      }
+      ctx.row, ctx.line, ctx.kind, ctx.width, ctx.g = i, 0, "track", 1, paw.draw.g
+      ctx.glyphs, ctx.styles = s.glyphs or NONE_GLYPHS, s.styles or NONE_STYLES
       local ok, cells = pcall(s.render, id, ctx)
       local text, group = first(ok and cells as Cells or nil)
       if text and text ~= "" then
@@ -485,6 +490,14 @@ M.add(
 
 -- Laying out and drawing ---------------------------------------------------------
 
+-- Components by their order, then by name.
+local function by_order(a: Component, b: Component): boolean
+  if a.order ~= b.order then
+    return a.order < b.order
+  end
+  return a.name < b.name
+end
+
 --- The column for one draw over the tracks of `frame`, at most `room`
 --- columns wide: the components named in `paw.opt.trackcolumn`, in their
 --- order, each as wide as it says. A component that fails takes no room.
@@ -496,15 +509,7 @@ function M.layout(frame: Frame, room: integer): Layout
       list[#list + 1] = c
     end
   end
-  table.sort(
-    list,
-    function(a: Component, b: Component): boolean
-      if a.order ~= b.order then
-        return a.order < b.order
-      end
-      return a.name < b.name
-    end
-  )
+  table.sort(list, by_order)
   local out: Layout = {parts = {}, width = 0, frame = frame}
   frame_rows = frame.rows
   for _, c in ipairs(list) do
@@ -533,7 +538,8 @@ function M.draw(buf: contracts.Buf, L: Layout, y: integer, track: integer, ctx: 
   buf:fill(0, y, L.width, 1, " ", ctx.cursor and "TrackColumnCursor" or "TrackColumn")
   ctx.g = paw.draw.g
   for _, part in ipairs(L.parts) do
-    ctx.width, ctx.glyphs, ctx.styles = part.width, part.component.glyphs or {}, part.component.styles or {}
+    ctx.width = part.width
+    ctx.glyphs, ctx.styles = part.component.glyphs or NONE_GLYPHS, part.component.styles or NONE_STYLES
     local ok, cells = pcall(part.component.render, track, ctx)
     if not ok then
       buf:text(part.x, y, "!", "Error")

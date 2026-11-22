@@ -414,6 +414,26 @@ copy a rhythm, then press `R` and type the letters. In this view,
 The badge of insert mode shows `INS`, `PUSH` or `REPITCH`, and
 a tuplet or grace note that comes next.
 
+### A MIDI controller in insert mode
+
+In every insert mode (`i`, `a`, `I` and `R`), the keys of a MIDI controller
+enter notes, and no setup is needed. The note has the pitch that you play,
+written as the key of the music spells it: in F major, pitch 70 is Bb. The
+controller does not enter notes while the song plays or records.
+
+| On the controller | Effect |
+| --- | --- |
+| A key | enters a note of the chosen value at the cursor. In `R`, it changes the pitch of the next chord and keeps its rhythm. In `I`, it pushes the later music along. |
+| More keys while one is held | join the chord |
+| The last key released | steps on by the chosen value |
+| The sustain pedal, no key held | a rest of the chosen value (`0`) |
+| The sustain pedal, keys held | ties the chord: it holds on by the chosen value (`~`) |
+| A control from `:step.learn` | its action: `rest`, `tie`, `back` (`<BS>`), `dur.1` to `dur.32` (the value), `dot`, `triplet`, `octave.up`, `octave.down`, `again` (`R` in insert mode) and `finish` (`Esc`) |
+
+The whole insert is one undo step, as with the letters. See
+[How to enter notes from a MIDI keyboard](../../../docs/how-to/enter-notes-from-a-midi-keyboard.md)
+for the controls.
+
 | Keys in insert mode | |
 | --- | --- |
 | `/`, `//` then a letter | a grace note before the note at the cursor: an acciaccatura, an appoggiatura |

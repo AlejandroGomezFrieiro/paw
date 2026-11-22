@@ -1376,6 +1376,9 @@ do
     view.push, view.repitch, view.grace, view.pending_grace = push, repitch, nil, nil
     keymap.set_mode("i")
   end
+  -- What a played key does in these modes (notation.step): the pitch, not a letter.
+  function view:repitch_pitch(pitch, add) P.repitch_enter(nil, add, pitch) end
+  function view:grace_pitch(pitch) P.grace_enter(nil, pitch) end
   nmap("I", function() enter_mode(true, nil) end, "Enter notes, pushing later music along (push-insert)")
   nmap("R", function() enter_mode(nil, true) end, "Re-pitch: letters change the notes there in turn, the rhythm stays")
   nmap("r", function(ctx)

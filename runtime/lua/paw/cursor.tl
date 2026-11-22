@@ -150,10 +150,14 @@ function M.track(): objects.Track
   return id and paw.track(id) or nil
 end
 
---- 1-based position of the cursor track in the track list.
+local nest_field = api.track_get as function(id: integer, key: string): integer
+
+--- 1-based position of the cursor track among the tracks of its place:
+--- the song's, or its subproject's (as `paw.api.track_move` counts).
 function M.index(): integer
   local id = M.track_id()
-  for i, other in ipairs(api.track_list()) do
+  local ok, nest = pcall(nest_field, id, "nest") as (boolean, integer)
+  for i, other in ipairs(api.track_list({nest = ok and nest or nil})) do
     if other == id then
       return i
     end

@@ -679,6 +679,7 @@ end
 local record Routes
   sidechain_text: function(device: types.Device): string
   reaching: function(track: integer): {integer: boolean}
+  peers: function(track: integer): {integer}
   outputs: function(device: integer): {Output}
   set_output: function(device: integer, pair: integer, target: integer)
   spread: function(device: integer)
@@ -2970,7 +2971,7 @@ function A.record()
     return
   end
   local armed = false
-  for _, id in ipairs(api.track_list()) do
+  for _, id in ipairs(api.track_list({all = true})) do
     armed = armed or track_flag(id, "armed")
   end
   if not armed then
@@ -3556,7 +3557,7 @@ function M.routing(track: integer): Routing
   local targets: {Target} = {{id = 0, name = "Master"}}
   -- Not a track whose sound reaches this one, by any route.
   local reaching = paw.routes.reaching(track)
-  for _, id in ipairs(api.track_list()) do
+  for _, id in ipairs(paw.routes.peers(track)) do
     if id ~= track and not reaching[id] then
       targets[#targets + 1] = {id = id, name = track_text(id, "name")}
     end
@@ -3650,7 +3651,7 @@ function M.outputs_menu(device: integer): {PairMenu}
   for _, o in ipairs(paw.routes.outputs(device)) do
     if o.pair > 1 then
       local choices: {Check} = {{label = "Nowhere: not heard", checked = o.target == nil}}
-      for _, id in ipairs(api.track_list()) do
+      for _, id in ipairs(paw.routes.peers(d.track)) do
         if id ~= d.track and not reaching[id] then
           choices[#choices + 1] = {label = track_text(id, "name"), checked = id == o.target}
         end
@@ -3672,7 +3673,7 @@ function A.route_pair(device: integer, pair: integer, index: integer)
   local d = api.device_get(device)
   local reaching = paw.routes.reaching(d.track)
   local n = 1
-  for _, id in ipairs(api.track_list()) do
+  for _, id in ipairs(paw.routes.peers(d.track)) do
     if id ~= d.track and not reaching[id] then
       n = n + 1
       if n == index then
@@ -3776,7 +3777,8 @@ function A.move_track(track: integer, index: integer)
   -- The row is among the tracks that are drawn; the list may hold more.
   local rows = groups.rows()
   local target = rows[util.clamp(index, 1, #rows) as integer]
-  for place, id in ipairs(api.track_list()) do
+  -- `track_move` counts among the tracks of the track's place.
+  for place, id in ipairs(paw.routes.peers(track)) do
     if id == target then
       api.track_move(track, place)
     end

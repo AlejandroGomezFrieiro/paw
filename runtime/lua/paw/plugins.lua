@@ -45,7 +45,7 @@ function M.add_dir(dir, name)
   for _, note in ipairs(found.notes) do
     api.log("plugin scan: " .. note)
   end
-  for _, id in ipairs(api.track_list()) do
+  for _, id in ipairs(api.track_list({ all = true })) do
     for _, device in ipairs(api.track_get(id).devices) do
       local d = api.device_get(device)
       if added[d.kind] and d.missing then pcall(api.device_restart, device) end

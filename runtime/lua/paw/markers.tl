@@ -42,12 +42,14 @@ local record Marker
   name: string
   length: number
   color: string
+  key: string
 end
 
 --- What `paw.markers.add` takes besides the beat and the name.
 local record AddOptions
   length: number
   color: string
+  key: string
 end
 
 --- What `paw.markers.set` changes: `length = false` makes a region a
@@ -57,6 +59,7 @@ local record Fields
   name: string
   length: number | boolean
   color: string | boolean
+  key: string | boolean
 end
 
 --- A marker given by its id: `paw.markers.find({ id = 3 })`.
@@ -360,7 +363,8 @@ function M.pathname(region: Marker): string
   return table.concat(names, "/")
 end
 
---- Add a marker at a beat. With `opts.length`, add a region from there. Returns it.
+--- Add a marker at a beat. With `opts.length`, add a region from there; its
+--- `opts.key` (such as "E minor") is the key of the harmony over its time. Returns it.
 function M.add(beat: number, name?: string | number, opts?: AddOptions): Marker
   opts = opts or {}
   assert(beat is number and beat >= 0, "a marker is at a beat from 0 up")
@@ -372,7 +376,7 @@ function M.add(beat: number, name?: string | number, opts?: AddOptions): Marker
     id = math.max(id, m.id + 1)
   end
   local marker: Marker = {
-    id = id, beat = beat, name = name and tostring(name) or "", length = opts.length, color = opts.color
+    id = id, beat = beat, name = name and tostring(name) or "", length = opts.length, color = opts.color, key = opts.key
   }
   list[#list + 1] = marker
   save(list)
@@ -478,6 +482,9 @@ function M.set(id: integer, fields: Fields): Marker
       end
       if fields.color ~= nil then
         m.color = fields.color as string or nil
+      end
+      if fields.key ~= nil then
+        m.key = fields.key as string or nil
       end
     end
   end
