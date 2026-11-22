@@ -26,6 +26,8 @@ pub mod measure;
 pub mod model;
 pub mod monitor;
 pub mod peaks;
+#[cfg(test)]
+mod props;
 pub mod remote;
 pub mod resample;
 pub mod rpc;

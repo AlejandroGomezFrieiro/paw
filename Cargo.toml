@@ -63,6 +63,10 @@ rustls = { version = "0.23", default-features = false, features = ["ring", "std"
 # TLS on tokio's sockets (the network server, paw-core's rpc.rs), over the
 # rustls above: no provider of its own.
 tokio-rustls = { version = "0.26", default-features = false }
+# Property tests, a dev-dependency only: a strategy makes the inputs from a
+# seed, and a failure is shrunk and kept in `proptest-regressions/`. Without
+# `fork` and `timeout`: a property runs in the process of its test.
+proptest = { version = "1.11", default-features = false, features = ["std"] }
 
 [profile.dev]
 opt-level = 1

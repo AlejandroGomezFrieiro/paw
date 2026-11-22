@@ -215,6 +215,20 @@ tools/fmtcheck.sh                                      # the format (`fix` forma
 
 Do not run `tests/tools/loaded.sh` or `tests/tools/e2e.sh`.
 
+The Lua runner has no property tests. Some rules are true for each input
+of a file format or of the model, for example a round trip or an undo.
+Each of these rules is a Rust property test in `paw-core` or
+`paw-engine`. It uses `proptest` and the helper
+`crate::props::config()`. The skill `rust-testing` (part 6) gives the
+modules and the rules. Run them with:
+
+```sh
+cargo nextest run -p paw-core -p paw-engine -E 'test(/::props::/)'
+```
+
+A Lua test checks the same format through the API only where the API
+adds behavior of its own, for example `paw.xml` with `opts.source`.
+
 ## 13. Before you commit
 
 - Apply `prune-tests` to each test that you added or changed.

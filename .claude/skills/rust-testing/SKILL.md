@@ -117,7 +117,7 @@ the undo file.
 - CI sets `INSTA_UPDATE=no`, so a new or changed snapshot that is not
   committed fails.
 
-## 6. Property tests with `proptest` (planned, TASK-156)
+## 6. Property tests with `proptest`
 
 Use a property test for a rule that is true for each input:
 
@@ -126,16 +126,44 @@ Use a property test for a rule that is true for each input:
 - An inverse: an undo of a change gives the old state.
 - An equivalence: two ways to compute one value give the same value.
 
+Where they are:
+
+| Module | The property |
+| --- | --- |
+| `paw-core/src/clipfile/props.rs` | A `.midi2` clip on ticks, written and read again, is the same clip; a clip file read and written again is the same bytes |
+| `paw-core/src/undofile/props.rs` | An undo file, written and read again, gives each state and its files |
+| `paw-core/src/xml/props.rs` | An XML tree, written as the DAWproject writer writes it and read again, is the same tree |
+| `paw-core/src/attr_map/props.rs` | An attribute map, saved in the project file and read again, is the same map |
+| `paw-core/src/model/props.rs` | An undo gives the project before a change, and a redo the project after it |
+| `paw-engine/src/tempo/props.rs` | A beat to seconds and back is the same beat |
+
 Rules:
 
-- Write one strategy for each type of input, and keep it next to the
-  type's tests.
-- Commit the files in `proptest-regressions/`. The crate runs each saved
-  case first.
-- Use the default count of cases in the normal run. The nightly tier in
-  CI sets `PROPTEST_CASES`.
-- A failure that a property test finds becomes a normal example test too, with
-  a name that tells the bug.
+- Put the properties of a module in `<module>/props.rs`, declared with
+  `#[cfg(test)] mod props;` beside `mod tests`. Each property is one
+  `#[test]` in a `proptest!` block.
+- Start the block with `#![proptest_config(crate::props::config())]`.
+  `config()` (`paw-core/src/props.rs`) gives the default count of cases
+  and a fixed seed, so each run tries the same cases. `PROPTEST_CASES`
+  and `PROPTEST_RNG_SEED` change them. `paw-engine` has its own copy of
+  `config()` in `tempo/props.rs`.
+- Write one strategy for each type of input, and keep it in the
+  `props.rs` of that type. Generate only valid input (a clip that
+  `Control::problem` takes, a map that `AttrMap::plan` takes). An
+  error path has an example test (part 12).
+- A limit for a float has its reason in a comment, for example "a
+  millionth of a beat, far under a tick".
+- Do not set `cases` in the code. The normal run uses the default
+  count (256). The nightly tier sets `PROPTEST_CASES=10000` and a new
+  `PROPTEST_RNG_SEED` (part 15).
+- A failure is shrunk to a small case, and `proptest` writes its seed to
+  `crates/<crate>/proptest-regressions/<module path>.txt`. Commit that
+  file. Each run tries its cases first.
+- A failure is a bug in the code or in the property. A bug in the code
+  gets a ticket, a fix, and an example test with a name that tells the
+  bug, next to the property (see `a_lyric_that_is_not_ascii_comes_back`
+  in `clipfile/props.rs`). Never make the property weaker (a smaller
+  range, a wider limit) to make it pass.
 
 ## 7. Sound
 
@@ -341,7 +369,19 @@ cargo nextest run -p <crate> -E 'test(word)'  # some tests
 cargo test --doc -p <crate>                   # doc tests
 cargo nextest run --workspace --profile gate  # before a push
 cargo insta review                            # planned: read and accept snapshots
+cargo nextest run -p paw-core -p paw-engine -E 'test(/::props::/)'  # the property tests
 ```
+
+The nightly tier (in CI only, TASK-145 and TASK-42) runs the property
+tests with more cases and a new seed each night:
+
+```sh
+PROPTEST_CASES=10000 PROPTEST_RNG_SEED=$(date +%Y%m%d) \
+  cargo nextest run -p paw-core -p paw-engine -E 'test(/::props::/)'
+```
+
+A failure there writes its file in `proptest-regressions/`. Commit it
+with the fix (part 6).
 
 ## 16. Before you commit
 
