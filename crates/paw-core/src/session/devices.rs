@@ -289,6 +289,11 @@ impl Session {
             {
                 bail!("the device listens to track {source}: on track {track} that would make a loop");
             }
+            if let Some(source) = p.device(id).and_then(|d| d.sidechain)
+                && from != track
+            {
+                p.check_route(source, track, crate::model::Route::SideChain)?;
+            }
             if from != track {
                 for (pair, to) in p.device(id).map(|d| d.outputs.clone()).unwrap_or_default() {
                     ports::check_output(p, track, pair, to)?;
@@ -876,6 +881,7 @@ impl Session {
                             "a side-chain from track {source} to track {track} would make a loop"
                         );
                     }
+                    p.check_route(source, track, crate::model::Route::SideChain)?;
                 }
                 p.device_mut(id).unwrap().sidechain = source;
                 return Ok(());

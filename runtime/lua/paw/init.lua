@@ -315,6 +315,8 @@ function K.startup()
   paw.pick.sources.scopes = paw.scope.source
   paw.stems = require("paw.stems")
   paw.markers = require("paw.markers")
+  -- Subprojects: tracks with a timeline of their own (paw/nest.tl).
+  paw.nest = require("paw.nest")
   -- Insert mode in the arrange view, and what its keys insert (paw/insert.tl).
   paw.insert = require("paw.insert")
   -- Listings edited as text (`:e paw://tracks`), and the kinds built in.
