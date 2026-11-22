@@ -2016,6 +2016,13 @@ function paw.cursor.set_beat(beat) end
 ---@param lane any
 function paw.cursor.set_track(track, lane) end
 
+--- For a track of a subproject shown in place under its return row: the
+--- beat of the window where the subproject's beat 0 is. Nil for any other
+--- track. The arrange view draws its clips that much later, and the
+--- cursor finds them there.
+---@param track any
+function paw.cursor.shift(track) end
+
 --- Round a position to the arrange grid.
 ---@param beat any
 function paw.cursor.snap(beat) end
@@ -3560,6 +3567,11 @@ function paw.groups.remove(track, stay) end
 --- (see `paw.lanes`).
 ---@param opts any
 function paw.groups.rows(opts) end
+
+--- The tracks to draw under a row that is open in place, or nil
+--- (`paw.groups.rows` asks for each row).
+---@param row any
+function paw.groups.under(row) end
 
 --- The chord that sounds at `beat`, or nil. With `latest`, of the
 --- reading as it stands, without waiting for a new one.
@@ -5857,9 +5869,27 @@ function paw.music.pitch(note) end
 ---@param text any
 function paw.music.pitch_word(text) end
 
+--- Every clip that places subproject `nest`, in order of time.
+---@param nest any
+function paw.nest.blocks(nest) end
+
+--- A key that changes when what a block plays changes: the stamps of the
+--- clips of its subproject, and the block's own place in it.
+---@param c any
+function paw.nest.content_key(c) end
+
+--- `K` on a block: `nest Ballad · 6/8 · 8 bars · follows the tempo ·
+--- 2 tracks · 1 instance · live`. `c` is the clip, in the window's time.
+---@param c any
+function paw.nest.describe(c) end
+
 --- The subproject `id`, or nil when there is none.
 ---@param id any
 function paw.nest.get(id) end
+
+--- Whether a row is open in place.
+---@param row any
+function paw.nest.is_open(row) end
 
 --- Every subproject, in the order they were made: { id, name, length,
 --- tempo, meter, master, tracks, kind, meta, used }.
@@ -5872,6 +5902,30 @@ function paw.nest.list() end
 --- (`paw.opt.nest_track`). Call it in one undo step (a command is one).
 ---@param o any
 function paw.nest.new(o) end
+
+--- The notes that a block plays, from its start, for the small picture
+--- inside it: { start, length, pitch } each, at most `limit`.
+---@param c any
+---@param limit any
+function paw.nest.notes(c, limit) end
+
+--- Give a subproject one row of its own for each of its tracks (`stems`),
+--- or one stereo return again (`master`), on its return row `row`. Call it
+--- in one undo step. Returns the message.
+---@param nest any
+---@param row any
+---@param how any
+function paw.nest.outputs(nest, row, how) end
+
+paw.nest.shift = paw.cursor.shift
+
+--- `za` on a return row: open its subproject's tracks under it, in the
+--- song's time, or close them. On a track shown in place: close its row.
+--- False when the track is neither.
+---@param track any
+function paw.nest.toggle(track) end
+
+paw.nest.under = paw.groups.under
 
 --- Tells if option `name` accepts `value`: true, or nil and an error that
 --- tells what it accepts. An option with no default accepts any value.

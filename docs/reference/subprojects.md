@@ -1,6 +1,6 @@
 # Subprojects
 
-<!-- tags: subproject subprojects nest :nest.new <Space>za nest_track -->
+<!-- tags: subproject subprojects nest :nest.new <Space>za nest_track :nest.list :nest.outputs -->
 
 A subproject is a section of the song with tracks of its own and a
 timeline of its own. The song plays it from a row of its own, its return
@@ -69,3 +69,33 @@ section shows bars of 6/8.
   place of the block, as for the cursor.
 
 See [Tempo and time signatures](tempo.md) for the commands.
+
+## The return row and its blocks
+
+The arrange view draws each block of a subproject on its return row in a
+frame, with `⧉` and the name of the subproject, and under the name a small
+piano roll of the notes that the subproject plays there. The graphical
+window draws the same blocks.
+
+| Keys or command | Effect |
+| --- | --- |
+| `za` on a return row | Show the tracks of the subproject under the row, in the time of the song, or hide them again. On one of those tracks, `za` hides them and puts the cursor on the row. |
+| `K` on a block | Describe the subproject, for example `nest Ballad · 6/8 · 8 bars · follows the tempo · 2 tracks · 1 instance · live`. |
+| `:nest.list` | Choose a subproject from a list of its blocks, with the subprojects that no block plays (`unused`), and go inside it. |
+| `:nest.outputs stems` | On the return row of a subproject, give the subproject a row for each of its tracks, named after the track, in a group under the return row. One undo step. |
+| `:nest.outputs master` | On the return row or a stem row, go back to one return row. One undo step. |
+
+The tracks that `za` shows under a return row belong to the subproject.
+The cursor finds their clips where the subproject plays them, so a key
+that works on the clip at the cursor, for example `~` to mute it,
+changes the subproject. The window still shows the song:
+`znn` on the block goes inside the subproject. The rows that `za` opens
+are not part of the project, and `u` does not
+close them.
+
+With stems, the return row is a group, and each stem row holds a block
+that plays one track of the subproject. Each track plays through its own
+devices into its stem row, and the stem rows play into the return row, so
+the fader, the sends and the devices of each stem row act on one track,
+and those of the return row on their sum. The master track of the
+subproject does not play with stems: its devices and fader are skipped.

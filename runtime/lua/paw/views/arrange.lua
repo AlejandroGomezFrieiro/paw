@@ -604,6 +604,17 @@ local function clip_body(box, p)
         end,
       })
       if not pictured then paw.plot.wave_cells(body, { peaks = function(n) return wave_peaks(clip, n) end }) end
+    elseif clip.kind == "nest" then
+      -- What the block plays, as a small piano roll of the notes of its
+      -- subproject's tracks.
+      local key = paw.nest.content_key(clip) .. ":" .. cw .. ":" .. (height - 1) .. ":" .. zoom
+      local rows = rolls[key]
+      if rows == nil then
+        rows = keep(rolls, key, function() return draw.miniroll(paw.nest.notes(clip), cw, height - 1, zoom) end)
+      end
+      for row, text in ipairs(rows) do
+        box:text(0, row, text)
+      end
     elseif clip.note_count > 0 then
       local rows, runs = preview(clip, cw, height - 1, zoom)
       for row, text in ipairs(rows) do
@@ -645,6 +656,9 @@ function view.clip_props(clip, track, hue, kind, zoom, chosen, from, to, colour)
   -- A clip with takes says which plays: `take 3 ‹2/4›`.
   local badge = paw.takes.badge(clip)
   local label = clip.offline and ("offline · " .. clip.name) or clip.name
+  -- A block of a subproject: its name after `⧉`, in a frame.
+  local block = clip.kind == "nest"
+  if block then label = draw.g.nest .. label end
   -- Stretched, shifted, looped: `×1.5 ↻ drums`.
   local mark = paw.stretch.badge(clip)
   if mark then label = mark .. " " .. label end
@@ -665,6 +679,7 @@ function view.clip_props(clip, track, hue, kind, zoom, chosen, from, to, colour)
     title_style = hue[title_of[kind]],
     body_style = hue[body_of[kind]],
     body = clip_body,
+    nest = block or nil,
   }
   bodies[props] = { clip = clip, colour = colour, kind = kind, zoom = zoom }
   -- What only a frontend that gets scenes reads: the terminal draws the
@@ -673,6 +688,7 @@ function view.clip_props(clip, track, hue, kind, zoom, chosen, from, to, colour)
     props.id = clip.id
     props.color = colour
     props.midi = clip.kind ~= "audio"
+    props.nest = block or nil
     props.muted = clip.muted or nil
     props.current = kind == "_cur" or nil
     props.chosen = chosen or nil
@@ -821,8 +837,21 @@ local function lane(self, buf, row, track, selected, cursor_clip, lanes, hue, ma
   local layers = paw.ui.layers.arrange
   local painted = layers and layers.clip
   -- The clips the timeline shows, and a column more each side: the test
-  -- below keeps the ones whose cells are in view.
-  local clips = api.clip_list(track.id, scroll - 1 / zoom, scroll + (w + 1) / zoom)
+  -- below keeps the ones whose cells are in view. The tracks of a
+  -- subproject open in place under its return row draw their clips where
+  -- the subproject plays them (`paw.nest.shift`).
+  local shift = paw.nest.shift(track.id)
+  local clips = api.clip_list(track.id, scroll - (shift or 0) - 1 / zoom, scroll - (shift or 0) + (w + 1) / zoom)
+  if shift then
+    for i, clip in ipairs(clips) do
+      local moved = {}
+      for k, v in pairs(clip) do
+        moved[k] = v
+      end
+      moved.start = clip.start + shift
+      clips[i] = moved
+    end
+  end
   -- The clips in view, and the columns each takes.
   local spans, shown = {}, {}
   for _, clip in ipairs(clips) do

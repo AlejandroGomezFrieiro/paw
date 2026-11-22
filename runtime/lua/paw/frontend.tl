@@ -34,6 +34,7 @@ local type TempolaneModule = require("paw.tempolane")
 local type VcaModule = require("paw.vca")
 local type MouseModule = require("paw.mouse")
 local type PanesModule = require("paw.panes")
+local type NestModule = require("paw.nest")
 
 local opt = options.opt
 
@@ -786,6 +787,7 @@ local record RemoteTouches
   touches: integer
 end
 local record Paw
+  nest: NestModule
   keymap: Keymap
   ui: Ui
   audio: Audio
@@ -1556,6 +1558,10 @@ function M.content_key(clip: types.Clip): string
   for _, m in ipairs(clip.warp or {}) do
     repeats = repeats .. string.format("|%.17g:%.17g", m.source, m.target)
   end
+  if clip.kind == "nest" then
+    -- A block: what its subproject plays there.
+    return paw.nest.content_key(clip)
+  end
   if clip.kind == "audio" then
     return string.format(
       "%s|%.17g|%.17g|%.17g|%.17g|%.17g|%.17g|%s%s",
@@ -1582,6 +1588,14 @@ function M.preview(id: integer): {number}
   local ok, got = pcall(api.clip_notes, id)
   local notes = got as {types.Note}
   local c: types.Clip = ok and api.clip_get(id) or {length = 0}
+  -- A block of a subproject: the notes that the subproject plays there.
+  if not ok then
+    local found, block = pcall(api.clip_get, id) as (boolean, types.Clip)
+    if found and block and block.kind == "nest" then
+      ok, c = true, block
+      notes = paw.nest.notes(block, M.preview_notes)
+    end
+  end
   local length = c.length
   -- A looped clip shows its notes over and over, as they sound.
   if ok then

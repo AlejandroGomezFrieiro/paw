@@ -158,6 +158,11 @@ pub fn clip(ui: &Ui, painter: &Painter, p: &ClipProps, rect: Rect, (cw, ch): (f3
             painter.add(Shape::dashed_line(&[pos2(x, body.top()), pos2(x, body.bottom())], Stroke::new(1.0, alpha(Color32::WHITE, 0.5)), 2.0, 2.0));
         }
     }
+    // A block of a subproject: a frame in its track's colour, inside the
+    // outline that a chosen clip gets.
+    if p.nest {
+        painter.rect_stroke(shape.shrink(1.0), CornerRadius::same(2), Stroke::new(2.0, mix(colour, Color32::WHITE, 0.5)), StrokeKind::Inside);
+    }
     // Chosen, under the cursor or under the pointer: an outline.
     let chosen = p.chosen;
     if current || chosen || under {

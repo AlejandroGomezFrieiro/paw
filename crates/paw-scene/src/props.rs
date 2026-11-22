@@ -273,7 +273,7 @@ pub struct ChipProps<'a> {
 /// dragged; its fades and `gain` (shown with `gain_line`) in beats and dB;
 /// `warps` and `repeats`, the beats of its warp markers and its loops;
 /// `cut_in` and `cut_out`, the beats from its start where the window's
-/// scope cuts it.
+/// scope cuts it; `nest` for a block of a subproject, drawn in a frame.
 #[derive(Debug, Default, Deserialize)]
 #[serde(default)]
 pub struct ClipProps<'a> {
@@ -299,6 +299,7 @@ pub struct ClipProps<'a> {
     pub repeats: Vec<f64>,
     pub cut_in: Option<f64>,
     pub cut_out: Option<f64>,
+    pub nest: bool,
 }
 
 /// The ground of a row of the timeline, `index` from the top, in columns

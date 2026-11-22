@@ -14,6 +14,10 @@
 //! nest), and its master plays into the track that holds its clips: the
 //! return row (`routing.rs`). A nest placed on two rows plays into the
 //! first; its devices run once.
+//!
+//! A nest clip that plays one track (`NestPlay::Track`, a stem) places
+//! only that track, and the track plays into the clip's row instead of
+//! into the master (`:nest.outputs stems`).
 
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
@@ -34,6 +38,9 @@ pub(crate) struct Instance {
     pub to: f64,
     /// The song's beat of the nest's beat 0.
     pub zero: f64,
+    /// The one track of the nest that this instance plays (a stem), or
+    /// None for all of them.
+    pub only: Option<Id>,
 }
 
 impl Instance {
@@ -41,15 +48,22 @@ impl Instance {
     pub fn song_beat(&self, beat: f64) -> f64 {
         self.zero + beat
     }
+
+    /// Whether this instance plays track `track` of its nest.
+    pub fn plays(&self, track: Id) -> bool {
+        self.only.is_none_or(|only| only == track)
+    }
 }
 
 /// The instances of every nest the song plays, by nest, in the order of
-/// their places; and the track each nest's master plays into: the track
-/// of its first clip that plays its mix.
+/// their places; the track each nest's master plays into: the track of its
+/// first clip that plays its mix; and the row each stem plays into: the
+/// track of the first clip that plays that one track.
 #[derive(Default)]
 pub(crate) struct Placed {
     pub instances: HashMap<NestId, Vec<Instance>>,
     pub hosts: HashMap<NestId, Id>,
+    pub stems: HashMap<Id, Id>,
 }
 
 impl Placed {
@@ -64,26 +78,36 @@ impl Placed {
             for c in t.clips.iter() {
                 if let ClipContent::Nest { nest, play, .. } = &c.content {
                     clips.entry(t.nest).or_default().push((t, c));
-                    if *play == NestPlay::Master {
-                        placed.hosts.entry(*nest).or_insert(t.id);
+                    match play {
+                        NestPlay::Master => {
+                            placed.hosts.entry(*nest).or_insert(t.id);
+                        }
+                        NestPlay::Track(stem) => {
+                            placed.stems.entry(*stem).or_insert(t.id);
+                        }
                     }
                 }
             }
         }
         // From the song down, at most as deep as the model allows.
-        let song = Instance { key: 0, from: f64::NEG_INFINITY, to: f64::INFINITY, zero: 0.0 };
+        let song = Instance { key: 0, from: f64::NEG_INFINITY, to: f64::INFINITY, zero: 0.0, only: None };
         let mut stack: Vec<(Option<NestId>, Instance, usize)> = vec![(None, song, 0)];
         while let Some((place, outer, depth)) = stack.pop() {
             if depth > crate::model::MAX_DEPTH {
                 continue;
             }
-            for (_, c) in clips.get(&place).into_iter().flatten() {
-                let ClipContent::Nest { nest, offset, .. } = &c.content else {
+            for (t, c) in clips.get(&place).into_iter().flatten() {
+                let ClipContent::Nest { nest, offset, play } = &c.content else {
                     continue;
                 };
-                if c.muted {
+                // A stem of the outer nest plays the nests of that track only.
+                if c.muted || !outer.plays(t.id) {
                     continue;
                 }
+                let only = match play {
+                    NestPlay::Track(stem) => Some(*stem),
+                    NestPlay::Master => None,
+                };
                 let start = outer.song_beat(c.start);
                 let from = start.max(outer.from);
                 let to = (start + c.length).min(outer.to);
@@ -92,7 +116,7 @@ impl Placed {
                 }
                 let mut hash = FxHasher::default();
                 (outer.key, c.id).hash(&mut hash);
-                let inner = Instance { key: hash.finish(), from, to, zero: start - offset };
+                let inner = Instance { key: hash.finish(), from, to, zero: start - offset, only };
                 placed.instances.entry(*nest).or_default().push(inner);
                 stack.push((Some(*nest), inner, depth + 1));
             }
@@ -104,8 +128,9 @@ impl Placed {
     }
 }
 
-/// The time the devices of a nest's tracks see: where each block of the
-/// nest plays, and the nest's own meter (empty: the song's).
+/// The time the devices of a nest's track see: where each block of the
+/// nest that plays the track is, and the nest's own meter (empty: the
+/// song's).
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Local {
     places: Vec<paw_engine::Place>,
@@ -113,14 +138,16 @@ pub(crate) struct Local {
 }
 
 impl Local {
-    /// The time of nest `nest`'s tracks, or None when the nest is not there.
-    pub fn of(project: &Project, nest: NestId, placed: &Placed) -> Option<Self> {
+    /// The time of track `track` of nest `nest`, or None when the nest is
+    /// not there.
+    pub fn of(project: &Project, nest: NestId, track: Id, placed: &Placed) -> Option<Self> {
         let held = project.nest(nest)?;
         let places = placed
             .instances
             .get(&nest)
             .into_iter()
             .flatten()
+            .filter(|i| i.plays(track))
             .map(|i| paw_engine::Place { from: i.from, to: i.to, zero: i.zero })
             .collect();
         let meter = match &held.meter {
@@ -162,7 +189,15 @@ pub(crate) fn expand(project: &Project, placed: &Placed, mut old: ExpandedTracks
     let none = Vec::new();
     for t in project.tracks.iter().filter(|t| t.nest.is_some()) {
         let nest = t.nest.expect("a nest track");
-        let instances = placed.instances.get(&nest).unwrap_or(&none);
+        let instances: Vec<Instance> = placed
+            .instances
+            .get(&nest)
+            .unwrap_or(&none)
+            .iter()
+            .filter(|i| i.plays(t.id))
+            .copied()
+            .collect();
+        let instances = &instances;
         let was = match old.remove(&t.id) {
             Some(w) if Arc::ptr_eq(&w.source, t) && w.instances == *instances => {
                 out.insert(t.id, w);

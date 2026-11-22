@@ -258,3 +258,116 @@ test("<Space>za adds a subproject in one undo step: u takes its row, the subproj
   eq(signatures(), "0:4/4", "the song's meter as it was")
   eq(paw.scope.current(), nil, "the window shows the song")
 end)
+
+-- The return row: blocks, in place, K, the list, stems ---------------------------------------
+
+test("a block on its return row: a frame, ⧉ and its name, and the notes that the subproject plays", function()
+  start()
+  local b = ballad()
+  local text = screen()
+  eq(text:find("⧉ Ballad", 1, true) ~= nil, true, "the block's name after ⧉\n" .. text)
+  paw.ui.render_scene("arrange", W, H, { w = 8, h = 16 })
+  api.scene_forget(0)
+  api.scene_roles(0, { "clip" })
+  paw.ui.render_scene("arrange", W, H, { w = 8, h = 16 })
+  local patch = api.json_decode(api.scene_end(0, "arr"))
+  local props
+  for _, n in ipairs(patch.set) do
+    if n.role == "clip" and n.props.id == b.clip then props = n.props end
+  end
+  api.scene_forget(0)
+  eq(props.nest and props.midi and props.label, "⧉ Ballad", "in the scene: a block, drawn in a frame")
+  eq(props.content:find("^nest|") ~= nil, true, "with the key of what it plays")
+  local flat = paw.frontend.preview(b.clip)
+  eq(flat[1] .. " " .. flat[3], "0 60", "a window's picture: the piano's note at the block's start")
+end)
+
+test(
+  "za on the return row shows the subproject's tracks under it, in the song's time; an edit there changes it",
+  function()
+    start()
+    local b = ballad()
+    paw.cursor.set_track(b.row)
+    paw.cursor.set_beat(32)
+    keys("za")
+    eq(names(paw.groups.rows()), "Drums Ballad Piano Strings", "its tracks under the row")
+    eq(paw.scope.current(), nil, "the window still shows the song")
+    keys("j")
+    eq(paw.cursor.track_id(), b.piano, "the cursor on the piano, in place")
+    local clip = paw.cursor.clip()
+    eq(clip and clip.id, api.clip_list(b.piano)[1].id, "its clip at bar 9 of the song: its beat 0")
+    keys("~")
+    eq(api.clip_get(clip.id).muted, true, "~ mutes the clip of the subproject")
+    keys("za")
+    eq(names(paw.groups.rows()), "Drums Ballad", "za again: one row")
+    eq(paw.cursor.track_id(), b.row, "the cursor back on the row")
+  end
+)
+
+test("K on a block: its meter, bars, tempo, tracks, instances", function()
+  metal()
+  keys("33|")
+  keys(":nest.new Ballad 8 6/8<CR>")
+  keys(":track.add Strings<CR>")
+  keys("zw")
+  paw.cursor.set_track(api.track_list()[2])
+  paw.cursor.set_beat(129)
+  keys("K")
+  local lines = {}
+  for _, line in ipairs(paw.ui.views.pager.lines) do
+    lines[#lines + 1] = line.text
+  end
+  local text = table.concat(lines, "\n")
+  eq(
+    text:find("nest Ballad · 6/8 · 8 bars · follows the tempo · 2 tracks · 1 instance · live", 1, true) ~= nil,
+    true,
+    text
+  )
+  paw.ui.close()
+end)
+
+test(":nest.list lists the blocks and the unused subprojects; choosing one enters it", function()
+  start()
+  ballad()
+  api.nest_add({ name = "Spare" })
+  keys(":nest.list<CR>")
+  local text = screen()
+  eq(text:find("Ballad · bar 9 on Ballad", 1, true) ~= nil, true, "the block\n" .. text)
+  eq(text:find("Spare · unused", 1, true) ~= nil, true, "the unused one\n" .. text)
+  keys("bar 9<CR>")
+  eq(paw.scope.breadcrumb(), "Song › ⧉Ballad", "entered")
+end)
+
+test(
+  ":nest.outputs stems: a row for each track under the subproject's row, the same sound; master and u give one row",
+  function()
+    start()
+    local b = ballad()
+    api.clip_add(b.strings, { start = 0, length = 4, notes = { { pitch = 67, start = 0, length = 1 } } })
+    paw.track(b.piano):add_device("synth", { attack = 0.001, release = 0.01 })
+    paw.track(b.strings):add_device("synth", { attack = 0.001, release = 0.01 })
+    paw.flush()
+    api.undo_checkpoint()
+    local function level()
+      local info = T.render({ tail = 0, bits = 16, ["end"] = 40 })
+      return { T.channel_peaks(info, 16, 18) }
+    end
+    local before = level()
+    eq(before[1] > 0.01, true, "the stereo return plays")
+    paw.cursor.set_track(b.row)
+    keys(":nest.outputs stems<CR>")
+    eq(names(api.track_list()), "Drums Ballad Piano Strings", "a stem row for each track, under the row")
+    eq(paw.groups.is_group(b.row) and #paw.groups.members(b.row), 2, "the row is the group of the stems")
+    local stems = level()
+    T.near(stems[1], before[1], 2e-3, "the sum of the stems sounds as the return did (left)")
+    T.near(stems[2], before[2], 2e-3, "and right")
+    keys(":nest.outputs master<CR>")
+    eq(names(api.track_list()), "Drums Ballad", "one row again")
+    eq(#api.clip_list(b.row), 1, "with its block")
+    keys("u")
+    eq(names(api.track_list()), "Drums Ballad Piano Strings", "u: the stems again")
+    keys("u")
+    eq(names(api.track_list()), "Drums Ballad", "u: one row")
+    eq(paw.groups.is_group(b.row), false, "not a group")
+  end
+)

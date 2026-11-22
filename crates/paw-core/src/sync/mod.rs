@@ -683,7 +683,7 @@ impl<'p> Pass<'p, '_, '_> {
     fn routing(&mut self) {
         let map = &mut *self.map;
         let send = &mut *self.send;
-        let routing = routing_of(self.new, self.ctx.live, &map.played, &self.placed.hosts);
+        let routing = routing_of(self.new, self.ctx.live, &map.played, self.placed);
         // Devices that listen to a side-chain get a buffer for it, before the
         // schedule that fills it; those that no longer do give theirs back.
         let keyed: HashSet<Id> = routing
@@ -746,7 +746,7 @@ impl<'p> Pass<'p, '_, '_> {
     fn local_times(&mut self) {
         let mut now: HashMap<Id, nests::Local> = HashMap::new();
         for t in self.new.tracks.iter() {
-            if let Some(local) = t.nest.and_then(|n| nests::Local::of(self.new, n, self.placed)) {
+            if let Some(local) = t.nest.and_then(|n| nests::Local::of(self.new, n, t.id, self.placed)) {
                 now.insert(t.id, local);
             }
         }
