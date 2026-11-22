@@ -44,6 +44,8 @@ mod encode;
 mod file_check;
 mod files_watch;
 pub mod folder;
+pub mod project_files;
+mod undo_file;
 mod keep;
 pub mod cues;
 mod loading;
@@ -583,6 +585,8 @@ struct Shelf {
     transport: Transport,
     position: f64,
     path: Option<PathBuf>,
+    /// The states of its undo tree that are still only in its undo file.
+    lazy: undo_file::Lazy,
 }
 
 /// The rest of what [`Session::audio_use`] can change: the sound system

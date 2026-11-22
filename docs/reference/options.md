@@ -47,6 +47,8 @@ An extension adds options of its own with `paw.option.define(name, default, spec
 | --- | --- | --- |
 | `paw.opt.undo_steps` | `1000` | The number of steps that the undo history keeps, 10 to 1000000. |
 | `paw.opt.undo_memory` | `1024` | About how many megabytes of changes the undo history keeps, from 16. |
+| `paw.opt.undofile` | `true` | After each save of a project folder, paw keeps the undo history in the undo file, so you can undo past the save when you open the project again. It is `false` under `--clean`. See [Files that paw keeps](state-files.md#the-undo-file). |
+| `paw.opt.undofile_mb` | `256` | About how many megabytes the undo file of one project takes, from 1. Past it, paw removes the oldest states. |
 | `paw.opt.shada` | `true` | paw keeps the prompt histories, the last search, the registers and, for each project, the marks and the last cursor across restarts. See [Files that paw keeps](state-files.md#editing-history). |
 | `paw.opt.history` | `200` | The number of lines that each prompt history keeps, 1 to 100000. |
 | `paw.opt.autosave` | `60` | The seconds between safety copies of unsaved work. `0` gives no copies. It is `0` under `--clean`. |

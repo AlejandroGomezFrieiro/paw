@@ -52,7 +52,7 @@ impl Writer<'_> {
         let tracks = project
             .nest_tracks(nest.id)
             .filter(|t| t.id != nest.master);
-        let order = self.tracks(tracks, root)?;
+        let order = self.tracks(tracks, root, None)?;
         let master = project
             .track(nest.master)
             .with_context(|| format!("the master track of the subproject {}", nest.name))?;
@@ -115,6 +115,7 @@ fn id_in(folder: &Path) -> Option<u64> {
 /// lists, as the project's JSON has a nest, and add the entries of its
 /// tracks, then of its master, to `entries`.
 pub(super) fn read_heads(
+    fs: &dyn ProjectFiles,
     dir: &Path,
     names: &[String],
     entries: &mut Vec<TrackEntry>,
@@ -123,10 +124,10 @@ pub(super) fn read_heads(
     for name in names {
         let root = Path::new("nests").join(name);
         let path = dir.join(&root).join(NEST_FILE);
-        let text = std::fs::read_to_string(&path)
-            .with_context(|| format!("reading {}", path.display()))?;
+        let bytes = fs.read(&path).with_context(|| format!("reading {}", path.display()))?;
+        let text = std::str::from_utf8(&bytes).with_context(|| format!("reading {}", path.display()))?;
         let head: toml::Value =
-            toml::from_str(&text).with_context(|| format!("parsing {}", path.display()))?;
+            toml::from_str(text).with_context(|| format!("parsing {}", path.display()))?;
         let mut head = from_toml(head);
         let map = head
             .as_object_mut()
@@ -141,8 +142,8 @@ pub(super) fn read_heads(
             None => Vec::new(),
         };
         let meta_file = dir.join(&root).join("meta.json");
-        let meta = if meta_file.exists() {
-            read_json(&meta_file)?
+        let meta = if fs.exists(&meta_file) {
+            read_json(fs, &meta_file)?
         } else {
             json!({})
         };

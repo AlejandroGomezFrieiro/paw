@@ -2299,6 +2299,10 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.ui.keybar.set(view, mode, entries)`: Set the keys shown for a view in a mode ("n", "x", "i").
 - `paw.ui.keybar.show(lhs)`: A key as a person reads it: `<leader>mm` is `Space mm`, `<C-w>c` is `Ctrl-w c`.
 
+## Module paw.undofile
+
+- `paw.undofile.dir(path)`: The undo folder of the project at `path`, or nil when paw keeps none.
+
 ## Module paw.util
 
 - `paw.util.clamp(v, lo, hi)`: `v`, kept between `lo` and `hi`.
@@ -2658,6 +2662,9 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.undo_current()`
 - `paw.api.undo_diff(a, b)`
 - `paw.api.undo_discard()`
+- `paw.api.undo_file_open(dir)`: Read the undo file in the folder `dir` for the project that just opened. Gives `states`, the number of states that came back, or `stale` when the project's files changed after the undo file was written.
+- `paw.api.undo_file_wait()`: Wait until the undo file that is being written is complete.
+- `paw.api.undo_file_write(dir, bytes)`: Write the undo file in the folder `dir` after a save, in about `bytes` bytes at most. The write runs on a thread of its own.
 - `paw.api.undo_goto(id)`
 - `paw.api.undo_join(id)`: The edits of this turn join undo state `id`, the current one, and do not make a step of their own. For example, a snippet changed its choice.
 - `paw.api.undo_keep(id, keep)`

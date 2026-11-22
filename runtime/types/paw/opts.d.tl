@@ -104,6 +104,8 @@ local record Opts
    true_peak_target: number
    undo_memory: number
    undo_steps: integer
+   undofile: boolean
+   undofile_mb: number
    velocity: integer
    wave_scale: string
    window_cache: boolean | string

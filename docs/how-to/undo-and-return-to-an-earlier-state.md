@@ -38,7 +38,21 @@ With undotree, `g-` and `g+` step through the states in the order that
 you made them, across the branches. `:earlier 5m` returns the project to
 five minutes ago.
 
-If you want to keep a state after paw closes, save the project, and then
+## Undo after you open the project again
+
+When you save a project folder with `:w`, paw keeps its undo history in the
+undo file. Close paw, open the project again, and press `u`. paw undoes the
+changes that you made before the save, and `<Space>fu` lists the states and
+branches of the earlier sessions.
+
+- If the message says `the undo file is for another version of the
+  project: not read`, the files of the project changed outside paw after
+  the save, for example with `git checkout`. The undo history starts at
+  the project as it opened.
+- To keep no undo file, put `paw.opt.undofile = false` in your
+  configuration. The details are in [Files that paw keeps](../reference/state-files.md#the-undo-file).
+
+If you want to keep a state as a file of its own, save the project, and then
 type `:checkpoint before the bridge`. The details are in
 [undotree](../../extensions/undotree/README.md).
 

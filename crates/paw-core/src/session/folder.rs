@@ -39,6 +39,7 @@ use serde_json::{Map, Value, json};
 
 use super::BASE64;
 use super::media::MEDIA_FILE;
+use super::project_files::{DiskFiles, ProjectFiles};
 use crate::clipfile;
 use crate::model::{Clip, ClipContent, KindData, Notes, Project, Target, Track};
 
@@ -61,6 +62,18 @@ pub fn is_folder_path(path: &Path) -> bool {
     path.file_name().is_some_and(|n| n == PROJECT_FILE)
         || path.is_dir()
         || (!path.exists() && path.extension().is_none())
+}
+
+/// Whether `rel`, a path in a project folder, is one of the files that paw
+/// writes there: the project file, the files at the top that it manages,
+/// and everything under `tracks/` and `master/`.
+pub fn is_managed(rel: &Path) -> bool {
+    rel.as_os_str() == PROJECT_FILE
+        || MANAGED_FILES.iter().any(|f| rel.as_os_str() == *f)
+        || rel
+            .components()
+            .next()
+            .is_some_and(|c| MANAGED_DIRS.iter().any(|d| c.as_os_str() == *d))
 }
 
 /// The project file as it was before the last save that changed it.
@@ -294,6 +307,7 @@ impl Writer<'_> {
         &mut self,
         tracks: impl Iterator<Item = &'t Arc<Track>>,
         root: &Path,
+        mut cache: Option<&mut TrackCache>,
     ) -> Result<Vec<String>> {
         let mut folders = BTreeSet::new();
         let mut order = Vec::new();
@@ -310,7 +324,11 @@ impl Writer<'_> {
                 continue;
             }
             let name = unique(&mut folders, &file_name(&track.name), "");
-            self.track(track, &root.join("tracks").join(&name))?;
+            let folder = root.join("tracks").join(&name);
+            match cache.as_deref_mut() {
+                Some(cache) => cache.track(self, track, &folder)?,
+                None => self.track(track, &folder)?,
+            }
             order.push(name);
         }
         Ok(order)
@@ -506,7 +524,7 @@ pub fn resolve(file: &Path, dir: &Path) -> PathBuf {
     }
 }
 
-fn tidy(path: &Path) -> PathBuf {
+pub(crate) fn tidy(path: &Path) -> PathBuf {
     let mut out = PathBuf::new();
     for part in path.components() {
         match part {
@@ -530,13 +548,79 @@ pub fn layout(
     screen: Option<&Value>,
     dir: &Path,
 ) -> Result<Layout> {
+    lay_out(project, transport, screen, dir, None)
+}
+
+/// The files of each track laid out alone, kept from one [`layout_cached`]
+/// to the next: states of the undo tree share most of their tracks.
+#[derive(Default)]
+pub struct TrackCache {
+    now: HashMap<(usize, PathBuf), CachedTrack>,
+    before: HashMap<(usize, PathBuf), CachedTrack>,
+}
+
+struct CachedTrack {
+    /// Keeps the track, so that no other track gets its address.
+    _track: Arc<Track>,
+    files: Vec<(PathBuf, Vec<u8>)>,
+}
+
+impl TrackCache {
+    /// Put the files of `track` in `folder` into `w`'s layout: from the
+    /// cache when the last layout had the very same track there.
+    fn track(&mut self, w: &mut Writer<'_>, track: &Arc<Track>, folder: &Path) -> Result<()> {
+        let key = (Arc::as_ptr(track) as usize, folder.to_path_buf());
+        let entry = match self.now.remove(&key).or_else(|| self.before.remove(&key)) {
+            Some(entry) => entry,
+            None => {
+                // Alone: no file is shared with another track, so the files
+                // stay right whatever the other tracks become.
+                let mut alone = Writer { layout: Layout::default(), written: HashMap::new(), dir: w.dir };
+                alone.track(track, folder)?;
+                CachedTrack { _track: Arc::clone(track), files: alone.layout.files.into_iter().collect() }
+            }
+        };
+        for (path, bytes) in &entry.files {
+            w.layout.files.insert(path.clone(), bytes.clone());
+        }
+        w.layout.track_folders.insert(track.id, folder.to_path_buf());
+        self.now.insert(key, entry);
+        Ok(())
+    }
+}
+
+/// The files of a project as [`layout`] gives them, except that no two
+/// tracks share a file and `clip_files` is empty: for the states of the undo
+/// file, which read back as the same project. The tracks that the last call
+/// laid out come from `cache`.
+pub fn layout_cached(
+    project: &Project,
+    transport: &Value,
+    screen: Option<&Value>,
+    dir: &Path,
+    cache: &mut TrackCache,
+) -> Result<Layout> {
+    cache.before = std::mem::take(&mut cache.now);
+    lay_out(project, transport, screen, dir, Some(cache))
+}
+
+fn lay_out(
+    project: &Project,
+    transport: &Value,
+    screen: Option<&Value>,
+    dir: &Path,
+    mut cache: Option<&mut TrackCache>,
+) -> Result<Layout> {
     let mut w = Writer {
         layout: Layout::default(),
         written: HashMap::new(),
         dir,
     };
-    let order = w.tracks(project.song_tracks(), Path::new(""))?;
-    w.track(&project.master, Path::new("master"))?;
+    let order = w.tracks(project.song_tracks(), Path::new(""), cache.as_deref_mut())?;
+    match cache {
+        Some(cache) => cache.track(&mut w, &project.master, Path::new("master"))?,
+        None => w.track(&project.master, Path::new("master"))?,
+    }
     let nests = w.nests(project)?;
     let mut bare = project.clone();
     bare.master = Arc::new(Track::new(0));
@@ -801,36 +885,36 @@ pub struct Read {
     pub problems: Vec<String>,
 }
 
-fn read_json(path: &Path) -> Result<Value> {
-    let text = std::fs::read(path).with_context(|| format!("reading {}", path.display()))?;
+fn read_json(fs: &dyn ProjectFiles, path: &Path) -> Result<Value> {
+    let text = fs.read(path).with_context(|| format!("reading {}", path.display()))?;
     serde_json::from_slice(&text).with_context(|| format!("parsing {}", path.display()))
 }
 
 /// The JSON of a track from its folder, its clips' files still to read:
 /// (track, the files its MIDI clips name by the clips' place).
-fn read_track(dir: &Path, folder: &Path, problems: &mut Vec<String>) -> Result<Value> {
+fn read_track(fs: &dyn ProjectFiles, dir: &Path, folder: &Path, problems: &mut Vec<String>) -> Result<Value> {
     let base = dir.join(folder);
-    let mut track = read_json(&base.join("track.json"))?;
+    let mut track = read_json(fs, &base.join("track.json"))?;
     // A chain kept in a file outside the folder: the track refers to it.
     let chain_file = track
         .as_object_mut()
         .and_then(|t| t.remove("devices_file"))
         .and_then(|v| v.as_str().map(|s| resolve(Path::new(s), &base)));
     let (chain, chain_source) = match chain_file {
-        Some(file) => match read_chain(&file, problems) {
+        Some(file) => match read_chain(fs, &file, problems) {
             Ok(chain) => (chain, Some(file)),
             Err(e) => {
                 problems.push(format!("{e:#}: the track has no devices until it is there"));
                 (Vec::new(), Some(file))
             }
         },
-        None => (read_chain(&base.join("devices.json"), problems)?, None),
+        None => (read_chain(fs, &base.join("devices.json"), problems)?, None),
     };
     let mut lanes = Vec::new();
     if let Some(Value::Array(list)) = track.get("lanes") {
         for name in list {
             let Some(name) = name.as_str() else { continue };
-            lanes.push(read_json(&resolve(Path::new(name), &base))?);
+            lanes.push(read_json(fs, &resolve(Path::new(name), &base))?);
         }
     }
     let map = track.as_object_mut().context("a track")?;
@@ -845,12 +929,12 @@ fn read_track(dir: &Path, folder: &Path, problems: &mut Vec<String>) -> Result<V
 /// The devices of a chain file (a `devices.json`), each with its state
 /// read from the file beside it that it names. A file that is not there is
 /// an empty chain.
-pub fn read_chain(file: &Path, problems: &mut Vec<String>) -> Result<Vec<Value>> {
+pub fn read_chain(fs: &dyn ProjectFiles, file: &Path, problems: &mut Vec<String>) -> Result<Vec<Value>> {
     let base = file.parent().map(Path::to_path_buf).unwrap_or_default();
-    let devices = match read_json(file) {
+    let devices = match read_json(fs, file) {
         Ok(Value::Array(list)) => list,
         Ok(_) => bail!("{} is not a list of devices", file.display()),
-        Err(e) if !file.exists() => {
+        Err(e) if !fs.exists(file) => {
             let _ = e;
             Vec::new()
         }
@@ -864,7 +948,7 @@ pub fn read_chain(file: &Path, problems: &mut Vec<String>) -> Result<Vec<Value>>
             .map(str::to_string)
         {
             let path = resolve(Path::new(&name), &base);
-            match std::fs::read(&path) {
+            match fs.read(&path) {
                 Ok(bytes) => d["state"] = json!(BASE64.encode(bytes)),
                 Err(e) => problems.push(format!("{}: {e}", path.display())),
             }
@@ -875,7 +959,7 @@ pub fn read_chain(file: &Path, problems: &mut Vec<String>) -> Result<Vec<Value>>
             for (key, name) in names {
                 let Some(name) = name.as_str() else { continue };
                 let path = resolve(Path::new(name), &base);
-                match std::fs::read(&path) {
+                match fs.read(&path) {
                     Ok(bytes) => {
                         files.insert(key, json!(BASE64.encode(bytes)));
                     }
@@ -964,8 +1048,13 @@ fn renumber(track: &mut Value, used: &mut BTreeSet<u64>, devices_only: bool) {
 /// A track folder outside a project, read as a track that refers to it:
 /// with ids the project does not have (`used`), and played into the
 /// master with no sends, because the tracks it played into are not here.
-pub fn read_outside_track(folder: &Path, used: &mut BTreeSet<u64>, problems: &mut Vec<String>) -> Result<Value> {
-    let mut track = read_track(Path::new(""), folder, problems)
+pub fn read_outside_track(
+    fs: &dyn ProjectFiles,
+    folder: &Path,
+    used: &mut BTreeSet<u64>,
+    problems: &mut Vec<String>,
+) -> Result<Value> {
+    let mut track = read_track(fs, Path::new(""), folder, problems)
         .with_context(|| format!("reading the track {}", folder.display()))?;
     renumber(&mut track, used, false);
     if let Some(map) = track.as_object_mut() {
@@ -995,19 +1084,19 @@ fn is_outside_entry(name: &str) -> bool {
 
 /// Take the file a clip's entry names out of it, leaving an empty note
 /// list to fill.
-fn take_clip_file(clip: &mut Value, files: &mut Vec<(u64, PathBuf)>, dir: &Path) -> Result<()> {
+fn take_clip_file(fs: &dyn ProjectFiles, clip: &mut Value, files: &mut Vec<(u64, PathBuf)>, dir: &Path) -> Result<()> {
     let id = clip.get("id").and_then(Value::as_u64).unwrap_or(0);
     let Some(content) = clip.get_mut("content") else {
         return Ok(());
     };
     if content.get("kind").and_then(Value::as_str) == Some("custom") {
-        return take_custom_files(content, dir);
+        return take_custom_files(fs, content, dir);
     }
     if content.get("kind").and_then(Value::as_str) == Some("audio") {
         // An audio clip's edit list, from its file.
         if let Some(file) = content.as_object_mut().and_then(|c| c.remove("edits_file")) {
             let path = resolve(Path::new(file.as_str().unwrap_or_default()), dir);
-            content["edits"] = read_json(&path).unwrap_or_else(|_| json!([]));
+            content["edits"] = read_json(fs, &path).unwrap_or_else(|_| json!([]));
         }
         return Ok(());
     }
@@ -1022,35 +1111,36 @@ fn take_clip_file(clip: &mut Value, files: &mut Vec<(u64, PathBuf)>, dir: &Path)
 }
 
 /// The text of a file that a custom clip's entry names.
-fn read_text(file: &str, dir: &Path) -> Result<String> {
+fn read_text(fs: &dyn ProjectFiles, file: &str, dir: &Path) -> Result<String> {
     let path = resolve(Path::new(file), dir);
-    std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))
+    let bytes = fs.read(&path).with_context(|| format!("reading {}", path.display()))?;
+    String::from_utf8(bytes.into_owned()).with_context(|| format!("reading {}", path.display()))
 }
 
 /// Put the files that a custom clip's entry names back into it: its data,
 /// its signals and its sound when that is MIDI. An error names the file and,
 /// for JSON, the line and column.
-fn take_custom_files(content: &mut Value, dir: &Path) -> Result<()> {
+fn take_custom_files(fs: &dyn ProjectFiles, content: &mut Value, dir: &Path) -> Result<()> {
     let Some(map) = content.as_object_mut() else {
         return Ok(());
     };
     let data = map.get("data").and_then(Value::as_object);
     if let Some(file) = data.and_then(|d| d.get("json_file")).and_then(Value::as_str) {
-        let value = read_json(&resolve(Path::new(file), dir))?;
+        let value = read_json(fs, &resolve(Path::new(file), dir))?;
         map.insert("data".into(), json!({ "json": value }));
     } else if let Some(file) = data.and_then(|d| d.get("text_file")).and_then(Value::as_str) {
         let ext = data.and_then(|d| d.get("ext")).cloned().unwrap_or(Value::Null);
-        let text = read_text(file, dir)?;
+        let text = read_text(fs, file, dir)?;
         map.insert("data".into(), json!({ "text": { "ext": ext, "text": text } }));
     }
     if let Some(file) = map.remove("signals_file") {
         let path = resolve(Path::new(file.as_str().unwrap_or_default()), dir);
-        map.insert("signals".into(), read_json(&path)?);
+        map.insert("signals".into(), read_json(fs, &path)?);
     }
     let sound = map.get("sound").and_then(|s| s.get("file")).and_then(Value::as_str);
     if let Some(file) = sound {
         let path = resolve(Path::new(file), dir);
-        let bytes = std::fs::read(&path).with_context(|| format!("reading {}", path.display()))?;
+        let bytes = fs.read(&path).with_context(|| format!("reading {}", path.display()))?;
         let read = clipfile::decode(&bytes).with_context(|| format!("reading {}", path.display()))?;
         let midi = ClipContent::Midi { notes: Notes::from(read.notes), controls: read.controls };
         map.insert("sound".into(), serde_json::to_value(&midi)?);
@@ -1058,21 +1148,26 @@ fn take_custom_files(content: &mut Value, dir: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Read a project folder (`dir/project.toml`).
+/// Read a project folder (`dir/project.toml`) from the disk.
 pub fn read(dir: &Path) -> Result<Read> {
-    read_with(dir, &dir.join(PROJECT_FILE))
+    read_from(&DiskFiles, dir)
+}
+
+/// Read the project folder `dir` from `fs`: the disk, or its files in
+/// memory.
+pub fn read_from(fs: &dyn ProjectFiles, dir: &Path) -> Result<Read> {
+    read_with(fs, dir, &dir.join(PROJECT_FILE))
 }
 
 /// Read a project folder with `head_path` in place of its `project.toml`
 /// (its `.bak`, for one that is damaged).
-pub fn read_with(dir: &Path, head_path: &Path) -> Result<Read> {
-    let head_path = head_path.to_path_buf();
-    let (mut head, order, nest_names, transport) = read_head(&head_path)?;
+pub fn read_with(fs: &dyn ProjectFiles, dir: &Path, head_path: &Path) -> Result<Read> {
+    let (mut head, order, nest_names, transport) = read_head(fs, head_path)?;
     let mut problems = Vec::new();
     let mut files = Vec::new();
     let mut entries: Vec<TrackEntry> = order.iter().map(|name| TrackEntry::of(name, Path::new(""), None)).collect();
-    let mut nests = nests::read_heads(dir, &nest_names, &mut entries)?;
-    let (mut tracks, master) = read_all_tracks(dir, &entries, &mut files, &mut problems)?;
+    let mut nests = nests::read_heads(fs, dir, &nest_names, &mut entries)?;
+    let (mut tracks, master) = read_all_tracks(fs, dir, &entries, &mut files, &mut problems)?;
     nests::tag_tracks(&mut nests, &entries, &mut tracks)?;
     let map = head
         .as_object_mut()
@@ -1082,16 +1177,16 @@ pub fn read_with(dir: &Path, head_path: &Path) -> Result<Read> {
         map.insert("nests".into(), Value::Array(nests));
     }
     map.insert("master".into(), master);
-    let meta = match read_json(&dir.join("meta.json")) {
+    let meta = match read_json(fs, &dir.join("meta.json")) {
         Ok(v) => v,
-        Err(_) if !dir.join("meta.json").exists() => json!({}),
+        Err(_) if !fs.exists(&dir.join("meta.json")) => json!({}),
         Err(e) => return Err(e),
     };
     map.insert("meta".into(), meta);
-    let screen = read_json(&dir.join("screen.json")).ok();
+    let screen = read_json(fs, &dir.join("screen.json")).ok();
     let mut project: Project =
         serde_json::from_value(head).with_context(|| format!("reading {}", dir.display()))?;
-    let clip_files = fill_clips(&mut project, &files, &mut problems, dir);
+    let clip_files = fill_clips(fs, &mut project, &files, &mut problems, dir);
     Ok(Read {
         project,
         transport,
@@ -1104,11 +1199,11 @@ pub fn read_with(dir: &Path, head_path: &Path) -> Result<Read> {
 /// The head of a project folder (`project.toml`): the head as JSON
 /// without the lists of tracks and nests and the transport, which come
 /// back apart.
-fn read_head(head_path: &Path) -> Result<(Value, Vec<String>, Vec<String>, Value)> {
-    let text = std::fs::read_to_string(head_path)
-        .with_context(|| format!("reading {}", head_path.display()))?;
+fn read_head(fs: &dyn ProjectFiles, head_path: &Path) -> Result<(Value, Vec<String>, Vec<String>, Value)> {
+    let bytes = fs.read(head_path).with_context(|| format!("reading {}", head_path.display()))?;
+    let text = std::str::from_utf8(&bytes).with_context(|| format!("reading {}", head_path.display()))?;
     let head: toml::Value =
-        toml::from_str(&text).with_context(|| format!("parsing {}", head_path.display()))?;
+        toml::from_str(text).with_context(|| format!("parsing {}", head_path.display()))?;
     let mut head = from_toml(head);
     let map = head
         .as_object_mut()
@@ -1163,6 +1258,7 @@ impl TrackEntry {
 /// Read every track and the master, outside tracks included. The clips'
 /// files that the tracks name are collected in `files`.
 fn read_all_tracks(
+    fs: &dyn ProjectFiles,
     dir: &Path,
     entries: &[TrackEntry],
     files: &mut Vec<(u64, PathBuf)>,
@@ -1173,7 +1269,7 @@ fn read_all_tracks(
         for key in ["clips", "cues"] {
             if let Some(Value::Array(clips)) = track.get_mut(key) {
                 for clip in clips {
-                    take_clip_file(clip, files, root)?;
+                    take_clip_file(fs, clip, files, root)?;
                 }
             }
         }
@@ -1189,13 +1285,13 @@ fn read_all_tracks(
             read_tracks.push(None);
             continue;
         }
-        let track = read_track(dir, &entry.folder, problems)
+        let track = read_track(fs, dir, &entry.folder, problems)
             .with_context(|| format!("reading the track {}", entry.folder.display()))?;
         ids_in(&track, &mut used);
         read_tracks.push(Some(track));
     }
-    let mut master = if dir.join("master/track.json").exists() {
-        read_track(dir, Path::new("master"), problems)?
+    let mut master = if fs.exists(&dir.join("master/track.json")) {
+        read_track(fs, dir, Path::new("master"), problems)?
     } else {
         serde_json::to_value(&*Project::default().master)?
     };
@@ -1212,7 +1308,7 @@ fn read_all_tracks(
         }
         // A track folder outside the project: read from where it is.
         let folder = resolve(&entry.folder, dir);
-        let track = read_outside_track(&folder, &mut used, problems)?;
+        let track = read_outside_track(fs, &folder, &mut used, problems)?;
         tracks.push(fix(track, files, &track_root(&folder))?);
     }
     let master = fix(master, files, dir)?;
@@ -1222,6 +1318,7 @@ fn read_all_tracks(
 /// Give the clips of the project their notes from the clips' files, each
 /// file read once however many clips share it. Returns each clip's file.
 fn fill_clips(
+    fs: &dyn ProjectFiles,
     project: &mut Project,
     files: &[(u64, PathBuf)],
     problems: &mut Vec<String>,
@@ -1235,7 +1332,7 @@ fn fill_clips(
         .collect::<BTreeSet<_>>()
         .into_iter()
         .collect();
-    let decoded = read_clips(&unique);
+    let decoded = read_clips(fs, &unique);
     let mut by_path: HashMap<&Path, &Result<clipfile::Clip>> = HashMap::new();
     for (path, clip) in unique.iter().zip(&decoded) {
         by_path.insert(path, clip);
@@ -1297,9 +1394,9 @@ fn fill_clips(
 }
 
 /// Read and decode clip files, in parallel.
-fn read_clips(paths: &[PathBuf]) -> Vec<Result<clipfile::Clip>> {
+fn read_clips(fs: &dyn ProjectFiles, paths: &[PathBuf]) -> Vec<Result<clipfile::Clip>> {
     let one = |path: &PathBuf| -> Result<clipfile::Clip> {
-        let bytes = std::fs::read(path).with_context(|| format!("reading {}", path.display()))?;
+        let bytes = fs.read(path).with_context(|| format!("reading {}", path.display()))?;
         clipfile::decode(&bytes)
     };
     let threads = std::thread::available_parallelism()
@@ -1500,19 +1597,19 @@ impl super::Session {
         }
         let mut used = self.used_ids();
         let mut problems = Vec::new();
-        let mut value = read_outside_track(&folder, &mut used, &mut problems)?;
+        let mut value = read_outside_track(&DiskFiles, &folder, &mut used, &mut problems)?;
         let root = track_root(&folder);
         let mut files = Vec::new();
         for key in ["clips", "cues"] {
             if let Some(Value::Array(clips)) = value.get_mut(key) {
                 for clip in clips {
-                    take_clip_file(clip, &mut files, &root)?;
+                    take_clip_file(&DiskFiles, clip, &mut files, &root)?;
                 }
             }
         }
         let mut track: Track = serde_json::from_value(value).with_context(|| format!("reading {}", folder.display()))?;
         let unique: Vec<PathBuf> = files.iter().map(|(_, p)| p.clone()).collect::<BTreeSet<_>>().into_iter().collect();
-        let decoded: HashMap<PathBuf, Result<clipfile::Clip>> = unique.iter().cloned().zip(read_clips(&unique)).collect();
+        let decoded: HashMap<PathBuf, Result<clipfile::Clip>> = unique.iter().cloned().zip(read_clips(&DiskFiles, &unique)).collect();
         let by_id: HashMap<u64, PathBuf> = files.into_iter().collect();
         for clip in track.clips.iter_mut().chain(track.cues.iter_mut()) {
             let Some(path) = by_id.get(&clip.id) else {
@@ -1553,7 +1650,7 @@ impl super::Session {
             bail!("{}: no such chain file", file.display());
         }
         let mut problems = Vec::new();
-        let chain = read_chain(&file, &mut problems)?;
+        let chain = read_chain(&DiskFiles, &file, &mut problems)?;
         let mut used = self.used_ids();
         let mut value = json!({ "devices": chain });
         renumber(&mut value, &mut used, true);
@@ -1603,7 +1700,7 @@ impl super::Session {
         let bak = std::path::absolute(bak)?;
         let dir = bak.parent().map(Path::to_path_buf).unwrap_or_default();
         let file = dir.join(PROJECT_FILE);
-        let read = read_with(&dir, &bak)?;
+        let read = read_with(&DiskFiles, &dir, &bak)?;
         let mut project = read.project;
         project
             .validate()
@@ -1686,6 +1783,10 @@ impl super::Session {
             let changed = std::mem::take(&mut self.files_watch.changed);
             self.watch_project_files();
             self.files_watch.changed = changed;
+        }
+        if only.is_none() {
+            // The undo file keeps these files as the state saved.
+            self.undo.file.saved_files = Some((self.undo.history.current(), layout.files));
         }
         let saved = Saved {
             path: file.clone(),
@@ -1871,6 +1972,42 @@ mod tests {
         let done = commit(&dir, &again, None).unwrap();
         assert!(done.written.is_empty(), "{:?}", done.written);
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// The project as canonical text, its notes named as an open names them.
+    fn canonical(project: &Project) -> String {
+        let mut named = project.clone();
+        named.name_notes(&Project::default());
+        serde_json::to_string(&named).unwrap()
+    }
+
+    #[test]
+    fn a_project_comes_back_from_its_files_in_memory() {
+        use crate::session::project_files::MemoryFiles;
+        let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/demo-song.json");
+        let file: Value = serde_json::from_slice(&std::fs::read(fixture).unwrap()).unwrap();
+        let demo: Project = serde_json::from_value(file["project"].clone()).unwrap();
+        let mut show = Project::default();
+        let mut track = Track::new(1);
+        track.clips = vec![custom(
+            2,
+            "verse",
+            0.0,
+            json!({ "kind": "custom", "type": "lyrics", "data": { "text": { "ext": "lrc", "text": "[00:01.00]one" } } }),
+        )]
+        .into();
+        show.tracks.push(Arc::new(track));
+        // Nothing is on the disk: every file comes from the map.
+        let dir = scratch("memory");
+        for p in [demo, project(3, 4), show] {
+            let layout = layout(&p, &json!({ "tempo": 1 }), Some(&json!({ "tabs": [] })), &dir).unwrap();
+            let files = layout.files.into_iter().map(|(k, v)| (k, Arc::from(v))).collect();
+            let read = read_from(&MemoryFiles::new(&dir, files), &dir).unwrap();
+            assert!(read.problems.is_empty(), "{:?}", read.problems);
+            assert_eq!(canonical(&read.project), canonical(&p));
+            assert_eq!((read.transport, read.screen), (json!({ "tempo": 1 }), Some(json!({ "tabs": [] }))));
+        }
+        assert!(!dir.exists());
     }
 
     /// `cargo test --release -p paw-core folder::tests::timing -- --ignored --nocapture`
