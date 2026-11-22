@@ -257,6 +257,7 @@ local unicode: Glyphs = {
   loop_in = "▕",
   loop_out = "▕",
   clip_start = "▏",
+  nest = "⧉ ",
   punch_in = "▕",
   punch_out = "▕",
   meter_full = "━",
@@ -320,6 +321,7 @@ local ascii: Glyphs = {
   loop_in = "[",
   loop_out = "]",
   clip_start = "|",
+  nest = "& ",
   punch_in = "{",
   punch_out = "}",
   meter_full = "=",
@@ -1038,6 +1040,24 @@ function M.bar_lines(from: number, span: number): {BarLine}
     out[#out + 1] = line.index == 0 and {beat = line.beat, bar = line.bar} or {beat = line.beat}
   end
   return out
+end
+
+--- Where a view scrolls to for a move of its cursor to `target`, a beat, or
+--- nil when the move leaves the scroll to the caller. A step (`jumped` is
+--- false) is left to the caller, which scrolls just enough. A jump (it went
+--- into the jump list) to a target that is off screen, or in the last quarter
+--- of the view, puts the target at the left margin (`paw.opt.jumpview` "left",
+--- `paw.opt.jumpmargin` columns) or in the middle ("center"). `span` is the
+--- beats shown, `zoom` the columns a beat.
+function M.jump_scroll(target: number, scroll: number, span: number, zoom: number, jumped: boolean): number
+  if not jumped then
+    return nil
+  end
+  if target >= scroll and target < scroll + span * 0.75 then
+    return nil
+  end
+  local at = opt.jumpview == "center" and span / 2 or (opt.jumpmargin as number) / zoom
+  return target - at
 end
 
 --- Write the numbers of a ruler above a roll that shows `span` beats from

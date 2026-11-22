@@ -112,6 +112,21 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         fn nest_add(lua, sh, opts => LuaValue) {
             sh.session.borrow_mut().nest_add(options(lua, opts)?).map(|n| n.0).lua()
         }
+        // Promote the subproject of a block (`clip`) to song data, as one
+        // undo step: its tracks come back in a group named after it at the
+        // place of its return row, their clips at the row's beats, cut at
+        // the block. The group track gets the master's devices and then the
+        // row's, the sum of their faders in dB, the row's pan and sends, and
+        // their lanes (two volume lanes added in dB). The row, the master
+        // and the subproject go. Returns `group`, `tracks`, `from`, `to`,
+        // `zero` (the song's beat of the subproject's beat 0) and `combined`
+        // (the targets of the lanes made one). `paw.nest.promote` does the
+        // rest: regions, the meter, the view.
+        // @return types.NestPromoted
+        fn nest_promote(lua, sh, clip => Id) {
+            let promoted = sh.session.borrow_mut().nest_promote(clip).lua()?;
+            to_lua(lua, &serde_json::to_value(promoted).map_err(mlua::Error::external)?)
+        }
         // Change a subproject: a table of the entries to change (`name`,
         // `length`, `tempo`, `meter`, `kind`, `meta`), as `nest_get` gives
         // them, or one `key` and its value.

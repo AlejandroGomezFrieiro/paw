@@ -63,6 +63,9 @@ local record M
   type TrackRef = TrackRef
   rows: function(): {integer}
   gather: function(group: integer)
+  --- The tracks to draw under a row besides its group's members, or nil:
+  --- paw/nest.tl sets it, for a return row whose subproject is open in place.
+  under: function(row: integer): {integer}
 end
 
 local volumes: {integer: number} = {}
@@ -175,6 +178,12 @@ local function rows(opts?: RowOptions): {integer}
       -- VCAs come after the tracks they move.
       local list = paw.vca.is_vca(id) and vcas or out
       list[#list + 1] = id
+      local extra = M.under and M.under(id)
+      if extra then
+        for _, inner in ipairs(extra) do
+          list[#list + 1] = inner
+        end
+      end
     end
   end
   for _, id in ipairs(vcas) do

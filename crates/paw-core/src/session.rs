@@ -52,6 +52,7 @@ mod loading;
 pub mod media;
 mod midi_out;
 mod nests;
+mod promote;
 pub use nests::NestOpts;
 mod monitor;
 mod statelanes;

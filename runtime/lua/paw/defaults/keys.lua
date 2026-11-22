@@ -232,6 +232,8 @@ amap("*", function()
   if clip then keymap.search(clip.name, 1) end
 end, "Next clip with this one's name", far)
 amap("zz", function() paw.ui.views.arrange:center() end, "Scroll the cursor to the middle")
+amap("zs", function() paw.ui.views.arrange:place(false) end, "Scroll the cursor to the left")
+amap("ze", function() paw.ui.views.arrange:place(true) end, "Scroll the cursor to the right")
 -- Groups of tracks.
 map("<leader>tg", "track.group", { view = "arrange", mode = nx, desc = "Group the selected tracks" })
 amap("<leader>tG", "track.ungroup", "Take the track out of its group; dissolve a group")
@@ -273,6 +275,17 @@ for _, how in ipairs({ { "s", "split", "split" }, { "v", "vsplit", "vertical spl
   end, { mode = nx, desc = "The scope at the cursor, or the selection, in a new " .. how[3] })
 end
 map("<leader>zn", "scope.name", { desc = "Name this window's scope: type its name" })
+-- Subprojects (paw/nest.tl): `<leader>za` adds one here, and asks its
+-- name, its bars and its meter on the command line (`Ballad 8 6/8`).
+map(
+  "<leader>zp",
+  "nest.promote",
+  { desc = "Promote the subproject at the cursor to a view: its tracks come back into the song" }
+)
+map("<leader>za", function()
+  local text = keymap.mode == "x" and "'<,'>nest.new " or "nest.new "
+  paw.commands.run("cmdline", { text = text }, { mode = keymap.mode })
+end, { mode = nx, desc = "Add a subproject with its own row and tracks: type its name, bars and meter" })
 map("<leader>zz", "scope.list", { desc = "Enter a scope, or go up to a level, from a list" })
 amap("]z", "scope.next", "The next scope beside this one: region, group, track", { motion = true, mode = "n" })
 amap("[z", "scope.prev", "The scope before this one, beside it", { motion = true, mode = "n" })
@@ -479,10 +492,10 @@ amap("]t", "take next", "The clip's next take")
 amap("[t", "take prev", "The clip's take before")
 amap("zT", "tempo.lane", "Show or hide the tempo curve under the ruler")
 amap("zt", "take.lanes", "Show the track's takes as lanes under its clips, or hide them")
-amap("]'", "marker.next", "The next marker or region", { motion = true })
-amap("['", "marker.prev", "The marker or region before", { motion = true })
-amap("]r", "region.next", "The next region at the level of the one the cursor is in", { motion = true })
-amap("[r", "region.prev", "The region before, at the level of the one the cursor is in", { motion = true })
+amap("]'", "marker.next", "The next marker or region", far)
+amap("['", "marker.prev", "The marker or region before", far)
+amap("]r", "region.next", "The next region at the level of the one the cursor is in", far)
+amap("[r", "region.prev", "The region before, at the level of the one the cursor is in", far)
 amap("g'", "marker.new", "Put a marker at the cursor: type its name")
 amap('g"', "marker.list", "Go to a marker or region from a list")
 amap("gx", "marker.remove", "Remove the marker at the cursor")

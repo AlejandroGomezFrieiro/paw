@@ -146,7 +146,10 @@ command("info", function()
       c.length,
       c.muted and ", muted" or ""
     )
-    if c.kind == "midi" then
+    if c.kind == "nest" then
+      -- A block of a subproject.
+      lines[#lines + 1] = "  " .. paw.nest.describe(c)
+    elseif c.kind == "midi" then
       lines[#lines + 1] = string.format("  %d notes", c.note_count)
       -- A clip from a file outside the project, or a copy of one.
       if c.source then
