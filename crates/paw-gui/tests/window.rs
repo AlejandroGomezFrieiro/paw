@@ -8,6 +8,7 @@
 //! say what is missing and pass. A failed scenario leaves `failure.png` and
 //! the window's output in its directory under `target/tmp/window`.
 
+use std::collections::HashMap;
 use std::fs;
 use std::io::Write as _;
 use std::os::unix::net::UnixStream;
@@ -1250,6 +1251,77 @@ fn demo_song_shows_and_answers_the_pointer() {
     w.render_to(&target);
     wait_for_file(&target, 1000);
     w.assert_alive("after rendering");
+}
+
+/// Four seconds of a sine wave, louder to its end, as a 16-bit mono WAV
+/// file.
+fn write_tone(path: &Path) {
+    let rate = 48_000u32;
+    let samples: Vec<i16> = (0..rate * 4)
+        .map(|i| {
+            let t = i as f32 / rate as f32;
+            (t / 4.0 * 0.9 * (t * 220.0 * std::f32::consts::TAU).sin() * i16::MAX as f32) as i16
+        })
+        .collect();
+    let data = (samples.len() * 2) as u32;
+    let mut out = Vec::with_capacity(44 + data as usize);
+    out.extend_from_slice(b"RIFF");
+    out.extend_from_slice(&(36 + data).to_le_bytes());
+    out.extend_from_slice(b"WAVEfmt ");
+    out.extend_from_slice(&16u32.to_le_bytes());
+    out.extend_from_slice(&1u16.to_le_bytes());
+    out.extend_from_slice(&1u16.to_le_bytes());
+    out.extend_from_slice(&rate.to_le_bytes());
+    out.extend_from_slice(&(rate * 2).to_le_bytes());
+    out.extend_from_slice(&2u16.to_le_bytes());
+    out.extend_from_slice(&16u16.to_le_bytes());
+    out.extend_from_slice(b"data");
+    out.extend_from_slice(&data.to_le_bytes());
+    for s in samples {
+        out.extend_from_slice(&s.to_le_bytes());
+    }
+    fs::write(path, out).unwrap();
+}
+
+/// How many pixels of the body of the clip of track `track` (beats `from`
+/// to `to`, under its name) are not its plain face: its notes or its wave.
+fn drawn_in_body(w: &Scene, track: usize, from: f32, to: f32) -> usize {
+    let at = arrange_point(w, &format!("beat({from})"), &format!("row('track', {track}) + 1.4"));
+    let end = arrange_point(w, &format!("beat({to})"), &format!("row('track', {track}) + 2.6"));
+    let pixels = w.pixels(at, (end.0 - at.0, end.1 - at.1));
+    let mut counts: HashMap<[u8; 3], usize> = HashMap::new();
+    for p in &pixels {
+        *counts.entry(*p).or_default() += 1;
+    }
+    let face = counts.into_iter().max_by_key(|(_, n)| *n).map(|(p, _)| p).unwrap();
+    let sum = |p: &[u8; 3]| p.iter().map(|&c| c as i32).sum::<i32>();
+    pixels.iter().filter(|p| (sum(p) - sum(&face)).abs() > 90).count()
+}
+
+#[test]
+fn a_clip_shows_its_name_and_its_notes_or_its_waveform() {
+    let media = Path::new(env!("CARGO_TARGET_TMPDIR")).join("clip-contents-media");
+    fs::create_dir_all(&media).unwrap();
+    let tone = media.join("Walrus.wav");
+    write_tone(&tone);
+    let setup = format!(
+        "{DEMO} local t = paw.add_track({{ name = 'Audio' }}) paw.import_audio('{}', {{ track = t.id, start = 0 }})",
+        tone.display()
+    );
+    let mut w = scene!("clip-contents", &setup);
+    w.expect("the audio clip", "#paw.api.clip_list(paw.api.track_list()[6]) == 1");
+    // The pointer over the audio lane, away from its clip: the lane is
+    // painted again for it, and the clip over it too.
+    w.mouse_to(arrange_point(&w, "beat(20)", "row('track', 6) + 2"));
+    // The pictures inside the clips come after the frame that asks for them.
+    w.pause(2.0);
+    w.shot("clip-contents.png");
+    // The clips are sent with an empty list of warp markers: the window
+    // reads the rest of their props all the same.
+    assert!(drawn_in_body(&w, 1, 0.5, 3.5) > 20, "the drums' notes in their clip");
+    assert!(drawn_in_body(&w, 6, 0.5, 5.5) > 20, "the waveform in the audio clip");
+    assert!(w.shows("Walrus", 5), "the audio clip's name on it");
+    w.assert_alive("after showing the clips");
 }
 
 /// The window's pixels once the song has played a while and stopped:
