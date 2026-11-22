@@ -13,6 +13,10 @@ documentation, because a user's need sits on two axes:
 | **action** (doing) | **tutorial**: learning-oriented, a lesson | **how-to guide**: goal-oriented, directions |
 | **cognition** (knowing) | **explanation**: understanding-oriented, discussion | **reference**: information-oriented, description |
 
+Diátaxis is how we organize the pages. It is not a subject of the
+manual: no page explains the four kinds to the reader. The headings of
+docs/README.md name them, and that is enough (owner, 2026-11-22).
+
 "There are four and only four types": the two axes cover the whole
 territory. Almost every documentation problem is a page that crosses or
 blurs these boundaries.
