@@ -308,6 +308,13 @@ impl Session {
         self.engine.handle.shared.position()
     }
 
+    /// What moves of the transport by itself, without a table: whether it
+    /// plays, the position in beats, the beats left to count in, and the
+    /// number of the take being recorded.
+    pub fn playhead(&self) -> (bool, f64, u32, Option<u32>) {
+        (self.play.playing, self.position(), self.counting(), self.rec.take.as_ref().map(|t| t.number))
+    }
+
     /// The transport as `paw.api.transport_get` gives it: typed, so that
     /// Lua gets its table with no JSON between (a frame reads it).
     pub fn transport_view(&self) -> TransportView {
