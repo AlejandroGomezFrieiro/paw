@@ -524,6 +524,17 @@ test("a click on a note chooses it, a drag moves it, and Ctrl leaves a copy behi
   eq(notes_of(clip), "60@0+1 62@2+1 60@4+1", "a copy four beats on")
 end)
 
+test("a clip opened by keys after one the pointer opened keeps the zoom", function()
+  start()
+  local t = paw.add_track({ name = "keys" })
+  local short = t:add_clip({ name = "short", start = 0, length = 1, notes = {} })
+  t:add_clip({ name = "long", start = 4, length = 8, notes = {} })
+  paw.frontend.act.open_clip(short.id)
+  paw.keymap.feed(":e roll://long<CR>")
+  shot()
+  eq(roll:clip().name .. " " .. paw.opt.note_zoom, "long 8", "the zoom to fit the short clip is not used")
+end)
+
 test("dragging a note's last cell resizes it, and its first cell moves its start", function()
   local clip, at = rolled({ { pitch = 60, start = 1, length = 1 } })
   local x, y = at(60, 2)

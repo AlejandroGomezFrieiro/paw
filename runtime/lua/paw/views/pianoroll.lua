@@ -43,6 +43,8 @@ function view:parts() return clips.parts() end
 
 local function open(self, clip)
   self.clip_id, self.beat, self.scroll = clip.id, 0, 0
+  -- A fit asked for by the pointer is for the clip it opened, not this one.
+  self.fit_next = nil
   clips.only()
   local notes = clip:notes()
   self.pitch = notes[1] and notes[1].pitch or 60
