@@ -62,6 +62,8 @@ local record ProjectFile is KeymapModule.ProjectPlaces
   cursor: Place
 end
 
+-- What this module reads of the modules in Lua (their functions are in
+-- paw/views/cmdline.lua and paw/loading.lua).
 local record Cmdline
   histories: function(): {string: {string}}
   set_history: function(name: string, lines: {string})
