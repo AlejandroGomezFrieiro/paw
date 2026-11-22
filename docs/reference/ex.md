@@ -67,7 +67,7 @@ Without a range, most commands take the bar of the cursor (`.`), in the same way
 
 `:adjust` changes the parameters of the last command and runs it again. paw puts the project back as it was before the command, runs the command again on the same range with its first parameters and the new ones, and the result takes the place of the command in the undo tree. `u` then returns to the state before the command.
 
-A parameter has a name, and you give it as `name=value` or by position. `:quantize 1/16` followed by `:adjust strength=50` is the same as `:quantize 1/16 strength=50`. `<Space>.` opens the command line with `:adjust` and the current values, and Tab completes the names and the values. After `:adjust`, `.` does the adjusted command again.
+A parameter has a name, and you give it as `name=value` or by position. `:quantize 1/16` followed by `:adjust strength=50` is the same as `:quantize 1/16 strength=50`. `<Space>.` opens the [adjust panel](keys.md#the-adjust-panel). Tab completes the names and the values on the command line. After `:adjust`, `.` does the adjusted command again.
 
 | Command | Parameters, in the order of the positional form |
 | --- | --- |

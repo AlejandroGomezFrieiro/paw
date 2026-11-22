@@ -1666,6 +1666,12 @@ function paw.clip_kinds.split(clip, at) end
 ---@param to any
 function paw.clip_kinds.trim(clip, from, to) end
 
+--- A command that can be adjusted says the range it changed, as the panel
+--- of `<leader>.` shows it (`Quantize · 48 notes`). Call it from the handler.
+---   paw.commands.about("48 notes")
+---@param text any
+function paw.commands.about(text) end
+
 --- Run the last command that has `adjust` again with other parameters, in
 --- place of its undo step: `paw.commands.adjust({ grid = "1/8" })`, or
 --- positional ones, by the order of its `adjust`. The project goes back to
@@ -1728,6 +1734,11 @@ function paw.commands.main(name) end
 --- The extension that paw loads now, or whose code registers these commands
 --- and keys later. `:help` goes to its page for them, and an unload removes them.
 function paw.commands.owner() end
+
+--- What the panel of `<leader>.` shows: the title, the parameters of the
+--- last command that can be adjusted, and their values now. Nil when there
+--- is no such command.
+function paw.commands.panel() end
 
 --- The parameters of the command that runs: what the user gave, by the
 --- names that its `adjust` lists. A parameter not given is not in the table.
@@ -8734,6 +8745,11 @@ function paw.ui.titlebar(buf, opts) end
 ---@param name any
 function paw.ui.toggle(name) end
 
+--- The transport as `paw.api.transport_get` gives it. While a frame is
+--- drawn, the one read first in that frame: the status line, the ruler
+--- and the views read it once between them.
+function paw.ui.transport() end
+
 --- Register a view. It replaces a view with the same name.
 ---   paw.ui.view("clock", { render = function(self, buf) buf:text(0, 0, os.date()) end })
 --- Optional fields: `focusable` (default true), `on_key(self, key)` for keys
@@ -9564,8 +9580,9 @@ function paw.api.fs_stat(path) end
 ---@param path string
 function paw.api.fs_trash(path) end
 
---- Restyle the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, and
---- overwrite its characters when `fill` is given.
+--- Restyle the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, in
+--- `style` as `grid_text` takes it, and overwrite its characters when
+--- `fill` is given.
 ---@param x number
 ---@param y number
 ---@param w number
@@ -9669,8 +9686,10 @@ function paw.api.grid_surface_ops(index, ops) end
 --- drawn over them from now on covers them.
 function paw.api.grid_surfaces_seal() end
 
---- Draw text at `(x, y)`, clipped to the rectangle `(cx, cy, cw, ch)`.
---- Returns the number of columns the text takes.
+--- Draw text at `(x, y)`, clipped to the rectangle `(cx, cy, cw, ch)`,
+--- in `style`: the number of a highlight group (`hl_id`), its name,
+--- a table of attributes, or nil. Returns the number of columns the
+--- text takes.
 ---@param x number
 ---@param y number
 ---@param text any
@@ -9680,6 +9699,13 @@ function paw.api.grid_surfaces_seal() end
 ---@param cw number
 ---@param ch number
 function paw.api.grid_text(x, y, text, style, cx, cy, cw, ch) end
+
+--- The number of the highlight group `name`, for the style of
+--- `grid_text` and `grid_fill`: a frame passes numbers, not names.
+--- The number stays the same for as long as paw runs, and follows
+--- the group when it changes. A group not defined yet has one too.
+---@param name any
+function paw.api.hl_id(name) end
 
 ---@param name string
 ---@param def any

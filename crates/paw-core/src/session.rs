@@ -67,6 +67,7 @@ pub mod tags;
 mod tempo;
 mod undo;
 mod watch;
+pub use watch::Lost;
 mod write;
 use undo::{SWEEP_GAP, new_history};
 
@@ -807,25 +808,37 @@ fn start_engine(opts: &BackendOptions) -> Result<(EngineHandle, Stream)> {
 }
 
 /// Processing times per engine callback, in milliseconds.
+#[derive(Clone, Copy, Debug, Serialize)]
+pub struct BlockTimes {
+    pub count: u64,
+    pub mean: f64,
+    pub max: f64,
+    pub p50: f64,
+    pub p99: f64,
+    pub p999: f64,
+    /// The time one callback of the average size may take in real time.
+    pub budget: f64,
+}
+
+impl BlockTimes {
+    pub fn new(s: &paw_engine::BlockSummary, sample_rate: u32) -> Self {
+        let ms = |ns: f64| ns / 1e6;
+        let per_call = |n: u64| if s.count > 0 { n as f64 / s.count as f64 } else { 0.0 };
+        Self {
+            count: s.count,
+            mean: ms(per_call(s.total_ns)),
+            max: ms(s.max_ns as f64),
+            p50: ms(s.quantile_ns(0.5)),
+            p99: ms(s.quantile_ns(0.99)),
+            p999: ms(s.quantile_ns(0.999)),
+            budget: per_call(s.frames) * 1000.0 / sample_rate.max(1) as f64,
+        }
+    }
+}
+
+/// [`BlockTimes`] as JSON.
 fn block_json(s: &paw_engine::BlockSummary, sample_rate: u32) -> Value {
-    let ms = |ns: f64| ns / 1e6;
-    let mean = if s.count > 0 {
-        s.total_ns as f64 / s.count as f64
-    } else {
-        0.0
-    };
-    let frames = if s.count > 0 {
-        s.frames as f64 / s.count as f64
-    } else {
-        0.0
-    };
-    json!({
-        "count": s.count, "mean": ms(mean), "max": ms(s.max_ns as f64),
-        "p50": ms(s.quantile_ns(0.5)), "p99": ms(s.quantile_ns(0.99)),
-        "p999": ms(s.quantile_ns(0.999)),
-        // The time one callback of the average size may take in real time.
-        "budget": frames * 1000.0 / sample_rate.max(1) as f64,
-    })
+    serde_json::to_value(BlockTimes::new(s, sample_rate)).unwrap_or(Value::Null)
 }
 
 fn param_json(p: &ParamInfo) -> Value {
