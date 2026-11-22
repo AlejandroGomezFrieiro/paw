@@ -462,18 +462,16 @@ fn keys_go_to_the_kernels_mappings_and_ctrl_a_in_the_roll_chooses_every_note() {
 }
 
 #[test]
-fn ctrl_and_plus_zoom_and_ctrl_0_shows_the_whole_song() {
+fn ctrl_and_equals_minus_0_go_to_the_vertical_zoom_keys_and_ctrl_down_makes_rows_taller() {
     let (mut h, calls) = window();
-    h.event(Event::Key { key: egui::Key::Plus, physical_key: None, pressed: true, repeat: false, modifiers: Modifiers::CTRL });
-    h.run_steps(2);
-    assert!(sent(&calls, "zoom by=1.4142"), "the focused view's zoom, in the kernel");
-    h.event(Event::Key { key: egui::Key::Num0, physical_key: None, pressed: true, repeat: false, modifiers: Modifiers::CTRL });
-    h.run_steps(2);
-    assert!(sent(&calls, "zoom fit"));
+    for (key, sent_as) in [(egui::Key::Equals, "<C-=>"), (egui::Key::Minus, "<C-->"), (egui::Key::Num0, "<C-0>")] {
+        h.event(Event::Key { key, physical_key: None, pressed: true, repeat: false, modifiers: Modifiers::CTRL });
+        h.run_steps(2);
+        assert!(calls.borrow().iter().any(|(m, p)| m == "keys" && p[0] == sent_as), "{sent_as} to the kernel's mappings");
+    }
     h.event(Event::Key { key: egui::Key::ArrowDown, physical_key: None, pressed: true, repeat: false, modifiers: Modifiers::CTRL });
     h.run_steps(2);
-    assert!(sent(&calls, "paw.opt.track_height"), "taller tracks");
-    assert!(!calls.borrow().iter().any(|(m, _)| m == "keys"), "none of them a key of the kernel's mappings");
+    assert!(sent(&calls, "vzoom 1"), "taller rows");
 }
 
 // ----------------------------------------------------------------- fonts

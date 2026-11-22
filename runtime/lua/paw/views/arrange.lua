@@ -201,10 +201,11 @@ function view.header_width(w)
   return math.max(4, math.min(want, w - 4))
 end
 
---- Rows a track takes when `count` tracks share `room` rows:
---- `paw.opt.track_height`, or with "auto" as many as fit, from 3 to 4.
+--- Rows a track takes when `count` tracks share `room` rows: the
+--- window's vertical zoom (paw/vzoom.tl), else `paw.opt.track_height`,
+--- or with "auto" as many as fit, from 3 to 4.
 function view.track_height(count, room)
-  local want = tonumber(paw.opt.track_height)
+  local want = paw.vzoom.track_rows() or tonumber(paw.opt.track_height)
   if want then return math.max(1, math.floor(want)) end
   if count < 1 then return 3 end
   return util.clamp(math.floor(room / count), 3, 4)
@@ -251,15 +252,17 @@ function view:layout(w, h)
   local master_rows = 2
   local room = math.max(1, h - ruler_rows - master_rows)
   -- Take lanes (a line each) and automation lanes shown as rows (two
-  -- lines each) take their lines first.
-  local lane_lines, own = 0, false
+  -- lines each, or as the window's vertical zoom says) take their lines
+  -- first.
+  local lane_lines, own = 0, paw.vzoom.any_own()
+  local lane_rows = paw.vzoom.lane_rows()
   for _, id in ipairs(tracks) do
-    lane_lines = lane_lines + paw.takes.lane_count(id) + 2 * #paw.lanes.shown(id)
+    lane_lines = lane_lines + paw.takes.lane_count(id) + lane_rows * #paw.lanes.shown(id)
     own = own or (api.track_get(id, "height") or 1) ~= 1
   end
   local th = view.track_height(#tracks, math.max(1, room - lane_lines))
   -- Squeezed by panels below, a track takes what there is rather than vanish.
-  if not tonumber(paw.opt.track_height) and room < th then th = math.max(1, room) end
+  if not (paw.vzoom.track_rows() or tonumber(paw.opt.track_height)) and room < th then th = math.max(1, room) end
   local fit = math.max(1, math.floor(room / th))
   local cursor_index = paw.cursor.row() or 1
   -- Tracks of heights of their own are placed one by one, as lanes are.
@@ -1105,19 +1108,24 @@ local function welcome(buf)
   end
 end
 
---- The lines a track's row takes, `th` the tracks' height: its own share
---- of it (`height`, which a drag of its header's bottom edge sets), at
+--- The lines a track's row takes, `th` the tracks' height: its own rows
+--- in the window's vertical zoom (paw/vzoom.tl), else its own share of
+--- `th` (`height`, which a drag of its header's bottom edge sets), at
 --- least one.
-function view.row_height(id, th) return math.max(1, math.floor(th * (api.track_get(id, "height") or 1) + 0.5)) end
+function view.row_height(id, th)
+  return paw.vzoom.rows_of(id) or math.max(1, math.floor(th * (api.track_get(id, "height") or 1) + 0.5))
+end
 
 --- The rows from `self.top` when some tracks show their take lanes or their
 --- automation lanes: each track, then a row `{ kind = "take", id, take,
 --- index, y, h = 1 }` for each of its take lanes, then a row `{ kind =
---- "lane", id, lane, index, y, h = 2 }` for each of its automation lanes.
+--- "lane", id, lane, index, y, h }` for each of its automation lanes (`h`
+--- 2, or as the window's vertical zoom says).
 --- Scrolls so that the cursor's row is in view. Returns the rows and the
 --- line after the last.
 function view:rows_with_lanes(tracks, th, ruler_rows, room, cursor_index)
   local bottom = ruler_rows + room
+  local lane_rows = paw.vzoom.lane_rows()
   local function place(top)
     local out, y = {}, ruler_rows
     for index = top, #tracks do
@@ -1132,9 +1140,9 @@ function view:rows_with_lanes(tracks, th, ruler_rows, room, cursor_index)
         y = y + 1
       end
       for _, l in ipairs(paw.lanes.shown(id)) do
-        if y + 2 > bottom then return out, y, false end
-        out[#out + 1] = { kind = "lane", id = id, lane = l, index = index, y = y, h = 2 }
-        y = y + 2
+        if y + lane_rows > bottom then return out, y, false end
+        out[#out + 1] = { kind = "lane", id = id, lane = l, index = index, y = y, h = lane_rows }
+        y = y + lane_rows
       end
     end
     return out, y, true
@@ -1170,15 +1178,15 @@ end
 --- at the cursor and whether it is read or bypassed; the timeline has its
 --- curve and points.
 function view:draw_lane_row(headers, timeline, row, lines)
-  local l, y = row.lane, row.y
+  local l, y, lh = row.lane, row.y, row.h
   local zoom, scroll = self.geometry.zoom, self.scroll
   local beat = paw.cursor.beat
   local hw, tw = headers.width, timeline.width
   local on = paw.cursor.lane_id() == l.id
   local hue = draw.track_hue(api.track_get(row.id), row.index)
   local style = on and "TrackHeaderSel" or "TrackHeader"
-  headers:fill(0, y, hw, 2, " ", style)
-  for r = 0, 1 do
+  headers:fill(0, y, hw, lh, " ", style)
+  for r = 0, lh - 1 do
     headers:text(0, y + r, "▏", hue.fg)
   end
   headers:text(2, y, util.fit("↳ " .. paw.lanes.name(l), math.max(1, hw - 3)), style)
@@ -1192,7 +1200,7 @@ function view:draw_lane_row(headers, timeline, row, lines)
   )
   local vscroll = self:v(scroll)
   local function v(b) return self:v(b) end
-  self.plane:mark("beats", vscroll, y, tw / zoom, 2, {
+  self.plane:mark("beats", vscroll, y, tw / zoom, lh, {
     from = vscroll,
     per = zoom,
     style = on and hue.lane_sel or "Lane",
@@ -1212,7 +1220,7 @@ function view:draw_lane_row(headers, timeline, row, lines)
     for i, p in ipairs(list) do
       points[i] = { p[1], 1 }
     end
-    curve(timeline, 0, y, tw, 2, nil, {
+    curve(timeline, 0, y, tw, lh, nil, {
       points = points,
       style = l.enabled and "Automation" or "Faint",
       from = vscroll,
@@ -1238,7 +1246,7 @@ function view:draw_lane_row(headers, timeline, row, lines)
     for i, p in ipairs(api.lane_points(l.id)) do
       points[i] = { p[1], level(p[2]) }
     end
-    curve(timeline, 0, y, tw, 2, l.point_count > 0 and lane_sampler(l.id, scroll, zoom, nil, lo, hi, self) or nil, {
+    curve(timeline, 0, y, tw, lh, l.point_count > 0 and lane_sampler(l.id, scroll, zoom, nil, lo, hi, self) or nil, {
       points = points,
       style = l.enabled and "Automation" or "Faint",
       from = vscroll,
@@ -1254,12 +1262,12 @@ function view:draw_lane_row(headers, timeline, row, lines)
   if selection then
     local x0 = math.max(0, self:col(selection.c0))
     local x1 = math.min(tw, self:col(selection.c1))
-    if x1 > x0 then timeline:fill(x0, y, x1 - x0, 2, nil, "Visual") end
+    if x1 > x0 then timeline:fill(x0, y, x1 - x0, lh, nil, "Visual") end
   end
   local x = self:col(beat)
   local cw = math.max(1, math.floor(paw.opt.grid * zoom))
   timeline:fill(x, y, cw, 1, nil, paw.keymap.mode == "x" and "CursorVisual" or "Cursor")
-  timeline:fill(x, y + 1, cw, 1, nil, "CursorTail")
+  timeline:fill(x, y + 1, cw, lh - 1, nil, "CursorTail")
 end
 
 --- Where each row is among the lines that the counts of `j` and `k` go

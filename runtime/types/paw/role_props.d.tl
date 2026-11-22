@@ -142,11 +142,13 @@ local record role_props
       bend_at: number
    end
 
-   --- A piano down a roll: `top` the pitch of its first row, `cursor` the
+   --- A piano down a roll: `top` the pitch of its first row, `per` the rows
+   --- of a pitch (1 when not given: the roll's vertical zoom), `cursor` the
    --- cursor's pitch; `names` and `labels`, `{ pitch, name }` each, what keys
    --- are called; `sounding`, the pitches that sound at the cursor.
    record KeyboardProps is Props
       top: integer
+      per: integer
       cursor: integer
       names: {{integer, string}}
       labels: {{integer, string, string}}

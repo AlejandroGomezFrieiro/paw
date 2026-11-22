@@ -65,8 +65,9 @@ window attached to a kernel that runs already also finds the file.
 | `width`, `height` | The size of the window. |
 | `x`, `y` | The position of the window on the screen, on X11 only. |
 
-The zoom and the height of the tracks are the kernel's options
-(`paw.opt.zoom`, `paw.opt.track_height`), the same as in the terminal.
+The zoom in time is the kernel's option (`paw.opt.zoom`), and the
+height of the rows is the vertical zoom of each of the kernel's windows,
+the same as in the terminal.
 What the panes show is the kernel's layout, which the project keeps (see
 [Layouts](windows.md#layouts)) and not `window.json`.
 
@@ -685,10 +686,9 @@ Suggestions, with a completion source loaded (see
 | Wheel | Scrolls. |
 | `Shift` and wheel | Scrolls sideways. |
 | `Ctrl` and wheel | Zooms in time at the pointer, in the timeline and in the piano roll. Over the track headers, it makes all tracks taller or shorter. |
-| `Alt` and wheel | Makes the tracks taller or shorter. |
-| `Ctrl -`, `Ctrl +` | Zoom in time the view that has the keyboard (`:zoom by=…`, as `zo` and `zi`). |
-| `Ctrl 0` | Shows the whole song (`:zoom fit`). |
-| `Ctrl ↑`, `Ctrl ↓` | Change the height of the tracks, from one line to twelve. |
+| `Alt` and wheel | Makes the rows taller or shorter: the tracks, or the keys of the piano roll. |
+| `Ctrl =`, `Ctrl -`, `Ctrl 0` | The vertical zoom of the view that has the keyboard, the same as `z+`, `z-` and `z=` (see [The arrange view](arrange-view.md#vertical-zoom)). `zi` and `zo` zoom in time. |
+| `Ctrl ↑`, `Ctrl ↓` | Make the rows shorter or taller, as `Ctrl -` and `Ctrl =` do. |
 
 In the timeline, the wheel scrolls a track, or a bar with `Shift`. After a
 zoom, the window draws the waveforms again at their new width.
