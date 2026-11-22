@@ -25,7 +25,7 @@ it. Only its owner can read it. The machines that connect need a copy.
 ### TLS
 
 TCP is encrypted with TLS 1.3 (or 1.2) from the first byte. The lines of
-this page go inside TLS.
+the protocol go inside TLS.
 
 - The first time that paw listens on TCP, it makes a self-signed
   certificate. It keeps it in `~/.local/state/paw/tls/`.

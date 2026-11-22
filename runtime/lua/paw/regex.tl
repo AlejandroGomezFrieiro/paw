@@ -263,7 +263,7 @@ function Regex:test(s: string): boolean
   return self:find(s) ~= nil
 end
 
---- Make an expression ready to match. If it is not correct, raise an error
+--- Compile an expression so that it is ready to match. If it is not correct, raise an error
 --- that tells the problem. `opts.case` true matches case, and false ignores
 --- case. By default, an expression in lowercase ignores case.
 function M.compile(text: string, opts?: Options): Regex

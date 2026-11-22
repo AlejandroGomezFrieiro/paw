@@ -2,7 +2,7 @@
 
 <!-- tags: automation automation-modes lane-write -->
 
-Automation lanes move a fader, a pan or a parameter while the song plays. The automation modes write lanes when you move a control, and they are the subject of this page. The keys that draw and edit lanes are in [Keys, by idea](keys.md), and the steps are in [How to write automation with the faders](../how-to/write-automation-with-the-faders.md).
+Automation lanes move a fader, a pan or a parameter while the song plays. The automation modes write lanes when you move a control, and they are the subject of the next sections. The keys that draw and edit lanes are in [Keys, by idea](keys.md), and the steps are in [How to write automation with the faders](../how-to/write-automation-with-the-faders.md).
 
 ## Automation modes
 

@@ -286,8 +286,15 @@ kernel, frontend (the terminal or the graphical window), buffer, register.
 ### How to check
 
 Vale checks the Markdown files with the project's styles. `.vale.ini`
-gives each path its styles: STE for internal files, Plain for external
-pages.
+gives each kind of file its rules. Each rule is an error or off, and
+there is no warning level.
+
+| Kind | Files | Rules |
+| --- | --- | --- |
+| External | `README.md`, `docs/`, READMEs and `doc/` pages of the extensions and the crates | Plain, AiTells, alex, write-good, spelling, and the STE rules that agree with plain writing; Readability off |
+| Generated | `docs/reference/api.md`, `docs/tutorials/course/` | The external rules, on the generator's output: fix the doc comment (`tools/apidoc.lua`) or the tutor lesson, then run the generator |
+| Internal | `AGENTS.md`, `.claude/`, `bench/*.md` | STE, with the grade levels |
+| Not checked | `bench/RESULTS.md` | None: a dated log |
 
 ```sh
 nix develop -c tools/vale.sh                 # every page
@@ -298,14 +305,13 @@ nix develop -c tools/vale.sh docs/how-to/*.md
   plain-writing that a pattern can find (dashes in number ranges, the
   middle dot in prose, curly quotes, heading case, overused and puffery
   words, plain words, "not just X, but Y", openings with a demonstrative
-  or a count). At the level warning until phase B (the task after
-  TASK-73) rewrites the docs. External pages also keep STE.Spelling, STE.Glossary,
+  or a count). External pages also keep STE.Spelling, STE.Glossary,
   STE.PassiveBy and STE.Paragraphs.
 - `STE` (.vale/styles/STE), internal files: the rules above: sentence
   and paragraph length (25 words), semicolons, contractions, tenses,
   "-ing" forms, the passive with "by", phrasal verbs, unapproved words,
   American spelling, the glossary.
-- `Readability`, internal files: Flesch-Kincaid and Gunning fog grade of
+- `Readability`, internal files only: Flesch-Kincaid and Gunning fog grade of
   each page.
 - `write-good`: cliches, "There is" openings, repeated words.
 - `alex`: inclusive language (music and Vim words such as master, attack
@@ -316,8 +322,9 @@ nix develop -c tools/vale.sh docs/how-to/*.md
   .vale/styles/config/vocabularies/Paw/accept.txt (add a real word there,
   never a misspelling).
 
-Vale skips code blocks and code spans. Errors must be fixed. A warning
-is fixed or kept on purpose (a technical name, a quoted UI label).
+Vale skips code blocks and code spans. Fix each alert at its source. A
+real technical name goes into the vocabulary or the exceptions of a rule,
+with a comment that says why.
 Vale is a help, not the standard: read every sentence yourself too.
 
 ## Workflow
@@ -349,6 +356,6 @@ fit to the user's need, anticipating the reader.
 - [ ] How-tos: titled "How to …", goal-first, conditional imperatives, no teaching, links to reference.
 - [ ] Reference: neutral, structured like the machinery, consistent entries, each name described once.
 - [ ] Explanation: "About …", why/context/alternatives, no steps or option tables.
-- [ ] External pages: plain-writing (.claude/skills/plain-writing); internal text: STE (descriptive sentences ≤ 25 words, active voice, approved verb forms, no semicolons); glossary words in both; `tools/vale.sh <pages>` has no errors, and each warning left is on purpose.
+- [ ] External pages: plain-writing (.claude/skills/plain-writing); internal text: STE (descriptive sentences ≤ 25 words, active voice, approved verb forms, no semicolons); glossary words in both; `tools/vale.sh <pages>` has 0 alerts.
 - [ ] docs/README.md and the README landing pages link the new or moved pages.
 - [ ] No stale path anywhere (`grep -rn "docs/<old>"`), `:help <tag>` still lands, suite green.

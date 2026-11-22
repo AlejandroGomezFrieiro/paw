@@ -225,7 +225,7 @@ to 7.0 % and the window from 7.5 to 3.8 %.
 
 Set `window-sweep` (the WINDOW branch before its merge, three rounds) and
 set `window2-sweep` (the WINDOW2 build, two rounds) compare the window with
-REAPER at both sizes. The first table of this page comes from
+REAPER at both sizes. The first table below comes from
 `window2-sweep`.
 
 ## Where paw is still behind
@@ -296,7 +296,7 @@ The results and the scratch folders go to `$BENCH_TMP/daws` (default
 the settle time and the measured time. A round of the first command takes
 about 5 minutes for each view.
 
-To make all the tables of this page from the results file:
+To make all the tables below from the results file:
 
 ```sh
 python3 bench/daws/table.py show bench/results/daws-2026-11-19.jsonl --split

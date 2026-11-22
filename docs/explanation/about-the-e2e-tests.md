@@ -22,7 +22,7 @@ tests a change runs the Lua suite and not the scenarios, and
 A day is one session of work. `tests/tools/e2e.sh` starts a new paw process
 for each day, on the project folder that the day before saved. During the
 day, the scenario types keys and Ex commands as a person does, and it
-switches between the views. At the end of the day, it saves the project and
+switches between the views. When the day ends, it saves the project and
 quits. Each day therefore also tests that the project opens from the disk
 in a new process, so nothing can live only in the memory of the process.
 

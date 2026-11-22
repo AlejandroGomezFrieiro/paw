@@ -1,7 +1,7 @@
 # ASD-STE100 3.5: an -ing form only in a technical name.
 extends: existence
 message: "'%s' is an -ing form (STE 3.5). Use a verb or a noun, unless it is a technical name."
-level: warning
+level: error
 ignorecase: true
 tokens:
   - '\b\w{3,}ing\b'
@@ -11,3 +11,5 @@ exceptions:
   - (?i)setting|settings|heading|headings|recording|recordings|binding|bindings|drawing|drawings
   - (?i)mapping|mappings|meaning|meanings|warning|warnings|timing|timings|rendering|ending|endings
   - (?i)building|routing|listing|listings|padding|spacing|beginning|offering|wiring|keyring
+  # "plain-writing" is the name of a skill and of a style, a technical name.
+  - (?i)writing

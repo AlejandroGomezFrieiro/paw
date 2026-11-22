@@ -2,7 +2,7 @@
 
 <!-- tags: saving safety-copies recover autosave project-file project-folder midi2 collect on_external_change -->
 
-A project is a folder of files, and this page describes those files, how paw saves them, how it keeps safety
+A project is a folder of files, and the sections below describe those files, how paw saves them, how it keeps safety
 copies, and how it recovers work. For why paw saves this way, see
 [About project files](../explanation/about-project-files.md). For the
 steps, see [How to recover lost work](../how-to/recover-lost-work.md).

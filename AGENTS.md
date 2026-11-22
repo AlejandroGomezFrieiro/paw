@@ -75,7 +75,7 @@ gives the details. Read it before you write or change a page.
   `PAW.md`. Internal text is for the people and agents that change paw.
   It uses ASD-STE100 Simplified Technical English: short sentences,
   active voice, the present, past and future tenses only, one word for
-  one thing, American spelling.
+  one thing, American English.
   - External: `README.md`, `docs/`, the READMEs and `doc/` pages of the
     extensions, the READMEs of the crates, the tutor's lessons, and the
     doc comments that `tools/apidoc.lua` turns into
@@ -84,11 +84,18 @@ gives the details. Read it before you write or change a page.
     tickets, design documents, the other code comments, commit messages,
     pull request text and replies in chat.
 - **Vale.** Vale checks every Markdown file with the project's styles.
-  `.vale.ini` gives each path its styles: the style `Plain` for the
-  external pages, the style `STE` for the internal files. Run
+  `.vale.ini` gives each kind of file its rules, and each rule is an
+  error or off: there is no warning level. Run
   `nix develop -c tools/vale.sh` on the files that you change. Vale
-  must report 0 errors. A hook runs Vale after each Markdown edit, and
-  `nix flake check` fails on a Vale error.
+  must report 0 alerts. A hook runs Vale after each Markdown edit, and
+  `nix flake check` fails on any alert.
+
+  | Kind | Files | Rules |
+  | --- | --- | --- |
+  | External | `README.md`, `docs/`, READMEs and `doc/` pages of the extensions and the crates | `Plain`, `AiTells`, `alex`, `write-good`, `Vale` (words), and the STE rules that agree with plain writing. Readability is off. |
+  | Generated | `docs/reference/api.md`, `docs/tutorials/course/` | The external rules. Fix the doc comment or the lesson, and run the generator. |
+  | Internal | `AGENTS.md`, `.claude/`, `bench/*.md` | `STE`, with the grade levels. |
+  | Not checked | `bench/RESULTS.md` | None: it is a dated log. |
 
 Other rules for documentation:
 

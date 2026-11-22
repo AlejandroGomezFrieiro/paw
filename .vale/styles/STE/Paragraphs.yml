@@ -1,7 +1,7 @@
 # ASD-STE100 4.x: one topic in a paragraph, not more than six sentences.
 extends: occurrence
 message: "Write a paragraph of not more than six sentences (STE 4). Split it."
-level: warning
+level: error
 scope: paragraph
 max: 6
 token: '[.!?](?:\s|$)'

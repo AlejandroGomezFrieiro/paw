@@ -21,7 +21,20 @@ In the graphical window, the curve shows in a pane, and `:curve.window` (`Ctrl-w
 
 ## What the view shows
 
-The curve shows in sextants (`paw.opt.curve_glyphs`) over the bars and beats, with the values in their unit along the left side. A point shows as `◆`, as `■` where the part after it holds, and as `●` where it eases. The bottom row gives the point under the cursor, or the value of the curve at the cursor. |
+The curve shows in sextants (`paw.opt.curve_glyphs`) over the bars and beats, with the values in their unit along the left side. A point shows as `◆`, as `■` where the part after it holds, and as `●` where it eases. The bottom row gives the point under the cursor, or the value of the curve at the cursor.
+
+## Keys
+
+The cursor is a beat and a value.
+
+| Keys | Effect |
+| --- | --- |
+| `h` `l` | Move a grid step. |
+| `j` `k` | Move a step of the value. |
+| `Ctrl-d` `Ctrl-u` | Move ten steps of the value. |
+| `w` `b` | Go to the next and the previous point, and take its value. |
+| `0` `$` | Go to the first and the last point. |
+| `o` | Adds a point at the cursor. |
 | `A` | Adds a point on the curve at the cursor. |
 | `x` | Removes the point under the cursor. |
 | `+` `-` | Raise and lower the point. `Ctrl-a` `Ctrl-x` by the count. |

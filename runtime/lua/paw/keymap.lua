@@ -216,12 +216,15 @@ end
 --- The options are `mode` (one mode or a list, default "n"), `view` and
 --- `desc`. `motion = true` is for a mapping that only moves the cursor.
 --- Such a mapping also works in visual mode and after an operator.
+---
 --- `linewise = true` is for a motion across rows. `jump = true` keeps the
 --- position of the cursor for `<C-o>`. With `repeatable = false`, `.` does
 --- not repeat the mapping. `nowait = true` makes a key that also starts
---- longer mappings run at once, without the wait for more keys. Each key
---- with `role` "second+" or "second-" (the `[` and `]` of a view) does so. The same key again is a second press. Another key soon after it
---- that makes a longer mapping (`]g`, `]q`) takes back its change and runs
+--- longer mappings run at once, without the wait for more keys.
+---
+--- Each key with `role` "second+" or "second-" (the `[` and `]` of a view)
+--- does so. The same key again is a second press. Another key soon after
+--- it that makes a longer mapping (`]g`, `]q`) takes back its change and runs
 --- that mapping. On a selection, the selection opens again for that mapping.
 function M.set(lhs, rhs, opts)
   opts = opts or {}
