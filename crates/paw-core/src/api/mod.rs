@@ -153,6 +153,56 @@ pub fn to_lua<T: serde::Serialize>(lua: &Lua, value: &T) -> mlua::Result<LuaValu
     lua.to_value_with(value, options)
 }
 
+/// A text argument copied from the Lua stack into a buffer on the Rust
+/// stack. `LuaString::to_str` and `as_bytes` allocate a shared counter for
+/// each call: the screen API takes its text this way instead, with no
+/// allocation for a text of up to `INLINE` bytes.
+pub struct LuaText(smallvec::SmallVec<[u8; LuaText::INLINE]>);
+
+impl LuaText {
+    const INLINE: usize = 256;
+
+    /// The text, an error when it is not UTF-8.
+    pub fn to_str(&self) -> mlua::Result<&str> {
+        std::str::from_utf8(&self.0).map_err(|e| mlua::Error::FromLuaConversionError {
+            from: "string",
+            to: "string".into(),
+            message: Some(e.to_string()),
+        })
+    }
+}
+
+impl mlua::FromLua for LuaText {
+    fn from_lua(value: LuaValue, lua: &Lua) -> mlua::Result<Self> {
+        // A number is text too, as for `LuaString`.
+        let text = mlua::LuaString::from_lua(value, lua)?;
+        Ok(Self(smallvec::SmallVec::from_slice(&text.as_bytes())))
+    }
+
+    unsafe fn from_stack(idx: std::ffi::c_int, lua: &mlua::state::RawLua) -> mlua::Result<Self> {
+        use mlua::ffi;
+        let state = lua.state();
+        // SAFETY: `idx` is a valid index of the stack of `state`, which mlua
+        // gives. `lua_tolstring` turns a number there into its text, as Lua
+        // does for a string argument. The bytes of a Lua string stay valid
+        // while it is on the stack, and they are copied before this returns.
+        unsafe {
+            let kind = ffi::lua_type(state, idx);
+            if kind != ffi::LUA_TSTRING && kind != ffi::LUA_TNUMBER {
+                return Err(mlua::Error::FromLuaConversionError {
+                    from: if kind == ffi::LUA_TNIL { "nil" } else { "a value that is not text" },
+                    to: "string".into(),
+                    message: None,
+                });
+            }
+            let mut size = 0;
+            let data = ffi::lua_tolstring(state, idx, &mut size);
+            let bytes = std::slice::from_raw_parts(data.cast::<u8>(), size);
+            Ok(Self(smallvec::SmallVec::from_slice(bytes)))
+        }
+    }
+}
+
 pub fn from_lua<T: DeserializeOwned>(lua: &Lua, value: LuaValue) -> mlua::Result<T> {
     lua.from_value(value)
 }

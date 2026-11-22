@@ -8669,6 +8669,11 @@ function paw.ui.titlebar(buf, opts) end
 ---@param name any
 function paw.ui.toggle(name) end
 
+--- The transport as `paw.api.transport_get` gives it. While a frame is
+--- drawn, the one read first in that frame: the status line, the ruler
+--- and the views read it once between them.
+function paw.ui.transport() end
+
 --- Register a view. It replaces a view with the same name.
 ---   paw.ui.view("clock", { render = function(self, buf) buf:text(0, 0, os.date()) end })
 --- Optional fields: `focusable` (default true), `on_key(self, key)` for keys
@@ -9495,6 +9500,9 @@ function paw.api.fs_stat(path) end
 ---@param path string
 function paw.api.fs_trash(path) end
 
+--- Restyle the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, in
+--- `style` as `grid_text` takes it, and overwrite its characters when
+--- `fill` is given.
 ---@param x number
 ---@param y number
 ---@param w number
@@ -9522,8 +9530,6 @@ function paw.api.grid_fill(x, y, w, h, fill, style, cx, cy, cw, ch) end
 ---@param ch number
 function paw.api.grid_image(key, x, y, w, h, cx, cy, cw, ch) end
 
---- Restyle the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, and
---- overwrite its characters when `fill` is given.
 --- Keep the cells of the area `(x, y, w, h)`, clipped to `(cx, cy,
 --- cw, ch)`, under `key`, to put back on a later frame with
 --- `grid_put` when what they were drawn from has not changed.
@@ -9600,8 +9606,10 @@ function paw.api.grid_surface_ops(index, ops) end
 --- drawn over them from now on covers them.
 function paw.api.grid_surfaces_seal() end
 
---- Draw text at `(x, y)`, clipped to the rectangle `(cx, cy, cw, ch)`.
---- Returns the number of columns the text takes.
+--- Draw text at `(x, y)`, clipped to the rectangle `(cx, cy, cw, ch)`,
+--- in `style`: the number of a highlight group (`hl_id`), its name,
+--- a table of attributes, or nil. Returns the number of columns the
+--- text takes.
 ---@param x number
 ---@param y number
 ---@param text any
@@ -9611,6 +9619,13 @@ function paw.api.grid_surfaces_seal() end
 ---@param cw number
 ---@param ch number
 function paw.api.grid_text(x, y, text, style, cx, cy, cw, ch) end
+
+--- The number of the highlight group `name`, for the style of
+--- `grid_text` and `grid_fill`: a frame passes numbers, not names.
+--- The number stays the same for as long as paw runs, and follows
+--- the group when it changes. A group not defined yet has one too.
+---@param name any
+function paw.api.hl_id(name) end
 
 ---@param name string
 ---@param def any

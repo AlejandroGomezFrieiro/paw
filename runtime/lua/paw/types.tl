@@ -818,7 +818,7 @@ local record types
 
   -- The transport and the engine (session/midi_in.rs, session/engine.rs) ------
 
-  --- `paw.api.transport_get()` (`Session::transport_view`): `position` in
+  --- `paw.api.transport_get()` (`TransportView`): `position` in
   --- beats, `take` the number of the take being recorded.
   record Transport
     playing: boolean
@@ -844,7 +844,7 @@ local record types
     take: integer
   end
 
-  --- The process times of the audio blocks, in milliseconds (`block_json`).
+  --- The process times of the audio blocks, in milliseconds (`BlockTimes`).
   record BlockStats
     count: integer
     mean: number
@@ -861,7 +861,7 @@ local record types
     auto: boolean
   end
 
-  --- `paw.api.engine_get()` (`Session::engine_info`): latencies in
+  --- `paw.api.engine_get()` (`EngineView`): latencies in
   --- milliseconds.
   record EngineInfo
     backend: string

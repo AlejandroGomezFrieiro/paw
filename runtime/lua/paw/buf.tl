@@ -46,8 +46,19 @@ end
 local runtime = (_G as {string: Runtime}).paw
 local unpack = (_G as {string: function({Buf}, integer, integer): Buf...}).unpack
 
-local grid_text, grid_fill = api.grid_text, api.grid_fill
+local grid_text, grid_fill, hl_id = api.grid_text, api.grid_fill, api.hl_id
 local floor, max, min = math.floor, math.max, math.min
+
+-- The number of each highlight group drawn with (`paw.api.hl_id`): a
+-- frame passes the kernel numbers, not names. A number follows its group
+-- when the theme changes it, so it is asked for once.
+local style_ids: {string: integer} = {}
+
+local function style_id(name: string): integer
+  local id = hl_id(name)
+  style_ids[name] = id
+  return id
+end
 
 --- A buffer: where it is on the screen (`x`, `y`, `width`, `height`), and
 --- the part of the screen it may draw on (`cx`, `cy`, `cw`, `ch`).
@@ -82,6 +93,10 @@ end
 --- Write `text` at column `x`, row `y` of this buffer in highlight group
 --- `style`, clipped to the buffer. Returns the number of columns written.
 function Buf:text(x: number, y: number, text: string, style?: contracts.Style): integer
+  if style is string then
+    local id = style_ids[style] or style_id(style)
+    return grid_text(self.x + x, self.y + y, text, id, self.cx, self.cy, self.cw, self.ch)
+  end
   return grid_text(self.x + x, self.y + y, text, style, self.cx, self.cy, self.cw, self.ch)
 end
 
@@ -101,7 +116,12 @@ end
 
 --- Fill a `w` by `h` area at `x`, `y` with `char` in `style`, clipped.
 function Buf:fill(x: number, y: number, w: number, h: number, char?: string, style?: contracts.Style)
-  grid_fill(self.x + x, self.y + y, w, h, char, style, self.cx, self.cy, self.cw, self.ch)
+  if style is string then
+    local id = style_ids[style] or style_id(style)
+    grid_fill(self.x + x, self.y + y, w, h, char, id, self.cx, self.cy, self.cw, self.ch)
+  else
+    grid_fill(self.x + x, self.y + y, w, h, char, style, self.cx, self.cy, self.cw, self.ch)
+  end
 end
 
 --- Keep an area for the pixels of a view that paints (`name`, by default

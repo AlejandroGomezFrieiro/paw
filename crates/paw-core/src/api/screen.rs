@@ -7,9 +7,9 @@ use mlua::{Function, Lua, LuaSerdeExt, LuaString, Table, Value as LuaValue};
 use serde_json::{Value, json};
 use unicode_width::UnicodeWidthStr;
 
-use crate::grid::{self, Caps, Color, Grid, Highlight, Rect, Style};
+use crate::grid::{self, Caps, Color, Grid, Highlight, Rect, Style, StyleId};
 
-use super::{Shared, cell, to_lua};
+use super::{LuaText, Shared, cell, to_lua};
 
 /// A terminal's capabilities as Lua reads them (`paw.api.ui_caps`).
 fn caps_lua(caps: &Caps) -> Value {
@@ -63,14 +63,25 @@ fn parse_style(table: &Table) -> mlua::Result<Style> {
     Ok(style)
 }
 
-/// A style given as a highlight group name, a table of attributes, or nil.
+/// A style given as the number of a highlight group (`hl_id`), its name, a
+/// table of attributes, or nil. The number is what a frame passes: it costs
+/// no look-up of a name.
 fn style_of(shared: &Shared, value: &LuaValue) -> mlua::Result<Style> {
+    let by_id = |id: f64| {
+        let known = id >= 0.0 && id <= f64::from(u32::MAX);
+        known
+            .then(|| shared.highlights.borrow().style(StyleId(id as u32)))
+            .flatten()
+            .ok_or_else(|| mlua::Error::runtime(format!("no highlight group numbered {id}: see `hl_id`")))
+    };
     match value {
         LuaValue::Nil => Ok(Style::default()),
+        LuaValue::Integer(id) => by_id(*id as f64),
+        LuaValue::Number(id) => by_id(*id),
         LuaValue::String(name) => Ok(shared.highlights.borrow().get(&name.to_str()?)),
         LuaValue::Table(table) => parse_style(table),
         _ => Err(mlua::Error::runtime(
-            "a style must be a highlight name or a table",
+            "a style must be a highlight group's number or name, or a table",
         )),
     }
 }
@@ -377,8 +388,16 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             sh.redraws.set(sh.redraws.get() + 1);
             Ok(())
         }
+        // The number of the highlight group `name`, for the style of
+        // `grid_text` and `grid_fill`: a frame passes numbers, not names.
+        // The number stays the same for as long as paw runs, and follows
+        // the group when it changes. A group not defined yet has one too.
         // @return integer
-        fn str_width(_, _sh, text => LuaString) { Ok(text.to_str()?.width()) }
+        fn hl_id(_, sh, name => LuaString) {
+            Ok(sh.highlights.borrow_mut().id(&name.to_str()?).0)
+        }
+        // @return integer
+        fn str_width(_, _sh, text => LuaText) { Ok(text.to_str()?.width()) }
         // @return {string}
         fn ui_snapshot(lua, sh, (width, height) => (u16, u16)) {
             // Draw the UI off screen at the given size and return it as lines
@@ -445,11 +464,13 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             let snapshot = view_snapshot(lua, &sh, &name, width.max(1), height.max(1))?;
             to_lua(lua, &snapshot)
         }
-        // Draw text at `(x, y)`, clipped to the rectangle `(cx, cy, cw, ch)`.
-        // Returns the number of columns the text takes.
-        // @param style string | types.CellStyle
+        // Draw text at `(x, y)`, clipped to the rectangle `(cx, cy, cw, ch)`,
+        // in `style`: the number of a highlight group (`hl_id`), its name,
+        // a table of attributes, or nil. Returns the number of columns the
+        // text takes.
+        // @param style integer | string | types.CellStyle
         // @return integer
-        fn grid_text(_, sh, (x, y, text, style, cx, cy, cw, ch) => (f64, f64, LuaString, LuaValue, f64, f64, f64, f64)) {
+        fn grid_text(_, sh, (x, y, text, style, cx, cy, cw, ch) => (f64, f64, LuaText, LuaValue, f64, f64, f64, f64)) {
             let style = style_of(&sh, &style)?;
             let clip = Rect { x: cell(cx), y: cell(cy), w: cell(cw), h: cell(ch) };
             let text = text.to_str()?;
@@ -486,13 +507,10 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             }
             Ok(true)
         }
-        // Restyle the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, and
-        // overwrite its characters when `fill` is given.
-        // @return nil
-        // @param style string | types.CellStyle
         // Keep the cells of the area `(x, y, w, h)`, clipped to `(cx, cy,
         // cw, ch)`, under `key`, to put back on a later frame with
         // `grid_put` when what they were drawn from has not changed.
+        // @return nil
         fn grid_keep(_, sh, (key, x, y, w, h, cx, cy, cw, ch) => (String, f64, f64, f64, f64, f64, f64, f64, f64)) {
             let area = Rect { x: cell(x), y: cell(y), w: cell(w), h: cell(h) }
                 .intersect(&Rect { x: cell(cx), y: cell(cy), w: cell(cw), h: cell(ch) });
@@ -513,7 +531,12 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             let all = sh.kept_cells.borrow();
             Ok(all.get(&key).is_some_and(|kept| sh.grid.borrow_mut().put_kept(area, kept)))
         }
-        fn grid_fill(_, sh, (x, y, w, h, fill, style, cx, cy, cw, ch) => (f64, f64, f64, f64, Option<LuaString>, LuaValue, f64, f64, f64, f64)) {
+        // Restyle the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, in
+        // `style` as `grid_text` takes it, and overwrite its characters when
+        // `fill` is given.
+        // @param style integer | string | types.CellStyle
+        // @return nil
+        fn grid_fill(_, sh, (x, y, w, h, fill, style, cx, cy, cw, ch) => (f64, f64, f64, f64, Option<LuaText>, LuaValue, f64, f64, f64, f64)) {
             let style = style_of(&sh, &style)?;
             let fill = match fill {
                 Some(s) => s.to_str()?.chars().next(),
