@@ -79,7 +79,7 @@ impl Session {
         Ok(t.cues
             .iter()
             .map(|c| {
-                let mut view = super::clip_json(c, track);
+                let mut view = super::clip_json(c, track, &self.files_there);
                 view.cue = Some(true);
                 view
             })

@@ -366,6 +366,8 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
                 _ => return Err(mlua::Error::runtime("a highlight is a table of attributes or the name of another group")),
             });
             let highlight = parse(&def)?;
+            // Kept cells have their colours: they are drawn again.
+            sh.kept_cells.borrow_mut().clear();
             let mut highlights = sh.highlights.borrow_mut();
             highlights.set(&name, highlight);
             if !full.is_nil() {
@@ -483,6 +485,30 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
                 grid.text(clip, col, row, ch, style);
             }
             Ok(true)
+        }
+        // Keep the cells of the area `(x, y, w, h)`, clipped to `(cx, cy,
+        // cw, ch)`, under `key`, to put back on a later frame with
+        // `grid_put` when what they were drawn from has not changed.
+        // @return nil
+        fn grid_keep(_, sh, (key, x, y, w, h, cx, cy, cw, ch) => (String, f64, f64, f64, f64, f64, f64, f64, f64)) {
+            let area = Rect { x: cell(x), y: cell(y), w: cell(w), h: cell(h) }
+                .intersect(&Rect { x: cell(cx), y: cell(cy), w: cell(cw), h: cell(ch) });
+            let kept = sh.grid.borrow().keep(area);
+            let mut all = sh.kept_cells.borrow_mut();
+            match kept {
+                Some(kept) => all.insert(key, kept),
+                None => all.remove(&key),
+            };
+            Ok(())
+        }
+        // Put the cells kept under `key` back, if they were kept from the
+        // same area: true when they were. Nothing is drawn else.
+        // @return boolean
+        fn grid_put(_, sh, (key, x, y, w, h, cx, cy, cw, ch) => (String, f64, f64, f64, f64, f64, f64, f64, f64)) {
+            let area = Rect { x: cell(x), y: cell(y), w: cell(w), h: cell(h) }
+                .intersect(&Rect { x: cell(cx), y: cell(cy), w: cell(cw), h: cell(ch) });
+            let all = sh.kept_cells.borrow();
+            Ok(all.get(&key).is_some_and(|kept| sh.grid.borrow_mut().put_kept(area, kept)))
         }
         // Restyle the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, and
         // overwrite its characters when `fill` is given.

@@ -212,6 +212,9 @@ paw.plot = {}
 ---@class paw.plugins
 paw.plugins = {}
 
+---@class paw.profile
+paw.profile = {}
+
 ---@class paw.qf
 paw.qf = {}
 
@@ -4149,6 +4152,13 @@ function paw.keymap.expand(lhs) end
 ---@param keys any
 function paw.keymap.feed(keys) end
 
+--- The first mapping of `mode` (in `view`, then global) that `test(map)`
+--- is true for, in the order of `list`, with no list made and sorted.
+---@param mode any
+---@param test any
+---@param view any
+function paw.keymap.first(mode, test, view) end
+
 --- What a register holds (the unnamed one when `name` is nil).
 ---@param name any
 function paw.keymap.getreg(name) end
@@ -6185,6 +6195,25 @@ function paw.plugins.note_names(device) end
 --- there. The devices that exist continue to work.
 ---@param dir any
 function paw.plugins.remove_dir(dir) end
+
+--- The functions of a report as entries of the quickfix list: the share
+--- of the samples, the name, the file and the line.
+---@param report any
+function paw.profile.entries(report) end
+
+--- Whether `jit.profile` runs, and the samples it took so far.
+function paw.profile.running() end
+
+--- Start `jit.profile`, which takes a sample of the Lua code each
+--- millisecond. With `file`, `stop` writes the folded stacks there. Fails
+--- when it runs already.
+---@param file any
+function paw.profile.start(file) end
+
+--- Stop `jit.profile`. Returns the samples, the seconds and the functions
+--- that took the most time. Writes the folded stacks to the file that
+--- `start` was given. Fails when it does not run.
+function paw.profile.stop() end
 
 --- Run a command line on each entry of the current list of a stack (`:cdo`),
 --- all as one undo step. For each entry, the cursor goes to the entry
@@ -8716,9 +8745,31 @@ paw.ui.Buf.hit = paw.roles.hit
 ---@param key any
 function paw.ui.Buf.image(self, x, y, w, h, key) end
 
+--- Keep the cells drawn in the area `x, y, w, h` as they are now, under
+--- `key`, to put back on a later frame with `buf:put_kept` instead of
+--- drawing them again. The caller knows when what they show is the same.
+--- A change of a highlight group forgets every kept area.
+---@param self any
+---@param key any
+---@param x any
+---@param y any
+---@param w any
+---@param h any
+function paw.ui.Buf.keep(self, key, x, y, w, h) end
+
 paw.ui.Buf.mark = paw.roles.mark
 
 paw.ui.Buf.plane = paw.roles.plane
+
+--- Put back the cells kept under `key` (`buf:keep`), if they were kept
+--- from the same place on the screen: true when they were.
+---@param self any
+---@param key any
+---@param x any
+---@param y any
+---@param w any
+---@param h any
+function paw.ui.Buf.put_kept(self, key, x, y, w, h) end
 
 --- The buffer that covers a whole screen of the given size.
 ---@param width any
@@ -9090,8 +9141,13 @@ function paw.api.clip_kind_remove(name) end
 function paw.api.clip_kinds() end
 
 --- --- clips ---
+--- The clips of a track, in timeline order. With `from` and `to`
+--- (beats), only those that overlap that stretch: a view that shows
+--- part of the song asks for what it shows.
 ---@param track integer
-function paw.api.clip_list(track) end
+---@param from number?
+---@param to number?
+function paw.api.clip_list(track, from, to) end
 
 ---@param id integer
 ---@param level number?
@@ -9479,6 +9535,20 @@ function paw.api.grid_fill(x, y, w, h, fill, style, cx, cy, cw, ch) end
 ---@param ch number
 function paw.api.grid_image(key, x, y, w, h, cx, cy, cw, ch) end
 
+--- Keep the cells of the area `(x, y, w, h)`, clipped to `(cx, cy,
+--- cw, ch)`, under `key`, to put back on a later frame with
+--- `grid_put` when what they were drawn from has not changed.
+---@param key string
+---@param x number
+---@param y number
+---@param w number
+---@param h number
+---@param cx number
+---@param cy number
+---@param cw number
+---@param ch number
+function paw.api.grid_keep(key, x, y, w, h, cx, cy, cw, ch) end
+
 --- A live part of the screen is drawn over the cells `(x, y, w, h)`,
 --- clipped to `(cx, cy, cw, ch)`: what is under them is kept, to draw
 --- it again by itself (`paw.ui.render_live`). Returns its number for
@@ -9502,6 +9572,19 @@ function paw.api.grid_live_restore() end
 
 --- The frame is drawn: what is over the live parts now stays over them.
 function paw.api.grid_live_seal() end
+
+--- Put the cells kept under `key` back, if they were kept from the
+--- same area: true when they were. Nothing is drawn else.
+---@param key string
+---@param x number
+---@param y number
+---@param w number
+---@param h number
+---@param cx number
+---@param cy number
+---@param cw number
+---@param ch number
+function paw.api.grid_put(key, x, y, w, h, cx, cy, cw, ch) end
 
 --- Keep the cells `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, for pixels
 --- under the name `key` (`buf:strip`), over the text or `under` it.
@@ -10183,6 +10266,19 @@ function paw.api.sound_envelope(path) end
 ---@param opts table
 ---@param samples any
 function paw.api.sound_write(path, opts, samples) end
+
+--- Open an item of the start that `paw --startuptime` times: a module,
+--- an extension, the configuration. `startup_leave` closes it with its
+--- line. Nothing happens when the start is not timed.
+function paw.api.startup_enter() end
+
+--- Close the item `startup_enter` opened last: its line in the file of
+--- `--startuptime` gives its time with and without the items opened in it.
+---@param label string
+function paw.api.startup_leave(label) end
+
+--- True while `paw --startuptime` times the start.
+function paw.api.startup_timed() end
 
 ---@param key string
 function paw.api.state_get(key) end

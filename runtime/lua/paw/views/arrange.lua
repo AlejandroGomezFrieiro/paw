@@ -85,18 +85,29 @@ end
 --- The rows under a clip's name: its notes as a small piano roll, or its
 --- waveform.
 local function preview(clip, width, rows, zoom)
-  local key = clip.id
-    .. ":"
-    .. width
-    .. ":"
-    .. rows
-    .. ":"
-    .. zoom
-    .. ":"
-    .. tostring(paw.opt.wave_scale)
-    .. (paw.opt.ascii and "a" or "")
-  local kept = previews[key]
-  if kept then return kept[1], kept[2] end
+  -- Kept by the clip, then compared field by field: a string key made on
+  -- each frame for each clip cost more than the look-up saved.
+  local scale, ascii = paw.opt.wave_scale, paw.opt.ascii
+  local kept = previews[clip.id]
+  if
+    kept
+    and kept.width == width
+    and kept.rows == rows
+    and kept.zoom == zoom
+    and kept.scale == scale
+    and kept.ascii == ascii
+    and (
+      clip.kind ~= "midi"
+      or kept.stamp == clip.stamp
+        and kept.length == clip.length
+        and kept.loop == clip.loop
+        and kept.loop_start == clip.loop_start
+        and kept.loop_length == clip.loop_length
+    )
+  then
+    return kept.out, kept.runs
+  end
+  local key = clip.id .. ":" .. width .. ":" .. rows .. ":" .. zoom .. ":" .. tostring(scale) .. (ascii and "a" or "")
   local out, runs
   if clip.kind == "midi" then
     local roll = string.format(
@@ -118,7 +129,20 @@ local function preview(clip, width, rows, zoom)
     local ok, peaks = pcall(api.clip_peaks, clip.id, width)
     out, runs = draw.waveform(ok and peaks or {}, rows)
   end
-  previews[key] = { out, runs }
+  previews[clip.id] = {
+    width = width,
+    rows = rows,
+    zoom = zoom,
+    scale = scale,
+    ascii = ascii,
+    stamp = clip.stamp,
+    length = clip.length,
+    loop = clip.loop,
+    loop_start = clip.loop_start,
+    loop_length = clip.loop_length,
+    out = out,
+    runs = runs,
+  }
   return out, runs
 end
 
@@ -544,18 +568,26 @@ local function grid_lines(scroll, zoom, width)
   return out
 end
 
---- What is drawn in a clip's body: its waveform, or its notes as a small
---- piano roll.
-local function clip_body(clip, track, kind, zoom)
-  return function(box)
+--- What each clip's props (`view.clip_props`) draw in its body: the clip,
+--- its track's colour, its kind and the zoom. Kept beside the props, not in
+--- them, as they are not data for a frontend; and not in a closure made for
+--- each clip on each frame, which LuaJIT does not compile.
+local bodies = setmetatable({}, { __mode = "k" })
+
+--- What is drawn in a clip's body (the `clip` role's `body(buf, props)`):
+--- its waveform, or its notes as a small piano roll.
+local function clip_body(box, p)
+  local of = bodies[p]
+  if not of then return end
+  local clip, colour, kind, zoom = of.clip, of.colour, of.kind, of.zoom
+  do
     local cw, height = box.width, box.height
     if clip.kind == "audio" then
       -- In pixels under the cells where the terminal shows them, the
       -- whole clip's, so that scrolling moves pieces already made.
       local body = box:sub(0, 1, cw, height - 1)
       -- The colour the cells draw it in (`paw.draw.hue`'s body).
-      local colour =
-        draw.mix(require("paw.theme").palette.bg, draw.track_colour(track), kind == "_off" and 0.30 or 0.75)
+      local colour = draw.mix(require("paw.theme").palette.bg, colour, kind == "_off" and 0.30 or 0.75)
       local pictured = body:strip(0, 0, cw, height - 1, {
         key = "arrange:wave:" .. clip.id,
         under = true,
@@ -579,6 +611,10 @@ local function clip_body(clip, track, kind, zoom)
   end
 end
 
+--- The styles of a clip's title and body by its kind ("", "_cur", "_off").
+local title_of = { [""] = "title", _cur = "title_cur", _off = "title_off" }
+local body_of = { [""] = "body", _cur = "body_cur", _off = "body_off" }
+
 --- Where the window's scope (`paw.scope`) cuts a clip that crosses one of
 --- its edges, in beats from the clip's start: `cut_in` at its start,
 --- `cut_out` at its end, each nil where it does not cut. Only the drawing
@@ -594,7 +630,9 @@ end
 
 --- A clip on the timeline's plane, as the `clip` role it is. `from`, `to`:
 --- the time of the window's scope, which cuts it (`cut_in`, `cut_out`).
-function view.clip_props(clip, track, hue, kind, zoom, chosen, from, to)
+--- `colour` is its track's (`paw.draw.track_colour`), when the caller has it.
+function view.clip_props(clip, track, hue, kind, zoom, chosen, from, to, colour)
+  colour = colour or draw.track_colour(track)
   local cut_in, cut_out = cuts(clip, from, to)
   -- A clip with takes says which plays: `take 3 ‹2/4›`.
   local badge = paw.takes.badge(clip)
@@ -602,35 +640,44 @@ function view.clip_props(clip, track, hue, kind, zoom, chosen, from, to)
   -- Stretched, shifted, looped: `×1.5 ↻ drums`.
   local mark = paw.stretch.badge(clip)
   if mark then label = mark .. " " .. label end
-  local warps = {}
+  local warps
   for i, m in ipairs(clip.warp or {}) do
+    warps = warps or {}
     warps[i] = m.beat - clip.start
   end
-  return {
+  local props = {
     key = "clip:" .. clip.id,
-    id = clip.id,
     name = clip.name,
     label = badge and (label .. " ‹" .. badge .. "›") or label,
-    color = draw.track_colour(track),
-    midi = clip.kind ~= "audio",
-    muted = clip.muted or nil,
-    current = kind == "_cur" or nil,
-    chosen = chosen or nil,
-    offline = clip.offline or nil,
-    length = clip.length,
     per = zoom,
-    repeats = paw.stretch.repeats(clip),
+    repeats = clip.loop and paw.stretch.repeats(clip) or nil,
     warps = warps,
-    fade_in = clip.fade_in,
-    fade_out = clip.fade_out,
-    gain = clip.gain,
     cut_in = cut_in,
     cut_out = cut_out,
-    content = paw.frontend.content_key(clip),
-    title_style = hue["title" .. kind],
-    body_style = hue["body" .. kind],
-    body = clip_body(clip, track, kind, zoom),
+    title_style = hue[title_of[kind]],
+    body_style = hue[body_of[kind]],
+    body = clip_body,
   }
+  bodies[props] = { clip = clip, colour = colour, kind = kind, zoom = zoom }
+  -- What only a frontend that gets scenes reads: the terminal draws the
+  -- same cells without it.
+  if paw.ui.scene_drawing then
+    props.id = clip.id
+    props.color = colour
+    props.midi = clip.kind ~= "audio"
+    props.muted = clip.muted or nil
+    props.current = kind == "_cur" or nil
+    props.chosen = chosen or nil
+    props.offline = clip.offline or nil
+    props.length = clip.length
+    props.repeats = props.repeats or {}
+    props.warps = warps or {}
+    props.fade_in = clip.fade_in
+    props.fade_out = clip.fade_out
+    props.gain = clip.gain
+    props.content = paw.frontend.content_key(clip)
+  end
+  return props
 end
 
 --- A curve over `w` columns and `h` rows of `buf` from `x`, `y`, as the
@@ -674,45 +721,137 @@ local function bar_marks(lines)
   return out
 end
 
-local function lane(self, buf, row, track, selected, cursor_clip, lanes, hue, marks, loop)
+--- Whether two values of plain data (numbers, text, flags, tables of
+--- them) are the same.
+local function same(a, b)
+  if a == b then return true end
+  if type(a) ~= "table" or type(b) ~= "table" then return false end
+  for k, v in pairs(a) do
+    if not same(v, b[k]) then return false end
+  end
+  for k in pairs(b) do
+    if a[k] == nil then return false end
+  end
+  return true
+end
+
+-- The rows of the timeline that the terminal drew last, by their track and
+-- place: what each was drawn from, and the columns its clips take. A row
+-- drawn from the same things again puts back the cells it drew
+-- (`buf:put_kept`) instead of drawing its clips again. Only the rows that
+-- are all MIDI clips, not the cursor's, with nothing live, are kept.
+local kept_rows = {}
+
+--- What a row of the timeline is drawn from, besides its clips.
+local function row_ground(self, buf, row, hue, marks, loop, colour, scope_from, scope_to)
+  return {
+    buf.x,
+    buf.y,
+    buf.width,
+    buf.cx,
+    buf.cy,
+    buf.cw,
+    buf.ch,
+    row.y,
+    row.h,
+    self.scroll,
+    self.geometry.zoom,
+    colour,
+    hue.title,
+    hue.body,
+    hue.title_off,
+    hue.body_off,
+    draw.g,
+    paw.opt.ascii,
+    paw.roles.registry.clip,
+    paw.roles.registry.beats,
+    loop and loop[1] or false,
+    loop and loop[2] or false,
+    scope_from or false,
+    scope_to or false,
+    marks = marks,
+  }
+end
+
+local function lane(self, buf, row, track, selected, cursor_clip, lanes, hue, marks, loop, chosen)
   local y, height = row.y, row.h
   local scroll, zoom = self.scroll, self.geometry.zoom
   local plane = self.plane
   local w = buf.width
+  local colour = draw.track_colour(track)
+  local scope_from, scope_to = paw.scope.span()
+  local layers = paw.ui.layers.arrange
+  local painted = layers and layers.clip
+  -- The clips the timeline shows, and a column more each side: the test
+  -- below keeps the ones whose cells are in view.
+  local clips = api.clip_list(track.id, scroll - 1 / zoom, scroll + (w + 1) / zoom)
+  -- The clips in view, and the columns each takes.
+  local spans, shown = {}, {}
+  for _, clip in ipairs(clips) do
+    local x0 = math.floor((clip.start - scroll) * zoom + 0.5)
+    local x1 = math.floor((clip.start + clip.length - scroll) * zoom + 0.5)
+    local cw = math.max(1, x1 - x0)
+    if x0 < w and x0 + cw > 0 then
+      spans[#spans + 1] = { x0, x0 + cw }
+      shown[#shown + 1] = { clip = clip, cw = cw }
+    end
+  end
+  --- What other modules mark on each clip (`paw.ui.layer("arrange",
+  --- "clip", ...)`), in its cells.
+  local function paint_layers()
+    for _, s in ipairs(shown) do
+      local clip = s.clip
+      local box = plane.buf:sub(plane:cells(clip.start, y, clip.length, height))
+      paw.ui.paint("arrange", "clip", { buf = box, width = s.cw, height = height, clip = clip })
+    end
+  end
+  local keep_key, ground
+  if not (paw.ui.scene_drawing or selected or (self.rec and track.armed)) then
+    keep_key = "arrange:row:" .. track.id .. ":" .. buf.x .. ":" .. buf.y
+    -- The layers are painted after the row is kept, each in its clip's
+    -- cells: so the clips may not share a column.
+    for _, clip in ipairs(clips) do
+      if clip.kind ~= "midi" or clip.id == cursor_clip then keep_key = nil end
+    end
+    local right = -math.huge
+    for _, span in ipairs(spans) do
+      if span[1] < right then keep_key = nil end
+      right = math.max(right, span[2])
+    end
+  end
+  if keep_key then
+    ground = row_ground(self, buf, row, hue, marks, loop, colour, scope_from, scope_to)
+    local was = kept_rows[keep_key]
+    if was and same(was.ground, ground) and same(was.clips, clips) and buf:put_kept(keep_key, 0, y, w, height) then
+      if painted then paint_layers() end
+      return spans
+    end
+  end
   plane:mark("beats", scroll, y, w / zoom, height, {
     from = scroll,
     per = zoom,
     style = selected and hue.lane_sel or "Lane",
     tone = "lane",
     selected = selected or nil,
-    color = draw.track_colour(track),
+    color = colour,
     index = row.index,
     loop = loop,
     lines = marks,
     beats = zoom >= 4 or nil,
   })
-  local spans = {}
-  local chosen = {}
-  for _, id in ipairs(paw.frontend.chosen_clips()) do
-    chosen[id] = true
-  end
-  local from, to = paw.scope.span()
-  for _, clip in ipairs(api.clip_list(track.id)) do
-    local x0 = math.floor((clip.start - scroll) * zoom + 0.5)
-    local x1 = math.floor((clip.start + clip.length - scroll) * zoom + 0.5)
-    local cw = math.max(1, x1 - x0)
-    if x0 < w and x0 + cw > 0 then
-      spans[#spans + 1] = { x0, x0 + cw }
-      local kind = clip.muted and "_off" or clip.id == cursor_clip and "_cur" or ""
-      local box = plane:mark(
-        "clip",
-        clip.start,
-        y,
-        clip.length,
-        height,
-        view.clip_props(clip, track, hue, kind, zoom, chosen[clip.id], from, to)
-      )
-      paw.ui.paint("arrange", "clip", { buf = box, width = cw, height = height, clip = clip })
+  for _, s in ipairs(shown) do
+    local clip = s.clip
+    local kind = clip.muted and "_off" or clip.id == cursor_clip and "_cur" or ""
+    local box = plane:mark(
+      "clip",
+      clip.start,
+      y,
+      clip.length,
+      height,
+      view.clip_props(clip, track, hue, kind, zoom, chosen[clip.id], scope_from, scope_to, colour)
+    )
+    if painted and not keep_key then
+      paw.ui.paint("arrange", "clip", { buf = box, width = s.cw, height = height, clip = clip })
     end
   end
   -- The take being made on an armed track, which a window makes grow with
@@ -724,7 +863,7 @@ local function lane(self, buf, row, track, selected, cursor_clip, lanes, hue, ma
       at = rec.at,
       to = rec.to,
       per = zoom,
-      color = draw.track_colour(track),
+      color = colour,
       bind = "position",
     })
   end
@@ -746,12 +885,17 @@ local function lane(self, buf, row, track, selected, cursor_clip, lanes, hue, ma
         return (api.lane_value_at(l.id, scroll + (i + 0.5) / (zoom * 2)) + 60) / 66
       end, {
         style = l.enabled and "Automation" or "Faint",
-        color = draw.track_colour(track),
+        color = colour,
         enabled = l.enabled,
         from = scroll,
         per = zoom,
       })
     end
+  end
+  if keep_key then
+    buf:keep(keep_key, 0, y, w, height)
+    kept_rows[keep_key] = { ground = ground, clips = clips }
+    if painted then paint_layers() end
   end
   return spans
 end
@@ -1266,6 +1410,10 @@ function view:render(buf, ctx)
   cursor_clip = cursor_clip and cursor_clip.id
   local covered, names_of = {}, {}
   local cursor_lane = cursor.lane_id()
+  local chosen = {}
+  for _, id in ipairs(paw.frontend.chosen_clips()) do
+    chosen[id] = true
+  end
   for _, row in ipairs(L.rows) do
     if row.kind == "lane" then self:draw_lane_row(headers, lanes, row, lines) end
     if row.kind == "take" then names_of[row] = self:draw_take_row(headers, lanes, row, lines) end
@@ -1288,7 +1436,8 @@ function view:render(buf, ctx)
         paw.lanes.is_open(row.id) and {} or automation,
         hue,
         marks,
-        loop_beats
+        loop_beats,
+        chosen
       )
       if selected and not cursor_lane then
         local x = col(cursor.beat)

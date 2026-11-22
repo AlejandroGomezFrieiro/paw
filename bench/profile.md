@@ -7,7 +7,7 @@ the terminal frontend. They do not measure the graphical window.
 
 ## What you need
 
-- A profiling build. It is the release build with line tables and
+- A build with the `profiling` profile. It is the release build with line tables and
   symbols, for `perf` and `heaptrack`:
   `nix develop -c cargo build --profile profiling -p paw-tui`.
   The scripts use the newer of `target/profiling/paw` and
@@ -65,9 +65,9 @@ These options add a probe to `idle`, `idle-armed`, `play`, `record` and
 - `--perf SECS`: `perf stat` for each thread: instructions, cycles,
   processor time, context switches, page faults. Instructions do not
   change with the load of the machine.
-- `--record SECS`: `perf record` with DWARF call graphs, then a flame
+- `--record SECS`: `perf record` with call graphs from the debug data (`--call-graph dwarf`), then a flame
   graph (`<label>-<scenario>.perf.svg`) and its folded stacks.
-- `--luaprof`: the sampling tool of LuaJIT (`jit.profile`) in the
+- `--luaprof`: the tool of LuaJIT that takes samples (`jit.profile`) in the
   kernel. It gives the Lua functions that cost the most, as a flame graph
   (`<label>-<scenario>.lua.svg`). A stack that ends in `[C]` is time in
   Rust, `[N]` in compiled Lua, `[I]` in the interpreter, `[G]` in the
@@ -81,6 +81,26 @@ These options add a probe to `idle`, `idle-armed`, `play`, `record` and
   `--setup "paw.harmony.provide('builtin', nil)"` stops the chord
   analysis.
 
+## Without the scenarios
+
+Two tools in paw itself give the same view without `drive.py`:
+
+- `paw --startuptime FILE` writes the time of each step of the start to
+  `FILE`, in the format of Neovim's `--startuptime`. Each module that
+  `require` loads, each extension and the `init.lua` of the user is a
+  line with three times: the clock, the whole time, and the time of the
+  item alone (without the modules that it loads). The other lines give
+  the clock and the time since the line before. The last steps are the
+  project load and the first frame. Sort the lines by the third column to
+  find the slow modules:
+  `grep -E '^[0-9.]+ +[0-9.]+ +[0-9.]+:' FILE | sort -k3 -rn | head`.
+  The option adds less than 2 ms to the start.
+- `:profile start [file]` in paw starts `jit.profile` in the
+  kernel, and `:profile stop` puts the 30 Lua functions with the most
+  samples in the quickfix list, with their file and line. With a file,
+  it also writes the folded stacks there, as `--luaprof` does: give them
+  to `inferno-flamegraph` or `profile/top.py`.
+
 ## The other tools
 
 | Script | What it does |
@@ -88,6 +108,7 @@ These options add a probe to `idle`, `idle-armed`, `play`, `record` and
 | [profile/top.py](profile/top.py) `<file.folded> [n] [--thread NAME] [--under FRAME]` | The functions with the most samples in a folded stack file: their own share and the share with what they call. |
 | [profile/calls.py](profile/calls.py) | Counts the calls of each `paw.api` function, and the line that calls it, per frame while paw plays (or with `--press j,k`, per key). |
 | [profile/compare.py](profile/compare.py) `<paw A> <paw B> <pairs> <scenario> [options]` | Two builds in turns, A B A B, and the median, smallest and largest value of each measure. |
+| [profile/frame.lua](profile/frame.lua) `<project> [rounds] [keys] [size]` | The time of a full frame of the arrange view after each key (`j,k` by default), with no terminal. With `PAW_FRAME_PROF=<file>`, the folded Lua stacks of the frames, for `top.py`. Under `perf stat`, run it with 0 rounds and with N: the difference divided by N is the instructions of a key and its frame. The frame is drawn as the terminal draws it (`paw.api.ui_snapshot`), and it is not written to a terminal. Run it with [profile/headless.py](profile/headless.py). |
 | [profile/harmony.lua](profile/harmony.lua) | The time to read all the chords and keys of a project, as when paw opens it, with a hash of the result to compare two builds. Run it with [profile/headless.py](profile/headless.py), which gives paw scratch folders. |
 
 ## Numbers on a shared machine

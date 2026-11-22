@@ -187,6 +187,13 @@ local function shown(buf: Buf, x: number, y: number, w: number, h: number): Regi
   return {x = x0, y = y0, w = x1 - x0, h = y1 - y0}
 end
 
+--- Whether `buf`'s rectangle `x, y, w, h` shows on the screen: `shown`
+--- with no table made, for each mark of a plane.
+local function shows(buf: Buf, x: number, y: number, w: number, h: number): boolean
+  return math.min(buf.x + x + w, buf.cx + buf.cw) > math.max(buf.x + x, buf.cx)
+    and math.min(buf.y + y + h, buf.cy + buf.ch) > math.max(buf.y + y, buf.cy)
+end
+
 --- Open a node of a scene being drawn over `buf`'s rectangle `x, y, w, h`;
 --- true when one was, to be closed.
 local function open(buf: Buf, x: number, y: number, w: number, h: number, opts: types.SceneOpenOptions): boolean
@@ -227,6 +234,10 @@ local function node_opts(
   }
 end
 
+--- The context each role's cells get, one for each role: it says only
+--- the role's name, so it is made once.
+local contexts: {string: contracts.RoleContext} = {}
+
 local function spec_of(role: string): contracts.Role<contracts.MarkProps>
   local spec = M.registry[role]
   if not spec then
@@ -239,11 +250,31 @@ end
 --- screen is a live part of it, which paw draws again by itself as the
 --- value moves (`paw.ui.live`).
 local function cells(sub: Buf, role: string, spec: contracts.Role<contracts.MarkProps>, props: MarkProps)
+  local ctx = contexts[role]
+  if not ctx then
+    ctx = {role = role}
+    contexts[role] = ctx
+  end
   local u = paw.ui
   if props.bind and spec.bound and u.live_drawing() then
-    return u.live(sub, function(b: Buf) u.live_value(props.bind, props); spec.cells(b, props, {role = role}) end)
+    return u.live(sub, function(b: Buf) u.live_value(props.bind, props); spec.cells(b, props, ctx) end)
   end
-  return spec.cells(sub, props, {role = role})
+  return spec.cells(sub, props, ctx)
+end
+
+--- Draw a role's cells inside the node of a scene opened for it (`opened`),
+--- which is closed after them, even when they fail.
+local function cells_in(
+  opened: boolean, sub: Buf, role: string, spec: contracts.Role<contracts.MarkProps>, props: MarkProps
+)
+  if not opened then
+    return cells(sub, role, spec, props)
+  end
+  local ok, err = pcall(cells, sub, role, spec, props) as (boolean, string)
+  api.scene_close()
+  if not ok then
+    error(err, 0)
+  end
 end
 
 --- `buf:mark(role, x, y, w, h, props)`: mark a role over an area. A
@@ -255,14 +286,9 @@ function M.mark(buf: Buf, role: string, x: number, y: number, w: number, h: numb
   local spec = spec_of(role)
   props = props or {}
   local sub = buf:sub(x, y, w, h)
-  local opened = open(buf, x, y, sub.width, sub.height, node_opts(role, spec, props))
-  local ok, err = pcall(cells, sub, role, spec, props) as (boolean, string)
-  if opened then
-    api.scene_close()
-  end
-  if not ok then
-    error(err, 0)
-  end
+  -- What goes to a frontend is made only while a scene is drawn.
+  local opened = paw.ui.scene_drawing and open(buf, x, y, sub.width, sub.height, node_opts(role, spec, props))
+  cells_in(opened, sub, role, spec, props)
   if props.hit then
     region(buf, x, y, sub.width, sub.height, props.hit)
   end
@@ -329,29 +355,40 @@ function Plane:region(): PlaceIn
   return {x = self.buf.x, y = self.buf.y, plane = self}
 end
 
+--- Put a role (`role`, nil for a hit region alone, `hit`) over a
+--- rectangle of the plane's domain. Returns the buffer of the cells it
+--- shows on.
 local function put(
-  plane: Plane, x: number, y: number, w: number, h: number, opts: types.SceneOpenOptions, draw?: function(sub: Buf)
+  plane: Plane,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  role: string,
+  spec: contracts.Role<contracts.MarkProps>,
+  props: MarkProps,
+  hit: HitAction
 ): Buf
   local cx, cy, cw, ch = plane:cells(x, y, w, h)
   local buf = plane.buf
   local sub = buf:sub(cx, cy, cw, ch)
-  if not shown(buf, cx, cy, cw, ch) then
+  if not shows(buf, cx, cy, cw, ch) then
     return sub
   end
-  opts.into = plane.key
-  local opened = plane.scene and api.scene_open({x = x, y = y, w = w, h = h}, opts)
-  local ok, err = true, nil as string
-  if draw then
-    ok, err = pcall(draw, sub) as (boolean, string)
+  local opened = false
+  if plane.scene then
+    -- What goes to a frontend is made only while a scene is drawn.
+    local opts: types.SceneOpenOptions = role and node_opts(role, spec, props) or {hit = hit}
+    opts.into = plane.key
+    opened = api.scene_open({x = x, y = y, w = w, h = h}, opts)
   end
-  if opened then
+  if role then
+    cells_in(opened, sub, role, spec, props)
+  elseif opened then
     api.scene_close()
   end
-  if not ok then
-    error(err, 0)
-  end
-  if opts.hit then
-    region(buf, cx, cy, cw, ch, opts.hit as HitAction, plane:region())
+  if hit then
+    region(buf, cx, cy, cw, ch, hit, plane:region())
   end
   return sub
 end
@@ -361,13 +398,13 @@ end
 function Plane:mark(role: string, x: number, y: number, w: number, h: number, props?: MarkProps): contracts.Buf
   local spec = spec_of(role)
   props = props or {}
-  return put(self, x, y, w, h, node_opts(role, spec, props), function(sub: Buf) cells(sub, role, spec, props) end)
+  return put(self, x, y, w, h, role, spec, props, props.hit)
 end
 
 --- `plane:hit(x, y, w, h, action)`: a hit region over a rectangle of the
 --- plane's domain.
 function Plane:hit(x: number, y: number, w: number, h: number, action: HitAction)
-  put(self, x, y, w, h, {hit = action})
+  put(self, x, y, w, h, nil, nil, nil, action)
 end
 
 --- `buf:plane(x, y, w, h, opts)`: a plane over an area. Each axis of the

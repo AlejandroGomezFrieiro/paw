@@ -49,13 +49,13 @@ cleared, added and measured the buffers of every track, while every device
 slept.
 
 `bench/profile/run.sh idle --secs 30 --perf 30` on the profile project (64
-synth tracks, 2 000 clips), main at fb9882b against TASK-16, 5 interleaved
+synth tracks, 2 000 clips), main at fb9882b against the engine at rest, 5 interleaved
 pairs. Measured under external load (load average 44 to 83, with the Lua
 suite running on the same machine). The raw numbers are in
 `results/rest-2026-11-22.jsonl`. The thread is the audio thread of the null
 backend.
 
-| Idle for 30 s, audio thread | main: median (range) | TASK-16: median (range) |
+| Idle for 30 s, audio thread | main: median (range) | at rest: median (range) |
 | --- | ---: | ---: |
 | Instructions per second | 38.17 M (38.14 to 38.18 M) | 0.1096 M (0.1096 to 0.1096 M) |
 | Cycles per second | 42.5 M (40.6 to 42.6 M) | 2.76 M (2.62 to 2.86 M) |
@@ -177,6 +177,55 @@ What is left, in order of what the user feels:
    this cost is not in these numbers. A watch of file events does not see
    when a folder above the file gets a new name. So it can say that a
    missing file is there, and the kernel does not use one.
+
+   After that (2026-11-22): most of a frame was the drawing of
+   the clips' roles in Lua, every clip of every row on each frame. Now a
+   row of the timeline that the cursor is not on keeps its cells. On the
+   next frame it puts them back when its clips (every field) and what the
+   row is drawn from are the same. The layers of other modules are painted
+   over them again. A change of a highlight forgets the kept cells.
+
+   In a terminal a mark makes no data for a window and no closure. The view
+   asks the kernel only for the clips that it shows. The status line
+   finds the key for `:messages` without a sort of every mapping. The
+   kernel looks at the file of a clip at most once a second, and again at
+   once after each edit, undo, load, save or file event, so a file whose
+   folder gets a new name shows as offline within a second.
+
+   A full frame after a key, headless (`profile/frame.lua`, 100 keys and
+   frames), the old and the new build in turns, 2 pairs, load average 30
+   to 37:
+
+   | Instructions of a key and its frame (millions) | Before | After |
+   | --- | ---: | ---: |
+   | `j`, `k` | 53.0 and 53.5 | 25.2 and 26.5 |
+   | `<C-d>`, `<C-u>` | 52.6 and 53.9 | 26.5 and 27.5 |
+
+   The kernel's processor time of each key in a terminal (`drive.py keys`,
+   5 times each key, with the chord reading done before), the old and the
+   new build in turns, 3 pairs, measured under external load (load average
+   19 to 47). Median of the pairs (range):
+
+   | Key | Before | After |
+   | --- | ---: | ---: |
+   | `j` | 20.3 ms (19.6 to 34.1) | 17.4 ms (16.1 to 17.4) |
+   | `k` | 6.7 ms (6.6 to 24.6) | 5.0 ms (4.4 to 5.4) |
+   | `<C-d>` | 6.6 ms (6.6 to 8.7) | 4.8 ms (3.8 to 11.3) |
+   | `<C-u>` | 6.9 ms (6.6 to 7.9) | 4.6 ms (4.5 to 10.7) |
+   | `w`, `b`, `l`, `h` | 7.4 to 10.6 ms | 4.8 to 5.3 ms |
+
+   `j` is the first key that the scenario measures. Its first frame comes
+   after 5 ms. The rest of its time comes after the frame, in the old
+   build too, and it is not the drawing. It stays when the keys are
+   pressed 20 times first.
+
+   The chord reading after a mute of a track whose clips cover the whole
+   song reads every window again: each window holds notes of that track.
+   Its weighing now keeps its work tables between windows: a mute and an
+   unmute cost 325 million instructions before and 258 million after
+   (2 pairs), with the same readings. To read fewer windows needs a part
+   of each window for each track, which the planned dependency graph of derived data
+   takes up.
 3. The live ticker drew 60 frames per second when an armed input changed
    nothing on the screen. Fixed: after 20 frames in a row that change no
    cell, it slows to 8 per second, and a poke ends. Idle-armed kernel
