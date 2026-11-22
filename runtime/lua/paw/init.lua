@@ -49,6 +49,8 @@ end
 local events = require("paw.events")
 paw.on, paw.once, paw.off, paw.emit = events.on, events.once, events.off, events.emit
 paw.events = events
+-- The descriptors of the kernel's events declare their names.
+require("paw.events.kernel")
 
 local options = require("paw.options")
 paw.opt, paw.option = options.opt, options
@@ -378,11 +380,14 @@ function K.startup()
     paw.snippet.load_dir(env.config_dir .. "/snippets", "config")
   end
   warn()
-  paw.emit("startup", {})
+  -- All modules, extensions and the configuration declared their events
+  -- now: check the names that subscriptions gave as text (paw/events.tl).
+  events.check_names()
+  paw.emit(events.startup, {})
 end
 
 --- The program is about to end.
-function K.exit() paw.emit("exit", {}) end
+function K.exit() paw.emit(events.exit, {}) end
 
 function K.key(key)
   if paw.remote and paw.remote.touch then paw.remote.touch() end

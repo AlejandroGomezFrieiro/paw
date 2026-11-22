@@ -3,6 +3,7 @@
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
+local events = require("paw.events")
 local type contracts = require("paw.contracts")
 local options = require("paw.options")
 local util = require("paw.util")
@@ -101,6 +102,8 @@ local record Ran
   command: string
   args: Args
 end
+local command_pre: events.Event<Ran> = events.event("command.pre")
+local command_post: events.Event<Ran> = events.event("command.post")
 --- paw/ex.tl, as far as this module calls it: paw/ex.tl requires this
 --- module, so this one names only the part it calls.
 local record Ex
@@ -126,7 +129,6 @@ local record Paw is partial.Paw
   ui: Ui
   pick: Pick
   state: State
-  emit: function(string, Ran)
   limit: LimitModule
   ex: Ex
   formats: FormatsModule
@@ -325,7 +327,7 @@ function M.run<C is Context>(name: string, args?: Args, ctx?: C): Result
       before = api.undo_current()
     end
   end
-  paw.emit("command.pre", {name = name, command = command, args = c.args})
+  events.emit(command_pre, {name = name, command = command, args = c.args})
   running = running + 1
   local ok, result = pcall(paw.limit.named, "the command `" .. name .. "`", spec.run, c) as (boolean, Result)
   running = running - 1
@@ -342,7 +344,7 @@ function M.run<C is Context>(name: string, args?: Args, ctx?: C): Result
       about = about,
     }
   end
-  paw.emit("command.post", {name = name, command = command, args = c.args})
+  events.emit(command_post, {name = name, command = command, args = c.args})
   return result
 end
 

@@ -8,6 +8,7 @@
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
+local events = require("paw.events")
 
 --- What an option holds: text, a number, true or false, or a list.
 local type Value = string | number | boolean | {string | number}
@@ -55,6 +56,15 @@ local record Option<T>
   set: function(self: Option<T>, value: T)
 end
 
+--- The payload of `option.changed`: the name of the option, its value and
+--- the value before. `value` is nil when an extension that defined the
+--- option unloaded.
+local record Changed
+  name: string
+  value: Value
+  old: Value
+end
+
 local record M
   type Value = Value
   type Spec = Spec
@@ -63,23 +73,13 @@ local record M
   type Opt = Opt
   type Option<T> = Option<T>
   type Snapshot = Snapshot
+  type Changed = Changed
   opt: Opt
+  --- The event `option.changed`: an option got a different value.
+  changed: events.Event<Changed>
 end
 
---- The payload of `option.changed`.
-local record Changed
-  name: string
-  value: Value
-  old: Value
-end
-
--- What this module reads of `paw`, which paw/init.lua makes. A module of the
--- runtime in Teal does not see the global `paw`: runtime/types/paw.d.tl
--- declares it from these modules.
-local record Paw
-  emit: function(string, Changed)
-end
-local paw = (_G as {string: Paw}).paw
+M.changed = events.event("option.changed")
 
 local defaults: {string: Value} = {
   leader = " ", -- what `<leader>` means in key mappings: Space
@@ -380,7 +380,7 @@ local opt: Opt = setmetatable(
       local old = self[name]
       values[name] = value
       if old ~= value then
-        paw.emit("option.changed", {name = name, value = value, old = old})
+        events.emit(M.changed, {name = name, value = value, old = old})
         api.ui_redraw()
       end
     end,
@@ -426,7 +426,7 @@ function M.undefine(name: string, was?: Definition)
   local old = opt[name]
   defaults[name], specs[name], definitions[name], values[name] = nil, nil, nil, nil
   if old ~= nil then
-    paw.emit("option.changed", {name = name, old = old})
+    events.emit(M.changed, {name = name, old = old})
     api.ui_redraw()
   end
 end
@@ -509,7 +509,7 @@ function M.restore(snapshot: Snapshot): {string}
       values[name] = copy(want)
       changed[#changed + 1] = name
       if not same(old, opt[name]) then
-        paw.emit("option.changed", {name = name, value = opt[name], old = old})
+        events.emit(M.changed, {name = name, value = opt[name], old = old})
         api.ui_redraw()
       end
     end

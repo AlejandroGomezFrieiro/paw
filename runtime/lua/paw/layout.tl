@@ -338,7 +338,6 @@ local tab_enter: events.Event<TabEvent> = events.event("tab.enter")
 local win_option: events.Event<WinOption> = events.event("win.option")
 local project_saving: events.Event<kernel.Nothing> = events.event("project.saving")
 local seat_opened: events.Event<SeatOpened> = events.event("seat.opened")
-local startup: events.Event<kernel.Nothing> = events.event("startup")
 
 local record M
   type Dir = Dir
@@ -3554,7 +3553,7 @@ function M.setup()
     end
   )
 
-  events.on(startup, function() M.start() end)
+  events.on(events.startup, function() M.start() end)
 end
 
 return M

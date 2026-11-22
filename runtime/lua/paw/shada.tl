@@ -431,7 +431,7 @@ events.on(
 )
 
 events.on(
-  events.event("exit") as events.Event<kernel.Nothing>,
+  events.exit,
   function()
     if active() then
       local track = cursor.track_id()

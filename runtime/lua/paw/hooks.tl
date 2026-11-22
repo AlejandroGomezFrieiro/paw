@@ -99,6 +99,25 @@ for _, name in ipairs(
   EDITS[name] = true
 end
 
+-- The events that this module sends by their names. Each is declared, so
+-- that a subscription by text to one of them is not taken for a typo
+-- (paw/events.tl).
+for _, name in ipairs(
+  {
+    "edit.before",
+    "edit.after",
+    "selection.changed",
+    "view.opened",
+    "view.closed",
+    "key.pre",
+    "undo",
+    "redo",
+    "project.saving",
+  }
+) do
+  events.event(name)
+end
+
 local changes: {Edit} = {} -- what this turn has edited so far: { name, payload }
 
 --- Count an event of this turn as a part of the edit of the turn. Undo,

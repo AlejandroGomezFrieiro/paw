@@ -465,7 +465,8 @@ function paw.notify(text, level) end
 function paw.off(id) end
 
 --- Listen for an event: in Lua its name or a pattern as text, in Teal its
---- descriptor (`paw.events.event`). Returns a handle for `paw.off`.
+--- descriptor (`paw.events.event`). Returns a handle for `paw.off`. A name
+--- as text that no part of paw declares goes in the log (`:checkhealth events`).
 ---@param event any
 ---@param fn any
 ---@param opts any
@@ -2727,6 +2728,12 @@ function paw.draw.wave_reach(a) end
 ---@param rows any
 function paw.draw.waveform(peaks, rows) end
 
+--- Check the names of events that `paw.on` got as text. paw calls it when
+--- it has started: the runtime, the extensions and the configuration have
+--- declared their events then. After that, `paw.on` checks each name as it
+--- gets it.
+function paw.events.check_names() end
+
 paw.events.emit = paw.emit
 
 --- How many events paw has sent since it started. A number that is the
@@ -2734,7 +2741,8 @@ paw.events.emit = paw.emit
 function paw.events.emitted() end
 
 --- The descriptor of an event whose payload is a `P`: Teal checks the
---- handlers that `paw.on` is given for it, and what `paw.emit` sends.
+--- handlers that `paw.on` is given for it, and what `paw.emit` sends. It
+--- also declares the name, so `paw.on` with this name as text is not a typo.
 ---   local changed: paw.events.Event<OptionChanged> = paw.events.event("option.changed")
 ---@param name any
 function paw.events.event(name) end
@@ -2757,6 +2765,10 @@ paw.events.once = paw.once
 --- read nothing of the payload without a cast.
 ---@param pattern any
 function paw.events.pattern(pattern) end
+
+--- The names of events that `paw.on` got as text and that no part of paw
+--- declares, sorted. `:checkhealth events` lists them.
+function paw.events.undeclared() end
 
 --- The address of an item, for the quickfix list and for going to it.
 ---@param item any

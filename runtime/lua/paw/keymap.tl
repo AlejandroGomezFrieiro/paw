@@ -250,12 +250,6 @@ local record Kept
   search_text: string
 end
 
-local record OptionChanged
-  name: string
-  value: options.Value
-  old: options.Value
-end
-
 -- paw/ui.tl and paw/commands.tl name this module's types, so this module
 -- declares only the parts of them that it reads.
 local record Ui
@@ -302,7 +296,7 @@ local record M
   last_visual: Visual
   --- The text of the last search (`/`).
   search_text: string
-  --- The event `mode.changed`: the mode changed.
+  --- The event `mode.changed`: the mode of the keymap changed.
   mode_changed: events.Event<ModeChanged>
   --- Counts the jumps (what goes into the jump list), so that a view can tell
   --- a jump of the cursor from a step: the view scrolls to the target of a jump.
@@ -737,11 +731,9 @@ function M.classic(lhs: string, rhs: Rhs | boolean, opts?: MapOptions)
   end
 end
 
-local option_changed: events.Event<OptionChanged> = events.event("option.changed")
-
 events.on(
-  option_changed,
-  function(e: OptionChanged)
+  options.changed,
+  function(e: options.Changed)
     if e.name ~= "keys" then
       return
     end
@@ -2004,8 +1996,8 @@ events.on(
 -- A leader set in init.lua or with `:set` moves every key on it, the
 -- keys mapped before too: `paw.opt.leader = ","` puts the mixer on `,m`.
 events.on(
-  option_changed,
-  function(e: OptionChanged)
+  options.changed,
+  function(e: options.Changed)
     if e.name ~= "leader" and e.name ~= "localleader" then
       return
     end

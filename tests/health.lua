@@ -158,3 +158,31 @@ test("checkhealth: the extensions check lists versions and requirements, and a f
     if paw.health.checks[name] then eq(#paw.health.run(name).items > 0, true, name .. "'s own check reports") end
   end
 end)
+
+test(
+  "checkhealth: a handler that waits for an event by a misspelled name is in the log once and in the check",
+  function()
+    T.start()
+    local function logged(name)
+      local count = 0
+      for _, line in ipairs(paw.api.log_get()) do
+        if line:find("`" .. name .. "`", 1, true) then count = count + 1 end
+      end
+      return count
+    end
+    local typo, real = paw.on("projct.saved", function() end), paw.on("project.saved", function() end)
+    local again, option = paw.on("projct.saved", function() end), paw.on("option.changed", function() end)
+    T.after(function()
+      for _, id in ipairs({ typo, real, again, option }) do
+        paw.off(id)
+      end
+    end)
+    eq(logged("projct.saved"), 1, "the misspelled name, one time for two handlers")
+    eq(logged("project.saved") + logged("option.changed"), 0, "not the names that paw declares")
+    T.keys(":checkhealth events<CR>")
+    local text = pager_text()
+    paw.ui.close()
+    eq(text:find("- WARN a handler waits for `projct.saved`", 1, true) ~= nil, true, ":checkhealth events names it")
+    eq(text:find("project.saved", 1, true), nil, "and only the misspelled one")
+  end
+)

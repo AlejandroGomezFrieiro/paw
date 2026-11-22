@@ -1123,10 +1123,9 @@ local function prepare_soon()
     paw.defer(M.prepare, 1000)
   end
 end
-local startup: events.Event<kernel.Nothing> = events.event("startup")
 local ext_loaded_event: events.Event<kernel.Nothing> = events.event("ext.loaded")
 local ext_unloaded: events.Event<kernel.Nothing> = events.event("ext.unloaded")
-events.on(startup, prepare_soon)
+events.on(events.startup, prepare_soon)
 events.on(ext_loaded_event, prepare_soon)
 events.on(ext_unloaded, prepare_soon)
 

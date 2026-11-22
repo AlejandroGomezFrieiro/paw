@@ -1671,6 +1671,10 @@ setmetatable(
   } as metatable<M.Project>
 )
 
+-- The playhead was put at a beat by hand (`seek` below): the transport
+-- keys in paw/defaults/transport.lua listen.
+local playhead_placed: events.Event<events.Payload> = events.event("playhead.placed")
+
 -- `paw.transport.play()`, `paw.transport.position`, `paw.transport.loop_enabled = true`
 local transport: M.Transport = {
   play = api.transport_play,
@@ -1680,7 +1684,7 @@ local transport: M.Transport = {
   record = function() paw.ui.poke(); api.transport_record() end,
   --- Put the playhead at a beat. While the song is stopped, play starts
   --- from there until the cursor moves (`paw.opt.play_from`).
-  seek = function(beats: number) api.transport_seek(beats); events.emit("playhead.placed") end,
+  seek = function(beats: number) api.transport_seek(beats); events.emit(playhead_placed) end,
   get = api.transport_get,
   toggle = function()
     if api.transport_get().playing then

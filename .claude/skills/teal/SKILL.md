@@ -86,6 +86,14 @@ local paw = (_G as {string:Paw}).paw
 - **Events:** in Teal, `paw.on` takes a descriptor, not a string:
   `paw.on(kernel.project_saved, function(p: kernel.Saved) … end)`. A module
   that emits its own events exports `paw.events.event<P>(name)` descriptors.
+  Each event has one owner: the module that sends it exports the descriptor
+  and the payload record (`options.changed`, `options.Changed`), and the
+  other modules use them. Do not make a second descriptor or record of an
+  event. Put `--- The event `name`: when it comes.` over the field of the
+  descriptor: `tools/apidoc.lua` writes the rows of
+  `docs/reference/events.md` from it. `paw.events.event` also declares the
+  name. paw logs a `paw.on` by text with a name that no module declares
+  (`:checkhealth events`).
 - **Kernel setters** take a typed patch, one undo step:
   `api.track_set(id, { name = "Bass", volume = -6 })`. A patch cannot carry
   `nil`: to clear a field, keep the key form `api.track_set(id, "output", nil)`.

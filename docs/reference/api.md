@@ -42,7 +42,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.lane(id)`: The automation lane of an id, as a `paw.Lane`.
 - `paw.notify(text, level)`: Show a message. `level` is "info" (default), "warn" or "error".
 - `paw.off(id)`: Stop a listener: `id` is the value that `paw.on` or `paw.once` returned.
-- `paw.on(event, fn, opts)`: Listen for an event: in Lua its name or a pattern as text, in Teal its descriptor (`paw.events.event`). Returns a handle for `paw.off`.
+- `paw.on(event, fn, opts)`: Listen for an event: in Lua its name or a pattern as text, in Teal its descriptor (`paw.events.event`). Returns a handle for `paw.off`. A name as text that no part of paw declares goes in the log (`:checkhealth events`).
 - `paw.once(event, fn)`: Listen for an event once: the handler is removed after its first call.
 - `paw.open(path, opts)`: Open what a path names: a folder that is no project as a list of its files, a sound file as a new track, anything else as a project, with plugins offline as `opts` says (see `paw.loading.open`).
 - `paw.open_chain(path)`: Open a chain file (a `devices.json`) alone, as a new project with no file: one track with its devices, and the device panel on it. `:w` writes the chain back to its file. Returns the track.
@@ -648,9 +648,10 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 ## Module paw.events
 
+- `paw.events.check_names()`: Check the names of events that `paw.on` got as text. paw calls it when it has started: the runtime, the extensions and the configuration have declared their events then. After that, `paw.on` checks each name as it gets it.
 - `paw.events.emit`: the same as `paw.emit`.
 - `paw.events.emitted()`: How many events paw has sent since it started. A number that is the same as before means that no event came in between.
-- `paw.events.event(name)`: The descriptor of an event whose payload is a `P`: Teal checks the handlers that `paw.on` is given for it, and what `paw.emit` sends.
+- `paw.events.event(name)`: The descriptor of an event whose payload is a `P`: Teal checks the handlers that `paw.on` is given for it, and what `paw.emit` sends. It also declares the name, so `paw.on` with this name as text is not a typo.
 
   ```lua
   local changed: paw.events.Event<OptionChanged> = paw.events.event("option.changed")
@@ -661,6 +662,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.events.on`: the same as `paw.on`.
 - `paw.events.once`: the same as `paw.once`.
 - `paw.events.pattern(pattern)`: The descriptor of a pattern of events (`track.*`, `*`): its handlers read nothing of the payload without a cast.
+- `paw.events.undeclared()`: The names of events that `paw.on` got as text and that no part of paw declares, sorted. `:checkhealth events` lists them.
 
 ## Module paw.ex
 

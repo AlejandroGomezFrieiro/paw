@@ -318,9 +318,10 @@ local record M
   previewing: Previewing
   --- Snippets as a source of suggestions (`paw.complete`).
   source: CompleteModule.Source
-  --- The event `snippet.expanded`.
+  --- The event `snippet.expanded`: a snippet went into a clip.
   expanded: events.Event<Expanded>
-  --- The event `snippet.finished`.
+  --- The event `snippet.finished`: a snippet stopped, and the notes that it
+  --- wrote stay.
   finished: events.Event<Finished>
   finish: function()
 end
@@ -1259,12 +1260,11 @@ M.source = {
   end,
 }
 
-local startup: events.Event<kernel.Nothing> = events.event("startup")
 local escape: events.Event<kernel.Nothing> = events.event("escape")
 local mode_changed = paw.keymap.mode_changed
 
 events.on(
-  startup,
+  events.startup,
   function()
     if paw.complete then
       paw.complete.register(M.source)
