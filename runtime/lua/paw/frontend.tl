@@ -14,6 +14,8 @@ local seats = require("paw.seats")
 local util = require("paw.util")
 local commands = require("paw.commands")
 local type types = require("paw.types")
+local type KeymapModule = require("paw.keymap")
+local type KeybarModule = require("paw.keybar")
 local type objects = require("paw.objects")
 local type CanvasModule = require("paw.canvas")
 local type CursorModule = require("paw.cursor")
@@ -199,11 +201,7 @@ local record QfState
 end
 
 --- A hint of the keys that may follow (`paw.keymap.hints`).
-local record Hint
-  key: string
-  desc: string
-  more: integer
-end
+local type Hint = KeymapModule.Hint
 local record Hints
   title: string
   items: {Hint}
@@ -546,25 +544,6 @@ end
 
 -- What this module reads of `paw`, which paw/init.lua makes, and of the
 -- modules in Lua that it calls: their parts that it uses.
---- paw/keymap.lua: the mode, the selection and the keys typed.
-local record Visual
-  kind: string
-  row: number
-  col: number
-  view: string
-  region: function(): Region
-end
-local record Keymap
-  mode: string
-  visual: Visual
-  pending: function(): string
-  recording: function(): string
-  selection: function(): Region
-  set_mode: function(mode: string)
-  hints: function(): {Hint}, string
-  feed: function(keys: string)
-  visual_start: function(kind: string)
-end
 --- The device panel of paw/views/devices.lua: its rows, and the one the keyboard is on.
 local record RowDevice
   index: integer
@@ -604,9 +583,6 @@ local record Float
   name: string
   title: string
 end
-local record Keybar
-  entries: function(): {{string}}
-end
 local record InputOptions
   prompt: string
   text: string
@@ -625,7 +601,7 @@ local record Ui
   message: Message
   rects: {Rect}
   views: Views
-  keybar: Keybar
+  keybar: KeybarModule
   has_focus: boolean
   grabber: function()
   visible: function(name: string): boolean
@@ -789,7 +765,7 @@ local record RemoteTouches
 end
 local record Paw
   nest: NestModule
-  keymap: Keymap
+  keymap: KeymapModule
   ui: Ui
   audio: Audio
   fx: Fx
@@ -2312,12 +2288,9 @@ local function choose_clips(set: {integer: boolean}, anchor: integer, visual: bo
   changed()
 end
 
---- The payload of `mode.changed` (paw/keymap.lua).
-local record ModeChanged
-  mode: string
-  old: string
-end
-local mode_changed: events.Event<ModeChanged> = events.event("mode.changed")
+--- The payload of `mode.changed` (paw/keymap.tl).
+local type ModeChanged = KeymapModule.ModeChanged
+local mode_changed = paw.keymap.mode_changed
 
 events.on(
   mode_changed,

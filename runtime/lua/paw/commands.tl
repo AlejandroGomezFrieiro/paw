@@ -88,6 +88,7 @@ end
 -- declares it from these modules. The modules in Lua type their parts in
 -- their doc comments (`partial.Paw`); the rest is here.
 local type partial = require("paw.partial")
+local type KeymapModule = require("paw.keymap")
 local type LimitModule = require("paw.limit")
 local type FormatsModule = require("paw.formats")
 local type CursorModule = require("paw.cursor")
@@ -121,6 +122,7 @@ local record Pick
 end
 
 local record Paw is partial.Paw
+  keymap: KeymapModule
   ui: Ui
   pick: Pick
   state: State

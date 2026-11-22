@@ -19,6 +19,7 @@ local util = require("paw.util")
 local options = require("paw.options")
 local cursor = require("paw.cursor")
 local type partial = require("paw.partial")
+local type KeymapModule = require("paw.keymap")
 local type SeatsModule = require("paw.seats")
 
 local type Data = util.Data
@@ -52,32 +53,15 @@ local record UserFile
 end
 
 --- What belongs to the user in the keymap.
-local record UserState
-  search: string
-  registers: {string: Data}
-end
+local type UserState = KeymapModule.UserState
 
---- What belongs to a project in the keymap: by view.
-local interface ProjectState
-  marks: {string: {string: Data}}
-  jumps: {string: {Data}}
-  changes: {string: {Data}}
-end
-
---- The file of a project's state.
-local record ProjectFile is ProjectState
+--- The file of a project's state: what belongs to it in the keymap (the
+--- marks and the places, by view), and where the cursor was.
+local record ProjectFile is KeymapModule.ProjectPlaces
   version: integer
   cursor: Place
 end
 
--- What this module reads of the modules in Lua (their functions are in
--- paw/keymap.lua, paw/views/cmdline.lua and paw/loading.lua).
-local record Keymap
-  shada_user: function(): UserState
-  shada_project: function(): ProjectFile
-  shada_set_user: function(data: UserState)
-  shada_set_project: function(data: ProjectState)
-end
 local record Cmdline
   histories: function(): {string: {string}}
   set_history: function(name: string, lines: {string})
@@ -91,6 +75,7 @@ local record Ui
   focus: function(name: string)
 end
 local record Paw is partial.Paw
+  keymap: KeymapModule
   seats: SeatsModule
   ui: Ui
 end
@@ -203,8 +188,8 @@ local function in_local(fn: function())
   paw.seats.within(0, fn)
 end
 
-local function keymap(): Keymap
-  return (require as function(string): Keymap)("paw.keymap")
+local function keymap(): KeymapModule
+  return (require as function(string): KeymapModule)("paw.keymap")
 end
 
 local function cmdline(): Cmdline
@@ -329,7 +314,7 @@ local function read_user()
       local data: UserState = {search = type(disk.search) == "string" and disk.search or nil, registers = {}}
       for name, item in pairs(disk.registers) do
         if register_name(name) and type(item) == "table" and item.value ~= nil then
-          data.registers[name] = item.value
+          data.registers[name] = item.value as KeymapModule.Register
           register_stamp[name] = {time = tonumber(item.time) or 0, text = api.json_encode(item.value)}
         end
       end
@@ -356,7 +341,7 @@ local function write_user()
       local out: UserFile = {version = 1}
       out.search = mine.search or disk.search
       out.histories = merge_histories(disk.histories)
-      out.registers = merge_registers(mine.registers, disk.registers)
+      out.registers = merge_registers(mine.registers as {string: Data}, disk.registers)
       write_json(user_file, out)
     end
   )
@@ -370,7 +355,7 @@ local function write_project(path: string)
   end
   in_local(
     function()
-      local out = keymap().shada_project()
+      local out = keymap().shada_project() as ProjectFile
       out.version = 1
       out.cursor = last
       write_json(project_file_of(path), out)

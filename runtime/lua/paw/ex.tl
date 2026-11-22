@@ -35,6 +35,7 @@ local music = require("paw.music")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type KeymapModule = require("paw.keymap")
 local type objects = require("paw.objects")
 local type CursorModule = require("paw.cursor")
 local type AddressModule = require("paw.address")
@@ -54,7 +55,6 @@ local type Field = contracts.ExField
 local type Change = contracts.ExChange
 local type ExValue = contracts.ExValue
 local type ExView = contracts.ExView
-local type Region = contracts.Region
 local type Result = contracts.CommandResult
 local type PitchWord = music.PitchWord
 local type Yanked = EditModule.Yanked
@@ -126,26 +126,6 @@ local type FieldSpec = Field
 
 -- What this module reads of the modules that are still in Lua.
 
---- A place that a mark keeps (paw/keymap.lua): its row and column, or its beat.
-local type GridMark = contracts.GridMark
-
---- paw/keymap.lua, as far as this module calls it.
-local record Keymap
-  marks: function(view?: string): {string: GridMark}
-  last_selection: function(): Region
-  setreg: function(value: Yanked, name: string, yank: boolean)
-  set_mode: function(mode: string)
-  normal: function(keys: string)
-  push_jump: function()
-  with_selection: function(
-    region: Region,
-    fn: function(string, contracts.CommandArgs, Context): Result,
-    name: string,
-    args: contracts.CommandArgs,
-    ctx: Context
-  ): Result
-end
-
 --- What the piano roll's layers get (paw/views/pianoroll.lua): the ruler
 --- and the roll to draw in, the beat at a column and the row of a pitch,
 --- and the clips it shows, each by how many beats after the first it starts.
@@ -215,6 +195,7 @@ local record Cmdline
 end
 
 local record Paw is partial.Paw
+  keymap: KeymapModule
   ui: UiModule
   cursor: CursorModule
   address: AddressModule
@@ -233,8 +214,8 @@ end
 local paw = (_G as {string: Paw}).paw
 local opt = options.opt
 
-local function keymap(): Keymap
-  return paw.keymap as Keymap
+local function keymap(): KeymapModule
+  return paw.keymap
 end
 local function ui(): UiModule
   return paw.ui
@@ -2549,7 +2530,7 @@ function M.exec(line: string, ctx?: Context): Result
     local function run(r: Range): Result
       local c = with(ctx, {range = r})
       if r.selection then
-        return keymap().with_selection(r.region, commands.run, name, parsed, c)
+        return keymap().with_selection(r.region, function(): Result return commands.run(name, parsed, c) end)
       end
       return commands.run(name, parsed, c)
     end
@@ -2562,7 +2543,7 @@ function M.exec(line: string, ctx?: Context): Result
   end
 
   if range.selection and not range.track_range then
-    return keymap().with_selection(range.region, commands.run, name, parsed, ctx)
+    return keymap().with_selection(range.region, function(): Result return commands.run(name, parsed, ctx) end)
   end
   if whole_tracks(range) then
     -- Any command at each track, the cursor on it, as `:g` runs one at each match.

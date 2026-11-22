@@ -34,6 +34,7 @@ local api = require("paw.api")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type KeymapModule = require("paw.keymap")
 local type UiModule = require("paw.ui")
 local type MouseModule = require("paw.mouse")
 local type PanesModule = require("paw.panes")
@@ -54,6 +55,7 @@ local type Data = UtilModule.Data
 
 -- What this module reads of `paw`, which paw/init.lua makes.
 local record Paw is partial.Paw
+  keymap: KeymapModule
   ui: UiModule
   canvas: CanvasModule
   commands: CommandsModule

@@ -9,6 +9,7 @@ local util = require("paw.util")
 local options = require("paw.options")
 local type objects = require("paw.objects")
 local type partial = require("paw.partial")
+local type KeymapModule = require("paw.keymap")
 local type SeatsModule = require("paw.seats")
 local type types = require("paw.types")
 
@@ -49,6 +50,7 @@ local record Ui
   focused: string
 end
 local record Paw is partial.Paw
+  keymap: KeymapModule
   ui: Ui
   seats: SeatsModule
   groups: Groups

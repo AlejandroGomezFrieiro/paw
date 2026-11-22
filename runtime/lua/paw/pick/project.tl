@@ -11,6 +11,7 @@ local preview = require("paw.pick.preview")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type KeymapModule = require("paw.keymap")
 local type UiModule = require("paw.ui")
 local type LayoutModule = require("paw.layout")
 local type objects = require("paw.objects")
@@ -66,12 +67,6 @@ local record Ext
   load_bundled: function(name: string): contracts.ExtEntry, string
 end
 
---- The key mappings (paw/keymap.lua, in Lua): what this module calls of them.
-local record Keymap
-  push_jump: function()
-  human: function(keys: string): string
-end
-
 --- The arrange view (paw/views/arrange.lua, in Lua): what this module calls of it.
 local record Arrange
   center: function(self: Arrange)
@@ -85,6 +80,7 @@ end
 local type InputOptions = UiModule.InputOptions
 
 local record Paw is partial.Paw
+  keymap: KeymapModule
   ui: UiModule
   layout: LayoutModule
   help: HelpModule
@@ -102,7 +98,7 @@ local record Paw is partial.Paw
 end
 local paw = (_G as {string: Paw}).paw
 local ext = paw.ext as Ext
-local keymap = paw.keymap as Keymap
+local keymap = paw.keymap
 
 --- A sound file that the project uses, and the clips that play it.
 local record MediaItem
