@@ -1469,11 +1469,11 @@ function view:render(buf, ctx)
   end
   self.fold_ground = fold_ground
   local function ahead(beat) return tmap.view(beat) - tmap.view(self.scroll) end
-  -- In a subproject, the playhead's beat of the song is `origin` later
-  -- than the window's beat (paw.time).
-  local origin = paw.time.origin()
+  -- In a subproject, a beat of the song (the playhead's) is `here(beat)`
+  -- in the window's time (paw.time).
+  local here = paw.time.local_beat
   if t.playing and opt.follow and not led then
-    local position = t.position - origin
+    local position = here(t.position)
     if position < self.scroll or ahead(position) >= span then self.scroll = paw.time.bar_floor(position) end
   elseif cursor.beat ~= self.seen_beat and not led then
     -- A jump aligns the cursor in the view's beats, through the folds.
@@ -1532,7 +1532,7 @@ function view:render(buf, ctx)
   -- range stays in sight). Only an on loop shades the lanes (`loop`).
   local loop, loop_off
   if t.loop_end > t.loop_start then
-    local x0, x1 = math.max(0, col(t.loop_start - origin)), math.min(tw, col(t.loop_end - origin))
+    local x0, x1 = math.max(0, col(here(t.loop_start))), math.min(tw, col(here(t.loop_end)))
     if x1 > x0 then
       if t.loop_enabled then
         loop = { x0, x1 }
@@ -1587,12 +1587,12 @@ function view:render(buf, ctx)
     end
   end
   if loop or loop_off then
-    if col(t.loop_start - origin) >= 1 then
-      ruler:text(col(t.loop_start - origin) - 1, 0, g.loop_in, loop and "RulerLoopEdge" or "RulerLoopOffEdge")
+    if col(here(t.loop_start)) >= 1 then
+      ruler:text(col(here(t.loop_start)) - 1, 0, g.loop_in, loop and "RulerLoopEdge" or "RulerLoopOffEdge")
     end
     -- The end's mark sits in the band's last cell, clear of the next bar's number.
-    if col(t.loop_end - origin) >= 1 and col(t.loop_end - origin) <= tw then
-      ruler:text(col(t.loop_end - origin) - 1, 0, g.loop_out, loop and "RulerLoopEdgeIn" or "RulerLoopOffEdge")
+    if col(here(t.loop_end)) >= 1 and col(here(t.loop_end)) <= tw then
+      ruler:text(col(here(t.loop_end)) - 1, 0, g.loop_out, loop and "RulerLoopEdgeIn" or "RulerLoopOffEdge")
     end
   end
   if punch then
@@ -1636,7 +1636,7 @@ function view:render(buf, ctx)
   for i, line in ipairs(lines) do
     marks[i] = { line.v, line.bar and true or false }
   end
-  local loop_beats = loop and { self:v(t.loop_start - origin), self:v(t.loop_end - origin) } or nil
+  local loop_beats = loop and { self:v(here(t.loop_start)), self:v(here(t.loop_end)) } or nil
   -- A take being made: from where the playhead was when it began, or from
   -- the punch-in.
   if t.take then
@@ -1845,18 +1845,21 @@ function view:render(buf, ctx)
   if #tmap.spans > 0 then
     jumps = {}
     for i, s in ipairs(tmap.spans) do
-      jumps[i] = { s.from + origin, s.to + origin, s.width }
+      jumps[i] = { paw.time.song_beat(s.from), paw.time.song_beat(s.to), s.width }
     end
   end
+  -- A beat of the window is this many of the song's: 1, or another
+  -- number in a subproject with a tempo of its own.
+  local rate = paw.time.song_beat(self.scroll + 1) - paw.time.song_beat(self.scroll)
   buf:mark("playhead", hw, 0, tw, mst.y, {
     at = t.position,
-    -- In the song's beats, as the playhead is: the folds `origin` later.
-    from = self:v(self.scroll) + origin,
+    -- In the song's beats, as the playhead is.
+    from = paw.time.song_beat(self:v(self.scroll)),
     jumps = jumps,
-    per = zoom,
+    per = zoom / rate,
     lo = 0,
     hi = 1e12,
-    spans = spans_at(col(t.position - origin)),
+    spans = spans_at(col(here(t.position))),
     spans_at = spans_at,
     bind = "position",
   })
@@ -1944,7 +1947,7 @@ function view:moving()
   if not (g and g.span and paw.opt.follow) then return false end
   -- Asked on each frame of what moves: the playhead alone, not the transport's table.
   local playing, at = api.transport_playhead()
-  local position = at - paw.time.origin()
+  local position = paw.time.local_beat(at)
   return playing and (position < self.scroll or self:x(position) >= g.span * g.zoom)
 end
 
