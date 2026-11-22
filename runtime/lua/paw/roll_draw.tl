@@ -1641,6 +1641,28 @@ local function length_of(text: string): number
   return beats
 end
 
+--- The notes being drawn `beats` long; in step input, the step too.
+local function set_length(beats: number)
+  -- In step input, a caret (nothing entered yet) keeps no length: the
+  -- value is for the notes that come.
+  local caret = session.step and session.pen[1].length <= EPS and not session.pen[1].source
+  if caret then
+    roll():set_step(beats)
+    changed()
+    return
+  end
+  for _, d in ipairs(session.pen) do
+    d.length = beats
+    fit(d)
+  end
+  if session.step then
+    roll():set_step(beats)
+  end
+  align()
+  session.edge = "end"
+  place()
+end
+
 --- Start typing a length (`=`), or add to it: each key that makes one
 --- sets the notes being drawn that long at once.
 function M.length_key(char?: string): boolean
@@ -1660,23 +1682,8 @@ function M.length_key(char?: string): boolean
   local text = session.reading .. char
   session.reading = text
   local beats = length_of(text)
-  -- In step input, a caret (nothing entered yet) keeps no length: the
-  -- value is for the notes that come.
-  local caret = session.step and session.pen[1].length <= EPS and not session.pen[1].source
-  if beats and caret then
-    roll():set_step(beats)
-    changed()
-  elseif beats then
-    for _, d in ipairs(session.pen) do
-      d.length = beats
-      fit(d)
-    end
-    if session.step then
-      roll():set_step(beats)
-    end
-    align()
-    session.edge = "end"
-    place()
+  if beats then
+    set_length(beats)
   end
   return true
 end
@@ -2019,20 +2026,74 @@ local function step_note(e: contracts.StepNote)
   place()
 end
 
---- The step in words: "1 beat (=4)", "0.5 beats (=8)".
-local function step_text(): string
+--- The step as a note value typed after `=` ("4", "8.", "8t"), or nil.
+local function step_name(): string
   local beats = roll():step_length()
-  local name: string
   for _, whole in ipairs({1, 2, 4, 8, 16, 32, 64}) do
     for _, mark in ipairs({"", ".", "t", "..", ".t"}) do
       local text = tostring(whole) .. mark
-      if not name and math.abs((length_of(text) or -1) - beats) < EPS then
-        name = text
+      if math.abs((length_of(text) or -1) - beats) < EPS then
+        return text
       end
     end
   end
+  return nil
+end
+
+--- The step in words: "1 beat (=4)", "0.5 beats (=8)".
+local function step_text(): string
+  local beats = roll():step_length()
+  local name = step_name()
   local words = string.format("%g beat%s", beats, beats == 1 and "" or "s")
   return name and (words .. " (=" .. name .. ")") or words
+end
+
+--- Make the notes being drawn `count` steps longer (the pedal
+--- pressed while keys are held, in step input).
+function M.extend(count?: integer)
+  if not begin() then
+    return
+  end
+  session.count = nil
+  if session.pen[1].length <= EPS then
+    return paw.notify("nothing to tie yet: play a note first", "warn")
+  end
+  local more = roll():step_length() * (count or 1)
+  for _, d in ipairs(session.pen) do
+    d.length = d.length + more
+    fit(d)
+  end
+  align()
+  session.edge = "end"
+  place()
+end
+
+--- Set the step (and the notes being drawn) to a note value, as `=`
+--- then `value` does: "8", "8.", "8t". `dot` and `triplet` turn the dot
+--- or the triplet of the step on and off.
+function M.value(value: string)
+  if not begin() then
+    return
+  end
+  session.count = nil
+  local text = value
+  if value == "dot" or value == "triplet" then
+    local whole, dots, triplet = (step_name() or ""):match("^(%d+)(%.*)(t?)$")
+    if not whole then
+      return paw.notify("the step is not a note value: set one first (=4)", "warn")
+    end
+    if value == "dot" then
+      dots = dots == "" and "." or ""
+    else
+      triplet = triplet == "" and "t" or ""
+    end
+    text = whole .. dots .. triplet
+  end
+  local beats = length_of(text)
+  if not beats then
+    return paw.notify("not a note value: " .. text, "warn")
+  end
+  set_length(beats)
 end
 
 --- What the title says in step input: "STEP C4 E4 · 1 beat (=4) · vel key
@@ -2052,7 +2113,35 @@ local function step_label(): string
   end
   local pen = session.pen[1].length > EPS and (pitches_text_of(session.pen) .. " · ") or ""
   local count = session.count and (session.count .. " ") or session.reading and ("=" .. session.reading .. " ") or ""
+  -- What a control of the controller did a moment ago: "rest", "back".
+  local said = stepin.said()
+  count = said and (said .. " · " .. count) or count
   return string.format("STEP %s%s%s · vel %s · from %s", count, pen, step_text(), stepin.velocity(), source)
+end
+
+-- What each control of the controller does here: the pencil's own keys.
+local function times(fn: function()): contracts.StepAction
+  return function(count: integer)
+    for _ = 1, math.max(1, count or 1) do
+      fn()
+    end
+  end
+end
+local actions: {string: contracts.StepAction} = {
+  rest = times(function() M.next("rest") end), -- <Space>
+  tie = function(count: integer) M.extend(count) end,
+  back = times(M.back), -- <BS>
+  erase = times(M.erase), -- x
+  again = times(M.again), -- .
+  legato = times(function() M.next("legato") end), -- <CR>
+  dot = function() M.value("dot") end,
+  triplet = function() M.value("triplet") end,
+  ["octave.up"] = times(function() M.pitch(12) end), -- K
+  ["octave.down"] = times(function() M.pitch(-12) end), -- J
+  finish = function() paw.keymap.set_mode("n") end, -- Esc
+}
+for _, whole in ipairs({1, 2, 4, 8, 16, 32}) do
+  actions["dur." .. whole] = function() M.value(tostring(whole)) end -- =N
 end
 
 stepin.target(
@@ -2063,6 +2152,7 @@ stepin.target(
     note = step_note,
     release = function() changed() end,
     status = function(): string return M.stepping() and step_label() or nil end,
+    actions = actions,
   }
 )
 

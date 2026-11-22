@@ -228,6 +228,7 @@ In visual mode, the same text object again takes in one more, so `vic` and then 
 | `<BS>` | take back what was entered last |
 | `I` (in step input) | back to drawing |
 | `<Esc>` | write all the notes (one undo step) |
+| the sustain pedal | a rest of one step with no key held, the held keys a step longer otherwise; `:step.learn` binds more [controls](piano-roll.md#controls-of-the-controller) |
 
 ## Write from the harmony (snippets, R)
 

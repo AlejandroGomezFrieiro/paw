@@ -6779,6 +6779,11 @@ function paw.roll_draw.erase() end
 ---@param what any
 function paw.roll_draw.expression(what) end
 
+--- Make the notes being drawn `count` steps longer (the pedal
+--- pressed while keys are held, in step input).
+---@param count any
+function paw.roll_draw.extend(count) end
+
 --- End the drawing: write it, and forget it. Returns what it did, in words.
 function paw.roll_draw.finish() end
 
@@ -6901,6 +6906,12 @@ function paw.roll_draw.toggle_step() end
 
 --- Put back the notes that were there before the suggestions (`<C-e>`).
 function paw.roll_draw.unsuggest() end
+
+--- Set the step (and the notes being drawn) to a note value, as `=`
+--- then `value` does: "8", "8.", "8t". `dot` and `triplet` turn the dot
+--- or the triplet of the step on and off.
+---@param value any
+function paw.roll_draw.value(value) end
 
 --- The velocity of the notes being drawn and of the next, by `dir` tens.
 ---@param dir any
@@ -7499,6 +7510,22 @@ function paw.stems.plan(opts) end
 ---@param opts any
 function paw.stems.render(plan, opts) end
 
+--- A new action for the controls: `fn(count)` runs in a target that has
+--- no action of that name itself.
+---   paw.step.action("accent", function(count) ... end)
+---@param name any
+---@param fn any
+function paw.step.action(name, fn) end
+
+--- What a control does, in words: "rest", "keys =8t", "rest, tie while
+--- keys are held".
+---@param b any
+function paw.step.action_text(b) end
+
+--- Every action that a control can do: the core's, then the actions of
+--- extensions (`M.action`).
+function paw.step.actions() end
+
 --- The name of the target that listens now, or nil.
 function paw.step.active() end
 
@@ -7506,6 +7533,20 @@ function paw.step.active() end
 --- the MIDI part of the track's list of inputs. True if it had to.
 ---@param track any
 function paw.step.ask_input(track) end
+
+--- Let a control of the controller do an action while a target listens.
+--- `source` is `{ port, channel, note | cc }`; `port` and `channel` may be
+--- left out. `action` is a name (`paw.step.actions()`), `{ keys = "=8t" }`
+--- (types those keys in the view), or `{ down = "rest", held = "tie" }`
+--- (the first with no key held, the second while keys are held). It
+--- replaces the control of the same source, for this session:
+--- `:step.learn` keeps a control in the file.
+---@param source any
+---@param action any
+function paw.step.bind(source, action) end
+
+--- The controls, each `{ source, action, keys, down, held, saved }`.
+function paw.step.bindings() end
 
 --- The pitches held now on the controller, in the order they were played.
 function paw.step.held() end
@@ -7519,6 +7560,19 @@ function paw.step.held_text() end
 ---@param track any
 function paw.step.input(track) end
 
+--- Wait for the next key, pad or pedal of the controller, and bind it to
+--- `action` by its port, channel and note or cc, in the file of the controls.
+---@param action any
+function paw.step.learn(action) end
+
+--- Stop the wait of `:step.learn`.
+function paw.step.learn_cancel() end
+
+--- Read the file of the controls again: what it keeps replaces what it
+--- kept before. With no file, the default of the pedal. The controls from
+--- Lua (`M.bind`) stay as they are.
+function paw.step.load() end
+
 --- Why the keys only sound now: "playing" or "recording", or nil.
 function paw.step.paused() end
 
@@ -7527,10 +7581,18 @@ function paw.step.paused() end
 --- starts or stops listening.
 function paw.step.refresh() end
 
+--- What a control did a moment ago ("rest", "back"), for the title; nil
+--- after a moment.
+function paw.step.said() end
+
 --- The port that step input listens to for `track`, in a few words:
 --- `"Keystation 49"`, `"Keystation 49 · ch 2"`, `"all ports"`, or nil with no input.
 ---@param track any
 function paw.step.source(track) end
+
+--- A control in words: "Test Pads C2 (note 36)", "cc 64 (pedal)".
+---@param s any
+function paw.step.source_text(s) end
 
 --- Let a view take step input: `spec` as `paw.contracts.StepTarget` says.
 --- The first target whose `active()` is true listens. A second call with
@@ -7539,9 +7601,19 @@ function paw.step.source(track) end
 ---@param spec any
 function paw.step.target(name, spec) end
 
+--- Take away the control of `source`: `paw.step.unbind({ cc = 64 })` lets
+--- the pedal sustain again. True if there was one.
+---@param source any
+function paw.step.unbind(source) end
+
 --- Remove the target of a view (its extension unloaded).
 ---@param name any
 function paw.step.untarget(name) end
+
+--- Keep the controls in `file`, for tests; with no file, where paw keeps
+--- them (nowhere with --clean). Then read them from there.
+---@param file any
+function paw.step.use(file) end
 
 --- The velocity of the notes entered, in words: "key", or a number.
 function paw.step.velocity() end
