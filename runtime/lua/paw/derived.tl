@@ -20,6 +20,10 @@
 -- command and for tests). After each slice, `derived.changed` names the
 -- kinds whose values changed.
 --
+-- The views tell what they show as they draw (`visible`): the entries
+-- there come before the rest, and after each frame the kernel gets the
+-- same ranges for its bakes (`api.view_ranges_set`).
+--
 -- The module is internal for now: extensions get it when it is public.
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
@@ -216,7 +220,8 @@ local tempo_seen: integer
 local started: number -- when the job started
 local done, todo = 0, 0 -- entries made fresh, and made stale, since then
 local label: string -- what the job makes now
-local ranges: {string: {number}} = {} -- what each window shows, in beats
+local ranges: {string: types.ViewRange} = {} -- what each window shows, in beats
+local told_ranges = "" -- the ranges the kernel has, as `range_text` writes them
 
 -- Entries that read an entry -------------------------------------------------------------
 
@@ -617,7 +622,7 @@ local function priority(e: Entry): integer
       return PLAYING
     end
     for _, r in pairs(ranges) do
-      if from < r[2] and to > r[1] then
+      if from < r.to and to > r.from then
         best = VISIBLE
       end
     end
@@ -946,10 +951,38 @@ function M.reset()
   end
 end
 
---- A window shows the song from `from` to `to` (beats): what is there
---- comes before the rest. Nil `from` forgets the window.
-function M.visible(window: string, from?: number, to?: number)
-  ranges[window] = from and {from, to} or nil
+--- A window shows the song from `from` to `to` (beats), on `tracks`
+--- (all when nil): what is there comes before the rest, here and in the
+--- bakes. A view tells it each time it draws; nil `from` forgets the window.
+function M.visible(window: string, from?: number, to?: number, tracks?: {integer})
+  ranges[window] = from and {from = from, to = to, tracks = tracks} or nil
+end
+
+--- A frame starts: the windows that tell their range while it is drawn
+--- (`visible`) are all that show.
+function M.frame_start()
+  ranges = {}
+end
+
+local function range_text(r: types.ViewRange): string
+  return string.format("%.17g:%.17g:%s", r.from, r.to, r.tracks and table.concat(r.tracks, ",") or "*")
+end
+
+--- A frame ends: the kernel gets what the windows show when it changed,
+--- for the bake scheduler (`api.view_ranges_set`).
+function M.frame_end()
+  local list: {types.ViewRange} = {}
+  local texts: {string} = {}
+  for _, r in pairs(ranges) do
+    list[#list + 1] = r
+    texts[#texts + 1] = range_text(r)
+  end
+  table.sort(texts)
+  local text = table.concat(texts, ";")
+  if text ~= told_ranges then
+    told_ranges = text
+    api.view_ranges_set(list)
+  end
 end
 
 --- The job while it has run for `after` milliseconds (1000) or more: what
@@ -972,6 +1005,11 @@ function M.health(h: contracts.Health)
     h.info(string.format("the job runs: %d slices, the longest %.1f ms", job.slices, job.longest))
   else
     h.ok("nothing waits to be made")
+  end
+  -- What the bakes take as shown, as the kernel has it.
+  for _, r in ipairs(api.view_ranges()) do
+    local tracks = r.tracks and (#r.tracks .. " tracks") or "all tracks"
+    h.info(string.format("a window shows beats %.0f to %.0f, %s: what is there comes first", r.from, r.to, tracks))
   end
   for _, s in ipairs(M.stats()) do
     local amount: string

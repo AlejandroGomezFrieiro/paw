@@ -973,6 +973,14 @@ local record types
     take: integer
   end
 
+  --- What a window shows of the song (`ViewRange`, stretched.rs): the
+  --- beats from `from` up to `to`, and the tracks shown (all when nil).
+  record ViewRange
+    from: number
+    to: number
+    tracks: {integer}
+  end
+
   --- The process times of the audio blocks, in milliseconds (`BlockTimes`).
   record BlockStats
     count: integer

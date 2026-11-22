@@ -359,6 +359,8 @@ local record api
    undo_step: function(n: integer): integer
    undo_travel: function(seconds: number): integer
    undo_tree: function(): types.UndoTree
+   view_ranges: function(): {types.ViewRange}
+   view_ranges_set: function(ranges: {types.ViewRange})
    wait: function(ms: number)
    warnings: function(): {string}
    which: function(program: string): string

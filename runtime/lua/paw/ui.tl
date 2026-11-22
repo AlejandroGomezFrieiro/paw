@@ -16,6 +16,7 @@
 local api = require("paw.api")
 local L = require("paw.layout")
 local events = require("paw.events")
+local derived = require("paw.derived")
 local kernel = require("paw.events.kernel")
 local options = require("paw.options")
 local seats = require("paw.seats")
@@ -1225,7 +1226,9 @@ end
 function M.render(buf: Buf)
   M.screen, frame_transport = true, nil
   recording = {}
+  derived.frame_start()
   local ok, err = pcall(M.render_screen, buf) as (boolean, string)
+  derived.frame_end()
   live, recording = recording, nil
   live.width, live.height = buf.width, buf.height
   api.grid_live_seal()

@@ -2754,6 +2754,8 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.undo_step(n)`
 - `paw.api.undo_travel(seconds)`
 - `paw.api.undo_tree()`: The undo tree and checkpoints: crate::history, session/undo.rs.
+- `paw.api.view_ranges()`: The ranges that `view_ranges_set` gave last.
+- `paw.api.view_ranges_set(ranges)`: Tell paw which part of the song each window shows: a list of ranges of beats, each with the tracks shown (all tracks when `tracks` is nil). The stretched clips there bake before the others. paw.derived sends this after each frame.
 - `paw.api.wait(ms)`: Let `ms` milliseconds pass. Timers fire and events come, as between the key presses of a person. `sleep` stops all of that. A script that waits for the result of a timer uses `wait`.
 - `paw.api.warnings()`
 - `paw.api.which(program)`: Where a program is on `PATH`, as `command -v` says; nil when it is not there. A name with a `/` is checked as it is.
