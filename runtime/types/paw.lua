@@ -3746,13 +3746,14 @@ function paw.harmony.step(key, pitch, n) end
 ---@param quality any
 function paw.harmony.tones(root, quality) end
 
---- How long each pitch class sounds from `from` to `to`, of `sorted`
---- (notes sorted by start, the longest `longest` beats).
----@param sorted any
----@param longest any
+--- Add to `h` how long each pitch class of `run`, `offset` beats later,
+--- sounds from `from` to `to`.
+---@param run any
+---@param offset any
 ---@param from any
 ---@param to any
-function paw.harmony.read.bar_weights(sorted, longest, from, to) end
+---@param h any
+function paw.harmony.read.bar_part(run, offset, from, to, h) end
 
 --- Chords over notes in project beats, from `from` to `to` (the notes'
 --- span when nil), in windows of `step` beats (0.5). Each chord:
@@ -3768,22 +3769,30 @@ function paw.harmony.read.chords(notes, opts) end
 ---@param tonic any
 function paw.harmony.read.correlate(h, profile, tonic) end
 
---- The chords of a run of windows (`window` makes each, one after another
+--- The chords of a run of windows (`finish` makes each, one after another
 --- with no gap): a chord holds across windows unless the next is better by
 --- more than what a change costs. Silence of `bar` beats ends a chord.
 --- `pause`, if given, is called after each 64 windows, so that a reading
---- in slices can stop there (paw/harmony/song.tl).
+--- in slices can stop there (paw/harmony/song.tl). `rows`, if given, keeps
+--- the work rows for the next call: a caller that decodes often gives its
+--- own.
 ---@param windows any
 ---@param bar any
 ---@param pause any
-function paw.harmony.read.decode(windows, bar, pause) end
+---@param rows any
+function paw.harmony.read.decode(windows, bar, pause, rows) end
 
---- The first of `sorted` (notes sorted by start) that can sound at `at`:
---- the ones before it start more than `longest` beats before it.
----@param sorted any
----@param longest any
+--- One window of the chord reading from what sounds in it (`p`, a part):
+--- from `at`, `length` beats long, with windows of `step` beats. `beat`
+--- gives the part of the window's whole beat, when the window needs it.
+--- `old`, a window that no one reads any more, gives its lists to the new one.
+---@param p any
 ---@param at any
-function paw.harmony.read.first(sorted, longest, at) end
+---@param length any
+---@param step any
+---@param beat any
+---@param old any
+function paw.harmony.read.finish(p, at, length, step, beat, old) end
 
 --- How well the chord `root` `quality` fits weights `w` with `bass` and `total`.
 ---@param w any
@@ -3793,7 +3802,7 @@ function paw.harmony.read.first(sorted, longest, at) end
 ---@param q any
 function paw.harmony.read.fit(w, bass, total, root, q) end
 
---- The keys from the pitch classes of each bar (`hist`, as `bar_weights`
+--- The keys from the pitch classes of each bar (`hist`, as `bar_part`
 --- gives them, which it leaves as they are) and the chords, as `keys`.
 --- `pause`, if given, is called after each 16 bars, as `decode` does.
 ---@param notes_hist any
@@ -3812,15 +3821,25 @@ function paw.harmony.read.key_path(notes_hist, bars, chords, pause) end
 ---@param chords any
 function paw.harmony.read.keys(notes, bars, chords) end
 
---- One window of the chord reading, from `at`, `length` beats long:
---- `sorted` are the notes sorted by start, `longest` the longest of them,
---- `step` the length of a window.
----@param sorted any
----@param longest any
----@param at any
----@param length any
----@param step any
-function paw.harmony.read.window(sorted, longest, at, length, step) end
+--- The parts of one stretch of time, or of stretches side by side, as
+--- one part: the weights add up, and the lowest pitch over time is the
+--- lowest of theirs. One part that sounds gives that part.
+---@param parts any
+function paw.harmony.read.merge(parts) end
+
+--- What the notes of `run`, `offset` beats later, sound from `from` to
+--- `to` (a `Part`). A note counts for how long it sounds there, a short
+--- note off the beat half; the lowest pitch over time is cut where a note
+--- starts or ends.
+---@param run any
+---@param offset any
+---@param from any
+---@param to any
+function paw.harmony.read.part(run, offset, from, to) end
+
+--- Notes as a `Run`: `notes` sorted by start, in their order.
+---@param notes any
+function paw.harmony.read.run(notes) end
 
 --- Each voicing of the chord in the range of the options, `{ pitches, style }`.
 ---@param tones any

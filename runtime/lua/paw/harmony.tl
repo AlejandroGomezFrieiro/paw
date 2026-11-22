@@ -677,13 +677,9 @@ end
 --- Bring the built-in reading up to date: at once, or for about `budget`
 --- milliseconds. True when it is.
 local function catch_up(budget?: number): boolean
-  local edits = project_edits("edits")
-  if edits ~= edits_seen then
-    song.mark()
-    edits_seen = edits
-  end
-  return song.update(song_options(), budget)
+  return song.update(budget)
 end
+song.setup(song_options)
 
 --- Each note of the pitched tracks, in project beats, each with `track` and
 --- `clip`. The list does not contain muted clips and tracks, or notes that a
@@ -788,7 +784,7 @@ end
 --- immediately. A view that paw draws on each key asks this first, because
 --- to read a long song again takes some time.
 function M.fresh(): boolean
-  return not song.busy(song_options()) and project_edits("edits") == edits_seen and cache.stamp == signature()
+  return not song.busy() and project_edits("edits") == edits_seen and cache.stamp == signature()
 end
 
 --- The key at `beat` in reading `r`.
@@ -1059,32 +1055,12 @@ function M.schedule()
   slices.run("harmony", work, {ms = SLICE, after = 30})
 end
 
--- What the kernel says changed: the tracks to look at again.
-local function mark(e: kernel.Item)
-  song.mark(e.track)
-end
-for _, event in ipairs(
-  {
-    kernel.clip_added,
-    kernel.clip_changed,
-    kernel.clip_removed,
-    kernel.device_added,
-    kernel.device_changed,
-    kernel.device_removed,
-  }
-) do
-  events.on(event, mark)
-end
-for _, event in ipairs({kernel.track_added, kernel.track_changed, kernel.track_removed}) do
-  events.on(event, function(e: kernel.TrackId) song.mark(e.id) end)
-end
-events.on(kernel.project_changed, function() song.retime() end)
+-- What the kernel says changed reaches the reading through paw.derived.
 events.on(
   kernel.project_loaded,
   function()
     -- Another project: nothing of the old one is drawn.
     kinds, cache = {}, {stamp = nil}
-    song.reset()
   end
 )
 events.on(kernel.changed, function() edits_seen = project_edits("edits"); M.schedule() end)

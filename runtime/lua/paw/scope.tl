@@ -966,7 +966,7 @@ end
 -- a project put tracks back where they were).
 events.on(
   kernel.track_changed,
-  function(event: kernel.TrackId)
+  function(event: kernel.TrackChange)
     if not exists(event.id) then
       return
     end

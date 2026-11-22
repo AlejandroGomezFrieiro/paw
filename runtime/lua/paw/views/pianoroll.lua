@@ -1006,6 +1006,14 @@ function view:describe()
   end
   local key = paw.plugins.key_names(part.track)[note.pitch]
   if key then lines[#lines + 1] = "  the instrument calls this key " .. key end
+  -- The chord the note starts in, as paw.harmony reads it. After an edit,
+  -- the reading is made again in slices: until then, K says so.
+  if not paw.harmony.fresh() then
+    lines[#lines + 1] = "  the chord here: reading"
+  else
+    local chord = paw.harmony.at(part.clip:get().start + own.start, true)
+    if chord then lines[#lines + 1] = "  the chord here: " .. chord.name end
+  end
   for _, line in ipairs(more) do
     lines[#lines + 1] = line
   end
