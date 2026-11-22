@@ -46,43 +46,34 @@ What was left then, per `j` in the roll (about 45 ms at load 30): about
 89 ticks of about 0.25 ms each (the timer, the kernel loop and its system
 calls, `only_live`, the stamps), and the whole frame after the key.
 
-### 20 frames a second while only meters fall
+### Frames until the meters rest, at the full rate
 
-The owner's rule: while nothing but falling meters moves (the song does
-not play or count in, and no track listens to its input), paw draws at
-most 20 frames a second. Playback and other motion keep `paw.opt.fps`.
-A played note also keeps the frames going until the meters that it lit
-are at rest (below -60 dB). Before, the frames ended with the poke, 1.5 s
-after the note, while the meter still showed a level: the meter falls
-with a time constant of 0.3 s and needs about 2.1 s.
+A played note now keeps the live frames going until the meters that it
+lit are at rest (below -60 dB). Before, the frames ended with the poke,
+1.5 s after the note, while the meter still showed a level: the meter
+falls with a time constant of 0.3 s and needs about 2.1 s. The last
+frame then showed a lit cell until the next whole frame.
+
+A rule of 20 frames a second while only meters fall was built and
+measured (`j` in the roll 19.0 ms against 51.6 ms on main), then taken
+out: the owner keeps `paw.opt.fps` as an upper limit only, and a frame
+comes only when something that it shows changed. The cost that is left
+is the falling meters at the full rate, and the owner accepts it.
 
 Kernel processor time of one `j` in the roll, the 2 s after the key
 (5 presses a run, median of each run), main (da45a4a0) and the branch
-in turns, 5 pairs, load average 7 to 29, measured under external load:
+in turns, 5 pairs, load average 14 to 23, measured under external load:
 
 | Build | Median of the runs | Smallest | Largest |
 | --- | ---: | ---: | ---: |
-| main | 51.6 ms | 41.7 ms | 75.4 ms |
-| branch | 19.0 ms | 18.1 ms | 30.9 ms |
+| main | 53.1 ms | 52.5 ms | 86.4 ms |
+| branch | 38.1 ms | 35.9 ms | 48.5 ms |
 
-The `keys` scenario, the same two builds in turns, 5 pairs, load
-average 15 to 38 (kernel processor time, median of each run's median of
-5 presses, smallest and largest run):
-
-| Key | main | branch |
-| --- | ---: | ---: |
-| `j` in the arrange view | 7.6 ms (5.2 to 10.9) | 11.9 ms (4.8 to 12.1) |
-| `j in roll` | 68.3 ms (51.9 to 73.5) | 20.5 ms (19.4 to 32.6) |
-| `l in roll` | 4.2 ms (4.0 to 10.2) | 9.5 ms (4.2 to 11.8) |
-
-`j` in the arrange view and `l in roll` show no measurable difference.
-`j in roll` over `j` in the arrange view of the same run is 6.3 to 10.4
-on main and 1.6 to 4.2 (median 2.5) on the branch. The medians of the
-runs give 20.5 against 11.9 ms, 1.7 times. 'drawing the screen' (budget
-5 ms, wall time) still names the whole frame after `j in roll` in every
-run, also at load 15 and 19 (5.2 to 8.5 ms): 55 % of that frame is the
-arrange view above the roll, which is drawn whole although only the
-roll changed.
+The branch is lower in each pair. `j` in the arrange view costs 5 to
+12 ms, so `j` in the roll stays at 3 to 7 times its cost, and 'drawing
+the screen' (budget 5 ms, wall time) still names the whole frame after
+`j in roll`: 55 % of that frame is the arrange view above the roll,
+which is drawn whole although only the roll changed.
 
 ## 2026-11-22: the chord reading on the graph of derived data
 

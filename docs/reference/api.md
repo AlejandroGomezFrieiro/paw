@@ -2233,7 +2233,6 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.ui.menu(items, opts)`: Open a menu of `items` at `opts.x`, `opts.y` on the screen. See the top of the file.
 - `paw.ui.mouse(event)`: Send a mouse event to the view under the pointer, with coordinates relative to that view (and `view_x`, `view_y`, `w`, `h`, the position of the view). First, the floats over the views and a gesture in progress get it (`paw.mouse`).
 - `paw.ui.notify`: the same as `paw.notify`.
-- `paw.ui.only_falling()`: True if only falling meters move now: the song does not play or count in, and no track listens to its input. The frames then come at most 20 times a second, and `paw.opt.fps` is for the rest.
 - `paw.ui.open(name, opts)`: Open a view in a float over the other views. It takes the keyboard until `paw.ui.close()`.
 
   ```lua
@@ -2259,7 +2258,6 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.ui.strip(buf, x, y, w, h, opts)`: Keep an area of a buffer for pixels: see `Buf:strip`. Where it is kept is in `paw.ui.rects.surfaces`: `{ key, name, win, x, y, w, h, cell = { w, h }, under, draw, paint }` each, in cells of the screen (`name` the view that kept it, `win` the id of its window, `paint` for a view's whole drawing, `buf:surface`).
 - `paw.ui.surface(buf, x, y, w, h, name)`: Keep an area of a buffer for a view's pixels: see `Buf:surface`. A strip, kept for the view's window, whose drawing is the view's `paint`.
 - `paw.ui.theme(groups)`: Define many highlight groups at once.
-- `paw.ui.tick_ms()`: How many milliseconds the frames of what moves wait for each other now: `frame_ms`, or 50 while only falling meters move (`only_falling`).
 - `paw.ui.titlebar(buf, opts)`: Draw a title bar of one row along the top of a docked panel, and return a buffer for the rest of it. `opts`: `name`, `pill` (`{ text, group }`, before the name), `context` (after the name), `right` (state, at the right end), `reserve` (columns to keep free at the right end, for the view's own items), `focused`. When the panel has focus, the whole bar is in the accent color, inverted.
 
   ```lua

@@ -8708,11 +8708,6 @@ function paw.ui.mouse(event) end
 
 paw.ui.notify = paw.notify
 
---- True if only falling meters move now: the song does not play or count
---- in, and no track listens to its input. The frames then come at most
---- 20 times a second, and `paw.opt.fps` is for the rest.
-function paw.ui.only_falling() end
-
 --- Open a view in a float over the other views. It takes the keyboard
 --- until `paw.ui.close()`.
 ---   paw.ui.open("help", { title = "Keys", width = 80, height = 30 })
@@ -8835,10 +8830,6 @@ function paw.ui.surface(buf, x, y, w, h, name) end
 --- Define many highlight groups at once.
 ---@param groups any
 function paw.ui.theme(groups) end
-
---- How many milliseconds the frames of what moves wait for each other now:
---- `frame_ms`, or 50 while only falling meters move (`only_falling`).
-function paw.ui.tick_ms() end
 
 --- Draw a title bar of one row along the top of a docked panel, and return
 --- a buffer for the rest of it. `opts`: `name`, `pill` (`{ text, group }`,
