@@ -47,6 +47,7 @@ local type partial = require("paw.partial")
 local type objects = require("paw.objects")
 local type LayoutModule = require("paw.layout")
 local type GroupsModule = require("paw.groups")
+local type FoldsModule = require("paw.folds")
 local type VcaModule = require("paw.vca")
 local type CursorModule = require("paw.cursor")
 local type MarkersModule = require("paw.markers")
@@ -94,6 +95,7 @@ local record Paw is partial.Paw
   ui: UiModule
   layout: LayoutModule
   groups: GroupsModule
+  folds: FoldsModule
   vca: VcaModule
   cursor: CursorModule
   markers: MarkersModule
@@ -264,6 +266,19 @@ end
 --- current one; its stack's keeper.
 local function holder(win?: Window): Window
   return owner(win or L().current())
+end
+
+--- The window whose scope and folds a view shows: the one given, else
+--- the one being drawn, else the current one; for a view that keeps no
+--- stack of its own (the mixer), the arrange window of its tab.
+function M.window(win?: Window): Window
+  return window_of(win)
+end
+
+--- The window whose scope and folds an action changes: the one given,
+--- else the current one; its stack's keeper.
+function M.holder(win?: Window): Window
+  return holder(win)
 end
 
 --- A level, or the first level above it whose source is still there.
@@ -715,11 +730,22 @@ function M.of_clip(id: integer): Scope
 end
 
 --- The scope that `znn` enters at the cursor: the innermost not entered
---- yet. A subproject's clip at the cursor; in a region scope, the region
---- one level inside it at the cursor; else the group at the cursor (its
+--- yet. On a closed time fold (paw/folds.tl), its region or its bars; a
+--- subproject's clip at the cursor; in a region scope, the region one
+--- level inside it at the cursor; else the closed fold of tracks whose row
+--- the cursor is on (paw/folds.tl), else the group at the cursor (its
 --- header or one of its tracks), else the track. Nil when the window shows
 --- that track already.
 function M.at_cursor(): Scope
+  -- A closed time fold at the cursor: its region, or its range of bars.
+  local span = paw.folds.time_at(paw.cursor.beat)
+  if span then
+    local f = span.fold
+    if f.kind == "region" then
+      return {kind = "region", id = f.id}
+    end
+    return {kind = "range", from = span.from, to = span.to, name = f.name}
+  end
   local clip = paw.cursor.clip()
   local nest = clip and M.of_clip(clip.id)
   if nest then
@@ -737,6 +763,14 @@ function M.at_cursor(): Scope
   local id = paw.cursor.track_id()
   if not id or id == 0 then
     return nil
+  end
+  local fold = paw.folds.row(id)
+  if fold then
+    local tracks: {integer} = {}
+    for i, t in ipairs(fold.tracks) do
+      tracks[i] = t
+    end
+    return {kind = "tracks", tracks = tracks, name = fold.name}
   end
   local entered: {integer: boolean} = {}
   for _, level in ipairs(M.path()) do

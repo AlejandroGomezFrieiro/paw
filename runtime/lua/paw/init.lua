@@ -203,6 +203,8 @@ paw.lang = require("paw.lang")
 paw.ext = require("paw.ext")
 paw.vca = require("paw.vca")
 paw.groups = require("paw.groups")
+-- The folds of each window: tracks drawn as one row (paw/folds.tl).
+paw.folds = require("paw.folds")
 paw.lanes = require("paw.lanes")
 -- The track column and the ruler's bar labels, which extensions add to.
 paw.trackcolumn = require("paw.trackcolumn")

@@ -170,6 +170,37 @@ test("in a scope a clip across its edges is in the scene with the cuts, for a wi
 end)
 
 test(
+  "a time fold is in the scene: its column on the ruler, a clip across it in two cut pieces, the playhead's jumps",
+  function()
+    local _, _, riff = song()
+    T.after(function() paw.folds.clear() end)
+    paw.folds.make({ kind = "range", from = 5, to = 7 })
+    local pieces = {}
+    for _, n in ipairs(nodes_of("clip")) do
+      if n.props.id == riff.id then pieces[#pieces + 1] = n end
+    end
+    table.sort(pieces, function(x, y) return x.r[1] < y.r[1] end)
+    -- "Fold 1 ▸ 1" and a cell on each side: 12 cells, 4 beats of the view at 3 a beat.
+    eq(#pieces, 2, "two pieces")
+    eq(
+      pieces[1].r[1] .. " " .. tostring(pieces[1].props.cut_in) .. " " .. pieces[1].props.cut_out,
+      "4 nil 1",
+      "the first cut at the fold"
+    )
+    eq(
+      pieces[2].r[1] .. " " .. pieces[2].props.cut_in .. " " .. tostring(pieces[2].props.cut_out),
+      "6 3 nil",
+      "the second after its column"
+    )
+    local playhead = nodes_of("playhead")[1]
+    eq(api.json_encode(playhead.props.jumps), "[[5,7,4]]", "the playhead jumps the fold")
+    api.scene_forget(0)
+    local text = api.json_encode(redraw())
+    eq(text:find("Fold 1", 1, true) ~= nil, true, "the column's name is in the scene's cells")
+  end
+)
+
+test(
   "in a window a clip dragged by fractions of a cell moves on the grid by the beats it went, and to another track",
   function()
     local _, b, riff, _, at = song()

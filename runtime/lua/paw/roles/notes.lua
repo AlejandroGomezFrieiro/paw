@@ -93,7 +93,10 @@ role("keyboard", {
 --- a terminal draws the line only there, in each one's style (`glyph`
 --- false keeps the character under it), and a window draws it whole.
 --- `spans_at(x)`, a function, gives the spans at another column `x`: a
---- terminal moves the playhead by itself as the song plays.
+--- terminal moves the playhead by itself as the song plays. With `jumps`
+--- (`{ from, to, width }` each, in order: the time folds of the view, each
+--- drawn `width` beats wide), `from` is a place in the view's beats, and
+--- the playhead waits on a fold's column while the song plays through it.
 role("playhead", {
   props = {
     at = "beat",
@@ -102,11 +105,25 @@ role("playhead", {
     lo = "beat",
     hi = "beat",
     spans = "list",
+    jumps = "list",
   },
   bound = { "at" },
   cells = function(buf, p)
     local g = paw.draw.g
-    local x = math.floor((p.at - p.from) * p.per + 0.5)
+    local at = p.at
+    if p.jumps then
+      local cut, on = 0, nil
+      for _, j in ipairs(p.jumps) do
+        if p.at <= j[1] then break end
+        if p.at < j[2] then
+          on = j[1] - cut
+          break
+        end
+        cut = cut + j[2] - j[1] - j[3]
+      end
+      at = on or p.at - cut
+    end
+    local x = math.floor((at - p.from) * p.per + 0.5)
     if x < 0 or x >= buf.width or p.at < p.lo or p.at > p.hi then return end
     local spans = p.spans_at and p.spans_at(x) or p.spans
     if spans then
