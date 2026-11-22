@@ -280,16 +280,16 @@
         touch $out
       '';
 
-      # `tl check` on every Teal file, strict, with the Teal of nixpkgs: the
-      # version runtime/lua/tl.lua is (0.24.8).
+      # `cyan check` on every Teal file (tools/tlcheck.sh), with the Teal of
+      # nixpkgs: the version runtime/lua/tl.lua is (0.24.8).
       tealCheck = pkgs: pkgs.runCommand "paw-teal-check" {
         src = nixpkgs.lib.fileset.toSource {
           root = ./.;
           fileset = nixpkgs.lib.fileset.unions [ ./runtime ./config ./extensions ./tlconfig.lua ./tools/tlcheck.sh ];
         };
-        nativeBuildInputs = [ pkgs.luajitPackages.tl ];
+        nativeBuildInputs = [ (luaTools pkgs).cyan ];
       } ''
-        sh $src/tools/tlcheck.sh tl
+        sh $src/tools/tlcheck.sh cyan
         touch $out
       '';
 
@@ -313,7 +313,7 @@
       });
 
       # `nix flake check`: clippy, rustfmt, the Rust tests a sandbox can run,
-      # the program itself, Vale on the docs, and `tl check` on the Teal.
+      # the program itself, Vale on the docs, and `cyan check` on the Teal.
       checks = forAll (pkgs: (rust pkgs).checks // { paw = paw pkgs; docs = docsCheck pkgs; teal = tealCheck pkgs; });
 
       apps = forAll (pkgs:

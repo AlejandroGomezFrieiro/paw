@@ -1,4 +1,4 @@
--- Teal's configuration for the source tree (`tl check`, editors, and
+-- Teal's configuration for the source tree (`cyan check`, `tl check`, editors and
 -- `paw.lang.check`): the `paw` global comes from runtime/types/paw.d.tl, which
 -- tools/apidoc.lua makes, and the runtime's own modules are found by name.
 return {

@@ -108,7 +108,7 @@ nix develop -c tests/tools/suite.sh            # the Lua tests
 nix develop -c tests/tools/suite.sh only <words>
 nix develop -c cargo test --release -p <crate> # the Rust tests of a crate
 nix develop -c target/release/paw --clean --no-plugins -l tools/apidoc.lua check
-nix develop -c tools/tlcheck.sh                 # tl check on each .tl file (the suite does it too)
+nix develop -c tools/tlcheck.sh                 # cyan check on all .tl files (the suite does it too)
 nix develop -c tools/vale.sh                   # the docs
 nix flake check                                # all of the checks
 ```
