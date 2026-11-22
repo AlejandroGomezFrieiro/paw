@@ -34,7 +34,9 @@ Use the helpers of `T`. Do not copy them into a file (a local `start`,
 
 | Helper | Use |
 | --- | --- |
-| `T.fresh()` | A new project and the start layout. Call it first in each test that needs a project. |
+| `T.fresh()` | A new project, the start layout, normal mode and no float. Call it first in each test that needs a project. |
+| `T.start()` | `T.fresh()`, then `<Esc><Esc>`: the start of a test that types keys. |
+| `T.screen(w, h)` | The text of the screen, 120 by 40 if no size is given. |
 | `T.after(fn)` | Put back what the test changed. It runs after the test, also after a failure. |
 | `T.keys(text)` | Feed keys through the keymap, as the user types them (`"<Esc>dd"`). |
 | `T.eq(got, want, what)`, `T.near(got, want, tolerance, what)` | Compare a value. `what` tells what the value is. |
@@ -49,8 +51,6 @@ Use the helpers of `T`. Do not copy them into a file (a local `start`,
 
 Planned helpers:
 
-- `T.start()` and `T.screen(w, h)`, and the leak check after each file
-  (TASK-121).
 - `T.settle()`, `T.advance(ms)`, `T.advance_until(cond, what, ms)` and a
   `T.until_` that fails at quiescence (TASK-146). Then `paw.wait(ms)`
   advances a virtual clock.
@@ -63,7 +63,15 @@ Planned helpers:
 A test makes all the state that it reads.
 
 - Start from `T.fresh()`. Set each option that the test needs. Do not
-  rely on an option, a window or a mode that an earlier test left.
+  rely on an option, a window or a mode that an earlier test left. The
+  runner gives back the options of the start of the run after each test.
+  `T.fresh()` does not change the options: an option that the test set
+  before it stays until the test ends.
+- After each file of `tests/`, and after the files of each extension, the
+  runner unloads the extensions that the tests loaded and removes the
+  hooks, timers and key mappings that test code made. A test file that
+  leaves one fails "`<part>` leaves no state behind". Do not add a line to
+  `tests/leaks-allowed.txt`.
 - Take ids from the kernel (the value that a call returns). Never write
   a literal id of a track, a device, a clip or a lane.
 - Write files under `T.scratch`. Never write in the checkout or in the
@@ -204,6 +212,7 @@ tools/dev-runtime.sh                                   # target/dev-runtime
 PAW_TEST_BIN=<dir of paw> PAW_RUNTIME=$PWD/target/dev-runtime \
   tests/tools/suite.sh only "<words>"                  # some tests
 tests/tools/suite.sh                                   # all tests (the orchestrator, before a push)
+tests/tools/suite.sh -j 2                              # the same in 2 processes (4 at most)
 tests/tools/suite.sh plugins "<words>"                 # with the test plugins
 tools/tlcheck.sh                                       # Teal types
 luacheck .                                             # unused and undefined names

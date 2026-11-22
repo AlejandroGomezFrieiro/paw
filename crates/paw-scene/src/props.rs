@@ -247,13 +247,15 @@ pub struct NoteProps<'a> {
     pub bend_at: f64,
 }
 
-/// A piano down a roll: `top` the pitch of its first row, `cursor` the
+/// A piano down a roll: `top` the pitch of its first row, `per` the rows
+/// of a pitch (1 when not given: the roll's vertical zoom), `cursor` the
 /// cursor's pitch; `names` and `labels`, `{ pitch, name }` each, what keys
 /// are called; `sounding`, the pitches that sound at the cursor.
 #[derive(Debug, Default, Deserialize)]
 #[serde(default)]
 pub struct KeyboardProps<'a> {
     pub top: Option<i64>,
+    pub per: Option<i64>,
     pub cursor: Option<i64>,
     /// @type {{integer, string}}
     #[serde(borrow)]
