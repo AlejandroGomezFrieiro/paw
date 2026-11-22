@@ -14,7 +14,8 @@ local role = paw.roles.define
 --- put one, which a terminal draws without the mark. `bend` is the note's
 --- own pitch bend at its end, in semitones, from `bend_at` (0 to 1) of its
 --- length: a terminal ends the note with an arrow up or down, a window
---- draws the line the pitch takes.
+--- draws the line the pitch takes. A note on rows taller than one (the
+--- piano roll's vertical zoom) fills them, its mark on the first.
 role("note", {
   props = {
     label = "string",
@@ -30,7 +31,7 @@ role("note", {
   },
   cells = function(buf, p)
     local w = buf.width
-    buf:fill(0, 0, w, 1, " ", p.style)
+    buf:fill(0, 0, w, math.max(1, buf.height), " ", p.style)
     if p.ghost then
       if w >= 4 and p.label then buf:text(1, 0, tostring(p.label):sub(1, w - 1), p.style) end
       return
@@ -45,7 +46,8 @@ role("note", {
   end,
 })
 
---- The keyboard down the left of a roll, a row a pitch from `top` down:
+--- The keyboard down the left of a roll, `per` rows a pitch (1 when not
+--- given) from `top` down:
 --- white and black keys, the C of each octave named, the row of the
 --- keyboard's cursor (`cursor`) lit and named, `names` (`{ pitch, name }`
 --- each: what the instrument calls a key) and `labels` (`{ pitch, label,
@@ -54,6 +56,7 @@ role("note", {
 role("keyboard", {
   props = {
     top = "pitch of the first row",
+    per = "rows of a pitch",
     cursor = "pitch",
     names = "list of { pitch, name }",
     labels = "list of { pitch, label, style }",
@@ -70,16 +73,19 @@ role("keyboard", {
     for _, pitch in ipairs(p.sounding or {}) do
       sounds[pitch] = true
     end
-    local w = buf.width
+    local w, per = buf.width, math.max(1, p.per or 1)
     for row = 0, buf.height - 1 do
-      local pitch = p.top - row
+      local pitch = p.top - math.floor(row / per)
       if pitch < 0 then break end
-      paw.draw.piano_key(buf, row, pitch, pitch == p.cursor, w, names[pitch])
+      -- A key's names and marks on its first row, the line between E and
+      -- F (B and C) under its last.
+      local first, last = row % per == 0, row % per == per - 1
+      paw.draw.piano_key(buf, row, pitch, pitch == p.cursor, w, names[pitch], { label = first, line = last })
       local look = labels[pitch]
-      if look and pitch ~= p.cursor then
+      if first and look and pitch ~= p.cursor then
         buf:text(0, row, paw.util.fit(look[2], w - 1) .. " ", look[3] or "PianoWhite")
       end
-      if sounds[pitch] then buf:text(w - 1, row, "•", "PianoCursor") end
+      if first and sounds[pitch] then buf:text(w - 1, row, "•", "PianoCursor") end
     end
   end,
 })

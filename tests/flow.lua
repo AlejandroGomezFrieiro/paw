@@ -273,21 +273,12 @@ end)
 
 -- Sizes -----------------------------------------------------------------------
 
-test("Ctrl-w + and - change track height, = makes it automatic", function()
+test("track height auto: two tracks on 30 rows get the most rows", function()
   start()
-  local th = paw.opt.track_height
-  paw.opt.track_height = 3
-  paw.keymap.feed("<C-w>+")
-  eq(paw.opt.track_height, 4, "taller")
-  paw.keymap.feed("2<C-w>-")
-  eq(paw.opt.track_height, 2, "a count steps further")
-  paw.keymap.feed("<C-w>=")
-  eq(paw.opt.track_height, "auto", "automatic")
   paw.add_track({ name = "A" })
   paw.add_track({ name = "B" })
   screen(100, 30)
   eq(paw.ui.views.arrange.geometry.th, 4, "two tracks on 30 rows get the most")
-  paw.opt.track_height = th
 end)
 
 test("Ctrl-w < and > change the side panel's width or the header width; sizes are options", function()

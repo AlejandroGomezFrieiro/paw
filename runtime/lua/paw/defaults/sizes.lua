@@ -58,18 +58,17 @@ local function arrange_alone()
   return paw.ui.focused == "arrange" and #wins == 1 and wins[1].view == "arrange"
 end
 
+-- The height of tracks, lanes and keys is the vertical zoom
+-- (paw/vzoom.tl: `<C-=>`, `<C-->`, `<C-0>`, `z+`, `z-`, `z=`); these
+-- keys size windows only.
 command("view.height", function(ctx)
   local by = (tonumber(ctx.args[1]) or 1) * (ctx.count or 1)
   local name = paw.ui.focused
   local node, in_row = layout_node(name)
   if name ~= "arrange" and node and not in_row then return resize(name .. "_height", by, name, "height", 3) end
-  if not arrange_alone() and paw.layout.resize(nil, "height", by, true) then return end
-  -- From "auto", from the height the tracks have now.
-  local now = tonumber(paw.opt.track_height)
-  if not now or now <= 0 then now = paw.ui.views.arrange.geometry and paw.ui.views.arrange.geometry.th or 3 end
-  paw.opt.track_height = util.clamp(now + by, 1, 12)
-  paw.notify("track height " .. paw.opt.track_height)
-end, { desc = "Taller tracks, or a taller panel: `view.height 2`, `view.height -1`" })
+  if paw.layout.resize(nil, "height", by, true) then return end
+  paw.notify("no window above or below to share the height with · `Ctrl-=` or `z+` makes the rows taller", "warn")
+end, { desc = "A taller window, or a taller panel: `view.height 2`, `view.height -1`" })
 command("view.width", function(ctx)
   local by = (tonumber(ctx.args[1]) or 2) * (ctx.count or 1)
   local name = paw.ui.focused
@@ -83,11 +82,7 @@ command("view.width", function(ctx)
   paw.opt.header_width = util.clamp(now + by, 8, 60)
   paw.notify("header width " .. paw.opt.header_width)
 end, { desc = "A wider side panel, or track header in the arrange view: `view.width 4`, `view.width -2`" })
-command("view.equal", function()
-  if not arrange_alone() then return paw.layout.equalize() end
-  paw.opt.track_height = "auto"
-  paw.notify("track height fits the tracks to the screen")
-end, { desc = "Windows of equal size; with the arrange view alone, track height back to automatic" })
+command("view.equal", function() paw.layout.equalize() end, { desc = "Windows of equal size" })
 command("view.maximize", function()
   if paw.layout.maximize() then
     paw.notify(paw.ui.focused .. " fills the screen; `Ctrl-w _` again puts the others back")
@@ -96,9 +91,30 @@ end, { desc = "Give the focused window the whole tab, or put the others back" })
 
 map("<C-w>d", "view.dock", { desc = "Put a view in a window of its own back in the main window, as a pane" })
 map("<C-^>", function() paw.layout.alternate() end, { desc = "Show what this window showed before, as `:b #` does" })
-map("<C-w>+", "view.height 1", { desc = "Taller window; with the arrange view alone, taller tracks" })
-map("<C-w>-", "view.height -1", { desc = "Shorter window; with the arrange view alone, shorter tracks" })
-map("<C-w>=", "view.equal", { desc = "Windows of equal size; with the arrange view alone, track height automatic" })
+map("<C-w>+", "view.height 1", { desc = "Taller window" })
+map("<C-w>-", "view.height -1", { desc = "Shorter window" })
+map("<C-w>=", "view.equal", { desc = "Windows of equal size" })
+
+-- Vertical zoom (paw/vzoom.tl). Most terminals send nothing of their own
+-- for Ctrl with = - 0 (paw-tui asks for no keyboard protocol), so `z+`
+-- `z-` `z=` do the same everywhere; the graphical window sends both.
+local nx = { "n", "x" }
+local taller = "Taller rows: tracks (a selection or a count: those tracks), the lane at the cursor, piano roll keys"
+local shorter = "Shorter rows: tracks (a selection or a count: those tracks), the lane at the cursor, piano roll keys"
+local fit = "Rows as tall as the options say: tracks fit the window again, one row per piano roll key"
+for _, k in ipairs({
+  { { "<C-=>", "<C-+>" }, "z+", "vzoom 1", taller },
+  { { "<C-->" }, "z-", "vzoom -1", shorter },
+  { { "<C-0>" }, "z=", "vzoom fit", fit },
+}) do
+  for _, lhs in ipairs(k[1]) do
+    map(lhs, k[3], {
+      mode = nx,
+      desc = k[4] .. " (the graphical window; most terminals do not send it: `" .. k[2] .. "` works everywhere)",
+    })
+  end
+  map(k[2], k[3], { mode = nx, desc = k[4] })
+end
 map("<C-w><lt>", "view.width -2", { desc = "Narrower window; with the arrange view alone, track headers" })
 map("<C-w>>", "view.width 2", { desc = "Wider window; with the arrange view alone, track headers" })
 map("<C-w>_", "view.maximize", { desc = "Give the window the whole tab, or put the others back" })

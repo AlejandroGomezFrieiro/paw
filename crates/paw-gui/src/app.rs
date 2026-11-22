@@ -64,12 +64,6 @@ impl Kernel for Client {
     }
 }
 
-/// Taller or shorter tracks in the arrange view, by `...` rows, from the
-/// height they have now.
-const TRACK_HEIGHT: &str = "local by = ...; local v = paw.ui.views.arrange; \
-local now = tonumber(paw.opt.track_height) or (v.geometry and v.geometry.th) or 3; \
-paw.opt.track_height = paw.util.clamp(now + by, 1, 12)";
-
 /// How long a message of the window's own stays.
 const MESSAGE_TIME: Duration = Duration::from_secs(5);
 
@@ -544,10 +538,10 @@ impl View {
     }
 
     /// Keys typed in a window of the program's: to the kernel's mappings,
-    /// Ctrl with a few for zoom.
+    /// Ctrl with the up and down keys for the vertical zoom.
     pub fn window_keys(&mut self, events: &[egui::Event]) {
         let in_roll = self.s.focused() == "pianoroll";
-        // Ctrl with + - 0 and the arrows zoom; the rest are the kernel's.
+        // Ctrl with the up and down keys zoom; the rest are the kernel's.
         let events: Vec<egui::Event> = events
             .iter()
             .filter(|event| match event {
@@ -565,16 +559,14 @@ impl View {
         }
     }
 
-    /// Zoom: Ctrl with + and - in time (the focused view's, as `zi` and
-    /// `zo` do), with 0 for the whole song, with the up and down keys for
-    /// the height of the tracks.
+    /// Ctrl with the up and down keys: shorter and taller rows, the
+    /// vertical zoom of the focused view (paw/vzoom.tl). Ctrl with = - 0
+    /// go to the kernel's key mappings, which zoom the same way, and Ctrl
+    /// with the wheel zooms in time.
     fn window_key(&mut self, key: egui::Key) -> bool {
         match key {
-            egui::Key::Plus | egui::Key::Equals => self.command("zoom by=1.4142"),
-            egui::Key::Minus => self.command("zoom by=0.7071"),
-            egui::Key::Num0 => self.command("zoom fit"),
-            egui::Key::ArrowUp => self.eval(TRACK_HEIGHT, json!([-1])),
-            egui::Key::ArrowDown => self.eval(TRACK_HEIGHT, json!([1])),
+            egui::Key::ArrowUp => self.command("vzoom -1"),
+            egui::Key::ArrowDown => self.command("vzoom 1"),
             _ => return false,
         }
         true

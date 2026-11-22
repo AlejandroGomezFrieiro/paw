@@ -320,6 +320,9 @@ paw.util = {}
 ---@class paw.vca
 paw.vca = {}
 
+---@class paw.vzoom
+paw.vzoom = {}
+
 ---@class paw.xml
 paw.xml = {}
 
@@ -2600,14 +2603,16 @@ function paw.draw.pan_text(pan) end
 
 --- One row of a keyboard on its side, `width` cells wide, for the left edge
 --- of a piano roll. Black keys are short. The Cs have their names, and the
---- pitch of the cursor has its name too.
+--- pitch of the cursor has its name too. A key taller than a row shows its
+--- names on its first row and its line on its last (`part`).
 ---@param buf any
 ---@param row any
 ---@param pitch any
 ---@param cursor any
 ---@param width any
 ---@param name any
-function paw.draw.piano_key(buf, row, pitch, cursor, width, name) end
+---@param part any
+function paw.draw.piano_key(buf, row, pitch, cursor, width, name, part) end
 
 --- Forget the shades made until now. Call it after the palette changes.
 function paw.draw.reset() end
@@ -9388,6 +9393,45 @@ function paw.vca.of(track) end
 ---@param track any
 ---@param vca any
 function paw.vca.unassign(track, vca) end
+
+--- Whether some tracks of the arrange view's window have rows of their own.
+function paw.vzoom.any_own() end
+
+--- Add the vertical zoom of a view: `zoomer.step(by, opts)` and
+--- `zoomer.fit(opts)`, each returning what it did. nil removes it.
+---   paw.vzoom.define("notation", { step = function(by) ... return "staff size 5" end,
+---     fit = function() ... return "staff size as the option says" end })
+---@param view any
+---@param zoomer any
+function paw.vzoom.define(view, zoomer) end
+
+--- Give back the rows the options say: the focused view's, or `opts.view`'s.
+---@param opts any
+function paw.vzoom.fit(opts) end
+
+--- Rows per key in the piano roll: 1 unzoomed.
+function paw.vzoom.key_rows() end
+
+--- Rows per automation lane shown as a row in the arrange view: 2 unzoomed.
+function paw.vzoom.lane_rows() end
+
+--- The rows of a track of its own in the arrange view's window, or nil.
+---@param id any
+function paw.vzoom.rows_of(id) end
+
+--- Make the rows of a view `by` taller (shorter when negative): the
+--- focused view's, or `opts.view`'s.
+---@param by any
+---@param opts any
+function paw.vzoom.step(by, opts) end
+
+--- Rows per track in the arrange view's window, or nil for the option's.
+function paw.vzoom.track_rows() end
+
+--- The window of `view` whose zoom is meant: the one being drawn, the
+--- focused one, else the one whose state the view has now.
+---@param view any
+function paw.vzoom.window(view) end
 
 --- The first child of an element with a name, or nil.
 ---@param el any

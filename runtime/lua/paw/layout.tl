@@ -228,6 +228,7 @@ local record SpecNode is {string | SpecNode}
   scope: {types.SavedScope}
   folds: {types.SavedFold}
   foldlevel: integer
+  vzoom: types.SavedVZoom
 end
 local type Spec = string | SpecNode
 
@@ -1906,6 +1907,7 @@ function M.split(opts: SplitOptions): Node, string
   win.scope = cur and cur.scope
   win.folds = cur and copy_folds(cur.folds)
   win.foldlevel = cur and cur.foldlevel
+  win.vzoom = cur and copy(cur.vzoom)
   local root = t.layout
   local parent, at: Node, integer
   if cur then
@@ -2541,6 +2543,7 @@ local function export(node: Node, scopes?: boolean): SpecNode
     end
     if scopes then
       out.foldlevel = node.foldlevel
+      out.vzoom = copy(node.vzoom) as types.SavedVZoom
     end
     if node.opts and next(node.opts) then
       out.opts = copy(node.opts)
@@ -2621,6 +2624,7 @@ local function import(spec: Spec): Node
     win.scope = scope_chain(node_spec.scope)
     win.folds = copy_folds(node_spec.folds as {contracts.Fold})
     win.foldlevel = node_spec.foldlevel
+    win.vzoom = copy(node_spec.vzoom) as contracts.VZoom
     if M.types[name] then
       win.buf = M.buf_create(name, node_spec.target).id
     else
@@ -3503,10 +3507,11 @@ function M.setup()
   events.on(
     kernel.project_loaded,
     function()
-      -- The scopes and folds were the last project's: its tracks and regions.
+      -- The scopes, folds and heights were the last project's: its
+      -- tracks and regions.
       local function wide()
         for _, tw in ipairs(M.all_windows()) do
-          tw.win.scope, tw.win.folds, tw.win.foldlevel = nil, nil, nil
+          tw.win.scope, tw.win.folds, tw.win.foldlevel, tw.win.vzoom = nil, nil, nil, nil
         end
       end
       for _, id in ipairs(seats.list()) do

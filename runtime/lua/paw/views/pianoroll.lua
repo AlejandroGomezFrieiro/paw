@@ -191,9 +191,10 @@ view.layers = {}
 --- what is marked there a window paints where it is, between cells),
 --- `clip` (the active one), `data` (its fields), `parts` (every clip
 --- edited, see `paw.roll_clips`), `x(beat)` (a column of the roll),
---- `row(pitch)` (a row, nil when off screen), `scroll`, `from` and `to`
---- (the beats that show), `zoom`, `top`, `rows`, `width`, `focused` and
---- `hue`. Beats are the roll's: the active clip's. Both frontends show
+--- `row(pitch)` (its first row, nil when off screen), `scroll`, `from`
+--- and `to` (the beats that show), `zoom`, `top`, `rows` (the pitches
+--- shown), `per` (the rows of a pitch: the window's vertical zoom),
+--- `width`, `focused` and `hue`. Beats are the roll's: the active clip's. Both frontends show
 --- what a layer draws. A chip that does something is a hit region,
 --- `p.roll:hit(x, y, w, 1, { kind = "act", act = name, arg = arg, tip = text })`:
 --- a click calls `paw.frontend.act[name](clip, arg)`, and `tip` is what the
@@ -224,7 +225,7 @@ view.layer("context", 10, function(L)
     if row and n.start < L.to and n.start + n.length > L.from then
       local x0 = math.floor((n.start - L.from) * L.zoom + 0.5)
       local x1 = math.floor((n.start + n.length - L.from) * L.zoom + 0.5)
-      L.roll:fill(x0, row, math.max(1, x1 - x0), 1, glyph, paw.draw.hue(n.color).body)
+      L.roll:fill(x0, row, math.max(1, x1 - x0), L.per, glyph, paw.draw.hue(n.color).body)
     end
   end
 end)
@@ -510,7 +511,11 @@ function view:render(buf, ctx)
   self.head = head
   -- A wide roll has a scroll bar through the pitches in a column of its own.
   local bar = titled and 1 or 0
-  local rows, tw = h - head - vel, w - KEYS - bar
+  -- The grid's lines, and the keys on them: a key is `per` lines tall
+  -- with the window's vertical zoom (paw/vzoom.tl).
+  local per = paw.vzoom.key_rows()
+  local grid_h, tw = h - head - vel, w - KEYS - bar
+  local rows = math.max(1, math.floor(grid_h / per))
   -- Opened by the pointer (`fit_next`), zoomed in as far as the clips and
   -- a bar after them fill the width, never out.
   if self.fit_next then
@@ -542,7 +547,8 @@ function view:render(buf, ctx)
     end
   end
   self.scroll = math.max(math.min(0, math.floor(lo)), self.scroll)
-  self.geometry = { rows = rows, zoom = zoom, keys = KEYS, head = head, vel = vel, span = span }
+  self.geometry =
+    { rows = rows, lines = grid_h, per = per, zoom = zoom, keys = KEYS, head = head, vel = vel, span = span }
 
   -- Title: the active clip in its track's colour, the track and how many
   -- clips are edited, where the cursor is and the chord sounding there; on
@@ -581,7 +587,7 @@ function view:render(buf, ctx)
   -- the chords that sound, read over every pitched track, and the key.
   buf:fill(0, head - 1, w, 1, " ", "Ruler")
   buf:hit(0, head - 1, w, 1, { kind = "ruler" })
-  local roll = buf:sub(KEYS, head, tw, rows)
+  local roll = buf:sub(KEYS, head, tw, grid_h)
   local ruler = buf:sub(KEYS, head - 1, tw, 1)
   if chords_row then
     buf:fill(0, chords_row, w, 1, " ", "Ruler")
@@ -629,11 +635,11 @@ function view:render(buf, ctx)
   local start_x = math.floor((lo - self.scroll) * zoom + 0.5)
   local end_x = math.floor((hi - self.scroll) * zoom + 0.5)
   local names, labels = {}, {}
-  for row = 0, rows - 1 do
-    local pitch = self.top - row
+  for row = 0, rows * per - 1 do
+    local pitch = self.top - math.floor(row / per)
     local look = view.row_look(pitch, c.track) or {}
-    if key_names[pitch] then names[#names + 1] = { pitch, key_names[pitch] } end
-    if look.label then labels[#labels + 1] = { pitch, look.label, look.style } end
+    if row % per == 0 and key_names[pitch] then names[#names + 1] = { pitch, key_names[pitch] } end
+    if row % per == 0 and look.label then labels[#labels + 1] = { pitch, look.label, look.style } end
     roll:fill(0, row, tw, 1, " ", look.shade or (music.is_black(pitch) and "RollRowBlack" or "RollRow"))
     if steps then roll:text(0, row, steps, music.is_black(pitch) and "RollStepBlack" or "RollStep") end
     for _, line in ipairs(lines) do
@@ -644,8 +650,9 @@ function view:render(buf, ctx)
     if start_x > 0 then roll:fill(0, row, math.min(tw, start_x), 1, nil, outside) end
     if end_x < tw then roll:fill(math.max(0, end_x), row, tw, 1, nil, outside) end
   end
-  buf:mark("keyboard", 0, head, KEYS, rows, {
+  buf:mark("keyboard", 0, head, KEYS, grid_h, {
     top = self.top,
+    per = per,
     cursor = self.pitch,
     names = names,
     labels = labels,
@@ -657,7 +664,7 @@ function view:render(buf, ctx)
   -- with a cap on the ruler: one that starts where it stands is drawn
   -- whole, from where it starts. A window moves it as the song plays.
   local t = api.transport_get()
-  buf:mark("playhead", KEYS, head - 1, tw, rows + 1, {
+  buf:mark("playhead", KEYS, head - 1, tw, grid_h + 1, {
     at = t.position,
     from = c.start + self.scroll,
     per = zoom,
@@ -669,11 +676,11 @@ function view:render(buf, ctx)
   -- The grid as a plane: beats along from the left edge, a row a pitch
   -- down from the top. What the layers mark on it a window paints where
   -- it is; a press on its empty part is on the grid.
-  local plane = buf:plane(KEYS, head, tw, rows, {
+  local plane = buf:plane(KEYS, head, tw, grid_h, {
     key = "roll",
     hit = { kind = "grid" },
     x = { domain = "beat", from = self.scroll, per = zoom },
-    y = { domain = "pitch", from = self.top + 1, per = -1 },
+    y = { domain = "pitch", from = self.top + 1, per = -per },
   })
 
   -- The layers, back to front. Only what is on screen crosses over from the core.
@@ -689,6 +696,7 @@ function view:render(buf, ctx)
     to = self.scroll + span,
     top = self.top,
     rows = rows,
+    per = per,
     zoom = zoom,
     width = tw,
     focused = ctx.focused,
@@ -699,21 +707,21 @@ function view:render(buf, ctx)
     x = function(beat) return math.floor((beat - self.scroll) * zoom + 0.5) end,
     row = function(pitch)
       local row = self.top - pitch
-      return row >= 0 and row < rows and row or nil
+      return row >= 0 and row < rows and row * per or nil
     end,
   }
   paint_layers(L)
 
   -- How hard each note on screen is played, along the bottom.
   if vel > 0 then
-    local lane = buf:sub(KEYS, head + rows, tw, vel)
-    buf:fill(0, head + rows, w, vel, " ", "VelocityLane")
-    buf:hit(0, head + rows, w, vel, { kind = "velocity" })
+    local lane = buf:sub(KEYS, head + grid_h, tw, vel)
+    buf:fill(0, head + grid_h, w, vel, " ", "VelocityLane")
+    buf:hit(0, head + grid_h, w, vel, { kind = "velocity" })
     -- What it shows, which a click on it chooses.
     local shown = require("paw.views.pianoroll_strip").shown()
     local caret = paw.opt.ascii and "v" or "▾"
     local name = shown.short
-    buf:mark("button", 0, head + rows + vel - 1, KEYS, 1, {
+    buf:mark("button", 0, head + grid_h + vel - 1, KEYS, 1, {
       text = " " .. name .. " " .. caret,
       menu = true,
       style = "VelocityLane",
@@ -756,19 +764,19 @@ function view:render(buf, ctx)
     elseif selection.kind == "char" then
       y0, y1 = 0, rows - 1
     end
-    if x1 > x0 and y1 >= y0 then roll:fill(x0, y0, x1 - x0, y1 - y0 + 1, nil, "Visual") end
+    if x1 > x0 and y1 >= y0 then roll:fill(x0, y0 * per, x1 - x0, (y1 - y0 + 1) * per, nil, "Visual") end
   end
 
   local cx = math.floor((self.beat - self.scroll) * zoom + 0.5)
   local cw = math.max(1, math.floor(grid * zoom))
   if not under_place or selection or inserting then
-    roll:fill(cx, self.top - self.pitch, cw, 1, nil, inserting and "InsertCursor" or "RollCursor")
+    roll:fill(cx, (self.top - self.pitch) * per, cw, per, nil, inserting and "InsertCursor" or "RollCursor")
   end
 
   -- Where the view is among the pitches, down its right side.
   if bar > 0 then
-    buf:fill(KEYS + tw, head, 1, rows, " ", "RollRowBlack")
-    buf:mark("scrollbar", KEYS + tw, head, 1, rows, {
+    buf:fill(KEYS + tw, head, 1, grid_h, " ", "RollRowBlack")
+    buf:mark("scrollbar", KEYS + tw, head, 1, grid_h, {
       axis = "y",
       from = 127 - self.top,
       span = rows,

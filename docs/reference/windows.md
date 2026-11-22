@@ -41,7 +41,7 @@ or `Ctrl-w n`. The start page is a buffer type, `empty`, with a buffer for each 
 
 - A view says what part of the room it keeps where windows share it (`share` in [Lua views](lua-views.md)). Sometimes three or more panels are one above the other, and then the arrange view keeps a third of the rows (as `Ctrl-w =` gives it), and the notation view takes half or less.
 - In a column, the arrange view keeps two fifths of the rows. The panels with a size of their own give rows last.
-- In a panel whose height is an option (`mixer_height`), `Ctrl-w +` and `Ctrl-w -` change that option.
+- In a panel whose height is an option (`mixer_height`), `Ctrl-w +` and `Ctrl-w -` change that option. Elsewhere they change the height of the window only. The height of tracks and keys is the vertical zoom (`Ctrl-=`, see [The arrange view](arrange-view.md#vertical-zoom)).
 
 ## Splits
 
