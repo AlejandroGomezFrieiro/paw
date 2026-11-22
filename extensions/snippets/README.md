@@ -1,9 +1,6 @@
-# snippets: a first set of snippets
+# snippets
 
-Snippets for the snippet engine of the core (`paw.snippet`), as
-friendly-snippets is for LuaSnip. They write chords that lead into the
-next chord of the song, parts made of the chords that are there, and
-voices for a selection.
+This extension is a first set of snippets for the snippet engine of the core (`paw.snippet`), in the same way that friendly-snippets is a set for LuaSnip. The snippets write chords that lead into the next chord of the song, parts made from the chords that are already there, and voices for a selection.
 
 ```lua
 paw.ext.load("/path/to/paw/extensions/snippets")   -- or link it into ~/.config/paw/extensions
@@ -15,8 +12,8 @@ paw.ext.load("/path/to/paw/extensions/snippets")   -- or link it into ~/.config/
 2. Open a clip in the piano roll, before a bar with a C major chord.
 3. Type `:snippet dominant`. A G7 chord appears from the cursor to the C
    major chord.
-4. Press `Tab`, then `Ctrl-n`. The voicing of the chord changes.
-5. Press `u`. The chord goes away.
+4. Press `Tab`, then `Ctrl-n`, and the voicing of the chord changes.
+5. Press `u`, and the chord goes away.
 
 ## How to use a snippet
 
@@ -26,11 +23,10 @@ paw.ext.load("/path/to/paw/extensions/snippets")   -- or link it into ~/.config/
   press `Ctrl-n`.
 - To remove the snippet, press `u`.
 - To replace a snippet of this set, write one with the same name in
-  `init.lua` or in `<config>/snippets/`. paw uses yours.
+  `init.lua` or in `<config>/snippets/`, and paw uses yours.
 
 [The first set](../../docs/reference/snippets.md#the-first-set)
-lists what each snippet writes and its choices, and tells how to write
-your own.
+lists what each snippet writes and its choices, and it tells you how to write your own.
 
 ## Reference
 
@@ -51,7 +47,4 @@ snippets share, for snippets of your own:
 | `progression` | chords, each voiced from the chord before it |
 | `next_chord` | the next chord of the song |
 
-The suite runs `tests.lua`. It tests the example of the owner: G7 before a
-C major chord on another track, and in the same clip through the picker.
-It also tests the chords of each snippet on known material, choices, counts
-and undo.
+The suite runs `tests.lua`, which tests the example of the owner (G7 before a C major chord on another track, and in the same clip through the picker). It also tests the chords of each snippet on known material, and it tests choices, counts and undo.
