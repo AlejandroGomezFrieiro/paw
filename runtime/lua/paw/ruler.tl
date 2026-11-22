@@ -44,6 +44,7 @@ local opt = options.opt
 
 local record M
   labels: {string: Label}
+  lanes: {string: contracts.RulerLane}
 end
 M.labels = {}
 
@@ -136,6 +137,123 @@ function M.set(name: string, patch: contracts.RulerPatch): Label
   M.labels[name] = copy
   api.ui_redraw()
   return copy
+end
+
+-- Lanes under the bar numbers ------------------------------------------------------
+--
+-- Under the row of bar numbers, the ruler has lanes of rows: the regions'
+-- lane (paw/markers.tl) is one, a row for each level of the tree of
+-- regions. An extension adds a lane, or changes one, as it does a part of
+-- the bar labels:
+--
+--   paw.ruler.set_lane("regions", { styles = { level1 = "Title" } })
+
+M.lanes = {}
+
+--- Add a lane of rows under the bar numbers, or put a new one in place of
+--- one of that name.
+function M.add_lane(name: string, spec: contracts.RulerLane): contracts.RulerLane
+  assert(
+    type(name) == "string"
+      and type(spec) == "table"
+      and type(spec.render) == "function"
+      and type(spec.rows) == "function",
+    "usage: paw.ruler.add_lane(name, { order = 50, rows = function(ctx) ... end, render = function(ctx) ... end })"
+  )
+  spec.name = name
+  spec.order = spec.order or 50
+  spec.glyphs, spec.styles = spec.glyphs or {}, spec.styles or {}
+  M.lanes[name] = spec
+  api.ui_redraw()
+  return spec
+end
+
+--- Take a lane away.
+function M.remove_lane(name: string)
+  M.lanes[name] = nil
+  api.ui_redraw()
+end
+
+--- Change a lane that is there, the built-in `regions` too: its `order`,
+--- `rows`, `render`, and the `glyphs` and `styles` it draws with (merged
+--- into its own). The lane becomes a changed copy: `paw.ruler.add_lane(name,
+--- old)` puts back the table it had before.
+function M.set_lane(name: string, patch: contracts.RulerLanePatch): contracts.RulerLane
+  local l = M.lanes[name]
+  if not l then
+    error("no ruler lane `" .. tostring(name) .. "`", 2)
+  end
+  local copy: contracts.RulerLane = {
+    name = l.name,
+    order = patch.order or l.order,
+    rows = patch.rows or l.rows,
+    render = patch.render or l.render,
+    ext = paw.ext.caller(),
+  }
+  for _, field in ipairs({"glyphs", "styles"}) do
+    local own: {string: string} = {}
+    for k, v in pairs((l as {string: {string: string}})[field] or {}) do
+      own[k] = v
+    end
+    for k, v in pairs((patch as {string: {string: string}})[field] or {}) do
+      own[k] = v
+    end
+    (copy as {string: {string: string}})[field] = own
+  end
+  M.lanes[name] = copy
+  api.ui_redraw()
+  return copy
+end
+
+local function lanes_in_order(): {contracts.RulerLane}
+  local list: {contracts.RulerLane} = {}
+  for _, l in pairs(M.lanes) do
+    list[#list + 1] = l
+  end
+  table.sort(
+    list,
+    function(a: contracts.RulerLane, b: contracts.RulerLane): boolean
+      if a.order ~= b.order then
+        return a.order < b.order
+      end
+      return a.name < b.name
+    end
+  )
+  return list
+end
+
+local function lane_ctx(l: contracts.RulerLane): contracts.RulerLaneContext
+  return {glyphs = l.glyphs or {}, styles = l.styles or {}}
+end
+
+--- How many rows the lanes need now, all together.
+function M.lane_rows(): integer
+  local n = 0
+  for _, l in ipairs(lanes_in_order()) do
+    local ok, rows = pcall(l.rows, lane_ctx(l))
+    if ok and math.type(rows) == "integer" and rows > 0 then
+      n = n + rows
+    end
+  end
+  return n
+end
+
+--- Draw the lanes on `buf`, the rows under the bar numbers, one under the
+--- other. `x` is the column of a beat; `scroll` and `span` the beats in sight.
+function M.draw_lanes(buf: contracts.Buf, x: function(beat: number): integer, scroll: number, span: number)
+  local y = 0
+  for _, l in ipairs(lanes_in_order()) do
+    local ctx = lane_ctx(l)
+    local ok, rows = pcall(l.rows, ctx)
+    if ok and math.type(rows) == "integer" and rows > 0 then
+      ctx.buf, ctx.rows, ctx.x, ctx.scroll, ctx.span = buf:sub(0, y, buf.width, rows), rows, x, scroll, span
+      local drawn, err = pcall(l.render, ctx) as (boolean, string)
+      if not drawn then
+        buf:text(0, y, tostring(l.name) .. ": " .. tostring(err), "Error")
+      end
+      y = y + rows
+    end
+  end
 end
 
 -- Styles, by name: `cursor` (the cursor's bar, with `relativebar`) and
