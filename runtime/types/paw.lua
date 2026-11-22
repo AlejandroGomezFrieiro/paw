@@ -263,6 +263,9 @@ paw.statusline = {}
 ---@class paw.stems
 paw.stems = {}
 
+---@class paw.step
+paw.step = {}
+
 ---@class paw.stretch
 paw.stretch = {}
 
@@ -1104,6 +1107,13 @@ paw.audio.levels = paw.api.input_levels
 --- caller read (`api.engine_get().cpu`), if the caller has it.
 ---@param cpu any
 function paw.audio.load(cpu) end
+
+--- A picker of the inputs of a track (`I` on a track): monitoring first,
+--- then each choice of `M.choices`. With `groups` (`{ "midi", "channel" }`),
+--- only those choices: the MIDI input, as step input opens it.
+---@param track any
+---@param groups any
+function paw.audio.pick(track, groups) end
 
 --- The name of a device, made short enough for a track header. The name of
 --- the maker goes when a model number follows it, and a number at the end
@@ -6632,6 +6642,9 @@ function paw.roll_draw.bend_of(controls, note) end
 ---@param name any
 function paw.roll_draw.chord(pitches, name) end
 
+--- The Step button of the window: step input on or off, from normal mode too.
+function paw.roll_draw.click_step() end
+
 --- Per-note bends of a clip, read once for each frame that shows it.
 ---@param id any
 function paw.roll_draw.controls_of(id) end
@@ -6704,7 +6717,7 @@ function paw.roll_draw.mark(kind) end
 function paw.roll_draw.name(letter) end
 
 --- Keep the notes and go on. "legato" starts the next note at the end,
---- "rest" a step (or count steps) after it; a note of the clip that starts
+--- "rest" a step (the note length, or count steps) after it; a note of the clip that starts
 --- there is taken up. "chord" draws another note at the same start and as
 --- long (`chord`'s count stacks).
 ---@param how any
@@ -6738,12 +6751,20 @@ function paw.roll_draw.pitch(semitones, step) end
 --- Show what an extension's key changed in the notes being drawn.
 function paw.roll_draw.shown() end
 
---- Start drawing at the cursor. `how` as `take` has it: "i" or "a".
+--- Start drawing at the cursor. `how` as `take` has it: "i" or "a"; or
+--- "step", step input with a caret (a pen with no length) at the cursor.
 ---@param how any
 function paw.roll_draw.start(how) end
 
 --- What the window says while in insert mode.
 function paw.roll_draw.status() end
+
+--- The next insert mode is step input (`I` in normal mode).
+function paw.roll_draw.step_next() end
+
+--- True while step input is on: insert mode in the piano roll, with the
+--- keys of a MIDI controller entering notes (`I`).
+function paw.roll_draw.stepping() end
 
 --- Show the next (`dir` 1, `<C-n>`) or the previous (-1, `<C-p>`)
 --- suggestion in place of the notes being drawn. Any key that edits takes
@@ -6754,6 +6775,10 @@ function paw.roll_draw.suggest(dir) end
 --- The notes that you drew and kept, as "60@1+0.5 64@1+0.5" in the beats of
 --- the roll. The second value is the notes that you draw now, "67@1.5+0".
 function paw.roll_draw.text() end
+
+--- Step input on or off (`I` in insert mode). The pen stays as it is.
+--- Without a MIDI input, paw says why and opens the track's list of inputs.
+function paw.roll_draw.toggle_step() end
 
 --- Put back the notes that were there before the suggestions (`<C-e>`).
 function paw.roll_draw.unsuggest() end
@@ -7262,6 +7287,53 @@ function paw.stems.plan(opts) end
 ---@param plan any
 ---@param opts any
 function paw.stems.render(plan, opts) end
+
+--- The name of the target that listens now, or nil.
+function paw.step.active() end
+
+--- Say that step input has no MIDI input for `track`, and why, and open
+--- the MIDI part of the track's list of inputs. True if it had to.
+---@param track any
+function paw.step.ask_input(track) end
+
+--- The pitches held now on the controller, in the order they were played.
+function paw.step.held() end
+
+--- The pitches held, in words: "C4 E4".
+function paw.step.held_text() end
+
+--- What step input listens to for `track`: its MIDI input's port and
+--- channel, or every port. Nil and why not when paw hears no MIDI: no port
+--- is listed or open, or the track's port is not connected.
+---@param track any
+function paw.step.input(track) end
+
+--- Why the keys only sound now: "playing" or "recording", or nil.
+function paw.step.paused() end
+
+--- Look again at which target listens: its track plays the controller,
+--- and with none the held keys are forgotten. A target calls it when it
+--- starts or stops listening.
+function paw.step.refresh() end
+
+--- The port that step input listens to for `track`, in a few words:
+--- `"Keystation 49"`, `"Keystation 49 · ch 2"`, `"all ports"`, or nil with no input.
+---@param track any
+function paw.step.source(track) end
+
+--- Let a view take step input: `spec` as `paw.contracts.StepTarget` says.
+--- The first target whose `active()` is true listens. A second call with
+--- the same name replaces the target.
+---@param name any
+---@param spec any
+function paw.step.target(name, spec) end
+
+--- Remove the target of a view (its extension unloaded).
+---@param name any
+function paw.step.untarget(name) end
+
+--- The velocity of the notes entered, in words: "key", or a number.
+function paw.step.velocity() end
 
 --- The stretch, shift and loop of a clip in a few characters, for its
 --- label: "×1.5 +3st ↻". `stretching…` shows while paw makes its sound. Nil

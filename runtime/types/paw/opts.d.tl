@@ -89,6 +89,7 @@ local record Opts
    send_level: number
    splitbelow: boolean
    splitright: boolean
+   step_velocity: integer | string
    strum: number
    strum_dir: string
    termcolors: string | number

@@ -97,7 +97,11 @@ test("the roll's scene: its grid a plane, each note on it a role, and a row of t
   eq(api.json_encode(note.r), "[1.5,60,0.5,1]", "the note where it is in the plane's domain, between cells")
   eq(note.hit.clip .. " " .. note.hit.place, clip.id .. " 1", "named by its clip and place for the pointer")
   eq(note.props.label .. " " .. note.props.velocity, "C4 90", "with what a window paints it by")
-  eq(table.concat(tools, " "):find("Quantize List", 1, true) ~= nil, true, "the tools: " .. table.concat(tools, " "))
+  eq(
+    table.concat(tools, " "):find("Quantize Step List", 1, true) ~= nil,
+    true,
+    "the tools: " .. table.concat(tools, " ")
+  )
 end)
 
 test(
@@ -220,7 +224,11 @@ test("a wide roll's title row holds its tools as buttons, and a window gives it 
     if n.r[2] == 0 then buttons[#buttons + 1] = n.props.label end
   end
   local said = table.concat(buttons, " ")
-  eq(said:find("Tracks Grid 1/16 Snap Note 1/16 Quantize List", 1, true) ~= nil, true, "in the title row: " .. said)
+  eq(
+    said:find("Tracks Grid 1/16 Snap Note 1/16 Quantize Step List", 1, true) ~= nil,
+    true,
+    "in the title row: " .. said
+  )
   eq(said:find("Window x", 1, true) ~= nil, true, "with its own window and close: " .. said)
   paw.ui.show("pianoroll")
   -- As a window's main area is: put back after, with the panel it shows.

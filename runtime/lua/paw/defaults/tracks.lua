@@ -529,43 +529,8 @@ command("track.move", function(ctx)
   track:move(util.clamp(to, 1, #api.track_list()))
 end, { desc = "Move the track down or up, by the count: `track.move by=-1`" })
 -- What each choice of input means, and the lists, are `paw.audio`'s; here
--- they are a picker and commands.
-local group_names = {
-  audio = "audio",
-  midi = "MIDI",
-  channel = "MIDI channel",
-  midi_out = "MIDI out",
-  midi_out_channel = "out channel",
-  midi_out_form = "out form",
-}
-local function input_picker(track)
-  local items = {}
-  local t = track:get()
-  items[1] = { label = (t.monitor and "● " or "○ ") .. "Monitor: hear the input without arming", monitor = true }
-  for _, choice in ipairs(paw.audio.choices(track)) do
-    items[#items + 1] = choice
-  end
-  paw.pick({
-    title = "Input of " .. t.name,
-    items = items,
-    format = function(item)
-      if item.monitor then return item.label end
-      return string.format("%s %-13s %s", item.checked and "●" or " ", group_names[item.group], item.label)
-    end,
-    on_choose = function(item)
-      if item.monitor then
-        track.monitor = not track.monitor
-        return paw.notify(track.name .. (track.monitor and ": monitoring its input" or ": not monitoring"))
-      end
-      paw.audio.choose(track, item)
-      if item.group:find("^midi_out") then
-        return paw.notify(track.name .. " → " .. paw.routes.midi_out_text(track:get()))
-      end
-      paw.notify(track.name .. " ← " .. (paw.audio.label(track:get()) or "MIDI from every port"))
-    end,
-  })
-end
-
+-- they are commands.
+local function input_picker(track) paw.audio.pick(track) end
 command("track.input", function(ctx)
   local track = need_track()
   if not track then return end

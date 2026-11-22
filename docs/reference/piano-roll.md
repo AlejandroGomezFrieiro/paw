@@ -87,12 +87,13 @@ The edge of the pencil is the start or the end of its note, and the cursor is on
 | `m` and a kind | Puts a mark of the song at the note (see [Marks of the song](#marks-of-the-song)). |
 | `[` `]` | Change the velocity of the note and of the notes after it. |
 | `Enter` | Keeps the note, and draws the next one where it ends (legato). When a note starts there, the pencil takes it. |
-| `Space` | Keeps the note, and draws the next one a step after it ends, with a rest between (`3 Space` three steps). |
+| `Space` | Keeps the note, and draws the next one a step after it ends, with a rest between (`3 Space` three steps). A step is the note length of the roll, or a grid step when it has none. |
 | `.` | Keeps the note or the chord, and draws it again after it. A count goes first: `3.`. |
 | `x` | Erases the note. A note of the clip goes when insert mode ends. |
 | `Backspace`, `Ctrl-w` | Take back the last kept note, to draw it again. |
 | `Ctrl-u` | Takes back all that this insert drew. |
-| `Ctrl-o` | Writes the notes, does one command of normal mode (e.g., `w`, to the next note), and draws again. |
+| `I` | Starts or stops [step input](#step-input). The pen stays as it is. |
+| `Ctrl-o` | Writes the notes, does one command of normal mode (for example `w`, to the next note), and draws again. |
 | `Esc` | Writes the notes and returns to normal mode. |
 
 At `Esc`, paw tells what it did: `wrote 3 notes, changed 1 note`.
@@ -149,6 +150,41 @@ The chord replaces the note, and all of its notes are the note that you draw, so
 ### Keys of extensions
 
 An extension adds keys to the pencil with `paw.roll_draw.key(lhs, spec)`. `paw.roll_draw.articulation(provider)` gives `a` its names and what they set on a note, and the articulations extension uses it. `spec.run(count, char)` changes the notes that `paw.roll_draw.pen()` gives and then calls `paw.roll_draw.shown()`, and `paw.chords.quality(suffix, steps)` adds the name of a chord.
+
+## Step input
+
+<!-- tags: step-input -->
+
+Step input enters notes from the keys of a MIDI controller, such as a keyboard, pads, a wind controller, or a guitar through vinput. `I` in normal mode starts it with a caret at the cursor, and the caret is a pen with no length. `I` in insert mode starts or stops it. Step input is the pencil of insert mode, so all the keys of the pencil work at the same time, and `Esc` writes all the notes as one undo step.
+
+| On the controller | Effect |
+| --- | --- |
+| A key, with no other key held | Keeps the pen if it has a length, and enters the note at its end, or at the caret when the pen has no length. The note is one step long and has the velocity of the key, and the cursor goes to its end. A count typed before it, e.g., `3`, enters the note that many times. |
+| More keys while one is held | Join the pen as one chord, with the same start and length. |
+| The last key released | Closes the chord, so the next key enters after it. |
+| Other messages | Only sound, and step input doesn't enter them. |
+
+| Keys | Effect in step input |
+| --- | --- |
+| `=` and a value | Sets the step, which is the length of the pen and of the notes and rests that follow, e.g., `=8.` for dotted eighths and `=8t` for triplet eighths. The step is the note length of the roll. |
+| `Space`, `3 Space` | Keeps the pen and rests one step, or three steps. |
+| `Backspace`, `Ctrl-w` | Takes back what you entered last. The pen goes, and the note or chord before it becomes the pen again. After a rest, the caret goes one step back. |
+| `+` `-`, `K` `J`, `r` and a name | Change the pitch of the pen, so you can fix a wrong key without playing it again. |
+| `h` `l`, `o` | Move the edge of the pen. They change only this note, not the step. |
+| `x` | Erases the pen and leaves the caret at its start, so you can play again there. |
+| `I` | Stops step input, and you stay in the pencil. |
+
+The title shows what step input does, e.g., `STEP C4 E4 · 1 beat (=4) · vel key · from Keystation 49`, and while keys are held it shows `STEP holding C4 E4`. The key bar shows the keys of step input.
+
+- The step is the note length of the roll, or a grid step when the roll has no note length. The Note tool of the roll shows it.
+- `paw.opt.step_velocity` is `"key"` to use the velocity of each key, or a number from 1 to 127 to use for all notes.
+- Step input listens to the MIDI input of the track of the active clip, which is its port and its channel (`:track.midi`). A track with no MIDI input listens to all ports. While step input is on, that track plays the controller, even when another track is armed.
+- Step input records nothing. While the song plays or records, the keys only sound, and the title shows `STEP (paused: playing)`.
+- When there is no MIDI input, `I` says why and opens the MIDI part of the list of inputs of the track. The pencil still works, and keys that arrive later enter. Step input has no input when no MIDI port is listed, when no port is open (the engine runs without an audio device), or when the port of the track is missing.
+- `:step.input` says what step input listens to, and opens the same list.
+- When a port goes away, step input releases the keys held on it.
+- A key that an input filter maps (`paw.api.engine_midi_filter`) doesn't enter.
+- A view of an extension takes step input with `paw.step.target(name, spec)`. See `paw.step` in the [Lua API](api.md).
 
 ## Suggestions
 

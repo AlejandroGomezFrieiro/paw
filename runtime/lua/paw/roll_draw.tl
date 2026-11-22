@@ -21,6 +21,7 @@ local api = require("paw.api")
 local events = require("paw.events")
 local options = require("paw.options")
 local seats = require("paw.seats")
+local stepin = require("paw.step")
 local util = require("paw.util")
 local music = require("paw.music")
 local type types = require("paw.types")
@@ -124,6 +125,8 @@ local record Session
   strum: boolean
   --- What `<C-n>` `<C-p>` offer now.
   suggest: Suggest
+  --- Step input is on (`I`): the keys of a MIDI controller enter notes.
+  step: boolean
 end
 
 --- An edited clip of the roll (paw/roll_clips.lua): its id, the clip, and
@@ -170,6 +173,7 @@ local record Roll
   pitch: integer
   clip: function(self: Roll): objects.Clip
   step_length: function(self: Roll): number
+  set_step: function(self: Roll, length: number)
   layer: function(name: string, order: integer, paint: function(Layer))
 end
 
@@ -441,7 +445,8 @@ local function sync()
   end
 end
 
---- Start drawing at the cursor. `how` as `take` has it: "i" or "a".
+--- Start drawing at the cursor. `how` as `take` has it: "i" or "a"; or
+--- "step", step input with a caret (a pen with no length) at the cursor.
 function M.start(how?: string)
   local at = origin()
   if not at then
@@ -449,7 +454,11 @@ function M.start(how?: string)
   end
   local r = roll()
   session = {notes = {}, pen = {}, edge = "end", removed = {}, undo = api.undo_current()}
-  take(r.beat + at, r.pitch, how or "i")
+  if how == "step" then
+    session.pen, session.step = {fresh(r.pitch, r.beat + at)}, true
+  else
+    take(r.beat + at, r.pitch, how or "i")
+  end
   local d = session.pen[1]
   session.first = {pitch = d.pitch, start = d.start, length = 0, velocity = d.velocity}
   place()
@@ -765,7 +774,7 @@ local function copy(d: Drawn): Drawn
 end
 
 --- Keep the notes and go on. "legato" starts the next note at the end,
---- "rest" a step (or count steps) after it; a note of the clip that starts
+--- "rest" a step (the note length, or count steps) after it; a note of the clip that starts
 --- there is taken up. "chord" draws another note at the same start and as
 --- long (`chord`'s count stacks).
 function M.next(how: string)
@@ -786,7 +795,7 @@ function M.next(how: string)
     session.pen[1].bend, session.pen[1].bent = nil, nil
     return place()
   end
-  take(finish_of(d) + (how == "rest" and n * opt.note_grid or 0), d.pitch, "next")
+  take(finish_of(d) + (how == "rest" and n * roll():step_length() or 0), d.pitch, "next")
   place()
 end
 
@@ -1387,12 +1396,51 @@ function M.erase()
   place()
 end
 
+--- The notes kept last that start together (a note, or a chord), taken
+--- out of those kept; nil when none is kept.
+local function pop_group(): {Drawn}
+  local last = session.notes[#session.notes]
+  if not last then
+    return nil
+  end
+  local group: {Drawn} = {}
+  while #session.notes > 0 and math.abs(session.notes[#session.notes].start - last.start) < EPS do
+    local d = table.remove(session.notes)
+    d.pending = nil
+    table.insert(group, 1, d)
+  end
+  return group
+end
+
+--- `<BS>` in step input: the pen (what was entered last) goes, and what
+--- was entered before it is the pen again. After a rest, the caret goes
+--- back a step.
+local function step_back()
+  local d = session.pen[1]
+  if d.length > EPS and not d.source then
+    session.pen = pop_group() or {fresh(d.pitch, d.start)}
+  else
+    local last = session.notes[#session.notes]
+    local floor = last and finish_of(last) or session.first.start
+    if d.start > floor + EPS then
+      session.pen = {fresh(d.pitch, math.max(floor, d.start - roll():step_length()))}
+    else
+      session.pen = pop_group() or session.pen
+    end
+  end
+  session.edge = "end"
+  place()
+end
+
 --- Take back the last note kept: it is the one being drawn again.
 function M.back()
   if not begin() then
     return
   end
   session.count = nil
+  if session.step then
+    return step_back()
+  end
   local last = table.remove(session.notes)
   if not last then
     return
@@ -1453,10 +1501,19 @@ function M.length_key(char?: string): boolean
   local text = session.reading .. char
   session.reading = text
   local beats = length_of(text)
-  if beats then
+  -- In step input, a caret (nothing entered yet) keeps no length: the
+  -- value is for the notes that come.
+  local caret = session.step and session.pen[1].length <= EPS and not session.pen[1].source
+  if beats and caret then
+    roll():set_step(beats)
+    changed()
+  elseif beats then
     for _, d in ipairs(session.pen) do
       d.length = beats
       fit(d)
+    end
+    if session.step then
+      roll():set_step(beats)
     end
     align()
     session.edge = "end"
@@ -1712,9 +1769,143 @@ function M.finish(): string
   sync()
   local said = write()
   session = nil
+  stepin.refresh()
   changed()
   return said
 end
+
+-- Step input -------------------------------------------------------------------
+
+--- True while step input is on: insert mode in the piano roll, with the
+--- keys of a MIDI controller entering notes (`I`).
+function M.stepping(): boolean
+  return M.active() and session.step == true
+end
+
+--- The next insert mode is step input (`I` in normal mode).
+function M.step_next()
+  how_next = "step"
+end
+
+--- Step input on or off (`I` in insert mode). The pen stays as it is.
+--- Without a MIDI input, paw says why and opens the track's list of inputs.
+function M.toggle_step()
+  if not begin() then
+    return
+  end
+  session.count = nil
+  session.step = not session.step or nil
+  stepin.refresh()
+  if session.step then
+    if not stepin.ask_input(track_here()) then
+      paw.notify("step input: play notes on the MIDI keyboard, Esc writes them")
+    end
+  else
+    paw.notify("step input off: drawing")
+  end
+  changed()
+end
+
+--- The Step button of the window: step input on or off, from normal mode too.
+function M.click_step()
+  if M.active() then
+    return M.toggle_step()
+  end
+  paw.ui.focus("pianoroll")
+  M.step_next()
+  paw.keymap.set_mode("i")
+end
+
+--- A key of the controller in step input. The first key of a chord keeps
+--- the pen if it has a length and enters the note at its end (at the caret
+--- if it has none), one step long; a count typed before it enters it that
+--- many times. A key played while another is held joins its chord.
+local function step_note(e: contracts.StepNote)
+  if not begin() then
+    return
+  end
+  local fields: ArtFields = e.attr and {attr = e.attr} or nil
+  local d = session.pen[1]
+  if e.chord and d.length > EPS then
+    for _, p in ipairs(session.pen) do
+      if p.pitch == e.pitch then
+        return
+      end
+    end
+    local n: Drawn = {pitch = e.pitch, start = d.start, length = d.length, velocity = e.velocity, fields = fields}
+    session.pen[#session.pen + 1] = n
+    fit(n)
+    return changed()
+  end
+  local count = take_count()
+  local length = roll():step_length()
+  local start = d.start
+  if d.length > EPS then
+    put()
+    session.last = session.pen
+    start = finish_of(d)
+  end
+  session.chord, session.strum = nil, nil
+  for i = 1, count do
+    if i > 1 then
+      put()
+      session.last = session.pen
+      start = start + length
+    end
+    local n: Drawn = {pitch = e.pitch, start = start, length = length, velocity = e.velocity, fields = fields}
+    session.pen = {n}
+    fit(n)
+  end
+  session.edge = "end"
+  place()
+end
+
+--- The step in words: "1 beat (=4)", "0.5 beats (=8)".
+local function step_text(): string
+  local beats = roll():step_length()
+  local name: string
+  for _, whole in ipairs({1, 2, 4, 8, 16, 32, 64}) do
+    for _, mark in ipairs({"", ".", "t", "..", ".t"}) do
+      local text = tostring(whole) .. mark
+      if not name and math.abs((length_of(text) or -1) - beats) < EPS then
+        name = text
+      end
+    end
+  end
+  local words = string.format("%g beat%s", beats, beats == 1 and "" or "s")
+  return name and (words .. " (=" .. name .. ")") or words
+end
+
+--- What the title says in step input: "STEP C4 E4 · 1 beat (=4) · vel key
+--- · from Keystation 49"; "STEP holding C4 E4" while keys are held.
+local function step_label(): string
+  local paused = stepin.paused()
+  if paused then
+    return "STEP (paused: " .. paused .. ")"
+  end
+  local holding = stepin.held_text()
+  if holding ~= "" then
+    return "STEP holding " .. holding
+  end
+  local source = stepin.source(track_here())
+  if not source then
+    return "STEP · no MIDI input"
+  end
+  local pen = session.pen[1].length > EPS and (pitches_text_of(session.pen) .. " · ") or ""
+  local count = session.count and (session.count .. " ") or session.reading and ("=" .. session.reading .. " ") or ""
+  return string.format("STEP %s%s%s · vel %s · from %s", count, pen, step_text(), stepin.velocity(), source)
+end
+
+stepin.target(
+  "pianoroll",
+  {
+    active = M.stepping,
+    track = function(): integer return M.stepping() and track_here() or nil end,
+    note = step_note,
+    release = function() changed() end,
+    status = function(): string return M.stepping() and step_label() or nil end,
+  }
+)
 
 --- A key of the pencil from an extension: `lhs` in the piano roll's
 --- insert mode, `spec.run(count, char)` with the count typed before it
@@ -1775,6 +1966,10 @@ events.on(
       local how = how_next
       how_next = nil
       M.start(how)
+      if session and session.step then
+        stepin.refresh()
+        stepin.ask_input(track_here())
+      end
     end
   end
 )
@@ -1819,6 +2014,10 @@ end
 
 --- What the piano roll's title says in insert mode.
 function M.label(): string
+  if M.stepping() then
+    sync()
+    return step_label()
+  end
   if not M.active() then
     return string.format("INS  step %g  vel %d", roll():step_length(), opt.velocity)
   end
@@ -1832,6 +2031,10 @@ end
 
 --- What the window says while in insert mode.
 function M.status(): string
+  if M.stepping() then
+    sync()
+    return step_label() .. " · I draws · Esc writes"
+  end
   if not M.active() then
     return string.format("insert mode · step %g · Esc to stop", roll():step_length())
   end

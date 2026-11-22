@@ -1069,6 +1069,34 @@ local record contracts
     hidden: boolean
   end
 
+  -- Step input -------------------------------------------------------------------
+
+  --- A key that the controller played for step input (`paw.step.target`):
+  --- its pitch, its velocity (1 to 127, or `paw.opt.step_velocity`), its
+  --- MIDI 2.0 attribute, where it came from, and `chord` when another key
+  --- is still held (the key joins the chord of that key).
+  record StepNote
+    pitch: integer
+    velocity: integer
+    attr: types.NoteAttr
+    channel: integer
+    port: string
+    chord: boolean
+  end
+
+  --- A view that takes step input (`paw.step.target(name, spec)`).
+  --- `active()` is true while it listens. `track()` is the track whose
+  --- MIDI input it listens to, and that plays the controller. `note(e)`
+  --- enters a key, `release()` is told when the last held key is released,
+  --- and `status()` is its title, for example `STEP C4 · 1 beat`.
+  interface StepTarget
+    active: function(): boolean
+    track: function(): integer
+    note: function(e: StepNote)
+    release: function()
+    status: function(): string
+  end
+
   -- Pickers ----------------------------------------------------------------------
 
   --- What `audition(item)` gives: a label, and with `loading()` whether

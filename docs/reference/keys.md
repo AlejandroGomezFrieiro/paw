@@ -210,8 +210,20 @@ In visual mode, the same text object again takes in one more, so `vic` and then 
 | `<BS>` `<C-w>` | take back the note kept last |
 | `<C-u>` | take back all that this insert drew |
 | `[` `]` | softer, louder |
+| `I` | step input on or off (notes from a MIDI keyboard) |
 | `<C-o>` | one command of normal mode, then draw again |
 | `<Esc>` | write what was drawn (one undo step; `.` draws it again) and return to normal mode |
+
+## Enter notes from a MIDI keyboard (step input, R)
+
+| Keys | |
+| --- | --- |
+| `I` | step input from normal mode: keys of a MIDI controller enter notes at the cursor, keys held together a chord |
+| `=` and a value | the step: the length of the notes and rests that follow |
+| `<Space>` | a rest of one step |
+| `<BS>` | take back what was entered last |
+| `I` (in step input) | back to drawing |
+| `<Esc>` | write all the notes (one undo step) |
 
 ## Write from the harmony (snippets, R)
 

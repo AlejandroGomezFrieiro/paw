@@ -134,6 +134,16 @@ M.lines.pianoroll = {
   },
   -- Insert mode: the note being drawn, then the keys that draw it.
   i = function()
+    if paw.roll_draw and paw.roll_draw.stepping() then
+      return {
+        { "=", "value" },
+        { "<Space>", "rest" },
+        { "<BS>", "back" },
+        { "c", "chord" },
+        { "I", "draw" },
+        { "<Esc>", "write" },
+      }
+    end
     local now = paw.roll_draw and paw.roll_draw.describe()
     local at_start = paw.roll_draw and paw.roll_draw.edge_now() == "start"
     local out = {

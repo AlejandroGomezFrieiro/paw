@@ -31,6 +31,7 @@ An extension adds options of its own with `paw.option.define(name, default, spec
 | `paw.opt.ripple` | `false` | When `true`, deleting time closes the gap, and pasting moves the music after it. |
 | `paw.opt.clip_length` | `4` | The length of a new MIDI clip, in beats. |
 | `paw.opt.velocity` | `100` | The velocity of notes entered by hand, 1 to 127. |
+| `paw.opt.step_velocity` | `"key"` | The velocity of the notes that step input enters in the piano roll: `"key"`, the velocity of each key, or a number from 1 to 127. |
 | `paw.opt.bend_step` | `1` | The semitones that each `k` or `j` bends the note that you draw in the piano roll. |
 | `paw.opt.strum` | `0.0625` | The beats between the notes of a chord that `C` strums in the piano roll, which is a 64th note by default. |
 | `paw.opt.strum_dir` | `"up"` | Which way `C` strums: `"up"` from the lowest note, or `"down"`. |

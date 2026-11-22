@@ -827,6 +827,10 @@ pmap("a", function()
   paw.roll_draw.append()
   keymap.set_mode("i")
 end, "Draw: the note under the cursor at its end, or a new one a step on")
+pmap("I", function()
+  paw.roll_draw.step_next()
+  keymap.set_mode("i")
+end, "Step input: notes played on a MIDI keyboard go in at the cursor")
 -- Notes chosen with the pointer (a click, a box) come first for the keys
 -- that would otherwise act on the note under the cursor.
 -- The first of them: its clip's id and its place there.
@@ -1170,11 +1174,17 @@ drawmap("<C-w>", function() drawing.back() end, "Take back the note kept last, t
 drawmap("<C-u>", function() drawing.back_all() end, "Take back all that this insert drew")
 drawmap("]", function() drawing.velocity(1) end, "Louder notes")
 drawmap("[", function() drawing.velocity(-1) end, "Softer notes")
+drawmap("I", function() drawing.toggle_step() end, "Step input on or off: notes played on a MIDI keyboard go in")
 drawmap("<C-o>", function()
-  -- One command of normal mode: what is drawn is written, and insert mode starts again after it.
+  -- One command of normal mode: what is drawn is written, and insert mode
+  -- (step input if it was on) starts again after it.
+  local stepping = drawing.stepping()
   keymap.set_mode("n")
   keymap.after_next(function()
-    if paw.ui.focused == "pianoroll" and keymap.mode == "n" then keymap.set_mode("i") end
+    if paw.ui.focused == "pianoroll" and keymap.mode == "n" then
+      if stepping then drawing.step_next() end
+      keymap.set_mode("i")
+    end
   end)
 end, "One command of normal mode, then draw again")
 

@@ -263,6 +263,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.audio.level(t, levels)`: The level of the sound at the audio input of a track, 0 to 1. The track does not have to be armed or monitored. 0 for a track without an audio input.
 - `paw.audio.levels`: the same as `paw.api.input_levels`.
 - `paw.audio.load(cpu)`: How busy the engine is, 0 to 1, as the status line and all frontends show it. It is the load of its blocks, averaged over about one second, in steps of 2.5%. It changes only when the average leaves the step that shows. The load of one block changes all the time, more on a busy computer. If paw showed each change, the terminal would draw it again, and each window would draw a frame for it. `cpu` is the load that the caller read (`api.engine_get().cpu`), if the caller has it.
+- `paw.audio.pick(track, groups)`: A picker of the inputs of a track (`I` on a track): monitoring first, then each choice of `M.choices`. With `groups` (`{ "midi", "channel" }`), only those choices: the MIDI input, as step input opens it.
 - `paw.audio.short(name)`: The name of a device, made short enough for a track header. The name of the maker goes when a model number follows it, and a number at the end also goes.
 
   ```lua
@@ -1726,6 +1727,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.roll_draw.bend(dir)`: Bend the notes being drawn by `dir` steps of `bend_step` semitones (times the count): their own pitch bend rises (or falls) to that at their end, from half of each.
 - `paw.roll_draw.bend_of(controls, note)`: The bend of a note of a clip in the clip's beats, or nil: `semis` at its end and where its ramp starts, as a fraction of its length. The piano roll shows it on the note, `K` says it.
 - `paw.roll_draw.chord(pitches, name)`: Make the notes being drawn these pitches, the first under the cursor: a chord at the same start and as long.
+- `paw.roll_draw.click_step()`: The Step button of the window: step input on or off, from normal mode too.
 - `paw.roll_draw.controls_of(id)`: Per-note bends of a clip, read once for each frame that shows it.
 - `paw.roll_draw.describe()`: The note being drawn, in words: `C4 · end · 2 steps · 0.5 beats`, or nil.
 - `paw.roll_draw.digit(d)`: A digit of the count for the next key, or of a length after `=`.
@@ -1745,16 +1747,19 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.roll_draw.length_key(char)`: Start typing a length (`=`), or add to it: each key that makes one sets the notes being drawn that long at once.
 - `paw.roll_draw.mark(kind)`: Put a mark of the song at the pencil's start (`m` then its kind): `k` a key change, `t` a tempo, `s` a time signature from the bar, `'` a marker. Each asks its value, and is in the insert's undo step.
 - `paw.roll_draw.name(letter)`: Set the pitch by its name (`r` then a letter): the nearest of that name, the chord with it. `#` and `b` next make it sharp or flat.
-- `paw.roll_draw.next(how)`: Keep the notes and go on. "legato" starts the next note at the end, "rest" a step (or count steps) after it; a note of the clip that starts there is taken up. "chord" draws another note at the same start and as long (`chord`'s count stacks).
+- `paw.roll_draw.next(how)`: Keep the notes and go on. "legato" starts the next note at the end, "rest" a step (the note length, or count steps) after it; a note of the clip that starts there is taken up. "chord" draws another note at the same start and as long (`chord`'s count stacks).
 - `paw.roll_draw.nudge(steps)`: Move the notes being drawn `steps` grid steps later, or earlier: `>` `<`.
 - `paw.roll_draw.pen()`: The notes being drawn now, as `{ pitch, start, length, velocity }` in project beats, the one under the cursor first. An extension's key changes them in place, then calls `paw.roll_draw.shown()`.
 - `paw.roll_draw.pick_chord(strum)`: Choose a chord to draw at the pencil (`c`): the diatonic chord on the pencil's pitch first (`4c` its seventh, `5c` its ninth), the others of the key, then common chords on the pitch. Typing searches them; a symbol typed (`V7/V`, `F#m9/C#`, `C4maj7`) is drawn as typed. The chord takes the note's place, its start and length, and the keys shape it as one note until Enter or Escape.
 - `paw.roll_draw.pitch(semitones, step)`: Move the notes being drawn by `semitones` (times the count), and hear the new pitch. `step(pitch, n)`, if given, says where `n` such moves go instead: by steps of a scale, say.
 - `paw.roll_draw.shown()`: Show what an extension's key changed in the notes being drawn.
-- `paw.roll_draw.start(how)`: Start drawing at the cursor. `how` as `take` has it: "i" or "a".
+- `paw.roll_draw.start(how)`: Start drawing at the cursor. `how` as `take` has it: "i" or "a"; or "step", step input with a caret (a pen with no length) at the cursor.
 - `paw.roll_draw.status()`: What the window says while in insert mode.
+- `paw.roll_draw.step_next()`: The next insert mode is step input (`I` in normal mode).
+- `paw.roll_draw.stepping()`: True while step input is on: insert mode in the piano roll, with the keys of a MIDI controller entering notes (`I`).
 - `paw.roll_draw.suggest(dir)`: Show the next (`dir` 1, `<C-n>`) or the previous (-1, `<C-p>`) suggestion in place of the notes being drawn. Any key that edits takes it; `<C-e>` puts back what was there.
 - `paw.roll_draw.text()`: The notes that you drew and kept, as "60@1+0.5 64@1+0.5" in the beats of the roll. The second value is the notes that you draw now, "67@1.5+0".
+- `paw.roll_draw.toggle_step()`: Step input on or off (`I` in insert mode). The pen stays as it is. Without a MIDI input, paw says why and opens the track's list of inputs.
 - `paw.roll_draw.unsuggest()`: Put back the notes that were there before the suggestions (`<C-e>`).
 - `paw.roll_draw.velocity(dir)`: The velocity of the notes being drawn and of the next, by `dir` tens.
 
@@ -1884,6 +1889,20 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.stems.names_group(word)`: True if `:render <word>` names a group to render alone, and not a file: the name of a group, with no file ending.
 - `paw.stems.plan(opts)`: What the stems would be: a list of `{ id, name, file, holds }`, in the order of the track list. `opts`: `dir` (where; `stems` in the renders folder by default, see `paw.render.renders_dir`), `format` ("wav", the default, "flac", "mp3", "ogg", "opus"), `tracks` (one per track, not per group), `group` (that group, or track, alone). In a narrowed tab, the parts of its group.
 - `paw.stems.render(plan, opts)`: Write the stems of a plan, with `paw.render`'s options (`background` renders them one after another). Returns the files.
+
+## Module paw.step
+
+- `paw.step.active()`: The name of the target that listens now, or nil.
+- `paw.step.ask_input(track)`: Say that step input has no MIDI input for `track`, and why, and open the MIDI part of the track's list of inputs. True if it had to.
+- `paw.step.held()`: The pitches held now on the controller, in the order they were played.
+- `paw.step.held_text()`: The pitches held, in words: "C4 E4".
+- `paw.step.input(track)`: What step input listens to for `track`: its MIDI input's port and channel, or every port. Nil and why not when paw hears no MIDI: no port is listed or open, or the track's port is not connected.
+- `paw.step.paused()`: Why the keys only sound now: "playing" or "recording", or nil.
+- `paw.step.refresh()`: Look again at which target listens: its track plays the controller, and with none the held keys are forgotten. A target calls it when it starts or stops listening.
+- `paw.step.source(track)`: The port that step input listens to for `track`, in a few words: `"Keystation 49"`, `"Keystation 49 · ch 2"`, `"all ports"`, or nil with no input.
+- `paw.step.target(name, spec)`: Let a view take step input: `spec` as `paw.contracts.StepTarget` says. The first target whose `active()` is true listens. A second call with the same name replaces the target.
+- `paw.step.untarget(name)`: Remove the target of a view (its extension unloaded).
+- `paw.step.velocity()`: The velocity of the notes entered, in words: "key", or a number.
 
 ## Module paw.stretch
 

@@ -398,6 +398,12 @@ local function tool_list(self, titled)
       tip = "the chosen notes, or all of them, start on the grid (also :notes.quantize)",
     },
     {
+      name = "step",
+      text = "Step",
+      on = paw.roll_draw.stepping(),
+      tip = "step input (I): notes played on a MIDI keyboard go in at the cursor, one undo step; Esc writes them",
+    },
+    {
       name = "list",
       text = "List",
       tip = "the event list: every note and controller move of the clip, a row each (also E)",

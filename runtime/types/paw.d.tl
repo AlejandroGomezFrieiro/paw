@@ -62,6 +62,7 @@ local type ScopeModule = require("paw.scope")
 local type SeatsModule = require("paw.seats")
 local type SnippetModule = require("paw.snippet")
 local type StatuslineModule = require("paw.statusline")
+local type StepModule = require("paw.step")
 local type TakesModule = require("paw.takes")
 local type TempoModule = require("paw.tempo")
 local type TempolaneModule = require("paw.tempolane")
@@ -195,6 +196,7 @@ global record paw
    state: Untyped
    statusline: StatuslineModule
    stems: Untyped
+   step: StepModule
    stretch: Untyped
    tab: LayoutModule.Tabs
    takes: TakesModule

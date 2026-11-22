@@ -78,8 +78,9 @@ graphical window) lists all the inputs of a track:
   track of the cursor plays MIDI input as if its monitor is on, and it
   records nothing. `paw.opt.midi_follows_selection = false` turns the
   behavior off, and the project does not change.
-- **A track that always plays the keyboard.** A script, e.g. step input,
-  can give a track to `paw.api.engine_follow_always`. That track plays MIDI
+- **A track that always plays the keyboard.** A script can give a track
+  to `paw.api.engine_follow_always`, and [step input](piano-roll.md#step-input)
+  gives it the track of the active clip while it's on. That track plays MIDI
   input even while another track is armed, in place of the track of the
   cursor, and it records nothing. The armed track still plays and records
   the input.
