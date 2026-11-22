@@ -465,6 +465,8 @@ test("harmony: chord symbols in the piano roll's ruler", function()
   local roll = paw.ui.views.pianoroll
   roll:edit(paw.tracks()[1]:clips()[1])
   paw.opt.note_zoom = 4
+  -- The view draws the reading as it stands: read the chords first.
+  paw.harmony.chords()
   local function chord_row()
     local lines = api.ui_snapshot(100, 30)
     for _, l in ipairs(lines) do

@@ -218,10 +218,12 @@ end)
 
 test("a note played while the device is late still sounds, and its note-off still ends it", function()
   fresh()
-  -- Holds the notes it is given, a tenth each, and is slow for one block
-  -- each time its stall parameter changes.
+  -- Holds the notes it is given, a tenth each. Each time its stall
+  -- parameter changes, one block stays late while the gate file exists.
+  local gate = T.scratch .. "/late-gate"
+  T.after(function() os.remove(gate) end)
   scripts({
-    ["late_once.lua"] = [[
+    ["late_once.lua"] = "local GATE = " .. string.format("%q", gate) .. "\n" .. [[
     local dsp = require("paw.dsp")
     local dev = dsp.device {
       category = "instrument",
@@ -231,8 +233,7 @@ test("a note played while the device is late still sounds, and its note-off stil
     function dev.process(b)
       if b.params.stall ~= stalls then
         stalls = b.params.stall
-        local began = os.clock()
-        while os.clock() - began < 0.3 do end
+        while os.rename(GATE, GATE) do end
       end
       for i = 0, b.nevents - 1 do
         local e = b.events[i]
@@ -246,13 +247,17 @@ test("a note played while the device is late still sounds, and its note-off stil
   local t = paw.add_track({ name = "late" })
   local dev = t:add_device("lua:late_once")
   local function late() return tonumber(api.device_call(dev.id, "sandbox.late")) end
-  -- The key is played once the engine has given up a block on the helper:
-  -- the blocks after it, while the helper is still slow, are skipped.
+  -- The key is played once the engine has given up a block on the helper.
+  -- The engine runs two more blocks, which it also gives up, and then the
+  -- test opens the gate.
   local function while_late(stall, play)
     local before = late()
+    T.write_file(gate, "")
     dev:set("stall", stall)
     T.until_(function() return late() > before end, "the helper to be late")
     play()
+    T.next_block(2)
+    os.remove(gate)
   end
   while_late(1, function() t:note_on("C5", 100) end)
   T.until_(function() return t:meter() >= 0.09 end, "the note to sound")

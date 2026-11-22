@@ -131,6 +131,7 @@ local defaults: {string: Value} = {
   jumpview = "left", -- where a jump that lands off screen puts its target: "left" (near the left edge) or "center"
   jumpmargin = 6, -- columns between the left edge and the target of a jump with jumpview "left"
   fps = 60, -- the most frames a second while something moves; frames come only when a cell changes
+  check_stamps = false, -- draw the windows that the screen keeps (a view's `stamp`), and fail when they differ
   clip_length = 4, -- beats, for new MIDI clips
   -- Where play and record start from a stop: "cursor" (the cursor of the
   -- view with the keys, the playhead goes there) or "playhead" (the old way).

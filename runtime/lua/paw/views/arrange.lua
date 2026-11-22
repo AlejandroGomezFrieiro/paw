@@ -1424,6 +1424,23 @@ end
 --- On an automation lane row the lane's own keys come first.
 function view:subscope() return paw.cursor.lane_id() and "arrange.lane" or nil end
 
+--- What a window of the arrange view shows besides what events announce
+--- (the screen keeps the window while it is the same): its scroll, the
+--- take being made, whether a jump or another window moves its time, the
+--- selection of visual mode, and the clips chosen with the pointer.
+function view:stamp(ctx)
+  local selection = paw.keymap.selection()
+  return table.concat({
+    self.scroll,
+    self.top,
+    tostring(self.rec_start),
+    tostring(self.seen_jump == paw.keymap.jump_serial),
+    tostring(ctx.follower),
+    selection and table.concat({ selection.kind, selection.r0, selection.r1, selection.c0, selection.c1 }, ",") or "",
+    table.concat(paw.frontend.chosen_clips(), ","),
+  }, " ")
+end
+
 function view:render(buf, ctx)
   local g = draw.g
   local w, h = buf.width, buf.height

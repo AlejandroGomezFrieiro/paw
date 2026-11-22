@@ -309,6 +309,9 @@ local record M
   drawing_win: Node
   --- True while the terminal's screen is drawn.
   screen: boolean
+  --- With `paw.opt.check_stamps`: each window that drew other cells
+  --- with the same stamp, as a message. The test suite reads it.
+  stamp_misses: {string}
   --- A window of the layout that `render_view` draws, and the strips a
   --- view keeps for a scene while it is drawn (`render_scene`).
   view_win: Node
@@ -350,6 +353,7 @@ local record M
 end
 
 M.views = {}
+M.stamp_misses = {}
 M.messages = {}
 M.rects = {}
 rawset(M as {string:Buf}, "Buf", Buf)
@@ -988,6 +992,42 @@ local now_values: Refreshing = { frame = 0 }
 local meters: {integer:Meter} = {}
 -- The transport of the frame being drawn (`M.transport`).
 local frame_transport: types.Transport
+
+-- Windows kept whole. A view with `stamp(self, ctx)` gives a text of all
+-- that its drawing reads. The screen keeps the cells of each window of
+-- the view under that text. On a later whole frame, a window that does
+-- not have the keyboard and has the same text gets its cells back, and
+-- the view does not draw it (the design architecture-review-lua.md, L2).
+-- The kernel forgets kept cells when a highlight group changes.
+--
+-- The live parts that the window drew (the playhead, the meters) come
+-- back too: for each, the cells under it and the cells that it drew are
+-- kept, so that a live frame can draw it again over the right cells.
+
+--- A live part that a kept window drew: the part, the stamp of the values
+--- that it drew, and the key that its cells are kept under.
+local record KeptPart
+  part: LivePart
+  last: string
+  key: string
+end
+
+--- A window as the screen kept it: its key, the text of its stamp, its
+--- live parts, and with `paw.opt.check_stamps` what its drawing wrote.
+local record KeptWindow
+  key: string
+  stamp: string
+  parts: {KeptPart}
+  calls: {string}
+end
+
+-- The kept windows, by their key (`window_key`).
+local kept_windows: {string:KeptWindow} = {}
+-- The window being drawn to keep, while it is drawn, else nil.
+local keeping: KeptWindow
+-- With `paw.opt.check_stamps`, while a kept window is drawn: what its
+-- drawing writes, a text for each call (`checked_text`). Nil else.
+local check_calls: {string}
 seats.keep("ui.live", function(): Live return live end, function(l: Live) live = l end, function(): Live return nil end)
 
 --- True if a live part drawn now is one of the terminal's screen.
@@ -1007,14 +1047,26 @@ end
 -- Draw a live part: `part`, kept from the frame before, or a new one
 -- with its `stamp` and the text `last` that it gave.
 local function live_part(part: LivePart, buf: Buf, draw_part: function(b: Buf), stamp?: Stamp, last?: string)
+  -- A window that is kept keeps the cells under each of its live parts.
+  local kept_as: string = nil
+  if keeping then
+    kept_as = keeping.key .. ":" .. (#keeping.parts + 1)
+    api.grid_keep(kept_as .. ":under", buf.x, buf.y, buf.width, buf.height, buf.cx, buf.cy, buf.cw, buf.ch)
+  end
   local index = api.grid_live_begin(buf.x, buf.y, buf.width, buf.height, buf.cx, buf.cy, buf.cw, buf.ch)
-  local was = recording
-  recording = nil  -- what it draws inside is part of it
+  local was, was_calls = recording, check_calls
+  recording, check_calls = nil, nil  -- what it draws inside is part of it, and moves
   local ok, result = pcall(draw_part, buf) as (boolean, string)
-  recording = was
+  recording, check_calls = was, was_calls
   if index then
     api.grid_live_end(index)
-    recording[#recording + 1] = part or { buf = buf, draw = draw_part, stamp = stamp, last = last }
+    local drawn = part or { buf = buf, draw = draw_part, stamp = stamp, last = last }
+    recording[#recording + 1] = drawn
+    if kept_as then
+      -- And the cells that it drew.
+      api.grid_keep(kept_as .. ":drawn", buf.x, buf.y, buf.width, buf.height, buf.cx, buf.cy, buf.cw, buf.ch)
+      keeping.parts[#keeping.parts + 1] = { part = drawn, last = drawn.last, key = kept_as }
+    end
   end
   if not ok then error(result, 0) end
 end
@@ -1033,6 +1085,172 @@ function M.live(buf: Buf, draw_part: function(b: Buf), stamp?: Stamp)
     last = fine and got or nil
   end
   live_part(nil, buf, draw_part, stamp, last)
+end
+
+-- Kept windows: the stamps -------------------------------------------------
+
+--- What every window's drawing can read, read once for a whole frame: the
+--- events sent so far (an edit, an option, the mode, the cursor of the
+--- arrange view, a chord read again), the edits of the project, and the
+--- transport.
+local function frame_stamp(): string
+  local t = M.transport()
+  return table.concat({
+    events.emitted(),
+    (api.project_get as function(string): integer)("edits"),
+    tostring(t.playing),
+    tostring(t.recording),
+    t.take or "",
+    t.position,
+    tostring(t.loop_enabled),
+    t.loop_start,
+    t.loop_end,
+    tostring(t.punch_enabled),
+    t.punch_start,
+    t.punch_end,
+  }, " ")
+end
+
+--- The stamp of a window: the view's own `stamp`, with what the screen
+--- gives it (its place, its background, its winbar) and `frame` (the
+--- `frame_stamp`). Nil when the window is drawn whatever it shows: its view
+--- has no stamp, the window has the keyboard, or the screen is not the
+--- terminal's.
+local function window_stamp(view: View, area: Buf, ctx: RenderContext, background: string, frame: string): string
+  if not (view.stamp and recording) or ctx.focused then return nil end
+  if ctx.win then L.bind(ctx.win as Node) end
+  local ok, own = pcall(view.stamp, view, ctx) as (boolean, string)
+  if not ok or own == nil then return nil end
+  local winbar = paw.statusline and paw.statusline.winbar(view.name, false)
+  return table.concat({own, frame, area.x, area.y, area.width, area.height, background or "", winbar or ""}, "\n")
+end
+
+--- The key that the screen keeps a window under: by its seat and its
+--- window, or by its view for a bar (the status line).
+local function window_key(win: Node, name: string): string
+  return "window:" .. seats.current .. ":" .. (win and tostring(win.id) or name)
+end
+
+--- Put back the cells of the kept window `kept` and its live parts, in
+--- `area`. False when the kernel no longer has them, and nothing changed.
+local function put_window(kept: KeptWindow, area: Buf): boolean
+  if not area:put_kept(kept.key, 0, 0, area.width, area.height) then return false end
+  for _, k in ipairs(kept.parts) do
+    -- The kernel takes the part again as it took it when it was drawn:
+    -- what was under it, then what it drew.
+    local b = k.part.buf
+    api.grid_put(k.key .. ":under", b.x, b.y, b.width, b.height, b.cx, b.cy, b.cw, b.ch)
+    local index = api.grid_live_begin(b.x, b.y, b.width, b.height, b.cx, b.cy, b.cw, b.ch)
+    api.grid_put(k.key .. ":drawn", b.x, b.y, b.width, b.height, b.cx, b.cy, b.cw, b.ch)
+    if index then
+      api.grid_live_end(index)
+      -- A live frame since then drew it with other values.
+      k.part.last = k.last
+      recording[#recording + 1] = k.part
+    end
+  end
+  -- What the window drew over its live parts.
+  area:put_kept(kept.key, 0, 0, area.width, area.height)
+  return true
+end
+
+-- Kept windows: the check ---------------------------------------------------
+
+-- The functions of a buffer that write cells, as paw/buf.tl has them.
+local buf_text, buf_fill, buf_put_kept = Buf.text, Buf.fill, Buf.put_kept
+
+--- A style as a text, for `check_calls`.
+local function style_text(style: Style): string
+  if not style is types.CellStyle then return tostring(style) end
+  local fields: {string} = {}
+  for k, v in pairs(style as {string:string | number | boolean}) do fields[#fields + 1] = k .. "=" .. tostring(v) end
+  table.sort(fields)
+  return table.concat(fields, ",")
+end
+
+--- The functions of a buffer while a kept window is drawn and checked:
+--- they list what they write in `check_calls`, and no kept cells come back.
+local function checked_text(self: Buf, x: number, y: number, text: string, style?: Style): integer
+  local calls = check_calls
+  if calls then
+    calls[#calls + 1] = table.concat({"text", self.x + x, self.y + y, self.cx, self.cy, self.cw, self.ch, text, style_text(style)}, " ")
+  end
+  return buf_text(self, x, y, text, style)
+end
+local function checked_fill(self: Buf, x: number, y: number, w: number, h: number, char?: string, style?: Style)
+  local calls = check_calls
+  if calls then
+    calls[#calls + 1] = table.concat({"fill", self.x + x, self.y + y, w, h, self.cx, self.cy, self.cw, self.ch, char or "", style_text(style)}, " ")
+  end
+  buf_fill(self, x, y, w, h, char, style)
+end
+local function checked_put_kept(self: Buf, key: string, x: number, y: number, w: number, h: number): boolean
+  if check_calls then return false end
+  return buf_put_kept(self, key, x, y, w, h)
+end
+
+--- With `paw.opt.check_stamps`, around the drawing of a kept window:
+--- from `check_begin` to `check_end`, what the buffers write is listed.
+local function check_begin()
+  check_calls = {}
+  Buf.text, Buf.fill, Buf.put_kept = checked_text, checked_fill, checked_put_kept
+end
+
+--- The list of what the buffers wrote since `check_begin`.
+local function check_end(): {string}
+  Buf.text, Buf.fill, Buf.put_kept = buf_text, buf_fill, buf_put_kept
+  local calls = check_calls
+  check_calls = nil
+  return calls
+end
+
+--- With `paw.opt.check_stamps`: note when the window of `name` wrote
+--- `now` with the stamp that it wrote `before` with. Its stamp misses
+--- something that its drawing reads.
+local function check_same(name: string, before: {string}, now: {string})
+  for i = 1, math.max(#before, #now) do
+    if before[i] ~= now[i] then
+      local miss = string.format(
+        "paw.opt.check_stamps: the view %s drew other cells with the same stamp: %s, before %s",
+        name, now[i] or "nothing", before[i] or "nothing"
+      )
+      M.stamp_misses[#M.stamp_misses + 1] = miss
+      api.log(miss)
+      return
+    end
+  end
+end
+
+-- Kept windows: the drawing -------------------------------------------------
+
+--- Draw a window of the layout: `view` in `area`, on `background`. A
+--- window with a stamp (`window_stamp`) is kept, and put back when its
+--- stamp is the same as when it was kept. `frame` is the `frame_stamp`.
+local function draw_window(view: View, area: Buf, ctx: RenderContext, background: string, frame: string)
+  local stamp = window_stamp(view, area, ctx, background, frame)
+  local key = stamp and window_key(ctx.win as Node, view.name)
+  local was = key and kept_windows[key]
+  local same = was and was.stamp == stamp
+  local check = opt.check_stamps == true
+  if same and not check and put_window(was, area) then return end
+  if background then area:fill(0, 0, area.width, area.height, " ", background) end
+  if not stamp then return draw(view, area, ctx) end
+  local surfaces = M.rects.surfaces and #M.rects.surfaces or 0
+  local now: KeptWindow = {key = key, stamp = stamp, parts = {}}
+  keeping = now
+  if check then check_begin() end
+  local ok, err = pcall(draw, view, area, ctx) as (boolean, string)
+  if check then now.calls = check_end() end
+  keeping = nil
+  if not ok then error(err, 0) end
+  -- Pixels are drawn after the cells: a window with some is drawn again.
+  if (M.rects.surfaces and #M.rects.surfaces or 0) > surfaces then
+    kept_windows[key] = nil
+    return
+  end
+  area:keep(key, 0, 0, area.width, area.height)
+  kept_windows[key] = now
+  if same and was.calls and now.calls then check_same(view.name, was.calls, now.calls) end
 end
 
 local function meter_of(values: Refreshing, id: integer): Meter
@@ -1260,6 +1478,7 @@ function M.render_screen(buf: Buf)
   end
   local sizes: {integer:string} = {}
   local resized: {integer} = {}
+  local frame = frame_stamp()
   for _, r in ipairs(order) do
     local view = M.views[r.name]
     if view and r.w > 0 and r.h > 0 then
@@ -1289,8 +1508,7 @@ function M.render_screen(buf: Buf)
           draw(view, b, ctx)
         end, view.live_stamp and function(): string return view:live_stamp(area.width) end)
       else
-        if background then area:fill(0, 0, r.w, r.h, " ", background) end
-        draw(view, area, ctx)
+        draw_window(view, area, ctx, background, frame)
       end
       if win then
         sizes[win.id] = r.w .. "x" .. r.h
