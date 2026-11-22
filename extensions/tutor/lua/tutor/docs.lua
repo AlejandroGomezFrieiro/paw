@@ -33,10 +33,7 @@ function M.lesson(n, lesson, lessons)
   local out = { GENERATED, "", string.format("# Lesson %d: %s", n, lesson.title), "" }
   local function add(line) out[#out + 1] = line end
   add(
-    string.format(
-      "*The lesson takes about ten minutes. To do it in paw, type `:ext.load tutor`, then `:tutor %d`.*",
-      n
-    )
+    string.format("*The lesson takes about ten minutes. To do it in paw, type `:ext.load tutor`, then `:tutor %d`.*", n)
   )
   add("")
   if lesson.intro then

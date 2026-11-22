@@ -228,9 +228,8 @@ second copy. The terminal joins the running paw as a new seat, as
 
 ## Same bytes on each save
 
-When paw writes a project as one JSON file, the fields are in the order of the model,
-the maps are sorted by key, and the numbers have the fewest digits that read
-back exactly. A save of a project with no change therefore writes the same bytes, and
+When paw writes a project as one JSON file, it writes the fields in the order of the model
+and sorts the maps by key. Each number has the fewest digits that read back exactly. A save of a project with no change therefore writes the same bytes, and
 one change gives a small diff.
 
 | Function | Result |
