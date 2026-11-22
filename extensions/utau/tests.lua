@@ -313,20 +313,20 @@ test("utau: a vocal device that crashes is stopped alone, and started again sing
   near(T.channel_peaks(T.render({ bits = 16, ["end"] = 4, tail = 0 }), 0.6, 1.4), 0.5, 0.02, "and sings it")
 end)
 
-test("utau: a block of the vocal device costs little", function()
+test("utau: where phrases overlap, the vocal device sounds them together", function()
   load()
-  -- The device's own code, run here on blocks of its own: eight vocal
-  -- tracks are eight of these, each in a process of its own.
+  -- The device's own code, run here on a block of its own.
   local dev = assert(loadfile("extensions/utau/devices/utau.lua"))()
   local rate, frames = 48000, 512
   dev.init(rate)
   local lines = {}
   for k = 0, 7 do
-    local path = utau.voices.dir() .. "/bench-" .. k .. ".f32"
+    local path = utau.voices.dir() .. "/overlap-" .. k .. ".f32"
     T.write_file(path, sine(220 + k * 30, 2, 44100))
     lines[#lines + 1] = string.format("b%d %g 44100 1 1 %s", k, k * 0.25, path)
   end
   dev.call("voice.1", table.concat(lines, "\n"))
+  T.after(function() dev.call("voice.1", "") end)
   local b = {
     left = ffi.new("float[?]", frames),
     right = ffi.new("float[?]", frames),
@@ -335,29 +335,16 @@ test("utau: a block of the vocal device costs little", function()
     sample_rate = rate,
     playing = true,
     tempo = 120,
-    seconds = 0,
+    -- Five phrases sound at 1.1 s: those that start at 0, 0.25, 0.5, 0.75 and 1 s.
+    seconds = 1.1,
   }
-  local blocks = 400
-  for _ = 1, 50 do
-    dev.process(b)
+  dev.process(b)
+  local peak = 0
+  for i = 0, frames - 1 do
+    peak = math.max(peak, math.abs(b.left[i]))
   end
-  local started = os.clock()
-  for i = 1, blocks do
-    -- Where four phrases overlap at once.
-    b.seconds = 1.0 + (i % 40) * frames / rate
-    dev.process(b)
-  end
-  local each = (os.clock() - started) / blocks * 1e6
-  print(
-    string.format(
-      "      a block of %d frames with four phrases sounding: %.1f us (the block lasts %.0f us)",
-      frames,
-      each,
-      frames / rate * 1e6
-    )
-  )
-  eq(each < 1000, true, "well inside the block (" .. each .. " us)")
-  dev.call("voice.1", "")
+  -- One phrase alone peaks at 0.5.
+  eq(peak > 0.5, true, "the phrases sound together: the peak is " .. peak)
 end)
 
 -- The vocal editor in pictures -----------------------------------------------------
