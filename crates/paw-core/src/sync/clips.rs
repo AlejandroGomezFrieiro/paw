@@ -428,7 +428,7 @@ fn parts_of(
             Some(ClipContent::Audio { file, offset, gain, .. }) => {
                 clip_audio(clip, (file, *offset, *gain), tempo, ctx, &mut audio)
             }
-            Some(ClipContent::Custom(_)) | None => {}
+            Some(ClipContent::Custom(_) | ClipContent::Nest { .. }) | None => {}
         }
     }
     let sounds = !audio.is_empty();
@@ -711,7 +711,7 @@ pub(super) fn build_cues(
             Some(ClipContent::Audio { file, offset, gain, .. }) => {
                 clip_audio(clip, (file, *offset, *gain), tempo, ctx, &mut clips.audio)
             }
-            Some(ClipContent::Custom(_)) | None => {}
+            Some(ClipContent::Custom(_) | ClipContent::Nest { .. }) | None => {}
         }
         out[row] = Some(SlotClip {
             clips,

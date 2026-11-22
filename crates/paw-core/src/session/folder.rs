@@ -17,7 +17,9 @@
 //! │                           the parts of a custom clip (`Writer::custom_clip`)
 //! ├── media.json              what each file the clips use is: hash, size, header
 //! ├── media/                  sound files, and `derived/` for those a kind makes
-//! └── unused/                 files the project does not use any more
+//! ├── nests/<name>/           a nest (subproject): see `folder/nests.rs`
+//! └── unused/                 files the project does not use any more, and
+//!                             `unused/nests/`, the nests no clip places
 //! ```
 //!
 //! [`layout`] turns a project into the bytes of each file, [`commit`]
@@ -40,13 +42,15 @@ use super::media::MEDIA_FILE;
 use crate::clipfile;
 use crate::model::{Clip, ClipContent, KindData, Notes, Project, Target, Track};
 
+mod nests;
+
 /// The file that makes a folder a project.
 pub const PROJECT_FILE: &str = "project.toml";
 /// The version of the folder's format.
 const VERSION: u32 = 2;
 /// The folders and the files at the top of a project that paw writes, and
 /// so may move to `unused/` when the project does not need them.
-const MANAGED_DIRS: [&str; 2] = ["tracks", "master"];
+const MANAGED_DIRS: [&str; 3] = ["tracks", "master", "nests"];
 const MANAGED_FILES: [&str; 3] = ["meta.json", "screen.json", MEDIA_FILE];
 const GITATTRIBUTES: &str = "*.midi2 diff=paw-midi2\n";
 
@@ -265,7 +269,8 @@ impl Writer<'_> {
         if !lanes.is_empty() {
             map.insert("lanes".into(), Value::Array(lanes));
         }
-        for key in ["source", "chain_source"] {
+        // The folder a track is in says which nest it belongs to.
+        for key in ["source", "chain_source", "nest"] {
             map.remove(key);
         }
         if let Some(chain) = &outside_chain {
@@ -280,6 +285,35 @@ impl Writer<'_> {
                 .insert(folder.join("devices.json"), pretty(&Value::Array(devices)));
         }
         Ok(())
+    }
+
+    /// Write tracks in order, each in `<root>/tracks/<name>`, and give the
+    /// list of their folders' names as `project.toml` and `nest.toml` keep
+    /// it: a track folder outside the project is named by its path.
+    fn tracks<'t>(
+        &mut self,
+        tracks: impl Iterator<Item = &'t Arc<Track>>,
+        root: &Path,
+    ) -> Result<Vec<String>> {
+        let mut folders = BTreeSet::new();
+        let mut order = Vec::new();
+        for track in tracks {
+            if let Some(source) = &track.source {
+                // A track folder outside the project: the project names it and
+                // writes nothing of it.
+                for clip in track.clips.iter().chain(&track.cues) {
+                    if let Some(file) = &clip.source {
+                        self.layout.clip_files.insert(clip.id, file.clone());
+                    }
+                }
+                order.push(outside_name(source, self.dir).to_string_lossy().into_owned());
+                continue;
+            }
+            let name = unique(&mut folders, &file_name(&track.name), "");
+            self.track(track, &root.join("tracks").join(&name))?;
+            order.push(name);
+        }
+        Ok(order)
     }
 
     fn clip(&mut self, clip: &Clip, folder: &Path, taken: &mut BTreeSet<String>) -> Result<Value> {
@@ -501,28 +535,13 @@ pub fn layout(
         written: HashMap::new(),
         dir,
     };
-    let mut folders = BTreeSet::new();
-    let mut order = Vec::new();
-    for track in &project.tracks {
-        if let Some(source) = &track.source {
-            // A track folder outside the project: the project names it and
-            // writes nothing of it.
-            for clip in track.clips.iter().chain(&track.cues) {
-                if let Some(file) = &clip.source {
-                    w.layout.clip_files.insert(clip.id, file.clone());
-                }
-            }
-            order.push(outside_name(source, dir).to_string_lossy().into_owned());
-            continue;
-        }
-        let name = unique(&mut folders, &file_name(&track.name), "");
-        w.track(track, &Path::new("tracks").join(&name))?;
-        order.push(name);
-    }
+    let order = w.tracks(project.song_tracks(), Path::new(""))?;
     w.track(&project.master, Path::new("master"))?;
+    let nests = w.nests(project)?;
     let mut bare = project.clone();
     bare.master = Arc::new(Track::new(0));
     bare.tracks = Vec::new();
+    bare.nests = BTreeMap::new();
     bare.meta = Map::new();
     let mut head = serde_json::to_value(&bare)?;
     let map = head.as_object_mut().context("a project")?;
@@ -531,6 +550,9 @@ pub fn layout(
     map.remove("meta");
     map.insert("version".into(), json!(VERSION));
     map.insert("tracks".into(), json!(order));
+    if !nests.is_empty() {
+        map.insert("nests".into(), json!(nests));
+    }
     map.insert("transport".into(), transport.clone());
     let head = to_toml(&head).context("a project")?;
     let mut text = toml::to_string_pretty(&head).context("writing project.toml")?;
@@ -1045,14 +1067,20 @@ pub fn read(dir: &Path) -> Result<Read> {
 /// (its `.bak`, for one that is damaged).
 pub fn read_with(dir: &Path, head_path: &Path) -> Result<Read> {
     let head_path = head_path.to_path_buf();
-    let (mut head, order, transport) = read_head(&head_path)?;
+    let (mut head, order, nest_names, transport) = read_head(&head_path)?;
     let mut problems = Vec::new();
     let mut files = Vec::new();
-    let (tracks, master) = read_all_tracks(dir, &order, &mut files, &mut problems)?;
+    let mut entries: Vec<TrackEntry> = order.iter().map(|name| TrackEntry::of(name, Path::new(""), None)).collect();
+    let mut nests = nests::read_heads(dir, &nest_names, &mut entries)?;
+    let (mut tracks, master) = read_all_tracks(dir, &entries, &mut files, &mut problems)?;
+    nests::tag_tracks(&mut nests, &entries, &mut tracks)?;
     let map = head
         .as_object_mut()
         .expect("read_head checked that the head is a table");
     map.insert("tracks".into(), Value::Array(tracks));
+    if !nests.is_empty() {
+        map.insert("nests".into(), Value::Array(nests));
+    }
     map.insert("master".into(), master);
     let meta = match read_json(&dir.join("meta.json")) {
         Ok(v) => v,
@@ -1074,8 +1102,9 @@ pub fn read_with(dir: &Path, head_path: &Path) -> Result<Read> {
 }
 
 /// The head of a project folder (`project.toml`): the head as JSON
-/// without the track list and the transport, which come back apart.
-fn read_head(head_path: &Path) -> Result<(Value, Vec<String>, Value)> {
+/// without the lists of tracks and nests and the transport, which come
+/// back apart.
+fn read_head(head_path: &Path) -> Result<(Value, Vec<String>, Vec<String>, Value)> {
     let text = std::fs::read_to_string(head_path)
         .with_context(|| format!("reading {}", head_path.display()))?;
     let head: toml::Value =
@@ -1097,15 +1126,45 @@ fn read_head(head_path: &Path) -> Result<(Value, Vec<String>, Value)> {
         }
         None => Vec::new(),
     };
+    let nests: Vec<String> = match map.remove("nests") {
+        Some(v) => {
+            serde_json::from_value(v).context("project.toml: nests is a list of folder names")?
+        }
+        None => Vec::new(),
+    };
     let transport = map.remove("transport").unwrap_or(Value::Null);
-    Ok((head, order, transport))
+    Ok((head, order, nests, transport))
+}
+
+/// A track to read: from its folder in the project, or from a track folder
+/// outside it, for the song or a nest.
+struct TrackEntry {
+    /// The folder in the project (`tracks/Bass`, `nests/Bridge/master`), or
+    /// the path of one outside it as the list names it.
+    folder: PathBuf,
+    outside: bool,
+    nest: Option<u64>,
+    /// The nest's master track (`nests/<name>/master`).
+    master: bool,
+}
+
+impl TrackEntry {
+    /// An entry of a list of tracks (`project.toml`'s, a `nest.toml`'s)
+    /// whose folders are in `<root>/tracks`.
+    fn of(name: &str, root: &Path, nest: Option<u64>) -> Self {
+        if is_outside_entry(name) {
+            Self { folder: PathBuf::from(name), outside: true, nest, master: false }
+        } else {
+            Self { folder: root.join("tracks").join(name), outside: false, nest, master: false }
+        }
+    }
 }
 
 /// Read every track and the master, outside tracks included. The clips'
 /// files that the tracks name are collected in `files`.
 fn read_all_tracks(
     dir: &Path,
-    order: &[String],
+    entries: &[TrackEntry],
     files: &mut Vec<(u64, PathBuf)>,
     problems: &mut Vec<String>,
 ) -> Result<(Vec<Value>, Value)> {
@@ -1125,14 +1184,13 @@ fn read_all_tracks(
     // no part of the project has them, and gets new ones where one has.
     let mut read_tracks: Vec<Option<Value>> = Vec::new();
     let mut used = BTreeSet::new();
-    for name in order {
-        if is_outside_entry(name) {
+    for entry in entries {
+        if entry.outside {
             read_tracks.push(None);
             continue;
         }
-        let folder = Path::new("tracks").join(name);
-        let track = read_track(dir, &folder, problems)
-            .with_context(|| format!("reading the track {name}"))?;
+        let track = read_track(dir, &entry.folder, problems)
+            .with_context(|| format!("reading the track {}", entry.folder.display()))?;
         ids_in(&track, &mut used);
         read_tracks.push(Some(track));
     }
@@ -1147,13 +1205,13 @@ fn read_all_tracks(
             renumber(track, &mut used, true);
         }
     }
-    for (name, track) in order.iter().zip(read_tracks) {
+    for (entry, track) in entries.iter().zip(read_tracks) {
         if let Some(track) = track {
             tracks.push(fix(track, files, dir)?);
             continue;
         }
         // A track folder outside the project: read from where it is.
-        let folder = resolve(Path::new(name), dir);
+        let folder = resolve(&entry.folder, dir);
         let track = read_outside_track(&folder, &mut used, problems)?;
         tracks.push(fix(track, files, &track_root(&folder))?);
     }
@@ -1314,11 +1372,14 @@ impl super::Session {
             let what = match rel.extension().and_then(|e| e.to_str()) {
                 Some("midi2") => "clip",
                 Some("state") => "state",
+                _ if rel.file_name().is_some_and(|n| n == nests::NEST_FILE) => "nest",
                 Some("toml") => "project",
                 _ if rel.to_string_lossy().ends_with(".edits.json") => "edits",
                 _ if rel.to_string_lossy().ends_with(".signals.json") => "signals",
                 _ if rel.parent().and_then(Path::file_name).is_some_and(|n| n == "clips") => "data",
-                _ if rel.starts_with("tracks") || rel.starts_with("master") => {
+                _ if ["tracks", "master", "nests", "unused"].iter().any(|d| rel.starts_with(d))
+                    && rel.file_name().is_some_and(|n| n != "meta.json") =>
+                {
                     match rel.file_name().and_then(|n| n.to_str()) {
                         Some("track.json") => "track",
                         Some("devices.json") => "devices",

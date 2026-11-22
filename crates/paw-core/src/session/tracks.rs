@@ -25,6 +25,8 @@ impl Session {
             // A track or a chain read from outside the project's folder, or copied from there.
             "source": t.source, "origin": t.origin,
             "chain_source": t.chain_source, "chain_origin": t.chain_origin,
+            // The subproject the track belongs to; nil for the song's.
+            "nest": t.nest,
         }))
     }
 
@@ -62,15 +64,29 @@ impl Session {
         let pan = finite("pan", opts.pan.unwrap_or(0.0))?.clamp(-1.0, 1.0);
         let id = self.new_id();
         self.edit(|p| {
-            if let Some(output) = opts.output
-                && p.track(output).is_none()
+            if let Some(nest) = opts.nest
+                && p.nest(nest).is_none()
             {
-                bail!("no track {output} to output to");
+                bail!("no subproject {nest} to add a track to");
+            }
+            if let Some(output) = opts.output.filter(|o| *o != MASTER_ID) {
+                let Some(to) = p.track(output) else {
+                    bail!("no track {output} to output to");
+                };
+                if to.nest != opts.nest {
+                    bail!("track {output} ({}) is not in the same subproject: the tracks of a subproject route only to each other", to.name);
+                }
             }
             let mut track = Track::new(id);
-            track.name = opts
-                .name
-                .unwrap_or_else(|| format!("Track {}", p.tracks.len() + 1));
+            track.nest = opts.nest;
+            // Numbered among the tracks of the song, or of its nest.
+            let masters: BTreeSet<Id> = p.nests.values().map(|n| n.master).collect();
+            let count = p
+                .tracks
+                .iter()
+                .filter(|t| t.nest == opts.nest && !masters.contains(&t.id))
+                .count();
+            track.name = opts.name.unwrap_or_else(|| format!("Track {}", count + 1));
             track.volume = volume;
             track.pan = pan;
             track.output = opts.output.filter(|o| *o != MASTER_ID);
@@ -88,6 +104,9 @@ impl Session {
         self.edit(|p| {
             if id == MASTER_ID {
                 bail!("the master track cannot be removed");
+            }
+            if let Some(nest) = p.nests.values().find(|n| n.master == id) {
+                bail!("track {id} is the master of the subproject {}: it cannot be removed", nest.name);
             }
             let index = p
                 .tracks
@@ -301,6 +320,7 @@ fn checked_output(p: &Project, id: Id, output: Option<Id>) -> Result<Option<Id>>
         if p.would_cycle(id, to) {
             bail!("routing track {id} into track {to} would make a loop");
         }
+        p.check_route(id, to, crate::model::Route::Output)?;
     }
     Ok(output)
 }
@@ -317,6 +337,7 @@ fn checked_sends(p: &Project, id: Id, mut sends: Vec<Send>) -> Result<Vec<Send>>
         if p.would_cycle(id, send.target) {
             bail!("sending track {id} to track {} would make a loop", send.target);
         }
+        p.check_route(id, send.target, crate::model::Route::Send)?;
     }
     Ok(sends)
 }
