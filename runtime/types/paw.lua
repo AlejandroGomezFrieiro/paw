@@ -6985,8 +6985,9 @@ function paw.roll_clips.active() end
 --- other clips of the active clip's track, and of the clips of the shown
 --- tracks (not the editable clips), that sound in the range of the editable
 --- clips. Each is `{ pitch, start, length, velocity, clip, track, color }`,
---- at most `paw.opt.roll_context_max` of them. paw keeps them until the
---- project, the set of clips or the toggles change.
+--- at most `paw.opt.roll_context_max` of them. paw finds them again only
+--- when those clips, the shown tracks, the edited clips or their span change:
+--- an edit of the notes of an edited clip keeps them.
 function paw.roll_clips.context() end
 
 --- The context note on `pitch` that sounds at roll beat `beat`, if any.
@@ -7061,7 +7062,9 @@ function paw.roll_clips.show_track(id, on) end
 
 --- The pitches that sound at roll beat `beat`, in the editable clips and
 --- the context, lowest first. The second value is the name of the chord
---- that they make, when `paw.harmony` can tell it.
+--- that they make, when `paw.harmony` can tell it. The name comes from
+--- the chords that paw has read so far, so right after an edit it can be
+--- the name from before the edit.
 ---@param beat any
 function paw.roll_clips.sounding(beat) end
 
