@@ -1942,6 +1942,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.scope.names()`: The named scopes, the latest last.
 - `paw.scope.narrow(which)`: Narrow to a group or a region, by its id, its track or its name (see `named`): `enter` of that scope in the current window. Returns the scope.
 - `paw.scope.nest(s)`: The innermost subproject of a scope's path (the current scope by default), or nil when the path is in the song: its tracks and its timeline are what the window shows.
+- `paw.scope.nest_time(clip)`: The own time of the subproject of block `clip`, or nil when it follows the song's tempo and meter.
 - `paw.scope.next(n)`: Go to the scope `n` places beside the current one (`]z`, `3]z`, `[z`), in the same parent. A jump. Returns the scope.
 - `paw.scope.of_clip(id)`: The scope of a subproject's clip (`znn` or `<CR>` on it enters it), or nil when the clip places no subproject.
 - `paw.scope.of_fold(f)`: A fold of a window (paw/folds.tl) as a scope to enter: its group, its region, its tracks or its bars, with the name it shows.
@@ -1949,7 +1950,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.scope.of_tab(tab)`: The scope of a tab: that of its current window.
 - `paw.scope.open(how, spec)`: Open a scope (the one at the cursor by default) in a new window: `how` is "split", "vsplit" or "tab". The new window starts with the scope of the one it comes from, and enters this one inside it.
 - `paw.scope.origin()`: The song's beat of beat 0 of the time the window shows (the window being drawn, else the current one): in a subproject, where its block starts; else 0. `paw.time` adds it, so that a subproject's bars are the song's bars at its place.
-- `paw.scope.own_time()`: The own time of the subproject that the window (the one being drawn, else the current one) is in, when it has its own tempo or meter (`paw.api.nest_time` of the block it was entered through); else nil. `paw.time` counts in it then.
+- `paw.scope.own_time()`: The own time of the subproject that the window (the one being drawn, else the current one) is in, when it has its own tempo or meter (`paw.api.nest_own_tempo` of the block it was entered through); else nil. `paw.time` counts in it then.
 - `paw.scope.path(s)`: The levels of a scope's path (the current one by default), from the outermost to it.
 - `paw.scope.rest_parts(s)`: The parts of the rest of the song that paw can freeze for a scope. These are the tracks outside it at the top of their branch (a whole group, not its members). They are not the tracks that the sound of the scope goes through (its groups, and a bus that its sends reach). They are not empty.
 - `paw.scope.restore(s, win)`: Show a scope in a window as it was (a jump back, `<C-o>`): no jump of its own, no check. Nil is the song.
@@ -2610,11 +2611,25 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.midi_test_ports(ports)`: The MIDI ports the null backend lists, as if plugged in.
 - `paw.api.midi_ump(event)`: What an event is as a MIDI 2.0 packet: two 32-bit words.
 - `paw.api.nest_add(opts)`: Make a subproject with its master track and no other track, as one undo step, for example `{ name = "Bridge", length = 32 }`. The length is in beats, and 32 when you leave it out. Add its tracks with `track_add({ nest = id })`. Returns its id.
+- `paw.api.nest_beat(clip, beat)`: The subproject's beat of the song's beat `beat`, for block `clip`.
 - `paw.api.nest_get(id, key)`: A subproject as a table: its fields, `tracks` (its tracks in order, without its master) and `used` (whether the song plays it). With `key`, only that field of its own (`name`, `length`, `master`...): this is quicker.
 - `paw.api.nest_list()`: --- nests (subprojects): tracks with a timeline of their own --- The ids of the subprojects, in the order they were made.
+- `paw.api.nest_own_tempo(clip)`: Whether the subproject that block `clip` places counts its own time: true with its own tempo, false with only its own meter, nil when it follows the song's tempo and meter (the song's map from the block's start is its time then). The `nest_tempo_*` functions give its map.
 - `paw.api.nest_promote(clip)`: Promote the subproject of a block (`clip`) to song data, as one undo step: its tracks come back in a group named after it at the place of its return row, their clips at the row's beats, cut at the block. The group track gets the master's devices and then the row's, the sum of their faders in dB, the row's pan and sends, and their lanes (two volume lanes added in dB). The row, the master and the subproject go. A subproject saved per track (`<Space>zw`) gives its clips back to the rows of its blocks instead, with no group. Returns `group`, `tracks`, `from`, `to`, `zero` (the song's beat of the subproject's beat 0) and `combined` (the targets of the lanes made one). `paw.nest.promote` does the rest: regions, the meter, the view.
 - `paw.api.nest_save(opts)`: Save a view as a subproject, as one undo step: the clips of `tracks` from `from` to `to` (beats of their place) move into a new subproject named `name` with the meter `meter`. Per track, each row keeps its devices and gets a track of the subproject with its clips; add a block on the row that plays it. With `own_row`, the tracks go in (whole, or as copies with copies of their devices and lanes) and one return row plays the mix; add its block. `paw.nest.save` does the rest: blocks, regions, the window. Returns `nest`, `rows`, `row`, `tracks` and `changes`.
 - `paw.api.nest_set(id, key, value)`: Change a subproject: a table of the entries to change (`name`, `length`, `tempo`, `meter`, `kind`, `meta`), as `nest_get` gives them, or one `key` and its value.
+- `paw.api.nest_song_beat(clip, beat)`: The song's beat of beat `beat` of the subproject of block `clip`.
+- `paw.api.nest_tempo_at(clip, beat)`
+- `paw.api.nest_tempo_bar_length(clip, beat)`
+- `paw.api.nest_tempo_bar_of(clip, beat)`
+- `paw.api.nest_tempo_bar_start(clip, bar)`
+- `paw.api.nest_tempo_bbt(clip, beat)`
+- `paw.api.nest_tempo_from_bbt(clip, bar, beat, fraction)`
+- `paw.api.nest_tempo_is_bar_line(clip, beat)`
+- `paw.api.nest_tempo_points(clip)`
+- `paw.api.nest_tempo_seconds(clip, beat)`: The `tempo_*` conversions in the own map of the subproject of block `clip`, in its beats: `nest_tempo_bbt(clip, beat)`.
+- `paw.api.nest_tempo_signature(clip, beat)`
+- `paw.api.nest_unique(clip)`: Make the block `clip` a subproject of its own, as one undo step: a copy of its subproject (tracks, devices, lanes and clips) named `Ballad 2`, which the block and the stems of the same block then play. The other blocks keep the subproject. Returns the copy's id.
 - `paw.api.note_off(track, pitch)`
 - `paw.api.note_on(track, pitch, velocity, attr)`: Play a note on a track, with a MIDI 2.0 attribute if one is given.
 - `paw.api.now()`

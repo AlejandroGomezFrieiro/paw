@@ -320,6 +320,7 @@ their tickets.
 - `repeat --keys j,k --times 20`, budget 0 and 5 in turns, 5 pairs, load
   average 40 to 57: 61.5 ms (39.1 to 63.9) and 39.9 ms (22.2 to 72.7)
   for each round. No measurable difference: the spread is much larger.
+
 ## 2026-11-22: copies of a clip share their compiled events
 
 The sync now compiles the events of a MIDI clip from the clip's start and
@@ -700,6 +701,7 @@ synth tracks at 128 frames, it went from 0.43 ms to 0.26 ms. For 10 synth
 tracks at 128 frames, it went from 0.18 ms to 0.26 ms, with a budget of
 2.67 ms. These tracks now play on one thread. This uses less processor
 time, but each block takes longer.
+
 ## 2026-11-19: edits, memory and startup again
 
 A new run of the matrix (`results/remeasure-2026-11-19.jsonl`) showed a faster engine but slower work around it. 1000 clip moves
