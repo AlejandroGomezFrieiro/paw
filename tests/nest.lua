@@ -150,3 +150,35 @@ test("an edit inside a subproject is one undo step named after it; u in the song
   eq(#api.track_list({ nest = b.nest }), 2, "u in the song undoes it")
   reset()
 end)
+
+-- The transport inside ---------------------------------------------------------------
+
+test("a Lua device in a subproject reads the subproject's bar; on a song track, the song's", function()
+  start()
+  -- A device whose sound is its bar: 0.01 for each bar, bar 1 is 0.01.
+  local dir = T.scratch .. "/nest_luadev"
+  os.execute("mkdir -p '" .. dir .. "'")
+  T.write_file(
+    dir .. "/nest_bar_level.lua",
+    [[
+    local dev = require("paw.dsp").device {}
+    function dev.process(b)
+      local level = b.playing and (b.bar + 1) * 0.01 or 0
+      for i = 0, b.frames - 1 do b.left[i], b.right[i] = level, level end
+    end
+    return dev
+  ]]
+  )
+  paw.luadev.add_dir(dir)
+  local b = ballad()
+  -- Its second bar is the song's bar 10: beats 36 to 40, 18 to 20 s at 120 bpm.
+  local function level()
+    local info = T.render({ tail = 0, bits = 16, ["end"] = 40 })
+    return (T.channel_peaks(info, 18.2, 19.8))
+  end
+  local inside = paw.track(b.piano):add_device("lua:nest_bar_level")
+  T.near(level(), 0.02, 1e-3, "inside the subproject: its bar 2")
+  inside:remove()
+  paw.track(b.drums):add_device("lua:nest_bar_level")
+  T.near(level(), 0.10, 1e-3, "on a song track: the song's bar 10")
+end)

@@ -118,6 +118,8 @@ pub struct Mapper {
     /// The nest tracks as last sent: their clips placed in the song for
     /// each place of their nest (see `nests.rs`).
     pub(super) expanded: super::nests::ExpandedTracks,
+    /// The time each nest track's devices were last told (see `nests.rs`).
+    pub(super) local: HashMap<Id, super::nests::Local>,
 }
 
 /// The track that plays MIDI input as if it were monitored, without the
@@ -176,6 +178,7 @@ impl Mapper {
             cue_events: HashMap::new(),
             state_main: HashMap::new(),
             expanded: HashMap::new(),
+            local: HashMap::new(),
         }
     }
 

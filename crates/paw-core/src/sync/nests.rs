@@ -104,6 +104,41 @@ impl Placed {
     }
 }
 
+/// The time the devices of a nest's tracks see: where each block of the
+/// nest plays, and the nest's own meter (empty: the song's).
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct Local {
+    places: Vec<paw_engine::Place>,
+    meter: Vec<paw_engine::SigPoint>,
+}
+
+impl Local {
+    /// The time of nest `nest`'s tracks, or None when the nest is not there.
+    pub fn of(project: &Project, nest: NestId, placed: &Placed) -> Option<Self> {
+        let held = project.nest(nest)?;
+        let places = placed
+            .instances
+            .get(&nest)
+            .into_iter()
+            .flatten()
+            .map(|i| paw_engine::Place { from: i.from, to: i.to, zero: i.zero })
+            .collect();
+        let meter = match &held.meter {
+            crate::model::NestMeter::Own { changes } => changes
+                .iter()
+                .map(|c| paw_engine::SigPoint { beat: c.beat, num: c.num, den: c.den })
+                .collect(),
+            crate::model::NestMeter::Follow => Vec::new(),
+        };
+        Some(Self { places, meter })
+    }
+
+    /// As the engine takes it.
+    pub fn time(&self) -> paw_engine::LocalTime {
+        paw_engine::LocalTime::new(self.places.clone(), &self.meter)
+    }
+}
+
 /// A nest track as the engine plays it, and what it was made from.
 pub(crate) struct Expanded {
     source: Arc<Track>,

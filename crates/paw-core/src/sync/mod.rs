@@ -129,6 +129,7 @@ pub fn sync(
     pass.inputs();
     pass.device_latency();
     pass.routing();
+    pass.local_times();
     pass.removed_tracks();
     let Pass { ctx, send, removals, map, .. } = pass;
     // Removals go last, once nothing in the schedule or a chain refers to them.
@@ -738,6 +739,34 @@ impl<'p> Pass<'p, '_, '_> {
             send(Msg::SetSchedule(Box::new(schedule)));
             map.routing = routing;
         }
+    }
+
+    /// The time the devices of each nest track see: the nest's bars, from
+    /// beat 0 of the block that plays (`nests.rs`). Sent when it changes.
+    fn local_times(&mut self) {
+        let mut now: HashMap<Id, nests::Local> = HashMap::new();
+        for t in self.new.tracks.iter() {
+            if let Some(local) = t.nest.and_then(|n| nests::Local::of(self.new, n, self.placed)) {
+                now.insert(t.id, local);
+            }
+        }
+        if now.is_empty() && self.map.local.is_empty() {
+            return;
+        }
+        for (id, local) in &now {
+            if self.map.local.get(id) == Some(local) {
+                continue;
+            }
+            if let Some(&track) = self.map.tracks.get(id) {
+                (self.send)(Msg::SetLocalTime { track, time: Some(Box::new(local.time())) });
+            }
+        }
+        for id in self.map.local.keys().filter(|id| !now.contains_key(id)) {
+            if let Some(&track) = self.map.tracks.get(id) {
+                (self.send)(Msg::SetLocalTime { track, time: None });
+            }
+        }
+        self.map.local = now;
     }
 
     /// Tracks that are gone: their slots are freed after the removals.
