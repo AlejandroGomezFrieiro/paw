@@ -44,7 +44,9 @@ pub(super) fn library_path(bundle: &Path) -> PathBuf {
         .with_extension("so")
 }
 
-pub(super) fn load(bundle: &Path) -> Result<Arc<Module>> {
+/// Load the module of `bundle`, or return it if it is loaded already. The
+/// libraries that it needs are looked for in `libraries`.
+pub(super) fn load(bundle: &Path, libraries: &[PathBuf]) -> Result<Arc<Module>> {
     crate::debug_assert_main_thread();
     static LOADED: Mutex<Vec<(PathBuf, Arc<Module>)>> = Mutex::new(Vec::new());
     let mut loaded = LOADED.lock().unwrap();
@@ -57,7 +59,7 @@ pub(super) fn load(bundle: &Path) -> Result<Arc<Module>> {
     // entry gets the module's own handle. The factory pointer is checked for null before use, and
     // `ComPtr` owns one reference to it. Main thread, once per bundle (under the LOADED lock).
     let module = unsafe {
-        let handle = crate::libs::open_library(&path)
+        let handle = crate::libs::open_library(&path, libraries)
             .with_context(|| format!("loading {}", path.display()))?
             .into_raw();
         // Borrow the handle to look symbols up, without ever closing it.
@@ -89,8 +91,8 @@ pub(super) fn load(bundle: &Path) -> Result<Arc<Module>> {
     Ok(module)
 }
 
-pub(super) fn list(bundle: &Path) -> Result<Vec<Found>> {
-    let module = load(bundle)?;
+pub(super) fn list(bundle: &Path, libraries: &[PathBuf]) -> Result<Vec<Found>> {
+    let module = load(bundle, libraries)?;
     let mut found = Vec::new();
     // SAFETY: `module.factory` is a live COM object of a module that is never unloaded; each `info` is a
     // zeroed plain-data struct that the factory fills for an index below `countClasses`.

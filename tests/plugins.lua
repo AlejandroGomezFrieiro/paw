@@ -144,3 +144,18 @@ for _, format in ipairs({ "clap", "lv2", "vst3" }) do
     eq(render({ tail = 0.3 }).peak > 0.05, true, "sounds after loading")
   end)
 end
+
+test("a folder that an extension adds is searched for plugins of each format until it is removed", function()
+  local before = api.plugins_dirs()
+  if not before then return "skipped: this build hosts no plugins" end
+  local dir = scratch .. "/plugins-dirs-added"
+  os.execute("mkdir -p '" .. dir .. "'")
+  paw.plugins.add_dir(dir, "dirs-test")
+  local during = api.plugins_dirs()
+  paw.plugins.remove_dir(dir)
+  for _, format in ipairs({ "clap", "lv2", "vst3" }) do
+    eq(#during[format], #before[format] + 1, format .. ": one more folder")
+    eq(during[format][#during[format]], dir, format .. ": the added folder comes last")
+    eq(#api.plugins_dirs()[format], #before[format], format .. ": not searched once removed")
+  end
+end)

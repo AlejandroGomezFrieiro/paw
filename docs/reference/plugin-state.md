@@ -189,8 +189,8 @@ bytes with `IBStreamer`, and the `binary` reader keeps them as `/State@data`.
 
 ## Hints from the binary of the plugin
 
-`frameworks.binary_of(plugin)` finds the binary of a plugin in the plugin
-folders (`CLAP_PATH`, `VST3_PATH`, `LV2_PATH`, else the usual folders).
+`frameworks.binary_of(plugin)` finds the binary of a plugin in the folders
+where paw looks for plugins of its format (`paw.api.plugins_dirs()`).
 `frameworks.markers(path)` reads the binary once and gives the name of a
 framework and the version of JUCE. paw does not run the binary, and it does
 not read the bridge of Windows plugins (`yabridge`).

@@ -20,14 +20,15 @@ pub(super) struct Library {
     pub(super) entry: PluginEntry,
 }
 
-/// Load a `.clap` file, or return it if it is loaded already.
-pub(super) fn load(path: &Path) -> Result<Arc<Library>> {
+/// Load a `.clap` file, or return it if it is loaded already. The
+/// libraries that it needs are looked for in `libraries`.
+pub(super) fn load(path: &Path, libraries: &[PathBuf]) -> Result<Arc<Library>> {
     static LOADED: Mutex<Vec<(PathBuf, Arc<Library>)>> = Mutex::new(Vec::new());
     let mut loaded = LOADED.lock().unwrap();
     if let Some((_, library)) = loaded.iter().find(|(p, _)| p == path) {
         return Ok(library.clone());
     }
-    let lib = libloading::Library::from(crate::libs::open_library(path)?);
+    let lib = libloading::Library::from(crate::libs::open_library(path, libraries)?);
     // SAFETY: `clap_entry` is the symbol the CLAP ABI names and has the type `clap_plugin_entry`.
     // The file is never unloaded (`ManuallyDrop` below), so the entry it points to is `'static`.
     let entry: &'static EntryDescriptor = unsafe {
@@ -54,8 +55,8 @@ pub(super) fn load(path: &Path) -> Result<Arc<Library>> {
     Ok(library)
 }
 
-pub(super) fn list(path: &Path) -> Result<Vec<Found>> {
-    let library = load(path)?;
+pub(super) fn list(path: &Path, libraries: &[PathBuf]) -> Result<Vec<Found>> {
+    let library = load(path, libraries)?;
     let factory = library
         .entry
         .get_plugin_factory()

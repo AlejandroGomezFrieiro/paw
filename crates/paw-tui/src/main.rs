@@ -9,7 +9,7 @@ mod keys;
 mod plugins;
 mod terminal;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use anyhow::{Context, Result, bail};
@@ -176,6 +176,9 @@ fn attach(options: &Attach) -> Result<()> {
         (None, false) => None,
     };
     let mut connection = connect(&options.connect)?;
+    // `~/` in a file that the instance asks for is the home folder of this
+    // machine, resolved once here.
+    let home = std::env::var_os("HOME").map(PathBuf::from);
     // What was typed and what the instance sends come in on one channel,
     // so that the loop sleeps until there is one or the other.
     let (incoming, arrived) = std::sync::mpsc::channel();
@@ -217,7 +220,7 @@ fn attach(options: &Attach) -> Result<()> {
                 }
                 "ui.detached" => return Ok(()),
                 // `:upload`: a file on this machine, for the instance.
-                "file.wanted" => send_wanted(&mut connection, &payload),
+                "file.wanted" => send_wanted(&mut connection, &payload, home.as_deref()),
                 "audio.frame" => {
                     if let Some(player) = &player {
                         let _ = player.push(&payload);
@@ -262,11 +265,12 @@ fn fetch_pixels(connection: &mut rpc::Connection, grid: &paw_core::grid::Grid) {
 }
 
 /// Send the file a `file.wanted` event names, from this machine, and import
-/// it; what went wrong is said on the instance's screen.
-fn send_wanted(connection: &mut rpc::Connection, payload: &Value) {
+/// it; what went wrong is said on the instance's screen. A name that starts
+/// with `~/` is in `home`.
+fn send_wanted(connection: &mut rpc::Connection, payload: &Value, home: Option<&Path>) {
     let Some(asked) = payload["path"].as_str() else { return };
-    let path = match (asked.strip_prefix("~/"), std::env::var_os("HOME")) {
-        (Some(rest), Some(home)) => PathBuf::from(home).join(rest),
+    let path = match (asked.strip_prefix("~/"), home) {
+        (Some(rest), Some(home)) => home.join(rest),
         _ => PathBuf::from(asked),
     };
     let sent = if payload["import"].as_bool().unwrap_or(false) {

@@ -318,7 +318,7 @@ does not permit.
 | `snapshots(id)`, `current(id)` | the snapshots of a device, and the name of the last one recalled or kept |
 | `lane_state(id, key, value)`, `lane_snapshot(id, name)` | a slot set to a value, or a snapshot, as a state lane takes it. Nothing changes in the device |
 | `lane_point(id, beat, state)` | gives the state from `beat` on, on the device's state lane (made if it has none), as one undo step |
-| `share_dirs(sub)` | the folders `share/<sub>` of the packages in the plugin folders (`CLAP_PATH`, `VST3_PATH`, `LV2_PATH`, the Nix profiles), for factory presets |
+| `share_dirs(sub)` | the folders `share/<sub>` of the packages in the folders where paw looks for plugins (`paw.api.plugins_dirs()`), for factory presets |
 
 The JUCE layer is in `require("plugstate.jucestate")`. See
 [The state of JUCE plugins](../../docs/reference/juce-plugin-state.md).

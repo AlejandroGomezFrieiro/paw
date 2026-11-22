@@ -37,6 +37,8 @@ pub(super) struct ClapFactory {
     pub(super) info: DeviceInfo,
     pub(super) id: CString,
     pub(super) path: PathBuf,
+    /// Where the libraries that the file needs are looked for.
+    pub(super) libraries: Arc<[PathBuf]>,
 }
 
 impl DeviceFactory for ClapFactory {
@@ -45,7 +47,7 @@ impl DeviceFactory for ClapFactory {
     }
 
     fn create(&self, sample_rate: f32, max_block: usize) -> Result<Instance> {
-        let library = load(&self.path)?;
+        let library = load(&self.path, &self.libraries)?;
         let flags = Arc::new(HostFlags::new());
         let host = HostInfo::new("paw", "paw", "", "0.1.0")?;
         let host_flags = flags.clone();

@@ -128,7 +128,12 @@ pub(super) const IDLE_INTERFACE: &CStr = c"http://lv2plug.in/ns/extensions/ui#id
 /// their own, which is what `ui:showInterface` and the older "external UI"
 /// are for: the toolkit then runs inside the editor's library and this host
 /// links none of them. A bare Gtk widget is put in a Gtk window here.
-pub(super) unsafe fn find_ui(plugin: *const LilvPlugin) -> Option<UiInfo> {
+///
+/// The editor's library looks for what it needs in `libraries`.
+pub(super) unsafe fn find_ui(
+    plugin: *const LilvPlugin,
+    libraries: &Arc<[PathBuf]>,
+) -> Option<UiInfo> {
     let w = world();
     // For trying a particular kind: `PAW_LV2_UI=x11|shows|external|gtk`.
     let only = std::env::var("PAW_LV2_UI").ok();
@@ -191,6 +196,7 @@ pub(super) unsafe fn find_ui(plugin: *const LilvPlugin) -> Option<UiInfo> {
                         binary: PathBuf::from(binary.to_string_lossy().into_owned()),
                         bundle: bundle.clone(),
                         kind,
+                        libraries: libraries.clone(),
                     });
                 }
             }
@@ -429,7 +435,7 @@ pub(super) unsafe fn ui_descriptor(info: &UiInfo) -> Result<*const UiDescriptor>
     unsafe {
         // Never unloaded, like the plugins themselves.
         let lib = std::mem::ManuallyDrop::new(libloading::Library::from(
-            crate::libs::open_library(&info.binary)
+            crate::libs::open_library(&info.binary, &info.libraries)
                 .with_context(|| format!("loading {}", info.binary.display()))?,
         ));
         let get = lib

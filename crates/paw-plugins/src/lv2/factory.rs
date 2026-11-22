@@ -4,6 +4,7 @@ use std::cell::{Cell, RefCell, UnsafeCell};
 use std::collections::HashMap;
 use std::ffi::{CStr, CString, c_void};
 use std::sync::atomic::{AtomicBool, AtomicU32};
+use std::path::PathBuf;
 use std::sync::{Arc, OnceLock};
 
 use anyhow::{Result, bail};
@@ -27,6 +28,10 @@ pub(super) struct Lv2Factory {
     pub(super) uri: String,
     /// Looked up in the lilv world on first use.
     pub(super) plugin: OnceLock<usize>,
+    /// The folders that lilv's world reads, when this factory makes it.
+    pub(super) folders: Arc<[PathBuf]>,
+    /// Where the libraries that the editor needs are looked for.
+    pub(super) libraries: Arc<[PathBuf]>,
 }
 
 impl Lv2Factory {
@@ -34,7 +39,7 @@ impl Lv2Factory {
         if let Some(&p) = self.plugin.get() {
             return Ok(p as *const LilvPlugin);
         }
-        let w = world();
+        let w = world_in(&self.folders);
         let uri = CString::new(self.uri.clone())?;
         // SAFETY: `w.world` is the live lilv world (it lives for the program); the node is made and freed
         // here, and the plugin it finds belongs to the world, not to the node.
@@ -264,7 +269,7 @@ impl DeviceFactory for Lv2Factory {
 
     fn create(&self, sample_rate: f32, max_block: usize) -> Result<Instance> {
         let plugin = self.plugin()?;
-        let w = world();
+        let w = world_in(&self.folders);
         // SAFETY: lilv calls on the live world and on `plugin`, which the world owns. `host` and `instance`
         // are owned by this function and then moved into `Shared`, whose Drop frees the instance
         // after the worker has stopped; `Shared` is built after all ports are connected. This block
@@ -353,7 +358,7 @@ impl DeviceFactory for Lv2Factory {
                 free_wheeling,
                 atom_ports,
                 port_symbols: port_symbols(plugin),
-                ui: find_ui(plugin),
+                ui: find_ui(plugin, &self.libraries),
                 ui_open: AtomicBool::new(false),
                 properties,
                 patch_port,

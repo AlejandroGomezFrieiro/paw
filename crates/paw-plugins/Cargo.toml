@@ -35,6 +35,7 @@ x11rb = "0.13"
 
 [dev-dependencies]
 hound = "3.5"
+tempfile = "3"
 
 # A CLAP plugin of the tests' own (tests/stub.rs).
 [[example]]

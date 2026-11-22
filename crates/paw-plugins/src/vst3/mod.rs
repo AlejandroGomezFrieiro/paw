@@ -38,7 +38,7 @@ use paw_engine::{DeviceFactory, DeviceFormat, DeviceInfo, Registry};
 use vst3::Steinberg::Vst::TChar;
 use vst3::Steinberg::{TUID, tresult};
 
-use crate::{Found, PluginFormat};
+use crate::{Found, PluginDirs, PluginFormat};
 
 const OK: tresult = 0;
 const NO_INTERFACE: tresult = -1;
@@ -81,8 +81,8 @@ fn unhex(text: &str) -> Option<TUID> {
 
 /// Load a bundle and list the audio plugins in it.
 /// What is in a bundle, for the helper that looks into plugin files.
-pub(crate) fn list_file(bundle: &Path) -> Result<Vec<Found>> {
-    library::list(bundle)
+pub(crate) fn list_file(bundle: &Path, libraries: &[PathBuf]) -> Result<Vec<Found>> {
+    library::list(bundle, libraries)
 }
 
 /// VST3, for [`scan_in`](crate::scan_in): a `.vst3` bundle holds a shared
@@ -92,7 +92,6 @@ pub(crate) struct Vst3;
 impl PluginFormat for Vst3 {
     const NAME: &'static str = "vst3";
     const FORMAT: DeviceFormat = DeviceFormat::Vst3;
-    const ENV: &'static str = "VST3_PATH";
     // The same plugin installed in two places is one plugin.
     const ONE_PER_ID: bool = true;
 
@@ -100,8 +99,12 @@ impl PluginFormat for Vst3 {
         Some(library::library_path(bundle)).filter(|library| library.is_file())
     }
 
-    fn list(bundle: &Path) -> Result<Vec<Found>> {
-        library::list(bundle)
+    fn usual(dirs: &PluginDirs) -> &[PathBuf] {
+        &dirs.vst3
+    }
+
+    fn list(bundle: &Path, libraries: &[PathBuf]) -> Result<Vec<Found>> {
+        library::list(bundle, libraries)
     }
 
     /// The name is the handle, so two plugins cannot share one.
@@ -115,12 +118,18 @@ impl PluginFormat for Vst3 {
         kind
     }
 
-    fn factory(info: DeviceInfo, bundle: &Path) -> Option<Rc<dyn DeviceFactory>> {
+    fn factory(
+        info: DeviceInfo,
+        bundle: &Path,
+        dirs: &PluginDirs,
+    ) -> Option<Rc<dyn DeviceFactory>> {
         let class = unhex(&info.id)?;
         Some(Rc::new(factory::Vst3Factory {
             info,
             bundle: bundle.to_path_buf(),
             class,
+            libraries: dirs.libraries.clone(),
+            preset_roots: dirs.vst3_presets.clone(),
         }))
     }
 }

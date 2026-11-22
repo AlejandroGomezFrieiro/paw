@@ -44,7 +44,7 @@ use std::rc::Rc;
 use anyhow::Result;
 use paw_engine::{DeviceFactory, DeviceFormat, DeviceInfo, Registry};
 
-use crate::{Found, PluginFormat};
+use crate::{Found, PluginDirs, PluginFormat};
 
 /// The text in a fixed-size buffer that a plugin filled, as Clack gives it:
 /// up to its first NUL, or the whole buffer when the plugin wrote none.
@@ -54,8 +54,8 @@ fn buffer_text(bytes: &[u8]) -> String {
 
 /// Load a file and list the plugins in it.
 /// What is in a plugin file, for the helper that looks into them.
-pub(crate) fn list_file(path: &Path) -> Result<Vec<Found>> {
-    library::list(path)
+pub(crate) fn list_file(path: &Path, libraries: &[PathBuf]) -> Result<Vec<Found>> {
+    library::list(path, libraries)
 }
 
 /// CLAP, for [`scan_in`](crate::scan_in): a `.clap` is a single shared
@@ -65,27 +65,35 @@ pub(crate) struct Clap;
 impl PluginFormat for Clap {
     const NAME: &'static str = "clap";
     const FORMAT: DeviceFormat = DeviceFormat::Clap;
-    const ENV: &'static str = "CLAP_PATH";
     const ONE_PER_ID: bool = false;
 
     fn library(bundle: &Path) -> Option<PathBuf> {
         (!bundle.is_dir()).then(|| bundle.to_path_buf())
     }
 
-    fn list(bundle: &Path) -> Result<Vec<Found>> {
-        library::list(bundle)
+    fn usual(dirs: &PluginDirs) -> &[PathBuf] {
+        &dirs.clap
+    }
+
+    fn list(bundle: &Path, libraries: &[PathBuf]) -> Result<Vec<Found>> {
+        library::list(bundle, libraries)
     }
 
     fn kind(found: &Found, _registry: &Registry) -> String {
         format!("clap:{}", found.id)
     }
 
-    fn factory(info: DeviceInfo, bundle: &Path) -> Option<Rc<dyn DeviceFactory>> {
+    fn factory(
+        info: DeviceInfo,
+        bundle: &Path,
+        dirs: &PluginDirs,
+    ) -> Option<Rc<dyn DeviceFactory>> {
         let id = CString::new(info.id.as_str()).ok()?;
         Some(Rc::new(factory::ClapFactory {
             info,
             id,
             path: bundle.to_path_buf(),
+            libraries: dirs.libraries.clone(),
         }))
     }
 }

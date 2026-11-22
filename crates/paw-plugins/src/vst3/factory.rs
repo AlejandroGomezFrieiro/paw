@@ -40,6 +40,10 @@ pub(super) struct Vst3Factory {
     pub(super) info: DeviceInfo,
     pub(super) bundle: PathBuf,
     pub(super) class: TUID,
+    /// Where the libraries that the module needs are looked for.
+    pub(super) libraries: Arc<[PathBuf]>,
+    /// The roots of the `.vstpreset` files ([`crate::PluginDirs`]).
+    pub(super) preset_roots: Arc<[PathBuf]>,
 }
 
 /// The parameters the controller shows: their ids, and what paw tells of
@@ -148,7 +152,7 @@ impl DeviceFactory for Vst3Factory {
     }
 
     fn create(&self, sample_rate: f32, max_block: usize) -> Result<Instance> {
-        let module = load(&self.bundle)?;
+        let module = load(&self.bundle, &self.libraries)?;
         // SAFETY: The factory is live; every COM call is made in the order the VST3 ABI requires
         // (createInstance, initialize, setComponentHandler, setupProcessing, setActive,
         // setProcessing) on the main thread, before the processor is shared with the audio thread;
@@ -274,6 +278,7 @@ impl DeviceFactory for Vst3Factory {
             };
             let mut controller = Box::new(Vst3Controller {
                 preset_dirs: crate::presets::vst3_preset_dirs(
+                    &self.preset_roots,
                     &self.info.vendor,
                     &self.info.name,
                     Some(&self.bundle),
