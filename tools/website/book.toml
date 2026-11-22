@@ -13,6 +13,7 @@ default-theme = "light"
 preferred-dark-theme = "coal"
 smart-punctuation = false
 no-section-label = true
+additional-css = ["landing.css"]
 
 [output.html.search]
 enable = true
