@@ -335,6 +335,9 @@ local record api
    undo_current: function(): integer
    undo_diff: function(a?: integer, b?: integer): types.UndoDiff
    undo_discard: function(): boolean
+   undo_file_open: function(dir: string): types.UndoFileOpen
+   undo_file_wait: function()
+   undo_file_write: function(dir: string, bytes: integer)
    undo_goto: function(id: integer): boolean
    undo_join: function(id: integer): boolean
    undo_keep: function(id: integer, keep?: boolean)

@@ -83,6 +83,8 @@ pub(super) struct Undo {
     pub join: Option<StateId>,
     /// Counts every change to the project, undo and redo included.
     pub edits: u64,
+    /// The undo file of the project: see `session/undo_file.rs`.
+    pub file: super::undo_file::UndoFile,
     /// While a command is run again in place of its step
     /// ([`Session::undo_adjust`]): the step as it was, to put back when the
     /// command fails.
@@ -129,6 +131,7 @@ impl Undo {
             join: None,
             edits: 0,
             adjusting: None,
+            file: Default::default(),
         }
     }
 }
@@ -158,6 +161,12 @@ impl Session {
         self.undo.history.set_current_snapshot(self.undo.checkpoint.clone());
         let from = self.undo.history.current();
         let id = go(&mut self.undo.history)?;
+        // A state still in the undo file is read now; one that cannot be
+        // read is not gone to.
+        if !self.undo_file_states(&[id]) {
+            self.undo.history.goto(from);
+            return None;
+        }
         if id != from {
             self.project = self.undo.history.current_snapshot().clone();
             self.undo.checkpoint = self.project.clone();
@@ -316,8 +325,15 @@ impl Session {
             AdjustStatus::Ready
         };
         let old_label = state.label.clone();
+        let parent = state.parent;
+        let status = if status == AdjustStatus::Ready && !self.undo_file_states(&parent.into_iter().collect::<Vec<_>>()) {
+            AdjustStatus::Kept
+        } else {
+            status
+        };
+        let h = &self.undo.history;
         if status == AdjustStatus::Ready {
-            let parent = state.parent.expect("a step has a parent");
+            let parent = parent.expect("a step has a parent");
             let parent = h.get(parent).expect("a parent is in the tree").snapshot.clone();
             let project = std::mem::replace(&mut self.project, parent.clone());
             self.undo.adjusting = Some(Adjusting { project, label: old_label.clone() });
@@ -364,6 +380,10 @@ impl Session {
             .get(b)
             .with_context(|| format!("no state {b} in the undo tree"))?;
         let a = a.or(to.parent).unwrap_or(b);
+        for id in [a, b] {
+            self.undo_file_state(id)?;
+        }
+        let to = self.undo.history.get(b).expect("state b was found a moment ago");
         let from = self
             .undo.history
             .get(a)
@@ -379,6 +399,7 @@ impl Session {
     pub fn undo_project(&mut self, id: Option<StateId>) -> Result<Project> {
         self.undo.history.set_current_snapshot(self.undo.checkpoint.clone());
         let id = id.unwrap_or(self.undo.history.current());
+        self.undo_file_state(id)?;
         let state = self
             .undo.history
             .get(id)
@@ -410,6 +431,7 @@ impl Session {
             self.capture_states();
             self.project.clone()
         } else {
+            self.undo_file_state(id)?;
             self.undo.history.get(id).unwrap().snapshot.clone()
         };
         let time = history::now();
@@ -561,7 +583,7 @@ fn same<T: Serialize>(a: &T, b: &T) -> bool {
 
 /// Reuse `old`'s tracks, devices, clips and lanes wherever `new` has the same
 /// ones, so that the engine is only sent what really differs.
-fn share_with(new: &mut Project, old: &Project) {
+pub(super) fn share_with(new: &mut Project, old: &Project) {
     let tracks: HashMap<Id, &Arc<Track>> = old.all_tracks().map(|t| (t.id, t)).collect();
     let share_track = |track: &mut Arc<Track>| {
         let Some(prev) = tracks.get(&track.id) else {
