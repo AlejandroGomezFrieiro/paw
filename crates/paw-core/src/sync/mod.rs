@@ -97,8 +97,7 @@ pub fn sync(
         old_tracks: old.all_tracks().map(|t| (t.id, t)).collect(),
         old_devices: old
             .all_tracks()
-            .flat_map(|t| &t.devices)
-            .map(|d| (d.id, d))
+            .flat_map(|t| t.devices.iter().map(move |d| (d.id, (t.id, d))))
             .collect(),
         old,
         new,
@@ -139,7 +138,8 @@ struct Pass<'p, 'm, 'c> {
     old: &'p Project,
     new: &'p Project,
     old_tracks: TrackIndex<'p>,
-    old_devices: HashMap<Id, &'p Arc<DeviceInst>>,
+    /// Each device of the old snapshot, with the track it was on.
+    old_devices: HashMap<Id, (Id, &'p Arc<DeviceInst>)>,
     map: &'m mut Mapper,
     ctx: &'m mut SyncCtx<'c>,
     send: &'m mut dyn FnMut(Msg),
@@ -290,7 +290,7 @@ impl<'p> Pass<'p, '_, '_> {
         let mut toggled = false;
         for device in &track.devices {
             let item = Item { id: device.id, track: Some(track.id) };
-            match self.old_devices.get(&device.id).copied().filter(|_| pass.prev.is_some()) {
+            match self.old_devices.get(&device.id).map(|&(_, d)| d).filter(|_| pass.prev.is_some()) {
                 Some(before) if before.offline != device.offline => {
                     toggled = true;
                     self.device_slots = true;
@@ -440,19 +440,21 @@ impl<'p> Pass<'p, '_, '_> {
             .flat_map(|t| &t.devices)
             .map(|d| d.id)
             .collect();
-        let gone: Vec<Id> = self
+        // The track it was on, so that whoever listens looks at that track
+        // alone (it may be gone too).
+        let gone: Vec<(Id, Id)> = self
             .old_devices
-            .keys()
-            .copied()
-            .filter(|id| !new_devices.contains(id))
+            .iter()
+            .filter(|(id, _)| !new_devices.contains(id))
+            .map(|(&id, &(track, _))| (id, track))
             .collect();
-        for id in gone {
+        for (id, track) in gone {
             self.ctx.live.remove(&id);
             self.map.host_latency.remove(&id);
             self.map.keyed.remove(&id);
             self.map.outs.remove(&id);
             self.map.free_device(id, &mut self.removals);
-            self.emit(E::DeviceRemoved(Item { id, track: None }));
+            self.emit(E::DeviceRemoved(Item { id, track: Some(track) }));
         }
     }
 

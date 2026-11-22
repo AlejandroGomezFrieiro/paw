@@ -916,74 +916,176 @@ fn check_fade(beats: f64) -> Result<f64> {
     Ok(beats)
 }
 
-fn clip_json(c: &Clip, track: Id) -> Value {
-    let mut v = json!({
-        "id": c.id, "name": c.name, "start": c.start, "length": c.length, "muted": c.muted,
-        "kind": c.content.kind(), "track": track, "meta": c.meta,
-    });
+/// A warp marker as a clip's description gives it: with the beat of the
+/// song it is at.
+#[derive(Serialize)]
+pub struct WarpView {
+    source: f64,
+    target: f64,
+    beat: f64,
+}
+
+/// A clip as `paw.api.clip_get` and `clip_list` give it: its fields without
+/// its notes or its sound, made straight into Lua with no JSON between.
+/// What does not apply to its kind is left out.
+#[derive(Serialize)]
+pub struct ClipView<'a> {
+    id: Id,
+    name: &'a str,
+    start: f64,
+    length: f64,
+    muted: bool,
+    kind: &'a str,
+    track: Id,
+    meta: &'a Map<String, Value>,
+    #[serde(rename = "loop")]
+    looped: bool,
+    loop_start: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    loop_length: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    cue: Option<bool>,
+    // A MIDI clip's.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    source: Option<&'a Path>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    offline: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    origin: Option<&'a Path>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    note_count: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    control_count: Option<usize>,
+    /// Changes whenever the notes do ([`crate::model::Notes::stamp`]).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    stamp: Option<u64>,
+    /// The same for the controller moves.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    control_stamp: Option<u64>,
+    // An audio clip's.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    edits: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    file: Option<&'a Path>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    offset: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    gain: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    fade_in: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    fade_out: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    timebase: Option<Timebase>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    stretch: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pitch: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    stretch_mode: Option<StretchMode>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    source_tempo: Option<f64>,
+    // How its stretch stands (`Session::note_stretching`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    stretching: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    made: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    preview: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    bent: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    formants: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    warp: Option<Vec<WarpView>>,
+}
+
+/// A hash of a clip's controller moves, as a number Lua holds exactly.
+fn control_stamp(controls: &[crate::model::Control]) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut hash = std::collections::hash_map::DefaultHasher::new();
+    for control in controls {
+        control.start.to_bits().hash(&mut hash);
+        control.value.to_bits().hash(&mut hash);
+        control.key.hash(&mut hash);
+        format!("{:?}", control.what).hash(&mut hash);
+    }
+    hash.finish() >> 11
+}
+
+fn clip_json(c: &Clip, track: Id) -> ClipView<'_> {
+    let mut v = ClipView {
+        id: c.id,
+        name: &c.name,
+        start: c.start,
+        length: c.length,
+        muted: c.muted,
+        kind: c.content.kind(),
+        track,
+        meta: &c.meta,
+        looped: c.looped,
+        loop_start: c.loop_start,
+        loop_length: c.loop_length,
+        cue: None,
+        source: None,
+        offline: None,
+        origin: None,
+        note_count: None,
+        control_count: None,
+        stamp: None,
+        control_stamp: None,
+        edits: None,
+        file: None,
+        offset: None,
+        gain: None,
+        fade_in: None,
+        fade_out: None,
+        timebase: None,
+        stretch: None,
+        pitch: None,
+        stretch_mode: None,
+        source_tempo: None,
+        stretching: None,
+        made: None,
+        preview: None,
+        bent: None,
+        formants: None,
+        warp: None,
+    };
     match &c.content {
         ClipContent::Midi { notes, controls } => {
             if let Some(source) = &c.source {
-                v["source"] = json!(source);
+                v.source = Some(source);
                 if !source.is_file() {
-                    v["offline"] = json!(true);
+                    v.offline = Some(true);
                 }
             }
-            if let Some(origin) = &c.origin {
-                v["origin"] = json!(origin);
-            }
-            v["note_count"] = json!(notes.len());
-            v["control_count"] = json!(controls.len());
-            // Changes whenever the notes do, so that whoever draws them
-            // knows when to ask for them again. A number Lua holds exactly.
-            use std::hash::{Hash, Hasher};
-            let mut hash = std::collections::hash_map::DefaultHasher::new();
-            for note in notes {
-                (note.start.to_bits(), note.length.to_bits()).hash(&mut hash);
-                (note.pitch, note.velocity, note.attr).hash(&mut hash);
-                // What extensions keep on a note (a lyric, a spelling) too.
-                if !note.meta.is_empty() {
-                    Value::Object(note.meta.clone()).to_string().hash(&mut hash);
-                }
-            }
-            v["stamp"] = json!(hash.finish() >> 11);
-            // The same for the controller moves.
-            let mut hash = std::collections::hash_map::DefaultHasher::new();
-            for control in controls {
-                control.start.to_bits().hash(&mut hash);
-                control.value.to_bits().hash(&mut hash);
-                control.key.hash(&mut hash);
-                format!("{:?}", control.what).hash(&mut hash);
-            }
-            v["control_stamp"] = json!(hash.finish() >> 11);
+            v.origin = c.origin.as_deref();
+            v.note_count = Some(notes.len());
+            v.control_count = Some(controls.len());
+            v.stamp = Some(notes.stamp());
+            v.control_stamp = Some(control_stamp(controls));
         }
         ClipContent::Audio { file, offset, gain, edits } => {
             if !edits.is_empty() {
-                v["edits"] = json!(edits.len());
+                v.edits = Some(edits.len());
             }
             // Its file is not there: the clip is silent until it is relinked.
             if !file.is_file() {
-                v["offline"] = json!(true);
+                v.offline = Some(true);
             }
-            v["file"] = json!(file);
-            v["offset"] = json!(offset);
-            v["gain"] = json!(gain);
-            v["fade_in"] = json!(c.fade_in);
-            v["fade_out"] = json!(c.fade_out);
-            v["timebase"] = json!(c.timebase.unwrap_or_default());
-            v["stretch"] = json!(c.stretch);
-            v["pitch"] = json!(c.pitch);
-            v["stretch_mode"] = json!(c.stretch_mode);
-            if let Some(bpm) = c.source_tempo {
-                v["source_tempo"] = json!(bpm);
-            }
+            v.file = Some(file);
+            v.offset = Some(*offset);
+            v.gain = Some(*gain);
+            v.fade_in = Some(c.fade_in);
+            v.fade_out = Some(c.fade_out);
+            v.timebase = Some(c.timebase.unwrap_or_default());
+            v.stretch = Some(c.stretch);
+            v.pitch = Some(c.pitch);
+            v.stretch_mode = Some(c.stretch_mode);
+            v.source_tempo = c.source_tempo;
         }
         ClipContent::Custom(_) => {}
-    }
-    v["loop"] = json!(c.looped);
-    v["loop_start"] = json!(c.loop_start);
-    if let Some(beats) = c.loop_length {
-        v["loop_length"] = json!(beats);
     }
     v
 }

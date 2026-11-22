@@ -38,11 +38,38 @@ paw.on("project.loaded", function()
 end)
 
 -- Small piano rolls and waveforms drawn inside clips, and what a header says
--- about its track's devices, kept until the project changes.
-local previews, chains, waves = {}, {}, {}
+-- about its track's devices. A waveform is kept until the project changes.
+-- A piano roll is kept by what it is drawn from (the stamp of the clip's
+-- notes, its length and its loop), and a header by its track's devices: an
+-- edit elsewhere (a track deleted and put back, a fader) draws them again
+-- from what is kept. They are forgotten when there are too many.
+local previews, waves = {}, {}
+local rolls, chains = { n = 0 }, { n = 0 }
+local KEEP = 4096
+
+--- What `kept` holds for `key`, or `make()` kept there.
+local function keep(kept, key, make)
+  local v = kept[key]
+  if v == nil then
+    v = make()
+    if kept.n >= KEEP then
+      for k in pairs(kept) do
+        kept[k] = nil
+      end
+      kept.n = 0
+    end
+    kept[key], kept.n = v, kept.n + 1
+  end
+  return v
+end
+
 paw.on("changed", function()
-  previews, chains, waves = {}, {}, {}
+  previews, waves = {}, {}
 end)
+-- A device's name can change without a change to the track's list of devices.
+for _, event in ipairs({ "device.changed", "device.ready", "project.loaded" }) do
+  paw.on(event, function() chains = { n = 0 } end)
+end
 
 --- An audio clip's waveform as `n` { min, max, rms } across it, kept: for
 --- `paw.plot.wave` and its twin in cells. Nothing for a missing file.
@@ -72,7 +99,20 @@ local function preview(clip, width, rows, zoom)
   if kept then return kept[1], kept[2] end
   local out, runs
   if clip.kind == "midi" then
-    out = draw.miniroll(paw.stretch.sounding(clip, api.clip_notes(clip.id)), width, rows, zoom)
+    local roll = string.format(
+      "%s:%s:%.17g:%s:%.17g:%s",
+      key,
+      tostring(clip.stamp),
+      clip.length,
+      tostring(clip.loop),
+      clip.loop_start or 0,
+      tostring(clip.loop_length)
+    )
+    out = keep(
+      rolls,
+      roll,
+      function() return draw.miniroll(paw.stretch.sounding(clip, api.clip_notes(clip.id)), width, rows, zoom) end
+    )
   else
     -- A file that has gone missing has been reported already; draw nothing.
     local ok, peaks = pcall(api.clip_peaks, clip.id, width)
@@ -87,15 +127,15 @@ local wave_style = { flip = "ClipWaveFlip", clip = "ClipWaveClip", clipflip = "C
 
 --- What a track's sound goes through, in a few words: `synth › delay`.
 local function chain(t)
-  if chains[t.id] then return chains[t.id] end
-  local names = {}
-  for _, id in ipairs(t.devices or {}) do
-    local ok, device = pcall(api.device_get, id)
-    if ok then names[#names + 1] = device.name end
-  end
-  local text = table.concat(names, " " .. draw.g.chain .. " ")
-  chains[t.id] = text
-  return text
+  local key = t.id .. ":" .. table.concat(t.devices or {}, ",") .. (paw.opt.ascii and "a" or "")
+  return keep(chains, key, function()
+    local names = {}
+    for _, id in ipairs(t.devices or {}) do
+      local ok, device = pcall(api.device_get, id)
+      if ok then names[#names + 1] = device.name end
+    end
+    return table.concat(names, " " .. draw.g.chain .. " ")
+  end)
 end
 
 view.meter = draw.meter

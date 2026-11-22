@@ -51,7 +51,7 @@ when it is not set), one JSON line for each measurement in
 | `play` | The large project plays in a loop for `--secs` seconds. | As `idle`, and the frames that the kernel drew (whole, live, unchanged). |
 | `record` | A take on a new armed track from the test input. | As `play`. |
 | `long` | Edits, keys and playback in turns for `--secs` seconds (600). | Resident memory and the Lua heap every five rounds; the heap after a full collection; the undo history. |
-| `repeat` | The keys of `--keys` (comma-separated, with Python escapes), `--times` times. | The processor time of the kernel for each round. Use it with the probes to profile one key. |
+| `repeat` | The keys of `--keys` (comma-separated, with Python escapes), `--times` times. | The processor time of the kernel for each round, and the time from each key to its first frame (median, smallest and largest value). Use it with the probes to profile one key. |
 
 The thread named `kernel` is the main thread: Lua, the views, the
 drawing and the terminal output. The thread of the null backend

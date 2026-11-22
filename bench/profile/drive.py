@@ -47,7 +47,8 @@ Options (all optional):
   --label TEXT     a label for the results and file names
   --reps N         repetitions of startup and of each moving key (default 5)
   --keys K1,K2     repeat: the keys, comma-separated, with Python escapes
-  --times N        repeat: how many rounds (default 20)
+  --times N        repeat: how many rounds (default 20); it also gives the
+                   time from each key to its first frame (median, min, max)
   --setup LUA      Lua run in the kernel after the start, before measuring
 """
 
@@ -652,16 +653,25 @@ def scenario_repeat(opts, project):
     probes = Probes(opts, paw, "repeat", 3600)
     k0 = paw.kernel_ns()
     t0 = time.monotonic()
+    first = {name: [] for name in opts.keys.split(",")}
     for _ in range(opts.times):
-        for k in keys:
+        for name, k in zip(opts.keys.split(","), keys):
             n = paw.screen.count()
+            t = now_ms()
             paw.key(k)
-            paw.screen.wait_frames(n + 1, 10)
+            if paw.screen.wait_frames(n + 1, 10):
+                with paw.screen.lock:
+                    first[name].append(paw.screen.frames[n][0] - t)
             paw.screen.wait_quiet(100, 10)
     res = probes.stop()
     res.update({"scenario": "repeat", "keys": opts.keys, "times": opts.times,
                 "kernel_cpu_ms_per_round": round((paw.kernel_ns() - k0) / 1e6 / opts.times, 2),
                 "wall_s": round(time.monotonic() - t0, 2)})
+    # The time from each key to its first frame: median, smallest, largest.
+    for name, vals in first.items():
+        if vals:
+            vals.sort()
+            res["first_frame_ms " + name] = [round(vals[len(vals) // 2], 1), round(vals[0], 1), round(vals[-1], 1)]
     emit(opts, res)
     paw.quit()
 

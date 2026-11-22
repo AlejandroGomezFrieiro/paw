@@ -17,7 +17,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, bail};
-use serde_json::{Value, json};
+use serde_json::Value;
 
 use super::{ClipKind, MAX_PEAKS, Session, de};
 use crate::model::{Clip, ClipContent, Id, Project, Timebase, WarpMarker};
@@ -249,7 +249,7 @@ impl Session {
     /// Note on a clip's description that its version is still being made
     /// (and plays a rough `preview` until its bake starts), and where its
     /// warp markers are, as beats of the song.
-    pub(super) fn note_stretching(&self, clip: &Clip, view: &mut Value) {
+    pub(super) fn note_stretching(&self, clip: &Clip, view: &mut super::ClipView<'_>) {
         let map = self.project.tempo_map();
         let key = Key::of(clip, self.engine.handle.sample_rate as u32, map, &self.sources);
         if let Some(key) = key.as_ref() {
@@ -260,32 +260,30 @@ impl Session {
             };
             if matches!(status, Status::Waiting | Status::Running) {
                 // Played as far as it is made: how far that is.
-                view["stretching"] = json!(true);
-                view["made"] = json!(self.audio.renders.progress(key));
+                view.stretching = Some(true);
+                view.made = Some(self.audio.renders.progress(key));
             }
             if status == Status::Waiting {
-                view["preview"] = json!(true);
+                view.preview = Some(true);
             }
         }
         if warp::is_bent(clip, map) {
-            view["bent"] = json!(true);
+            view.bent = Some(true);
         }
         if clip.formants {
-            view["formants"] = json!(true);
+            view.formants = Some(true);
         }
         if !clip.warp.is_empty() {
-            let markers: Vec<Value> = clip
-                .warp
-                .iter()
-                .map(|m| {
-                    json!({
-                        "source": m.source,
-                        "target": m.target,
-                        "beat": warp::beat_of(clip, map, m.source),
+            view.warp = Some(
+                clip.warp
+                    .iter()
+                    .map(|m| super::WarpView {
+                        source: m.source,
+                        target: m.target,
+                        beat: warp::beat_of(clip, map, m.source),
                     })
-                })
-                .collect();
-            view["warp"] = json!(markers);
+                    .collect(),
+            );
         }
     }
 

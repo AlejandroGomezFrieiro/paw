@@ -377,6 +377,7 @@ local function pass(opts: Options)
           h[b] = hist[b]
         else
           h[b] = read.bar_weights(sorted, longest, starts[b], starts[b + 1])
+          pause()
         end
       end
       hist, bars, rebar = h, starts, true

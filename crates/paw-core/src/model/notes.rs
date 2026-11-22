@@ -15,8 +15,9 @@
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::mem::size_of;
+use std::hash::{Hash, Hasher};
 use std::ops::{Index, IndexMut};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -33,6 +34,9 @@ pub struct Notes {
     runs: Vec<Run>,
     /// Where each run ends: how many notes come before it and in it.
     ends: Vec<usize>,
+    /// [`Notes::stamp`], made when first asked and forgotten by each
+    /// change: every change goes through a `&mut self` method here.
+    stamp: OnceLock<u64>,
 }
 
 /// Runs of about [`RUN`] notes each, none of them empty.
@@ -59,9 +63,28 @@ impl Notes {
         let mut notes = Self {
             ends: vec![0; runs.len()],
             runs,
+            stamp: OnceLock::new(),
         };
         notes.reindex(0);
         notes
+    }
+
+    /// A number that changes whenever the notes do, so that whoever draws
+    /// them knows when to ask for them again: a hash of every note, with
+    /// what extensions keep on it (a lyric, a spelling), that Lua holds
+    /// exactly. Made once for each change, not for each time it is asked.
+    pub fn stamp(&self) -> u64 {
+        *self.stamp.get_or_init(|| {
+            let mut hash = std::collections::hash_map::DefaultHasher::new();
+            for note in self {
+                (note.start.to_bits(), note.length.to_bits()).hash(&mut hash);
+                (note.pitch, note.velocity, note.attr).hash(&mut hash);
+                if !note.meta.is_empty() {
+                    serde_json::Value::Object(note.meta.clone()).to_string().hash(&mut hash);
+                }
+            }
+            hash.finish() >> 11
+        })
     }
 
     pub fn len(&self) -> usize {
@@ -105,6 +128,7 @@ impl Notes {
 
     /// A note to change, copying its run if a copy of the clip shares it.
     pub fn get_mut(&mut self, index: usize) -> Option<&mut Note> {
+        self.stamp.take();
         let (run, at) = self.locate(index)?;
         Arc::make_mut(&mut self.runs[run]).get_mut(at)
     }
@@ -129,6 +153,7 @@ impl Notes {
     /// Every note to change: this copies every run a copy of the clip shares,
     /// so changes to a few notes go through [`Notes::get_mut`] instead.
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Note> {
+        self.stamp.take();
         self.runs.iter_mut().flat_map(|r| Arc::make_mut(r).iter_mut())
     }
 
@@ -146,6 +171,7 @@ impl Notes {
     ///
     /// When `index` is past the end, as `Vec::insert` does.
     pub fn insert(&mut self, index: usize, note: Note) {
+        self.stamp.take();
         assert!(index <= self.len(), "note {index} is past the end of {}", self.len());
         if self.runs.is_empty() {
             self.runs.push(Arc::new(vec![note]));
@@ -175,6 +201,7 @@ impl Notes {
     ///
     /// When there is no such note, as `Vec::remove` does.
     pub fn remove(&mut self, index: usize) -> Note {
+        self.stamp.take();
         let len = self.len();
         let (run, at) = self
             .locate(index)
@@ -192,6 +219,7 @@ impl Notes {
     }
 
     pub fn extend(&mut self, notes: impl IntoIterator<Item = Note>) {
+        self.stamp.take();
         let mut notes: Vec<Note> = notes.into_iter().collect();
         if notes.is_empty() {
             return;
@@ -212,6 +240,7 @@ impl Notes {
 
     /// Keep the notes `keep` says to, asking it of each note once, in order.
     pub fn retain(&mut self, mut keep: impl FnMut(&Note) -> bool) {
+        self.stamp.take();
         let mut changed = false;
         for run in &mut self.runs {
             let kept: Vec<bool> = run.iter().map(&mut keep).collect();
@@ -256,6 +285,7 @@ impl Notes {
     /// few notes changed, added or taken out shares with the list before
     /// it. The notes between the runs kept are made into runs of their own.
     pub fn assign(&mut self, notes: Vec<Note>) {
+        self.stamp.take();
         let old = std::mem::take(&mut self.runs);
         let holds = |at: usize, run: &Run| notes.get(at..at + run.len()) == Some(&run[..]);
         // Where in `notes` each run kept begins, looking for each a little
@@ -538,6 +568,22 @@ mod tests {
             .iter()
             .filter(|r| b.runs.iter().any(|o| Arc::ptr_eq(r, o)))
             .count()
+    }
+
+    #[test]
+    fn stamp_follows_each_change_and_equal_notes_share_it() {
+        let mut notes = many(600);
+        let first = notes.stamp();
+        let copy = notes.clone();
+        notes[300].pitch = 61;
+        assert_ne!(notes.stamp(), first, "a note changed in place");
+        notes[300].pitch = 60;
+        assert_eq!(notes.stamp(), first, "the same notes again");
+        notes.push(note(700.0));
+        assert_ne!(notes.stamp(), first, "a note added");
+        notes.retain(|n| n.start < 700.0);
+        assert_eq!(notes.stamp(), first, "and taken out");
+        assert_eq!(copy.stamp(), first, "a copy made before keeps its own");
     }
 
     #[test]

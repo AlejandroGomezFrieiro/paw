@@ -71,21 +71,19 @@ pub(super) fn move_cue(p: &mut Project, id: Id, to: Id) -> Result<bool> {
 
 impl Session {
     /// A track's clips off the timeline, without their notes.
-    pub fn cue_list(&self, track: Id) -> Result<Value> {
+    pub fn cue_list(&self, track: Id) -> Result<Vec<super::ClipView<'_>>> {
         let t = self
             .project
             .track(track)
             .with_context(|| format!("no track {track}"))?;
-        Ok(Value::Array(
-            t.cues
-                .iter()
-                .map(|c| {
-                    let mut view = super::clip_json(c, track);
-                    view["cue"] = json!(true);
-                    view
-                })
-                .collect(),
-        ))
+        Ok(t.cues
+            .iter()
+            .map(|c| {
+                let mut view = super::clip_json(c, track);
+                view.cue = Some(true);
+                view
+            })
+            .collect())
     }
 
     /// Copy a clip, from the timeline or from the cues, into a track's cues,
