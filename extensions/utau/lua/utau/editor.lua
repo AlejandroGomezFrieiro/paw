@@ -581,13 +581,16 @@ end
 
 -- Hearing -----------------------------------------------------------------------------
 
---- Play from the cursor, or stop.
-function view:play_from_cursor()
+--- Where play starts from this view: the cursor, as a beat of the song.
+function view:play_beat()
   local clip = self:clip()
-  if not clip then return end
-  if paw.transport.playing then return paw.transport.stop() end
-  paw.transport.seek(clip.start + self.beat)
-  paw.transport.play()
+  if clip then return clip.start + self.beat end
+end
+
+--- Play (as `play_from` says: from the cursor, or the playhead), or stop.
+function view:play_from_cursor()
+  if not self:clip() then return end
+  paw.commands.exec("transport.toggle")
 end
 
 --- Keep the playhead in sight while it plays: a page on when it leaves the

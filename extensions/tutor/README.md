@@ -269,7 +269,7 @@ row gives the lesson and a change that would help a new user.
 | 3, 4 | `a` adds a device in the arrange view, but appends notes in the piano roll. A user of Vim expects "append" in both | Say so in `?`, or move "add device" to another key |
 | 5, 7 | Mute has four keys with two meanings: `M` the track, `~` the clip, `gc` clips and `gcc` the track. `~` on a `V` selection mutes the tracks, but on a `v` selection the clips | One rule: `gc` for clips, `M` for tracks, everywhere |
 | 6 | `dw` from a gap deletes nothing (a note belongs to its start). So `.` after a move into a gap does nothing, with no message | A message when the region of an operator is empty |
-| 2 | Many terminals and tmux cannot tell `<S-CR>` (play from the cursor) from Enter | A second key, such as `g<Space>` |
+| 2 | Many terminals and tmux cannot tell `<S-CR>` (play from the playhead) from Enter | A second key, such as `g<Space>` |
 | 13 | `:w name` is the `:saveas` of Vim: the project moves to the new file. A user of Vim expects a copy. No command writes a copy | `:w name` for a copy, as in Vim |
 | 13 | `:render name.wav` writes relative to the folder where paw started. It does not expand `~`, and the message gives only the name | Expand `~`, and give the full path |
 | 14 | Key hints group `grn` and `grc` as `r +2 more` under `g`, and hide the rename keys | List the keys of the group when there are few |

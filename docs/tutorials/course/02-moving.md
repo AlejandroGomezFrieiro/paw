@@ -56,7 +56,7 @@ The tutor opens a practice project for this lesson. It checks each step when you
 13. Here the rows are pitches, so `k` moves up one semitone, not one track. Press `k` two times. You hear each pitch.
    - ✓ The key is the same, but the view and the meaning are different. It still moves up.
 14. `<Esc>` stays in the current window, in each view. `<C-w>p` returns to the previous window. Press `<C-w>p`. Then press `gp` to move the playhead to the cursor. Press `<Space><Space>` to play and `<Space><Space>` to stop.
-   - *Hint:* If the terminal knows `<S-CR>` (Shift and Enter) from Enter, `<S-CR>` plays from the cursor in one step.
+   - *Hint:* `<Space><Space>` alone plays from the cursor. `gp` puts the playhead there first, and `<S-CR>` plays from the playhead.
    - ✓ The song played from bar 5, where the melody starts.
 
 ## What we did

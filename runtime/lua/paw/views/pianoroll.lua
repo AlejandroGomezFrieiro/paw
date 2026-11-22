@@ -27,6 +27,12 @@ function view:clip()
   self.clip_id = nil
 end
 
+--- Where play starts from this view: the cursor, as a beat of the song.
+function view:play_beat()
+  local clip = self:clip()
+  if clip then return clip.start + self.beat end
+end
+
 --- The clips being edited, the active one first: `{ id, clip, offset, ... }`
 --- each (see `paw.roll_clips.parts`).
 function view:parts() return clips.parts() end

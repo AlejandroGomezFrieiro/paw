@@ -14,7 +14,7 @@ A track with an audio input records audio. An armed track with no input records 
 
 In the arrange view, `I` shows the inputs that the track can use. These are no audio input, each channel of the input device, and each pair of channels (for example `UR22mkII · 1/2`). They are also MIDI from all ports or from one port, and one MIDI channel. `<A-i>`, or the `I` in the header, monitors the input: you hear it, but paw does not record it.
 
-`r` arms the track. `R` starts the recording from the playhead. `R` again stops the recording, but the song continues to play. Then `<Space><Space>` stops it.
+`r` arms the track. `R` starts the recording from the cursor. `R` again stops the recording, but the song continues to play. Then `<Space><Space>` stops it.
 
 `:midi.inputs` shows the MIDI ports and `:midi.select` selects some. `:audio` selects the input and output devices. Each take is one undo step.
 
@@ -31,7 +31,7 @@ The tutor opens a practice project for this lesson. It checks each step when you
    - ✓ Voice gets its sound from that input. The header shows the input and its level. `<A-i>` lets you hear it without a recording.
 2. `r` arms the track for a recording, and its `R` becomes red. Press `r`.
    - ✓ The track is armed. You also hear the input of an armed track.
-3. `R` starts the recording from the cursor, as `<S-CR>` plays from it. Press `R`. Sing or play for some seconds. Then press `R` to stop the recording, and `<Space><Space>` to stop the song.
+3. `R` starts the recording from the cursor, as `<Space><Space>` plays from it. Press `R`. Sing or play for some seconds. Then press `R` to stop the recording, and `<Space><Space>` to stop the song.
    - *Hint:* Press `R` before `<Space><Space>`. If you press only `<Space><Space>`, record mode stays on (`rec` is lit in the status line), and the next `<Space><Space>` records again.
    - ✓ A new audio clip with your take shows where the recording started. The clip shows its waveform.
 4. Now we record MIDI. Press `r` to disarm Voice, `j` to go to Keys, and `r` to arm Keys.

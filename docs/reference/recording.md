@@ -86,8 +86,12 @@ graphical window) lists all the inputs of a track:
     from all ports, or from the port (and channel) of its `midi_input`.
 - **Where a take starts.** `R` (`:transport.record`) with the song
   stopped moves the playhead to the cursor, and records from there, as
-  `Shift-Enter` plays from the cursor. While the song plays, `R` records
-  from the playhead. `paw.transport.record()` records from the playhead.
+  `<Space><Space>` plays from the cursor. If you put the playhead on
+  purpose (`gs`, `gp`, a click on the ruler) and did not move the cursor
+  after that, `R` records from the playhead. While the song plays, `R`
+  records from the playhead. `paw.transport.record()` records from the
+  playhead. With `paw.opt.play_from = "playhead"`, `R` still records from
+  the cursor, and `<Space><Space>` plays from the playhead.
 - **What you hear while you record.** An armed track with an audio input
   plays its input only, while the take records: its clips under the take
   are silent, as on a tape machine. With a punch, its clips play before

@@ -253,10 +253,7 @@ gmap("^", function()
 end, "First hit on the row", motion)
 gmap("gg", function() grid:set(1, nil) end, "The first row", far_lines)
 gmap("G", function(ctx) grid:set(ctx.count or #grid:rows(), nil) end, "The last row, or row N", far_lines)
-gmap("gp", function()
-  local clip = grid:clip()
-  if clip then paw.transport.seek(clip.start + grid.beat) end
-end, "Playhead to the cursor")
+gmap("gp", "transport.to_cursor", "Playhead to the cursor")
 
 -- Text objects.
 local function object(lhs, fn, desc) keymap.textobject(lhs, fn, { view = "drums", desc = desc }) end

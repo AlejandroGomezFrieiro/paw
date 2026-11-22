@@ -39,7 +39,7 @@ To try the presets one after the other, press `]p` and `[p`.
 1. Press `<C-w>p` to return to the arrange view.
 2. Press `i` and `Enter`. paw opens a new clip in the piano roll, in insert mode.
 3. Press `4l` to draw a note of one beat, then press `Esc`.
-4. Press `<Space><Space>`. The note plays.
+4. Press `gs` to put the playhead at the start, then `<Space><Space>`. The note plays. (`<Space><Space>` plays from the cursor, and the cursor is now after the note.)
 
 In the graphical window, click `+ add a device` under the devices of the
 device panel, type the name in the picker and press `Enter`. To make an

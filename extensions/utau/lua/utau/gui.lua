@@ -544,7 +544,7 @@ function view:pointer(e)
   end
   if e.kind == "down" and e.y < TOOLBAR then return end
   if e.kind == "down" and e.y < TOOLBAR + RULER and e.x >= KEYS then
-    return api.transport_seek(math.max(0, clip.start + snap(beat_at(x))))
+    return paw.transport.seek(math.max(0, clip.start + snap(beat_at(x))))
   end
   if (e.kind == "down" or e.kind == "double") and e.y >= geo.ph_y and e.y < geo.ph_y + PHONEMES and e.x >= KEYS then
     return pitch_panel.phoneme_pointer(self, e, clip)
