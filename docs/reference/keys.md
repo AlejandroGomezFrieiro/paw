@@ -23,6 +23,7 @@ A command is a count, an operator, and a motion or a text object, e.g., `3>ic`, 
 | `5\|` | bar 5 (also `:5`) | |
 | `gP` | cursor to the playhead | |
 | `]'` `['` | next marker or region, the one before | |
+| `]r` `[r` | next region at the same level, the one before | |
 | `)` `(` | | next phrase, start of this phrase or the one before |
 | `zz` `zh` `zl` | center the cursor, scroll a bar | |
 
@@ -145,7 +146,7 @@ In the **curve editor**:
 | `iv` `av` | | the voice of the note: the top line, the bass or a line between, with its octave doublings |
 | `i=` `a=` | | every note of the pitch, of the pitch class |
 | `ib` | this bar (`2ib` two) | this bar |
-| `ir` | the region, on this track | the region (`2ir` the region around it) |
+| `ir` | the region, on this track (`2ir` the region around it) | the region (`2ir` the region around it) |
 | `il` | the loop | |
 | `it` | everything on the track | |
 | `ie` | the entire project | every note of the clip |

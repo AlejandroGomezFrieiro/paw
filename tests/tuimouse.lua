@@ -348,6 +348,37 @@ test("a marker drags in its band under the ruler, and a click on it goes there",
   eq(paw.cursor.beat, 10, "a click goes to it")
 end)
 
+test(
+  "the regions' lane has a row for each level: a click on a row takes its region, a drag takes the regions inside",
+  function()
+    two_tracks()
+    paw.markers.add(16, "Chorus 2", { length = 16 })
+    paw.markers.add(20, "Verse A", { length = 8 })
+    paw.markers.add(20, "Riff", { length = 4 })
+    shot()
+    local x, y = find("▾Chorus 2")
+    local x2, y2 = find("▾Verse A")
+    local x3, y3 = find("▏Riff")
+    eq(
+      string.format("%d %d %d %d", x2 - x, y2 - y, x3 - x, y3 - y),
+      "16 1 16 2",
+      "a row for each level, each under its parent"
+    )
+    paw.opt.regionlevels = 2
+    T.after(function() paw.opt.regionlevels = 3 end)
+    eq(select(2, find("+▏Riff")), y2, "regionlevels=2: the third level shares the last row, marked +")
+    paw.opt.regionlevels = 3
+    shot()
+    apart()
+    paw.cursor.set_beat(0)
+    click(x2 + 4, y2)
+    eq(paw.cursor.beat, 20, "a click on Verse A's row goes to it")
+    apart()
+    drag(x, y, x + 8, y)
+    eq(paw.markers.find("Riff").beat .. " " .. paw.markers.find("Chorus 2").beat, "22 18", "Chorus 2 took Riff along")
+  end
+)
+
 test("automation lanes shown as rows: a click adds a point, a right click on it removes it, a drag draws", function()
   local a = two_tracks()
   paw.frontend.act.lane_rows(a.id)

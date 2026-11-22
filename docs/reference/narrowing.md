@@ -15,7 +15,10 @@ In a large project, you can narrow a tab to a part of the song, which is a group
 | `gt` | Go between the tabs, as for any tabs. |
 | `:set scope_rest=mute` | Set what the tracks outside the scope do (see below). |
 
-`:narrow` takes a group or a region by name, and a group comes before a region of the same name. A name can be the start of the full name.
+`:narrow` takes a group or a region by name. A group comes before a
+region of the same name. A name can be the start of the name. Of two
+regions with the same name, the region in the current scope comes first.
+A path of regions also finds one: `:narrow Chorus 2/Verse A`.
 
 From the song, `:narrow` opens a tab after the current tab, and if a tab already shows that scope, paw goes to that tab.
 
@@ -76,6 +79,7 @@ A scope is a table. `kind` is `"group"`, `"track"`, `"tracks"`, `"region"` or `"
 | `paw.scope.widen(top)` | Go up one level, or with `top` up to the song. |
 | `paw.scope.current()` | The scope of the current tab, or nil. |
 | `paw.scope.group()` | The innermost group of the current scope, or nil. |
+| `paw.scope.children()` | The scopes one level inside the current scope. For a region, they are the regions inside it. |
 | `paw.scope.tracks()` | The tracks that the current tab shows. |
 | `paw.scope.span()` | The time that the current tab shows, `from, to` in beats, or nil for all of it. |
 | `paw.scope.contains(track)` | True if the current tab shows the track. |

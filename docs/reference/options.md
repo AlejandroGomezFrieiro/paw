@@ -99,6 +99,7 @@ When the undo history has more steps than `undo_steps` or more data than `undo_m
 | `paw.opt.trackcolumn` | `number,signs,fold` | The parts of the track column that show. See [The track column](trackcolumn.md). |
 | `paw.opt.relativebar` (`rbar`) | `false` | Shows on the ruler how many `W` or `B` go to each bar. The bar of the cursor keeps its number. |
 | `paw.opt.barlabel` | `number` | The parts of the label of each bar on the ruler. |
+| `paw.opt.regionlevels` | `3` | The rows of the lane of regions under the ruler: a row for each level of regions. Deeper regions are on the last row. |
 | `paw.opt.insertkeys` | `m,a,r,',f` | The keys of insert mode in the arrange view, in the order of its box of keys. See [Insert mode](insert-mode.md). |
 | `paw.opt.devices_width` | `36` | The columns of the device panel. |
 | `paw.opt.mixer_height` | `12` | The rows of the mixer. |

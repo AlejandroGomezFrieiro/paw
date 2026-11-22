@@ -2031,7 +2031,7 @@ function M.render_dialog(): RenderDialog
     ranges[#ranges + 1] = {name = "selection", label = "The selection"}
   end
   for _, r in ipairs(paw.markers.regions()) do
-    ranges[#ranges + 1] = {name = "region:" .. r.id, label = "Region “" .. paw.markers.label(r) .. "”"}
+    ranges[#ranges + 1] = {name = "region:" .. r.id, label = "Region “" .. paw.markers.pathname(r) .. "”"}
   end
   -- A project with no file yet renders in the folder for relative names.
   local path = render_module().default_path()

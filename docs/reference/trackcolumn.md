@@ -155,6 +155,29 @@ styles `cursor` and `relative`.
 paw.ruler.set("number", { styles = { cursor = "Title", relative = "Dim" } })
 ```
 
+## paw.ruler.add_lane
+
+```lua
+paw.ruler.add_lane("cues", {
+  order = 20,
+  rows = function(ctx) return 1 end,
+  render = function(ctx) ctx.buf:text(ctx.x(16), 0, "cue", "Marker") end,
+})
+```
+
+Under the bar numbers, the ruler has lanes of rows. The lane `regions`
+(order 10) shows the regions, a row for each level (see
+[Markers and regions](markers.md)). A lane shows after the lanes of a lower
+order.
+
+`rows` gives the number of rows that the lane needs now, 0 for
+none. `render` draws them on `ctx.buf`. `ctx.x(beat)` is the column of a
+beat. `paw.ruler.remove_lane(name)` removes the lane.
+
+`paw.ruler.set_lane(name, patch)` changes a lane that exists: its
+`order`, `rows`, `render`, `glyphs` and `styles`. It puts a changed copy
+in `paw.ruler.lanes`.
+
 A bar label has no `click` and no `describe`, because a click on the ruler moves
 the playhead and `K` describes the track and the clip at the cursor.
 

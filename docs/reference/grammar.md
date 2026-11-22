@@ -63,8 +63,8 @@ A text object names a part of the project.
 | `ac` | the clip and the gap after it | the chord as the harmony reads it |
 | `ib` | this bar (`2ib` two bars) | this bar |
 | `il` | the loop | |
-| `ir` | the region that the cursor is in, on this track | the region that the cursor is in |
-| `ar` | the region that the cursor is in, on every track | the same |
+| `ir` | the innermost region that the cursor is in, on this track (`2ir` the region around it) | the region that the cursor is in |
+| `ar` | the innermost region that the cursor is in, on every track (`2ar` the region around it) | the same |
 | `it` | everything on the track | |
 | `ie` | the entire project | every note of the clip |
 
