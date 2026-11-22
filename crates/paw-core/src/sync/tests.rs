@@ -279,3 +279,42 @@ fn a_custom_clip_plays_its_audio_sound() {
     assert!(own.iter().any(|s| *s != 0.0), "the audio clip sounds");
     assert!(own == wrapped, "the custom clip sounds the same");
 }
+
+/// Whether track 1 hears MIDI input after a sync with `follow`, while
+/// track 2 is armed.
+fn follows(follow: Follow) -> bool {
+    let track = |id: u64, armed: bool| {
+        json!({ "id": id, "name": "", "volume": 0.0, "pan": 0.0, "mute": false, "solo": false,
+            "armed": armed, "output": null, "sends": [], "color": null, "devices": [], "clips": [] })
+    };
+    let project: Project = serde_json::from_value(json!({
+        "name": "t", "tempo": 120.0, "sig_num": 4, "sig_den": 4,
+        "master": track(0, false), "tracks": [track(1, false), track(2, true)],
+    }))
+    .unwrap();
+    let registry = Registry::with_builtins();
+    let sources = crate::media::Sources::default();
+    let (mut audio, mut live, mut warnings) = (AudioCache::default(), LiveDevices::new(), Vec::new());
+    let mut ctx = SyncCtx {
+        registry: &registry,
+        sources: &sources,
+        audio: &mut audio,
+        live: &mut live,
+        sample_rate: 48000.0,
+        warnings: &mut warnings,
+        offline: true,
+    };
+    let mut map = Mapper::new();
+    map.follow = follow;
+    let mut sent = Vec::new();
+    sync(&Project::default(), &project, &mut map, &mut ctx, &mut |msg| sent.push(msg), &mut Vec::new());
+    let slot = map.tracks[&1];
+    sent.iter().any(|m| matches!(m, Msg::SetInput { track, monitor: true, .. } if *track == slot))
+}
+
+/// The selected track yields to an armed one; step input's track does not.
+#[test]
+fn the_track_that_always_follows_hears_midi_while_another_is_armed() {
+    assert!(!follows(Follow { selected: Some(1), always: None }));
+    assert!(follows(Follow { selected: None, always: Some(1) }));
+}

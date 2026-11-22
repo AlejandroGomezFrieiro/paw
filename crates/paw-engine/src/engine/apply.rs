@@ -106,6 +106,10 @@ impl Engine {
                 form,
             } => self.set_midi_output(track, port, channel, form),
             Msg::SetMidiOut(out) => self.set_midi_out(out),
+            Msg::SetMidiFilter(filter) => {
+                let old = std::mem::replace(&mut self.midi_filter, filter);
+                self.discard(Garbage::MidiFilter(old));
+            }
             Msg::SetMonitor(monitor) => self.set_monitor(monitor),
             Msg::SetPreview(preview) => self.set_preview(preview),
             Msg::SetPreviewGain(gain) => self.set_preview_gain(gain),

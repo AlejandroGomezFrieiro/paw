@@ -271,10 +271,21 @@ impl Session {
     /// The track that plays MIDI input while no track is armed, as if it
     /// were monitored, or none. The project does not change.
     pub fn set_follow(&mut self, track: Option<Id>) {
-        if self.engine.map.follow == track {
+        self.set_follows(Follow { selected: track, ..self.engine.map.follow });
+    }
+
+    /// The track that plays MIDI input as if it were monitored, also while
+    /// another track is armed, in place of [`set_follow`](Self::set_follow)'s
+    /// track; or none. The project does not change.
+    pub fn set_follow_always(&mut self, track: Option<Id>) {
+        self.set_follows(Follow { always: track, ..self.engine.map.follow });
+    }
+
+    fn set_follows(&mut self, follow: Follow) {
+        if self.engine.map.follow == follow {
             return;
         }
-        self.engine.map.follow = track;
+        self.engine.map.follow = follow;
         self.dirty = true;
         self.flush();
     }
@@ -305,7 +316,9 @@ impl Session {
         self.play.seeks = 0;
         let held = std::mem::take(&mut self.engine.map.held_files);
         let audible = self.engine.map.audible.take();
+        let follow = self.engine.map.follow;
         self.engine.map = Mapper::new();
+        self.engine.map.follow = follow;
         self.engine.map.defer = self.loads.on;
         (self.engine.map.held_files, self.engine.map.audible) = (held, audible);
         self.loads.devices.clear();
