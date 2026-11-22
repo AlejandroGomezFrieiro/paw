@@ -1,24 +1,24 @@
 # How to duck a track under the kick
 
-This guide shows you how to make a compressor on the bass react to the
-kick (a side-chain). For each rule, see
+You can make a compressor on the bass react to the kick, which is called a
+side-chain. The rules are in
 [Routing](../reference/routing.md#side-chains).
 
-1. Select the bass track and type `:device.add compressor`.
-2. Open the device panel and select the compressor.
-3. Type `:device.sidechain Kick`, or press `gS` and select the kick track.
+1. Select the bass track and type `:device.add compressor`. Then open the
+   device panel and select the compressor.
+2. Type `:device.sidechain Kick`, or press `gS` and select the kick track.
    The device line shows `key Kick`.
-4. Set `threshold` and `ratio` until the bass ducks on each kick.
-5. To hear what the detector hears, set `listen` on. Set it off again
-   after.
+3. Set `threshold` and `ratio` until the bass ducks on each kick.
+4. If you want to hear what the detector hears, set `listen` on, and set
+   it off again when you are done.
 
-To key the compressor with a kick that you do not hear, mute the kick.
-Then key before its fader: `:device.sidechain Kick pre=1`.
+If you want to key the compressor with a kick that you do not hear, mute
+the kick and key before its fader: `:device.sidechain Kick pre=1`.
 
-To duck under a plugin compressor, use the same steps. The plugin must
-have a side-chain input.
+You can duck under a plugin compressor with the same steps, as long as the
+plugin has a side-chain input.
 
 To remove the side-chain, type `:device.sidechain none`.
 
-If paw refuses the side-chain, it makes a loop: for example, the kick
-plays into the bass. The message gives the reason.
+If paw refuses the side-chain, the side-chain makes a loop, for example
+when the kick plays into the bass. The message gives the reason.

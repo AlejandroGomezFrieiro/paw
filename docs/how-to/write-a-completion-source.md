@@ -1,8 +1,8 @@
 # How to write a completion source
 
-This guide shows you how to add a source of suggestions to the piano roll.
-The example suggests the selected notes one octave higher. For each field,
-see [Completion](../reference/completion.md).
+You can add a source of suggestions to the piano roll. The example source
+suggests the selected notes one octave higher, and each field is in
+[Completion](../reference/completion.md).
 
 1. In `init.lua` or in an extension, register the source:
 
@@ -24,14 +24,14 @@ see [Completion](../reference/completion.md).
 
 2. Type `:complete.sources` to make sure that paw lists `octaves`.
 3. Open a clip in the piano roll and select some notes.
-4. Press `<C-Space>`. The ghost notes show one octave higher.
-5. Press `<Tab>` to accept them, or `<C-e>` to dismiss them.
+4. Press `<C-Space>`, and the ghost notes show one octave higher. Press
+   `<Tab>` to accept them, or `<C-e>` to dismiss them.
 
 If the source asks a program or a server, call `done` when the answer
 comes. paw shows the answers that arrive in
-`paw.opt.complete_deadline_ms`, and adds later answers at the end.
+`paw.opt.complete_deadline_ms`, and it adds later answers at the end.
 
-If the source must not run without a key press, set `auto = false`.
+If the source must run only after a key press, set `auto = false`.
 
-To give more than one alternative, give more than one item to `done`. The
-user goes through them with `<C-n>` and `<C-p>`.
+To give more than one alternative, give more than one item to `done`, and
+the user goes through them with `<C-n>` and `<C-p>`.

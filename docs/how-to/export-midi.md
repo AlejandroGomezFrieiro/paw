@@ -1,14 +1,14 @@
 # How to export MIDI for another program
 
-This guide shows you how to write the notes of paw to a MIDI file. Another
-program, for example a notation program or a different DAW, can then open
-the file. For each rule, see [MIDI](../reference/midi.md#midi-files).
+You can write the notes of paw to a MIDI file for another program, such
+as a notation program or a different DAW. The rules
+are in [MIDI](../reference/midi.md#midi-files).
 
 ## Export the whole song
 
-Type `:export /home/ana/Music/song.mid`. paw writes each MIDI track as a
-track of the file. The file also gets the tempo map, the time signatures
-and the markers. The message says how many notes it wrote.
+Type `:export /home/ana/Music/song.mid`, and paw writes each MIDI track as
+a track of the file. The file also gets the tempo map, the time signatures
+and the markers, and the message says how many notes paw wrote.
 
 ## Export one clip
 
@@ -17,13 +17,13 @@ and the markers. The message says how many notes it wrote.
 
 ## Export some tracks
 
-1. Select the tracks in visual mode, for example `Vj` for this track and
-   the next track.
+1. Select the tracks in visual mode, for example `Vj` for the current
+   track and the next track.
 2. Type `:export /home/ana/Music/part.mid selection`.
 
-paw writes a standard MIDI file of format 1. Audio clips and muted clips
-are not in the file. To send the sound, render it (see
-[How to export a song as WAV, FLAC or MP3](export-a-song.md)).
+paw writes a standard MIDI file of format 1, without the audio clips and
+the muted clips. If you want to send the sound, render it as
+[How to export a song as WAV, FLAC or MP3](export-a-song.md) shows.
 
 To bring a MIDI file into paw, see
 [How to import audio and MIDI files](import-audio-and-midi-files.md).

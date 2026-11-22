@@ -2,11 +2,11 @@
 
 <!-- tags: writing-a-device-in-lua -->
 
-This guide shows you how to make an effect in Lua: a tilt equalizer with
-an output level. For each field and helper, see
+You can make an effect in Lua. The example is a tilt equalizer with an
+output level, and each field and helper is in
 [Lua devices](../reference/lua-devices.md).
 
-1. Make the file `~/.config/paw/devices/tilt.lua` with this text:
+1. Make the file `~/.config/paw/devices/tilt.lua` with the following text:
 
    ```lua
    local dsp = require("paw.dsp")
@@ -45,14 +45,14 @@ an output level. For each field and helper, see
 2. Select a track and type `:device.add lua:tilt`. The device panel shows
    Tilt with its two parameters.
 3. Play the song and change `tilt` with `+` and `-` in the device panel.
-4. To change the code, edit the file and save it. paw loads it again within
-   one second. The parameters keep their values.
+4. To change the code, edit the file and save it. paw loads it again
+   within one second, and the parameters keep their values.
 
-If the device does not show, type `:device.scripts`. It shows each script
-and why a script did not load.
+If the device does not show, type `:device.scripts`, which shows each
+script and why a script did not load.
 
 If the device stops while it plays, the device panel shows the error with
-the file and the line. Correct the file and save it. The device starts
+the file and the line. Correct the file and save it, and the device starts
 again.
 
 To make an instrument, set `category = "instrument"` and add to `b.left`

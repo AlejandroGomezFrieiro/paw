@@ -2,21 +2,21 @@
 
 <!-- tags: midi-keyboard -->
 
-This guide shows you how to play an instrument in paw from a MIDI
-keyboard. It also shows how to check that paw sees the keyboard. It
-assumes that paw runs with an audio device. paw opens the MIDI ports only with an audio
-device, not with `--audio null`.
+You can play an instrument in paw from a MIDI keyboard, and you can check
+that paw sees the keyboard. The steps assume that paw runs with an audio
+device, because paw opens the MIDI ports only with an audio device and not
+with `--audio null`.
 
 ## Check that paw sees the keyboard
 
-1. Connect the keyboard to the computer with its USB cable.
+1. Plug the keyboard into the computer with its USB cable.
 2. Type `:midi.inputs`. A window lists each MIDI port, for example
    `Keystation 49 MIDI 1`, with `open` next to it.
 3. Press `Esc` to close the window.
 
 If the keyboard is not in the list, type `:checkhealth audio`. If it says
-"no MIDI inputs", connect the keyboard again, or start paw after you
-connect it. paw finds ports that appear later, also while it runs.
+"no MIDI inputs", plug the keyboard in again, or start paw after you plug
+it in. paw also finds ports that appear later, while it runs.
 
 ## Play an instrument
 
@@ -24,28 +24,29 @@ connect it. paw finds ports that appear later, also while it runs.
 2. Press `a`, type `synth` and press `Enter`. You can also add a plugin
    (see [How to add a track with a virtual instrument](add-an-instrument-track.md)).
 3. Play some keys. You hear the synth, and the meter of the track moves.
-   The selected track plays the keyboard. Go to a different track with `j`
-   or `k`, and the keyboard plays that track.
+
+The selected track plays the keyboard, so when you go to a different track
+with `j` or `k`, the keyboard plays that track instead.
 
 When a track is armed (`r`), only the armed tracks play the keyboard. A
-track with its monitor on (`<A-i>`) also plays the keyboard.
-
-To play only the armed and monitored tracks, type
+track with its monitor on (`<A-i>`) also plays the keyboard. If you want
+only the armed and monitored tracks to play, type
 `:set midi_follows_selection false`.
 
 ## Take one keyboard only
 
 By default, a track plays the notes from all MIDI ports and all channels.
+To take one keyboard only, give the track its port:
 
-1. Select the track and press `I`. The list of the inputs opens.
+1. Select the track and press `I`, and the list of the inputs opens.
 2. Under MIDI, select the port of your keyboard and press `Enter`.
 3. To take one channel only, press `I` again and select the channel.
 
 You can also type `:track.midi Keystation ch=1`, with a part of the name
 of the port.
 
-To keep paw away from the other ports, type `:midi.select Keystation`.
-paw then opens only the ports with that name.
+If you want paw to leave the other ports alone, type
+`:midi.select Keystation`, and paw opens only the ports with that name.
 
 To record what you play, see [How to record MIDI from a keyboard](record-midi-from-a-keyboard.md).
 The same steps record MIDI on a track that has no audio input.
