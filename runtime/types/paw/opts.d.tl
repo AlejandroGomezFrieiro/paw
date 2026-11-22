@@ -14,6 +14,7 @@ local record Opts
    barlabel: {string | number}
    bend_step: number
    braille: boolean
+   budget_ms: number
    chords: string | boolean
    click_accent: boolean
    click_level: number
@@ -103,6 +104,8 @@ local record Opts
    true_peak_target: number
    undo_memory: number
    undo_steps: integer
+   undofile: boolean
+   undofile_mb: number
    velocity: integer
    wave_scale: string
    window_cache: boolean | string

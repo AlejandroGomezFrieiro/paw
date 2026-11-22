@@ -68,6 +68,26 @@ pub struct State<T> {
     reckoned: u32,
 }
 
+impl<T> State<T> {
+    /// A state with no children, label or name yet.
+    pub fn new(id: StateId, parent: Option<StateId>, time: f64, snapshot: T) -> Self {
+        Self {
+            id,
+            parent,
+            children: Vec::new(),
+            redo: None,
+            time,
+            label: None,
+            keys: None,
+            name: None,
+            keep: false,
+            snapshot,
+            weight: 0,
+            reckoned: 0,
+        }
+    }
+}
+
 pub struct History<T> {
     states: BTreeMap<StateId, State<T>>,
     current: StateId,
@@ -204,7 +224,7 @@ impl<T: Clone> History<T> {
         let id = self.next;
         self.next += 1;
         self.states
-            .insert(id, Self::state(id, None, time, snapshot));
+            .insert(id, State::new(id, None, time, snapshot));
         self.current = id;
         self.root = id;
         self.saved = Some(id);
@@ -212,21 +232,48 @@ impl<T: Clone> History<T> {
         self.clear_labels();
     }
 
-    fn state(id: StateId, parent: Option<StateId>, time: f64, snapshot: T) -> State<T> {
-        State {
-            id,
-            parent,
-            children: Vec::new(),
-            redo: None,
-            time,
-            label: None,
-            keys: None,
-            name: None,
-            keep: false,
-            snapshot,
-            weight: 0,
-            reckoned: 0,
+    /// Put back a tree kept elsewhere (the undo file): `states`, with `root`
+    /// as its root and `current` as the current state, which counts as
+    /// saved. Ids made from now on come after theirs. False, and nothing
+    /// changes, when a link names a state that is not in `states`.
+    pub fn restore(&mut self, states: Vec<State<T>>, root: StateId, current: StateId) -> bool {
+        let map: BTreeMap<StateId, State<T>> = states.into_iter().map(|s| (s.id, s)).collect();
+        let named = |id: &StateId| map.contains_key(id);
+        let linked = map
+            .values()
+            .all(|s| s.parent.iter().chain(&s.children).chain(&s.redo).all(named));
+        if !linked || !named(&root) || !named(&current) || map[&root].parent.is_some() {
+            return false;
         }
+        let ids: Vec<StateId> = map.keys().copied().collect();
+        self.next = self.next.max(ids.last().map_or(0, |id| id + 1));
+        self.states = map;
+        self.bytes = 0;
+        for id in ids {
+            self.reweigh(id);
+        }
+        self.root = root;
+        self.current = current;
+        self.saved = Some(current);
+        self.save_pending = false;
+        self.pruned = false;
+        self.pruned_said = false;
+        self.clear_labels();
+        self.prune();
+        true
+    }
+
+    /// Replace what state `id` holds: a state kept elsewhere, read when it
+    /// is needed. False when there is no such state.
+    pub fn set_snapshot(&mut self, id: StateId, snapshot: T) -> bool {
+        let Some(state) = self.states.get_mut(&id) else { return false };
+        state.snapshot = snapshot;
+        let children = state.children.clone();
+        self.reweigh(id);
+        for child in children {
+            self.reweigh(child);
+        }
+        true
     }
 
     // --- reading -----------------------------------------------------------
@@ -329,7 +376,7 @@ impl<T: Clone> History<T> {
         let id = self.next;
         self.next += 1;
         let parent = self.current;
-        let mut state = Self::state(id, Some(parent), time, snapshot);
+        let mut state = State::new(id, Some(parent), time, snapshot);
         state.label = self.pending_label.take();
         state.keys = self.pending_keys.take();
         self.clear_labels();
@@ -344,6 +391,19 @@ impl<T: Clone> History<T> {
         }
         self.prune();
         id
+    }
+
+    /// Drop state `id` as pruning does, unless it is protected (the root,
+    /// the current and the saved state, named and kept states). False when
+    /// it is not dropped.
+    pub fn forget(&mut self, id: StateId) -> bool {
+        match self.states.get(&id) {
+            Some(state) if !self.protected(state) => {
+                self.remove(id);
+                true
+            }
+            _ => false,
+        }
     }
 
     /// Give a state another name for its command: an adjusted command

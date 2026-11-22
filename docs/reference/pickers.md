@@ -151,6 +151,7 @@ paw.pick({
 | `actions` | Other keys: `{ ["<C-e>"] = function(item, query) end }`, or `{ fn = ..., desc = "edit", keep = true }` to list the key at the bottom and keep the picker open. |
 | `multi` | `Tab` marks several lines. `on_choose_multi(items)` gets them, and otherwise paw calls `on_choose` for each. With `multi = false`, `Tab` does not mark. |
 | `empty` | The message when there is nothing to choose. |
+| `more(ms)` | For a picker with many items. paw calls it again and again after the picker opens, in slices between keys (the job `pick` of `paw.slices`). It reads for at most `ms` milliseconds and gives the next items, true when there are no more, and a note for the query line, for example `reading…`. paw filters and draws what it read at most every 100 ms and at the end. |
 | `boost(item)` | A number (up to 120) added to the score of an item that matches, e.g., for things used often, or things of the focused view. |
 | `primary(item)` | The part of the line that counts first: lines that match there rank above lines that match only elsewhere. |
 | `audition(item)` | Makes the item audible when the selection stops on it. It gives the label of the pane, or `{ label, loading = function, keep = function(item) }`: `keep` runs in place of `on_choose` when you choose the item that plays, and keeps its trial. `audition_key` names the setting that `Ctrl-Space` keeps. `audition_default = false` starts with audition off. `audition_delay(item, ms)` waits longer on a slow item. |

@@ -32,7 +32,7 @@ The state belongs to the computer and not to a project.
 | `window.json` | The layout of the graphical window. |
 | `layouts/` | The layouts written by `:layout save <name>`, one JSON file each. |
 | `recovery/` | The safety copies of unsaved work (`paw.opt.autosave`). `:recover` opens one. |
-| `projects/` | What paw remembers about each project outside its file, for example the plugins that stopped, and the marks and the last cursor (`shada.json`). |
+| `projects/` | What paw remembers about each project outside its file, for example the plugins that stopped, the marks and the last cursor (`shada.json`), and the undo file (below). |
 | `media-index` | The hash of each media file that paw read on this computer, by its path, size, modification time and `inode` number. So paw hashes a file one time. See [Media files](media.md#what-a-file-is). |
 | `token` | The token for network connections. paw makes it at the first start. |
 | `tls/` | The certificate and key of this instance for network connections. paw makes them the first time that it listens. |
@@ -71,6 +71,36 @@ lost. Only the local seat's state is kept.
 | `paw.opt.history` | The number of lines that each prompt history keeps. The default is `200`. |
 
 `--clean` and a script run (`-l`) read and write nothing.
+
+## The undo file
+
+The undo file keeps the undo history of a project folder after paw closes,
+as the undo file of Neovim does. When you open the project again, `u`
+undoes past the last save, and the states and branches from earlier
+sessions are in the list of `<Space>fu` and in the undo tree of `extensions/undotree`.
+
+| Path | Holds |
+| --- | --- |
+| `projects/<project>/undo/tree.json` | The states of the undo tree: the parent, the children, the time, the label, the keys, the name and `keep` of each, and which state the project's files are. |
+| `projects/<project>/undo/blobs/` | The files of each state, as a save of that state writes them, named by their BLAKE3 hash. States share the files that they did not change, so a state takes about the size of its change. |
+
+- paw writes the undo file after each `:w` of the whole project, on a
+  separate thread, so the save takes no more time. It writes the new
+  states and removes the files that no state uses.
+- When the project opens, paw reads `tree.json`. It reads the files of an
+  old state only when you go to that state.
+- When the files of the project are not the files of its last save in the
+  undo file, for example after a change outside paw or a `git checkout`,
+  paw does not read the undo file and says
+  `the undo file is for another version of the project: not read`. The
+  next save writes a new undo file.
+- Past `paw.opt.undofile_mb` megabytes, paw removes the oldest states. It
+  keeps the first state, the saved state, named states and states marked
+  `keep`.
+- `paw.opt.undofile = false` turns the undo file off. Under `--clean`, paw
+  reads and writes no undo file.
+- The undo file is not in the project folder, so `git` and copies of the
+  project don't take it. A project kept in one JSON file has no undo file.
 
 ## Recent projects
 

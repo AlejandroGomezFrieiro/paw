@@ -46,6 +46,26 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         fn undo_limits(_, sh, (steps, bytes) => (Option<usize>, Option<usize>)) {
             sh.session.borrow_mut().undo_limits(steps, bytes).lua()
         }
+        // Read the undo file in the folder `dir` for the project that just
+        // opened. Gives `states`, the number of states that came back, or
+        // `stale` when the project's files changed after the undo file was written.
+        // @return types.UndoFileOpen
+        fn undo_file_open(lua, sh, dir => String) {
+            to_lua(lua, &sh.session.borrow_mut().undo_file_open(Path::new(&dir)).lua()?)
+        }
+        // Write the undo file in the folder `dir` after a save, in about
+        // `bytes` bytes at most. The write runs on a thread of its own.
+        // @return nil
+        fn undo_file_write(_, sh, (dir, bytes) => (String, u64)) {
+            sh.session.borrow_mut().undo_file_write(Path::new(&dir), bytes);
+            Ok(())
+        }
+        // Wait until the undo file that is being written is complete.
+        // @return nil
+        fn undo_file_wait(_, sh, () => ()) {
+            sh.session.borrow_mut().undo_file_wait();
+            Ok(())
+        }
         // @return integer
         fn undo_current(_, sh, () => ()) { Ok(sh.session.borrow().undo_current()) }
         // @return boolean
