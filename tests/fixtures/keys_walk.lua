@@ -25,6 +25,7 @@ end
 
 -- The leader keys are a domain, then a verb or an object (docs/reference/keys.md):
 -- the key after the leader is one of these, with this name, in every view.
+-- `<leader><Space>` (play) and `<leader>.` (adjust the last change) are not domains.
 local domains = {
   a = "automation",
   c = "clip",
@@ -47,7 +48,13 @@ local leader = table.concat(paw.keymap.parse("<leader>"))
 local groups = paw.keymap.groups()
 for _, map in ipairs(paw.keymap.every()) do
   local keys = map.keys
-  if (map.mode == "n" or map.mode == "x") and keys[1] == leader and #keys >= 2 and map.role ~= "play" then
+  if
+    (map.mode == "n" or map.mode == "x")
+    and keys[1] == leader
+    and #keys >= 2
+    and map.role ~= "play"
+    and keys[2] ~= "."
+  then
     local domain = keys[2]
     local prefix = leader .. domain
     local name = (groups[map.scope] or {})[prefix] or (groups.global or {})[prefix]

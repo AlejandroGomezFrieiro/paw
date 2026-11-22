@@ -39,6 +39,7 @@ server for AI assistants), and `--help` on each program prints its options.
 | `--no-plugins` | Does not look for CLAP, LV2 and VST3 plugins. |
 | `--plugins-in-process` | Loads plugins into this process, not each into a process of its own. |
 | `--plugins-offline` | Opens the project with every plugin offline (see `:plugins.online`). |
+| `--startuptime <file>` | Writes the time of each step of the start to the file, in the format of Neovim's `--startuptime`. Each module that paw loads, each extension and your `init.lua` gets a line with the clock, its whole time and its own time without the modules that it loads. The last lines are the project and the first frame. paw adds the lines to the end of the file. `paw-gui` passes the option to its kernel, and there the file ends when the kernel is ready. |
 | `-h`, `--help` | Shows the help. |
 | `-V`, `--version` | Shows the version. |
 

@@ -72,10 +72,19 @@ seen["docs/README.md"] = true
 
 -- docs/README.md: parts, groups and chapters.
 local level, current = 0, ""
+local api = "docs/reference/api.md"
+-- The API reference has a part of its own, after the Reference part.
+local function api_part()
+  if read(root .. "/" .. api) and not seen[api] then
+    out[#out + 1] = "\n# API reference\n"
+    chapter(0, "Lua API reference", api)
+  end
+end
 for _, l in ipairs(lines(root .. "/docs/README.md")) do
   local part = l:match("^## (.+)$")
   local group = l:match("^### (.+)$")
   if part then
+    if current == "Reference" then api_part() end
     current = part
     -- "Start here" repeats pages that the other parts list in their place.
     if part ~= "Start here" then out[#out + 1] = "\n# " .. part .. "\n" end
@@ -87,12 +96,15 @@ for _, l in ipairs(lines(root .. "/docs/README.md")) do
     local indent, title, target = l:match("^(%s*)%- %[(.-)%]%(([^)]-)%)")
     if title and current ~= "Start here" and not target:match("^%a+:") and not target:find("#", 1, true) then
       local path = normalize("docs/" .. target)
-      if path:match("%.md$") and not seen[path] and read(root .. "/" .. path) then
+      if path:match("%.md$") and path ~= api and not seen[path] and read(root .. "/" .. path) then
         chapter(level + math.floor(#indent / 2), (title:gsub("`", "")), path)
       end
     end
   end
 end
+
+if current == "Reference" then api_part() end
+api_part() -- no-op after the call above
 
 -- Pages that the contents omit.
 local rest = {}

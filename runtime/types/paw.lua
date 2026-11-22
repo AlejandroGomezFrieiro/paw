@@ -209,6 +209,9 @@ paw.plot = {}
 ---@class paw.plugins
 paw.plugins = {}
 
+---@class paw.profile
+paw.profile = {}
+
 ---@class paw.qf
 paw.qf = {}
 
@@ -253,6 +256,9 @@ paw.scope = {}
 
 ---@class paw.seats
 paw.seats = {}
+
+---@class paw.shada
+paw.shada = {}
 
 ---@class paw.snippet
 paw.snippet = {}
@@ -1651,6 +1657,20 @@ function paw.clip_kinds.split(clip, at) end
 ---@param to any
 function paw.clip_kinds.trim(clip, from, to) end
 
+--- Run the last command that has `adjust` again with other parameters, in
+--- place of its undo step: `paw.commands.adjust({ grid = "1/8" })`, or
+--- positional ones, by the order of its `adjust`. The project goes back to
+--- before the command, the command runs again with its first parameters
+--- and these laid over them, and the undo step is the new result. It
+--- works only on the last change: after `undo`, or another change, it says so.
+---@param given any
+function paw.commands.adjust(given) end
+
+--- The line `adjust a=1 b=2` that holds the parameters of the last
+--- command that can be adjusted, as they are now; nil when no command ran
+--- that can be adjusted. `<leader>.` puts it on the command line.
+function paw.commands.adjusting() end
+
 --- Make `alias` another name for `target`.
 ---@param alias any
 ---@param target any
@@ -1699,6 +1719,12 @@ function paw.commands.main(name) end
 --- The extension that paw loads now, or whose code registers these commands
 --- and keys later. `:help` goes to its page for them, and an unload removes them.
 function paw.commands.owner() end
+
+--- The parameters of the command that runs: what the user gave, by the
+--- names that its `adjust` lists. A parameter not given is not in the table.
+---   local p = paw.commands.params(ctx)  -- `:quantize 1/16 strength=50`: { grid = "1/16", strength = 50 }
+---@param ctx any
+function paw.commands.params(ctx) end
 
 --- Split a command line into a name and arguments:
 ---   `track.add Bass volume=-6` -> "track.add", { "Bass", volume = -6 }
@@ -4239,6 +4265,12 @@ function paw.keymap.record(name) end
 --- The register being recorded into, if any.
 function paw.keymap.recording() end
 
+--- Make `.` repeat `keys` (a list of keys), not the keys typed for the
+--- command that runs now. `:adjust` does it, so that `.` does the adjusted
+--- command again.
+---@param keys any
+function paw.keymap.repeat_as(keys) end
+
 --- Do the last change again, with `n` in place of its count if given.
 ---@param n any
 function paw.keymap.repeat_last(n) end
@@ -4304,6 +4336,22 @@ function paw.keymap.set_mode(mode) end
 ---@param name any
 ---@param yank any
 function paw.keymap.setreg(value, name, yank) end
+
+--- What belongs to a project, for `paw.shada`: the marks, the jump lists
+--- (without where `<C-o>` is) and the places of the edits, each by view.
+function paw.keymap.shada_project() end
+
+--- Put back what `shada_project` gave, in place of the marks and places now.
+---@param data any
+function paw.keymap.shada_set_project(data) end
+
+--- Put back what `shada_user` gave.
+---@param data any
+function paw.keymap.shada_set_user(data) end
+
+--- What belongs to the user, for `paw.shada`: the last search and the
+--- registers (as a table of registers by name).
+function paw.keymap.shada_user() end
 
 --- Define a text object: `fn(ctx)` returns a region, or nil when there is
 --- nothing of that kind at the cursor.
@@ -6130,6 +6178,25 @@ function paw.plugins.note_names(device) end
 ---@param dir any
 function paw.plugins.remove_dir(dir) end
 
+--- The functions of a report as entries of the quickfix list: the share
+--- of the samples, the name, the file and the line.
+---@param report any
+function paw.profile.entries(report) end
+
+--- Whether `jit.profile` runs, and the samples it took so far.
+function paw.profile.running() end
+
+--- Start `jit.profile`, which takes a sample of the Lua code each
+--- millisecond. With `file`, `stop` writes the folded stacks there. Fails
+--- when it runs already.
+---@param file any
+function paw.profile.start(file) end
+
+--- Stop `jit.profile`. Returns the samples, the seconds and the functions
+--- that took the most time. Writes the folded stacks to the file that
+--- `start` was given. Fails when it does not run.
+function paw.profile.stop() end
+
 --- Run a command line on each entry of the current list of a stack (`:cdo`),
 --- all as one undo step. For each entry, the cursor goes to the entry
 --- first. The command gets the address as `ctx.target`, and the whole
@@ -6578,7 +6645,8 @@ function paw.roll_clips.cycle(n) end
 function paw.roll_clips.editable(id) end
 
 --- The ids of the editable clips, the active one first, then the others in
---- the order they were added.
+--- the order they were added. In a narrowed window, only the clips that its
+--- scope shows (the active one always).
 function paw.roll_clips.ids() end
 
 --- The note of an editable clip on `pitch` that sounds at roll beat `beat`,
@@ -6638,7 +6706,8 @@ function paw.roll_clips.show_track(id, on) end
 ---@param beat any
 function paw.roll_clips.sounding(beat) end
 
---- The stretch of the roll the editable clips cover: from, to.
+--- The stretch of the roll the editable clips cover: from, to. In a scope
+--- with time, only its time, as the arrange view (`0` and `$` stop there).
 function paw.roll_clips.span() end
 
 --- Make active the track `n` places after the track of the active clip, in
@@ -6751,6 +6820,11 @@ function paw.roll_draw.erase() end
 ---@param what any
 function paw.roll_draw.expression(what) end
 
+--- Make the notes being drawn `count` steps longer (the pedal
+--- pressed while keys are held, in step input).
+---@param count any
+function paw.roll_draw.extend(count) end
+
 --- End the drawing: write it, and forget it. Returns what it did, in words.
 function paw.roll_draw.finish() end
 
@@ -6825,8 +6899,18 @@ function paw.roll_draw.pick_chord(strum) end
 ---@param step any
 function paw.roll_draw.pitch(semitones, step) end
 
+--- Put the notes of a register at the pencil (`<C-r>` and its name), count
+--- times one after another, as `p` pastes them. The pencil goes on where the
+--- last one ends. A stretch of time keeps its pitches, and the rest go with
+--- their top at the pitch of the pencil. Notes always start from the pencil.
+---@param name any
+function paw.roll_draw.put_register(name) end
+
 --- Show what an extension's key changed in the notes being drawn.
 function paw.roll_draw.shown() end
+
+--- Choose a snippet to expand at the pencil (`<Tab>`), count times.
+function paw.roll_draw.snippet() end
 
 --- Start drawing at the cursor. `how` as `take` has it: "i" or "a"; or
 --- "step", step input with a caret (a pen with no length) at the cursor.
@@ -6853,12 +6937,22 @@ function paw.roll_draw.suggest(dir) end
 --- the roll. The second value is the notes that you draw now, "67@1.5+0".
 function paw.roll_draw.text() end
 
+--- Tie the note being drawn to the next note (`~`): its end goes to where
+--- the next note of the clips, or the next note kept, starts.
+function paw.roll_draw.tie() end
+
 --- Step input on or off (`I` in insert mode). The pen stays as it is.
 --- Without a MIDI input, paw says why and opens the track's list of inputs.
 function paw.roll_draw.toggle_step() end
 
 --- Put back the notes that were there before the suggestions (`<C-e>`).
 function paw.roll_draw.unsuggest() end
+
+--- Set the step (and the notes being drawn) to a note value, as `=`
+--- then `value` does: "8", "8.", "8t". `dot` and `triplet` turn the dot
+--- or the triplet of the step on and off.
+---@param value any
+function paw.roll_draw.value(value) end
 
 --- The velocity of the notes being drawn and of the next, by `dir` tens.
 ---@param dir any
@@ -7267,6 +7361,17 @@ function paw.seats.open(id, why) end
 ---@param fn any
 function paw.seats.within(id, fn, ...) end
 
+--- Read what is kept: yours, and the current project's.
+function paw.shada.read() end
+
+--- Keep the files in `file` (and the project files where they always are),
+--- and keep for all start options, for tests. `use()` sets all back.
+---@param file any
+function paw.shada.use(file) end
+
+--- Write what is kept: yours, and the current project's.
+function paw.shada.write() end
+
 --- The active snippet, or nil. A snippet ends when the project changed
 --- other than through it, or the piano roll's cursor left its span.
 function paw.snippet.active() end
@@ -7457,6 +7562,22 @@ function paw.stems.plan(opts) end
 ---@param opts any
 function paw.stems.render(plan, opts) end
 
+--- A new action for the controls: `fn(count)` runs in a target that has
+--- no action of that name itself.
+---   paw.step.action("accent", function(count) ... end)
+---@param name any
+---@param fn any
+function paw.step.action(name, fn) end
+
+--- What a control does, in words: "rest", "keys =8t", "rest, tie while
+--- keys are held".
+---@param b any
+function paw.step.action_text(b) end
+
+--- Every action that a control can do: the core's, then the actions of
+--- extensions (`M.action`).
+function paw.step.actions() end
+
 --- The name of the target that listens now, or nil.
 function paw.step.active() end
 
@@ -7464,6 +7585,20 @@ function paw.step.active() end
 --- the MIDI part of the track's list of inputs. True if it had to.
 ---@param track any
 function paw.step.ask_input(track) end
+
+--- Let a control of the controller do an action while a target listens.
+--- `source` is `{ port, channel, note | cc }`; `port` and `channel` may be
+--- left out. `action` is a name (`paw.step.actions()`), `{ keys = "=8t" }`
+--- (types those keys in the view), or `{ down = "rest", held = "tie" }`
+--- (the first with no key held, the second while keys are held). It
+--- replaces the control of the same source, for this session:
+--- `:step.learn` keeps a control in the file.
+---@param source any
+---@param action any
+function paw.step.bind(source, action) end
+
+--- The controls, each `{ source, action, keys, down, held, saved }`.
+function paw.step.bindings() end
 
 --- The pitches held now on the controller, in the order they were played.
 function paw.step.held() end
@@ -7477,6 +7612,19 @@ function paw.step.held_text() end
 ---@param track any
 function paw.step.input(track) end
 
+--- Wait for the next key, pad or pedal of the controller, and bind it to
+--- `action` by its port, channel and note or cc, in the file of the controls.
+---@param action any
+function paw.step.learn(action) end
+
+--- Stop the wait of `:step.learn`.
+function paw.step.learn_cancel() end
+
+--- Read the file of the controls again: what it keeps replaces what it
+--- kept before. With no file, the default of the pedal. The controls from
+--- Lua (`M.bind`) stay as they are.
+function paw.step.load() end
+
 --- Why the keys only sound now: "playing" or "recording", or nil.
 function paw.step.paused() end
 
@@ -7485,10 +7633,18 @@ function paw.step.paused() end
 --- starts or stops listening.
 function paw.step.refresh() end
 
+--- What a control did a moment ago ("rest", "back"), for the title; nil
+--- after a moment.
+function paw.step.said() end
+
 --- The port that step input listens to for `track`, in a few words:
 --- `"Keystation 49"`, `"Keystation 49 · ch 2"`, `"all ports"`, or nil with no input.
 ---@param track any
 function paw.step.source(track) end
+
+--- A control in words: "Test Pads C2 (note 36)", "cc 64 (pedal)".
+---@param s any
+function paw.step.source_text(s) end
 
 --- Let a view take step input: `spec` as `paw.contracts.StepTarget` says.
 --- The first target whose `active()` is true listens. A second call with
@@ -7497,9 +7653,19 @@ function paw.step.source(track) end
 ---@param spec any
 function paw.step.target(name, spec) end
 
+--- Take away the control of `source`: `paw.step.unbind({ cc = 64 })` lets
+--- the pedal sustain again. True if there was one.
+---@param source any
+function paw.step.unbind(source) end
+
 --- Remove the target of a view (its extension unloaded).
 ---@param name any
 function paw.step.untarget(name) end
+
+--- Keep the controls in `file`, for tests; with no file, where paw keeps
+--- them (nowhere with --clean). Then read them from there.
+---@param file any
+function paw.step.use(file) end
 
 --- The velocity of the notes entered, in words: "key", or a number.
 function paw.step.velocity() end
@@ -7811,9 +7977,10 @@ function paw.tempo.lines(from, to, limit) end
 ---@param to any
 function paw.tempo.marks(from, to) end
 
---- A place given to a command: a bar (`17`), a bar and beat (`17.3`), or
---- `cursor` / `here`. The beat of the cursor when nothing is given. In a
---- scope with time (`paw.scope`), bars are its own, from 1 at its start.
+--- A place given to a command: a bar (`17`), a bar and beat (`17.3`), a
+--- bar of the song (`@19`), or `cursor` / `here`. The beat of the cursor
+--- when nothing is given. In a scope with time (`paw.scope`), bars are its
+--- own, from 1 at its start; `@19` is bar 19 of the song all the same.
 ---@param text any
 function paw.tempo.place(text) end
 
@@ -9227,9 +9394,11 @@ function paw.api.engine_reset_stats() end
 function paw.api.engine_restart(opts) end
 
 --- With true, devices at rest sleep through silence: a reverb after
---- its tail, a synth with no note that sounds. The sound is the same
---- with false. `engine_get().device_sleeps` counts the blocks that
---- devices slept through.
+--- its tail, a synth with no note that sounds. When the song is
+--- stopped and nothing sounds, the whole engine rests. The sound is
+--- the same with false. `engine_get().device_sleeps` counts the
+--- blocks that devices slept through, and `engine_get().engine_rests`
+--- the blocks that the engine rested.
 ---@param sleep boolean
 function paw.api.engine_set_sleep(sleep) end
 
@@ -10002,6 +10171,19 @@ function paw.api.sound_envelope(path) end
 ---@param samples any
 function paw.api.sound_write(path, opts, samples) end
 
+--- Open an item of the start that `paw --startuptime` times: a module,
+--- an extension, the configuration. `startup_leave` closes it with its
+--- line. Nothing happens when the start is not timed.
+function paw.api.startup_enter() end
+
+--- Close the item `startup_enter` opened last: its line in the file of
+--- `--startuptime` gives its time with and without the items opened in it.
+---@param label string
+function paw.api.startup_leave(label) end
+
+--- True while `paw --startuptime` times the start.
+function paw.api.startup_timed() end
+
 ---@param key string
 function paw.api.state_get(key) end
 
@@ -10266,6 +10448,17 @@ function paw.api.ui_view_snapshot(name, width, height) end
 
 --- --- undo ---
 function paw.api.undo() end
+
+--- Put the project back as it was before the last step, so that a
+--- command runs again and its edits take the step's place:
+--- `paw.commands.adjust`. `before` is the state the command started
+--- from, and `label` the step's new name.
+---@param before integer?
+---@param label string?
+function paw.api.undo_adjust(before, label) end
+
+--- Put the step back as it was, when the command run again failed.
+function paw.api.undo_adjust_cancel() end
 
 function paw.api.undo_checkpoint() end
 

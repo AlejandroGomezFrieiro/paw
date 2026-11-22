@@ -474,6 +474,9 @@ test("tutor: every key in docs/reference/keys.md is a key paw has", function()
     local text = table.concat(keys)
     if known[text] then return true end
     if #keys == 2 and chars[keys[1]] then return true end -- `ma`, `'a`, `@a`, `qa`
+    -- `@19|`: the key after `@` reads a bar, then `|`.
+    local bar = text:match("^@%d+(.+)$")
+    if bar and known[bar] then return true end
     return false
   end
   local function counted(token)

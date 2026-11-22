@@ -15,7 +15,7 @@ use std::process::ExitCode;
 use anyhow::{Context, Result, bail};
 use args::{Attach, Cli, ClipCommand, Command, Connect, Ctl};
 use clap::Parser;
-use paw_core::{Kernel, KernelOpts, rpc};
+use paw_core::{Kernel, KernelOpts, rpc, startuptime};
 use paw_engine::backend::{BackendChoice, BackendOptions};
 use serde_json::Value;
 
@@ -543,11 +543,15 @@ fn open_and_feed(args: &args::Run, kernel: &mut Kernel) -> Result<()> {
         // Nothing named: `paw.opt.reopen_last` may ask for the last project.
         kernel.eval("paw.recent.reopen_last()", &[])?;
     }
+    startuptime::event(if args.project.is_some() { "open the project" } else { "reopen the last project" });
     for expr in &args.exprs {
         kernel.eval(expr, &[])?;
     }
     for keys in &args.keys {
         kernel.eval("paw.keymap.feed(...)", &[keys])?;
+    }
+    if !args.exprs.is_empty() || !args.keys.is_empty() {
+        startuptime::event("-e and --keys");
     }
     Ok(())
 }
@@ -557,6 +561,9 @@ fn run() -> Result<i32> {
         Start::Done(code) => return Ok(code),
         Start::Kernel(args, doctor) => (*args, doctor),
     };
+    if let Some(file) = &args.startuptime {
+        startuptime::start(file);
+    }
     // paw-gui starts the kernel with `--listen`: a kernel that would not
     // listen must stop at once rather than leave it waiting for the socket.
     if args.no_listen && args.listen.is_some() {
@@ -581,6 +588,7 @@ fn run() -> Result<i32> {
         None => BackendChoice::Auto,
     };
     let (registry, plugin_notes, scanned) = plugins::registry(&args, display_note);
+    startuptime::event(if args.no_plugins { "devices" } else { "devices, the plugin scan" });
     let mut kernel = Kernel::new(KernelOpts {
         registry,
         backend: BackendOptions {
@@ -602,12 +610,16 @@ fn run() -> Result<i32> {
         argv: script_args.clone(),
     })?;
 
+    startuptime::event("kernel, engine, audio device");
     install_safety_copy_hook();
     let described = if !scripted && !args.headless {
         Some(attach_terminal(&mut kernel)?)
     } else {
         None
     };
+    if described.is_some() {
+        startuptime::event("terminal");
+    }
     kernel.boot()?;
     if let Some(line) = &described {
         kernel.eval("paw.api.log(...)", &[line])?;
@@ -619,8 +631,10 @@ fn run() -> Result<i32> {
     }
     report_plugin_notes(&mut kernel, &plugin_notes, scanned)?;
     let _server = serve_listeners(&args, scripted, &mut kernel)?;
+    startuptime::event("plugin notes, control socket");
     open_and_feed(&args, &mut kernel)?;
     if let Some(script) = &script {
+        kernel.startup_done("the script starts");
         kernel.run_file(script, script_args)?;
         return Ok(kernel.exit_code().unwrap_or(0));
     }

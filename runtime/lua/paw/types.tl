@@ -886,6 +886,7 @@ local record types
     device_sleep: boolean
     device_runs: integer
     device_sleeps: integer
+    engine_rests: integer
     shared_groups: integer
     late_blocks: integer
     midi_dropped: integer
@@ -1038,6 +1039,24 @@ local record types
     same: boolean
     from: integer
     to: integer
+  end
+
+  --- What `paw.api.undo_adjust()` found (`undo::AdjustStatus`): `ready`,
+  --- the project is as it was before the last step; `old`, the current
+  --- state has later ones; `other`, the current step is not the command's;
+  --- `kept`, the step was saved or named and cannot change.
+  enum AdjustStatus
+    "ready"
+    "old"
+    "other"
+    "kept"
+  end
+
+  --- `paw.api.undo_adjust()`: whether the last step can be made again, and
+  --- the name that the current step had.
+  record UndoAdjust
+    status: AdjustStatus
+    label: string
   end
 
   --- A checkpoint on disk; `state` only from `checkpoint_write`.

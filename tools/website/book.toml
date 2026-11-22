@@ -13,6 +13,9 @@ default-theme = "light"
 preferred-dark-theme = "coal"
 smart-punctuation = false
 no-section-label = true
+additional-css = ["landing.css"]
+git-repository-url = "@REPO_URL@"
+edit-url-template = "@REPO_URL@/edit/main/{path}"
 
 [output.html.search]
 enable = true

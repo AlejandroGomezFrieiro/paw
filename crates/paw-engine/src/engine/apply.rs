@@ -133,6 +133,10 @@ impl Engine {
         } else {
             self.discard(Garbage::Track(track));
         }
+        // A new track hears no input: the one it replaced may have.
+        if self.listening {
+            self.note_listening();
+        }
     }
 
     fn remove_track(&mut self, slot: TrackSlot) {
@@ -144,6 +148,9 @@ impl Engine {
             self.discard(Garbage::Track(old));
         }
         self.note_states();
+        if self.listening {
+            self.note_listening();
+        }
     }
 
     fn set_schedule(&mut self, schedule: Box<Schedule>) {
@@ -468,6 +475,11 @@ impl Engine {
             if !t.takes_midi() {
                 release_held(t);
             }
+        }
+        if channels > 0 && (monitor || armed) && self.track_mut(track).is_some() {
+            self.listening = true;
+        } else if self.listening {
+            self.note_listening();
         }
     }
 

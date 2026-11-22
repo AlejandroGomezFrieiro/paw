@@ -70,6 +70,24 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         fn fs_exists(_, _sh, path => String) { Ok(Path::new(&path).exists()) }
         // @return {string}
         fn warnings(_, sh, () => ()) { Ok(std::mem::take(&mut sh.session.borrow_mut().warnings)) }
+        // Open an item of the start that `paw --startuptime` times: a module,
+        // an extension, the configuration. `startup_leave` closes it with its
+        // line. Nothing happens when the start is not timed.
+        // @return nil
+        fn startup_enter(_, _sh, () => ()) {
+            crate::startuptime::enter();
+            Ok(())
+        }
+        // Close the item `startup_enter` opened last: its line in the file of
+        // `--startuptime` gives its time with and without the items opened in it.
+        // @return nil
+        fn startup_leave(_, _sh, label => String) {
+            crate::startuptime::leave(&label);
+            Ok(())
+        }
+        // True while `paw --startuptime` times the start.
+        // @return boolean
+        fn startup_timed(_, _sh, () => ()) { Ok(crate::startuptime::is_on()) }
         // @return types.Env
         fn env(lua, sh, () => ()) {
             let env = lua.create_table()?;

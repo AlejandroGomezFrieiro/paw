@@ -1,4 +1,6 @@
 -- Lesson 4: the piano roll and insert mode.
+local stepped = false
+
 return {
   id = "pianoroll",
   title = "The piano roll and insert mode",
@@ -42,6 +44,7 @@ the pitch is the main value of a note. Insert mode draws notes instead of
 text, and one insert is one undo step. `.` repeats the insert at the
 cursor, as Vim repeats an insert.]],
   setup = function(look)
+    stepped = false
     paw.project.tempo = 90
     local drums = paw.add_track({ name = "Drums", volume = -4 })
     drums:add_device("drums")
@@ -138,11 +141,26 @@ cursor, as Vim repeats an insert.]],
       hint = "`<Space>` adds a rest of one step before the next note.",
     },
     {
+      say = "With a MIDI keyboard, `I` starts step input, which enters the notes that you play at the cursor, one note or chord at a time. Press `I` in the piano roll. If you have a keyboard, play a key.",
+      keys = { "I" },
+      check = function()
+        if paw.roll_draw.stepping() then stepped = true end
+        return stepped
+      end,
+      done = "The title row shows `STEP`, and a caret shows where the next note goes. With no keyboard, a list of inputs opens, and step input stays on. `<Space>` rests one step, and `=` and a value sets the step.",
+    },
+    {
+      say = "`<Esc>` writes the notes that you played and leaves insert mode. Press `<Esc>`, and press it again if a list of inputs is open.",
+      keys = { "<Esc>", "<Esc>" },
+      check = function() return stepped and paw.keymap.mode == "n" and not paw.roll_draw.stepping() end,
+      done = "Step input is off, and one undo step takes back all the notes that you played.",
+    },
+    {
       say = "In normal mode, `<Esc>` stays in the piano roll, and the same is true in every view. `<C-w>p` returns to the previous window. Press `<C-w>p`, then `gs` and `<leader><Space>` to listen, and `<leader><Space>` again to stop.",
       keys = { "<C-w>p", "gs", "<leader><Space>", { wait = 300 }, "<leader><Space>" },
       check = function(ctx, look) return look.focused() == "arrange" and look.played(ctx) end,
       done = "Your tune plays over the drums.",
     },
   },
-  outro = "We moved by pitch and by time, and changed a note in normal mode. Then we drew a line and a chord in insert mode.",
+  outro = "We moved by pitch and by time, and changed a note in normal mode. Then we drew a line and a chord in insert mode, and met step input from a MIDI keyboard.",
 }

@@ -51,10 +51,14 @@ If you want paw to leave the other ports alone, type
 To record what you play, see [How to record MIDI from a keyboard](record-midi-from-a-keyboard.md).
 The same steps record MIDI on a track that has no audio input.
 
+To enter notes one at a time, with no need to play in time, see
+[How to enter notes from a MIDI keyboard](enter-notes-from-a-midi-keyboard.md).
+
 To move faders and parameters with the knobs of the keyboard, see
 [How to map a MIDI controller](map-a-midi-controller.md).
 
 ## See also
 
 - [MIDI input](../reference/midi.md#midi-input): the ports, MIDI 2.0, ports that go away.
+- [Step input](../reference/piano-roll.md#step-input): notes from the keyboard, one at a time.
 - [Recording](../reference/recording.md#the-input-of-a-track): the input of a track.

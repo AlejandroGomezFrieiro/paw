@@ -16,10 +16,26 @@ folder with the same layout as the repository. Every relative link then
 works as it does on GitHub. The script writes the sidebar from
 `docs/README.md`: its `##` headings are the parts, its `###` headings are
 the groups and its list items are the chapters. A page that the contents
-omit goes under "More pages". Each extension has a part of its own.
+omit goes under "More pages".
+
+The parts follow the same order as `:help`:
+tutorials, how-to guides, reference, explanation and extensions. The Lua
+API reference (`docs/reference/api.md`) has a part of its own after the
+reference, and each extension has a chapter in the part "Extensions", with
+the pages of its `doc/` folder under it. Every page has a link to edit its
+file on GitHub, and links to the previous and the next page.
+
+The first page of the site is a landing page. It is the file
+`tools/website/landing.md`, and the script copies it over `README.md` in the
+staging folder only, so GitHub still shows the README of the repository.
+The page uses a few lines of CSS from `tools/website/landing.css` and no
+script. Its section "Try it in your browser" is an empty slot for a demo
+that runs in the browser. Facts on the landing page come from the README
+and the manual, and the page follows the plain writing rules like any other
+external page.
 
 Then mdBook builds the pages. After that, a link checker reads the built
-pages. A link or an anchor that reaches nothing fails the build. A link to a
+pages. A link or an anchor that reaches nothing fails the build. `nix flake check` builds the site, so it fails on the same broken links. A link to a
 file that is not a page, such as a source file or the example
 configuration, goes to the file on GitHub.
 
@@ -55,7 +71,7 @@ Its costs are these.
 - A bare `<name>` in the text of `docs/reference/api.md` is read as an
   HTML tag. GitHub does the same.
 
-The next tickets of the website (the landing page, the structure of the
-pages, a paw in the page, publishing) build on this output.
+The next tickets of the website (a paw in the page, publishing) build on
+this output.
 
 See [How to preview the manual as a website](../how-to/preview-the-manual-as-a-website.md).

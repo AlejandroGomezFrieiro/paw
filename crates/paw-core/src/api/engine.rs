@@ -152,9 +152,11 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             sh.session.borrow_mut().set_threads(threads).lua()
         }
         // With true, devices at rest sleep through silence: a reverb after
-        // its tail, a synth with no note that sounds. The sound is the same
-        // with false. `engine_get().device_sleeps` counts the blocks that
-        // devices slept through.
+        // its tail, a synth with no note that sounds. When the song is
+        // stopped and nothing sounds, the whole engine rests. The sound is
+        // the same with false. `engine_get().device_sleeps` counts the
+        // blocks that devices slept through, and `engine_get().engine_rests`
+        // the blocks that the engine rested.
         // @return nil
         fn engine_set_sleep(_, sh, sleep => bool) {
             sh.session.borrow_mut().set_sleep(sleep);

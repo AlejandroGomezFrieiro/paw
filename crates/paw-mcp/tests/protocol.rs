@@ -908,7 +908,7 @@ fn the_manual_and_the_api_are_resources() {
     assert!(lua["result"]["contents"][0]["text"]
         .as_str()
         .unwrap()
-        .contains("paw.harmony.key(beat)"));
+        .contains("paw.harmony.key(beat, latest)"));
     let list = c.request("resources/list", json!({}))["result"]["resources"].clone();
     let uris: Vec<&str> = list
         .as_array()

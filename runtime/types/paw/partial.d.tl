@@ -25,6 +25,8 @@ local record partial
    end
    record Keymap
       mode: string
+      parse: function(lhs: string): {string}
+      repeat_as: function(keys: {string})
       selection: function(): contracts.Region
       metamethod __index: function(Keymap, string): Untyped
    end

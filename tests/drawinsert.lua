@@ -477,6 +477,62 @@ test("pencil: C strums a chord, its notes a 64th apart and ending together; a co
   eq(melody(clip):match("60@2%.25%+0%.75"), "60@2.25+0.75", "2C: two 64ths apart, down from the highest")
 end)
 
+test("pencil: a strum goes up, down or up and down, with a gap typed in the picker", function()
+  local clip = empty()
+  typed("iCC down @2<CR>4l<Esc>")
+  eq(melody(clip), "67@0+1 64@0.125+0.875 60@0.25+0.75", "down, 2 64ths apart")
+  roll:set(60, 2)
+  typed("iCC updown<CR>4l<Esc>")
+  eq(
+    melody(clip):match("60@2%+1 67@2%.0625%+0%.9375 64@2%.125%+0%.875"),
+    "60@2+1 67@2.0625+0.9375 64@2.125+0.875",
+    "up and down: the lowest, then the highest, then the middle"
+  )
+end)
+
+test("pencil: ~ ties the note to the start of the next note", function()
+  local clip = empty()
+  clip:edit_notes({ add = { { pitch = 64, start = 2, length = 1, velocity = 100 } } })
+  api.undo_checkpoint()
+  typed("i~")
+  eq(select(2, draw.text()), "60@0+2", "the note reaches the start of the next one")
+  typed("<Esc>")
+  eq(melody(clip), "60@0+2 64@2+1", "written")
+  roll:set(60, 3)
+  typed("i~")
+  eq(select(2, draw.text()), "60@3+0", "no later note: nothing changes")
+  typed("<Esc>")
+end)
+
+test("pencil: Ctrl-r and a register put its notes at the pencil, count times", function()
+  local clip = empty()
+  typed("i2l<Esc>")
+  roll:set(60, 0)
+  typed('"ayy')
+  roll:set(60, 1)
+  typed("i2<C-r>a<Esc>")
+  eq(melody(clip), "60@0+0.5 60@1+0.5 60@1.5+0.5", "two copies one after the other")
+  typed("i<C-r>z")
+  eq(draw.active(), true, "an empty register leaves the pencil as it was")
+  typed("<Esc>")
+end)
+
+test("pencil: Tab chooses a snippet and writes it at the pencil", function()
+  local clip = empty()
+  paw.snippet.add({
+    name = "drawinsertwalk",
+    desc = "a note a beat",
+    expand = function(ctx) return { notes = { { pitch = ctx.pitch + 2, start = ctx.at, length = 1 } } } end,
+  })
+  local ok, err = xpcall(function()
+    typed("i<Tab>drawinsertwalk<CR>")
+    typed("<Esc><Esc>")
+    eq(melody(clip), "62@0+1", "the snippet's note is in the clip")
+  end, debug.traceback)
+  paw.snippet.remove("drawinsertwalk")
+  if not ok then error(err, 0) end
+end)
+
 test("pencil: Ctrl-n and Ctrl-p suggest what comes next in place, Enter takes it, Ctrl-e puts back", function()
   local clip = empty()
   typed("i4l<CR><C-n>")

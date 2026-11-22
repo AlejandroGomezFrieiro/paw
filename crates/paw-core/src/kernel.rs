@@ -25,6 +25,7 @@ use crate::grid::{Caps, Color, Grid, Highlights, Style};
 use crate::remote::{self, RemoteFrontend};
 use crate::rpc::{ClientId, Clients};
 use crate::session::Session;
+use crate::startuptime;
 use crate::watchdog::Watchdog;
 
 /// How often plugins get their turn on the main thread. Their editors are
@@ -383,12 +384,22 @@ impl Kernel {
         self.shared.watchdog.detach();
         self.lua = lua;
         self.shared.watchdog.attach(&self.lua).map_err(lua_error)?;
+        if startuptime::is_on() {
+            startuptime::event("Lua state, paw.api");
+            // Each module that `require` loads gets a line of its own.
+            self.lua
+                .load("require('paw.startuptime').wrap()")
+                .set_name("=startuptime")
+                .exec()
+                .map_err(lua_error)?;
+        }
         self.lua
             .load("require('paw')")
             .set_name("=boot")
             .exec()
             .map_err(lua_error)?;
         self.call::<()>("startup", ()).map_err(lua_error)?;
+        startuptime::event("startup: views, extensions, configuration");
         // A reload keeps the terminals attached, each in a seat of its own.
         for (client, _) in &self.frontends {
             if *client != 0 {
@@ -397,6 +408,7 @@ impl Kernel {
         }
         self.settle();
         self.shared.dirty.set(true);
+        startuptime::event("runtime ready");
         // Loading the runtime frees many megabytes that the C library keeps
         // for later: give them back to the system.
         #[cfg(target_env = "gnu")]
@@ -609,6 +621,8 @@ impl Kernel {
         if self.shared.dirty.get() {
             self.render();
         }
+        let shown = if self.frontends.is_empty() { "ready, no screen" } else { "first frame" };
+        self.startup_done(shown);
         loop {
             let next_timer = self.shared.timers.borrow().iter().map(|t| t.due).min();
             // Hosted plugins need regular attention on this thread.
@@ -663,6 +677,28 @@ impl Kernel {
             }
             if self.shared.dirty.get() || self.shared.live_dirty.get() {
                 self.render();
+            }
+        }
+    }
+
+    /// The end of the start that `paw --startuptime` times: its last line,
+    /// the file written, and `require` as it was. Nothing when the start
+    /// was not timed, or after the first time.
+    pub fn startup_done(&mut self, label: &str) {
+        match startuptime::finish(label) {
+            Ok(false) => {}
+            Ok(true) => {
+                let unwrap = self.lua.load("require('paw.startuptime').unwrap()").set_name("=startuptime").exec();
+                if let Err(err) = unwrap {
+                    self.report("startuptime", err);
+                }
+            }
+            Err(err) => {
+                let line = format!("--startuptime: cannot write the file: {err}");
+                if !self.shared.attached.get() {
+                    eprintln!("{line}");
+                }
+                self.shared.log(line);
             }
         }
     }
