@@ -163,6 +163,28 @@ test("the device panel's cursor starts on the first device of another track, so 
   eq(row.param == nil and row.device.kind, "delay", "w goes to the next device")
 end)
 
+test("the device panel's cursor starts on the first device in another project", function()
+  start()
+  local a = paw.add_track({ name = "A" })
+  a:add_device("synth")
+  a:add_device("delay")
+  local path = paw.project.save(T.scratch .. "/panel-row")
+  paw.cursor.set_track(a)
+  paw.ui.focus("devices")
+  T.after(function()
+    paw.ui.hide("devices")
+    paw.ui.focus("arrange")
+  end)
+  local panel = paw.ui.views.devices
+  paw.keymap.feed("G")
+  eq(panel.row > 1, true, "G goes down the chain")
+  paw.project.load(path)
+  paw.flush()
+  paw.cursor.set_track(paw.tracks()[1])
+  local _, row = panel:selected()
+  eq(panel.row .. " " .. tostring(row.param), "1 nil", "the same track id in the project opened: the first row")
+end)
+
 test(
   "g' asks for the marker's name and never makes one without, and the list of markers finds names, not its line numbers",
   function()

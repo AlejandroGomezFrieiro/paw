@@ -6185,9 +6185,19 @@ function paw.option.list() end
 ---@param text any
 function paw.option.read(name, text) end
 
+--- Give each option the value it had in `snapshot`, and an option set
+--- after it its default again. Each option that changes emits
+--- `option.changed`. Gives the names of the options that changed, sorted.
+---@param snapshot any
+function paw.option.restore(snapshot) end
+
 --- An option's value as text: a list is its items with commas between.
 ---@param value any
 function paw.option.show(value) end
+
+--- The value of each option that was set, to give back later with
+--- `paw.option.restore`. An option that was not set keeps its default.
+function paw.option.snapshot() end
 
 --- What option `name` takes besides its default's type (`min`, `max`,
 --- `integer`, `type`, `values`), or nil.
