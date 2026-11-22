@@ -214,7 +214,7 @@ command("info", function()
     )
   end
   paw.ui.page("Under the cursor", lines)
-end, { desc = "Describe the clip and track under the cursor" })
+end, { desc = "Describe what is under the cursor: a fold or the scope, the clip, the track" })
 command("wq", function(ctx)
   paw.commands.run("write", ctx.args)
   api.quit(0)

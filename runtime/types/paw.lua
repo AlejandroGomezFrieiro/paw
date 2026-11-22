@@ -3045,6 +3045,12 @@ function paw.folds.clear(win) end
 ---@param win any
 function paw.folds.close(id, win) end
 
+--- The closed fold at the cursor, in a window: the time fold that the
+--- cursor is in, else the fold that the cursor's row stands for. Nil when
+--- the cursor is on no closed fold.
+---@param win any
+function paw.folds.closed_at(win) end
+
 --- The rows that a window draws, from the rows of its tracks without
 --- its folds of tracks: each closed fold of tracks keeps its first row,
 --- which stands for all of it.
@@ -7562,9 +7568,19 @@ function paw.scope.contains(track, s) end
 ---@param win any
 function paw.scope.current(win) end
 
---- What a scope shows, in words: its path, its tracks and its bars.
+--- What a scope (the current one by default) shows, in words: its path,
+--- its bars (its own, and the song's), its meter, its tracks, and whether
+--- it is named, with `extra` last: `Song › Bridge · bars 1-8 (song 17-24) ·
+--- 6/8 · 12 tracks · named`.
 ---@param s any
-function paw.scope.describe(s) end
+---@param extra any
+function paw.scope.describe(s, extra) end
+
+--- A fold of the current window in words, as a scope inside the one the
+--- window shows, and whether it is folded: `Song › Strings · 3 tracks ·
+--- folded`.
+---@param f any
+function paw.scope.describe_fold(f) end
 
 --- Enter a scope (`{ kind, id, tracks, from, to, name }`) in a window (the
 --- current one by default). In a window that shows a scope, it becomes its
@@ -7643,6 +7659,11 @@ function paw.scope.next(n) end
 --- nil when the clip places no subproject.
 ---@param id any
 function paw.scope.of_clip(id) end
+
+--- A fold of a window (paw/folds.tl) as a scope to enter: its group, its
+--- region, its tracks or its bars, with the name it shows.
+---@param f any
+function paw.scope.of_fold(f) end
 
 --- The scope an operator's region covers (`zn{motion}`, `{Visual}zn`):
 --- the region, group or track its text object names (`ar`, `ag`, `it`),
