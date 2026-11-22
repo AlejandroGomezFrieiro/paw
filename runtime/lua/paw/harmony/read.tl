@@ -107,7 +107,7 @@ local record M
   MINOR: {number}
   fit: function(w: Weights, bass: integer, total: number, root: integer, q: Quality): number
   correlate: function(h: Weights, profile: {number}, tonic: integer): number
-  key_path: function(notes_hist: {Weights}, bars: {number}, chords?: {Chord}): {Key}
+  key_path: function(notes_hist: {Weights}, bars: {number}, chords?: {Chord}, pause?: function()): {Key}
 end
 
 -- Qualities: steps above the root. `cost` is what it takes to prefer it to a
@@ -450,7 +450,9 @@ end
 --- The chords of a run of windows (`window` makes each, one after another
 --- with no gap): a chord holds across windows unless the next is better by
 --- more than what a change costs. Silence of `bar` beats ends a chord.
-function M.decode(windows: {Window}, bar: number): {Chord}
+--- `pause`, if given, is called after each 64 windows, so that a reading
+--- in slices can stop there (paw/harmony/song.tl).
+function M.decode(windows: {Window}, bar: number, pause?: function()): {Chord}
   if #windows == 0 then
     return {}
   end
@@ -493,6 +495,9 @@ function M.decode(windows: {Window}, bar: number): {Chord}
       end
     end
     back[i], prev = from_l, cur
+    if pause and i % 64 == 0 then
+      pause()
+    end
   end
 
   -- Walk back from the best end.
@@ -682,7 +687,8 @@ end
 
 --- The keys from the pitch classes of each bar (`hist`, as `bar_weights`
 --- gives them, which it leaves as they are) and the chords, as `keys`.
-function M.key_path(notes_hist: {Weights}, bars: {number}, chords?: {Chord}): {Key}
+--- `pause`, if given, is called after each 16 bars, as `decode` does.
+function M.key_path(notes_hist: {Weights}, bars: {number}, chords?: {Chord}, pause?: function()): {Key}
   local n = #bars - 1
   if n < 1 then
     return {}
@@ -771,6 +777,9 @@ function M.key_path(notes_hist: {Weights}, bars: {number}, chords?: {Chord}): {K
       end
     end
     back[b], prev = from, cur
+    if pause and b % 16 == 0 then
+      pause()
+    end
   end
   local path: {integer} = {}
   local best, best_c = -math.huge, 1

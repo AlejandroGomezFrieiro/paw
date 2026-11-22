@@ -24,7 +24,7 @@ The text that it searches is the following.
 
 You can then use the list like any quickfix list, with `]q` and `[q`, and `:copen`. `:cdo` and `:cfdo` run a command on every place, as one undo step. For example, `:vimgrep /^Viol/ track` and then `:cdo track.mute` mutes every track whose name starts with Viol. [The quickfix list](quickfix.md) has the details.
 
-`<Space>fg` shows the same text in a picker that filters while you type, and `Ctrl-q` sends the lines that match to the list.
+`<Space>fg` shows the same text in a picker that filters while you type, and `Ctrl-q` sends the lines that match to the list. The picker reads the text in short steps after it opens, and the query line says `reading…` until it has all of it.
 
 ## Lua
 
@@ -32,6 +32,7 @@ You can then use the list like any quickfix list, with `]q` and `[q`, and `:cope
 | --- | --- |
 | `paw.grep.search(pattern, opts)` | Gives the records found, `{ text, field, location, where }`. `opts`: `{ mode = "regex", fields = { lyric = true } }`. |
 | `paw.grep.records()` | Gives all records. |
+| `paw.grep.reader()` | Gives a function `read(ms)` that reads the records in steps. Each call gives the records found in about `ms` milliseconds, and true when all are read. |
 | `paw.grep.source(name, fn)` | Adds a source of text. `fn(add)` calls `add` with each record. |
 
 ```lua

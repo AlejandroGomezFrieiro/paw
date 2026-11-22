@@ -829,6 +829,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.grep.entries(records)`: Records as quickfix entries: `lyric: la`.
 - `paw.grep.fields()`: The fields text can be found in, for completion.
 - `paw.grep.matcher(pattern, mode)`: A test of text: `mode` "regex" (`paw.regex`), "exact" (the words, each anywhere) or "fuzzy" (as the pickers match). Raises an error for a bad regular expression.
+- `paw.grep.reader()`: The records of `records` read in slices, for a picker (`paw.slices`): each call of the function gives the records found in about `ms` milliseconds, and true when all are read.
 - `paw.grep.records()`: Every record of every source, in the order the sources were added. A source that fails is passed over and logged.
 - `paw.grep.search(pattern, opts)`: The records whose text matches `pattern`. `opts.mode` is as `matcher` takes it. `opts.fields` is a set of fields to search (all without it).
 - `paw.grep.source(name, fn)`: Add a source of text, or replace the one of that name.
@@ -893,10 +894,10 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.harmony.read.bar_weights(sorted, longest, from, to)`: How long each pitch class sounds from `from` to `to`, of `sorted` (notes sorted by start, the longest `longest` beats).
 - `paw.harmony.read.chords(notes, opts)`: Chords over notes in project beats, from `from` to `to` (the notes' span when nil), in windows of `step` beats (0.5). Each chord: `{ at, length, root, quality, bass, tones }` with pitch classes 0..11.
 - `paw.harmony.read.correlate(h, profile, tonic)`: How well a histogram of pitch classes fits a key's profile from `tonic`, from -1 to 1 (Pearson's correlation).
-- `paw.harmony.read.decode(windows, bar)`: The chords of a run of windows (`window` makes each, one after another with no gap): a chord holds across windows unless the next is better by more than what a change costs. Silence of `bar` beats ends a chord.
+- `paw.harmony.read.decode(windows, bar, pause)`: The chords of a run of windows (`window` makes each, one after another with no gap): a chord holds across windows unless the next is better by more than what a change costs. Silence of `bar` beats ends a chord. `pause`, if given, is called after each 64 windows, so that a reading in slices can stop there (paw/harmony/song.tl).
 - `paw.harmony.read.first(sorted, longest, at)`: The first of `sorted` (notes sorted by start) that can sound at `at`: the ones before it start more than `longest` beats before it.
 - `paw.harmony.read.fit(w, bass, total, root, q)`: How well the chord `root` `quality` fits weights `w` with `bass` and `total`.
-- `paw.harmony.read.key_path(notes_hist, bars, chords)`: The keys from the pitch classes of each bar (`hist`, as `bar_weights` gives them, which it leaves as they are) and the chords, as `keys`.
+- `paw.harmony.read.key_path(notes_hist, bars, chords, pause)`: The keys from the pitch classes of each bar (`hist`, as `bar_weights` gives them, which it leaves as they are) and the chords, as `keys`. `pause`, if given, is called after each 16 bars, as `decode` does.
 - `paw.harmony.read.keys(notes, bars, chords)`: Keys over notes in project beats, bar by bar. `bars` is a list of bar starts, with the end after the last bar. When `chords` (as `chords` gives them) are given, their roots and basses count two times. The harmony tells more about the tonic than the notes of a melody. Each key is `{ at, length, tonic, mode }`, with mode "major" or "minor".
 - `paw.harmony.read.window(sorted, longest, at, length, step)`: One window of the chord reading, from `at`, `length` beats long: `sorted` are the notes sorted by start, `longest` the longest of them, `step` the length of a window.
 

@@ -63,15 +63,18 @@ local type Body<A> = function(A...): (Value...)
 local type Call<A> = function(Body<A>, A...): (Value...)
 
 local record M
-  --- A callback that took longer than `paw.opt.budget_ms`: its name and
-  --- how many milliseconds it took the first time.
+  --- A callback that took longer than `paw.opt.budget_ms`: its name, how
+  --- many milliseconds it took the first time (`ms`) and the last time
+  --- (`last`), and how many times it went over the budget.
   record Slow
     name: string
     ms: number
+    last: number
+    times: integer
   end
   wrapped: boolean
   --- Each callback that went over the budget, once for each name, in the
-  --- order they did (`paw.opt.budget_ms`).
+  --- order of the first time (`paw.opt.budget_ms`).
   slow: {Slow}
 end
 M.slow = {}
@@ -102,7 +105,7 @@ options.define("budget_ms", 0, { min = 0 })
 local slow_ms: number = 0
 local inner_slow = false  -- a call inside the running one went over the budget
 local paused = 0.0        -- the milliseconds spent waiting in the kernel, in all
-local warned: {string: boolean} = {}
+local warned: {string: M.Slow} = {}
 
 local record OptionChanged
   name: string
@@ -116,18 +119,21 @@ events.on(
   end
 )
 
---- Name a callback that went over the budget, once. A timer has no name:
---- the place of its function in the code names it.
+--- Name a callback that went over the budget, once, and count it each
+--- time. A timer has no name: the place of its function in the code names it.
 local function report(name: string, fn: function, ms: number)
   if not name then
     local info = debug.getinfo(fn, "S")
     name = string.format("a timer (%s:%d)", info.short_src:match("[^/]*/?[^/]*$"), info.linedefined)
   end
-  if warned[name] then
+  local seen = warned[name]
+  if seen then
+    seen.last, seen.times = ms, seen.times + 1
     return
   end
-  warned[name] = true
-  M.slow[#M.slow + 1] = { name = name, ms = ms }
+  seen = { name = name, ms = ms, last = ms, times = 1 }
+  warned[name] = seen
+  M.slow[#M.slow + 1] = seen
   paw.notify(string.format("slow: %s %d ms (budget %g ms)", name, math.floor(ms + 0.5), slow_ms), "warn")
 end
 

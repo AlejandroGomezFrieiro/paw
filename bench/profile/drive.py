@@ -52,7 +52,8 @@ Options (all optional):
   --setup LUA      Lua run in the kernel after the start, before measuring
   --budget MS      paw.opt.budget_ms (default 5, 0 is off): each callback
                    that takes longer is named once; keys lists them with
-                   the key that ran them ("slow"), repeat at the end
+                   the key that ran them ("slow": name, times, last ms),
+                   repeat at the end
 """
 
 import json
@@ -508,21 +509,31 @@ KEYS = [
 ]
 
 
-SLOW_LUA = """
+SLOW_LUA = r"""
 local out = {}
-for i = ... + 1, #paw.limit.slow do
-  local s = paw.limit.slow[i]
-  out[#out + 1] = string.format("%s\t%.1f", s.name, s.ms)
+for _, s in ipairs(paw.limit.slow) do
+  out[#out + 1] = string.format("%s\t%d\t%.1f", s.name, s.times, s.last)
 end
 return table.concat(out, "\n")
 """
 
 
-def slow_since(paw, n):
-    """The callbacks over the budget named after the first n
-    (paw.limit.slow): [[name, ms], ...]."""
-    text = paw.eval(SLOW_LUA, n) or ""
-    return [[name, float(ms)] for name, ms in (line.rsplit("\t", 1) for line in text.split("\n") if line)]
+def slow_counts(paw):
+    """Each callback over the budget so far (paw.limit.slow):
+    {name: [times, last ms]}."""
+    out = {}
+    for line in (paw.eval(SLOW_LUA) or "").split("\n"):
+        if line:
+            name, times, last = line.rsplit("\t", 2)
+            out[name] = [int(times), float(last)]
+    return out
+
+
+def slow_since(paw, before):
+    """The callbacks over the budget since `before` (slow_counts):
+    [[name, times, last ms], ...]."""
+    now = slow_counts(paw)
+    return [[name, t - before.get(name, [0])[0], ms] for name, (t, ms) in now.items() if t > before.get(name, [0])[0]]
 
 
 def measure_key(paw, name, data, quiet_ms=250):
@@ -551,7 +562,8 @@ def scenario_keys(opts, project):
     # The cursor on the second track, at the start.
     results = []
     reps = opts.reps
-    named = len(slow_since(paw, 0))
+    named = slow_counts(paw)
+    emit(opts, {"scenario": "keys", "slow_at_start": slow_since(paw, {})})
     for name, data, _ in KEYS:
         recs = [measure_key(paw, name, data)]
         # Moves are repeated: a key that changes the project is not.
@@ -568,7 +580,7 @@ def scenario_keys(opts, project):
             rec["reps"] = len(recs)
         # The callbacks of this key (and of the timers after it) over the budget.
         slow = slow_since(paw, named)
-        named += len(slow)
+        named = slow_counts(paw)
         if slow:
             rec["slow"] = slow
         rec["scenario"] = "keys"
@@ -693,7 +705,7 @@ def scenario_repeat(opts, project):
             paw.screen.wait_quiet(100, 10)
     res = probes.stop()
     if opts.budget:
-        res["slow"] = slow_since(paw, 0)
+        res["slow"] = slow_since(paw, {})
     res.update({"scenario": "repeat", "keys": opts.keys, "times": opts.times,
                 "kernel_cpu_ms_per_round": round((paw.kernel_ns() - k0) / 1e6 / opts.times, 2),
                 "wall_s": round(time.monotonic() - t0, 2)})

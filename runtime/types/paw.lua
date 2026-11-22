@@ -3408,6 +3408,11 @@ function paw.grep.fields() end
 ---@param mode any
 function paw.grep.matcher(pattern, mode) end
 
+--- The records of `records` read in slices, for a picker (`paw.slices`):
+--- each call of the function gives the records found in about `ms`
+--- milliseconds, and true when all are read.
+function paw.grep.reader() end
+
 --- Every record of every source, in the order the sources were added.
 --- A source that fails is passed over and logged.
 function paw.grep.records() end
@@ -3723,9 +3728,12 @@ function paw.harmony.read.correlate(h, profile, tonic) end
 --- The chords of a run of windows (`window` makes each, one after another
 --- with no gap): a chord holds across windows unless the next is better by
 --- more than what a change costs. Silence of `bar` beats ends a chord.
+--- `pause`, if given, is called after each 64 windows, so that a reading
+--- in slices can stop there (paw/harmony/song.tl).
 ---@param windows any
 ---@param bar any
-function paw.harmony.read.decode(windows, bar) end
+---@param pause any
+function paw.harmony.read.decode(windows, bar, pause) end
 
 --- The first of `sorted` (notes sorted by start) that can sound at `at`:
 --- the ones before it start more than `longest` beats before it.
@@ -3744,10 +3752,12 @@ function paw.harmony.read.fit(w, bass, total, root, q) end
 
 --- The keys from the pitch classes of each bar (`hist`, as `bar_weights`
 --- gives them, which it leaves as they are) and the chords, as `keys`.
+--- `pause`, if given, is called after each 16 bars, as `decode` does.
 ---@param notes_hist any
 ---@param bars any
 ---@param chords any
-function paw.harmony.read.key_path(notes_hist, bars, chords) end
+---@param pause any
+function paw.harmony.read.key_path(notes_hist, bars, chords, pause) end
 
 --- Keys over notes in project beats, bar by bar. `bars` is a list of bar
 --- starts, with the end after the last bar. When `chords` (as `chords`

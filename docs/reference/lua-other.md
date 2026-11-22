@@ -36,7 +36,7 @@ paw.slices("count", function(ms)
 end)
 ```
 
-paw itself uses two jobs. The job `harmony` reads the chords and the keys again after an edit, and the job `pick` reads the files of the files picker.
+paw itself uses two jobs. The job `harmony` reads the chords and the keys again after an edit. The job `pick` reads the items of a picker that has `more`, for example the files picker (`<Space>ff`) and the text of the project (`<Space>fg`).
 
 ## The budget of a callback
 
@@ -44,7 +44,7 @@ paw itself uses two jobs. The job `harmony` reads the chords and the keys again 
 
 - When a slow callback runs inside another one, paw names only the inner callback.
 - Time in the kernel doesn't count, for example a render, the read of a project and `paw.wait`, as for `paw.opt.lua_limit`.
-- `paw.limit.slow` is the list of the warnings, each with `name` and `ms`.
+- `paw.limit.slow` is the list of the slow callbacks, one for each name. Each has `name`, `ms` (the time of the first warning), `last` (the time of the last one) and `times` (how many times it took longer than the budget).
 - `paw.limit.timed(name, fn, ...)` runs `fn` and checks it against the budget, for a callback of an extension that paw doesn't call itself.
 
 ## Other modules
