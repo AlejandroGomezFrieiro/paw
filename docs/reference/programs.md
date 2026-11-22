@@ -2,9 +2,9 @@
 
 <!-- tags: programs command-line-options -->
 
-paw has three programs: `paw` (the kernel and the terminal interface),
+paw has three programs, which are `paw` (the kernel and the terminal interface),
 `paw-gui` (the graphical window) and `paw-mcp` (a Model Context Protocol
-server for AI assistants). `--help` on each program prints its options.
+server for AI assistants), and `--help` on each program prints its options.
 
 ## paw
 
@@ -20,7 +20,7 @@ server for AI assistants). `--help` on each program prints its options.
 
 | Option | Effect |
 | --- | --- |
-| `-e <lua>` | Runs Lua code after the start. You can give it more than one time. |
+| `-e <lua>` | Runs Lua code after the start. You can give it more than once. |
 | `--keys <keys>` | Types keys after the start, for example `'jj<Space>'`. |
 | `--clean` | Does not load your configuration and extensions. |
 | `--config <dir>` | The configuration directory. The default is `~/.config/paw`. |
@@ -43,7 +43,7 @@ server for AI assistants). `--help` on each program prints its options.
 | `-V`, `--version` | Shows the version. |
 
 After `-l <script.lua>`, paw gives all the other arguments to the script,
-also those that start with `-`. A wrong option makes paw print the usage
+including those that start with `-`. A wrong option makes paw print the usage
 and stop with the exit code 2.
 
 ### Options of `paw ctl` and `paw attach`
@@ -61,8 +61,8 @@ computer, unless an option names a different one.
 | `--listen-audio` | (`attach` only) Plays the sound of the instance on this computer, at about 1 Mbit/s. |
 | `--listen-audio-to <file.wav>` | (`attach` only) Writes the sound of the instance to a file. |
 
-In an attached terminal, `:detach` leaves and the instance continues to run.
-`:upload <file>` sends a sound file from this computer into the project.
+In an attached terminal, `:detach` leaves and the instance continues to run,
+`:upload <file>` sends a sound file from this computer into the project, and
 `:listen` starts and stops the sound on this computer.
 
 ### Options of `paw doctor`
@@ -102,7 +102,7 @@ paw ctl --connect studio:7700 --token-file studio.token cmd transport.toggle
 
 ## paw-mcp
 
-`paw-mcp` is a Model Context Protocol server on stdin and stdout.
+`paw-mcp` is a Model Context Protocol server that talks over stdin and stdout.
 
 | Use | Effect |
 | --- | --- |

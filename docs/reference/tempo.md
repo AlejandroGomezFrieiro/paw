@@ -2,25 +2,25 @@
 
 <!-- tags: tempo time-signature timebase tempo-map -->
 
-The tempo and the time signature can change along the song. The module is
+The tempo and the time signature can change along the song, and the module is
 `paw.tempo`. For how the tempo map affects audio and MIDI, see
 [About time and tempo](../explanation/about-time-and-tempo.md).
 
 ## Rules
 
-- A tempo change holds until the next change, or ramps to it. In a ramp,
-  the tempo changes linearly in time, as the linear tempo points of REAPER.
-- A time signature change starts a new bar where it is. If it is inside a
+- A tempo change holds until the next change, or ramps to it, and in a ramp
+  the tempo changes linearly in time.
+- A time signature change starts a new bar where it is, and if it is inside a
   bar, that bar is shorter.
 - `paw.project.tempo` and the signature fields of the project are the
   values at the start. A project with one tempo and one signature saves as
   before.
-- The engine follows the map sample by sample: the playhead, the loop,
+- The engine follows the map sample by sample for the playhead, the loop,
   MIDI clips, automation, the metronome, recording and renders.
-- The metronome accents the first beat of each bar, and clicks on each
-  beat of the signature: six clicks in a bar of 6/8.
-- Plugins get the tempo, signature, bar and time for each block: the CLAP
-  transport, the VST3 process context, the LV2 `time:Position`. This works
+- The metronome accents the first beat of each bar and clicks on each
+  beat of the signature, so a bar of 6/8 has six clicks.
+- Plugins get the tempo, signature, bar and time for each block through the CLAP
+  transport, the VST3 process context and the LV2 `time:Position`, and this works
   through the sandbox too.
 - Each command below is one undo step.
 
@@ -54,9 +54,9 @@ A tempo is from 1 to 999 BPM.
 
 ## Timebase of audio clips
 
-An audio clip keeps its length in seconds. A change of tempo does not
+An audio clip keeps its length in seconds, so a change of tempo does not
 stretch or cut a recording, and the end beat of the clip comes from the
-map. The `timebase` of the clip sets what it keeps of its start:
+map. The `timebase` of the clip sets what it keeps of its start, as in the table below.
 
 | `clip.timebase` | Effect |
 | --- | --- |

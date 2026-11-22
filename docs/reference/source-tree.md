@@ -4,7 +4,7 @@
 
 This page lists the folders of paw's repository and what each one holds.
 [About the architecture](../explanation/about-the-architecture.md) tells
-how the parts connect. [The instructions for agents and contributors](../../AGENTS.md)
+how the parts connect, and [the instructions for agents and contributors](../../AGENTS.md)
 give the rules for a change.
 
 ## Top-level folders
@@ -38,7 +38,7 @@ give the rules for a change.
 ## The crates
 
 Two crates have a README: [paw-gui](../../crates/paw-gui/README.md) and
-[paw-mcp](../../crates/paw-mcp/README.md). This table describes the other
+[paw-mcp](../../crates/paw-mcp/README.md), and the table below describes the other
 crates.
 
 | Crate | What it holds |
@@ -57,7 +57,7 @@ crates.
 
 ## Generated files
 
-Do not edit these files. Make them again from their source.
+Do not edit the files below by hand. Generate them again from their source.
 
 | File | Source | Command |
 | --- | --- | --- |

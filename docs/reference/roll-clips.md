@@ -2,23 +2,23 @@
 
 <!-- tags: roll-clips context-notes -->
 
-The piano roll can show the notes of other tracks, and can edit many clips
-at the same time. The module is `paw.roll_clips`.
+The piano roll can show the notes of other tracks and edit many clips
+at the same time, and the module that does so is `paw.roll_clips`.
 
 ## Context notes
 
 Behind the notes of the clip, the piano roll shows the notes of other
-tracks that sound at the same time. They are fainter, each in the color of
+tracks that sound at the same time, drawn fainter and each in the color of
 its track.
 
 - Drum tracks (tracks with a drum map, see `extensions/drums`) do not
-  show.
+  appear as context notes.
 - `paw.opt.roll_context` sets which tracks show: `"all"` (default),
   `"group"` (the tracks of the group of the clip), `"none"`, or a list of
   track ids.
 - `:roll.tracks` (terminal) or the side panel (graphical window, Tracks in
   the toolbar) shows or hides each track.
-- The piano roll shows at most `paw.opt.roll_context_max` notes (4000).
+- The piano roll shows at most `paw.opt.roll_context_max` notes (4000), and
   paw finds them again only when the project, the edited clips or the
   shown tracks change.
 - The keyboard marks the keys that sound at the cursor, in each clip that
@@ -27,7 +27,7 @@ its track.
 ## Edit several clips
 
 The piano roll edits one active clip, where new notes go, and any number
-of other clips with it. Each action on notes works on all of them:
+of other clips with it, and each action on notes works on all of them, as in the list below.
 
 - motions (`w` goes from note to note across the clips)
 - operators and text objects (`d`, `y`, `>`, `=`, and `ic`, which is each
@@ -38,13 +38,13 @@ of other clips with it. Each action on notes works on all of them:
 
 Rules:
 
-- A note stays in its clip. A drag or `H` stops at the edges of the clip,
+- A note stays in its clip, so a drag or `H` stops at the edges of the clip,
   and a move never puts a note in a different clip.
-- Notes copied from several clips remember their clips. A paste puts them
-  back in their clips while those clips are edited. Else they go into the
+- Notes copied from several clips remember their clips, and a paste puts them
+  back in their clips while those clips are edited. Otherwise they go into the
   clip at the cursor.
 - A command that changes several clips is one undo step.
-- The beats of the cursor are the beats of the active clip. When a
+- The beats of the cursor are the beats of the active clip, and when a
   different clip becomes active, the cursor stays at the same place in the
   song.
 
@@ -85,13 +85,13 @@ Rules:
   clip changes.
 - `paw.edit.roll.yank`, `delete`, `each` and `paste` accept the list from
   `parts()` instead of a clip.
-- Each seat has its own set: two persons on one kernel edit their own
+- Each seat has its own set, so two people on one kernel edit their own
   clips.
-- Language servers keep each edited clip open, not only the active clip.
+- Language servers keep each edited clip open, and not only the active clip.
 
 ## Layers of the piano roll
 
-The piano roll draws these layers, from back to front:
+The piano roll draws the layers below, from back to front.
 
 | Layer | Order |
 | --- | --- |
@@ -110,6 +110,6 @@ The piano roll draws these layers, from back to front:
   `top`, `rows`, `width` and `hue`.
 - `marks(clip_id)` gives what the graphical window draws for the layer:
   boxes or chips in the beats of the clip. Layers with an order below 20
-  are behind the notes, and layers from 20 are in front.
+  are behind the notes, and layers with an order of 20 or more are in front.
 - The comment on `layer` in `runtime/lua/paw/views/pianoroll.lua` gives
   each field. The `context` layer is an example of both functions.

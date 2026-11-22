@@ -3,7 +3,7 @@
 <!-- tags: scripting scripting-the-scripting-interface -->
 
 The `paw` module is the interface for configuration, scripts and
-extensions. It is also the global `paw`.
+extensions, and it is also the global `paw`.
 
 ```lua
 local paw = require("paw")
@@ -14,7 +14,7 @@ local paw = require("paw")
 - `paw.api` is a flat set of functions over plain data, for example
   `paw.api.track_set(id, { volume = -6 })`. The kernel in Rust defines them.
   A setter also takes one key and its value,
-  `paw.api.track_set(id, "volume", -6)`. Only this form clears an entry
+  `paw.api.track_set(id, "volume", -6)`, and only this form clears an entry
   (`paw.api.track_set(id, "output", nil)`).
 - The objects of the `paw` module are a thin layer over `paw.api`, in
   [objects.tl](../../runtime/lua/paw/objects.tl).
@@ -45,5 +45,5 @@ local paw = require("paw")
 | [Lua API](api.md) | each function, made from the comments in the source |
 | [Extensions](extensions.md) | what an extension is and what it can register |
 
-The Lua API page is generated. The pages above it describe how the
+The Lua API page is generated, and the pages above it describe how the
 functions fit together.
