@@ -2,12 +2,7 @@
 
 <!-- tags: audio audio-devices -->
 
-The engine opens one output device and one input device. The devices
-belong to the computer, not to the project. paw keeps the choice in
-`$XDG_STATE_HOME/paw/audio.json` for the next start. If a remembered device
-is not connected, paw uses the default device of the system, and shows a
-message. For the options of the command line (`--output`, `--input`,
-`--no-input`, `--audio`), see [How to choose the audio devices](../how-to/choose-audio-devices.md).
+The engine opens one output device and one input device. The devices belong to the computer and not to the project, so paw keeps the choice in `$XDG_STATE_HOME/paw/audio.json` for the next start. If a remembered device is not connected, paw uses the default device of the system and shows a message. The options of the command line (`--output`, `--input`, `--no-input`, `--audio`) are described in [How to choose the audio devices](../how-to/choose-audio-devices.md).
 
 ## Commands
 
@@ -21,9 +16,7 @@ message. For the options of the command line (`--output`, `--input`,
 
 - `Tab` completes the names.
 - A name that matches no device is refused, with the list of the devices.
-- A part of a name selects the device with the most channels that contains
-  it. So `UR22` opens the full two-channel input of a Steinberg UR22mkII,
-  not one of the mono halves that PipeWire also offers.
+- A part of a name selects the device with the most channels that contains it. For example, `UR22` opens the full two-channel input of a Steinberg UR22mkII, and not one of the mono halves that PipeWire also offers.
 - The engine indicator in the graphical window also selects the devices.
 
 ## Lua
@@ -46,45 +39,32 @@ paw.api.engine_get()     -- device, input_device, sample_rate, block, input_late
 ## PipeWire
 
 - Each device is a PipeWire node, opened by its node name.
-- The list does not show the "default" entries of the system, the streams
-  of other programs, or sinks offered again as inputs.
-- The block size is a request to PipeWire, as the latency of the node. The
-  graph can use a different size. `paw.api.engine_get().block` gives the
-  size in use.
+- The list does not show the "default" entries of the system, the streams of other programs, or sinks offered again as inputs.
+- The block size is a request to PipeWire, set as the latency of the node, and the graph can use a different size. `paw.api.engine_get().block` gives the size in use.
 
 ## Latency
 
-- cpal runs input and output as two streams. A ring buffer joins them. It
-  holds at most one input period plus one output block.
-- When the two clocks drift, paw drops the extra frames, or repeats the
-  last frame.
-- `paw.api.engine_get()` gives `input_latency` (the capture delay of the
-  system plus the ring) and `output_latency`, in milliseconds, as the
-  backend measures them.
-- For the latency of recordings, see
-  [Recording](recording.md#recording-offset).
+- cpal runs input and output as two streams, and a ring buffer joins them. The ring buffer holds at most one input period plus one output block.
+- When the two clocks drift, paw drops the extra frames or repeats the last frame.
+- `paw.api.engine_get()` gives `input_latency` (the capture delay of the system plus the ring) and `output_latency`, in milliseconds, as the backend measures them.
+- The latency of recordings is described in [Recording](recording.md#recording-offset).
 
 ## A device that goes away
 
-When the audio device goes away (a USB interface is disconnected, the sound
-server stops):
+When the audio device goes away, for example because a USB interface is disconnected or the sound server stops, paw behaves as follows:
 
-- The transport stops. A take that records is closed and kept.
-- paw says which device it lost, and continues without sound. You can
-  still edit, save and render.
-- Every three seconds, paw looks for the device. When the device is back,
-  paw opens it again with the same sample rate, block size and input, and
-  says so. The tracks keep their inputs.
-- `:audio.reconnect` tries immediately. `paw.opt.audio_reconnect = false`
-  stops the automatic tries: only the command reconnects.
+- The transport stops, and a take that records is closed and kept.
+- paw says which device it lost and continues without sound, so you can still edit, save and render.
+- Every three seconds, paw looks for the device. When the device is back, paw opens it again with the same sample rate, block size and input, and says so. The tracks keep their inputs.
+- `:audio.reconnect` tries immediately. `paw.opt.audio_reconnect = false` stops the automatic tries, and then only the command reconnects.
 - The engine indicator shows `lost: UR22mkII`, and
   `paw.api.engine_get().lost` names the device.
 
-For MIDI ports that go away, see [MIDI](midi.md#midi-input).
+[MIDI](midi.md#midi-input) describes MIDI ports that go away.
 
 ## Test backends
 
-The null backend (`--audio null`) can make test input and test MIDI ports.
+The null backend (`--audio null`) can make test input and test MIDI ports, with the fields below.
 
 | Field | Effect |
 | --- | --- |
@@ -96,8 +76,7 @@ The null backend (`--audio null`) can make test input and test MIDI ports.
 paw.api.engine_restart({ backend = "null", test_input = { frequency = 440, level = -12, channels = 2 }, test_midi = { "Keys A" } })
 ```
 
-The `test` backend is the null backend with a test device that can go
-away:
+The `test` backend is the null backend with a test device that can go away, and it has two functions.
 
 | Function | Effect |
 | --- | --- |

@@ -1,18 +1,10 @@
 # The state of JUCE plugins
 
-Most commercial plugins use the JUCE library. The
-[plugstate](../../extensions/plugstate/README.md) extension reads the saved
-state of a JUCE plugin as a tree, and writes it back. This page describes
-the forms that it reads, the paths, the descriptions of plugins and the
-presets. The modules are `plugstate.jucestate` (the layer),
-`plugstate.juce` (trees and paths) and `plugstate.jucexml` (XML, read
-and written by the core's `paw.xml`). For the
-other frameworks, see [The saved state of plugins](plugin-state.md).
+Most commercial plugins use the JUCE library. The [plugstate](../../extensions/plugstate/README.md) extension reads the saved state of a JUCE plugin as a tree and writes it back. The forms that it reads, the paths, the descriptions of plugins and the presets are described below. The modules are `plugstate.jucestate` (the layer), `plugstate.juce` (trees and paths) and `plugstate.jucexml` (XML, read and written by `paw.xml` of the core). [The saved state of plugins](plugin-state.md) covers the other frameworks.
 
 ## The layers of a state
 
-`jucestate.open(state, format)` takes a state as `paw.api.device_state`
-gives it, and finds these layers by themselves, from the outside in.
+`jucestate.open(state, format)` takes a state as `paw.api.device_state` gives it, and finds the layers in the table below by itself, from the outside in.
 
 | Layer | Where | What the layer does |
 | --- | --- | --- |
@@ -28,22 +20,14 @@ gives it, and finds these layers by themselves, from the outside in.
 | `prefix` | four letters with a digit, or the `prefix` of a description | a magic before a tree, for example `T3KB` of TONE3000 |
 | `valuetree` | a type, then counts | `ValueTree::writeToStream` |
 
-- `doc:layer_names()` gives the layers that the layer found, for example
-  `vst3 juce-private vc2 xml`.
-- When nothing changes, `doc:write()` gives the same bytes as the state
-  that was opened. Each layer keeps the bytes of the parts that do not
-  change, also the text between the elements of XML.
-- A changed XML element is written on one line, its numbers as JUCE
-  writes them. Changed
-  gzip and zlib data is compressed again (deflate, `paw.api.deflate`).
-- A CLAP state is the data of the plugin as it is. A JUCE plugin gives
-  the same data in each format.
+- `doc:layer_names()` gives the layers that the layer found, for example `vst3 juce-private vc2 xml`.
+- When nothing changes, `doc:write()` gives the same bytes as the state that was opened, because each layer keeps the bytes of the parts that do not change, also the text between the elements of XML.
+- A changed XML element is written on one line, with its numbers as JUCE writes them. Changed gzip and zlib data is compressed again (deflate, `paw.api.deflate`).
+- A CLAP state is the data of the plugin as it is, and a JUCE plugin gives the same data in each format.
 
 ## The tree
 
-A node is `{ type, props = { { name, raw }, ... }, children }`. `raw` is
-the stored `var`: a kind byte, then the data. An XML element is a node,
-and its attributes are text properties.
+A node is `{ type, props = { { name, raw }, ... }, children }`, where `raw` is the stored `var`, which is a kind byte followed by the data. An XML element is a node, and its attributes are text properties.
 
 | Kind | Value in Lua |
 | --- | --- |
@@ -53,12 +37,11 @@ and its attributes are text properties.
 | `binary` | `{ binary = <bytes> }` |
 | `array` | `{ array = { value, ... } }` |
 
-`juce.set(node, name, value, kind)` keeps the kind of an `int` or `int64`
-property when the number is whole. Give `kind` to write another kind.
+`juce.set(node, name, value, kind)` keeps the kind of an `int` or `int64` property when the number is whole, and you give `kind` to write another kind.
 
 ## Paths
 
-A path names nodes, and with `@name` at its end a property.
+A path names nodes, and with `@name` at its end it names a property.
 
 | Part | Meaning |
 | --- | --- |
@@ -69,8 +52,7 @@ A path names nodes, and with `@name` at its end a property.
 | `[id=gain]` | the nodes whose property `id` has the value `gain` |
 | `@name` | the property `name` of each node found |
 
-Examples:
-`/TONE3000State/ChainSnapshot/ChainBlocks/ChainBlock[3]@activeModelId`,
+For example, these are valid paths: `/TONE3000State/ChainSnapshot/ChainBlocks/ChainBlock[3]@activeModelId`,
 `/patch/parameters/a_octave@value`, `/Plugin/PARAMETERS/PARAM[id=gain]@value`.
 
 | Function | Result |
@@ -83,9 +65,7 @@ Examples:
 | `doc:dump({ depth, max })` | the tree as lines of text |
 | `juce.walk(root)` | each node and property with its path |
 
-In the paths that paw writes, a node is `Type` when it is the only one of
-its type. Else it is `Type[id=<id>]` when its `id` is unique, and else
-`Type[n]`.
+In the paths that paw writes, a node is `Type` when it is the only one of its type, `Type[id=<id>]` when its `id` is unique, and `Type[n]` in other cases.
 
 ## Parameters of AudioProcessorValueTreeState
 
@@ -95,17 +75,11 @@ its type. Else it is `Type[id=<id>]` when its `id` is unique, and else
 | `doc:param(id)` | the value of one parameter |
 | `doc:set_param(id, value)` | sets a parameter. A parameter that is not there is added, also one that the host does not see as a parameter. Returns `true` when it is added |
 
-The node of the parameters is the `params` path of the description. Else
-it is the first node with a `PARAM` child. Else it is the first node with
-children that have an `id` and a `value`, for example the `Control` nodes of
-HISE.
+The node of the parameters is the `params` path of the description. If the description has none, it is the first node with a `PARAM` child, and if there is no such node, it is the first node with children that have an `id` and a `value`, for example the `Control` nodes of HISE.
 
 ## Differences
 
-`doc:diff(other)` and `juce.diff(a, b)` give the changes from one tree to
-the other: `{ op, path, before, after }`. `op` is `set` (a property changed),
-`add` or `remove` (a property, or a node with all that it holds).
-`juce.diff_text(changes)` gives them as lines:
+`doc:diff(other)` and `juce.diff(a, b)` give the changes from one tree to the other as `{ op, path, before, after }`. `op` is `set` (a property changed), or `add` or `remove` (a property, or a node with all that it holds). `juce.diff_text(changes)` gives them as lines:
 
 ```
 set    /patch/parameters/a_octave@value: "0" → "1"
@@ -115,7 +89,7 @@ remove /Plugin/Slot[2] (was <Slot>)
 
 ## Descriptions of plugins
 
-`jucestate.plugin(desc)` adds a description. A description has these fields.
+`jucestate.plugin(desc)` adds a description, and a description has the fields below.
 
 | Field | Meaning |
 | --- | --- |
@@ -130,8 +104,7 @@ remove /Plugin/Slot[2] (was <Slot>)
 | `slots` | `{ key, label, path }`: values that the `juce` adapter of plugstate shows and sets |
 | `ignore` | the start of paths that `:plugstate.changes` does not list, for example the state of the window |
 
-`jucestate.plugin_of(device)` gives the description of a device. The
-extension describes these plugins:
+`jucestate.plugin_of(device)` gives the description of a device. The extension describes the plugins in the table below.
 
 | Name | Plugin | Formats | Data | Slots |
 | --- | --- | --- | --- | --- |
@@ -142,9 +115,7 @@ extension describes these plugins:
 
 ## Presets
 
-A preset is a base state and a list of edits:
-`{ plugin, name, base, format, edits }`. Without `base`, the edits apply
-to the state of the device. An edit is one of these:
+A preset is a base state and a list of edits, written as `{ plugin, name, base, format, edits }`. Without `base`, the edits apply to the state of the device. An edit is one of the forms below.
 
 | Edit | Effect |
 | --- | --- |
@@ -162,9 +133,6 @@ to the state of the device. An edit is one of these:
 
 ## Limits
 
-- The layer reads the state that the plugin saves. It does not know what
-  each value means. A description gives names to the paths.
-- Surge XT as a VST3 plugin does not take a state from paw, also a state
-  that it saved. The state of Surge XT in CLAP and LV2 loads.
-- Musio keeps its instrument in `MusioFile`. Without a login, Musio has no
-  instrument, and that node is empty.
+- The layer reads the state that the plugin saves, and it does not know what each value means. A description gives names to the paths.
+- Surge XT as a VST3 plugin does not take a state from paw, also a state that it saved. The state of Surge XT in CLAP and LV2 loads.
+- Musio keeps its instrument in `MusioFile`. Without a login, Musio has no instrument, and that node is empty.

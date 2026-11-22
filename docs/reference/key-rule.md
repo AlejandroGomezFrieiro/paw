@@ -2,22 +2,13 @@
 
 <!-- tags: key-rule keys-one-grammar -->
 
-Every view obeys one rule for its keys: a key has the same meaning in each
-view. `tests/keys_constitution.lua` examines the mappings of every view,
-also those of the bundled extensions, and fails on a mapping that breaks
-the rule. `:lua =paw.keyrule.broken()` does the same check on your own
-mappings.
+Every view obeys one rule for its keys, which is that a key has the same meaning in each view. `tests/keys_constitution.lua` examines the mappings of every view, also those of the bundled extensions, and fails on a mapping that breaks the rule. `:lua =paw.keyrule.broken()` does the same check on your own mappings.
 
-Buffers of text (`:e paw://tracks`) keep the keys of Vim for text. There,
-`Ctrl-a` adds to the number under the cursor. As in oil.nvim, `-` goes up
-to the buffer above. Their motions and operators obey the rule.
+Buffers of text (`:e paw://tracks`) keep the keys of Vim for text, so `Ctrl-a` adds to the number under the cursor there, and `-` goes up to the buffer above, as in oil.nvim. Their motions and operators obey the rule.
 
-The rule is for normal mode, visual mode and the motions after an
-operator. In insert mode, keys insert, as letters insert text in Vim.
-In the arrange view, `m` inserts a MIDI clip (see [Insert
-mode](insert-mode.md)). In the piano roll, `l` makes the note longer.
+The rule is for normal mode, visual mode and the motions after an operator. In insert mode, keys insert, in the same way that letters insert text in Vim. In the arrange view, `m` inserts a MIDI clip (see [Insert mode](insert-mode.md)), and in the piano roll, `l` makes the note longer.
 
-For the reasons of the rule, see [About the key rule](../explanation/about-the-key-rule.md).
+[About the key rule](../explanation/about-the-key-rule.md) gives the reasons for the rule.
 
 ## The keys in every view
 
@@ -64,40 +55,19 @@ For the reasons of the rule, see [About the key rule](../explanation/about-the-k
 | The leader | `<leader>` in a mapping. It is `paw.opt.leader`, the space bar by default (`" "`). It starts the keys that mean the same in every view: `<Space>mm` the mixer, `<Space>dd` the device panel. `<Space><Space>` plays and stops at once: no other key starts with it. |
 | The local leader | `<localleader>` in a mapping. It is `paw.opt.localleader`, a backslash by default, as in Vim. It starts the keys of one view, for example the notation popovers (`\d` dynamics, `\t` tempo) and the fades of a clip in the arrange view (`\fi`, `\fo`). |
 
-A key of one view must not use a key of the global leader, or the leader
-alone. One exception: a view can play in its own way on the keys that
-play (`role = "play"`), as the vocal editor plays from its cursor.
-`:lua =paw.keyrule.broken()` lists the keys that do not obey. The key
-hints show both leaders as you type them.
+A key of one view must not use a key of the global leader, or the leader alone. One exception is that a view can play in its own way on the keys that play (`role = "play"`), as the vocal editor plays from its cursor. `:lua =paw.keyrule.broken()` lists the keys that do not obey. The key hints show both leaders as you type them.
 
-When you set `paw.opt.leader` in `init.lua` or with `:set`, every key on
-the leader moves to the new leader, also the keys that paw mapped before.
-With `paw.opt.leader = ","`, the mixer is `,mm` and `,<Space>` plays.
+When you set `paw.opt.leader` in `init.lua` or with `:set`, every key on the leader moves to the new leader, also the keys that paw mapped before. With `paw.opt.leader = ","`, the mixer is `,mm` and `,<Space>` plays.
 
-The keys of an extension for one view are on the local leader. In the
-arrange view: `\S` sections, `\T` templates, `\t` patterns, `\k` drums,
-`\V` vocal tracks, `\i` virtual inputs and `\n` notation. The keys of an
-extension after the leader work from every view (`<Space>ma`, `<Space>pu`, `<Space>vs`).
-`:lua =paw.keyrule.broken()` lists a key of an extension for one view
-that is on the leader.
+The keys of an extension for one view are on the local leader. In the arrange view, `\S` is sections, `\T` templates, `\t` patterns, `\k` drums, `\V` vocal tracks, `\i` virtual inputs and `\n` notation. The keys of an extension after the leader work from every view (`<Space>ma`, `<Space>pu`, `<Space>vs`), and `:lua =paw.keyrule.broken()` lists a key of an extension for one view that is on the leader.
 
-After the leader, the first key is a domain: `<Space>f` finds,
-`<Space>m` is the mix, `<Space>t` the tracks. The second key is what to do
-or what to find. [The leader keys](keys.md#the-leader-keys) lists the
-domains. An extension puts its keys in the domain of what they do:
-mixdiag in `<Space>m`, undotree in `<Space>p` (project).
+After the leader, the first key is a domain, so `<Space>f` finds, `<Space>m` is the mix, and `<Space>t` the tracks. The second key is what to do or what to find, and [The leader keys](keys.md#the-leader-keys) lists the domains. An extension puts its keys in the domain of what they do, so mixdiag uses `<Space>m` and undotree uses `<Space>p` (project).
 
-The core keeps some keys of its own views after the leader, on keys that
-no global mapping uses. In the arrange view, these are the automation
-(`<Space>a`), the tracks (`<Space>t`: groups, VCAs, sends and outputs) and
-fades (`<Space>cf`). In the device panel, they are the presets (`<Space>dw` `<Space>dW`).
-`<Space>la` gives the fixes and actions in each view.
+The core keeps some keys of its own views after the leader, on keys that no global mapping uses. In the arrange view, these are the automation (`<Space>a`), the tracks (`<Space>t`, for groups, VCAs, sends and outputs) and fades (`<Space>cf`). In the device panel, they are the presets (`<Space>dw` `<Space>dW`). `<Space>la` gives the fixes and actions in each view.
 
 ## The classic keys
 
-`paw.opt.keys = "classic"` in `init.lua` (or `:set keys=classic`) gives the
-keys as they were before the rule, for a time. `:set keys=default` removes
-them again. The changes:
+`paw.opt.keys = "classic"` in `init.lua` (or `:set keys=classic`) gives the keys as they were before the rule, for a time, and `:set keys=default` removes them again. The table below lists the changes.
 
 | View | Before | Now |
 | --- | --- | --- |
