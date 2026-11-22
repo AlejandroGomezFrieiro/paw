@@ -25,6 +25,8 @@ local api = require("paw.api")
 local util = require("paw.util")
 local options = require("paw.options")
 local type types = require("paw.types")
+local type contracts = require("paw.contracts")
+local type KeymapModule = require("paw.keymap")
 local type objects = require("paw.objects")
 local type CursorModule = require("paw.cursor")
 
@@ -38,16 +40,7 @@ end
 --- `c1`, its `kind` ("char", "line" or "block"), in the arrange view
 --- maybe `clips`, a set of clip ids, and in the piano roll maybe `notes`,
 --- the ids of notes by the id of their clip.
-local record Region
-  kind: string
-  view: string
-  r0: number
-  r1: number
-  c0: number
-  c1: number
-  clips: {integer: boolean}
-  notes: {integer: {integer: boolean}}
-end
+local type Region = contracts.Region
 
 local type ClipSnapshot = objects.ClipSnapshot
 
@@ -68,8 +61,7 @@ end
 --- time with what each track holds in it (`"range"`: `length`, `rows`), or
 --- notes of the piano roll (`"notes"`: `shape`, the region's kind, `top`,
 --- its highest pitch, `length` and `notes`).
-local record Yanked
-  kind: string
+local record Yanked is KeymapModule.Register
   tracks: {objects.TrackSnapshot}
   length: number
   rows: {{ClipSnapshot}}

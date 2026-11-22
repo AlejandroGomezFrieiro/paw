@@ -32,6 +32,7 @@ local objects = require("paw.objects")
 local cursor = require("paw.cursor")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type KeymapModule = require("paw.keymap")
 local type MarkersModule = require("paw.markers")
 
 local type Kind = contracts.InsertKind
@@ -39,29 +40,8 @@ local type Patch = contracts.InsertPatch
 local type Context = contracts.InsertContext
 local type Item = contracts.InsertedItem
 
---- What a mapping's function gets, as far as this module reads it.
-local record MapContext
-  count: integer
-end
-
---- The options of `paw.keymap.set` this module gives.
-local record MapOptions
-  mode: string
-  view: string
-  desc: string
-  repeatable: boolean
-  hint: boolean
-  order: integer
-end
-
---- `paw.keymap` (paw/keymap.lua), the part of it that this module calls.
-local record Keymap
-  mode: string
-  set: function(lhs: string, rhs: function(ctx: MapContext), opts: MapOptions)
-  del: function(lhs: string, opts: MapOptions)
-  set_mode: function(mode: string)
-  human: function(keys: string): string
-end
+--- What a mapping's function gets.
+local type MapContext = contracts.KeyContext
 
 --- `paw.track_kinds` (paw/track_kinds.lua), the part this module reads.
 local record TrackKinds
@@ -99,6 +79,7 @@ local record ClipKinds
 end
 
 local record Paw is partial.Paw
+  keymap: KeymapModule
   markers: MarkersModule
   clip_kinds: ClipKinds
   time: objects.Time
@@ -107,8 +88,8 @@ end
 local paw = (_G as {string: Paw}).paw
 local opt = options.opt
 
-local function keymap(): Keymap
-  return paw.keymap as Keymap
+local function keymap(): KeymapModule
+  return paw.keymap
 end
 
 --- What one insert session has made, newest last, and the count typed.
@@ -670,11 +651,8 @@ function M.describe(): string
 end
 
 -- A session is what is typed from `i` to `<Esc>`.
-local record ModeChanged
-  mode: string
-  old: string
-end
-local mode_changed: events.Event<ModeChanged> = events.event("mode.changed")
+local type ModeChanged = KeymapModule.ModeChanged
+local mode_changed = paw.keymap.mode_changed
 events.on(
   mode_changed,
   function(e: ModeChanged)

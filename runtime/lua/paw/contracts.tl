@@ -2,7 +2,7 @@
 -- gives back to it. A view, a buffer type, a kind of text buffer, a kind of
 -- track, a kind of clip, a role, a picker, a status line component, a query field, a
 -- source of grep, a health check and a manifest. Each record has the
--- fields that the runtime reads (paw/ui.tl, paw/layout.tl, paw/keymap.lua,
+-- fields that the runtime reads (paw/ui.tl, paw/layout.tl, paw/keymap.tl,
 -- paw/mouse.tl, paw/scene.tl, paw/canvas.tl, paw/statusline.tl and the
 -- other readers), with the types that they read.
 --
@@ -323,6 +323,8 @@ local record contracts
   --- and the name.
   record KeyContext
     count: integer
+    --- An operator's own count, when it is made with `count = "operator"`.
+    op_count: integer
     register: string
     keys: string
     char: string
@@ -363,9 +365,13 @@ local record contracts
   --- A place that a view's `grid.mark` keeps and `grid.jump` goes back
   --- to: the row and the column, and what else the view needs to find it
   --- again (a text buffer's name), or the arrange view's `track` and `beat`.
+  --- A place on the jump list also has the scope of the window (`scope`,
+  --- and `scoped` true; nil `scope` is the song).
   record GridMark is {number | string}
     track: integer
     beat: number
+    scoped: boolean
+    scope: Scope
   end
 
   --- A place of a search in a grid.
@@ -452,7 +458,11 @@ local record contracts
     grid: Grid
     status: function(self: View, ctx?: StatusContext): string | {Piece}
     describe: function(self: View): Description
-    subscope: function(self: View): string
+    --- The scopes of mappings that come before the view's own: one, or a
+    --- list with the first first (`paw.keymap.scopes`).
+    subscope: function(self: View): string | {string}
+    --- True when insert mode is a choice of keys that the key line lists.
+    insert_hints: boolean
     title_of: function(self: View): string
     --- Pixels, in a graphical frontend and a terminal that shows images.
     paint: function(self: View, g: Painter, ctx?: PaintContext)

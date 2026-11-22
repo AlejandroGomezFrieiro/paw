@@ -24,6 +24,8 @@ local Buf = require("paw.buf")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type KeymapModule = require("paw.keymap")
+local type KeybarModule = require("paw.keybar")
 local type role_props = require("paw.role_props")
 local type MouseModule = require("paw.mouse")
 local type commands = require("paw.commands")
@@ -177,14 +179,9 @@ local record SeatState
   pressed: string
 end
 
---- The key line (paw/keybar.lua): the keys of each view in each mode.
+--- The key line (paw/keybar.tl): the keys of each view in each mode.
 local type KeyHint = DrawModule.KeyHint
-local record Keybar
-  lines: {string:{string:{KeyHint}}}
-  entries: function(): {KeyHint}
-  set: function(view: string, mode: string, entries: {KeyHint} | function(): {KeyHint})
-  show: function(lhs: string): string
-end
+local type Keybar = KeybarModule
 
 -- The parts of the modules above this one that it calls: they name this
 -- module's types, so it cannot name theirs.
@@ -228,14 +225,8 @@ end
 local record Panes
   cells: function(): types.Size
 end
-local record Hint
-  key: string
-  desc: string
-end
-local record Keymap
-  hints: function(): {Hint}, string
-end
 local record Paw is partial.Paw
+  keymap: KeymapModule
   roles: Roles
   canvas: Canvas
   statusline: Statusline
@@ -246,7 +237,7 @@ local record Paw is partial.Paw
   draw: DrawModule
 end
 local paw = (_G as {string:Paw}).paw
-local function keymap(): Keymap return paw.keymap as Keymap end
+local function keymap(): KeymapModule return paw.keymap end
 
 --- The payloads of the events this module sends and hears.
 local record ViewFocused
@@ -327,7 +318,7 @@ local record M
   start_layout: L.Spec
 
   -- What other modules put here.
-  --- The key line (paw/keybar.lua).
+  --- The key line (paw/keybar.tl).
   keybar: Keybar
   --- A role (`paw.roles.define`) and every role.
   role: function<P is contracts.MarkProps>(name: string, spec: contracts.Role<P>)

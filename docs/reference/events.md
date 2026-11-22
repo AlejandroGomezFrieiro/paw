@@ -66,7 +66,7 @@ Every event of paw is listed below, with the payload that its handler gets.
 | `render.progress` | `{ path, fraction, ... }` | a render in the background moved forward |
 | `render.done`, `render.failed`, `render.cancelled` | `{ path, ... }` | a render in the background stopped |
 | `render.finished` | render info | `paw.render` returned |
-| `mode.changed` | `{ mode, old }` | the mode of the keymap changed |
+| `mode.changed` | `{ mode, old }` | the mode of the keymap changed. In Teal, its descriptor is `paw.keymap.mode_changed` |
 | `key.pre` | `{ key, mode, view }` | a key, before the keymap gets it. A handler can refuse: then the key does nothing more |
 | `escape` | `{}` | Escape had nothing to cancel |
 | `cursor.changed` | `{ track, beat, lane }` | the cursor moved. In Teal, its descriptor is `paw.cursor.changed` |

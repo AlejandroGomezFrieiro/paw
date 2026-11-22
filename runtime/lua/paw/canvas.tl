@@ -58,6 +58,7 @@ local events = require("paw.events")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type KeymapModule = require("paw.keymap")
 local type UiModule = require("paw.ui")
 local type LayoutModule = require("paw.layout")
 local type LimitModule = require("paw.limit")
@@ -73,7 +74,7 @@ local type CanvasOp = types.CanvasOp
 
 -- What this module reads of `paw`, which paw/init.lua makes, and of the
 -- modules that it calls (paw/layout.tl, paw/panes.tl, paw/mouse.tl,
--- paw/ui.tl, paw/keymap.lua): their parts that it uses. It keeps a window
+-- paw/ui.tl, paw/keymap.tl): their parts that it uses. It keeps a window
 -- of the layout as a `contracts.Window`. paw/panes.tl names this module's
 -- types, so this one cannot name its.
 
@@ -168,6 +169,7 @@ local record Mouse
 end
 
 local record Paw is partial.Paw
+  keymap: KeymapModule
   ui: UiModule
   layout: LayoutModule
   panes: Panes

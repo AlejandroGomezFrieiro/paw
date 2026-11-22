@@ -139,6 +139,14 @@ local paw = (_G as {string:Paw}).paw
 | `a or b` of two function types, or of a flag and a record | compare: `(spec.preview ~= nil or spec.audition ~= nil)` |
 | A module that stores values of many item types (`paw.pick`'s open picker) | erase the type once where the value goes in (`spec as PickSource<Item>`), and give it back to the owner's own functions |
 | JSON whose shape depends on the method (`params`, `result` of JSON-RPC) | an empty record (`rpc.Payload`) cast once by each handler to its method's record; user JSON values are `util.Data` |
+| A cast to a function type in an argument list (`xpcall(f, g as function(string): string, key)`) reads `, key` as a second result | put the type in parentheses: `g as (function(string): string)` |
+| Two aliases of the same tuple (`{string, string}`) in two modules do not agree | one module names it, the other uses that name (`DrawModule.KeyHint`) |
+| `<` on two values of an enum | cast each value to `string` first |
+| A record of another module that adds fields with `is` (`record ProjectFile is KeymapModule.ProjectPlaces`) | the base must be an `interface`, not a record |
+| A value that each caller fills with its own fields (a register) | an interface with the common field (`KeymapModule.Register`); each caller has `record X is KeymapModule.Register` and casts what it reads back |
+| A part split out of a module needs a function of the module that requires it (`registers.replay`, `marks.on_jump`) | a function field of the part, which the module sets after it requires the part |
+| Callers read and change a field of a module as a live table (`paw.keymap.registers`), and each seat has its own | keep one table; the `keep` of the seat copies the contents out and in |
+| A module keeps its own copy of a contract record (`paw.edit` had its own `Region`) | use the contract: two copies give "Region is not a Region" |
 
 ## What stays Lua
 

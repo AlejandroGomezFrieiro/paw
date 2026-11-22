@@ -16,6 +16,7 @@ local commands = require("paw.commands")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type QueryModule = require("paw.query")
+local type KeymapModule = require("paw.keymap")
 
 local type Context = commands.Context
 
@@ -277,15 +278,8 @@ local function to_same_note(dir: integer): function(contracts.KeyContext)
 end
 
 -- Keys ---------------------------------------------------------------------------------
-
 --- How a key of this module is mapped (`paw.keymap.set`).
-local record KeyOptions
-  view: string
-  desc: string
-  motion: boolean
-  linewise: boolean
-  jump: boolean
-end
+local type KeyOptions = KeymapModule.MapOptions
 local function amap(lhs: string, fn: function(contracts.KeyContext), desc: string, opts: KeyOptions)
   opts.view, opts.desc = "arrange", desc
   keymap.set(lhs, fn, opts)

@@ -21,6 +21,7 @@ local limit = require("paw.limit")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type KeymapModule = require("paw.keymap")
 local type UiModule = require("paw.ui")
 local type MouseModule = require("paw.mouse")
 local type CanvasModule = require("paw.canvas")
@@ -100,12 +101,8 @@ local record Kept
   last: Last
 end
 
--- What this module reads of `paw`, which paw/init.lua makes.
-local record Keymap
-  mode: string
-  set_mode: function(mode: string)
-end
 local record Paw is partial.Paw
+  keymap: KeymapModule
   ui: UiModule
   mouse: MouseModule
   canvas: CanvasModule
@@ -299,7 +296,7 @@ function M.focus(id: integer)
     return
   end
   if L.current() ~= win or paw.ui.focused ~= win.view then
-    local keymap = paw.keymap as Keymap
+    local keymap = paw.keymap
     if keymap.mode == "x" then
       keymap.set_mode("n")
     end

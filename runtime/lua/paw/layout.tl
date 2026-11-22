@@ -34,6 +34,7 @@ local commands = require("paw.commands")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type KeymapModule = require("paw.keymap")
 local type objects = require("paw.objects")
 
 local type View = contracts.View
@@ -280,18 +281,15 @@ local record Canvas
   open_views: {string: OpenView}
   inside: string
 end
-local record Keymap
-  set: function(lhs: string, rhs: contracts.KeyRhs, opts: {string: Opt})
-  textobject: function(lhs: string, fn: KeyFn, opts: {string: Opt})
-  operator: function(lhs: string, fn: function(region: Region, ctx?: KeyContext): Region, opts: {string: Opt})
-end
---- A value of a key mapping's options (`desc`, `mode`, `motion`...).
-local type Opt = string | boolean | {string}
+--- The options of a key mapping, and its modes (paw/keymap.tl).
+local type MapOptions = KeymapModule.MapOptions
+local type Mode = KeymapModule.Mode
 --- What a window's scope is (paw/scope.tl, which names this module's types).
 local record Scopes
   current: function(win?: contracts.Window): contracts.Scope
 end
 local record Paw is partial.Paw
+  keymap: KeymapModule
   ui: Ui
   canvas: Canvas
   scope: Scopes
@@ -1521,54 +1519,54 @@ end
 --- `wrap(fn)`, if given, makes each function that the keymap calls. It can
 --- add to the `ctx` of the function (the first argument).
 function M.powers(scope: string, def: contracts.Powers, wrap?: Wrap)
-  local keymap = paw.keymap as Keymap
+  local keymap = paw.keymap
   local wrapping = wrap or function(fn: KeyFn): KeyFn return fn end
+  -- Each item as the keymap takes it: what it runs, and the options of a
+  -- `{ fn, desc = ..., mode = ... }` entry in the view's scope.
   local function each(
-    list: {string: contracts.KeyRhs}, how: function(lhs: string, rhs: contracts.KeyRhs, opts: {string: Opt})
+    list: {string: contracts.KeyRhs}, how: function(lhs: string, rhs: contracts.KeyRhs, opts: MapOptions)
   )
     for lhs, entry in pairs(list or {}) do
-      local rhs, opts: contracts.KeyRhs, {string: Opt} = entry, {view = scope}
+      local rhs: contracts.KeyRhs = entry
+      local opts: MapOptions = {view = scope}
       if entry is contracts.KeyEntry then
         rhs = entry[1]
-        for k, v in pairs(entry as {string: Opt}) do
-          if k ~= 1 as string then
-            opts[k] = v
-          end
-        end
+        opts.desc, opts.mode, opts.role = entry.desc, entry.mode as Mode | {Mode}, entry.role
+        opts.motion, opts.linewise, opts.jump = entry.motion, entry.linewise, entry.jump
+        opts.repeatable, opts.nowait = entry.repeatable, entry.nowait
       end
       how(lhs, rhs, opts)
     end
   end
-  local function wrapped(rhs: contracts.KeyRhs): contracts.KeyRhs
+  local function wrapped(rhs: contracts.KeyRhs): KeymapModule.Rhs
     if rhs is contracts.KeyFn then
       return wrapping(rhs as KeyFn) as contracts.KeyFn
     end
-    return rhs
+    return rhs as string
   end
   each(
-    def.keymaps,
-    function(lhs: string, rhs: contracts.KeyRhs, opts: {string: Opt}) keymap.set(lhs, wrapped(rhs), opts) end
+    def.keymaps, function(lhs: string, rhs: contracts.KeyRhs, opts: MapOptions) keymap.set(lhs, wrapped(rhs), opts) end
   )
   each(
     def.motions,
-    function(lhs: string, rhs: contracts.KeyRhs, opts: {string: Opt})
+    function(lhs: string, rhs: contracts.KeyRhs, opts: MapOptions)
       opts.motion = true
       keymap.set(lhs, wrapped(rhs), opts)
     end
   )
   each(
     def.textobjects as {string: contracts.KeyRhs},
-    function(lhs: string, fn: contracts.KeyRhs, opts: {string: Opt})
-      keymap.textobject(lhs, wrapping(fn as KeyFn), opts)
+    function(lhs: string, fn: contracts.KeyRhs, opts: MapOptions)
+      keymap.textobject(lhs, wrapping(fn as KeyFn) as KeymapModule.TextObject, opts)
     end
   )
   -- An operator's function gets the region first, and `ctx` second.
   each(
     def.operators as {string: contracts.KeyRhs},
-    function(lhs: string, rhs: contracts.KeyRhs, opts: {string: Opt})
+    function(lhs: string, rhs: contracts.KeyRhs, opts: MapOptions)
       local fn = rhs as function(region: Region, ctx?: KeyContext): Region
       local wrapped_fn = wrapping(function(ctx?: KeyContext, region?: Region): Region return fn(region, ctx) end)
-      keymap.operator(lhs, function(region: Region, ctx?: KeyContext): Region return wrapped_fn(ctx, region) end, opts)
+      keymap.operator(lhs, function(region: Region, ctx?: KeyContext) wrapped_fn(ctx, region) end, opts)
     end
   )
 end
@@ -2934,7 +2932,7 @@ local type Ctx = Context
 --- default commands are there, as some of these take over their short names.
 function M.setup()
   local command, alias = commands.define, commands.alias
-  local map = (paw.keymap as Keymap).set
+  local map = paw.keymap.set
 
   -- An empty window shows the start page: what `:vnew` and `:tabnew` open.
   (require as function(string))("paw.views.start")
