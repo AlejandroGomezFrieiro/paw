@@ -12,6 +12,7 @@ local preview = require("paw.pick.preview")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type KeymapModule = require("paw.keymap")
 local type UiModule = require("paw.ui")
 local type PanesModule = require("paw.panes")
 local type objects = require("paw.objects")
@@ -35,52 +36,27 @@ end
 --- The pickers by name, as `paw.pick.sources` holds them.
 local type Sources = project.Sources
 
---- A key mapping (paw/keymap.lua, in Lua), as paw/help.tl reads it.
-local type Map = HelpModule.Map
+--- A key mapping (paw/keymap.tl).
+local type Map = KeymapModule.Map
 
 --- A mapping with what kind of key it is, as `paw.keymap.all` gives it.
-local record KeyAll
-  map: Map
-  kind: string
-end
-
---- A position of a mark: a track and a beat (the arrange view), or a
---- pitch and a beat (the piano roll).
-local record MarkPos is {number}
-  track: integer
-  beat: number
-end
+local type KeyAll = KeymapModule.KeyAll
 
 --- What a register holds: keys (a macro), tracks, a stretch of time,
 --- notes or a device.
-local record Register
+local record Register is KeymapModule.Register
   record Named
     name: string
   end
   record Device
     kind: string
   end
-  kind: string
   keys: string
   tracks: {Named}
   rows: {{integer}}
   length: number
   notes: {types.Note}
   device: Device
-end
-
---- The key mappings (paw/keymap.lua, in Lua): what this module calls of them.
-local record Keymap
-  list: function(mode: string, view: string): {Map}
-  all: function(view: string): {KeyAll}
-  human: function(keys: string): string
-  normal: function(keys: string)
-  push_jump: function()
-  marks: function(view: string): {string: MarkPos}
-  goto_mark: function(name: string)
-  registers: {string: Register}
-  play: function(name: string)
-  mode: string
 end
 
 --- The tracks in scope (paw/scope.tl): what this module calls of it.
@@ -149,6 +125,7 @@ end
 local type InputOptions = UiModule.InputOptions
 
 local record Paw is partial.Paw
+  keymap: KeymapModule
   ui: UiModule
   commands: CommandsModule
   cursor: CursorModule
@@ -167,7 +144,7 @@ local record Paw is partial.Paw
   state: {string: util.Data}
 end
 local paw = (_G as {string: Paw}).paw
-local keymap = paw.keymap as Keymap
+local keymap = paw.keymap
 
 --- A line of the picker of pickers.
 local record PickerLine
@@ -291,7 +268,7 @@ end
 local function key_index(): {string: {string}}
   local index: {string: {string}} = {}
   local held: {string: {string: boolean}} = {}
-  for _, mode in ipairs({"n", "x"}) do
+  for _, mode in ipairs({"n", "x"} as {KeymapModule.Mode}) do
     for _, scope in ipairs({paw.ui.focused, "arrange", "pianoroll", "devices", "mixer"}) do
       for _, map in ipairs(keymap.list(mode, scope)) do
         local name = command_of(map)
@@ -343,7 +320,7 @@ end
 local function view_commands(): {string: boolean}
   local out: {string: boolean} = {}
   local view = paw.ui.focused
-  for _, mode in ipairs({"n", "x"}) do
+  for _, mode in ipairs({"n", "x"} as {KeymapModule.Mode}) do
     for _, map in ipairs(keymap.list(mode, view)) do
       local name = command_of(map)
       if map.scope == view and name then
@@ -1119,7 +1096,7 @@ local function make(pick: Pick): Sources
             local ok, t = pcall(api.track_get, pos.track) as (boolean, types.Track)
             where = paw.time.format(pos.beat) .. "  " .. (ok and t.name or "(track gone)")
           else
-            where = paw.music.name(math.floor(pos[1])) .. "  beat " .. pos[2] + 1
+            where = paw.music.name(math.floor(pos[1] as number)) .. "  beat " .. (pos[2] as number) + 1
           end
           out[#out + 1] = {name = name, view = view, where = where}
         end
@@ -1143,7 +1120,7 @@ local function make(pick: Pick): Sources
     items = function(): {RegisterLine}
       local out: {RegisterLine} = {}
       for name, value in pairs(keymap.registers) do
-        out[#out + 1] = {name = name, value = value}
+        out[#out + 1] = {name = name, value = value as Register}
       end
       table.sort(out, function(a: RegisterLine, b: RegisterLine): boolean return a.name < b.name end)
       return out

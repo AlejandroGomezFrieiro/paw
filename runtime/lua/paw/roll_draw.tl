@@ -27,6 +27,7 @@ local music = require("paw.music")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type KeymapModule = require("paw.keymap")
 local type UiModule = require("paw.ui")
 local type objects = require("paw.objects")
 local type DrawModule = require("paw.draw")
@@ -187,6 +188,7 @@ local record Theme
 end
 
 local record Paw is partial.Paw
+  keymap: KeymapModule
   ui: UiModule
   draw: DrawModule
   harmony: HarmonyModule
@@ -203,11 +205,8 @@ end
 local paw = (_G as {string: Paw}).paw
 local opt = options.opt
 
---- The payload of `mode.changed` (paw/keymap.lua).
-local record ModeChanged
-  mode: string
-  old: string
-end
+--- The payload of `mode.changed` (paw/keymap.tl).
+local type ModeChanged = KeymapModule.ModeChanged
 
 --- A key an extension adds to the pencil (`M.key`): `run(count, char)`.
 local record PencilKey
@@ -2145,7 +2144,7 @@ function M.key(lhs: string, spec: PencilKey)
   M.keys[lhs] = spec
   paw.keymap.set(
     lhs,
-    function(ctx: {string: string})
+    function(ctx: contracts.KeyContext)
       if not begin() then
         return
       end
@@ -2164,7 +2163,7 @@ local record Entered
 end
 local entered: Entered
 events.on(
-  events.event("mode.changed") as events.Event<ModeChanged>,
+  paw.keymap.mode_changed,
   function(e: ModeChanged)
     if e.old == "i" and e.mode == "c" and session then
       return

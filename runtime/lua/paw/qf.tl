@@ -28,6 +28,7 @@ local A = require("paw.address")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type KeymapModule = require("paw.keymap")
 local type UiModule = require("paw.ui")
 local type LayoutModule = require("paw.layout")
 local type objects = require("paw.objects")
@@ -236,21 +237,10 @@ local record Roll
 end
 
 --- What a key's function gets (`paw.keymap.set`).
-local record KeyContext
-  count: integer
-end
-
---- What `paw.keymap.set` takes besides the key and what it does.
-local record MapOptions
-  desc: string
-  jump: boolean
-end
-
-local record Keymap
-  set: function(key: string, action: string | function(ctx: KeyContext), opts: MapOptions)
-end
+local type KeyContext = contracts.KeyContext
 
 local record Paw is partial.Paw
+  keymap: KeymapModule
   ui: UiModule
   layout: LayoutModule
   lanes: LanesModule
@@ -1406,7 +1396,7 @@ end
 
 local type Context = commands.Context
 local type Result = commands.Result
-local map = (paw.keymap as Keymap).set
+local map = paw.keymap.set
 
 -- The stack a command works on: the quickfix lists, or the current
 -- window's location lists.

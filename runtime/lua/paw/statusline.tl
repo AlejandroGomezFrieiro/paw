@@ -33,6 +33,7 @@ local derived = require("paw.derived")
 local type contracts = require("paw.contracts")
 local type types = require("paw.types")
 local type partial = require("paw.partial")
+local type KeymapModule = require("paw.keymap")
 local type UiModule = require("paw.ui")
 local type RulerModule = require("paw.ruler")
 local type MouseModule = require("paw.mouse")
@@ -54,14 +55,6 @@ end
 
 -- What this module reads of `paw`, which paw/init.lua makes, and of the
 -- modules in Lua that it calls: their parts that it uses.
-local record Visual
-  kind: string
-end
-local record Keymap
-  visual: Visual
-  recording: function(): string
-  pending: function(): string
-end
 --- paw/scope.tl, the part of it that this module reads (it names types
 --- that lead back here).
 local record ScopeLevel
@@ -90,6 +83,7 @@ local record Lister
   status: function(): StatusText
 end
 local record Paw is partial.Paw
+  keymap: KeymapModule
   ui: UiModule
   textbuf: TextbufModule
   audio: Audio
@@ -427,7 +421,7 @@ spec(
     pill = true,
     fn = function(ctx: Context): StatusText
       local mode = ctx.mode
-      local km = (paw.keymap as Keymap)
+      local km = paw.keymap
       local name = mode == "x" and km.visual and visual[km.visual.kind] or modes[mode] or mode:upper()
       if ctx.width < 80 then
         name = short[name] or short[mode] or name:sub(1, 3)
@@ -446,7 +440,7 @@ spec(
     still = true,
     rank = 1,
     fn = function(): StatusText
-      local recording = (paw.keymap as Keymap).recording()
+      local recording = paw.keymap.recording()
       if recording then
         return {{"@" .. recording, "StatusMacro"}}
       end
@@ -697,7 +691,7 @@ spec(
   {
     still = true,
     fn = function(): StatusText
-      local pending = (paw.keymap as Keymap).pending()
+      local pending = paw.keymap.pending()
       if pending ~= "" then
         return {{pending, "StatusOn"}}
       end

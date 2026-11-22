@@ -40,6 +40,7 @@ local music = require("paw.music")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type KeymapModule = require("paw.keymap")
 local type UiModule = require("paw.ui")
 local type objects = require("paw.objects")
 local type HarmonyModule = require("paw.harmony")
@@ -221,10 +222,7 @@ local record Finished
 end
 
 --- The payload of `mode.changed`.
-local record ModeChanged
-  mode: string
-  old: string
-end
+local type ModeChanged = KeymapModule.ModeChanged
 
 --- What `Ctx:voice` takes: the beats it leads from and into, the pitches
 --- before and after it (found when nil), how many, the style, the range,
@@ -285,6 +283,7 @@ local record Pick
 end
 
 local record Paw is partial.Paw
+  keymap: KeymapModule
   ui: UiModule
   pick: Pick
   harmony: HarmonyModule
@@ -1262,7 +1261,7 @@ M.source = {
 
 local startup: events.Event<kernel.Nothing> = events.event("startup")
 local escape: events.Event<kernel.Nothing> = events.event("escape")
-local mode_changed: events.Event<ModeChanged> = events.event("mode.changed")
+local mode_changed = paw.keymap.mode_changed
 
 events.on(
   startup,

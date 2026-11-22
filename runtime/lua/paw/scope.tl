@@ -26,7 +26,7 @@
 --
 -- The scope is view state: entering and leaving change nothing in the
 -- project and make no undo step. Entering, leaving and `]z` are jumps:
--- `<C-o>` comes back into the scope and to the place (paw/keymap.lua).
+-- `<C-o>` comes back into the scope and to the place (paw/keymap.tl).
 --
 -- In a scope with time, bars count from 1 at its start (`scopebars`); the
 -- loop is its time while its window is in front (`scopeloop`); the cursor
@@ -44,6 +44,7 @@ local commands = require("paw.commands")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type KeymapModule = require("paw.keymap")
 local type objects = require("paw.objects")
 local type LayoutModule = require("paw.layout")
 local type GroupsModule = require("paw.groups")
@@ -81,10 +82,6 @@ end
 local record Frontend
   refresh: function()
 end
---- The key mappings (paw/keymap.lua, in Lua): what this module calls of them.
-local record Keymap
-  push_jump: function()
-end
 --- What `paw.ui.input` takes.
 local record InputOptions
   prompt: string
@@ -92,6 +89,7 @@ local record InputOptions
   label: string
 end
 local record Paw is partial.Paw
+  keymap: KeymapModule
   ui: UiModule
   layout: LayoutModule
   groups: GroupsModule
@@ -165,8 +163,8 @@ end
 local function groups(): GroupsModule
   return paw.groups
 end
-local function keymap(): Keymap
-  return paw.keymap as Keymap
+local function keymap(): KeymapModule
+  return paw.keymap
 end
 
 local function id_of(track: TrackRef): integer

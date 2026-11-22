@@ -270,11 +270,6 @@ local record Layout
   split: function(opts: SplitOptions): contracts.Window, string
 end
 
---- The key line (paw/keybar.lua, in Lua): what this module calls of it.
-local record Keybar
-  set: function(view: string, mode: string, fn: function(): {{string}})
-  show: function(key: string): string
-end
 
 local type InputOptions = UiModule.InputOptions
 
@@ -1415,7 +1410,7 @@ paw.ui.view("pick", view)
 
 -- The key line while a picker is open: what the keys of this one do (the
 -- keys themselves are not mapped: the picker takes every key).
-local keybar = paw.ui.keybar as Keybar
+local keybar = paw.ui.keybar
 keybar.set("pick", "n", function(): {{string}}
   local out: {{string}} = { { "", active and active.spec.choose or "choose", "Enter" } }
   local keys: {{string}} = {}
