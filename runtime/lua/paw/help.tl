@@ -38,6 +38,8 @@ local commands = require("paw.commands")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type KeymapModule = require("paw.keymap")
+local type KeybarModule = require("paw.keybar")
 local type UiModule = require("paw.ui")
 local type LayoutModule = require("paw.layout")
 local type QfModule = require("paw.qf")
@@ -138,34 +140,8 @@ end
 local record NoFields
 end
 
---- A key mapping (paw/keymap.lua, in Lua): its keys as written (`lhs`)
---- and one by one, what it runs, what it is for, where it works and the
---- extension that made it.
-local record Map
-  lhs: string
-  rhs: string | function
-  desc: string
-  scope: string
-  keys: {string}
-  motion: boolean
-  ext: string
-end
-
---- What `paw.keymap.set` takes besides the keys and the function.
-local record MapOptions
-  view: string
-  desc: string
-  repeatable: boolean
-  role: string
-end
-
---- The key mappings (paw/keymap.lua, in Lua): what this module calls of them.
-local record Keymap
-  every: function(): {Map}
-  human: function(lhs: string): string
-  set: function(lhs: string, fn: function(ctx?: contracts.KeyContext), opts?: MapOptions)
-  push_jump: function()
-end
+--- A key mapping (paw/keymap.tl).
+local type Map = KeymapModule.Map
 
 --- A window that a split makes (paw/layout.tl): its size, which this
 --- module sets.
@@ -192,15 +168,9 @@ local record Layout
 end
 
 --- The lines of the key line of a view and mode: `{ keys, what }` each, or
---- a function that gives them.
-local type KeyRows = {{string}}
-local type KeyRowsFn = function(): KeyRows
-
---- The key line (paw/keybar.lua, in Lua): what this module calls of it.
-local record Keybar
-  lines: {string: {string: KeyRows | KeyRowsFn}}
-  set: function(view: string, mode: string, fn: KeyRowsFn)
-end
+--- a function that gives them (paw/keybar.tl).
+local type KeyRows = {KeybarModule.Entry}
+local type KeyRowsFn = KeybarModule.EntriesFn
 
 --- An extension as `paw.ext.list()` gives it.
 local record ExtInfo
@@ -216,6 +186,7 @@ local record Ext
 end
 
 local record Paw is partial.Paw
+  keymap: KeymapModule
   ui: UiModule
   layout: LayoutModule
   qf: QfModule
@@ -224,7 +195,7 @@ local record Paw is partial.Paw
 end
 local paw = (_G as {string: Paw}).paw
 local layout = paw.layout as Layout
-local keymap = paw.keymap as Keymap
+local keymap = paw.keymap
 local textbuf = paw.textbuf
 local ext = paw.ext as Ext
 
@@ -1828,7 +1799,7 @@ function M.for_command(name: string): contracts.Window
 end
 
 -- The key line of a help window: its own keys, not those that edit.
-local keybar = paw.ui.keybar as Keybar
+local keybar = paw.ui.keybar
 local text_keys = keybar.lines.textbuf and keybar.lines.textbuf.n
 keybar.set(
   "textbuf",

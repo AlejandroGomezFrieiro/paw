@@ -41,6 +41,7 @@ local music = require("paw.music")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type KeymapModule = require("paw.keymap")
 local type UiModule = require("paw.ui")
 local type objects = require("paw.objects")
 local type HarmonyModule = require("paw.harmony")
@@ -234,6 +235,7 @@ local record Frontend
 end
 
 local record Paw is partial.Paw
+  keymap: KeymapModule
   ui: UiModule
   frontend: Frontend
   harmony: HarmonyModule

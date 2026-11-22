@@ -23,7 +23,7 @@ the source of truth; this page is the map):
   `runtime/types/paw.lua` is the LuaLS meta file: point LuaLS's
   `workspace.library` at `runtime/types` to get completion while writing.
 - `docs/reference/key-rule.md`, `docs/reference/grammar.md` and `docs/reference/keys.md` — the keys a user expects;
-  `runtime/lua/paw/keyrule.lua` — the key rule your keys must follow.
+  `runtime/lua/paw/keyrule.tl` — the key rule your keys must follow.
 - A bundled extension close to what you want, as a model (below).
 
 The manual's contents are `docs/README.md`, by kind (tutorials, how-to,

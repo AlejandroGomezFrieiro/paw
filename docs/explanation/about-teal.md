@@ -317,7 +317,8 @@ each other.
 | Done | The frontend | `frontend`, `remote`, `render`, `media`: 5,290 lines of Teal, 9 fewer entries on the allow-list, and no `any` or `paw.Untyped` in these modules | 3,800 | wave 3 |
 | Done | The pencil of the piano roll | `roll_draw` (moved when it changed) and the new `chords`: 1,400 lines of Teal, 1 fewer entry on the allow-list, and no `any` in these modules | 350 | wave 4 |
 | Done | Scopes | `scope`, when scopes got time ranges and levels: 905 lines of Teal, 1 fewer entry on the allow-list, and no `any` or `paw.Untyped` in this module | 380 | wave 3 |
-| 5 | Keys and views | `keymap`, `keyrule`, `keybar`, `defaults/`, `views/`, `roles/` | 15,000 | wave 4, and the work on the keys that runs now |
+| Done | Keys | `keymap` (with `keymap/registers` and `keymap/marks`), `keyrule`, `keybar`: 3,021 lines of Teal, 2 fewer entries on the allow-list, the 14 records that other modules kept of `paw.keymap` and the 4 of `paw.ui.keybar` gone, and no `any` or `paw.Untyped` in these modules | 1,950 | wave 4 |
+| 5 | Views | `defaults/`, `views/`, `roles/` | 13,000 | the keys |
 | 5 | Extensions | one agent for each: `notation` (20,000), `utau` (8,000), `plugstate` (5,700), `interop` (4,000), the others (under 3,200 each) | 60,000 | the modules of paw that each uses |
 
 The spike moved 1,100 lines in a part of a day, with the checker. An area
@@ -835,3 +836,43 @@ value, and the port calls each one time.
 `paw.lanes`, `paw.curves` and `paw.query` call `paw.frontend`, and
 `paw.frontend` names their types, so those modules declare the part of
 `paw.frontend` that they call.
+
+## What the checker found in the keys
+
+The checker found no error that changed what a key does, and the tests pass
+with no change. Most of what it found was in the records that 14 other
+modules kept of `paw.keymap`, and in the contracts that a view gives the
+keymap.
+
+The keymap was one file of 1,597 lines. The port moves the registers and
+the macros to `paw/keymap/registers.tl`, and the marks, the jump list and
+the change list to `paw/keymap/marks.tl`. `paw.keymap` still gives all of
+their functions, so a configuration and an extension call them as before.
+
+The keymap found a key by a walk of every mapping of each scope, for each
+key that you type. It now keeps, for each mode and scope, the prefixes of
+the mappings, so a key needs one look in a table for each scope. A prefix
+ends at the end of a key, so `<` is no longer a prefix of `<C-a>`. No key
+that the keyboard sends is `<` alone, because the keyboard sends `<lt>`.
+
+`mode.changed` was made as a descriptor in five modules, each with its own
+record of the payload. `paw.keymap.mode_changed` is now the one descriptor,
+and `paw.keymap.ModeChanged` is the one record.
+
+The contracts of a view missed some fields that the keymap reads:
+
+- `view:subscope()` can give a list of scopes, as the piano roll does.
+- `view.insert_hints` says that insert mode is a choice of keys that the key
+  line lists.
+- A place on the jump list keeps the scope of the window (`scoped` and
+  `scope` in `paw.contracts.GridMark`).
+- `ctx.op_count` is the count of an operator made with `count = "operator"`.
+
+A register holds a table that the code that yanked it makes, so its type is
+an interface, `paw.keymap.Register`, with only `kind`. A module that yanks
+gives its own record of a register that is a `Register`, and it casts what
+`paw.keymap.getreg` gives back to its record.
+
+`paw.edit` kept its own record of a region, and that record did not agree
+with `paw.contracts.Region`, so the frontend could not give a selection of
+the keymap to it. `paw.edit` uses the contract now.
