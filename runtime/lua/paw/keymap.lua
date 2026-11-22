@@ -1363,6 +1363,7 @@ function M.dispatch(key)
     if paw.ui.grabber and paw.ui.grabber ~= grabber then return end
   end
   key_serial = key_serial + 1
+  M.screen_kept = false
   if macro and depth == 0 then macro.keys[#macro.keys + 1] = key end
   -- A key of insert mode: its edits join the step the insert made first.
   if M.mode == "i" and insert_undo and api.undo_current() ~= insert_undo then api.undo_join(api.undo_current()) end
@@ -1386,7 +1387,8 @@ function M.dispatch(key)
   else
     hint_at = nil
   end
-  api.ui_redraw()
+  -- A prompt that drew only its line (`paw.views.cmdline`) has asked for that.
+  if not M.screen_kept then api.ui_redraw() end
   finish_command()
 end
 

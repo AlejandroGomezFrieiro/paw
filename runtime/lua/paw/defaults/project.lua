@@ -573,6 +573,7 @@ command("cmdline", function(ctx)
     complete = function(text) return paw.commands.complete(text) end,
     -- What the line would act on, shown as it is typed: paw/ex.tl.
     preview = function(text) return paw.ex.preview(text) end,
+    still = true,
   }, function(line)
     -- A number alone is a bar to go to, as it is a line in an editor.
     if line:match("^%s*%d+%s*$") then return paw.commands.run("cursor.bar", { tonumber(line) }) end

@@ -161,3 +161,18 @@ test(":example opens an example or a practice project that comes with paw, with 
   keys(":example<CR>")
   eq(message():find("which example?", 1, true) ~= nil, true, "alone, it lists them: " .. message())
 end)
+
+test("a key typed in the : line asks for no whole frame, unless a range is on the views", function()
+  start()
+  paw.add_track({ name = "Lead" })
+  keys(":")
+  local function whole() return api.ui_redraws() - api.ui_line_redraws() end
+  local before = whole()
+  keys("he")
+  eq(whole(), before, "the letters of a command name draw the line and the list only")
+  eq(require("paw.views.cmdline").state().before, "he", "and the line has them")
+  keys("<BS><BS>1,")
+  keys("3")
+  eq(whole() > before, true, "a range on the views is a whole frame")
+  keys("<Esc>")
+end)
