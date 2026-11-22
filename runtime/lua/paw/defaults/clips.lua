@@ -732,19 +732,19 @@ end, {
   desc = "Keep an audio clip's formants when its pitch is shifted, so that a voice keeps its size: `clip.formants on`, `off`, or turn it over",
   complete = { "on", "off" },
 })
-command("clip.loop", function(ctx)
+command("clip.repeat", function(ctx)
   local clip = need_clip()
   if not clip then return end
   local word = ctx.args[1]
   if word == "off" or (word == nil and clip.loop) then
     stretch_run(paw.stretch.loop, clip.id, false)
-    return paw.notify(clip.name .. " no longer loops")
+    return paw.notify(clip.name .. " no longer repeats")
   end
   if stretch_run(paw.stretch.loop, clip.id, true, tonumber(word)) then
-    paw.notify(string.format("%s loops every %g beats: drag its end out to repeat it", clip.name, clip.loop_length))
+    paw.notify(string.format("%s repeats every %g beats: drag its end out to repeat it", clip.name, clip.loop_length))
   end
 end, {
-  desc = "Loop a clip: dragged longer it repeats what it plays. `clip.loop` turns it on or off, `clip.loop 4` repeats 4 beats, `clip.loop off`",
+  desc = "Make a clip repeat its notes or sound when you make it longer. `clip.repeat` turns it on or off, `clip.repeat 4` repeats the first 4 beats, `clip.repeat off` turns it off. It is not the playback loop (`transport.loop`)",
 })
 command("clip.edit", function()
   local clip = need_clip()

@@ -7,7 +7,7 @@ The arrange view shows the tracks as rows and the time as columns, and it is the
 ## What the view shows
 
 - A rule between the track headers and the timeline.
-- The ruler, with bar numbers and beat ticks. The loop shows as a band on the ruler and a shade over the lanes.
+- The ruler, with bar numbers and beat ticks. The playback loop shows as a bright band on the ruler and a shade over the lanes while looping is on. With looping off, the band stays on the ruler in dim colors (`RulerLoopOff`), so that you see the range that `gL` brings back.
 - A thin amber playhead.
 - The track headers. Each has the chips `M` `S` `R` `I` (mute, solo, arm, monitor). If there are enough rows, a header also shows the level and volume and the pan. It can also show the devices, the output (`→ Bus`), the sends (`↗ Reverb -9`) and the input.
 - A letter before the name of a track of a kind that an extension defines.
@@ -59,7 +59,8 @@ A clip has a name row and a darker body that shows its notes or waveform in the 
 | `<Space>am` | Sets the automation mode of the track: read, touch, latch, write, off, in turn. |
 | `<Space><Space>` | Plays from the cursor, or stops. The cursor does not move, and the playhead stays where the song stopped. A playhead that you put with `gs`, `gp` or the ruler is where play starts, until the cursor moves. `paw.opt.play_from = "playhead"` plays from the playhead. |
 | `gs` `gp` | Moves the playhead to the start, to the cursor. |
-| `gL` `gm` | Turns the loop on or off. Turns the metronome on or off. |
+| `gL` `gm` | Turns the playback loop on or off, and keeps its range. Turns the metronome on or off. |
+| `gl` | Sets the playback loop to the selection or to what the motion covers, and turns looping on. The message says the bars, for example `loop: bars 5 to 8, on`. |
 | `Shift-Enter` | Plays from the playhead. With `play_from = "playhead"`, it plays from the cursor. |
 | `gM` | Counts a bar in before a recording, or not. |
 | `gI` | Turns punch recording on or off. On a selection, punches over it. |

@@ -1856,9 +1856,11 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 - `paw.ruler.add(name, spec)`: Add a part of the bar labels, or put a new one in place of one of that name. It goes into `paw.opt.barlabel` (unless `hidden`).
 - `paw.ruler.add_lane(name, spec)`: Add a lane of rows under the bar numbers, or put a new one in place of one of that name.
+- `paw.ruler.bars_of(from, to)`: The first and the last bar that a stretch of time (`from` up to `to`, in beats of the song) touches, numbered as the ruler numbers them: in a scope with time, from its own bar 1. The status line and the messages of the loop use it.
 - `paw.ruler.draw_lanes(buf, x, scroll, span)`: Draw the lanes on `buf`, the rows under the bar numbers, one under the other. `x` is the column of a beat; `scroll` and `span` the beats in sight.
 - `paw.ruler.label(bar, beat, style, cursor_beat, room)`: The pieces of bar `bar`'s label, from the parts in `paw.opt.barlabel` in their order. `bar` is the song's bar: in a scope with time, its label counts from 1 at the scope's start (`paw.scope.bar_offset`). `style` is the style of the bar's number there. `room` is how many columns the label has before the next bar's: each part gets what the parts before it left (`ctx.room`).
 - `paw.ruler.lane_rows()`: How many rows the lanes need now, all together.
+- `paw.ruler.loop_text(from, to, on)`: What a message says of the loop: `bars 5 to 8, on`, `bar 5, off`. `from` and `to` are the loop's edges in beats of the song.
 - `paw.ruler.relative(bar, beat)`: How many `W` (ahead) or `B` (behind) reach bar `bar` from the cursor at `beat`: from inside a bar, the first `B` goes to its own start (paw/defaults/cursor.lua). Nil for the cursor's own bar.
 - `paw.ruler.remove(name)`: Take a part away, and its name out of `paw.opt.barlabel`.
 - `paw.ruler.remove_lane(name)`: Take a lane away.

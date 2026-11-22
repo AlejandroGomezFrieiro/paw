@@ -279,6 +279,26 @@ M.add(
   }
 )
 
+--- The first and the last bar that a stretch of time (`from` up to `to`, in
+--- beats of the song) touches, numbered as the ruler numbers them: in a scope
+--- with time, from its own bar 1. The status line and the messages of the
+--- loop use it.
+function M.bars_of(from: number, to: number): integer, integer
+  local offset = paw.scope.bar_offset()
+  local o = paw.time.origin()
+  local first = paw.time.bar_of(from - o) - offset
+  local last = math.max(first, paw.time.bar_of(math.max(from, to - 1e-6) - o) - offset)
+  return first, last
+end
+
+--- What a message says of the loop: `bars 5 to 8, on`, `bar 5, off`.
+--- `from` and `to` are the loop's edges in beats of the song.
+function M.loop_text(from: number, to: number, on: boolean): string
+  local first, last = M.bars_of(from, to)
+  local bars = first == last and ("bar " .. first) or ("bars " .. first .. " to " .. last)
+  return bars .. ", " .. (on and "on" or "off")
+end
+
 --- The pieces of bar `bar`'s label, from the parts in `paw.opt.barlabel`
 --- in their order. `bar` is the song's bar: in a scope with time, its
 --- label counts from 1 at the scope's start (`paw.scope.bar_offset`).

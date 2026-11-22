@@ -215,7 +215,7 @@ groups below link the main ones.
 - [MIDI](reference/midi.md): controller moves, the event list, MIDI input and output, MPE, MIDI files
 - [MIDI controllers](reference/learn.md): bind knobs, faders and pads to controls
 - [Media files and audio clips](reference/media.md): paths, relink, sample rates, long files, fades, clip operations
-- [Stretched and looped clips](reference/stretch.md): stretch, pitch, warp markers, tempo, loops
+- [Stretched and repeating clips](reference/stretch.md): stretch, pitch, warp markers, tempo, repeats
 - [Harmony](reference/harmony.md): the chords and keys that paw reads, providers, theory functions, voicings, ranges
 
 ### Mix, devices and plugins

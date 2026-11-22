@@ -40,6 +40,7 @@ local record Palette
   monitor: string
   automation: string
   loop_ruler: string
+  loop_off: string
   loop_lane: string
   punch_ruler: string
   meter_low: string
@@ -82,6 +83,7 @@ local c: Palette = {
   monitor = "#6cc3b8",
   automation = "#e98d55",
   loop_ruler = "#4a3a24",
+  loop_off = "#272422",
   loop_lane = "#14161a",
   punch_ruler = "#4c2428",
   meter_low = "#6fbf73",
@@ -157,6 +159,11 @@ local function build(): Groups
     RulerLoopTick = {fg = c.dim, bg = c.loop_ruler},
     RulerLoopEdge = {fg = c.accent, bg = alt},
     RulerLoopEdgeIn = {fg = c.accent, bg = c.loop_ruler},
+    -- A loop that is off: the same band, dim.
+    RulerLoopOff = {fg = c.faint, bg = c.loop_off},
+    RulerLoopOffBar = {fg = c.dim, bg = c.loop_off},
+    RulerLoopOffTick = {fg = c.faint, bg = c.loop_off},
+    RulerLoopOffEdge = {fg = c.faint, bg = c.loop_off},
     -- The punch range: where recording starts and stops.
     RulerPunch = {fg = c.bright, bg = c.punch_ruler, bold = true},
     RulerPunchTick = {fg = c.dim, bg = c.punch_ruler},

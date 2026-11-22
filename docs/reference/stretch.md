@@ -1,4 +1,4 @@
-# Stretched and looped clips
+# Stretched and repeating clips
 
 <!-- tags: stretching-and-looping-clips stretch warp loop pitch formants -->
 
@@ -27,9 +27,9 @@ stretch methods, see [About time stretch](../explanation/about-stretching.md).
 | `:clip.warp remove`, `gW` | Remove the warp marker nearest the cursor. |
 | `:clip.warp snap` | Move each warp marker to the grid. |
 | `:clip.warp clear` | Remove all the warp markers. |
-| `:clip.loop` | Loop the clip, or stop the loop. |
-| `:clip.loop 4` | Loop 4 beats. |
-| `:clip.loop off` | Stop the loop. |
+| `:clip.repeat` | Make the clip repeat its content when you make it longer, or stop the repeat. It is not the playback loop. |
+| `:clip.repeat 4` | Repeat 4 beats. |
+| `:clip.repeat off` | Stop the repeat. |
 
 ## Graphical window
 
@@ -49,7 +49,7 @@ A stretched clip has a label before its name, in both frontends:
 | `×1.5` | stretched |
 | `+3st` | pitch shifted |
 | `♩` | follows the tempo |
-| `↻` | loops |
+| `↻` | repeats |
 | `stretching…` | paw makes its sound now |
 
 ## Stretch
@@ -131,17 +131,17 @@ when the tempo changes. Its stretch changes to fit, and its pitch stays.
   middle), paw does not stretch it evenly and instead bends it along the tempo
   map, so that each beat of its sound, at `clip.source_tempo`, plays on a beat of
   the song, and `clip.bent` is then true.
-- paw stretches a looped clip evenly in all cases.
+- paw stretches a repeating clip evenly in all cases.
 
-## Loop
+## Repeat
 
-A looped clip (`clip.loop`) repeats `clip.loop_length` beats of what it
+A repeating clip (`:clip.repeat`, field `clip.loop`) repeats `clip.loop_length` beats of what it
 plays over its full length. When you drag its end out, the content repeats,
 and a notch marks each repeat in both frontends.
 
 | Field | Value |
 | --- | --- |
-| `clip.loop` | True: the clip loops. |
+| `clip.loop` | True: the clip repeats its content. The name stays `loop` because `repeat` is a Lua keyword. |
 | `clip.loop_length` | The repeat, in beats. Default when the loop starts: the length of the clip for MIDI, the rest of the file from the start of the clip for audio. An audio clip measures its repeat in seconds at its start, as its sound. |
 | `clip.loop_start` | Where the repeated part starts, from the start of the clip (0 or less). |
 
@@ -157,7 +157,7 @@ and a notch marks each repeat in both frontends.
   over 3 ms, as any cut does.
 - A fade-in belongs to the first repeat and a fade-out to the last, and each
   is no longer than its repeat.
-- For takes in stretched and looped clips, see
+- For takes in stretched and repeating clips, see
   [Takes](takes.md#stretch-and-loop).
 
 ## Lua
@@ -170,7 +170,7 @@ and a notch marks each repeat in both frontends.
 | `paw.stretch.reset(clip)` | No stretch. |
 | `paw.stretch.pitch(clip, 3)` | Shift the pitch. |
 | `paw.stretch.follow(clip, bpm)` | Follow the tempo. |
-| `paw.stretch.loop(clip, true, 4)` | Loop 4 beats. |
+| `paw.stretch.loop(clip, true, 4)` | Repeat 4 beats. |
 | `paw.stretch.warp_add(clip, beat)` | Add a warp marker. |
 | `paw.stretch.warp_move(clip, i, beat)` | Move marker i. |
 | `paw.stretch.warp_remove(clip, i)` | Remove marker i. |

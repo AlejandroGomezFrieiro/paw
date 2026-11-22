@@ -64,8 +64,8 @@ In the graphical window, you can also drag a clip to move it.
    - The status line shows `104 bpm`. The clips stay on their bars, and the
      song plays a little faster.
 2. Press `gL` to stop the loop.
-   - `loop 1–4` goes away from the status line, and the whole song plays
-     now.
+   - `loop 1–4` on the status line changes to a dim `loop off 1–4`, and the
+     whole song plays now.
 3. Press `gs` and `<Space><Space>`. Listen to the song, and press `<Space><Space>` to stop.
 
 ## Find a part

@@ -62,7 +62,7 @@ map. The `timebase` of the clip sets what it keeps of its start, as in the table
 | --- | --- |
 | `"time"` | Default, as the audio items of REAPER. The start stays at the same second, so the clip moves in beats when the tempo before it changes. |
 | `"beats"` | The start stays on its beat. |
-| `"stretch"` | The start and the length stay on their beats. paw stretches the sound to fit (see [Stretched and looped clips](stretch.md#follow-the-tempo)). |
+| `"stretch"` | The start and the length stay on their beats. paw stretches the sound to fit (see [Stretched and repeating clips](stretch.md#follow-the-tempo)). |
 
 MIDI clips and automation stay on their beats.
 

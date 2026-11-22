@@ -72,21 +72,69 @@ command(
   function(ctx) transport.seek(paw.time.bar_start(tonumber(ctx.args[1]) or 1)) end,
   { desc = "Move the playhead to a bar: `transport.seek 5`" }
 )
+--- Set the playback loop to beats `from` up to `to`, turn looping on and
+--- say so. `gl`, `:loop`, and the region and clip commands all come here.
+local function set_loop(from, to, what)
+  transport.loop_start, transport.loop_end, transport.loop_enabled = from, to, true
+  local text = "loop: " .. paw.ruler.loop_text(from, to, true)
+  paw.notify(what and (text .. " (" .. what .. ")") or text)
+end
+
+--- Turn looping on or off and say so.
+local function switch_loop(on)
+  transport.loop_enabled = on
+  if not on then return paw.notify("loop: off") end
+  if transport.loop_end > transport.loop_start then
+    return paw.notify("loop: " .. paw.ruler.loop_text(transport.loop_start, transport.loop_end, true))
+  end
+  paw.notify("loop: on, but no range is set: select time and press gl", "warn")
+end
+
 command("transport.loop", function(ctx)
   local from, to = tonumber(ctx.args[1]), tonumber(ctx.args[2])
   if from and to then
-    transport.loop_start, transport.loop_end = paw.time.bar_start(from), paw.time.bar_start(to + 1)
-    transport.loop_enabled = true
+    set_loop(paw.time.bar_start(from), paw.time.bar_start(to + 1))
   else
-    transport.loop_enabled = not transport.loop_enabled
+    switch_loop(not transport.loop_enabled)
   end
-end, { desc = "Toggle looping, or loop bars: `transport.loop 1 4`" })
+end, {
+  desc = "Turn the playback loop on or off. The playback loop is the stretch of the song that repeats while it plays. `transport.loop 1 4` sets it to bars 1 to 4. It is not `clip.repeat`, which repeats the content of a clip",
+})
+command("transport.loop_beats", function(ctx)
+  local from, to = tonumber(ctx.args[1]), tonumber(ctx.args[2])
+  if not (from and to) or to <= from then
+    return paw.notify("transport.loop_beats needs two beats, the start and the end", "warn")
+  end
+  set_loop(from, to, ctx.args[3])
+end, {
+  desc = "Set the playback loop to beats `from` to `to` and turn looping on: `transport.loop_beats 16 32`. `gl` does it for the selection",
+})
+command("loop", function(ctx)
+  local r, word = ctx.range, ctx.args[1]
+  if r and r.from and r.to and r.to > r.from then
+    set_loop(r.from, r.to)
+  elseif word == "off" then
+    switch_loop(false)
+  elseif word == "on" then
+    switch_loop(true)
+  elseif word == nil then
+    switch_loop(not transport.loop_enabled)
+  else
+    paw.notify(
+      "loop: use `:5,9loop` for bars 5 to 9, `:'<,'>loop`, `:loop on`, `:loop off`, or `:loop` to toggle",
+      "warn"
+    )
+  end
+end, {
+  range = true,
+  desc = "Set the playback loop to a range and turn looping on: `:5,9loop` (bars 5 to 9), `:'<,'>loop` (the selection). `:loop off` turns it off, `:loop on` turns it on, and `:loop` toggles it",
+})
 command("transport.loop_clip", function()
   local clip = need_clip()
   if not clip then return end
   local c = clip:get()
-  transport.loop_start, transport.loop_end, transport.loop_enabled = c.start, c.start + c.length, true
-end, { desc = "Loop the clip under the cursor" })
+  set_loop(c.start, c.start + c.length, "the clip")
+end, { desc = "Set the playback loop to the clip under the cursor and turn looping on" })
 command("transport.record", function()
   if transport.recording then
     transport.recording = false

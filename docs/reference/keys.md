@@ -42,7 +42,7 @@ The motion keys only move, in every view. In **M**, `h` `l` are strips, `j` `k` 
 | `>` `<` | move clips later, earlier | move notes |
 | `=` | snap clips and notes to the grid | snap notes |
 | `gc` | mute or unmute clips (`gcc` the track) | |
-| `gl` | loop it | loop it |
+| `gl` | set the playback loop to it, and turn looping on | the same |
 | `x` | delete the clip | delete the note |
 | `D` `C` `Y` | delete, change, yank to the end of the track | to the end of the clip |
 | `p` `P` | paste after the clip (tracks below), at the cursor (tracks above) | after the note, at the cursor |
@@ -315,7 +315,7 @@ After the leader, the first key is a domain, and the next key is what to do in i
 | `<Space><Space>` | play from the cursor, or stop. The cursor never moves by itself; the playhead stays where the song stopped. `play_from` chooses the cursor or the playhead |
 | `<S-CR>` | play from the playhead (the other start; with `play_from=playhead`, from the cursor) |
 | `gs` `gp` | playhead to the start, to the cursor; play starts there until the cursor moves. `g0` is the playhead to the start too, also in the views where `gs` does another thing (curve editor, drum grid, score) |
-| `gL` `gm` | loop on and off, metronome |
+| `gL` `gm` | playback loop on and off, metronome |
 | `gM` | count a bar in before recording, or not |
 | `<Space>Tt` | tap the tempo (the beat): press it on each beat, four times or more |
 | `gI` | punch recording on and off (over a selection: punch there); `:preroll 2` plays two bars before the punch in |

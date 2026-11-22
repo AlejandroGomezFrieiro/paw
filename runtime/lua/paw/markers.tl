@@ -1201,9 +1201,12 @@ commands.define(
     end
     local t = paw.transport
     t.loop_start, t.loop_end, t.loop_enabled = m.beat, m.beat + m.length, true
-    paw.notify("looping " .. describe(m))
+    paw.notify("loop: " .. paw.ruler.loop_text(t.loop_start, t.loop_end, true) .. " (" .. describe(m) .. ")")
   end,
-  {desc = "Loop the region at the cursor, or the one named: `region.loop Verse`", complete = names}
+  {
+    desc = "Set the playback loop to the region at the cursor, or to the one named, and turn looping on: `region.loop Verse`",
+    complete = names,
+  }
 )
 
 commands.define(
