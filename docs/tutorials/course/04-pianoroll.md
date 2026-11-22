@@ -18,7 +18,7 @@ To change the note under the cursor: `<CR>` adds or removes a note. `+` `-` (and
 
 Insert mode (`i`, or `a` after the note) is a pencil. It draws a note from the cursor, or it takes the note under the cursor. `l` `h` move the edge of the note where the cursor is: at its end, `l` makes the note longer. `+` `-` change its pitch and `K` `J` the octave. `k` `j` bend it. `<CR>` keeps the note and draws the next note at its end. `<Space>` adds a rest first. `c` makes the note a chord. `<BS>` removes the last note, and `<Esc>` writes the notes and leaves insert mode.
 
-`I` makes the keyboard a piano: `a w s e d f t g y h u j k` are C up to the next C. In normal mode, `<Esc>` stays in the piano roll. `<C-w>p` returns to the arrange view.
+In normal mode, `<Esc>` stays in the piano roll. `<C-w>p` returns to the arrange view.
 
 ## If you know Vim
 

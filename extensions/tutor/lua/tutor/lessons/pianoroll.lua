@@ -30,9 +30,8 @@ note and draws the next note at its end. `<Space>` adds a rest first. `c`
 makes the note a chord. `<BS>` removes the last note, and `<Esc>` writes the
 notes and leaves insert mode.
 
-`I` makes the keyboard a piano: `a w s e d f t g y h u j k` are C up to the
-next C. In normal mode, `<Esc>` stays in the piano roll. `<C-w>p` returns to
-the arrange view.]],
+In normal mode, `<Esc>` stays in the piano roll. `<C-w>p` returns to the
+arrange view.]],
   vim = [[
 In Vim, `<C-a>` and `<C-x>` add to a number and subtract from it. Here they
 change the pitch of a note, as `+` `-` do. The pitch is the main value of a

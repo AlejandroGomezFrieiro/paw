@@ -16,10 +16,6 @@
 -- lets `.` in normal mode draw the same shape again at the cursor, as Vim
 -- repeats an insert.
 --
--- The other way in, `paw.opt.roll_insert = "keys"` or `I`, turns the
--- keyboard into a piano instead (`view:enter`); this module then stays out
--- of the way.
---
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
 local events = require("paw.events")
@@ -230,9 +226,6 @@ local record M
 end
 M.keys = {}
 
--- How insert mode in the piano roll enters notes: "draw" with the cursor,
--- or "keys", the keyboard as a piano.
-options.define("roll_insert", "draw")
 -- Semitones each `j` `k` bends the note being drawn.
 local bend_step = options.define("bend_step", 1 as number)
 -- Beats between the notes of a strum (`C`): a 64th note.
@@ -247,16 +240,14 @@ local BEND_RANGE = 48
 local RAMP_STEP, RAMP_STEPS = 1 / 32, 32
 
 local session: Session
-local keys_once: boolean -- `I` asked for the piano keys this time
 local how_next: string -- how the next insert mode takes up a note: "a" at its end
 local record Seat
   session: Session
-  keys_once: boolean
 end
 seats.keep(
   "roll_draw",
-  function(): Seat return {session = session, keys_once = keys_once} end,
-  function(s: Seat) session, keys_once = s.session, s.keys_once end,
+  function(): Seat return {session = session} end,
+  function(s: Seat) session = s.session end,
   function(): Seat return {} end
 )
 
@@ -1725,22 +1716,6 @@ function M.finish(): string
   return said
 end
 
---- Insert mode the piano keys way this once, whatever `roll_insert` says.
-function M.keys_once()
-  keys_once = true
-end
-
---- Change from drawing to the piano keys and stay in insert mode. paw
---- writes the drawn notes, and the letters are notes from now on.
-function M.to_keys()
-  if not session then
-    return
-  end
-  M.finish()
-  keys_once = true
-  paw.notify("typing notes as a piano: a s d f g h j k are a scale, Esc stops")
-end
-
 --- A key of the pencil from an extension: `lhs` in the piano roll's
 --- insert mode, `spec.run(count, char)` with the count typed before it
 --- (and the key typed after it, with `spec.char`). It reads and changes
@@ -1760,9 +1735,9 @@ function M.key(lhs: string, spec: PencilKey)
   )
 end
 
--- Entering insert mode in the piano roll starts a note at the cursor, unless
--- the keys are a piano this time; leaving it writes what was drawn. A
--- prompt asked from insert mode (a chord's name) leaves the drawing as it is.
+-- Entering insert mode in the piano roll starts a note at the cursor;
+-- leaving it writes what was drawn. A prompt asked from insert mode (a
+-- chord's name) leaves the drawing as it is.
 local record Entered
   clip: objects.Clip
   notes: integer
@@ -1778,7 +1753,6 @@ events.on(
       return changed()
     end
     if e.old == "i" or (e.old == "c" and session) then
-      keys_once = nil
       local said = M.finish()
       -- Whatever was entered, drawn or typed, is said once it is in.
       local from = entered
@@ -1800,9 +1774,6 @@ events.on(
       entered = {clip = clip, notes = #clip:notes()}
       local how = how_next
       how_next = nil
-      if keys_once or opt.roll_insert == "keys" then
-        return
-      end
       M.start(how)
     end
   end
@@ -1849,7 +1820,7 @@ end
 --- What the piano roll's title says in insert mode.
 function M.label(): string
   if not M.active() then
-    return string.format("INS C%d  step %g  vel %d", opt.octave, roll():step_length(), opt.velocity)
+    return string.format("INS  step %g  vel %d", roll():step_length(), opt.velocity)
   end
   sync()
   local d = session.pen[1]
@@ -1862,7 +1833,7 @@ end
 --- What the window says while in insert mode.
 function M.status(): string
   if not M.active() then
-    return string.format("entering notes · a is C%d · step %g · Esc to stop", opt.octave, roll():step_length())
+    return string.format("insert mode · step %g · Esc to stop", roll():step_length())
   end
   return "drawing "
     .. M.describe()

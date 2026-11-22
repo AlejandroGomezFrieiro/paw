@@ -702,7 +702,6 @@ local function welcome(buf)
     { "o", "add a track" },
     { "a", "put an instrument on it" },
     { "i Enter", "enter notes: a clip opens to draw them (i alone: insert mode)" },
-    { "then I", "type them: a s d f g h j k are a scale" },
     { paw.keymap.human("<leader><Space>"), "play, and stop" },
     { paw.keymap.human("<leader>f:"), "find any command" },
     { "?", "every key that works where you are" },

@@ -552,24 +552,6 @@ local function locked() return paw.opt.musicops_scale_lock end
 --- Put the scale-lock mappings in place over the runtime's (and the vocal
 --- editor's, which may be loaded later: this runs again when a view is focused).
 function M.install_locks()
-  -- Insert mode in the piano roll the keys way (`I`), as laid out by the
-  -- runtime: the middle row of the keyboard white keys from C, the row above
-  -- the black ones.
-  local LAYOUT = { "a", "w", "s", "e", "d", "f", "t", "g", "y", "h", "u", "j", "k", "o", "l", "p", ";" }
-  for semitone, key in ipairs(LAYOUT) do
-    local lhss = { key }
-    if key:match("%a") then lhss[2] = key:upper() end
-    for i, lhs in ipairs(lhss) do
-      local orig = original("i", "pianoroll.keys", lhs)
-      keymap.set(lhs, function(ctx)
-        if not locked() then return call(orig, ctx) end
-        local roll = paw.ui.views.pianoroll
-        local base = (paw.opt.octave + 1) * 12
-        local pitch = scale.snap(scale.current(), base + semitone - 1, opt("snap"))
-        roll:enter(pitch - base, i == 1)
-      end, { view = "pianoroll.keys", mode = "i", desc = orig and orig.desc, musicops = true })
-    end
-  end
   -- Insert mode drawing: the note being drawn moves by steps of the scale.
   for lhs, dir in pairs({ ["+"] = 1, ["<C-a>"] = 1, ["-"] = -1, ["<C-x>"] = -1 }) do
     local orig = original("i", "pianoroll", lhs)

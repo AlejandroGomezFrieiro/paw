@@ -3160,9 +3160,6 @@ function paw.frontend.sidechain_menu(device) end
 ---@param known any
 function paw.frontend.state(known) end
 
---- True if step input (notes from a MIDI keyboard) is on.
-function paw.frontend.step_input() end
-
 --- What take `take` of a clip plays, for the picture in its take lane. For
 --- sound, this is a waveform as `M.peaks` gives it, at `points` points. For
 --- MIDI, it is the notes as `M.preview` gives them. It repeats as a looped
@@ -6687,9 +6684,6 @@ function paw.roll_draw.hidden(clip) end
 ---@param spec any
 function paw.roll_draw.key(lhs, spec) end
 
---- Insert mode the piano keys way this once, whatever `roll_insert` says.
-function paw.roll_draw.keys_once() end
-
 --- What the piano roll's title says in insert mode.
 function paw.roll_draw.label() end
 
@@ -6760,10 +6754,6 @@ function paw.roll_draw.suggest(dir) end
 --- The notes that you drew and kept, as "60@1+0.5 64@1+0.5" in the beats of
 --- the roll. The second value is the notes that you draw now, "67@1.5+0".
 function paw.roll_draw.text() end
-
---- Change from drawing to the piano keys and stay in insert mode. paw
---- writes the drawn notes, and the letters are notes from now on.
-function paw.roll_draw.to_keys() end
 
 --- Put back the notes that were there before the suggestions (`<C-e>`).
 function paw.roll_draw.unsuggest() end

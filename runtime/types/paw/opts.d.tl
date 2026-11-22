@@ -67,7 +67,6 @@ local record Opts
    note_snap: boolean
    note_zoom: number
    number: boolean
-   octave: integer
    on_external_change: string
    phrase_rest: number
    pianoroll_height: number
@@ -84,7 +83,6 @@ local record Opts
    ripple: boolean
    roll_context: string | {string | number}
    roll_context_max: number
-   roll_insert: string
    scope_rest: string
    scopebars: string
    scopeloop: boolean

@@ -208,28 +208,6 @@ set on a note: the articulations extension does this.
 gives, then calls `paw.roll_draw.shown()`. `paw.chords.quality(suffix,
 steps)` adds the name of a chord.
 
-## Insert mode: the keyboard as a piano
-
-`I` enters notes with the keyboard as a piano. `:set roll_insert=keys`
-makes `i` and `a` do the same.
-
-| Keys | Effect |
-| --- | --- |
-| `a w s e d f t g y h u j k` | Enter C, C♯, D and the next notes up to the next C, and step on. The middle row is the white keys, the row above it the black keys. |
-| A capital letter | Enters the note and does not step on, for chords. |
-| `1` to `9` | Set the length of a note, in grid steps. |
-| `Space` | Enters a rest. |
-| `Backspace` | Steps back and removes the note. |
-| `z` `x` | Change the octave. |
-| `[` `]` | Change the velocity. |
-| `Esc` | Returns to normal mode. |
-
-The clip grows by a bar when the notes go past its end. All of insert mode
-is one undo step, as when you draw. The key is `I`
-for three reasons. `gi` of Vim may be necessary for "insert where you
-stopped". `R` records. `I` of Vim, "insert at the start of the line", is
-`0i` here.
-
 ## Suggestions
 
 <!-- tags: suggestions -->

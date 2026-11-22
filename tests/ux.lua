@@ -59,9 +59,9 @@ test("the welcome page and the empty roll name the right keys", function()
   start()
   local lines = screen()
   eq(
-    lines:find("i Enter%s+enter notes") ~= nil and lines:find("then I%s+type them") ~= nil,
+    lines:find("i Enter%s+enter notes") ~= nil,
     true,
-    "`i` `Enter` enters notes, then `I` types them like a piano (`I` in the arrange view chooses the input)"
+    "`i` `Enter` enters notes (`I` in the arrange view chooses the input)"
   )
   paw.ui.show("pianoroll")
   local text = screen(140, 44)
@@ -79,13 +79,14 @@ test("leaving insert mode says how many notes were written", function()
   api.undo_checkpoint()
   paw.ui.views.pianoroll:edit(clip)
   paw.ui.focus("pianoroll")
-  paw.keymap.feed("I")
-  paw.keymap.feed("a")
-  paw.keymap.feed("s")
+  paw.keymap.feed("i")
+  paw.keymap.feed("l")
+  paw.keymap.feed("<CR>")
+  paw.keymap.feed("l")
   paw.keymap.feed("<Esc>")
-  eq(#clip:notes(), 2, "two notes were typed")
+  eq(#clip:notes(), 2, "two notes were drawn")
   eq(paw.ui.messages[#paw.ui.messages].text, "wrote 2 notes", "and Escape says so")
-  paw.keymap.feed("I")
+  paw.keymap.feed("i")
   paw.keymap.feed("<Esc>")
   eq(paw.ui.messages[#paw.ui.messages].text, "wrote 2 notes", "an insert that wrote nothing says nothing")
 end)

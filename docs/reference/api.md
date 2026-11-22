@@ -777,7 +777,6 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.frontend.send_list(track)`: A track's sends as `{ name, level }`, the level in dB.
 - `paw.frontend.sidechain_menu(device)`: The menu of the side-chain of a device: "None" first, then the tracks that it can listen to. The last item tells if it takes the sound before their fader. Each is `{ label, checked }`. `act.choose_sidechain` takes one by place.
 - `paw.frontend.state(known)`: The data that paw sends to a graphical frontend: transport, tracks, clips, devices and the modal state, as plain data. `known` is a list of the data that the frontend has already.
-- `paw.frontend.step_input()`: True if step input (notes from a MIDI keyboard) is on.
 - `paw.frontend.take_preview(id, take, points)`: What take `take` of a clip plays, for the picture in its take lane. For sound, this is a waveform as `M.peaks` gives it, at `points` points. For MIDI, it is the notes as `M.preview` gives them. It repeats as a looped clip repeats. The waveform of the take that plays is the waveform of the clip, stretched. The waveform of a different take is its file, made shorter or longer in time as the clip stretches it.
 - `paw.frontend.take_rows(clip)`: The takes of a clip as its take lanes show them: `{ name, key }` each. `key` changes exactly when the sound of the take changes. Nil for a clip without takes, which has nothing in the lanes.
 - `paw.frontend.vca_words(id)`: What a track is in VCA terms, for a strip: a VCA's members by name, a member's VCAs by name, joined by commas.
@@ -1742,7 +1741,6 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   ```lua
   paw.roll_draw.key("gs", { desc = "Staccato: half as long", run = function(n) ... end })
   ```
-- `paw.roll_draw.keys_once()`: Insert mode the piano keys way this once, whatever `roll_insert` says.
 - `paw.roll_draw.label()`: What the piano roll's title says in insert mode.
 - `paw.roll_draw.length_key(char)`: Start typing a length (`=`), or add to it: each key that makes one sets the notes being drawn that long at once.
 - `paw.roll_draw.mark(kind)`: Put a mark of the song at the pencil's start (`m` then its kind): `k` a key change, `t` a tempo, `s` a time signature from the bar, `'` a marker. Each asks its value, and is in the insert's undo step.
@@ -1757,7 +1755,6 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.roll_draw.status()`: What the window says while in insert mode.
 - `paw.roll_draw.suggest(dir)`: Show the next (`dir` 1, `<C-n>`) or the previous (-1, `<C-p>`) suggestion in place of the notes being drawn. Any key that edits takes it; `<C-e>` puts back what was there.
 - `paw.roll_draw.text()`: The notes that you drew and kept, as "60@1+0.5 64@1+0.5" in the beats of the roll. The second value is the notes that you draw now, "67@1.5+0".
-- `paw.roll_draw.to_keys()`: Change from drawing to the piano keys and stay in insert mode. paw writes the drawn notes, and the letters are notes from now on.
 - `paw.roll_draw.unsuggest()`: Put back the notes that were there before the suggestions (`<C-e>`).
 - `paw.roll_draw.velocity(dir)`: The velocity of the notes being drawn and of the next, by `dir` tens.
 

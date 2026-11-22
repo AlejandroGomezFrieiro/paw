@@ -390,18 +390,12 @@ local function tool_list(self, titled)
       name = "length",
       text = "Note " .. grid_text(self:step_length()),
       menu = true,
-      tip = "the length a click gives a note, and that step input enters; drawing a note sets it",
+      tip = "the length a click gives a note; drawing a note sets it",
     },
     {
       name = "quantize",
       text = "Quantize",
       tip = "the chosen notes, or all of them, start on the grid (also :notes.quantize)",
-    },
-    {
-      name = "step",
-      text = "Step",
-      on = paw.frontend.step_input(),
-      tip = "step input: with the transport stopped, notes played on a MIDI keyboard are entered at the cursor (also :notes.step_input)",
     },
     {
       name = "list",
@@ -539,13 +533,8 @@ function view:render(buf, ctx)
   -- the right what the keys will enter.
   local inserting = ctx.focused and paw.keymap.mode == "i"
   local grid_text = paw.ui.views.status.grid_text
-  local right = string.format(
-    "grid %s  len %s  vel %d  oct %d",
-    grid_text(grid),
-    grid_text(self:step_length()),
-    paw.opt.velocity,
-    paw.opt.octave
-  )
+  local right =
+    string.format("grid %s  len %s  vel %d", grid_text(grid), grid_text(self:step_length()), paw.opt.velocity)
   local sounding, chord = clips.sounding(self.beat)
   local place = music.name(self.pitch) .. "  " .. paw.time.format(c.start + self.beat)
   -- A wide panel has its tools at the right of the title row, and says
@@ -923,83 +912,15 @@ function view:paste(value, before, count)
   last_paste = { clip = clip.id, beat = self.beat, finish = at, edits = api.project_get("edits") }
 end
 
--- Insert mode: notes entered from the keyboard, one step after another.
+-- The note length: what a click gives a note, and the step of step input.
 
---- How long a note entered in insert mode is, and how far the cursor then moves.
+--- How long a new note is: the note length, or a grid step when it is unset.
 function view:step_length() return self.length or paw.opt.note_grid end
 
 function view:set_step(length)
   self.length = length
   api.ui_redraw()
 end
-
---- Move the cursor by whole steps, growing the clip it is in by a bar at a
---- time when it runs out.
-function view:step(n)
-  if not self:clip() then return end
-  local lo = self:span()
-  local to = math.max(lo, self.beat + n * self:step_length())
-  local parts = clips.parts()
-  local part = clips.target(self.beat, parts)
-  -- Unless another of the clips edited is there already.
-  local taken = false
-  for _, other in ipairs(parts) do
-    taken = taken or (other ~= part and to >= other.offset - 1e-9 and to < other.offset + other.length - 1e-9)
-  end
-  if to > part.offset + part.length - 1e-9 and not taken then
-    part.clip.length = paw.time.bar_ceil(part.start + to - part.offset + 1e-9) - part.start
-  end
-  self:set(nil, to)
-end
-
---- The places of the notes that start at the cursor in `clip` (`offset`
---- beats after the active clip), on one pitch or on any.
-function view:starting_here(clip, pitch, offset)
-  local beat = self.beat - (offset or 0)
-  local notes, at = clip:notes({ from = beat - 1e-9, to = beat + 2e-9, low = pitch, high = pitch })
-  local places = {}
-  for i, n in ipairs(notes) do
-    if math.abs(n.start - beat) < 1e-9 then places[#places + 1] = at[i] end
-  end
-  return places
-end
-
---- Enter the note `semitone` above C of the current octave at the cursor,
---- then step on, or stay to add more notes to a chord.
-function view:enter(semitone, advance)
-  if not self:clip() then return end
-  local part = clips.target(self.beat)
-  local clip, beat = part.clip, self.beat - part.offset
-  local pitch = util.clamp((paw.opt.octave + 1) * 12 + semitone, 0, 127)
-  local length = self:step_length()
-  if beat + length > part.length + 1e-9 then
-    clip.length = paw.time.bar_ceil(part.start + beat + length - 1e-9) - part.start
-  end
-  -- A note of the same pitch that starts here is replaced.
-  clip:edit_notes({
-    remove = self:starting_here(clip, pitch, part.offset),
-    add = { view.new_note(clip, { pitch = pitch, start = beat, length = length, velocity = paw.opt.velocity }) },
-  })
-  self.pitch = pitch
-  clip:track():play_note(pitch, paw.opt.velocity, 180)
-  paw.ui.poke()
-  if advance then
-    self:step(1)
-  else
-    api.ui_redraw()
-  end
-end
-
---- Step back and remove the notes that start there.
-function view:backspace()
-  if not self:clip() or self.beat <= self:span() then return end
-  self:step(-1)
-  local part = clips.target(self.beat)
-  local places = self:starting_here(part.clip, nil, part.offset)
-  if #places > 0 then part.clip:edit_notes({ remove = places }) end
-end
-
-function view:set_octave(delta) paw.opt.octave = util.clamp(paw.opt.octave + delta, -1, 9) end
 
 -- What modal editing works on: rows are pitches, which count upwards.
 view.grid = {

@@ -1,6 +1,5 @@
 -- Tests of the piano roll's insert mode drawing a note with the cursor
--- (`paw.roll_draw`), and of the other way, the keyboard as a piano. Loaded
--- by tests/suite.lua with its helpers.
+-- (`paw.roll_draw`). Loaded by tests/suite.lua with its helpers.
 local T = ...
 local eq, fresh, melody = T.eq, T.fresh, T.melody
 local api = paw.api
@@ -8,13 +7,12 @@ local draw = paw.roll_draw
 local roll = paw.ui.views.pianoroll
 
 -- Each test leaves the piano roll as it found it: closed, the keyboard in
--- the arrange view, in normal mode, insert mode drawing.
+-- the arrange view, in normal mode.
 local function test(name, fn)
   T.test(name, function()
     local ok, err = xpcall(fn, debug.traceback)
     paw.keymap.feed("<Esc><Esc>")
     paw.roll_clips.only()
-    paw.opt.roll_insert = "draw"
     paw.ui.hide("pianoroll")
     paw.ui.focus("arrange")
     if not ok then error(err, 0) end
@@ -377,27 +375,6 @@ test(
     eq(cell(0.5, 62).bg, kept.bg, "and looks as it did when kept: what was seen is what is written")
   end
 )
-
-test("I, or the roll_insert option, makes the keyboard a piano instead", function()
-  local clip = empty()
-  paw.opt.octave = 4
-  roll.length = nil
-  typed("Is")
-  eq(draw.active(), false, "I draws nothing")
-  typed("d<Esc>")
-  eq(melody(clip), "62@0+0.25 64@0.25+0.25", "s and d are D and E, entered as typed")
-  paw.opt.roll_insert = "keys"
-  roll:set(60, 2)
-  typed("ia<Esc>")
-  eq(melody(clip):match("%S+$"), "60@2+0.25", "with roll_insert = keys, i does the same")
-  paw.opt.roll_insert = "draw"
-  typed("i")
-  eq(draw.active(), true, "and draws again when it is set back")
-  eq(paw.ui.keybar.entries()[2][1], "l", "with the drawing keys on the key line")
-  typed("<Esc>I")
-  eq(paw.ui.keybar.entries()[1][1], "a s d f g h j k", "and the piano's on I")
-  typed("<Esc>")
-end)
 
 test("pencil: chord symbols, absolute and in the key, read into pitches", function()
   local function pitches(symbol, key)

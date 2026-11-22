@@ -154,17 +154,6 @@ M.lines.pianoroll = {
     return out
   end,
 }
--- Insert mode with the keyboard as a piano (`I`).
-M.lines["pianoroll.keys"] = {
-  i = {
-    { "a", "notes, w e t y u between", "a s d f g h j k" },
-    { "<Space>", "rest" },
-    { "<BS>", "back" },
-    { "z", "octave down" },
-    { "x", "octave up" },
-    { "<Esc>", "done" },
-  },
-}
 -- The mixer's first: what the rule changed (`j` `k` move, `+` `-` change).
 M.lines.mixer = {
   n = {

@@ -229,19 +229,7 @@ is one undo step. See [Insert mode](insert-mode.md).
 | `<C-u>` | take back all that this insert drew |
 | `[` `]` | softer, louder |
 | `<C-o>` | one command of normal mode, then draw again |
-| `I` | keep what was drawn and type notes from here as on a piano (a piano's letter while drawing says so) |
 | `<Esc>` | write what was drawn (one undo step; `.` draws it again) and return to normal mode |
-
-## Enter notes as on a piano (`I`, R)
-
-| Keys | |
-| --- | --- |
-| `I` | insert mode with the keyboard as a piano (`:set roll_insert=keys` for `i` too) |
-| `a w s e d f t g y h u j k` | C, C♯, D, … up to the next C; a capital stays, for chords |
-| `1` … `9` | notes that many steps long |
-| `<Space>` `<BS>` | a rest; step back and remove |
-| `z` `x` | octave down, up |
-| `<Esc>` | back to normal mode |
 
 ## Write from the harmony (snippets, R)
 

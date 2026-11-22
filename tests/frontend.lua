@@ -1134,43 +1134,6 @@ test("the piano roll's other gestures: erase, keyboard ranges, velocity strokes,
   eq(#ghosts, 1, "only the notes that sound during this clip")
   eq(ghosts[1].pitch .. "@" .. ghosts[1].start, "70@2", "placed in this clip's beats")
   other:remove()
-
-  -- Step input: notes from a MIDI keyboard at the cursor, chords together.
-  local roll = paw.ui.views.pianoroll
-  local s = track:add_clip({ start = 40, length = 4 })
-  roll:edit(s)
-  roll:set(60, 0)
-  act.set_note_length(0.5)
-  paw.midi.note_on(62, 90)
-  paw.flush()
-  eq(#s:notes(), 0, "with step input off a played note is not entered")
-  paw.commands.exec("notes.step_input")
-  eq(paw.frontend.step_input(), true, "the command turns it on, which the roll's step button shows")
-  paw.midi.note_on(60, 90)
-  paw.midi.note_on(64, 80)
-  paw.midi.note_off(64)
-  paw.midi.note_off(60)
-  paw.midi.note_off(62)
-  paw.midi.note_on(67, 100)
-  paw.midi.note_off(67)
-  paw.flush()
-  local entered = {}
-  for i, n in ipairs(s:notes()) do
-    entered[i] = n.pitch .. "@" .. n.start .. "+" .. n.length .. "/" .. n.velocity
-  end
-  eq(
-    table.concat(entered, " "),
-    "60@0+0.5/90 64@0+0.5/80 67@0.5+0.5/100",
-    "a chord at the cursor, then the next note a step on"
-  )
-  eq(roll.beat, 1, "the cursor waits after the last note")
-  paw.transport.play()
-  paw.midi.note_on(69, 100)
-  paw.midi.note_off(69)
-  paw.flush()
-  paw.transport.stop()
-  eq(#s:notes(), 3, "while playing nothing is entered")
-  act.toggle_step_input()
   act.set_note_length(0)
 
   -- A click on the roll's ruler moves the playhead within the clip.

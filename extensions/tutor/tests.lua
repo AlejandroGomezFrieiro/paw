@@ -456,7 +456,6 @@ test("tutor: every key in docs/reference/keys.md is a key paw has", function()
       "arrange",
       "pianoroll",
       "pianoroll.complete",
-      "pianoroll.keys",
       "mixer",
       "devices",
       "session",

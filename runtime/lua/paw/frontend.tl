@@ -9,7 +9,6 @@
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
 local events = require("paw.events")
-local kernel = require("paw.events.kernel")
 local options = require("paw.options")
 local seats = require("paw.seats")
 local util = require("paw.util")
@@ -586,8 +585,6 @@ local record Roll
   edit: function(self: Roll, clip: objects.Clip)
   step_length: function(self: Roll): number
   set_step: function(self: Roll, length: number)
-  step: function(self: Roll, n: integer)
-  starting_here: function(self: Roll, clip: objects.Clip, pitch: integer): {integer}
   new_note: function(clip: objects.Clip, note: objects.NoteInput): objects.NoteInput
 end
 local record Views
@@ -953,7 +950,6 @@ local record Act
   set_note_length: function(length?: number)
   toggle_note_snap: function()
   quantize_notes: function(clip: integer, strength?: number): integer
-  toggle_step_input: function()
   roll_seek: function(clip: integer, beat: number)
   lane: function(track: integer, target: types.LaneTarget, device?: integer, param?: string): integer
   add_point: function(lane: integer, beat: number, fraction: number)
@@ -4485,8 +4481,8 @@ function A.draw_velocities(clip: integer, points: {Point}, reach?: number): inte
   return count
 end
 
---- The length a click on the grid gives a note, and that insert mode and
---- step input enter: the piano roll's note length. 0 or nil for one grid step.
+--- The length a click on the grid gives a note: the piano roll's note
+--- length. 0 or nil for one grid step.
 function A.set_note_length(length?: number)
   paw.ui.views.pianoroll:set_step(length and length > 0 and length or nil)
 end
@@ -4543,65 +4539,6 @@ function A.quantize_notes(clip: integer, strength?: number): integer
   end
   return count
 end
-
--- Step input: with it on, the piano roll open and the transport stopped,
--- each note a MIDI keyboard plays is entered at the roll's cursor with the
--- roll's note length. Notes held together make a chord; the cursor steps
--- on when the last of them is let go.
-local record Stepping
-  on: boolean
-  held: {integer: boolean}
-  entered: boolean
-end
-local stepping: Stepping = {on = false, held = {}, entered = false}
-
---- True if step input (notes from a MIDI keyboard) is on.
-function M.step_input(): boolean
-  return stepping.on
-end
-
-function A.toggle_step_input()
-  stepping.on, stepping.held, stepping.entered = not stepping.on, {}, false
-  paw.notify(
-    stepping.on and "step input: play notes on a MIDI keyboard to enter them at the cursor" or "step input off"
-  )
-  api.ui_redraw()
-end
-
-events.on(
-  kernel.midi_in,
-  function(event: types.MidiEvent)
-    if not stepping.on or not paw.ui.visible("pianoroll") or api.transport_get().playing then
-      return
-    end
-    local roll = paw.ui.views.pianoroll
-    local clip = roll:clip()
-    if not clip or not event.pitch then
-      return
-    end
-    if event.type == "note_on" and (event.velocity or 0) > 0 then
-      local length = roll:step_length()
-      if roll.beat + length > clip.length + 1e-9 then
-        clip.length = paw.time.bar_ceil(clip.start + roll.beat + length - 1e-9) - clip.start
-      end
-      clip:edit_notes(
-        {
-          remove = roll:starting_here(clip, event.pitch),
-          add = {{pitch = event.pitch, start = roll.beat, length = length, velocity = event.velocity as integer}},
-        }
-      )
-      roll.pitch = event.pitch
-      stepping.held[event.pitch], stepping.entered = true, true
-      api.ui_redraw()
-    elseif event.type == "note_off" or event.type == "note_on" then
-      stepping.held[event.pitch] = nil
-      if stepping.entered and next(stepping.held) == nil then
-        stepping.entered = false
-        roll:step(1)
-      end
-    end
-  end
-)
 
 --- A click on the piano roll's ruler: the playhead to that beat of the clip.
 function A.roll_seek(clip: integer, beat: number)
